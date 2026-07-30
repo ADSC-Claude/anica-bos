@@ -317,6 +317,12 @@ npm run build   # generates the client, applies migrations, then builds
 npm start       # listens on $PORT, default 3000
 ```
 
+`npm run build` runs `scripts/build.mjs`, which checks the database environment
+before doing anything and explains what is missing rather than failing with a
+Prisma stack trace. It also defaults `DIRECT_URL` to `DATABASE_URL` when no
+connection pooler is in play, and appends `?pgbouncer=true` to a Supabase pooler
+URL — without which queries fail at runtime once connections start being reused.
+
 `npm run build:local` skips the migration step when you only want to compile.
 
 Serve over HTTPS. Session cookies are `httpOnly`, `sameSite=lax` and `secure` in

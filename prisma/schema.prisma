@@ -1,0 +1,1742 @@
+// ANICA Wellness Spa — Business Operating System
+// -----------------------------------------------------------------------------
+// Money is stored as INTEGER CENTAVOS everywhere (₱1.00 == 100).
+// This keeps all arithmetic exact and makes P&L / payroll totals reproducible.
+// Timestamps are stored in UTC; the app renders them in Asia/Manila.
+// Every operational table carries `branchId` so multi-branch is live from day one.
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================ enums
+
+enum Role {
+  OWNER
+  ADMIN
+  RECEPTIONIST
+}
+
+enum EmployeeRole {
+  THERAPIST
+  RECEPTIONIST
+  MANAGER
+  OWNER
+}
+
+enum PayType {
+  DAILY_ALLOWANCE
+  DAILY_RATE
+  FIXED_SALARY
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  IN_SERVICE
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  EXPIRED
+}
+
+enum BookingSource {
+  ONLINE
+  WALK_IN
+  PHONE
+  PORTAL
+}
+
+enum DepositStatus {
+  NONE
+  AWAITING_PAYMENT
+  AWAITING_VERIFICATION
+  PAID
+  FAILED
+  REFUNDED
+  FORFEITED
+}
+
+enum PaymentMethod {
+  CASH
+  GCASH
+  BANK_TRANSFER
+  CORPORATE_CHARGE
+  GIFT_CERTIFICATE
+  DEPOSIT_CREDIT
+  LOYALTY_POINTS
+}
+
+enum SaleStatus {
+  PAID
+  VOIDED
+  REFUNDED
+}
+
+enum SaleLineType {
+  SERVICE
+  PRODUCT
+  PACKAGE
+  GIFT_CERTIFICATE
+  PERK
+  PREPAID_REDEMPTION
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum ResourceType {
+  ROOM
+  BED
+  SAUNA
+  OTHER
+}
+
+enum FieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTISELECT
+}
+
+enum FieldSection {
+  PROFILE
+  MEDICAL
+}
+
+enum PackageType {
+  SESSION_PACKAGE
+  MEMBERSHIP
+}
+
+enum ClientPackageStatus {
+  ACTIVE
+  USED_UP
+  EXPIRED
+  CANCELLED
+}
+
+enum VoucherStatus {
+  ACTIVE
+  PARTIALLY_USED
+  FULLY_USED
+  EXPIRED
+  CANCELLED
+}
+
+enum StockMovementType {
+  PURCHASE
+  USAGE
+  SALE
+  ADJUSTMENT
+  WASTAGE
+  STOCKTAKE
+  RETURN
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LoanType {
+  SSS_LOAN
+  PAGIBIG_LOAN
+  COMPANY_LOAN
+  CASH_ADVANCE
+}
+
+enum LoanStatus {
+  ACTIVE
+  PAID
+  CANCELLED
+}
+
+enum HolidayType {
+  REGULAR
+  SPECIAL
+}
+
+enum TaxRegime {
+  NON_VAT_8
+  VAT_REGISTERED
+}
+
+enum PettyCashDirection {
+  IN
+  OUT
+}
+
+enum PettyCashRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PayrollStatus {
+  DRAFT
+  FINALIZED
+}
+
+enum IncentivePeriod {
+  MONTHLY
+  QUARTERLY
+}
+
+enum IncentiveFormula {
+  FIXED_AMOUNT
+  PERCENT_OF_REVENUE
+  PERCENT_OF_TARGET
+}
+
+enum NotificationKind {
+  PENDING_BOOKING
+  DEPOSIT_TO_VERIFY
+  LOW_STOCK
+  PETTY_CASH_REQUEST
+  EXPENSE_APPROVAL
+  EXPIRING_MEMBERSHIP
+  CLIENT_FOLLOW_UP
+  OVERDUE_CORPORATE
+  ANNOUNCEMENT
+  PERMIT_EXPIRY
+  DISCOUNT_APPROVAL
+  PURCHASE_ORDER
+  DIRECT_MESSAGE
+}
+
+enum PermitKind {
+  BUSINESS
+  EMPLOYEE
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum JournalSource {
+  SALES
+  CASH_RECEIPTS
+  CASH_DISBURSEMENTS
+  GENERAL
+}
+
+// ============================================================ tenancy & settings
+
+model Branch {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  address      String   @default("")
+  contact      String   @default("")
+  openMinute   Int      @default(720) // 12:00 PM, minutes from midnight
+  closeMinute  Int      @default(1440) // 12:00 AM next day
+  timezone     String   @default("Asia/Manila")
+  active       Boolean  @default(true)
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  users             User[]
+  employees         Employee[]
+  clients           Client[]
+  appointments      Appointment[]
+  sales             Sale[]
+  resources         Resource[]
+  items             Item[]
+  stockMovements    StockMovement[]
+  expenses          Expense[]
+  receiptSeries     ReceiptSeries[]
+  eodClosings       EodClosing[]
+  pettyCashTxns     PettyCashTxn[]
+  purchaseOrders    PurchaseOrder[]
+  settings          Setting[]
+  payrollPeriods    PayrollPeriod[]
+  stockTakes        StockTake[]
+  journalEntries    JournalEntry[]
+  notifications     Notification[]
+  shiftNotes        ShiftNote[]
+  announcements     Announcement[]
+  attendances       Attendance[]
+
+  @@index([active])
+}
+
+/// Key/value settings. `branchId == null` means a global (business-wide) value.
+model Setting {
+  id       String  @id @default(cuid())
+  key      String
+  value    Json
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([key, branchId])
+  @@index([key])
+}
+
+// ============================================================ auth & audit
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String
+  passwordHash       String
+  role               Role
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  approvalPinHash    String?
+  lastLoginAt        DateTime?
+  branchId           String?
+  branch             Branch?   @relation(fields: [branchId], references: [id])
+  employeeId         String?   @unique
+  employee           Employee? @relation(fields: [employeeId], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  auditLogs         AuditLog[]
+  loginEvents       LoginEvent[]
+  sentMessages      DirectMessage[]    @relation("MessageFrom")
+  receivedMessages  DirectMessage[]    @relation("MessageTo")
+  announcements     Announcement[]
+  announcementReads AnnouncementRead[]
+  notifications     Notification[]
+  shiftNotes        ShiftNote[]
+  shiftNoteComments ShiftNoteComment[]
+  expensesSubmitted Expense[]          @relation("ExpenseSubmitter")
+  expensesApproved  Expense[]          @relation("ExpenseApprover")
+  salesCashiered    Sale[]             @relation("SaleCashier")
+  salesVoided       Sale[]             @relation("SaleVoider")
+  eodClosings       EodClosing[]
+  sessionsRevoked   DateTime?
+
+  @@index([role, active])
+}
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  email     String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  success   Boolean
+  ip        String   @default("")
+  userAgent String   @default("")
+  reason    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([createdAt])
+}
+
+/// Append-only. Covers both the sensitive-action audit log and the general
+/// activity log (every create/edit/void/status change on business records).
+/// Never edited or deleted by anyone, including the Owner.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  userName   String   @default("system")
+  role       String   @default("")
+  branchId   String?
+  module     String
+  action     String
+  entityType String
+  entityId   String   @default("")
+  summary    String   @default("")
+  before     Json?
+  after      Json?
+  sensitive  Boolean  @default(false)
+  ip         String   @default("")
+  userAgent  String   @default("")
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([module, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+// ============================================================ catalog
+
+model ServiceCategory {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  sortRank Int       @default(0)
+  active   Boolean   @default(true)
+  services Service[]
+}
+
+model Service {
+  id              String          @id @default(cuid())
+  name            String
+  categoryId      String
+  category        ServiceCategory @relation(fields: [categoryId], references: [id])
+  description     String          @default("")
+  durationMinutes Int
+  priceCents      Int
+  /// null => use the global default commission rule
+  commissionType  DiscountType?
+  commissionValue Int? // percent basis points not needed: percent stored as whole number, fixed stored as centavos
+  active          Boolean         @default(true)
+  showOnLanding   Boolean         @default(true)
+  sortRank        Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  recipes            ServiceRecipe[]
+  appointmentServices AppointmentService[]
+  saleLines          SaleLine[]
+  employeeSkills     EmployeeSkill[]
+  packageItems       PackageItem[]
+  commissionOverrides EmployeeCommissionRule[]
+
+  @@index([active])
+}
+
+model ServiceRecipe {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      Item    @relation(fields: [itemId], references: [id])
+  quantity  Float
+
+  @@unique([serviceId, itemId])
+}
+
+model Resource {
+  id       String       @id @default(cuid())
+  branchId String
+  branch   Branch       @relation(fields: [branchId], references: [id])
+  name     String
+  type     ResourceType
+  capacity Int          @default(1)
+  active   Boolean      @default(true)
+  sortRank Int          @default(0)
+
+  appointments Appointment[]
+
+  @@unique([branchId, name])
+}
+
+// ============================================================ clients / CRM
+
+model Client {
+  id            String    @id @default(cuid())
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  name          String
+  mobile        String
+  email         String    @default("")
+  birthday      DateTime?
+  addressCity   String    @default("")
+  addressLine   String    @default("")
+  barangay      String    @default("")
+  notes         String    @default("")
+  tags          String[]  @default([])
+  /// Walk-in quick records (name + mobile only) are flagged for completion.
+  incomplete    Boolean   @default(false)
+  pwdIdNumber   String    @default("")
+  seniorIdNumber String   @default("")
+  loyaltyPoints Int       @default(0)
+  /// PH Data Privacy Act consent for sensitive personal information.
+  consentGiven  Boolean   @default(false)
+  consentAt     DateTime?
+  medicalUpdatedAt DateTime?
+  followUpSnoozedUntil DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  fieldValues        ClientFieldValue[]
+  appointments       Appointment[]
+  sales              Sale[]
+  feedback           ClientFeedback[]
+  followUps          ClientFollowUp[]
+  packages           ClientPackage[]
+  loyaltyTxns        LoyaltyTransaction[]
+  corporateLinks     CorporateAccountClient[]
+  emailLogs          EmailLog[]
+  shiftNotes         ShiftNote[]
+  giftCertificates   GiftCertificate[]
+
+  @@unique([branchId, mobile])
+  @@index([name])
+  @@index([email])
+}
+
+/// Owner/Admin-editable intake questions. Drives BOTH the online booking form
+/// (when showOnline) and the CRM intake screen — nothing is hard-coded.
+model ClientFieldDefinition {
+  id          String       @id @default(cuid())
+  key         String       @unique
+  label       String
+  section     FieldSection
+  type        FieldType
+  options     String[]     @default([])
+  helpText    String       @default("")
+  required    Boolean      @default(false)
+  showOnline  Boolean      @default(false)
+  /// Values that should raise a visible alert on the appointment card / POS.
+  alertValues String[]     @default([])
+  sortRank    Int          @default(0)
+  retired     Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+
+  values ClientFieldValue[]
+
+  @@index([section, retired])
+}
+
+model ClientFieldValue {
+  id           String                @id @default(cuid())
+  clientId     String
+  client       Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  definitionId String
+  definition   ClientFieldDefinition @relation(fields: [definitionId], references: [id])
+  value        Json
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([clientId, definitionId])
+}
+
+model ClientFeedback {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  employeeId    String?
+  employee      Employee? @relation(fields: [employeeId], references: [id])
+  rating        Int
+  comment       String   @default("")
+  recordedBy    String   @default("")
+  createdAt     DateTime @default(now())
+
+  @@index([clientId])
+  @@index([employeeId])
+}
+
+model ClientFollowUp {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  channel   String // email | sms | call | messenger
+  note      String   @default("")
+  userId    String?
+  userName  String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+model CorporateAccount {
+  id              String   @id @default(cuid())
+  name            String
+  tin             String   @default("")
+  billingAddress  String   @default("")
+  contactPerson   String   @default("")
+  contactMobile   String   @default("")
+  contactEmail    String   @default("")
+  discountType    DiscountType @default(PERCENT)
+  discountValue   Int      @default(0)
+  creditLimitCents Int     @default(0)
+  paymentTermsDays Int     @default(30)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  clients    CorporateAccountClient[]
+  sales      Sale[]
+  statements CorporateStatement[]
+  payments   CorporatePayment[]
+}
+
+model CorporateAccountClient {
+  id        String           @id @default(cuid())
+  accountId String
+  account   CorporateAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  clientId  String
+  client    Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, clientId])
+}
+
+model CorporateStatement {
+  id          String   @id @default(cuid())
+  accountId   String
+  account     CorporateAccount @relation(fields: [accountId], references: [id])
+  number      String   @unique
+  periodStart DateTime
+  periodEnd   DateTime
+  totalCents  Int
+  dueDate     DateTime
+  issuedAt    DateTime @default(now())
+  settled     Boolean  @default(false)
+
+  @@index([accountId])
+}
+
+model CorporatePayment {
+  id         String   @id @default(cuid())
+  accountId  String
+  account    CorporateAccount @relation(fields: [accountId], references: [id])
+  amountCents Int
+  method     PaymentMethod
+  reference  String   @default("")
+  paidAt     DateTime @default(now())
+  recordedBy String   @default("")
+  note       String   @default("")
+
+  @@index([accountId, paidAt])
+}
+
+model Partner {
+  id             String       @id @default(cuid())
+  name           String
+  type           String       @default("hotel") // hotel | condo | office | gym | influencer | other
+  contactPerson  String       @default("")
+  contactMobile  String       @default("")
+  contactEmail   String       @default("")
+  /// What we owe the partner per referred sale.
+  feeType        DiscountType @default(PERCENT)
+  feeValue       Int          @default(0)
+  guestDiscountType  DiscountType @default(PERCENT)
+  guestDiscountValue Int      @default(0)
+  promoCode      String?      @unique
+  terms          String       @default("")
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+
+  appointments Appointment[]
+  sales        Sale[]
+}
+
+// ============================================================ employees
+
+model Employee {
+  id             String       @id @default(cuid())
+  branchId       String
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  name           String
+  photoUrl       String       @default("")
+  employeeRole   EmployeeRole
+  mobile         String       @default("")
+  email          String       @default("")
+  address        String       @default("")
+  emergencyName    String     @default("")
+  emergencyMobile  String     @default("")
+  hireDate       DateTime     @default(now())
+  active         Boolean      @default(true)
+
+  // --- government numbers (Owner/Admin only) ---
+  sssNumber       String @default("")
+  philhealthNumber String @default("")
+  pagibigNumber   String @default("")
+  tin             String @default("")
+  sssMonthlyCents        Int @default(0)
+  philhealthMonthlyCents Int @default(0)
+  pagibigMonthlyCents    Int @default(0)
+
+  // --- pay structure ---
+  /// THERAPIST => DAILY_ALLOWANCE (default ₱200/day).
+  /// RECEPTIONIST / MANAGER => Owner-only DAILY_RATE or FIXED_SALARY.
+  payType        PayType @default(DAILY_ALLOWANCE)
+  payRateCents   Int     @default(20000)
+  /// Only the Owner may read/write pay fields when this is true.
+  payOwnerOnly   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user            User?
+  skills          EmployeeSkill[]
+  schedules       EmployeeSchedule[]
+  attendances     Attendance[]
+  loans           EmployeeLoan[]
+  commissions     Commission[]
+  payslips        Payslip[]
+  saleLines       SaleLine[]
+  appointmentServices AppointmentService[]
+  feedback        ClientFeedback[]
+  commissionRules EmployeeCommissionRule[]
+  certifications  Permit[]
+  employeeRateSales Sale[] @relation("EmployeeRateSale")
+  incentiveResults IncentiveResult[]
+
+  @@index([branchId, active])
+}
+
+model EmployeeSkill {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, serviceId])
+}
+
+model EmployeeCommissionRule {
+  id         String       @id @default(cuid())
+  employeeId String
+  employee   Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  serviceId  String?
+  service    Service?     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  type       DiscountType
+  value      Int
+
+  @@unique([employeeId, serviceId])
+}
+
+model EmployeeSchedule {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int // 0 = Sunday .. 6 = Saturday
+  isDayOff   Boolean  @default(false)
+  startMinute Int     @default(720)
+  endMinute   Int     @default(1440)
+
+  @@unique([employeeId, dayOfWeek])
+}
+
+model Attendance {
+  id         String    @id @default(cuid())
+  branchId   String
+  branch     Branch    @relation(fields: [branchId], references: [id])
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  /// Business date (Asia/Manila) at 00:00 UTC-normalised.
+  workDate   DateTime  @db.Date
+  timeIn     DateTime?
+  timeOut    DateTime?
+  isLate     Boolean   @default(false)
+  isAbsent   Boolean   @default(false)
+  lateMinutes Int      @default(0)
+  /// Sequence of time-in for the day — drives the therapist rotation queue.
+  rotationRank Int     @default(0)
+  onBreak    Boolean   @default(false)
+  note       String    @default("")
+  recordedBy String    @default("")
+  createdAt  DateTime  @default(now())
+
+  @@unique([employeeId, workDate])
+  @@index([branchId, workDate])
+}
+
+model EmployeeLoan {
+  id             String     @id @default(cuid())
+  employeeId     String
+  employee       Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type           LoanType
+  principalCents Int
+  installmentCents Int
+  balanceCents   Int
+  startDate      DateTime
+  status         LoanStatus @default(ACTIVE)
+  note           String     @default("")
+  createdAt      DateTime   @default(now())
+
+  payments LoanPayment[]
+
+  @@index([employeeId, status])
+}
+
+model LoanPayment {
+  id         String   @id @default(cuid())
+  loanId     String
+  loan       EmployeeLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  amountCents Int
+  payslipId  String?
+  paidAt     DateTime @default(now())
+  note       String   @default("")
+}
+
+model PayrollPeriod {
+  id        String        @id @default(cuid())
+  branchId  String
+  branch    Branch        @relation(fields: [branchId], references: [id])
+  startDate DateTime      @db.Date
+  endDate   DateTime      @db.Date
+  status    PayrollStatus @default(DRAFT)
+  createdAt DateTime      @default(now())
+  finalizedAt DateTime?
+  finalizedBy String?
+
+  payslips Payslip[]
+
+  @@unique([branchId, startDate, endDate])
+}
+
+model Payslip {
+  id         String        @id @default(cuid())
+  periodId   String
+  period     PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee      @relation(fields: [employeeId], references: [id])
+
+  daysWorked     Int @default(0)
+  holidayDays    Int @default(0)
+  basePayCents   Int @default(0)
+  commissionCents Int @default(0)
+  tipsCents      Int @default(0)
+  additionsCents Int @default(0)
+  deductionsCents Int @default(0)
+  netPayCents    Int @default(0)
+
+  status     PayrollStatus @default(DRAFT)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  lines PayslipLine[]
+
+  @@unique([periodId, employeeId])
+}
+
+model PayslipLine {
+  id        String  @id @default(cuid())
+  payslipId String
+  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  /// base | commission | tips | holiday | late | absence | loan | contribution | adjustment
+  kind      String
+  label     String
+  /// Positive = addition, negative = deduction.
+  amountCents Int
+  sortRank  Int     @default(0)
+  manual    Boolean @default(false)
+}
+
+/// Owner-only. Never released through payroll; never appears on a payslip.
+model IncentiveScheme {
+  id          String           @id @default(cuid())
+  name        String
+  targetRole  EmployeeRole
+  formula     IncentiveFormula
+  /// FIXED_AMOUNT => centavos. PERCENT_* => whole percent.
+  value       Int
+  /// Optional monthly target used by PERCENT_OF_TARGET (centavos or count).
+  targetValue Int              @default(0)
+  metric      String           @default("revenue") // revenue | rating | attendance | bookings
+  period      IncentivePeriod  @default(MONTHLY)
+  active      Boolean          @default(true)
+  note        String           @default("")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  results IncentiveResult[]
+}
+
+model IncentiveResult {
+  id          String          @id @default(cuid())
+  schemeId    String
+  scheme      IncentiveScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  periodKey   String // 2026-07 or 2026-Q3
+  metricValue Int             @default(0)
+  suggestedCents Int          @default(0)
+  note        String          @default("")
+  computedAt  DateTime        @default(now())
+
+  @@unique([schemeId, employeeId, periodKey])
+}
+
+// ============================================================ appointments
+
+model Appointment {
+  id            String            @id @default(cuid())
+  branchId      String
+  branch        Branch            @relation(fields: [branchId], references: [id])
+  reference     String            @unique
+  clientId      String
+  client        Client            @relation(fields: [clientId], references: [id])
+  resourceId    String?
+  resource      Resource?         @relation(fields: [resourceId], references: [id])
+  partnerId     String?
+  partner       Partner?          @relation(fields: [partnerId], references: [id])
+  startAt       DateTime
+  endAt         DateTime
+  status        AppointmentStatus @default(PENDING)
+  source        BookingSource     @default(PORTAL)
+  notes         String            @default("")
+
+  // --- reservation deposit (online bookings) ---
+  depositStatus       DepositStatus @default(NONE)
+  depositAmountCents  Int           @default(0)
+  depositPaidCents    Int           @default(0)
+  depositReference    String        @default("")
+  depositProofUrl     String        @default("")
+  depositMethod       String        @default("")
+  gatewaySessionId    String        @default("")
+  gatewayPaymentId    String        @default("")
+  depositAppliedSaleId String?
+  expiresAt           DateTime?
+
+  checkedInAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  cancelReason String   @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  services AppointmentService[]
+  sales    Sale[]
+
+  @@index([branchId, startAt])
+  @@index([status, startAt])
+  @@index([clientId])
+}
+
+model AppointmentService {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  employeeId    String?
+  employee      Employee?   @relation(fields: [employeeId], references: [id])
+  /// Snapshot of the list price at booking time (centavos).
+  priceCents    Int
+  durationMinutes Int
+  sortRank      Int         @default(0)
+
+  @@index([employeeId])
+}
+
+// ============================================================ sales / POS
+
+model ReceiptSeries {
+  id        String  @id @default(cuid())
+  branchId  String
+  branch    Branch  @relation(fields: [branchId], references: [id])
+  name      String  @default("Sales Invoice")
+  prefix    String  @default("SI")
+  /// BIR permit range. `next` never goes backwards and numbers are never reused.
+  rangeStart Int    @default(1)
+  rangeEnd   Int    @default(999999)
+  next       Int    @default(1)
+  permitNumber String @default("")
+  active    Boolean @default(true)
+
+  sales Sale[]
+
+  @@unique([branchId, prefix])
+}
+
+model Sale {
+  id        String     @id @default(cuid())
+  branchId  String
+  branch    Branch     @relation(fields: [branchId], references: [id])
+  seriesId  String
+  series    ReceiptSeries @relation(fields: [seriesId], references: [id])
+  /// Gapless, immutable, never reused. Voided numbers are retained.
+  receiptNo String     @unique
+  sequence  Int
+
+  clientId      String?
+  client        Client?   @relation(fields: [clientId], references: [id])
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  corporateAccountId String?
+  corporateAccount   CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
+  partnerId     String?
+  partner       Partner?  @relation(fields: [partnerId], references: [id])
+  /// Set when the sale used the employee-rate discount.
+  employeeRateEmployeeId String?
+  employeeRateEmployee   Employee? @relation("EmployeeRateSale", fields: [employeeRateEmployeeId], references: [id])
+
+  cashierId String
+  cashier   User   @relation("SaleCashier", fields: [cashierId], references: [id])
+
+  subtotalCents  Int @default(0)
+  discountCents  Int @default(0)
+  depositCreditCents Int @default(0)
+  tipCents       Int @default(0)
+  totalCents     Int @default(0)
+  paidCents      Int @default(0)
+  changeCents    Int @default(0)
+  cogsCents      Int @default(0)
+
+  // --- tax fields: populated per the configured regime, present in both ---
+  taxRegime       TaxRegime @default(NON_VAT_8)
+  vatableSalesCents Int @default(0)
+  vatExemptSalesCents Int @default(0)
+  zeroRatedSalesCents Int @default(0)
+  vatAmountCents  Int @default(0)
+
+  status     SaleStatus @default(PAID)
+  voidReason String     @default("")
+  voidedAt   DateTime?
+  voidedById String?
+  voidedBy   User?      @relation("SaleVoider", fields: [voidedById], references: [id])
+  /// Void/refund replacement pointer (corrections are never hard deletes).
+  replacedBySaleId String?
+
+  businessDate DateTime @db.Date
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lines        SaleLine[]
+  discounts    SaleDiscount[]
+  payments     Payment[]
+  commissions  Commission[]
+  loyaltyTxns  LoyaltyTransaction[]
+  journalEntries JournalEntry[]
+  giftCertificatesSold GiftCertificate[] @relation("GcSoldOnSale")
+  gcRedemptions GiftCertificateRedemption[]
+  voucherUses  VoucherRedemption[]
+  clientPackages ClientPackage[]
+
+  @@index([branchId, businessDate])
+  @@index([status])
+  @@index([clientId])
+}
+
+model SaleLine {
+  id       String       @id @default(cuid())
+  saleId   String
+  sale     Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  type     SaleLineType
+  serviceId String?
+  service  Service?     @relation(fields: [serviceId], references: [id])
+  itemId   String?
+  item     Item?        @relation(fields: [itemId], references: [id])
+  packageId String?
+  package  Package?     @relation(fields: [packageId], references: [id])
+  employeeId String?
+  employee Employee?    @relation(fields: [employeeId], references: [id])
+  description String
+  quantity  Int          @default(1)
+  /// Price actually charged (0 for perks / prepaid redemptions).
+  unitPriceCents Int
+  /// Undiscounted list price — commissions are always computed on this.
+  basePriceCents Int
+  lineTotalCents Int
+  cogsCents      Int     @default(0)
+  sortRank       Int     @default(0)
+
+  commissions Commission[]
+
+  @@index([saleId])
+}
+
+model SaleDiscount {
+  id       String       @id @default(cuid())
+  saleId   String
+  sale     Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  presetId String?
+  preset   DiscountPreset? @relation(fields: [presetId], references: [id])
+  label    String
+  type     DiscountType
+  value    Int
+  amountCents Int
+  /// Order of application; each preset applies to the running total.
+  sequence Int          @default(0)
+  /// PWD / Senior ID captured at checkout, printed on the receipt (BIR).
+  idNumber String       @default("")
+  approvedByUserId String?
+  voucherCode String    @default("")
+}
+
+model DiscountPreset {
+  id         String       @id @default(cuid())
+  name       String
+  type       DiscountType
+  value      Int
+  /// Empty array => applies to all services.
+  serviceIds String[]     @default([])
+  stackable  Boolean      @default(true)
+  active     Boolean      @default(true)
+  requiresId Boolean      @default(false)
+  membersOnly Boolean     @default(false)
+  /// Employee-rate preset behaviour.
+  isEmployeeRate Boolean  @default(false)
+  monthlyUsageLimit Int   @default(0)
+  familyIncluded Boolean  @default(false)
+  sortRank   Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  saleDiscounts SaleDiscount[]
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  saleId    String
+  sale      Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method    PaymentMethod
+  amountCents Int
+  reference String        @default("")
+  createdAt DateTime      @default(now())
+
+  @@index([saleId])
+}
+
+model Commission {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  saleId     String
+  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleLineId String
+  saleLine   SaleLine @relation(fields: [saleLineId], references: [id], onDelete: Cascade)
+  /// The undiscounted base the commission was computed on.
+  basisCents Int
+  rateType   DiscountType
+  rateValue  Int
+  amountCents Int
+  businessDate DateTime @db.Date
+  payslipId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId, businessDate])
+}
+
+// ============================================================ loyalty, packages, vouchers
+
+model LoyaltyTransaction {
+  id        String   @id @default(cuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  saleId    String?
+  sale      Sale?    @relation(fields: [saleId], references: [id])
+  points    Int
+  reason    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+}
+
+model Package {
+  id            String      @id @default(cuid())
+  name          String
+  type          PackageType @default(SESSION_PACKAGE)
+  description   String      @default("")
+  priceCents    Int
+  validityDays  Int         @default(365)
+  /// MEMBERSHIP: percent discount granted to the member.
+  memberDiscountPercent Int @default(0)
+  /// MEMBERSHIP: free birthday-month service perk.
+  birthdayPerkServiceId String?
+  active        Boolean     @default(true)
+  showOnLanding Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items          PackageItem[]
+  clientPackages ClientPackage[]
+  saleLines      SaleLine[]
+}
+
+model PackageItem {
+  id        String  @id @default(cuid())
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+  sessions  Int     @default(1)
+
+  @@unique([packageId, serviceId])
+}
+
+model ClientPackage {
+  id          String              @id @default(cuid())
+  clientId    String
+  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  packageId   String
+  package     Package             @relation(fields: [packageId], references: [id])
+  saleId      String?
+  sale        Sale?               @relation(fields: [saleId], references: [id])
+  purchasedAt DateTime            @default(now())
+  expiresAt   DateTime
+  status      ClientPackageStatus @default(ACTIVE)
+  /// Membership year in which the birthday perk was consumed (e.g. 2026).
+  birthdayPerkUsedYear Int?
+  expiryNotifiedAt DateTime?
+
+  entitlements ClientPackageEntitlement[]
+
+  @@index([clientId, status])
+  @@index([expiresAt])
+}
+
+model ClientPackageEntitlement {
+  id              String        @id @default(cuid())
+  clientPackageId String
+  clientPackage   ClientPackage @relation(fields: [clientPackageId], references: [id], onDelete: Cascade)
+  serviceId       String
+  totalSessions   Int
+  usedSessions    Int           @default(0)
+
+  @@unique([clientPackageId, serviceId])
+}
+
+model GiftCertificate {
+  id           String        @id @default(cuid())
+  code         String        @unique
+  faceValueCents Int
+  balanceCents Int
+  /// Optional service-specific GC.
+  serviceId    String?
+  soldSaleId   String?
+  soldSale     Sale?         @relation("GcSoldOnSale", fields: [soldSaleId], references: [id])
+  buyerClientId String?
+  buyerClient  Client?       @relation(fields: [buyerClientId], references: [id])
+  status       VoucherStatus @default(ACTIVE)
+  expiresAt    DateTime?
+  createdAt    DateTime      @default(now())
+
+  redemptions GiftCertificateRedemption[]
+}
+
+model GiftCertificateRedemption {
+  id     String          @id @default(cuid())
+  gcId   String
+  gc     GiftCertificate @relation(fields: [gcId], references: [id], onDelete: Cascade)
+  saleId String
+  sale   Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amountCents Int
+  createdAt DateTime     @default(now())
+}
+
+model VoucherBatch {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  vouchers  Voucher[]
+}
+
+model Voucher {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  batchId     String?
+  batch       VoucherBatch? @relation(fields: [batchId], references: [id])
+  type        DiscountType
+  value       Int
+  usesAllowed Int           @default(1)
+  usesCount   Int           @default(0)
+  expiresAt   DateTime?
+  status      VoucherStatus @default(ACTIVE)
+  note        String        @default("")
+  createdAt   DateTime      @default(now())
+
+  redemptions VoucherRedemption[]
+}
+
+model VoucherRedemption {
+  id        String   @id @default(cuid())
+  voucherId String
+  voucher   Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  saleId    String
+  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  amountCents Int
+  createdAt DateTime @default(now())
+}
+
+model Promo {
+  id            String       @id @default(cuid())
+  name          String
+  description   String       @default("")
+  type          DiscountType
+  value         Int
+  startDate     DateTime
+  endDate       DateTime
+  serviceIds    String[]     @default([])
+  code          String?
+  active        Boolean      @default(true)
+  showOnLanding Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+// ============================================================ inventory & purchasing
+
+model ItemCategory {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  active Boolean @default(true)
+  items  Item[]
+}
+
+model Unit {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  active Boolean @default(true)
+  items  Item[]
+}
+
+model Item {
+  id            String       @id @default(cuid())
+  branchId      String
+  branch        Branch       @relation(fields: [branchId], references: [id])
+  name          String
+  sku           String       @default("")
+  categoryId    String
+  category      ItemCategory @relation(fields: [categoryId], references: [id])
+  unitId        String
+  unit          Unit         @relation(fields: [unitId], references: [id])
+  costCents     Int          @default(0)
+  retailPriceCents Int       @default(0)
+  sellable      Boolean      @default(false)
+  stockQty      Float        @default(0)
+  reorderLevel  Float        @default(0)
+  supplierId    String?
+  supplier      Supplier?    @relation(fields: [supplierId], references: [id])
+  archived      Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  movements   StockMovement[]
+  recipes     ServiceRecipe[]
+  poLines     PurchaseOrderLine[]
+  saleLines   SaleLine[]
+  supplierItems SupplierItem[]
+  stockTakeLines StockTakeLine[]
+
+  @@index([branchId, archived])
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String   @default("")
+  mobile        String   @default("")
+  email         String   @default("")
+  address       String   @default("")
+  paymentTerms  String   @default("")
+  notes         String   @default("")
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items          Item[]
+  supplierItems  SupplierItem[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model SupplierItem {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  priceCents Int
+  updatedAt  DateTime @updatedAt
+
+  priceHistory SupplierPriceChange[]
+
+  @@unique([supplierId, itemId])
+}
+
+model SupplierPriceChange {
+  id             String       @id @default(cuid())
+  supplierItemId String
+  supplierItem   SupplierItem @relation(fields: [supplierItemId], references: [id], onDelete: Cascade)
+  oldPriceCents  Int
+  newPriceCents  Int
+  changedAt      DateTime     @default(now())
+  changedBy      String       @default("")
+}
+
+model StockMovement {
+  id        String            @id @default(cuid())
+  branchId  String
+  branch    Branch            @relation(fields: [branchId], references: [id])
+  itemId    String
+  item      Item              @relation(fields: [itemId], references: [id])
+  type      StockMovementType
+  /// Signed: positive adds stock, negative removes it.
+  quantity  Float
+  unitCostCents Int           @default(0)
+  reason    String            @default("")
+  refType   String            @default("")
+  refId     String            @default("")
+  userId    String?
+  userName  String            @default("")
+  createdAt DateTime          @default(now())
+
+  @@index([itemId, createdAt])
+  @@index([branchId, createdAt])
+}
+
+model PurchaseOrder {
+  id         String              @id @default(cuid())
+  branchId   String
+  branch     Branch              @relation(fields: [branchId], references: [id])
+  number     String              @unique
+  supplierId String
+  supplier   Supplier            @relation(fields: [supplierId], references: [id])
+  status     PurchaseOrderStatus @default(DRAFT)
+  totalCents Int                 @default(0)
+  notes      String              @default("")
+  createdBy  String              @default("")
+  approvedBy String?
+  approvedAt DateTime?
+  receivedAt DateTime?
+  expenseId  String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  lines PurchaseOrderLine[]
+
+  @@index([branchId, status])
+}
+
+model PurchaseOrderLine {
+  id        String        @id @default(cuid())
+  poId      String
+  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      Item          @relation(fields: [itemId], references: [id])
+  quantity  Float
+  unitCostCents Int
+  receivedQty Float       @default(0)
+}
+
+model StockTake {
+  id        String   @id @default(cuid())
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  takeDate  DateTime @db.Date
+  status    String   @default("OPEN") // OPEN | CLOSED
+  notes     String   @default("")
+  createdBy String   @default("")
+  closedAt  DateTime?
+  createdAt DateTime @default(now())
+
+  lines StockTakeLine[]
+
+  @@index([branchId, takeDate])
+}
+
+model StockTakeLine {
+  id          String    @id @default(cuid())
+  stockTakeId String
+  stockTake   StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        Item      @relation(fields: [itemId], references: [id])
+  systemQty   Float
+  countedQty  Float     @default(0)
+  varianceQty Float     @default(0)
+
+  @@unique([stockTakeId, itemId])
+}
+
+// ============================================================ finance
+
+model ExpenseCategory {
+  id     String    @id @default(cuid())
+  name   String    @unique
+  active Boolean   @default(true)
+  /// Inventory purchases are capitalised on receipt and hit the P&L later as
+  /// COGS when the stock is consumed — so they are excluded from operating
+  /// expenses to avoid double-counting. They still appear in cash flow.
+  capitalized Boolean @default(false)
+  /// Chart-of-accounts code this category posts to.
+  accountCode String  @default("6900")
+  expenses Expense[]
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  branchId    String
+  branch      Branch          @relation(fields: [branchId], references: [id])
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  description String
+  amountCents Int
+  expenseDate DateTime        @db.Date
+  method      PaymentMethod   @default(CASH)
+  receiptUrl  String          @default("")
+  status      ExpenseStatus   @default(PENDING)
+  submittedById String
+  submittedBy   User          @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+  approvedById  String?
+  approvedBy    User?         @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
+  rejectReason  String        @default("")
+  refType     String          @default("") // petty_cash | purchase_order | manual
+  refId       String          @default("")
+  voided      Boolean         @default(false)
+  voidReason  String          @default("")
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  journalEntries JournalEntry[]
+
+  @@index([branchId, expenseDate])
+  @@index([status])
+}
+
+model PettyCashTxn {
+  id          String             @id @default(cuid())
+  branchId    String
+  branch      Branch             @relation(fields: [branchId], references: [id])
+  direction   PettyCashDirection
+  amountCents Int
+  categoryId  String?
+  description String
+  receiptUrl  String             @default("")
+  balanceAfterCents Int
+  businessDate DateTime          @db.Date
+  recordedById String
+  recordedByName String          @default("")
+  expenseId   String?
+  createdAt   DateTime           @default(now())
+
+  @@index([branchId, businessDate])
+}
+
+model PettyCashRequest {
+  id          String                 @id @default(cuid())
+  branchId    String
+  amountCents Int
+  reason      String                 @default("")
+  status      PettyCashRequestStatus @default(PENDING)
+  requestedById String
+  requestedByName String             @default("")
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime               @default(now())
+}
+
+model EodClosing {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  businessDate DateTime @db.Date
+  /// { CASH: 1234, GCASH: 0, ... } in centavos
+  expected    Json
+  counted     Json
+  expectedCashCents Int @default(0)
+  countedCashCents  Int @default(0)
+  overShortCents    Int @default(0)
+  pettyCashExpectedCents Int @default(0)
+  pettyCashCountedCents  Int @default(0)
+  salesCount  Int      @default(0)
+  grossSalesCents Int  @default(0)
+  notes       String   @default("")
+  closedById  String
+  closedBy    User     @relation(fields: [closedById], references: [id])
+  closedAt    DateTime @default(now())
+
+  @@unique([branchId, businessDate])
+}
+
+/// Minimal chart of accounts so the system can emit real BIR-style journals.
+model Account {
+  id     String      @id @default(cuid())
+  code   String      @unique
+  name   String
+  type   AccountType
+  active Boolean     @default(true)
+
+  lines JournalLine[]
+}
+
+model JournalEntry {
+  id        String        @id @default(cuid())
+  branchId  String
+  branch    Branch        @relation(fields: [branchId], references: [id])
+  source    JournalSource
+  entryDate DateTime      @db.Date
+  reference String        @default("")
+  memo      String        @default("")
+  saleId    String?
+  sale      Sale?         @relation(fields: [saleId], references: [id])
+  expenseId String?
+  expense   Expense?      @relation(fields: [expenseId], references: [id])
+  /// Reversal pointer — corrections are posted, never deleted.
+  reversesEntryId String?
+  createdAt DateTime      @default(now())
+  createdBy String        @default("")
+
+  lines JournalLine[]
+
+  @@index([branchId, entryDate])
+  @@index([source, entryDate])
+}
+
+model JournalLine {
+  id        String       @id @default(cuid())
+  entryId   String
+  entry     JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId String
+  account   Account      @relation(fields: [accountId], references: [id])
+  debitCents  Int        @default(0)
+  creditCents Int        @default(0)
+  memo      String       @default("")
+}
+
+// ============================================================ comms & notifications
+
+model Notification {
+  id        String           @id @default(cuid())
+  branchId  String?
+  branch    Branch?          @relation(fields: [branchId], references: [id])
+  /// Either targeted at one user, or at a role (userId null + role set).
+  userId    String?
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role?
+  kind      NotificationKind
+  title     String
+  body      String           @default("")
+  link      String           @default("")
+  /// Stable key so the same condition doesn't create duplicates.
+  dedupeKey String           @unique
+  readAt    DateTime?
+  resolvedAt DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, resolvedAt])
+  @@index([role, resolvedAt])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  title     String
+  body      String
+  pinned    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  reads AnnouncementRead[]
+}
+
+model AnnouncementRead {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt         DateTime     @default(now())
+
+  @@unique([announcementId, userId])
+}
+
+model DirectMessage {
+  id         String   @id @default(cuid())
+  fromUserId String
+  fromUser   User     @relation("MessageFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId   String
+  toUser     User     @relation("MessageTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([toUserId, readAt])
+  @@index([fromUserId, toUserId, createdAt])
+}
+
+model ShiftNote {
+  id            String   @id @default(cuid())
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  noteDate      DateTime @db.Date
+  body          String
+  clientId      String?
+  client        Client?  @relation(fields: [clientId], references: [id])
+  appointmentId String?
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  comments ShiftNoteComment[]
+
+  @@index([branchId, noteDate])
+}
+
+model ShiftNoteComment {
+  id      String    @id @default(cuid())
+  noteId  String
+  note    ShiftNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User      @relation(fields: [userId], references: [id])
+  body    String
+  createdAt DateTime @default(now())
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  template  String   @default("")
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id])
+  status    String   @default("sent") // sent | failed | logged
+  error     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([clientId, createdAt])
+  @@index([createdAt])
+}
+
+// ============================================================ compliance & KPIs
+
+model Holiday {
+  id     String      @id @default(cuid())
+  date   DateTime    @unique @db.Date
+  name   String
+  type   HolidayType @default(REGULAR)
+}
+
+model KpiTarget {
+  id        String @id @default(cuid())
+  /// YYYY-MM
+  periodKey String
+  key       String
+  /// Money targets in centavos; ratios in whole percent; counts as-is.
+  target    Int
+
+  @@unique([periodKey, key])
+}
+
+model Permit {
+  id         String     @id @default(cuid())
+  kind       PermitKind @default(BUSINESS)
+  name       String
+  agency     String     @default("")
+  refNumber  String     @default("")
+  issueDate  DateTime?
+  expiryDate DateTime?
+  fileUrl    String     @default("")
+  notes      String     @default("")
+  employeeId String?
+  employee   Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  lastRemindedAt DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([expiryDate])
+}

@@ -294,7 +294,7 @@ Or locally: `npm run jobs:daily`.
    for `DATABASE_URL` and the direct one for `DIRECT_URL`.
 2. Import the repo at [vercel.com](https://vercel.com).
 3. Add the environment variables from [Configuration](#configuration).
-4. Deploy. The build runs `prisma generate && next build`.
+4. Deploy. The build runs `scripts/build.mjs`.
 5. **The schema creates itself.** The build command is
    `prisma generate && prisma migrate deploy && next build`, so the first deploy
    applies `prisma/migrations/` to an empty database with no manual step.
@@ -358,7 +358,8 @@ so store it securely.
 ### Restoring
 
 ```bash
-# 1. Point DATABASE_URL and DIRECT_URL at the target database (a fresh one, ideally).
+# 1. Point DATABASE_URL at the target database (a fresh one, ideally). If it sits
+#    behind a pooler, use the direct connection string here — DDL needs it.
 npx prisma migrate deploy
 
 # 2. Restore. Refuses to run if the target already holds sales,

@@ -54,19 +54,26 @@ if (!DATABASE_URL) {
 
 const isPooler = /pooler\.supabase\.com|:6543/.test(DATABASE_URL);
 
+// The URL migrations run against. A transaction pooler multiplexes connections
+// and cannot hold the session state DDL needs, so it must be the direct one.
+let migrationUrl = DIRECT_URL || DATABASE_URL;
+
+if (!DIRECT_URL && isPooler) {
+  fail('DIRECT_URL is not set, but DATABASE_URL points at a connection pooler.', [
+    'Migrations cannot run through a transaction pooler, so a direct',
+    'connection is required.',
+    '',
+    'In Vercel: Settings → Environment Variables → add DIRECT_URL,',
+    'tick all three environments, then redeploy. Variables added after a',
+    'build has started are not picked up until the next deployment.',
+    '',
+    'Supabase: Project Settings → Database → Connection string →',
+    'the Direct connection string (port 5432, db.<ref>.supabase.co).',
+  ]);
+}
+
 if (!DIRECT_URL) {
-  if (isPooler) {
-    fail('DIRECT_URL is not set, but DATABASE_URL points at a connection pooler.', [
-      'Migrations cannot run through a transaction pooler, so a direct',
-      'connection is required.',
-      '',
-      'In Vercel: Settings → Environment Variables → add DIRECT_URL.',
-      'Supabase: Project Settings → Database → Connection string →',
-      'the Direct connection string (port 5432, db.<ref>.supabase.co).',
-    ]);
-  }
-  warn('DIRECT_URL not set; defaulting it to DATABASE_URL (no pooler detected).');
-  process.env.DIRECT_URL = DATABASE_URL;
+  warn('DIRECT_URL not set; using DATABASE_URL for migrations (no pooler detected).');
 }
 
 // Prisma needs ?pgbouncer=true against a transaction pooler, or queries fail at
@@ -92,6 +99,10 @@ step('Generating the Prisma client');
 run('npx prisma generate', () => fail('prisma generate failed.', ['See the output above.']));
 
 step('Applying database migrations');
+// Swap in the direct connection for this step only; the app keeps the pooled
+// URL at runtime.
+const runtimeUrl = process.env.DATABASE_URL;
+process.env.DATABASE_URL = migrationUrl;
 run('npx prisma migrate deploy', () =>
   fail('Migrations could not be applied.', [
     'The build reached the database step but could not complete it.',
@@ -105,6 +116,7 @@ run('npx prisma migrate deploy', () =>
     '    open the dashboard to wake it, then redeploy.',
   ]),
 );
+process.env.DATABASE_URL = runtimeUrl;
 
 step('Building the application');
 run('npx next build', () => fail('next build failed.', ['See the output above.']));

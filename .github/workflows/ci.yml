@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, build and test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: anica
+          POSTGRES_PASSWORD: anica
+          POSTGRES_DB: anica_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U anica"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DATABASE_URL: postgresql://anica:anica@localhost:5432/anica_test?schema=public
+      # No connection pooler in CI, so the direct URL is the same.
+      DIRECT_URL: postgresql://anica:anica@localhost:5432/anica_test?schema=public
+      # CI-only secret; never used outside the ephemeral runner.
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Seed, then verify the demo data reconciles
+        run: |
+          npm run db:seed
+          npx tsx scripts/verify-integrity.ts

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Allow: /book
+Disallow: /portal
+Disallow: /login
+Disallow: /api
+
+Sitemap: /sitemap.xml

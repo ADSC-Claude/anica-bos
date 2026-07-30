@@ -1,0 +1,24 @@
+{
+  "name": "ANICA Wellness Spa — Business OS",
+  "short_name": "ANICA",
+  "description": "Bookings, POS, inventory and reports for ANICA Wellness Spa, Quezon City.",
+  "start_url": "/portal",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#faf7f2",
+  "theme_color": "#345a3e",
+  "lang": "en-PH",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New sale", "short_name": "POS", "url": "/portal/sales/pos" },
+    { "name": "Today's schedule", "short_name": "Schedule", "url": "/portal/appointments" },
+    { "name": "Attendance", "short_name": "Attendance", "url": "/portal/employees/attendance" }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "prisma generate && prisma migrate deploy && next build",
+  "regions": [
+    "bom1"
+  ],
+  "crons": [
+    {
+      "path": "/api/jobs/daily",
+      "schedule": "0 22 * * *"
+    }
+  ]
+}

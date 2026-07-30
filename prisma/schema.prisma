@@ -12,7 +12,12 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Pooled connection used by the app at runtime (Supabase: port 6543).
   url      = env("DATABASE_URL")
+  // Direct connection used for migrations, which cannot run through a
+  // transaction pooler (Supabase: port 5432). Falls back to DATABASE_URL
+  // on hosts where the two are the same.
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================ enums

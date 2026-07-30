@@ -61,9 +61,9 @@ cp .env.example .env
 #   openssl rand -base64 48
 # and paste it into SESSION_SECRET.
 
-npx prisma db push     # create the schema
-npm run db:seed        # demo data: a week of reconciled history
-npm run dev            # http://localhost:3000
+npx prisma migrate deploy   # create the schema
+npm run db:seed             # demo data: a week of reconciled history
+npm run dev                 # http://localhost:3000
 ```
 
 You now have:
@@ -222,7 +222,8 @@ Almost nothing is hard-coded. Settings has 16 sections; the ones people reach fo
 Secrets stay in environment variables and never touch the database:
 
 ```bash
-DATABASE_URL=            # Postgres connection string
+DATABASE_URL=            # Postgres, pooled (Supabase: port 6543)
+DIRECT_URL=              # Postgres, direct — migrations only (Supabase: port 5432)
 SESSION_SECRET=          # 32+ random chars — openssl rand -base64 48
 NEXT_PUBLIC_APP_URL=     # public URL, used for gateway redirects and emails
 
@@ -286,17 +287,20 @@ Or locally: `npm run jobs:daily`.
 
 ## Deployment
 
-### Vercel + Neon (recommended, free to start)
+### Vercel + Supabase or Neon (recommended, free to start)
 
-1. Create a Postgres database at [neon.tech](https://neon.tech) and copy the pooled
-   connection string.
+1. Create a Postgres database at [supabase.com](https://supabase.com) or
+   [neon.tech](https://neon.tech). Copy **both** connection strings: the pooled one
+   for `DATABASE_URL` and the direct one for `DIRECT_URL`.
 2. Import the repo at [vercel.com](https://vercel.com).
 3. Add the environment variables from [Configuration](#configuration).
 4. Deploy. The build runs `prisma generate && next build`.
-5. Push the schema and seed once:
+5. **The schema creates itself.** The build command is
+   `prisma generate && prisma migrate deploy && next build`, so the first deploy
+   applies `prisma/migrations/` to an empty database with no manual step.
+   To load the demo data as well, run once from your machine:
    ```bash
-   DATABASE_URL="postgres://…" npx prisma db push
-   DATABASE_URL="postgres://…" npm run db:seed
+   DATABASE_URL="postgres://…" DIRECT_URL="postgres://…" npm run db:seed
    ```
 6. Register the PayMongo webhook against your deployed URL.
 7. Sign in as each account and change the passwords and PINs.
@@ -309,10 +313,11 @@ Any Node host works — Railway, Render, Fly.io, or a VPS:
 
 ```bash
 npm ci
-npx prisma migrate deploy   # or: npx prisma db push
-npm run build
-npm start                   # listens on $PORT, default 3000
+npm run build   # generates the client, applies migrations, then builds
+npm start       # listens on $PORT, default 3000
 ```
+
+`npm run build:local` skips the migration step when you only want to compile.
 
 Serve over HTTPS. Session cookies are `httpOnly`, `sameSite=lax` and `secure` in
 production, and HSTS is set in `next.config.ts`.
@@ -347,8 +352,8 @@ so store it securely.
 ### Restoring
 
 ```bash
-# 1. Point DATABASE_URL at the target database (a fresh one, ideally).
-npx prisma db push
+# 1. Point DATABASE_URL and DIRECT_URL at the target database (a fresh one, ideally).
+npx prisma migrate deploy
 
 # 2. Restore. Refuses to run if the target already holds sales,
 #    unless you pass --force (which wipes it first).

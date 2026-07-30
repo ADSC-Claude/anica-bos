@@ -2,10 +2,10 @@
   "name": "anica-bos",
   "version": "1.0.0",
   "private": true,
-  "description": "ANICA Wellness Spa — Business Operating System",
+  "description": "ANICA Wellness Spa \u2014 Business Operating System",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -19,7 +19,8 @@
     "restore": "tsx scripts/restore.ts",
     "jobs:daily": "tsx scripts/daily-jobs.ts",
     "verify": "tsx scripts/verify-integrity.ts",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "build:local": "prisma generate && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

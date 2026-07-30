@@ -30,6 +30,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://anica:anica@localhost:5432/anica_test?schema=public
+      # No connection pooler in CI, so the direct URL is the same.
+      DIRECT_URL: postgresql://anica:anica@localhost:5432/anica_test?schema=public
       # CI-only secret; never used outside the ephemeral runner.
       SESSION_SECRET: ci-session-secret-at-least-32-characters-long
       NEXT_PUBLIC_APP_URL: http://localhost:3000
@@ -48,8 +50,8 @@ jobs:
       - name: Generate the Prisma client
         run: npx prisma generate
 
-      - name: Create the schema
-        run: npx prisma db push --skip-generate
+      - name: Apply migrations
+        run: npx prisma migrate deploy
 
       - name: Typecheck
         run: npm run typecheck

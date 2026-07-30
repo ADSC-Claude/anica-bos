@@ -57,6 +57,8 @@ export async function postJournal(
     memo?: string;
     saleId?: string | null;
     expenseId?: string | null;
+    /** Pointer to the entry this one reverses (corrections are posted, not deleted). */
+    reversesEntryId?: string | null;
     createdBy?: string;
     lines: PostLine[];
   },
@@ -90,6 +92,7 @@ export async function postJournal(
       memo: input.memo ?? '',
       saleId: input.saleId ?? null,
       expenseId: input.expenseId ?? null,
+      reversesEntryId: input.reversesEntryId ?? null,
       createdBy: input.createdBy ?? '',
       lines: {
         create: lines.map((l) => ({

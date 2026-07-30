@@ -354,8 +354,8 @@ npx prisma db push
 #    unless you pass --force (which wipes it first).
 npm run restore -- ./backups/anica-backup-2026-07-30T02-00-00-000Z.json
 
-# 3. Verify.
-npm run test
+# 3. Verify the restored books reconcile.
+npm run verify
 ```
 
 Both the CLI dump and the Owner's browser download are accepted.
@@ -387,6 +387,11 @@ database in an isolated branch that is cleaned up afterwards:
 - a void reversing stock, loyalty and journals while keeping the receipt number, and
   the next receipt continuing the sequence without gaps or reuse
 
+`npm run verify` asserts ten database invariants that must hold for the books to be
+trustworthy — journals balancing, receipt numbers unique and gapless per series,
+commissions on the list price, no negative stock, no sale under-paid, no package
+over-redeemed. Worth running after any restore.
+
 Two live checks run against a running server (`npm run dev` in another terminal):
 
 ```bash
@@ -396,6 +401,9 @@ npx tsx tests/live/pages-live.ts   # renders all 70 pages as each role
 
 The RBAC check mints a genuine session cookie per role and confirms the **server**
 returns 403 or redirects — not merely that a link is hidden.
+
+CI (`.github/workflows/ci.yml`) runs the typecheck, tests, build, and then seeds a
+throwaway Postgres and re-checks the invariants on every push and pull request.
 
 ---
 
@@ -429,7 +437,7 @@ src/app/
   api/portal/export/        20 CSV report exports
   api/jobs/daily/           scheduled jobs endpoint
 
-scripts/                    backup, restore, daily jobs
+scripts/                    backup, restore, daily jobs, integrity verifier
 tests/                      unit + integration; tests/live/ for HTTP checks
 ```
 

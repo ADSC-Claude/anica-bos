@@ -48,7 +48,11 @@ export default async function LandingPage() {
   // leaves whatever was stored before the validation existed rendering as-is —
   // and a pasted <iframe> tag resolves as a relative path, so the frame fills
   // with this site's own 404 rather than a map.
-  const heroImage = settings['business.heroImageUrl'].trim();
+  // Photo or video, decided by the file extension rather than a second
+  // setting — the Owner should not have to tell the system what they just
+  // uploaded.
+  const heroMedia = settings['business.heroImageUrl'].trim();
+  const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
 
   const mapEmbed = normaliseMapEmbed(settings['business.mapEmbedUrl']);
   const mapUrl = 'url' in mapEmbed ? mapEmbed.url : '';
@@ -105,9 +109,9 @@ export default async function LandingPage() {
               {taglineTail && <em className="italic text-gilt-600">{taglineTail}</em>}
             </h1>
             <p className="mt-6 max-w-lg leading-relaxed text-cocoa-600">
-              Massage, body scrub, foot spa and sauna in the heart of Quezon City. Reserve
-              your slot in under a minute — choose your therapist, your room, and your
-              hour.
+              Your wellness escape in Quezon City awaits. Enjoy massage, body scrubs, foot
+              spas, and sauna treatments, then book your preferred therapist, room, and time
+              in just a few clicks.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/book" className="btn-primary rounded-full px-7">
@@ -124,13 +128,26 @@ export default async function LandingPage() {
           {/* Capped on small screens: at full width the arch is taller than the
               viewport and pushes the price list off the page. */}
           <div className="relative mx-auto aspect-4/5 w-full max-w-xs overflow-hidden rounded-t-full rounded-b-3xl bg-gradient-to-br from-sand-100 via-sand-300 to-sand-400 ring-1 ring-inset ring-gilt-500/40 sm:max-w-sm lg:max-w-none">
-            {heroImage ? (
+            {heroMedia && heroIsVideo ? (
+              // Muted and looping: a hero video is decoration, and anything
+              // with sound that starts on its own is a reason to leave. Muted
+              // is also what lets it autoplay at all on iOS.
+              <video
+                src={heroMedia}
+                autoPlay
+                muted
+                loop
+                playsInline
+                aria-label={`Inside ${settings['business.name']}`}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : heroMedia ? (
               // Plain <img>: the source is whatever the Owner typed into
               // Settings, and next/image would need every possible host declared
               // in advance.
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={heroImage}
+                src={heroMedia}
                 alt={`Inside ${settings['business.name']}`}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -139,7 +156,7 @@ export default async function LandingPage() {
                 <span className="font-display text-4xl">✿</span>
                 <p className="text-sm font-medium">Spa photo</p>
                 <p className="text-xs text-cocoa-600">
-                  Add one in Settings → Business → Photo on the landing page.
+                  Add one in Settings → Business → Photo or video on the landing page.
                 </p>
               </div>
             )}

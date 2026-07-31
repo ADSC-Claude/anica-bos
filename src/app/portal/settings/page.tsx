@@ -63,7 +63,7 @@ export default async function SettingsPage() {
                 <input name="logoUrl" className="input" defaultValue={s['business.logoUrl']} />
               </label>
               <label className="block">
-                <span className="label">Photo on the landing page</span>
+                <span className="label">Photo or video on the landing page</span>
                 <input
                   name="heroImageUrl"
                   className="input"
@@ -71,9 +71,12 @@ export default async function SettingsPage() {
                   placeholder="/hero.jpg"
                 />
                 <span className="mt-1 block text-[11px] text-cocoa-400">
-                  A photo of your reception or a treatment room. Upload the file to the
-                  repository&apos;s <code>public</code> folder and enter <code>/hero.jpg</code>,
-                  or paste a full https:// link to an image. Leave blank for the placeholder.
+                  Your reception or a treatment room. Upload the file to the
+                  repository&apos;s <code>public</code> folder and enter{' '}
+                  <code>/hero.jpg</code>, or paste a full https:// link. A{' '}
+                  <code>.mp4</code>, <code>.webm</code> or <code>.mov</code> plays as a
+                  silent loop; anything else is shown as a photo. Portrait suits the frame —
+                  it is a tall arch. Leave blank for the placeholder.
                 </span>
               </label>
               <label className="block">

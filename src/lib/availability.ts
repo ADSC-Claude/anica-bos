@@ -142,7 +142,24 @@ export async function nextTherapistInRotation(opts: {
   )[0];
 }
 
-export type AvailableResource = { id: string; name: string; type: string };
+export type AvailableResource = {
+  id: string;
+  name: string;
+  type: string;
+  /** How many people still fit. 1 for an ordinary bed nobody is on. */
+  remaining: number;
+  /**
+   * Taken whole, by one party, or shared between unrelated bookings.
+   *
+   * A row of open beds is shared. A couples room and the sauna are not: the
+   * party that books one holds all of it, so `remaining` on an exclusive place
+   * is how many of *your own* guests still fit, not how many strangers could
+   * join you.
+   */
+  exclusiveUse: boolean;
+  /** Total places, so the caller can tell "2 of 2 free" from "2 of 4 free". */
+  capacity: number;
+};
 
 /**
  * The kind of place a booking needs.
@@ -173,7 +190,7 @@ export function placesSatisfying(required: ResourceType): ResourceType[] {
   return required === 'BED' || required === 'ROOM' ? ['ROOM', 'BED'] : [required];
 }
 
-/** Rooms, beds and chairs free for the whole window. */
+/** Rooms, beds and chairs with room for at least one more person. */
 export async function availableResources(opts: {
   branchId: string;
   startAt: Date;
@@ -181,6 +198,17 @@ export async function availableResources(opts: {
   excludeAppointmentId?: string;
   /** Restrict to one kind of place. Omitted means any. */
   resourceType?: ResourceType | null;
+  /**
+   * The party asking. An exclusive place already held by *this* party still has
+   * room for its other guests; held by anyone else it is simply gone.
+   */
+  partyRef?: string;
+  /**
+   * How many guests still need placing. A whole-unit place is only offered when
+   * the party can fill it — which is what stops one person taking a couples
+   * room and stranding the other bed.
+   */
+  partySize?: number;
 }): Promise<AvailableResource[]> {
   const resources = await prisma.resource.findMany({
     where: {
@@ -199,20 +227,57 @@ export async function availableResources(opts: {
       endAt: { gt: opts.startAt },
       ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
     },
-    select: { resourceId: true },
+    select: { resourceId: true, partyRef: true },
   });
-  // Capacity, not a yes/no. A couples room holds two, a foot-spa area holds as
-  // many chairs as it has, and treating one booking as filling the whole room
-  // loses the rest of its slots. Counting per resource is also what stops a
-  // room being handed out more times than it has places.
+
+  // Capacity, not a yes/no. A couples room holds two and a foot-spa area holds
+  // as many chairs as it has; treating one booking as filling the whole thing
+  // loses the rest. Counting per resource is also what stops a place being
+  // handed out more times than it has room for.
+  //
+  // Held separately by party, because an exclusive place cares *who* is in it,
+  // not just how many.
   const used = new Map<string, number>();
+  const holders = new Map<string, Set<string>>();
   for (const t of taken) {
     if (!t.resourceId) continue;
     used.set(t.resourceId, (used.get(t.resourceId) ?? 0) + 1);
+    const set = holders.get(t.resourceId) ?? new Set<string>();
+    // An appointment with no partyRef is its own party of one.
+    set.add(t.partyRef || `solo:${t.resourceId}:${set.size}`);
+    holders.set(t.resourceId, set);
   }
+
+  const mine = opts.partyRef ?? '';
+  const stillToPlace = Math.max(1, opts.partySize ?? 1);
+
   return resources
-    .filter((r) => (used.get(r.id) ?? 0) < Math.max(1, r.capacity))
-    .map((r) => ({ id: r.id, name: r.name, type: r.type }));
+    .map((r) => {
+      const capacity = Math.max(1, r.capacity);
+      const inUse = used.get(r.id) ?? 0;
+      return { r, capacity, remaining: capacity - inUse };
+    })
+    .filter(({ r, capacity, remaining }) => {
+      if (remaining <= 0) return false;
+      if (!r.exclusiveUse) return true;
+      const inUse = capacity - remaining;
+
+      // Whole-unit places from here down.
+      const others = [...(holders.get(r.id) ?? [])].filter((ref) => !mine || ref !== mine);
+      // Anyone else inside means the place is gone, however much room is left.
+      if (others.length) return false;
+      // Empty and exclusive: only offer it to a party that can fill it.
+      if (inUse === 0 && stillToPlace < capacity) return false;
+      return true;
+    })
+    .map(({ r, capacity, remaining }) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      remaining,
+      exclusiveUse: r.exclusiveUse,
+      capacity,
+    }));
 }
 
 /** Throws when a therapist or room would be double-booked. */
@@ -225,6 +290,10 @@ export async function assertNoConflicts(opts: {
   excludeAppointmentId?: string;
   /** The kind of place the booked services need, when they need a specific one. */
   resourceType?: ResourceType | null;
+  /** The party asking, so its own guests do not read as strangers. */
+  partyRef?: string;
+  /** How many guests the party is placing here, for whole-unit places. */
+  partySize?: number;
 }): Promise<void> {
   if (opts.employeeIds.length) {
     const clash = await prisma.appointmentService.findFirst({
@@ -263,7 +332,7 @@ export async function assertNoConflicts(opts: {
     }
 
     const capacity = Math.max(1, resource?.capacity ?? 1);
-    const overlapping = await prisma.appointment.count({
+    const overlappingRows = await prisma.appointment.findMany({
       where: {
         branchId: opts.branchId,
         resourceId: opts.resourceId,
@@ -272,7 +341,29 @@ export async function assertNoConflicts(opts: {
         endAt: { gt: opts.startAt },
         ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
       },
+      select: { partyRef: true },
     });
+    const overlapping = overlappingRows.length;
+
+    if (resource?.exclusiveUse) {
+      // A whole-unit place goes to one party. Somebody else being inside means
+      // it is gone even with places to spare, which is the difference between
+      // a couples room and a row of open beds.
+      const mine = opts.partyRef ?? '';
+      const strangers = overlappingRows.filter((row) => !mine || row.partyRef !== mine).length;
+      if (strangers > 0) {
+        throw new Error(
+          `${resource.name} is taken by another booking at that time — it is not shared.`,
+        );
+      }
+      // Empty and exclusive: only a party that fills it may have it, or the
+      // remaining places are stranded for the evening.
+      if (overlapping === 0 && (opts.partySize ?? 1) < capacity) {
+        throw new Error(
+          `${resource.name} takes ${capacity} — a smaller booking would leave places nobody else can use.`,
+        );
+      }
+    }
     if (overlapping >= capacity) {
       const name = resource?.name ?? 'That room/bed';
       throw new Error(

@@ -6,6 +6,9 @@ import type { AppointmentStatus } from '@prisma/client';
 import { prisma } from './db';
 import { getSettings } from './settings';
 import { bookingReference } from './codes';
+import { createCheckoutSession, isSimulated } from './paymongo';
+import { sendTemplateEmail } from './email';
+import { notify } from './notifications';
 import {
   assertNoConflicts,
   availableResources,
@@ -13,9 +16,6 @@ import {
   requiredPlaceFor,
   runsPastClosing,
 } from './availability';
-import { createCheckoutSession, isSimulated } from './paymongo';
-import { sendTemplateEmail } from './email';
-import { notify } from './notifications';
 import { formatManila } from './datetime';
 import { formatPeso } from './money';
 import { appUrl } from './app-url';
@@ -42,6 +42,24 @@ export type BookingRequest = {
   notes?: string;
   consent: boolean;
   promoCode?: string;
+  /**
+   * Everyone else in the party. Empty for a booking of one.
+   *
+   * Names only: the person booking stays the client of record — they pay, they
+   * earn the loyalty, they are who we can call — and a guest is a name until
+   * they arrive and the desk takes their details properly. Asking four people
+   * for a birthday and a medical history at the point of booking loses the
+   * booking.
+   */
+  guests?: PartyGuest[];
+};
+
+export type PartyGuest = {
+  name: string;
+  /** Each guest chooses their own treatment; a party rarely wants the same one. */
+  serviceIds: string[];
+  resourceId?: string | null;
+  therapistId?: string | null;
 };
 
 const MOBILE_RE = /^(\+?63|0)9\d{9}$/;
@@ -85,13 +103,6 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   const branch = await prisma.branch.findUnique({ where: { id: req.branchId } });
   if (!branch || !branch.active) throw new BookingError('That branch is not accepting bookings.');
 
-  const services = await prisma.service.findMany({
-    where: { id: { in: req.serviceIds }, active: true },
-  });
-  if (services.length !== req.serviceIds.length) {
-    throw new BookingError('One of the selected services is no longer available.');
-  }
-
   const startAt = new Date(req.startAtIso);
   if (Number.isNaN(startAt.getTime())) throw new BookingError('Choose a valid date and time.');
   if (startAt.getTime() < Date.now() + settings['booking.leadTimeMinutes'] * 60_000) {
@@ -99,54 +110,130 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       `Please choose a slot at least ${settings['booking.leadTimeMinutes']} minutes from now.`,
     );
   }
-  const totalMinutes = services.reduce((a, s) => a + s.durationMinutes, 0);
-  const endAt = new Date(startAt.getTime() + totalMinutes * 60_000);
 
-  // Therapist: explicit pick, or rotation for "no preference".
-  let therapistId = req.therapistId && req.therapistId !== 'any' ? req.therapistId : null;
-  if (!therapistId) {
-    const next = await nextTherapistInRotation({
-      branchId: branch.id,
-      startAt,
-      endAt,
-      serviceIds: req.serviceIds,
-    });
-    therapistId = next?.id ?? null;
-    if (!therapistId) {
-      throw new BookingError(
-        'No therapist is free for that slot. Please pick another time — or call us and we will fit you in.',
-      );
-    }
+  // Everyone in the party, the booker first. A booking of one is a party of
+  // one, so there is a single path through the rest of this rather than a
+  // solo case and a group case that drift apart.
+  const requested: PartyGuest[] = [
+    { name: '', serviceIds: req.serviceIds, resourceId: req.resourceId, therapistId: req.therapistId },
+    ...(req.guests ?? []).map((g) => ({ ...g, name: g.name.trim() })),
+  ];
+  if (requested.some((g, i) => i > 0 && !g.name)) {
+    throw new BookingError('Please give a name for each guest in your party.');
+  }
+  if (requested.some((g) => !g.serviceIds.length)) {
+    throw new BookingError('Every guest needs at least one treatment chosen.');
   }
 
-  // Room, bed or chair: explicit pick, or first free one of the right kind.
-  const place = requiredPlaceFor(services);
-  let resourceId = req.resourceId && req.resourceId !== 'any' ? req.resourceId : null;
-  if (!resourceId) {
-    const free = await availableResources({
-      branchId: branch.id,
-      startAt,
-      endAt,
-      resourceType: place,
-    });
-    resourceId = free[0]?.id ?? null;
-    if (!resourceId) {
-      throw new BookingError(
-        place
-          ? `No ${place.toLowerCase()} is free at that time.`
-          : 'All rooms and beds are taken at that time.',
-      );
-    }
-  }
-
-  await assertNoConflicts({
-    branchId: branch.id,
-    startAt,
-    endAt,
-    employeeIds: [therapistId],
-    resourceId,
-    resourceType: place,
+  const wantedIds = [...new Set(requested.flatMap((g) => g.serviceIds))];
+  const catalog = await prisma.service.findMany({
+    where: { id: { in: wantedIds }, active: true },
   });
+  if (catalog.length !== wantedIds.length) {
+    throw new BookingError('One of the selected services is no longer available.');
+  }
+  const byId = new Map(catalog.map((s) => [s.id, s]));
+
+  type Seat = {
+    name: string;
+    services: typeof catalog;
+    endAt: Date;
+    therapistId: string;
+    resourceId: string;
+    place: ReturnType<typeof requiredPlaceFor>;
+  };
+
+  // One shared reference for the whole party, so its own guests never read as
+  // strangers to each other when an exclusive place is checked.
+  const partyRef = requested.length > 1 ? `PTY-${bookingReference()}` : '';
+
+  // How many of the party are being put in each place. A couples room is only
+  // offered to a booking that fills it, and that count is what proves it.
+  const wantedPer = new Map<string, number>();
+  for (const g of requested) {
+    const id = g.resourceId && g.resourceId !== 'any' ? g.resourceId : null;
+    if (id) wantedPer.set(id, (wantedPer.get(id) ?? 0) + 1);
+  }
+
+  const seats: Seat[] = [];
+  for (const guest of requested) {
+    const services = guest.serviceIds.map((id) => byId.get(id)!);
+    const minutes = services.reduce((a, x) => a + x.durationMinutes, 0);
+    const seatEnd = new Date(startAt.getTime() + minutes * 60_000);
+    const place = requiredPlaceFor(services);
+    const who = guest.name || req.client.name.trim() || 'you';
+
+    let therapistId = guest.therapistId && guest.therapistId !== 'any' ? guest.therapistId : null;
+    if (!therapistId) {
+      const next = await nextTherapistInRotation({
+        branchId: branch.id,
+        startAt,
+        endAt: seatEnd,
+        serviceIds: guest.serviceIds,
+      });
+      therapistId = next?.id ?? null;
+      if (!therapistId) {
+        throw new BookingError(
+          requested.length > 1
+            ? `No therapist is free for ${who} at that time. Please pick another slot — or call us and we will fit your group in.`
+            : 'No therapist is free for that slot. Please pick another time — or call us and we will fit you in.',
+        );
+      }
+    }
+
+    let resourceId = guest.resourceId && guest.resourceId !== 'any' ? guest.resourceId : null;
+    if (!resourceId) {
+      const free = await availableResources({
+        branchId: branch.id,
+        startAt,
+        endAt: seatEnd,
+        resourceType: place,
+        partyRef,
+        // Auto-assignment takes a place for one person, so it must not be
+        // handed a couples room — that is a choice only the party can make.
+        partySize: 1,
+      });
+      resourceId = free.find((r) => !seats.some((t) => t.resourceId === r.id && r.capacity === 1))?.id
+        ?? free[0]?.id
+        ?? null;
+      if (!resourceId) {
+        throw new BookingError(
+          place
+            ? `No ${place.toLowerCase()} is free for ${who} at that time.`
+            : `Nowhere is free for ${who} at that time.`,
+        );
+      }
+    }
+
+    // Each seat is checked against the ones already placed as well as against
+    // the database, because two guests in one party can be handed the same
+    // single bed and neither would clash with anything already stored.
+    const alreadyHere = seats.filter((t) => t.resourceId === resourceId).length;
+    await assertNoConflicts({
+      branchId: branch.id,
+      startAt,
+      endAt: seatEnd,
+      employeeIds: [therapistId],
+      resourceId,
+      resourceType: place,
+      partyRef,
+      partySize: wantedPer.get(resourceId) ?? 1,
+    });
+    const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
+    if (resource && alreadyHere + 1 > Math.max(1, resource.capacity)) {
+      throw new BookingError(`${resource.name} does not hold that many of your party.`);
+    }
+
+    seats.push({ name: guest.name, services, endAt: seatEnd, therapistId, resourceId, place });
+  }
+
+  // The booker's own row leads: its reference is the one quoted, and its window
+  // is what the confirmation talks about.
+  const services = seats[0].services;
+  const totalMinutes = services.reduce((a, x) => a + x.durationMinutes, 0);
+  const endAt = seats[0].endAt;
+  const therapistId = seats[0].therapistId;
+  const resourceId = seats[0].resourceId;
 
   // ------------------------------------------------------------- the client
   const existing = await prisma.client.findUnique({
@@ -202,14 +289,28 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   }
 
   // ---------------------------------------------------------- the deposit
-  const priceTotal = services.reduce((a, s) => a + s.priceCents, 0);
+  // The party pays once, on everything it booked. Charging per guest would put
+  // four card payments in front of one person holding one phone.
+  const priceTotal = seats.reduce(
+    (a, seat) => a + seat.services.reduce((b, x) => b + x.priceCents, 0),
+    0,
+  );
   const depositCents = Math.round((priceTotal * settings['booking.depositPercent']) / 100);
 
   // A treatment that runs past closing is a request, not a reservation: it means
   // someone at the desk agrees to stay. Nothing is charged until they do, so a
   // declined request never has to be refunded — which is the whole reason the
   // gateway is skipped here rather than charged and reversed later.
-  const needsApproval = runsPastClosing(startAt, totalMinutes, branch.closeMinute);
+  //
+  // One guest running late makes the whole party a request: they arrive
+  // together, and approving half a party is not a thing the desk can do.
+  const needsApproval = seats.some((seat) =>
+    runsPastClosing(
+      startAt,
+      seat.services.reduce((a, x) => a + x.durationMinutes, 0),
+      branch.closeMinute,
+    ),
+  );
   const manualFallback = needsApproval ? false : settings['booking.manualFallbackEnabled'];
 
   const partner = req.promoCode
@@ -248,6 +349,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       expiresAt: needsApproval
         ? null
         : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
+      partyRef,
       services: {
         create: services.map((s, i) => ({
           serviceId: s.id,
@@ -259,6 +361,46 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       },
     },
   });
+
+  // One row per guest, sharing the party reference. The whole fee sits on the
+  // booker's row — it is paid once, by them — so the guests' rows carry zero
+  // rather than a share nobody will ever be asked for.
+  for (const seat of seats.slice(1)) {
+    let guestRef = bookingReference();
+    while (await prisma.appointment.findUnique({ where: { reference: guestRef }, select: { id: true } })) {
+      guestRef = bookingReference();
+    }
+    await prisma.appointment.create({
+      data: {
+        branchId: branch.id,
+        reference: guestRef,
+        clientId: client.id,
+        guestName: seat.name,
+        partyRef,
+        resourceId: seat.resourceId,
+        partnerId: partner?.id ?? null,
+        startAt,
+        endAt: seat.endAt,
+        status: 'PENDING' as AppointmentStatus,
+        source: 'ONLINE',
+        needsApproval,
+        depositStatus: 'NONE',
+        depositAmountCents: 0,
+        expiresAt: needsApproval
+          ? null
+          : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
+        services: {
+          create: seat.services.map((x, i) => ({
+            serviceId: x.id,
+            employeeId: seat.therapistId,
+            priceCents: x.priceCents,
+            durationMinutes: x.durationMinutes,
+            sortRank: i,
+          })),
+        },
+      },
+    });
+  }
 
   // -------------------------------------------------------------- gateway
   let checkoutUrl: string | null = null;
@@ -369,6 +511,20 @@ export async function confirmDeposit(opts: {
     },
   });
 
+  // One payment confirms the whole party. The guests' rows carry no fee of
+  // their own, so leaving them PENDING would expire them out from under a
+  // booking that has already been paid for.
+  if (appointment.partyRef) {
+    await prisma.appointment.updateMany({
+      where: {
+        partyRef: appointment.partyRef,
+        id: { not: appointment.id },
+        status: 'PENDING',
+      },
+      data: { status: 'CONFIRMED', expiresAt: null },
+    });
+  }
+
   await sendTemplateEmail({
     to: appointment.client.email,
     template: 'booking_confirmed',
@@ -413,6 +569,15 @@ export async function expireStaleBookings(): Promise<number> {
       where: { id: appt.id },
       data: { status: 'EXPIRED', cancelReason: 'Reservation fee not received in time.' },
     });
+    // The party's other rows carry no fee of their own, so nothing would ever
+    // expire them — they would sit PENDING forever, holding beds for a booking
+    // that lapsed.
+    if (appt.partyRef) {
+      await prisma.appointment.updateMany({
+        where: { partyRef: appt.partyRef, id: { not: appt.id }, status: 'PENDING' },
+        data: { status: 'EXPIRED', cancelReason: 'Reservation fee not received in time.' },
+      });
+    }
     await sendTemplateEmail({
       to: appt.client.email,
       template: 'booking_rejected',
@@ -472,6 +637,23 @@ export async function approveLateRequest(opts: {
     await prisma.appointment.update({
       where: { id: appointment.id },
       data: { gatewaySessionId: session.id },
+    });
+  }
+
+  if (appointment.partyRef) {
+    // A party arrives together; approving one of them and not the rest is not a
+    // decision the desk can act on.
+    await prisma.appointment.updateMany({
+      where: { partyRef: appointment.partyRef, id: { not: appointment.id } },
+      data: {
+        needsApproval: false,
+        approvedAt: new Date(),
+        approvedBy: opts.approvedBy,
+        expiresAt: depositCents === 0
+          ? null
+          : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
+        ...(depositCents === 0 ? { status: 'CONFIRMED' as const } : {}),
+      },
     });
   }
 
@@ -535,6 +717,19 @@ export async function declineLateRequest(opts: {
   });
   if (!appointment) return { ok: false, error: 'That booking no longer exists.' };
   if (!appointment.needsApproval) return { ok: false, error: 'That booking is not awaiting approval.' };
+
+  if (appointment.partyRef) {
+    await prisma.appointment.updateMany({
+      where: { partyRef: appointment.partyRef, id: { not: appointment.id } },
+      data: {
+        needsApproval: false,
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelReason: opts.reason || 'We could not stay past closing for this time.',
+        declineReason: opts.reason,
+      },
+    });
+  }
 
   await prisma.appointment.update({
     where: { id: appointment.id },

@@ -7,6 +7,7 @@ import { DEFAULT_SETTINGS, type SettingKey, type Settings } from './settings-def
  * Everything configurable lives here with a sane default, so a fresh install
  * works before the Owner has touched Settings. Values are stored in the
  * `Setting` table as JSON; `branchId: null` means business-wide.
+
  */
 export { DEFAULT_SETTINGS };
 export type { SettingKey, Settings };

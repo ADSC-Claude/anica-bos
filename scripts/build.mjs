@@ -98,13 +98,49 @@ function describe(name, url) {
   }
   const host = parsed.hostname;
   const port = parsed.port || '5432';
+  const user = decodeURIComponent(parsed.username);
+  const password = decodeURIComponent(parsed.password);
+  const supabasePooler = /\.pooler\.supabase\.com$/.test(host);
+
+  // Parses cleanly and still cannot work: the placeholder was never replaced.
+  if (/^\[.*\]$/.test(password) || /YOUR[-_]PASSWORD/i.test(password)) {
+    fail(`${name} still contains the password placeholder.`, [
+      `Its password is literally "${password}".`,
+      '',
+      'Supabase shows [YOUR-PASSWORD] in the connection string rather than',
+      'the real password. Replace that whole placeholder, square brackets',
+      'included, with the database password.',
+      '',
+      'Forgotten it? Supabase → Connect → Database Settings → Reset database',
+      'password. Reset means updating DATABASE_URL and DIRECT_URL together.',
+    ]);
+  }
+
+  // The pooler routes by project ref in the username. Plain "postgres" reaches
+  // the pooler and is rejected with "Tenant or user not found" — an error that
+  // reads like the database is missing rather than the username being wrong.
+  if (supabasePooler && !user.includes('.')) {
+    fail(`${name} uses the pooler host with a non-pooler username.`, [
+      `Its username is "${user}", but ${host}`,
+      'routes by project reference and expects postgres.<project-ref>.',
+      '',
+      'This is what taking the Direct connection string and swapping only',
+      'the host produces. Copy the pooler string whole instead:',
+      'Supabase → Connect → Connection String → Transaction pooler (6543)',
+      'for DATABASE_URL, Session pooler (5432) for DIRECT_URL.',
+    ]);
+  }
+
   return {
     host,
     port,
+    user,
     // Anything on 6543 is the transaction pooler, whoever hosts it.
     transactionPooler: port === '6543',
     // Supabase's direct host has no A record on the free plan.
     ipv6Only: /^db\..+\.supabase\.co$/.test(host),
+    // Password never included — this is printed to a build log.
+    redacted: `${parsed.protocol}//${user}:••••@${host}:${port}${parsed.pathname}`,
   };
 }
 
@@ -113,6 +149,13 @@ const runtime = describe('DATABASE_URL', DATABASE_URL);
 // The URL migrations run against.
 const migrationUrl = DIRECT_URL || DATABASE_URL;
 const migration = describe(DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL', migrationUrl);
+
+// Echo both, passwords stripped. Every remaining failure below is diagnosed
+// from the username, host and port, so printing them once up front means a
+// failed build carries its own evidence.
+step('Database configuration');
+console.log(`  DATABASE_URL  ${runtime.redacted}`);
+console.log(`  DIRECT_URL    ${DIRECT_URL ? migration.redacted : '(not set — using DATABASE_URL)'}`);
 
 if (!DIRECT_URL && runtime.transactionPooler) {
   fail('DIRECT_URL is not set, but DATABASE_URL is the transaction pooler.', [

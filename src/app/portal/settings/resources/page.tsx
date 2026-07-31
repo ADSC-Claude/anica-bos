@@ -38,7 +38,8 @@ export default async function ResourcesPage({
               <tr>
                 <th>Name</th>
                 <th>Type</th>
-                <th className="text-right">Capacity</th>
+                <th className="text-right">Holds</th>
+                <th>Sharing</th>
                 <th className="text-right">Order</th>
                 <th>Status</th>
                 <th />
@@ -50,6 +51,9 @@ export default async function ResourcesPage({
                   <td className="font-medium text-cocoa-800">{r.name}</td>
                   <td className="text-xs capitalize">{r.type.toLowerCase()}</td>
                   <td className="num text-right">{r.capacity}</td>
+                  <td className="text-xs text-cocoa-500">
+                    {r.exclusiveUse ? 'One booking at a time' : 'Shared'}
+                  </td>
                   <td className="num text-right text-cocoa-400">{r.sortRank}</td>
                   <td>
                     <StatusBadge status={r.active ? 'ACTIVE' : 'CANCELLED'} label={r.active ? 'bookable' : 'off'} />
@@ -106,6 +110,20 @@ export default async function ResourcesPage({
                 defaultValue={editing?.sortRank ?? resources.length + 1} />
             </label>
           </div>
+          <label className="flex items-start gap-2 text-sm text-cocoa-700">
+            <input type="checkbox" name="exclusiveUse" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+              defaultChecked={editing?.exclusiveUse ?? false} />
+            <span>
+              One booking at a time
+              <span className="mt-0.5 block text-[11px] text-cocoa-400">
+                Tick for a couples room or the sauna: one party takes the whole thing, and it is
+                unavailable to anyone else even with places to spare. It also means a party has to
+                fill it — a couples room will not be offered to a single guest, because the other
+                bed would be left for nobody. Leave unticked for open beds and the foot spa chairs,
+                where two unrelated bookings sit side by side.
+              </span>
+            </span>
+          </label>
           <label className="flex items-center gap-2 text-sm text-cocoa-700">
             <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
               defaultChecked={editing?.active ?? true} />

@@ -57,8 +57,8 @@ export default async function ServicesSettingsPage({
               <tbody>
                 {services.map((s) => (
                   <tr key={s.id}>
-                    <td className="font-medium text-moss-800">{s.name}</td>
-                    <td className="text-xs text-moss-500">{s.category.name}</td>
+                    <td className="font-medium text-cocoa-800">{s.name}</td>
+                    <td className="text-xs text-cocoa-500">{s.category.name}</td>
                     <td className="num text-right">{s.durationMinutes} min</td>
                     <td className="num text-right">{formatPeso(s.priceCents)}</td>
                     <td className="text-xs">
@@ -68,7 +68,7 @@ export default async function ServicesSettingsPage({
                           : formatPeso(s.commissionValue ?? 0)
                         : 'default'}
                     </td>
-                    <td className="text-xs text-moss-500">
+                    <td className="text-xs text-cocoa-500">
                       {s.recipes.length
                         ? s.recipes.map((r) => `${r.quantity}${r.item.unit.name} ${r.item.name}`).join(', ')
                         : '—'}

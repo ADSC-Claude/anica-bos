@@ -38,7 +38,7 @@ export function SettingsForm({
         </p>
       )}
       {state.ok && (
-        <p className="rounded-xl bg-moss-100 px-3 py-2 text-sm text-moss-700">{state.ok}</p>
+        <p className="rounded-xl bg-cocoa-100 px-3 py-2 text-sm text-cocoa-700">{state.ok}</p>
       )}
       <Save label={saveLabel} />
     </form>

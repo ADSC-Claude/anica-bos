@@ -61,10 +61,10 @@ export default async function StockTakePage({
                 className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-sand-50"
               >
                 <div>
-                  <p className="text-sm font-medium text-moss-800">
+                  <p className="text-sm font-medium text-cocoa-800">
                     {t.takeDate.toISOString().slice(0, 10)}
                   </p>
-                  <p className="text-xs text-moss-400">
+                  <p className="text-xs text-cocoa-400">
                     {t.lines.length} item(s) · {variances} variance(s) · started by {t.createdBy}
                     {t.closedAt && ` · closed ${formatManila(t.closedAt)}`}
                   </p>

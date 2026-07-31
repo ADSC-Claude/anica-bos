@@ -121,7 +121,7 @@ export default async function EmployeeDetailPage({
             key={key}
             href={`/portal/employees/${employee.id}?tab=${key}`}
             className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              tab === key ? 'border-moss-600 text-moss-800' : 'border-transparent text-moss-400'
+              tab === key ? 'border-cocoa-600 text-cocoa-800' : 'border-transparent text-cocoa-400'
             }`}
           >
             {label}
@@ -166,7 +166,7 @@ export default async function EmployeeDetailPage({
               ) : (
                 <ul className="flex flex-wrap gap-1.5">
                   {employee.skills.map((s) => (
-                    <li key={s.id} className="badge bg-sand-200 text-moss-700">{s.service.name}</li>
+                    <li key={s.id} className="badge bg-sand-200 text-cocoa-700">{s.service.name}</li>
                   ))}
                 </ul>
               )}
@@ -177,8 +177,8 @@ export default async function EmployeeDetailPage({
               <ul className="space-y-1 text-sm">
                 {employee.schedules.map((s) => (
                   <li key={s.id} className="flex justify-between">
-                    <span className="text-moss-600">{DAYS[s.dayOfWeek]}</span>
-                    <span className={s.isDayOff ? 'text-clay-500' : 'text-moss-700'}>
+                    <span className="text-cocoa-600">{DAYS[s.dayOfWeek]}</span>
+                    <span className={s.isDayOff ? 'text-clay-500' : 'text-cocoa-700'}>
                       {s.isDayOff ? 'Day off' : 'Working'}
                     </span>
                   </li>
@@ -192,8 +192,8 @@ export default async function EmployeeDetailPage({
                 <ul className="space-y-1 text-sm">
                   {employee.certifications.map((c) => (
                     <li key={c.id} className="flex justify-between gap-2">
-                      <span className="text-moss-700">{c.name}</span>
-                      <span className="text-xs text-moss-400">
+                      <span className="text-cocoa-700">{c.name}</span>
+                      <span className="text-xs text-cocoa-400">
                         {c.expiryDate ? `expires ${formatManila(c.expiryDate)}` : 'no expiry'}
                       </span>
                     </li>
@@ -232,7 +232,7 @@ export default async function EmployeeDetailPage({
               ))}
               {attendance.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-moss-400">
+                  <td colSpan={5} className="py-6 text-center text-cocoa-400">
                     No attendance recorded this month.
                   </td>
                 </tr>
@@ -253,7 +253,7 @@ export default async function EmployeeDetailPage({
                 {employee.loans.map((l) => (
                   <li key={l.id} className="card-pad">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium capitalize text-moss-800">
+                      <span className="font-medium capitalize text-cocoa-800">
                         {l.type.replaceAll('_', ' ').toLowerCase()}
                       </span>
                       <StatusBadge status={l.status} />
@@ -266,7 +266,7 @@ export default async function EmployeeDetailPage({
                     </dl>
                     {l.payments.length > 0 && (
                       <details className="mt-2 text-xs">
-                        <summary className="cursor-pointer text-moss-500">
+                        <summary className="cursor-pointer text-cocoa-500">
                           {l.payments.length} payment(s)
                         </summary>
                         <ul className="mt-1 space-y-0.5">
@@ -331,8 +331,8 @@ export default async function EmployeeDetailPage({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="shrink-0 text-moss-500">{label}</dt>
-      <dd className="text-right text-moss-700">{value}</dd>
+      <dt className="shrink-0 text-cocoa-500">{label}</dt>
+      <dd className="text-right text-cocoa-700">{value}</dd>
     </div>
   );
 }

@@ -70,10 +70,10 @@ export default async function PurchaseOrdersPage({
               <div key={po.id} className="card-pad">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-moss-800">
+                    <p className="font-semibold text-cocoa-800">
                       {po.number} · {po.supplier.name}
                     </p>
-                    <p className="text-xs text-moss-400">
+                    <p className="text-xs text-cocoa-400">
                       {formatManila(po.createdAt)} · by {po.createdBy}
                       {po.approvedBy && ` · approved by ${po.approvedBy}`}
                       {po.receivedAt && ` · received ${formatManila(po.receivedAt)}`}
@@ -88,7 +88,7 @@ export default async function PurchaseOrdersPage({
                 <ul className="space-y-0.5 text-sm">
                   {po.lines.map((l) => (
                     <li key={l.id} className="flex justify-between gap-3">
-                      <span className="text-moss-600">
+                      <span className="text-cocoa-600">
                         {l.item.name} — {l.quantity} {l.item.unit.name}
                       </span>
                       <span className="num">{formatPeso(l.unitCostCents * l.quantity)}</span>
@@ -96,7 +96,7 @@ export default async function PurchaseOrdersPage({
                   ))}
                 </ul>
 
-                {po.notes && <p className="mt-2 text-xs text-moss-400">{po.notes}</p>}
+                {po.notes && <p className="mt-2 text-xs text-cocoa-400">{po.notes}</p>}
 
                 {canApprove && po.status !== 'RECEIVED' && po.status !== 'CANCELLED' && (
                   <div className="mt-3 flex flex-wrap gap-2">

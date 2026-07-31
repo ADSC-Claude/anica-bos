@@ -30,7 +30,7 @@ export function PayrollGenerator({
       <button className="btn-primary w-full" type="submit">
         Generate draft payslips
       </button>
-      <p className="text-[11px] text-moss-400">
+      <p className="text-[11px] text-cocoa-400">
         Pulls attendance, commissions, tips, late/absence rules, holiday pay, loans and
         contributions. Regenerating keeps any manual adjustments you added.
       </p>

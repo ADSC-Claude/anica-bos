@@ -31,7 +31,7 @@ export function PortalNav({
               key={m.key}
               href={m.href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                active ? 'bg-moss-600 text-white' : 'text-moss-700 hover:bg-sand-100'
+                active ? 'bg-cocoa-600 text-white' : 'text-cocoa-700 hover:bg-sand-100'
               }`}
             >
               <span aria-hidden className="w-5 text-center opacity-80">
@@ -45,8 +45,8 @@ export function PortalNav({
           href="/portal/notifications"
           className={`mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
             isActive(pathname, '/portal/notifications')
-              ? 'bg-moss-600 text-white'
-              : 'text-moss-700 hover:bg-sand-100'
+              ? 'bg-cocoa-600 text-white'
+              : 'text-cocoa-700 hover:bg-sand-100'
           }`}
         >
           <span aria-hidden className="w-5 text-center opacity-80">
@@ -63,8 +63,8 @@ export function PortalNav({
           href="/portal/messages"
           className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
             isActive(pathname, '/portal/messages')
-              ? 'bg-moss-600 text-white'
-              : 'text-moss-700 hover:bg-sand-100'
+              ? 'bg-cocoa-600 text-white'
+              : 'text-cocoa-700 hover:bg-sand-100'
           }`}
         >
           <span aria-hidden className="w-5 text-center opacity-80">
@@ -87,7 +87,7 @@ export function PortalNav({
             key={m.key}
             href={m.href}
             className={`flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-semibold ${
-              active ? 'text-moss-700' : 'text-moss-400'
+              active ? 'text-cocoa-700' : 'text-cocoa-400'
             }`}
           >
             <span aria-hidden className="text-base">

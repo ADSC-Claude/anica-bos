@@ -141,11 +141,11 @@ export default async function InventoryPage({
                   <td className="whitespace-nowrap text-xs">{formatManila(m.createdAt, { time: true })}</td>
                   <td className="text-sm">{m.item.name}</td>
                   <td><StatusBadge status={m.quantity >= 0 ? 'OK' : 'WARN'} label={m.type.toLowerCase()} /></td>
-                  <td className={`num text-right ${m.quantity < 0 ? 'text-clay-500' : 'text-moss-600'}`}>
+                  <td className={`num text-right ${m.quantity < 0 ? 'text-clay-500' : 'text-cocoa-600'}`}>
                     {m.quantity > 0 ? '+' : ''}{m.quantity}
                   </td>
-                  <td className="text-xs text-moss-500">{m.reason}</td>
-                  <td className="text-xs text-moss-400">{m.userName || 'system'}</td>
+                  <td className="text-xs text-cocoa-500">{m.reason}</td>
+                  <td className="text-xs text-cocoa-400">{m.userName || 'system'}</td>
                 </tr>
               ))}
             </tbody>

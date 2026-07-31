@@ -78,8 +78,8 @@ export default async function AuditPage({
         </select>
         <input name="action" className="input w-auto" placeholder="Action contains…"
           defaultValue={params.action ?? ''} />
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="sensitive" value="1" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="sensitive" value="1" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={params.sensitive === '1'} />
           Sensitive only
         </label>
@@ -108,15 +108,15 @@ export default async function AuditPage({
                   <td className="whitespace-nowrap text-xs">{formatManila(e.createdAt, { time: true })}</td>
                   <td className="text-xs">
                     {e.userName}
-                    <span className="block text-[10px] uppercase text-moss-400">{e.role}</span>
+                    <span className="block text-[10px] uppercase text-cocoa-400">{e.role}</span>
                   </td>
                   <td className="text-xs">{e.module}</td>
                   <td className="text-xs">
                     {e.action}
                     {e.sensitive && <StatusBadge status="BAD" label="sensitive" />}
                   </td>
-                  <td className="max-w-72 text-xs text-moss-600">{e.summary}</td>
-                  <td className="max-w-64 text-[10px] text-moss-400">
+                  <td className="max-w-72 text-xs text-cocoa-600">{e.summary}</td>
+                  <td className="max-w-64 text-[10px] text-cocoa-400">
                     {e.before || e.after ? (
                       <details>
                         <summary className="cursor-pointer">view</summary>
@@ -128,7 +128,7 @@ export default async function AuditPage({
                       '—'
                     )}
                   </td>
-                  <td className="num text-[10px] text-moss-400">{e.ip}</td>
+                  <td className="num text-[10px] text-cocoa-400">{e.ip}</td>
                 </tr>
               ))}
             </tbody>

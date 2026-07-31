@@ -273,11 +273,11 @@ export function PosTerminal(props: {
       <div className="mx-auto max-w-md text-center">
         <div className="card-pad">
           <p className="text-4xl">✓</p>
-          <h1 className="mt-2 font-display text-xl font-semibold text-moss-800">Sale completed</h1>
+          <h1 className="mt-2 font-display text-xl font-semibold text-cocoa-800">Sale completed</h1>
           <p className="muted mt-1">Receipt {result.receiptNo}</p>
           {result.giftCertificateCodes && result.giftCertificateCodes.length > 0 && (
             <div className="mt-3 rounded-xl bg-sand-100 px-3 py-2 text-sm">
-              <p className="font-semibold text-moss-700">Gift certificate codes issued</p>
+              <p className="font-semibold text-cocoa-700">Gift certificate codes issued</p>
               {result.giftCertificateCodes.map((c) => (
                 <p key={c} className="num tracking-widest">{c}</p>
               ))}
@@ -322,7 +322,7 @@ export function PosTerminal(props: {
           {catalog.map((entry) => (
             <button
               key={entry.id}
-              className="min-h-16 rounded-xl border border-sand-200 bg-white px-3 py-2 text-left transition hover:border-moss-400"
+              className="min-h-16 rounded-xl border border-sand-200 bg-white px-3 py-2 text-left transition hover:border-cocoa-400"
               onClick={() =>
                 addLine({
                   type: tab === 'services' ? 'SERVICE' : tab === 'products' ? 'PRODUCT' : 'PACKAGE',
@@ -332,10 +332,10 @@ export function PosTerminal(props: {
                 })
               }
             >
-              <span className="block text-sm font-medium leading-tight text-moss-800">{entry.name}</span>
-              <span className="mt-1 block num text-xs text-moss-500">{formatPeso(entry.priceCents)}</span>
+              <span className="block text-sm font-medium leading-tight text-cocoa-800">{entry.name}</span>
+              <span className="mt-1 block num text-xs text-cocoa-500">{formatPeso(entry.priceCents)}</span>
               {'stockQty' in entry && (
-                <span className="block text-[11px] text-moss-400">{entry.stockQty} in stock</span>
+                <span className="block text-[11px] text-cocoa-400">{entry.stockQty} in stock</span>
               )}
             </button>
           ))}
@@ -343,7 +343,7 @@ export function PosTerminal(props: {
 
         {/* Prepaid sessions and the member birthday perk, when applicable. */}
         {ctx && (ctx.prepaid.length > 0 || ctx.membership?.birthdayPerkAvailable) && (
-          <div className="mt-4 card-pad border-moss-200 bg-moss-50">
+          <div className="mt-4 card-pad border-cocoa-200 bg-cocoa-50">
             <p className="section-title mb-2">This client&apos;s perks</p>
             <div className="flex flex-wrap gap-2">
               {ctx.prepaid.map((p) => (
@@ -392,8 +392,8 @@ export function PosTerminal(props: {
           {ctx?.client ? (
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-moss-800">{ctx.client.name}</p>
-                <p className="text-xs text-moss-500">
+                <p className="truncate text-sm font-semibold text-cocoa-800">{ctx.client.name}</p>
+                <p className="text-xs text-cocoa-500">
                   {ctx.client.loyaltyPoints} pts
                   {ctx.membership ? ` · ${ctx.membership.name}` : ''}
                 </p>
@@ -419,7 +419,7 @@ export function PosTerminal(props: {
                         onClick={() => { setClientId(c.id); setClientQuery(''); }}
                       >
                         {c.name}
-                        <span className="ml-2 num text-xs text-moss-400">
+                        <span className="ml-2 num text-xs text-cocoa-400">
                           {(c as { mobile?: string }).mobile}
                         </span>
                       </button>
@@ -451,7 +451,7 @@ export function PosTerminal(props: {
               {lines.map((l) => (
                 <li key={l.key} className="rounded-xl border border-sand-200 p-2">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 text-sm font-medium text-moss-800">{l.name}</span>
+                    <span className="min-w-0 text-sm font-medium text-cocoa-800">{l.name}</span>
                     <span className="num shrink-0 text-sm">
                       {formatPeso(l.unitPriceCents * l.quantity)}
                     </span>
@@ -504,7 +504,7 @@ export function PosTerminal(props: {
                 <button
                   key={p.id}
                   onClick={() => togglePreset(p)}
-                  className={`btn-sm ${on ? 'btn-primary' : highlight ? 'btn-secondary border-moss-500 text-moss-700' : 'btn-secondary'}`}
+                  className={`btn-sm ${on ? 'btn-primary' : highlight ? 'btn-secondary border-cocoa-500 text-cocoa-700' : 'btn-secondary'}`}
                   title={p.stackable ? 'Stackable' : 'Cannot be combined with other discounts'}
                 >
                   {p.name}
@@ -528,7 +528,7 @@ export function PosTerminal(props: {
           ))}
 
           <details className="text-sm">
-            <summary className="cursor-pointer text-moss-600">Manual / voucher discount</summary>
+            <summary className="cursor-pointer text-cocoa-600">Manual / voucher discount</summary>
             <div className="mt-2 space-y-2">
               <div className="grid grid-cols-3 gap-1.5">
                 <input className="input col-span-1" placeholder="Label" value={manualLabel}
@@ -578,9 +578,9 @@ export function PosTerminal(props: {
 
           {discountRows.map((d) => (
             <div key={d.key} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-moss-600">{d.label}</span>
+              <span className="text-cocoa-600">{d.label}</span>
               <span className="flex items-center gap-2">
-                <span className="num text-moss-700">−{formatPeso(d.amountCents)}</span>
+                <span className="num text-cocoa-700">−{formatPeso(d.amountCents)}</span>
                 <button className="btn-ghost btn-sm text-clay-500"
                   onClick={() => setDiscounts((p) => p.filter((x) => x.key !== d.key))}>
                   ×
@@ -596,7 +596,7 @@ export function PosTerminal(props: {
           {discountTotal > 0 && <Row label="Discounts" value={`−${formatPeso(discountTotal)}`} />}
           {ctx?.client && ctx.client.loyaltyPoints > 0 && (
             <label className="flex items-center justify-between gap-2 py-1">
-              <span className="text-moss-500">
+              <span className="text-cocoa-500">
                 Redeem loyalty ({ctx.client.loyaltyPoints} pts available)
               </span>
               <input className="input w-24 text-right" type="number" min={0}
@@ -607,7 +607,7 @@ export function PosTerminal(props: {
           {loyaltyRedeemCents > 0 && <Row label="Loyalty redeemed" value={`−${formatPeso(loyaltyRedeemCents)}`} />}
           {props.tipsEnabled && (
             <label className="flex items-center justify-between gap-2 py-1">
-              <span className="text-moss-500">Tip</span>
+              <span className="text-cocoa-500">Tip</span>
               <input className="input w-24 text-right" type="number" min={0} step="0.01"
                 value={tipPesos} onChange={(e) => setTipPesos(e.target.value)} />
             </label>
@@ -713,7 +713,7 @@ export function PosTerminal(props: {
 
           {short > 0 && <p className="text-sm text-clay-500">Short by {formatPeso(short)}</p>}
           {change > 0 && (
-            <p className="rounded-xl bg-moss-100 px-3 py-2 text-sm font-semibold text-moss-700">
+            <p className="rounded-xl bg-cocoa-100 px-3 py-2 text-sm font-semibold text-cocoa-700">
               Change: {formatPeso(change)}
             </p>
           )}
@@ -721,7 +721,7 @@ export function PosTerminal(props: {
 
         {props.partners.length > 0 && (
           <details className="card-pad text-sm">
-            <summary className="cursor-pointer text-moss-600">Tag to a partner</summary>
+            <summary className="cursor-pointer text-cocoa-600">Tag to a partner</summary>
             <select className="select mt-2" value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
               <option value="">— none —</option>
               {props.partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -743,7 +743,7 @@ export function PosTerminal(props: {
           {pending ? 'Charging…' : `Charge ${formatPeso(due)}`}
         </button>
         {props.taxRegime === 'NON_VAT_8' && (
-          <p className="text-center text-[11px] text-moss-400">
+          <p className="text-center text-[11px] text-cocoa-400">
             Non-VAT sales invoice · not valid for claim of input tax
           </p>
         )}
@@ -755,8 +755,8 @@ export function PosTerminal(props: {
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-moss-500">{label}</span>
-      <span className={`num ${strong ? 'font-semibold text-moss-800' : 'text-moss-700'}`}>{value}</span>
+      <span className="text-cocoa-500">{label}</span>
+      <span className={`num ${strong ? 'font-semibold text-cocoa-800' : 'text-cocoa-700'}`}>{value}</span>
     </div>
   );
 }

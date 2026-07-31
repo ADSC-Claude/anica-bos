@@ -52,7 +52,7 @@ export default async function SettingsPage() {
                 <span className="label">Google Maps embed URL</span>
                 <input name="mapEmbedUrl" className="input" defaultValue={s['business.mapEmbedUrl']}
                   placeholder="https://www.google.com/maps/embed?pb=…" />
-                <span className="mt-1 block text-[11px] text-moss-400">
+                <span className="mt-1 block text-[11px] text-cocoa-400">
                   In Google Maps: Share → Embed a map → copy the src URL.
                 </span>
               </label>
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
                   <span className="label">Opens at (minutes past midnight)</span>
                   <input name="openMinute" type="number" min={0} max={1440} className="input"
                     defaultValue={s['business.openMinute']} />
-                  <span className="mt-1 block text-[11px] text-moss-400">
+                  <span className="mt-1 block text-[11px] text-cocoa-400">
                     {minutesToLabel(s['business.openMinute'])} — 720 = 12 noon
                   </span>
                 </label>
@@ -77,7 +77,7 @@ export default async function SettingsPage() {
                   <span className="label">Closes at</span>
                   <input name="closeMinute" type="number" min={0} max={1440} className="input"
                     defaultValue={s['business.closeMinute']} />
-                  <span className="mt-1 block text-[11px] text-moss-400">
+                  <span className="mt-1 block text-[11px] text-cocoa-400">
                     {minutesToLabel(s['business.closeMinute'])} — 1440 = midnight
                   </span>
                 </label>
@@ -86,7 +86,7 @@ export default async function SettingsPage() {
                 <span className="label">Receipt footer</span>
                 <input name="receiptFooter" className="input" defaultValue={s['business.receiptFooter']} />
               </label>
-              <p className="text-[11px] text-moss-400">
+              <p className="text-[11px] text-cocoa-400">
                 Timezone is fixed to Asia/Manila and currency to PHP (₱).
               </p>
             </div>

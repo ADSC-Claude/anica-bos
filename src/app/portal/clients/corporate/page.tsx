@@ -74,11 +74,11 @@ export default async function CorporatePage() {
               {rows.map(({ account: a, charged, outstanding }) => (
                 <tr key={a.id}>
                   <td>
-                    <span className="font-medium text-moss-800">{a.name}</span>
-                    {a.tin && <span className="block text-xs text-moss-400">TIN {a.tin}</span>}
+                    <span className="font-medium text-cocoa-800">{a.name}</span>
+                    {a.tin && <span className="block text-xs text-cocoa-400">TIN {a.tin}</span>}
                     {!a.active && <StatusBadge status="CANCELLED" label="inactive" />}
                   </td>
-                  <td className="text-xs text-moss-500">
+                  <td className="text-xs text-cocoa-500">
                     {a.contactPerson}
                     <br />
                     {a.contactMobile}
@@ -87,13 +87,13 @@ export default async function CorporatePage() {
                     {a.discountType === 'PERCENT' ? `${a.discountValue}%` : formatPeso(a.discountValue)}
                   </td>
                   <td className="num text-right">{formatPeso(charged)}</td>
-                  <td className={`num text-right font-semibold ${outstanding > 0 ? 'text-clay-500' : 'text-moss-600'}`}>
+                  <td className={`num text-right font-semibold ${outstanding > 0 ? 'text-clay-500' : 'text-cocoa-600'}`}>
                     {formatPeso(outstanding)}
                   </td>
-                  <td className="num text-right text-moss-500">
+                  <td className="num text-right text-cocoa-500">
                     {a.creditLimitCents ? formatPeso(a.creditLimitCents) : 'none'}
                   </td>
-                  <td className="text-xs text-moss-500">
+                  <td className="text-xs text-cocoa-500">
                     {a.clients.length
                       ? a.clients.map((l) => l.client.name).join(', ')
                       : '—'}

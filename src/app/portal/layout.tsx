@@ -20,18 +20,18 @@ export default async function PortalLayout({ children }: { children: React.React
       {/* Desktop sidebar — the reception desk computer */}
       <aside className="hidden w-60 shrink-0 border-r border-sand-200 bg-white lg:flex lg:flex-col no-print">
         <div className="flex items-center gap-2 px-5 py-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-moss-600 text-lg text-white">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
             ✿
           </span>
           <div className="leading-tight">
-            <p className="font-display text-sm font-semibold text-moss-800">ANICA</p>
-            <p className="text-[11px] text-moss-400">Wellness Spa BOS</p>
+            <p className="font-display text-sm font-semibold text-cocoa-800">ANICA</p>
+            <p className="text-[11px] text-cocoa-400">Wellness Spa BOS</p>
           </div>
         </div>
         <PortalNav modules={modules} unread={unread} variant="sidebar" />
         <div className="mt-auto border-t border-sand-200 p-4">
-          <p className="truncate text-sm font-semibold text-moss-700">{user.name}</p>
-          <p className="mb-3 text-[11px] uppercase tracking-wide text-moss-400">
+          <p className="truncate text-sm font-semibold text-cocoa-700">{user.name}</p>
+          <p className="mb-3 text-[11px] uppercase tracking-wide text-cocoa-400">
             {user.role.toLowerCase()}
           </p>
           {branches.length > 1 && user.role === 'OWNER' && (
@@ -50,15 +50,15 @@ export default async function PortalLayout({ children }: { children: React.React
       {/* Mobile top bar — the owner's phone */}
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-sand-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden no-print">
         <Link href="/portal" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-moss-600 text-white">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cocoa-600 text-white">
             ✿
           </span>
-          <span className="font-display text-sm font-semibold text-moss-800">ANICA</span>
+          <span className="font-display text-sm font-semibold text-cocoa-800">ANICA</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link
             href="/portal/notifications"
-            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-sand-200 text-moss-600"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-sand-200 text-cocoa-600"
             aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
           >
             ⌾

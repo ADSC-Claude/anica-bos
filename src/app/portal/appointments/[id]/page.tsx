@@ -125,9 +125,9 @@ export default async function AppointmentDetailPage({
           <h2 className="section-title mb-2">Deposit to verify</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="text-sm">
-              <p><span className="text-moss-500">Expected:</span> <strong className="num">{formatPeso(appt.depositAmountCents)}</strong></p>
-              <p><span className="text-moss-500">Reference number:</span> {appt.depositReference || '—'}</p>
-              <p><span className="text-moss-500">Method:</span> {appt.depositMethod || 'manual transfer'}</p>
+              <p><span className="text-cocoa-500">Expected:</span> <strong className="num">{formatPeso(appt.depositAmountCents)}</strong></p>
+              <p><span className="text-cocoa-500">Reference number:</span> {appt.depositReference || '—'}</p>
+              <p><span className="text-cocoa-500">Method:</span> {appt.depositMethod || 'manual transfer'}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <form action={verifyDepositAction}>
                   <input type="hidden" name="id" value={appt.id} />
@@ -190,8 +190,8 @@ export default async function AppointmentDetailPage({
             {appt.services.map((s) => (
               <li key={s.id} className="flex items-start justify-between gap-3">
                 <span>
-                  <span className="block font-medium text-moss-800">{s.service.name}</span>
-                  <span className="block text-xs text-moss-400">
+                  <span className="block font-medium text-cocoa-800">{s.service.name}</span>
+                  <span className="block text-xs text-cocoa-400">
                     {s.durationMinutes} min · {s.employee?.name ?? 'unassigned'}
                   </span>
                 </span>
@@ -206,15 +206,15 @@ export default async function AppointmentDetailPage({
             </div>
             {appt.depositAmountCents > 0 && (
               <>
-                <div className="mt-1 flex justify-between text-moss-600">
+                <div className="mt-1 flex justify-between text-cocoa-600">
                   <span>Reservation fee ({appt.depositStatus.replaceAll('_', ' ').toLowerCase()})</span>
                   <span className="num">−{formatPeso(appt.depositPaidCents || appt.depositAmountCents)}</span>
                 </div>
-                <div className="mt-1 flex justify-between text-xs text-moss-400">
+                <div className="mt-1 flex justify-between text-xs text-cocoa-400">
                   <span>Gateway reference</span>
                   <span className="num">{appt.gatewayPaymentId || appt.depositReference || '—'}</span>
                 </div>
-                <div className="mt-2 flex justify-between font-semibold text-moss-800">
+                <div className="mt-2 flex justify-between font-semibold text-cocoa-800">
                   <span>Balance at checkout</span>
                   <span className="num">
                     {formatPeso(Math.max(0, total - (appt.depositStatus === 'PAID' ? appt.depositPaidCents : 0)))}
@@ -246,7 +246,7 @@ export default async function AppointmentDetailPage({
           <ul className="space-y-1 text-sm">
             {appt.sales.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-3">
-                <Link href={`/portal/sales/${s.id}`} className="text-moss-700 underline underline-offset-4">
+                <Link href={`/portal/sales/${s.id}`} className="text-cocoa-700 underline underline-offset-4">
                   {s.receiptNo}
                 </Link>
                 <span className="flex items-center gap-2">
@@ -265,8 +265,8 @@ export default async function AppointmentDetailPage({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="shrink-0 text-moss-500">{label}</dt>
-      <dd className="text-right capitalize text-moss-700">{value}</dd>
+      <dt className="shrink-0 text-cocoa-500">{label}</dt>
+      <dd className="text-right capitalize text-cocoa-700">{value}</dd>
     </div>
   );
 }

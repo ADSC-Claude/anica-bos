@@ -80,14 +80,14 @@ export default async function BackupPage() {
               <li key={t.key}>
                 <Link
                   href={`/api/portal/export/${t.key}`}
-                  className="block rounded-lg px-2 py-1.5 text-sm text-moss-700 hover:bg-sand-100"
+                  className="block rounded-lg px-2 py-1.5 text-sm text-cocoa-700 hover:bg-sand-100"
                 >
                   ↓ {t.label}
                 </Link>
               </li>
             ))}
             <li>
-              <Link href="/api/portal/audit-export" className="block rounded-lg px-2 py-1.5 text-sm text-moss-700 hover:bg-sand-100">
+              <Link href="/api/portal/audit-export" className="block rounded-lg px-2 py-1.5 text-sm text-cocoa-700 hover:bg-sand-100">
                 ↓ Audit log
               </Link>
             </li>

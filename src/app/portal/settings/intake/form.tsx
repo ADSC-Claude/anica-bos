@@ -73,7 +73,7 @@ export function IntakeFieldForm({ fields }: { fields: F[] }) {
           <span className="label">Raise a therapist alert when the answer is</span>
           <input name="alertValues" className="input" defaultValue={current?.alertValues}
             placeholder="true" />
-          <span className="mt-1 block text-[11px] text-moss-400">
+          <span className="mt-1 block text-[11px] text-cocoa-400">
             Use <code>true</code> for tick boxes. Free-text answers always alert when filled in.
           </span>
         </label>
@@ -82,24 +82,24 @@ export function IntakeFieldForm({ fields }: { fields: F[] }) {
           <input name="sortRank" type="number" className="input" defaultValue={current?.sortRank ?? 0} />
         </label>
 
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="showOnline" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="showOnline" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.showOnline ?? true} />
           Ask this on the public booking form (short version)
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="required" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="required" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.required ?? false} />
           Required
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="retired" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="retired" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.retired ?? false} />
           Retire this question (hidden; existing answers are kept)
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">
           {selectedId ? 'Save question' : 'Add question'}
         </button>

@@ -155,12 +155,12 @@ export function BookingWizard() {
   }
 
   if (!catalog) {
-    return <p className="mt-8 text-center text-sm text-moss-500">Loading the booking form…</p>;
+    return <p className="mt-8 text-center text-sm text-cocoa-500">Loading the booking form…</p>;
   }
   if (!catalog.bookingEnabled) {
     return (
       <div className="card-pad mt-6">
-        <p className="font-semibold text-moss-800">Online booking is paused</p>
+        <p className="font-semibold text-cocoa-800">Online booking is paused</p>
         <p className="muted mt-1">Please call us and we&apos;ll set your appointment by phone.</p>
       </div>
     );
@@ -183,7 +183,7 @@ export function BookingWizard() {
           <li
             key={label}
             className={`flex-1 rounded-lg px-2 py-1.5 text-center ${
-              step === i + 1 ? 'bg-moss-600 text-white' : 'bg-sand-200 text-moss-500'
+              step === i + 1 ? 'bg-cocoa-600 text-white' : 'bg-sand-200 text-cocoa-500'
             }`}
           >
             {i + 1}. {label}
@@ -216,7 +216,7 @@ export function BookingWizard() {
             <div className="space-y-3">
               {catalog.categories.map((cat) => (
                 <fieldset key={cat.id}>
-                  <legend className="mb-1.5 text-xs font-semibold text-moss-500">{cat.name}</legend>
+                  <legend className="mb-1.5 text-xs font-semibold text-cocoa-500">{cat.name}</legend>
                   <div className="grid gap-1.5">
                     {cat.services.map((s) => {
                       const active = serviceIds.includes(s.id);
@@ -231,15 +231,15 @@ export function BookingWizard() {
                           }
                           className={`flex min-h-12 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
                             active
-                              ? 'border-moss-600 bg-moss-50'
-                              : 'border-sand-200 bg-white hover:border-moss-300'
+                              ? 'border-cocoa-600 bg-cocoa-50'
+                              : 'border-sand-200 bg-white hover:border-cocoa-300'
                           }`}
                         >
                           <span className="min-w-0">
-                            <span className="block text-sm font-medium text-moss-800">{s.name}</span>
-                            <span className="block text-xs text-moss-400">{s.durationMinutes} min</span>
+                            <span className="block text-sm font-medium text-cocoa-800">{s.name}</span>
+                            <span className="block text-xs text-cocoa-400">{s.durationMinutes} min</span>
                           </span>
-                          <span className="shrink-0 text-sm font-semibold num text-moss-700">
+                          <span className="shrink-0 text-sm font-semibold num text-cocoa-700">
                             {formatPeso(s.priceCents)}
                           </span>
                         </button>
@@ -253,7 +253,7 @@ export function BookingWizard() {
 
           {serviceIds.length > 0 && (
             <>
-              <div className="rounded-xl bg-sand-100 px-3 py-2 text-sm text-moss-700">
+              <div className="rounded-xl bg-sand-100 px-3 py-2 text-sm text-cocoa-700">
                 {chosen.length} service{chosen.length > 1 ? 's' : ''} · {totalMinutes} minutes ·{' '}
                 <strong className="num">{formatPeso(totalPrice)}</strong>
               </div>
@@ -273,7 +273,7 @@ export function BookingWizard() {
               <div>
                 <span className="label">Available start times (12nn – 12mn)</span>
                 {slots === null ? (
-                  <p className="text-sm text-moss-400">Checking availability…</p>
+                  <p className="text-sm text-cocoa-400">Checking availability…</p>
                 ) : slots.length === 0 ? (
                   <p className="text-sm text-clay-500">
                     No free slots left that day. Try another date.
@@ -287,8 +287,8 @@ export function BookingWizard() {
                         onClick={() => setStartAt(s.startAt)}
                         className={`min-h-11 rounded-xl border px-2 py-2 text-sm font-medium transition ${
                           startAt === s.startAt
-                            ? 'border-moss-600 bg-moss-600 text-white'
-                            : 'border-sand-200 bg-white text-moss-700 hover:border-moss-300'
+                            ? 'border-cocoa-600 bg-cocoa-600 text-white'
+                            : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
                         }`}
                       >
                         {s.label}
@@ -316,7 +316,7 @@ export function BookingWizard() {
         <div className="card-pad space-y-4">
           <div>
             <span className="label">Therapist</span>
-            <p className="mb-2 text-xs text-moss-400">
+            <p className="mb-2 text-xs text-cocoa-400">
               Only therapists on duty and free at your chosen time are shown.
             </p>
             <div className="grid gap-1.5">
@@ -325,12 +325,12 @@ export function BookingWizard() {
                 onClick={() => setTherapistId('any')}
                 className={`min-h-12 rounded-xl border px-3 py-2 text-left text-sm transition ${
                   therapistId === 'any'
-                    ? 'border-moss-600 bg-moss-50 font-medium'
+                    ? 'border-cocoa-600 bg-cocoa-50 font-medium'
                     : 'border-sand-200 bg-white'
                 }`}
               >
                 No preference
-                <span className="block text-xs text-moss-400">
+                <span className="block text-xs text-cocoa-400">
                   We&apos;ll assign the next therapist in the queue.
                 </span>
               </button>
@@ -341,7 +341,7 @@ export function BookingWizard() {
                   onClick={() => setTherapistId(t.id)}
                   className={`min-h-12 rounded-xl border px-3 py-2 text-left text-sm transition ${
                     therapistId === t.id
-                      ? 'border-moss-600 bg-moss-50 font-medium'
+                      ? 'border-cocoa-600 bg-cocoa-50 font-medium'
                       : 'border-sand-200 bg-white'
                   }`}
                 >
@@ -349,7 +349,7 @@ export function BookingWizard() {
                 </button>
               ))}
               {therapists.length === 0 && (
-                <p className="text-sm text-moss-400">
+                <p className="text-sm text-cocoa-400">
                   Checking who&apos;s available…
                 </p>
               )}
@@ -460,9 +460,9 @@ export function BookingWizard() {
             </label>
 
             <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
-              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#345a3e]"
+              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
                 checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span className="text-xs text-moss-600">
+              <span className="text-xs text-cocoa-600">
                 I consent to ANICA Wellness Spa collecting and storing my personal and health
                 information for my treatment, safety and booking records, in line with the
                 Philippine Data Privacy Act of 2012 (RA 10173). My health details are visible
@@ -471,7 +471,7 @@ export function BookingWizard() {
             </label>
           </div>
 
-          <div className="card-pad space-y-2 border-moss-200 bg-moss-50">
+          <div className="card-pad space-y-2 border-cocoa-200 bg-cocoa-50">
             <p className="section-title">Summary</p>
             <dl className="space-y-1 text-sm">
               <Row label="Services" value={chosen.map((s) => s.name).join(', ')} />
@@ -483,7 +483,7 @@ export function BookingWizard() {
                 strong
               />
             </dl>
-            <p className="text-xs text-moss-500">
+            <p className="text-xs text-cocoa-500">
               The reservation fee is deducted from your final bill. Unpaid bookings are
               released after {catalog.expiryMinutes} minutes.
             </p>
@@ -511,8 +511,8 @@ export function BookingWizard() {
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-moss-500">{label}</dt>
-      <dd className={`num text-right ${strong ? 'font-semibold text-moss-800' : 'text-moss-700'}`}>
+      <dt className="text-cocoa-500">{label}</dt>
+      <dd className={`num text-right ${strong ? 'font-semibold text-cocoa-800' : 'text-cocoa-700'}`}>
         {value}
       </dd>
     </div>
@@ -531,9 +531,9 @@ function IntakeField({
   if (field.type === 'BOOLEAN') {
     return (
       <label className="flex min-h-11 items-center gap-3 rounded-xl border border-sand-200 px-3 py-2">
-        <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#345a3e]"
+        <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#6b4e35]"
           checked={Boolean(value)} onChange={(e) => onChange(e.target.checked)} />
-        <span className="text-sm text-moss-700">{field.label}</span>
+        <span className="text-sm text-cocoa-700">{field.label}</span>
       </label>
     );
   }
@@ -554,7 +554,7 @@ function IntakeField({
         <span className="label">{field.label}</span>
         <textarea className="textarea" rows={2} value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)} />
-        {field.helpText && <span className="mt-1 block text-[11px] text-moss-400">{field.helpText}</span>}
+        {field.helpText && <span className="mt-1 block text-[11px] text-cocoa-400">{field.helpText}</span>}
       </label>
     );
   }
@@ -562,7 +562,7 @@ function IntakeField({
     <label className="block">
       <span className="label">{field.label}</span>
       <input className="input" value={String(value ?? '')} onChange={(e) => onChange(e.target.value)} />
-      {field.helpText && <span className="mt-1 block text-[11px] text-moss-400">{field.helpText}</span>}
+      {field.helpText && <span className="mt-1 block text-[11px] text-cocoa-400">{field.helpText}</span>}
     </label>
   );
 }

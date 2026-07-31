@@ -124,15 +124,15 @@ export default async function MarketingPage({
                     return (
                       <tr key={p.id}>
                         <td>
-                          <span className="font-medium text-moss-800">{p.name}</span>
+                          <span className="font-medium text-cocoa-800">{p.name}</span>
                           {p.description && (
-                            <span className="block text-xs text-moss-400">{p.description}</span>
+                            <span className="block text-xs text-cocoa-400">{p.description}</span>
                           )}
                         </td>
                         <td className="num">
                           {p.type === 'PERCENT' ? `${p.value}%` : formatPeso(p.value)}
                         </td>
-                        <td className="whitespace-nowrap text-xs text-moss-500">
+                        <td className="whitespace-nowrap text-xs text-cocoa-500">
                           {formatManila(p.startDate)} → {formatManila(p.endDate)}
                         </td>
                         <td className="num text-xs">{p.code ?? '—'}</td>

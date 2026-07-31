@@ -68,9 +68,9 @@ export function MedicalForm({
       </div>
 
       <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
-        <input type="checkbox" name="consentGiven" className="mt-0.5 h-5 w-5 accent-[#345a3e]"
+        <input type="checkbox" name="consentGiven" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
           defaultChecked={consentGiven} />
-        <span className="text-xs text-moss-600">
+        <span className="text-xs text-cocoa-600">
           Client consented to storage of sensitive personal information (RA 10173). Health
           details are visible only to signed-in staff and are excluded from every export
           except the Owner&apos;s full backup.
@@ -83,7 +83,7 @@ export function MedicalForm({
         </p>
       )}
       {state.ok && (
-        <p className="rounded-xl bg-moss-100 px-3 py-2 text-sm text-moss-700">{state.ok}</p>
+        <p className="rounded-xl bg-cocoa-100 px-3 py-2 text-sm text-cocoa-700">{state.ok}</p>
       )}
 
       <Save />
@@ -97,9 +97,9 @@ function FieldInput({ field, value }: { field: FieldDef; value: unknown }) {
   if (field.type === 'BOOLEAN') {
     return (
       <label className="flex min-h-11 items-center gap-3 rounded-xl border border-sand-200 px-3 py-2">
-        <input type="checkbox" name={name} className="h-5 w-5 accent-[#345a3e]"
+        <input type="checkbox" name={name} className="h-5 w-5 accent-[#6b4e35]"
           defaultChecked={Boolean(value)} />
-        <span className="text-sm text-moss-700">{field.label}</span>
+        <span className="text-sm text-cocoa-700">{field.label}</span>
       </label>
     );
   }
@@ -122,7 +122,7 @@ function FieldInput({ field, value }: { field: FieldDef; value: unknown }) {
         <div className="flex flex-wrap gap-2">
           {field.options.map((o) => (
             <label key={o} className="flex items-center gap-2 rounded-xl border border-sand-200 px-3 py-2 text-sm">
-              <input type="checkbox" name={name} value={o} className="h-4 w-4 accent-[#345a3e]"
+              <input type="checkbox" name={name} value={o} className="h-4 w-4 accent-[#6b4e35]"
                 defaultChecked={selected.includes(o)} />
               {o}
             </label>
@@ -136,7 +136,7 @@ function FieldInput({ field, value }: { field: FieldDef; value: unknown }) {
       <label className="block">
         <span className="label">{field.label}</span>
         <textarea name={name} className="textarea" rows={2} defaultValue={String(value ?? '')} />
-        {field.helpText && <span className="mt-1 block text-[11px] text-moss-400">{field.helpText}</span>}
+        {field.helpText && <span className="mt-1 block text-[11px] text-cocoa-400">{field.helpText}</span>}
       </label>
     );
   }
@@ -149,7 +149,7 @@ function FieldInput({ field, value }: { field: FieldDef; value: unknown }) {
         className="input"
         defaultValue={String(value ?? '')}
       />
-      {field.helpText && <span className="mt-1 block text-[11px] text-moss-400">{field.helpText}</span>}
+      {field.helpText && <span className="mt-1 block text-[11px] text-cocoa-400">{field.helpText}</span>}
     </label>
   );
 }

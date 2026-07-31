@@ -54,7 +54,7 @@ export function LoginForm() {
       )}
 
       <SubmitButton />
-      <p className="text-center text-xs text-moss-400">
+      <p className="text-center text-xs text-cocoa-400">
         Forgot your password? Ask the Owner to reset it in Settings → Users.
       </p>
     </form>

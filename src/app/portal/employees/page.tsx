@@ -39,8 +39,8 @@ export default async function EmployeesPage({
         <div className="card divide-y divide-sand-100">
           {employees.map((e) => (
             <div key={e.id} className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm font-medium text-moss-800">{e.name}</span>
-              <span className="text-xs capitalize text-moss-400">
+              <span className="text-sm font-medium text-cocoa-800">{e.name}</span>
+              <span className="text-xs capitalize text-cocoa-400">
                 {e.employeeRole.toLowerCase()}
               </span>
             </div>
@@ -119,7 +119,7 @@ export default async function EmployeesPage({
                 return (
                   <tr key={e.id} className={e.active ? '' : 'opacity-60'}>
                     <td>
-                      <Link href={`/portal/employees/${e.id}`} className="font-medium text-moss-800 hover:underline">
+                      <Link href={`/portal/employees/${e.id}`} className="font-medium text-cocoa-800 hover:underline">
                         {e.name}
                       </Link>
                       {e.loans.length > 0 && (
@@ -128,7 +128,7 @@ export default async function EmployeesPage({
                         </span>
                       )}
                     </td>
-                    <td className="text-xs capitalize text-moss-600">
+                    <td className="text-xs capitalize text-cocoa-600">
                       {e.employeeRole.toLowerCase()}
                     </td>
                     <td className="num text-right">
@@ -141,7 +141,7 @@ export default async function EmployeesPage({
                       {formatPeso(e.commissions.reduce((a, c) => a + c.amountCents, 0))}
                     </td>
                     <td className="num text-right">{avg ? `${avg} ★` : '—'}</td>
-                    <td className="text-xs text-moss-400">{e.skills.length} service(s)</td>
+                    <td className="text-xs text-cocoa-400">{e.skills.length} service(s)</td>
                     <td>
                       <StatusBadge status={e.active ? 'ACTIVE' : 'CANCELLED'} label={e.active ? 'active' : 'inactive'} />
                     </td>

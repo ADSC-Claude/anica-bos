@@ -30,7 +30,7 @@ export function SimulatePanel({ reference }: { reference: string }) {
 
   return (
     <div className="mt-4 space-y-2">
-      <p className="rounded-xl bg-sand-100 px-3 py-2 text-xs text-moss-600">
+      <p className="rounded-xl bg-sand-100 px-3 py-2 text-xs text-cocoa-600">
         Booking reference <strong className="tracking-widest">{reference}</strong>
       </p>
       {error && <p className="text-sm text-clay-500">{error}</p>}

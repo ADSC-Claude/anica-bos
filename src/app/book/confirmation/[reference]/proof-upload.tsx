@@ -40,9 +40,9 @@ export function ProofUpload({ reference }: { reference: string }) {
           type="file"
           accept="image/*"
           required
-          className="input py-2 file:mr-3 file:rounded-lg file:border-0 file:bg-moss-600 file:px-3 file:py-1.5 file:text-white"
+          className="input py-2 file:mr-3 file:rounded-lg file:border-0 file:bg-cocoa-600 file:px-3 file:py-1.5 file:text-white"
         />
-        <span className="mt-1 block text-[11px] text-moss-400">Max 1.5 MB.</span>
+        <span className="mt-1 block text-[11px] text-cocoa-400">Max 1.5 MB.</span>
       </label>
       {error && <p className="text-sm text-clay-500">{error}</p>}
       <button className="btn-primary w-full" disabled={busy}>

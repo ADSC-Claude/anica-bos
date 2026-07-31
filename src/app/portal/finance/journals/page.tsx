@@ -139,7 +139,7 @@ export default async function JournalsPage({
                   <tr key={s.id}>
                     <td>{s.name}</td>
                     <td className="num">{s.prefix}</td>
-                    <td className="text-xs text-moss-500">{s.permitNumber || '—'}</td>
+                    <td className="text-xs text-cocoa-500">{s.permitNumber || '—'}</td>
                     <td className="num text-right">{s.rangeStart}–{s.rangeEnd}</td>
                     <td className="num text-right">{s.next}</td>
                     <td className="num text-right">{s.next - s.rangeStart}</td>
@@ -148,7 +148,7 @@ export default async function JournalsPage({
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-[11px] text-moss-400">
+          <p className="mt-2 text-[11px] text-cocoa-400">
             Voided receipt numbers are retained and never reused. Corrections are posted as
             reversing entries — no financial record is ever deleted. Records are retained and
             exportable for 10 years.
@@ -180,9 +180,9 @@ export default async function JournalsPage({
                     </td>
                     <td className="num text-xs">{i === 0 ? e.reference : ''}</td>
                     <td className="text-xs">
-                      <span className="num text-moss-400">{l.account.code}</span> {l.account.name}
+                      <span className="num text-cocoa-400">{l.account.code}</span> {l.account.name}
                     </td>
-                    <td className="text-xs text-moss-500">{l.memo || (i === 0 ? e.memo : '')}</td>
+                    <td className="text-xs text-cocoa-500">{l.memo || (i === 0 ? e.memo : '')}</td>
                     <td className="num text-right">{l.debitCents ? formatPeso(l.debitCents) : ''}</td>
                     <td className="num text-right">{l.creditCents ? formatPeso(l.creditCents) : ''}</td>
                   </tr>
@@ -193,7 +193,7 @@ export default async function JournalsPage({
         </div>
       )}
 
-      <p className="mt-4 text-xs text-moss-400">
+      <p className="mt-4 text-xs text-cocoa-400">
         Tax regime:{' '}
         {settings['tax.regime'] === 'NON_VAT_8'
           ? 'Non-VAT, 8% income tax option — receipts print the required non-VAT notation.'

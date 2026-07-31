@@ -169,9 +169,9 @@ export default async function ReportsPage({
               return (
                 <tr key={label as string}>
                   <td className="font-medium">{label as string}</td>
-                  <td className="num text-right text-moss-500">{format(prev as number)}</td>
+                  <td className="num text-right text-cocoa-500">{format(prev as number)}</td>
                   <td className="num text-right font-semibold">{format(now as number)}</td>
-                  <td className={`num text-right ${d === null ? 'text-moss-400' : d >= 0 ? 'text-moss-600' : 'text-clay-500'}`}>
+                  <td className={`num text-right ${d === null ? 'text-cocoa-400' : d >= 0 ? 'text-cocoa-600' : 'text-clay-500'}`}>
                     {d === null ? '—' : `${d >= 0 ? '+' : ''}${d}%`}
                   </td>
                 </tr>
@@ -265,7 +265,7 @@ export default async function ReportsPage({
                     <td>{r.name}</td>
                     <td className="num text-right">{(r.availableMinutes / 60).toFixed(1)}</td>
                     <td className="num text-right">{(r.bookedMinutes / 60).toFixed(1)}</td>
-                    <td className={`num text-right ${r.utilisation >= 60 ? 'text-moss-600' : 'text-sand-500'}`}>
+                    <td className={`num text-right ${r.utilisation >= 60 ? 'text-cocoa-600' : 'text-sand-500'}`}>
                       {r.utilisation}%
                     </td>
                   </tr>
@@ -280,7 +280,7 @@ export default async function ReportsPage({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {EXPORTS.map((group) => (
           <div key={group.group} className="card-pad">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-moss-500">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-cocoa-500">
               {group.group}
             </p>
             <ul className="space-y-1">
@@ -288,7 +288,7 @@ export default async function ReportsPage({
                 <li key={item.key}>
                   <Link
                     href={`/api/portal/export/${item.key}${exportBase}${item.key === 'daily-sales' ? `&date=${manilaDateKey()}` : ''}`}
-                    className="block rounded-lg px-2 py-1.5 text-sm text-moss-700 hover:bg-sand-100"
+                    className="block rounded-lg px-2 py-1.5 text-sm text-cocoa-700 hover:bg-sand-100"
                   >
                     ↓ {item.label}
                   </Link>
@@ -298,7 +298,7 @@ export default async function ReportsPage({
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-moss-400">
+      <p className="mt-3 text-xs text-cocoa-400">
         Every CSV opens directly in Excel or Google Sheets. Printable PDFs: open any report and
         use your browser&apos;s Print → Save as PDF. Client health information is excluded from all
         exports.

@@ -128,11 +128,11 @@ export function AppointmentForm({
               type="button"
               onClick={() => setClientId(c.id)}
               className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm ${
-                clientId === c.id ? 'border-moss-600 bg-moss-50' : 'border-sand-200'
+                clientId === c.id ? 'border-cocoa-600 bg-cocoa-50' : 'border-sand-200'
               }`}
             >
-              <span className="font-medium text-moss-800">{c.name}</span>
-              <span className="num text-xs text-moss-400">{c.mobile}</span>
+              <span className="font-medium text-cocoa-800">{c.name}</span>
+              <span className="num text-xs text-cocoa-400">{c.mobile}</span>
             </button>
           ))}
           {filteredClients.length === 0 && (
@@ -147,7 +147,7 @@ export function AppointmentForm({
         <p className="section-title">Services</p>
         {[...byCategory.entries()].map(([cat, list]) => (
           <fieldset key={cat}>
-            <legend className="mb-1 text-xs font-semibold text-moss-500">{cat}</legend>
+            <legend className="mb-1 text-xs font-semibold text-cocoa-500">{cat}</legend>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {list.map((s) => {
                 const active = serviceIds.includes(s.id);
@@ -161,12 +161,12 @@ export function AppointmentForm({
                       )
                     }
                     className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-sm ${
-                      active ? 'border-moss-600 bg-moss-50' : 'border-sand-200'
+                      active ? 'border-cocoa-600 bg-cocoa-50' : 'border-sand-200'
                     }`}
                   >
                     <span className="min-w-0">
-                      <span className="block truncate text-moss-800">{s.name}</span>
-                      <span className="block text-[11px] text-moss-400">{s.durationMinutes} min</span>
+                      <span className="block truncate text-cocoa-800">{s.name}</span>
+                      <span className="block text-[11px] text-cocoa-400">{s.durationMinutes} min</span>
                     </span>
                     <span className="num shrink-0 text-xs">{formatPeso(s.priceCents)}</span>
                   </button>
@@ -176,7 +176,7 @@ export function AppointmentForm({
           </fieldset>
         ))}
         {chosen.length > 0 && (
-          <p className="rounded-xl bg-sand-100 px-3 py-2 text-sm text-moss-700">
+          <p className="rounded-xl bg-sand-100 px-3 py-2 text-sm text-cocoa-700">
             {duration} minutes · <strong className="num">{formatPeso(price)}</strong>
           </p>
         )}
@@ -196,7 +196,7 @@ export function AppointmentForm({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="label">Therapist {checking && <span className="text-moss-400">(checking…)</span>}</span>
+            <span className="label">Therapist {checking && <span className="text-cocoa-400">(checking…)</span>}</span>
             <select name="employeeId" className="select" value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}>
               <option value="any">Any available (rotation order)</option>

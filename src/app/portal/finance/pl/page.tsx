@@ -106,7 +106,7 @@ export default async function ProfitAndLossPage({
               <PlRow label="NET PROFIT" value={pl.netProfitCents} bold highlight />
             </tbody>
           </table>
-          <p className="mt-3 text-[11px] text-moss-400">
+          <p className="mt-3 text-[11px] text-cocoa-400">
             Tips ({formatPeso(sales.tipsCents)}) are excluded — they are payable to staff, not
             business income. Inventory purchases are capitalised and appear here only as COGS
             when the stock is consumed.
@@ -138,7 +138,7 @@ export default async function ProfitAndLossPage({
                       <td>{label as string}</td>
                       <td className="num text-right">{formatPeso(prev as number)}</td>
                       <td className="num text-right">{formatPeso(now as number)}</td>
-                      <td className={`num text-right ${d === null ? '' : d >= 0 ? 'text-moss-600' : 'text-clay-500'}`}>
+                      <td className={`num text-right ${d === null ? '' : d >= 0 ? 'text-cocoa-600' : 'text-clay-500'}`}>
                         {d === null ? '—' : `${d >= 0 ? '+' : ''}${d}%`}
                       </td>
                     </tr>
@@ -150,7 +150,7 @@ export default async function ProfitAndLossPage({
 
           <div className="card-pad">
             <h2 className="section-title mb-2">Tax position</h2>
-            <p className="text-sm text-moss-600">
+            <p className="text-sm text-cocoa-600">
               Registered as{' '}
               <strong>
                 {settings['tax.regime'] === 'NON_VAT_8'
@@ -163,16 +163,16 @@ export default async function ProfitAndLossPage({
               <>
                 <div className="mt-3">
                   <div className="mb-1 flex justify-between text-sm">
-                    <span className="text-moss-500">Gross sales {monthKey.slice(0, 4)} to date</span>
+                    <span className="text-cocoa-500">Gross sales {monthKey.slice(0, 4)} to date</span>
                     <span className="num font-medium">{formatPeso(grossYtd)}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-sand-200">
                     <div
-                      className={`h-full rounded-full ${thresholdPct >= 85 ? 'bg-clay-500' : 'bg-moss-500'}`}
+                      className={`h-full rounded-full ${thresholdPct >= 85 ? 'bg-clay-500' : 'bg-cocoa-500'}`}
                       style={{ width: `${Math.min(100, thresholdPct)}%` }}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-moss-400">
+                  <p className="mt-1 text-xs text-cocoa-400">
                     {thresholdPct}% of the {formatPeso(threshold)} VAT registration threshold.
                   </p>
                 </div>
@@ -187,7 +187,7 @@ export default async function ProfitAndLossPage({
                 )}
               </>
             )}
-            <p className="mt-3 text-[11px] text-moss-400">
+            <p className="mt-3 text-[11px] text-cocoa-400">
               This is a record-keeping system, not yet a BIR-accredited CAS and not a filing
               system. Nothing is transmitted to the BIR or any third party — every export is
               produced only when you ask for it.
@@ -211,7 +211,7 @@ function PlRow({
   highlight?: boolean;
 }) {
   return (
-    <tr className={highlight ? 'bg-moss-50' : ''}>
+    <tr className={highlight ? 'bg-cocoa-50' : ''}>
       <td className={bold ? 'font-semibold' : ''}>{label}</td>
       <td className={`num text-right ${bold ? 'font-semibold' : ''} ${value < 0 ? 'text-clay-500' : ''}`}>
         {formatPeso(value)}

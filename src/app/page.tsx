@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
-import { formatPeso } from '@/lib/money';
+import { formatPesoMenu } from '@/lib/money';
 import { minutesToLabel } from '@/lib/datetime';
 
 export const dynamic = 'force-dynamic';
@@ -36,24 +36,32 @@ export default async function LandingPage() {
     settings['business.closeMinute'],
   )} daily`;
 
+  // The tagline's last sentence is set in italic gilt — the eye should land on
+  // the promise, not on the middle of a list of verbs. Falls back gracefully
+  // when the Owner writes a one-word tagline in Settings.
+  const tagline = settings['business.tagline'];
+  const splitAt = tagline.trimEnd().lastIndexOf(' ');
+  const taglineHead = splitAt > 0 ? tagline.slice(0, splitAt + 1) : tagline;
+  const taglineTail = splitAt > 0 ? tagline.slice(splitAt + 1) : '';
+
   return (
     <div className="min-h-dvh bg-sand-50">
       {/* ---------------------------------------------------------- nav */}
       <header className="sticky top-0 z-40 border-b border-sand-200 bg-sand-50/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-moss-600 text-lg text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
               ✿
             </span>
-            <span className="font-display text-base font-semibold text-moss-800">
+            <span className="font-display text-base font-semibold text-cocoa-800">
               ANICA Wellness Spa
             </span>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
-            <a href="#services" className="hidden px-3 py-2 text-moss-600 sm:block">
+            <a href="#services" className="hidden px-3 py-2 text-cocoa-600 sm:block">
               Services
             </a>
-            <a href="#visit" className="hidden px-3 py-2 text-moss-600 sm:block">
+            <a href="#visit" className="hidden px-3 py-2 text-cocoa-600 sm:block">
               Visit us
             </a>
             <Link href="/book" className="btn-primary btn-sm">
@@ -65,39 +73,47 @@ export default async function LandingPage() {
 
       {/* -------------------------------------------------------- hero */}
       <section className="relative overflow-hidden">
-        <div className="mx-auto grid max-w-5xl gap-8 px-4 py-12 sm:py-16 lg:grid-cols-2 lg:items-center">
+        <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <div>
-            <p className="mb-3 inline-flex rounded-full bg-moss-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-moss-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cocoa-400">
               Quezon City · Open {hours}
             </p>
-            <h1 className="font-display text-3xl font-semibold leading-tight text-moss-800 sm:text-5xl">
-              {settings['business.tagline']}
+            <span aria-hidden className="mt-6 block h-px w-14 bg-gilt-500/70" />
+            <h1 className="mt-6 font-display text-[2.75rem] leading-[1.02] text-cocoa-800 sm:text-6xl">
+              {taglineHead}
+              {taglineTail && <em className="italic text-gilt-600">{taglineTail}</em>}
             </h1>
-            <p className="mt-4 max-w-md text-moss-600">
+            <p className="mt-6 max-w-lg leading-relaxed text-cocoa-600">
               Massage, body scrub, foot spa and sauna in the heart of Quezon City. Reserve
-              your slot online in under a minute — pick your therapist, your room, and your
-              time.
+              your slot in under a minute — choose your therapist, your room, and your
+              hour.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/book" className="btn-primary">
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/book" className="btn-primary rounded-full px-7">
                 Book your slot
               </Link>
-              <a href="#services" className="btn-secondary">
+              <a href="#services" className="btn-secondary rounded-full px-7">
                 See services &amp; prices
               </a>
             </div>
-            <p className="mt-4 text-xs text-moss-400">
-              A {settings['booking.depositPercent']}% reservation fee secures your booking
-              and is deducted from your final bill.
+            <p className="mt-6 text-xs text-cocoa-400">
+              A{' '}
+              <strong className="font-semibold text-gilt-600">
+                {settings['booking.depositPercent']}% reservation fee
+              </strong>{' '}
+              secures your booking and is deducted from your final bill.
             </p>
           </div>
 
-          {/* Photo placeholder — swap for a real image in /public */}
-          <div className="relative aspect-4/3 overflow-hidden rounded-3xl border border-sand-200 bg-gradient-to-br from-moss-200 via-sand-200 to-sand-300">
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-moss-700">
-              <span className="text-5xl">✿</span>
-              <p className="text-sm font-medium">Spa photo placeholder</p>
-              <p className="px-6 text-center text-xs text-moss-600">
+          {/* Photo placeholder — swap for a real image in /public.
+              The arch is deliberate: it reads as a spa rather than a dashboard. */}
+          {/* Capped on small screens: at full width the arch is taller than the
+              viewport and pushes the price list off the page. */}
+          <div className="relative mx-auto aspect-4/5 w-full max-w-xs overflow-hidden rounded-t-full rounded-b-3xl bg-gradient-to-br from-sand-100 via-sand-300 to-sand-400 ring-1 ring-inset ring-gilt-500/40 sm:max-w-sm lg:max-w-none">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center text-cocoa-700">
+              <span className="font-display text-4xl">✿</span>
+              <p className="text-sm font-medium">Spa photo</p>
+              <p className="text-xs text-cocoa-600">
                 Replace with a photo of your reception or treatment room
                 (<code>/public/hero.jpg</code>).
               </p>
@@ -108,24 +124,24 @@ export default async function LandingPage() {
 
       {/* ------------------------------------------------------ promos */}
       {promos.length > 0 && (
-        <section className="mx-auto max-w-5xl px-4 pb-4">
-          <h2 className="font-display text-xl font-semibold text-moss-800">
+        <section className="mx-auto max-w-5xl px-4 pb-6">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
             What&apos;s on right now
           </h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {promos.map((p) => (
-              <div key={p.id} className="card-pad border-moss-200 bg-moss-50">
+              <div key={p.id} className="card-pad border-cocoa-200 bg-cocoa-50">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-moss-800">{p.name}</p>
+                    <p className="font-semibold text-cocoa-800">{p.name}</p>
                     <p className="muted mt-1">{p.description}</p>
                   </div>
-                  <span className="badge bg-moss-600 text-white">
-                    {p.type === 'PERCENT' ? `${p.value}% off` : `${formatPeso(p.value)} off`}
+                  <span className="badge shrink-0 whitespace-nowrap bg-cocoa-600 text-white">
+                    {p.type === 'PERCENT' ? `${p.value}% off` : `${formatPesoMenu(p.value)} off`}
                   </span>
                 </div>
                 {p.code && (
-                  <p className="mt-3 text-xs text-moss-500">
+                  <p className="mt-3 text-xs text-cocoa-500">
                     Mention code <strong className="tracking-wide">{p.code}</strong> when you
                     book.
                   </p>
@@ -137,85 +153,110 @@ export default async function LandingPage() {
       )}
 
       {/* ---------------------------------------------------- services */}
-      <section id="services" className="mx-auto max-w-5xl px-4 py-10">
-        <h2 className="font-display text-2xl font-semibold text-moss-800">
-          Services &amp; price list
-        </h2>
-        <p className="muted mt-1">
-          All treatments are performed by trained therapists. Prices in Philippine pesos.
-        </p>
-
-        <div className="mt-6 space-y-8">
-          {categories
-            .filter((c) => c.services.length)
-            .map((cat) => (
-              <div key={cat.id}>
-                <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-moss-500">
-                  {cat.name}
-                </h3>
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {cat.services.map((s) => (
-                    <li
-                      key={s.id}
-                      className="card flex items-start justify-between gap-3 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="font-medium text-moss-800">{s.name}</p>
-                        {s.description && (
-                          <p className="mt-0.5 text-xs text-moss-500">{s.description}</p>
-                        )}
-                        <p className="mt-1 text-xs text-moss-400">{s.durationMinutes} minutes</p>
-                      </div>
-                      <p className="shrink-0 font-semibold num text-moss-700">
-                        {formatPeso(s.priceCents)}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-        </div>
-
-        {packages.length > 0 && (
-          <div className="mt-10">
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-moss-500">
-              Packages &amp; membership
-            </h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {packages.map((p) => (
-                <div key={p.id} className="card-pad">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-semibold text-moss-800">{p.name}</p>
-                    <p className="shrink-0 font-semibold num text-moss-700">
-                      {formatPeso(p.priceCents)}
-                    </p>
-                  </div>
-                  <p className="muted mt-1">{p.description}</p>
-                  <p className="mt-2 text-xs text-moss-400">
-                    Valid for {Math.round(p.validityDays / 30)} months. Ask at reception to
-                    avail.
-                  </p>
-                </div>
-              ))}
+      <section id="services" className="border-t border-sand-200 bg-sand-100">
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:py-20">
+          <div className="text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
+              The menu
+            </p>
+            <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
+              Services &amp; price list
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-cocoa-600">
+              Every treatment is performed by a trained therapist. Prices in Philippine
+              pesos.
+            </p>
+            <div
+              aria-hidden
+              className="mt-5 flex items-center justify-center gap-4 text-cocoa-300"
+            >
+              <span className="h-px w-10 bg-sand-300" />
+              <span className="font-display text-lg">✿</span>
+              <span className="h-px w-10 bg-sand-300" />
             </div>
           </div>
-        )}
 
-        <div className="mt-8 text-center">
-          <Link href="/book" className="btn-primary">
-            Book now
-          </Link>
+          {/* Leader dots, as on a printed spa menu — the one structural device
+              here that encodes something true about the content. */}
+          <div className="mt-12 space-y-11">
+            {categories
+              .filter((c) => c.services.length)
+              .map((cat) => (
+                <div key={cat.id}>
+                  <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
+                    {cat.name}
+                  </h3>
+                  <ul className="mt-6 space-y-5">
+                    {cat.services.map((s) => (
+                      <li key={s.id}>
+                        <div className="flex items-baseline gap-3">
+                          <span className="font-medium text-cocoa-800">{s.name}</span>
+                          <span
+                            aria-hidden
+                            className="min-w-6 flex-1 -translate-y-1 border-b border-dotted border-sand-300"
+                          />
+                          <span className="num shrink-0 font-display text-lg font-semibold text-gilt-600">
+                            {formatPesoMenu(s.priceCents)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-sm text-cocoa-500">
+                          {s.description}
+                          {/* Most catalogues already carry the length in the
+                              name — "Swedish Massage (60 min)" — so only add it
+                              when the name has not said it already. */}
+                          {!/\d\s*min/i.test(s.name) && (
+                            <>
+                              {s.description && ' · '}
+                              {s.durationMinutes} minutes
+                            </>
+                          )}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+          </div>
+
+          {packages.length > 0 && (
+            <div className="mt-14">
+              <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
+                Packages &amp; membership
+              </h3>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {packages.map((p) => (
+                  <div key={p.id} className="card-pad">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold text-cocoa-800">{p.name}</p>
+                      <p className="num shrink-0 font-display text-lg font-semibold text-gilt-600">
+                        {formatPesoMenu(p.priceCents)}
+                      </p>
+                    </div>
+                    <p className="muted mt-1">{p.description}</p>
+                    <p className="mt-2 text-xs text-cocoa-400">
+                      Valid for {Math.round(p.validityDays / 30)} months. Ask at reception to
+                      avail.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-14 text-center">
+            <Link href="/book" className="btn-primary rounded-full px-7">
+              Book now
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* --------------------------------------------------- about/visit */}
-      <section id="visit" className="border-t border-sand-200 bg-white">
-        <div className="mx-auto grid max-w-5xl gap-8 px-4 py-12 lg:grid-cols-2">
+      <section id="visit" className="border-t border-sand-200 bg-sand-50">
+        <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-2">
           <div>
-            <h2 className="font-display text-2xl font-semibold text-moss-800">
-              About ANICA
-            </h2>
-            <p className="mt-3 text-moss-600">
+            <h2 className="font-display text-2xl text-cocoa-800 sm:text-3xl">About ANICA</h2>
+            <p className="mt-3 text-cocoa-600">
               ANICA Wellness Spa is a neighbourhood wellness spa in Quezon City. We keep it
               simple: skilled therapists, clean rooms, honest prices, and enough time to
               actually unwind. Whether you need an hour between shifts or a long evening
@@ -224,16 +265,16 @@ export default async function LandingPage() {
 
             <dl className="mt-6 space-y-3 text-sm">
               <div>
-                <dt className="font-semibold text-moss-700">Opening hours</dt>
-                <dd className="text-moss-600">{hours}</dd>
+                <dt className="font-semibold text-cocoa-700">Opening hours</dt>
+                <dd className="text-cocoa-600">{hours}</dd>
               </div>
               <div>
-                <dt className="font-semibold text-moss-700">Address</dt>
-                <dd className="text-moss-600">{settings['business.address']}</dd>
+                <dt className="font-semibold text-cocoa-700">Address</dt>
+                <dd className="text-cocoa-600">{settings['business.address']}</dd>
               </div>
               <div>
-                <dt className="font-semibold text-moss-700">Contact</dt>
-                <dd className="text-moss-600">
+                <dt className="font-semibold text-cocoa-700">Contact</dt>
+                <dd className="text-cocoa-600">
                   {settings['business.contact']}
                   <br />
                   <a
@@ -245,10 +286,10 @@ export default async function LandingPage() {
                 </dd>
               </div>
               <div>
-                <dt className="font-semibold text-moss-700">Facebook</dt>
+                <dt className="font-semibold text-cocoa-700">Facebook</dt>
                 <dd>
                   <a
-                    className="text-moss-600 underline underline-offset-4"
+                    className="text-cocoa-600 underline underline-offset-4"
                     href={settings['business.facebook']}
                     target="_blank"
                     rel="noreferrer noopener"
@@ -261,7 +302,7 @@ export default async function LandingPage() {
           </div>
 
           <div>
-            <h2 className="font-display text-2xl font-semibold text-moss-800">Find us</h2>
+            <h2 className="font-display text-2xl text-cocoa-800 sm:text-3xl">Find us</h2>
             <div className="mt-3 aspect-video overflow-hidden rounded-2xl border border-sand-200 bg-sand-100">
               {settings['business.mapEmbedUrl'] ? (
                 <iframe
@@ -272,7 +313,7 @@ export default async function LandingPage() {
                   referrerPolicy="no-referrer-when-downgrade"
                 />
               ) : (
-                <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center text-sm text-moss-500">
+                <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center text-sm text-cocoa-500">
                   <span className="text-3xl">📍</span>
                   <p className="font-medium">Map embed placeholder</p>
                   <p className="text-xs">
@@ -287,7 +328,7 @@ export default async function LandingPage() {
 
       {/* ------------------------------------------------------- footer */}
       <footer className="border-t border-sand-200 bg-sand-100">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-moss-500">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-cocoa-500">
           <p>
             © {new Date().getFullYear()} {settings['business.name']} · {settings['business.address']}
           </p>

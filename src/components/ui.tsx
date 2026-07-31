@@ -13,7 +13,7 @@ export function PageHeader({
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="font-display text-xl font-semibold text-moss-800 sm:text-2xl">{title}</h1>
+        <h1 className="font-display text-xl font-semibold text-cocoa-800 sm:text-2xl">{title}</h1>
         {subtitle && <p className="muted mt-0.5">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 no-print">{actions}</div>}
@@ -36,24 +36,24 @@ export function StatCard({
 }) {
   const toneClass =
     tone === 'good'
-      ? 'text-moss-600'
+      ? 'text-cocoa-600'
       : tone === 'warn'
         ? 'text-sand-500'
         : tone === 'bad'
           ? 'text-clay-500'
-          : 'text-moss-800';
+          : 'text-cocoa-800';
 
   const inner = (
     <>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-moss-400">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-cocoa-400">{label}</p>
       <p className={`mt-1 text-xl font-semibold num sm:text-2xl ${toneClass}`}>{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-moss-400">{hint}</p>}
+      {hint && <p className="mt-0.5 text-xs text-cocoa-400">{hint}</p>}
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className="card-pad block transition hover:border-moss-300">
+      <Link href={href} className="card-pad block transition hover:border-cocoa-300">
         {inner}
       </Link>
     );
@@ -76,7 +76,7 @@ export function EmptyState({
 }) {
   return (
     <div className="card flex flex-col items-center gap-2 px-6 py-10 text-center">
-      <p className="font-semibold text-moss-700">{title}</p>
+      <p className="font-semibold text-cocoa-700">{title}</p>
       {hint && <p className="muted max-w-md">{hint}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
@@ -85,29 +85,29 @@ export function EmptyState({
 
 const BADGE_TONES: Record<string, string> = {
   PENDING: 'bg-sand-200 text-sand-500',
-  CONFIRMED: 'bg-moss-100 text-moss-600',
-  CHECKED_IN: 'bg-moss-200 text-moss-700',
-  IN_SERVICE: 'bg-moss-600 text-white',
-  COMPLETED: 'bg-moss-500 text-white',
-  CANCELLED: 'bg-sand-200 text-moss-500',
+  CONFIRMED: 'bg-cocoa-100 text-cocoa-600',
+  CHECKED_IN: 'bg-cocoa-200 text-cocoa-700',
+  IN_SERVICE: 'bg-cocoa-600 text-white',
+  COMPLETED: 'bg-cocoa-500 text-white',
+  CANCELLED: 'bg-sand-200 text-cocoa-500',
   NO_SHOW: 'bg-clay-500/15 text-clay-500',
-  EXPIRED: 'bg-sand-200 text-moss-400',
-  PAID: 'bg-moss-100 text-moss-600',
+  EXPIRED: 'bg-sand-200 text-cocoa-400',
+  PAID: 'bg-cocoa-100 text-cocoa-600',
   VOIDED: 'bg-clay-500/15 text-clay-500',
   REFUNDED: 'bg-clay-400/15 text-clay-500',
-  APPROVED: 'bg-moss-100 text-moss-600',
+  APPROVED: 'bg-cocoa-100 text-cocoa-600',
   REJECTED: 'bg-clay-500/15 text-clay-500',
-  DRAFT: 'bg-sand-200 text-moss-500',
-  FINALIZED: 'bg-moss-500 text-white',
-  ACTIVE: 'bg-moss-100 text-moss-600',
-  RECEIVED: 'bg-moss-500 text-white',
-  OK: 'bg-moss-100 text-moss-600',
-  WARN: 'bg-sand-300 text-moss-700',
+  DRAFT: 'bg-sand-200 text-cocoa-500',
+  FINALIZED: 'bg-cocoa-500 text-white',
+  ACTIVE: 'bg-cocoa-100 text-cocoa-600',
+  RECEIVED: 'bg-cocoa-500 text-white',
+  OK: 'bg-cocoa-100 text-cocoa-600',
+  WARN: 'bg-sand-300 text-cocoa-700',
   BAD: 'bg-clay-500/15 text-clay-500',
 };
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
-  const tone = BADGE_TONES[status] ?? 'bg-sand-200 text-moss-600';
+  const tone = BADGE_TONES[status] ?? 'bg-sand-200 text-cocoa-600';
   return <span className={`badge ${tone}`}>{label ?? status.replaceAll('_', ' ').toLowerCase()}</span>;
 }
 
@@ -124,7 +124,7 @@ export function Field({
     <label className="block">
       <span className="label">{label}</span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-moss-400">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] text-cocoa-400">{hint}</span>}
     </label>
   );
 }
@@ -146,8 +146,8 @@ export function Tabs({
             href={t.href}
             className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition ${
               active
-                ? 'border-moss-600 text-moss-800'
-                : 'border-transparent text-moss-400 hover:text-moss-600'
+                ? 'border-cocoa-600 text-cocoa-800'
+                : 'border-transparent text-cocoa-400 hover:text-cocoa-600'
             }`}
           >
             {t.label}
@@ -171,10 +171,10 @@ export function Alert({
   children: React.ReactNode;
 }) {
   const cls = {
-    info: 'border-moss-200 bg-moss-50 text-moss-700',
-    warn: 'border-sand-300 bg-sand-100 text-moss-700',
+    info: 'border-cocoa-200 bg-cocoa-50 text-cocoa-700',
+    warn: 'border-sand-300 bg-sand-100 text-cocoa-700',
     danger: 'border-clay-400/40 bg-clay-500/10 text-clay-500',
-    success: 'border-moss-300 bg-moss-100 text-moss-700',
+    success: 'border-cocoa-300 bg-cocoa-100 text-cocoa-700',
   }[tone];
   return <div className={`rounded-xl border px-3 py-2 text-sm ${cls}`}>{children}</div>;
 }

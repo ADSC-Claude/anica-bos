@@ -80,7 +80,7 @@ export default async function StockTakeDetailPage({
                 <tr key={l.id}>
                   <td>
                     {l.item.name}
-                    <span className="block text-[11px] text-moss-400">{l.item.unit.name}</span>
+                    <span className="block text-[11px] text-cocoa-400">{l.item.unit.name}</span>
                   </td>
                   <td className="num text-right">{l.systemQty}</td>
                   <td className="text-right">
@@ -96,10 +96,10 @@ export default async function StockTakeDetailPage({
                       />
                     )}
                   </td>
-                  <td className={`num text-right ${l.varianceQty === 0 ? '' : l.varianceQty < 0 ? 'text-clay-500' : 'text-moss-600'}`}>
+                  <td className={`num text-right ${l.varianceQty === 0 ? '' : l.varianceQty < 0 ? 'text-clay-500' : 'text-cocoa-600'}`}>
                     {l.varianceQty > 0 ? '+' : ''}{l.varianceQty || '—'}
                   </td>
-                  <td className="num text-right text-xs text-moss-500">
+                  <td className="num text-right text-xs text-cocoa-500">
                     {l.varianceQty ? formatPeso(Math.round(l.item.costCents * l.varianceQty)) : '—'}
                   </td>
                 </tr>

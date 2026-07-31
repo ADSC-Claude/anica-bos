@@ -42,7 +42,7 @@ export function EodForm({
         <div key={m.key} className="flex items-center justify-between gap-3">
           <span className="text-sm">
             {m.label}
-            <span className="block text-xs text-moss-400">
+            <span className="block text-xs text-cocoa-400">
               expected {formatPeso(expected[m.key] ?? 0)}
             </span>
           </span>
@@ -60,7 +60,7 @@ export function EodForm({
       <div className="flex items-center justify-between gap-3 border-t border-sand-200 pt-3">
         <span className="text-sm">
           Petty cash box
-          <span className="block text-xs text-moss-400">expected {formatPeso(pettyExpected)}</span>
+          <span className="block text-xs text-cocoa-400">expected {formatPeso(pettyExpected)}</span>
         </span>
         <input
           name="counted_PETTY"
@@ -75,7 +75,7 @@ export function EodForm({
       <p
         className={`rounded-xl px-3 py-2 text-sm font-semibold ${
           overShort === 0
-            ? 'bg-moss-100 text-moss-700'
+            ? 'bg-cocoa-100 text-cocoa-700'
             : 'bg-clay-500/10 text-clay-500'
         }`}
       >
@@ -96,7 +96,7 @@ export function EodForm({
       <button className="btn-primary w-full" type="submit">
         Close &amp; lock this day
       </button>
-      <p className="text-[11px] text-moss-400">
+      <p className="text-[11px] text-cocoa-400">
         Once closed, sales, voids and edits for this date are blocked. Only the Owner or Manager
         can reopen it, and the reopening is audit-logged.
       </p>

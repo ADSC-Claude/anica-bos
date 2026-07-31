@@ -16,21 +16,21 @@ export default async function BookPage() {
       <header className="border-b border-sand-200 bg-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-moss-600 text-lg text-white">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
               ✿
             </span>
-            <span className="font-display text-sm font-semibold text-moss-800">
+            <span className="font-display text-sm font-semibold text-cocoa-800">
               ANICA Wellness Spa
             </span>
           </Link>
-          <Link href="/" className="text-sm text-moss-600 underline underline-offset-4">
+          <Link href="/" className="text-sm text-cocoa-600 underline underline-offset-4">
             Back
           </Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
-        <h1 className="font-display text-2xl font-semibold text-moss-800">
+        <h1 className="font-display text-2xl font-semibold text-cocoa-800">
           Book your appointment
         </h1>
         <p className="muted mt-1">

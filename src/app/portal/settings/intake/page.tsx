@@ -49,7 +49,7 @@ export default async function IntakeSettingsPage() {
             <tbody>
               {fields.map((f) => (
                 <tr key={f.id} className={f.retired ? 'opacity-50' : ''}>
-                  <td className="font-medium text-moss-800">{f.label}</td>
+                  <td className="font-medium text-cocoa-800">{f.label}</td>
                   <td className="text-xs capitalize">{f.section.toLowerCase()}</td>
                   <td className="text-xs">{f.type.toLowerCase()}</td>
                   <td className="text-xs">{f.showOnline ? 'yes' : 'no'}</td>

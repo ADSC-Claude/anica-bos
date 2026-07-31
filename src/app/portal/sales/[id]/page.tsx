@@ -103,9 +103,9 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
               {sale.corporateAccount && <Row label="Charged to" value={sale.corporateAccount.name} />}
               {sale.appointment && (
                 <div className="flex justify-between gap-3">
-                  <dt className="text-moss-500">Appointment</dt>
+                  <dt className="text-cocoa-500">Appointment</dt>
                   <dd>
-                    <Link href={`/portal/appointments/${sale.appointment.id}`} className="text-moss-700 underline underline-offset-4">
+                    <Link href={`/portal/appointments/${sale.appointment.id}`} className="text-cocoa-700 underline underline-offset-4">
                       {sale.appointment.reference}
                     </Link>
                   </dd>
@@ -123,9 +123,9 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
               <ul className="space-y-1 text-sm">
                 {sale.commissions.map((c) => (
                   <li key={c.id} className="flex justify-between gap-3">
-                    <span className="text-moss-600">
+                    <span className="text-cocoa-600">
                       {c.employee.name}
-                      <span className="ml-1 text-xs text-moss-400">
+                      <span className="ml-1 text-xs text-cocoa-400">
                         ({c.rateType === 'PERCENT' ? `${c.rateValue}% of ${formatPeso(c.basisCents)}` : 'fixed'})
                       </span>
                     </span>
@@ -133,7 +133,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[11px] text-moss-400">
+              <p className="mt-2 text-[11px] text-cocoa-400">
                 Computed on the undiscounted list price, so promos never reduce therapist pay.
               </p>
             </div>
@@ -158,8 +158,8 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-moss-500">{label}</dt>
-      <dd className="text-right capitalize text-moss-700">{value.toLowerCase()}</dd>
+      <dt className="text-cocoa-500">{label}</dt>
+      <dd className="text-right capitalize text-cocoa-700">{value.toLowerCase()}</dd>
     </div>
   );
 }

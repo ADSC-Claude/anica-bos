@@ -43,7 +43,7 @@ export function FeedbackForm({
         <input name="comment" className="input" placeholder="What did the client say?" />
       </label>
       {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-      {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+      {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
       <button className="btn-secondary btn-sm" type="submit">
         Record feedback
       </button>

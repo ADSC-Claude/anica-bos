@@ -59,7 +59,7 @@ export function PettyCashForm({
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">Record</button>
       </form>
 
@@ -75,7 +75,7 @@ export function PettyCashForm({
           <input name="reason" className="input" placeholder="e.g. box is down to ₱400" />
         </label>
         {reqState.error && <p className="text-sm text-clay-500">{reqState.error}</p>}
-        {reqState.ok && <p className="text-sm text-moss-600">{reqState.ok}</p>}
+        {reqState.ok && <p className="text-sm text-cocoa-600">{reqState.ok}</p>}
         <button className="btn-secondary w-full" type="submit">Send request</button>
       </form>
     </div>

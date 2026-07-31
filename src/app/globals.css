@@ -1,25 +1,41 @@
 @import 'tailwindcss';
 
+/*
+ * Warm neutrals with a brown accent. `sand` is the ground, `cocoa` carries
+ * text and actions, `gilt` is the accent — used only as hairlines, prices and
+ * small emphasis, never as a fill. Gold measures 3.4:1 against sand-50, which
+ * is a hairline's worth of contrast and no more; gilt-600 is the darker cut
+ * for anywhere gold has to be legible as text.
+ *
+ * Every cocoa shade meets or beats the contrast of the green it replaced,
+ * cocoa-400 by the widest margin — it is the muted-text colour in 140-odd
+ * places and its predecessor sat below the accessible threshold.
+ */
 @theme {
-  --color-sand-50: #faf7f2;
-  --color-sand-100: #f3ede3;
-  --color-sand-200: #e7dccb;
-  --color-sand-300: #d6c5ab;
-  --color-sand-400: #bda684;
-  --color-sand-500: #a48a67;
+  --color-sand-50: #fdfaf5;
+  --color-sand-100: #f4ece0;
+  --color-sand-200: #e2d3ba;
+  --color-sand-300: #d6c2a2;
+  --color-sand-400: #c0a67f;
+  --color-sand-500: #a4855f;
 
-  --color-moss-50: #f1f6f2;
-  --color-moss-100: #dfeae1;
-  --color-moss-200: #bfd5c4;
-  --color-moss-300: #93b79c;
-  --color-moss-400: #5f8f6d;
-  --color-moss-500: #43734f;
-  --color-moss-600: #345a3e;
-  --color-moss-700: #27442f;
-  --color-moss-800: #1b3021;
+  --color-cocoa-50: #faf5ee;
+  --color-cocoa-100: #f2e7d8;
+  --color-cocoa-200: #e3d0b6;
+  --color-cocoa-300: #c1a077;
+  --color-cocoa-400: #8a6b4a;
+  --color-cocoa-500: #7a5e40;
+  --color-cocoa-600: #6b4e35;
+  --color-cocoa-700: #543c28;
+  --color-cocoa-800: #4a3626;
 
-  --color-clay-400: #c8795c;
-  --color-clay-500: #b05f43;
+  --color-gilt-500: #a8823c;
+  --color-gilt-600: #7e5f25;
+
+  /* Destructive actions. Pushed redder than the old terracotta so it cannot
+     be mistaken for the brown it now sits beside. */
+  --color-clay-400: #c4614a;
+  --color-clay-500: #a8452f;
 
   --font-display: ui-serif, Georgia, 'Times New Roman', serif;
 }
@@ -35,7 +51,7 @@ body {
 
 body {
   background: var(--color-sand-50);
-  color: var(--color-moss-800);
+  color: var(--color-cocoa-800);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
@@ -52,16 +68,16 @@ body {
            disabled:opacity-50;
   }
   .btn-primary {
-    @apply bg-moss-600 text-white hover:bg-moss-700;
+    @apply bg-cocoa-600 text-white hover:bg-cocoa-700;
   }
   .btn-secondary {
-    @apply border border-sand-300 bg-white text-moss-700 hover:bg-sand-100;
+    @apply border border-sand-300 bg-white text-cocoa-700 hover:bg-sand-100;
   }
   .btn-danger {
     @apply bg-clay-500 text-white hover:bg-clay-400;
   }
   .btn-ghost {
-    @apply text-moss-600 hover:bg-sand-100;
+    @apply text-cocoa-600 hover:bg-sand-100;
   }
   .btn-sm {
     @apply min-h-9 px-3 py-1.5 text-xs;
@@ -69,24 +85,24 @@ body {
 
   .card,
   .card-pad {
-    @apply rounded-2xl border border-sand-200 bg-white shadow-[0_1px_2px_rgba(39,68,47,0.04)];
+    @apply rounded-2xl border border-sand-200 bg-white shadow-[0_1px_2px_rgba(74,54,38,0.05)];
   }
   .card-pad {
     @apply p-4 sm:p-5;
   }
 
   .label {
-    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-moss-500;
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-cocoa-500;
   }
   .input,
   .select,
   .textarea {
     @apply min-h-11 w-full rounded-xl border border-sand-300 bg-white px-3 py-2 text-sm
-           text-moss-800 outline-none placeholder:text-sand-400
-           focus:border-moss-400 focus:ring-2 focus:ring-moss-200;
+           text-cocoa-800 outline-none placeholder:text-sand-400
+           focus:border-cocoa-400 focus:ring-2 focus:ring-cocoa-200;
   }
   .select {
-    @apply appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27%2343734f%27%3E%3Cpath%20d%3D%27M5.5%207.5L10%2012l4.5-4.5z%27%2F%3E%3C%2Fsvg%3E")] bg-[length:20px] bg-[right_0.6rem_center] bg-no-repeat pr-9;
+    @apply appearance-none bg-[url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2020%2020%27%20fill%3D%27%236b4e35%27%3E%3Cpath%20d%3D%27M5.5%207.5L10%2012l4.5-4.5z%27%2F%3E%3C%2Fsvg%3E")] bg-[length:20px] bg-[right_0.6rem_center] bg-no-repeat pr-9;
   }
   .textarea {
     @apply min-h-24 py-2;
@@ -104,7 +120,7 @@ body {
   }
   .tbl th {
     @apply whitespace-nowrap border-b border-sand-200 px-3 py-2 text-left text-[11px]
-           font-semibold uppercase tracking-wide text-moss-500;
+           font-semibold uppercase tracking-wide text-cocoa-500;
   }
   .tbl td {
     @apply border-b border-sand-100 px-3 py-2.5 align-top;
@@ -118,10 +134,10 @@ body {
   }
 
   .section-title {
-    @apply text-lg font-semibold text-moss-800;
+    @apply text-lg font-semibold text-cocoa-800;
   }
   .muted {
-    @apply text-sm text-moss-500;
+    @apply text-sm text-cocoa-500;
   }
 }
 

@@ -107,7 +107,7 @@ export default async function CashflowPage({
               .sort((a, b) => b[1] - a[1])
               .map(([method, amount]) => (
                 <li key={method} className="flex justify-between gap-3">
-                  <span className="capitalize text-moss-600">
+                  <span className="capitalize text-cocoa-600">
                     {method.replaceAll('_', ' ').toLowerCase()}
                   </span>
                   <span className="num">{formatPeso(amount)}</span>
@@ -124,7 +124,7 @@ export default async function CashflowPage({
               .sort((a, b) => b[1] - a[1])
               .map(([name, amount]) => (
                 <li key={name} className="flex justify-between gap-3">
-                  <span className="text-moss-600">{name}</span>
+                  <span className="text-cocoa-600">{name}</span>
                   <span className="num">{formatPeso(amount)}</span>
                 </li>
               ))}
@@ -151,7 +151,7 @@ export default async function CashflowPage({
                   return (
                     <tr key={d}>
                       <td className="whitespace-nowrap text-xs">{formatDateKey(d)}</td>
-                      <td className="num text-right text-moss-600">{row.in ? formatPeso(row.in) : '—'}</td>
+                      <td className="num text-right text-cocoa-600">{row.in ? formatPeso(row.in) : '—'}</td>
                       <td className="num text-right text-clay-500">{row.out ? formatPeso(row.out) : '—'}</td>
                       <td className="num text-right font-medium">{formatPeso(row.in - row.out)}</td>
                     </tr>
@@ -163,7 +163,7 @@ export default async function CashflowPage({
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-moss-400">
+      <p className="mt-4 text-xs text-cocoa-400">
         Previous month:{' '}
         <a href={`/portal/finance/cashflow?month=${addMonthsToKey(monthKey, -1)}`} className="underline underline-offset-4">
           {formatMonthKey(addMonthsToKey(monthKey, -1))}

@@ -74,26 +74,26 @@ export function PromoForm({
           <div className="max-h-40 space-y-1 overflow-y-auto">
             {services.map((s) => (
               <label key={s.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="serviceIds" value={s.id} className="h-4 w-4 accent-[#345a3e]"
+                <input type="checkbox" name="serviceIds" value={s.id} className="h-4 w-4 accent-[#6b4e35]"
                   defaultChecked={current?.serviceIds.includes(s.id)} />
                 {s.name}
               </label>
             ))}
           </div>
         </fieldset>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />
           Active
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="showOnLanding" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="showOnLanding" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.showOnLanding ?? true} />
           Show on the public landing page
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">
           {selectedId ? 'Save promo' : 'Create promo'}
         </button>

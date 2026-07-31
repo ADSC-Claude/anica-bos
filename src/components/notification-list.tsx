@@ -29,7 +29,7 @@ export function NotificationList({
   if (!notifications.length) {
     return (
       <div className="card px-4 py-8 text-center">
-        <p className="text-sm font-medium text-moss-700">You&apos;re all caught up</p>
+        <p className="text-sm font-medium text-cocoa-700">You&apos;re all caught up</p>
         <p className="muted mt-1">Nothing needs your attention right now.</p>
       </div>
     );
@@ -46,9 +46,9 @@ export function NotificationList({
             <div className="min-w-0 flex-1">
               {/* Clicking goes straight to the record that needs action. */}
               <Link href={n.link || '/portal'} className="block">
-                <p className="text-sm font-medium text-moss-800">{n.title}</p>
-                {n.body && <p className="mt-0.5 text-xs text-moss-500">{n.body}</p>}
-                <p className="mt-1 text-[11px] text-moss-400">
+                <p className="text-sm font-medium text-cocoa-800">{n.title}</p>
+                {n.body && <p className="mt-0.5 text-xs text-cocoa-500">{n.body}</p>}
+                <p className="mt-1 text-[11px] text-cocoa-400">
                   {formatManila(n.createdAt, { time: true })}
                 </p>
               </Link>

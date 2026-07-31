@@ -42,10 +42,10 @@ export default async function BranchesPage() {
             <div key={b.id} className="card-pad">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-semibold text-moss-800">
-                    {b.name} <span className="num text-xs text-moss-400">({b.code})</span>
+                  <p className="font-semibold text-cocoa-800">
+                    {b.name} <span className="num text-xs text-cocoa-400">({b.code})</span>
                   </p>
-                  <p className="text-xs text-moss-400">{b.address}</p>
+                  <p className="text-xs text-cocoa-400">{b.address}</p>
                 </div>
                 <span className="flex items-center gap-2">
                   {b.isDefault && <StatusBadge status="OK" label="default" />}
@@ -61,7 +61,7 @@ export default async function BranchesPage() {
                 <Row label="Receipts issued" value={String(b._count.sales)} />
               </dl>
               {b.receiptSeries.length > 0 && (
-                <p className="mt-2 text-xs text-moss-400">
+                <p className="mt-2 text-xs text-cocoa-400">
                   Receipt series: {b.receiptSeries.map((s) => `${s.prefix} (next ${s.next})`).join(', ')}
                 </p>
               )}
@@ -83,8 +83,8 @@ export default async function BranchesPage() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] uppercase tracking-wide text-moss-400">{label}</dt>
-      <dd className="text-moss-700">{value}</dd>
+      <dt className="text-[11px] uppercase tracking-wide text-cocoa-400">{label}</dt>
+      <dd className="text-cocoa-700">{value}</dd>
     </div>
   );
 }

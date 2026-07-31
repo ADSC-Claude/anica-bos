@@ -70,7 +70,7 @@ export default async function CampaignsPage({
                     </td>
                     <td className="text-xs">{e.to}</td>
                     <td className="text-xs">{e.subject}</td>
-                    <td className="text-xs text-moss-400">{e.template}</td>
+                    <td className="text-xs text-cocoa-400">{e.template}</td>
                     <td className="text-xs">
                       {e.status === 'logged' ? 'logged (no API key)' : e.status}
                       {e.error && <span className="block text-clay-500">{e.error.slice(0, 60)}</span>}

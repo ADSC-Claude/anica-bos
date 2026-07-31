@@ -7,7 +7,7 @@ export default function OfflinePage() {
     <main className="flex min-h-dvh items-center justify-center bg-sand-50 px-4">
       <div className="card-pad max-w-sm text-center">
         <p className="text-4xl">📶</p>
-        <h1 className="mt-2 font-display text-xl font-semibold text-moss-800">You are offline</h1>
+        <h1 className="mt-2 font-display text-xl font-semibold text-cocoa-800">You are offline</h1>
         <p className="muted mt-2">
           ANICA can still show you the last saved copy of today&apos;s schedule. Saving, checkout
           and anything that changes records will not work until the connection returns — nothing

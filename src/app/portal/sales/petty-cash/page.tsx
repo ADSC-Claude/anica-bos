@@ -88,7 +88,7 @@ export default async function PettyCashPage({
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sand-200 px-3 py-2 text-sm">
                 <span>
                   <strong className="num">{formatPeso(r.amountCents)}</strong> — {r.reason || 'no reason given'}
-                  <span className="block text-xs text-moss-400">
+                  <span className="block text-xs text-cocoa-400">
                     {r.requestedByName} · {formatManila(r.createdAt, { time: true })}
                   </span>
                 </span>
@@ -143,8 +143,8 @@ export default async function PettyCashPage({
                     <tr key={t.id}>
                       <td className="whitespace-nowrap text-xs">{formatManila(t.createdAt)}</td>
                       <td className="text-sm">{t.description}</td>
-                      <td className="text-xs text-moss-500">{t.recordedByName}</td>
-                      <td className="num text-right text-moss-600">
+                      <td className="text-xs text-cocoa-500">{t.recordedByName}</td>
+                      <td className="num text-right text-cocoa-600">
                         {t.direction === 'IN' ? formatPeso(t.amountCents) : ''}
                       </td>
                       <td className="num text-right text-clay-500">

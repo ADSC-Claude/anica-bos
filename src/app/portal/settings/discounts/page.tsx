@@ -53,14 +53,14 @@ export default async function DiscountsSettingsPage() {
               <tbody>
                 {presets.map((p) => (
                   <tr key={p.id}>
-                    <td className="font-medium text-moss-800">{p.name}</td>
+                    <td className="font-medium text-cocoa-800">{p.name}</td>
                     <td className="num text-right">
                       {p.type === 'PERCENT' ? `${p.value}%` : formatPeso(p.value)}
                     </td>
                     <td>
                       <StatusBadge status={p.stackable ? 'OK' : 'BAD'} label={p.stackable ? 'stacks' : 'solo only'} />
                     </td>
-                    <td className="text-xs text-moss-500">
+                    <td className="text-xs text-cocoa-500">
                       {[
                         p.requiresId && 'needs ID number',
                         p.membersOnly && 'members only',
@@ -85,8 +85,8 @@ export default async function DiscountsSettingsPage() {
               <ul className="space-y-1 text-sm">
                 {memberships.map((m) => (
                   <li key={m.id} className="flex justify-between gap-3">
-                    <span className="text-moss-700">{m.name}</span>
-                    <span className="text-xs text-moss-500">
+                    <span className="text-cocoa-700">{m.name}</span>
+                    <span className="text-xs text-cocoa-500">
                       {m.birthdayPerkServiceId
                         ? `free service during the birthday month, once per membership year`
                         : 'no birthday perk set'}
@@ -95,7 +95,7 @@ export default async function DiscountsSettingsPage() {
                 ))}
               </ul>
             )}
-            <p className="mt-2 text-[11px] text-moss-400">
+            <p className="mt-2 text-[11px] text-cocoa-400">
               Choose which service the perk covers on the membership package in Marketing →
               Packages. Commission is still credited to the therapist on the base price.
             </p>

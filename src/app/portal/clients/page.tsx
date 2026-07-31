@@ -148,17 +148,17 @@ export default async function ClientsPage({
               {rows.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <Link href={`/portal/clients/${c.id}`} className="font-medium text-moss-800 hover:underline">
+                    <Link href={`/portal/clients/${c.id}`} className="font-medium text-cocoa-800 hover:underline">
                       {c.name}
                     </Link>
                     {c.addressCity && (
-                      <span className="block text-xs text-moss-400">{c.addressCity}</span>
+                      <span className="block text-xs text-cocoa-400">{c.addressCity}</span>
                     )}
                   </td>
                   <td className="num">{c.mobile}</td>
                   <td className="num text-right">{c.visits}</td>
                   <td className="num text-right">{formatPeso(c.lifetimeCents)}</td>
-                  <td className="whitespace-nowrap text-xs text-moss-500">
+                  <td className="whitespace-nowrap text-xs text-cocoa-500">
                     {c.lastVisit ? formatManila(c.lastVisit) : '—'}
                   </td>
                   <td>

@@ -104,14 +104,14 @@ export function PartnerForm({ partners }: { partners: Partner[] }) {
           <span className="label">Agreement terms</span>
           <textarea name="terms" className="textarea" rows={2} defaultValue={current?.terms} />
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />
           Partner is active
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary" type="submit">
           {selectedId ? 'Save partner' : 'Create partner'}
         </button>

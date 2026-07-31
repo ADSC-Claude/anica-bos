@@ -18,7 +18,7 @@ export function VoidForm({ saleId }: { saleId: string }) {
         <input name="pin" type="password" inputMode="numeric" className="input" required />
       </label>
       {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-      {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+      {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
       <button className="btn-danger" type="submit">
         Void sale
       </button>

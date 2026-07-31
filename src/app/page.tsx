@@ -6,6 +6,7 @@ import { minutesToLabel } from '@/lib/datetime';
 import { buildServiceMenu } from '@/lib/service-menu';
 import { normaliseMapEmbed } from '@/lib/map-embed';
 import { BrandMark } from '@/components/brand-mark';
+import { assetUrl } from '@/lib/asset-url';
 import { publishableFeedback, shortName } from '@/lib/testimonials';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +55,9 @@ export default async function LandingPage() {
   // Photo or video, decided by the file extension rather than a second
   // setting — the Owner should not have to tell the system what they just
   // uploaded.
-  const heroMedia = settings['business.heroImageUrl'].trim();
+  // Versioned for the same reason as the logo: /hero.mp4 keeps its name when
+  // the owner uploads a different video.
+  const heroMedia = assetUrl(settings['business.heroImageUrl']);
   const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
 
   const mapEmbed = normaliseMapEmbed(settings['business.mapEmbedUrl']);

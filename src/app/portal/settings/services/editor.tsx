@@ -5,6 +5,7 @@ import { saveServiceAction, type FormState } from '../actions';
 
 type Service = {
   id: string; name: string; categoryId: string; alsoInCategoryIds: string[]; description: string;
+  requiredResourceType: string;
   durationMinutes: number; price: number;
   commissionType: string; commissionValue: number;
   active: boolean; showOnLanding: boolean; sortRank: number;
@@ -95,6 +96,24 @@ export function ServiceEditor({
             </span>
           </fieldset>
         )}
+        <label className="block">
+          <span className="label">Where it is performed *</span>
+          <select
+            name="requiredResourceType"
+            className="select"
+            defaultValue={current?.requiredResourceType ?? 'BED'}
+          >
+            <option value="BED">Bed — rooms and open beds</option>
+            <option value="CHAIR">Chair — the foot spa &amp; reflexology area</option>
+            <option value="SAUNA">Sauna</option>
+            <option value="">Anywhere that is free</option>
+          </select>
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            Bookings are only offered places of this kind. A foot spa set to
+            &ldquo;bed&rdquo; would occupy a bed that could have been sold, and a massage
+            set to &ldquo;chair&rdquo; would block the foot spa area.
+          </span>
+        </label>
         <label className="block">
           <span className="label">Description (landing page)</span>
           <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />

@@ -80,14 +80,25 @@ export default async function ResourcesPage({
             <select name="type" className="select" defaultValue={editing?.type ?? 'BED'}>
               <option value="ROOM">Room</option>
               <option value="BED">Bed</option>
+              <option value="CHAIR">Chair (foot spa &amp; reflexology)</option>
               <option value="SAUNA">Sauna</option>
               <option value="OTHER">Other</option>
             </select>
+            <span className="mt-1 block text-[11px] text-cocoa-400">
+              Each service says which of these it needs, in Settings → Services. A room
+              or bed is offered for massages and scrubs; a chair only for foot spa and
+              reflexology.
+            </span>
           </label>
           <div className="grid grid-cols-2 gap-2">
             <label className="block">
               <span className="label">Capacity</span>
               <input name="capacity" type="number" min={1} className="input" defaultValue={editing?.capacity ?? 1} />
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                How many people fit at once. Room 1 with two beds is capacity 2; a foot
+                spa area with two chairs is capacity 2. Do not add a second row for the
+                second place — that would sell a bed you do not have.
+              </span>
             </label>
             <label className="block">
               <span className="label">Display order</span>

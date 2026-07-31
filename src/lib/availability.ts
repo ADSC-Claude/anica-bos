@@ -6,6 +6,7 @@
  * dates there is no attendance yet, so it falls back to the default weekly
  * schedule and day-off. Rotation order follows the time-in sequence.
  */
+import type { ResourceType } from '@prisma/client';
 import { prisma } from './db';
 import {
   businessDate,
@@ -143,15 +144,50 @@ export async function nextTherapistInRotation(opts: {
 
 export type AvailableResource = { id: string; name: string; type: string };
 
-/** Rooms/beds free for the whole window. */
+/**
+ * The kind of place a booking needs.
+ *
+ * A booking can hold several services, and they may not agree — a massage plus
+ * a foot spa needs a bed for the massage, not a chair for both. The longest
+ * treatment is the one the room is really being held for, so its requirement
+ * wins. Null means the service does not care, and any free place will do.
+ */
+export function requiredPlaceFor(
+  services: { durationMinutes: number; requiredResourceType: ResourceType | null }[],
+): ResourceType | null {
+  const withRequirement = services
+    .filter((s) => s.requiredResourceType)
+    .sort((a, b) => b.durationMinutes - a.durationMinutes);
+  return withRequirement[0]?.requiredResourceType ?? null;
+}
+
+/**
+ * Which physical places satisfy a requirement.
+ *
+ * A treatment that needs a bed is equally happy in a private room or on an open
+ * bed — Room 1 and Room 2 each hold two beds, and refusing them because they
+ * are filed as ROOM would throw away half the beds in the spa. A foot spa needs
+ * a chair and nothing else will do; a sauna session needs the sauna.
+ */
+export function placesSatisfying(required: ResourceType): ResourceType[] {
+  return required === 'BED' || required === 'ROOM' ? ['ROOM', 'BED'] : [required];
+}
+
+/** Rooms, beds and chairs free for the whole window. */
 export async function availableResources(opts: {
   branchId: string;
   startAt: Date;
   endAt: Date;
   excludeAppointmentId?: string;
+  /** Restrict to one kind of place. Omitted means any. */
+  resourceType?: ResourceType | null;
 }): Promise<AvailableResource[]> {
   const resources = await prisma.resource.findMany({
-    where: { branchId: opts.branchId, active: true },
+    where: {
+      branchId: opts.branchId,
+      active: true,
+      ...(opts.resourceType ? { type: { in: placesSatisfying(opts.resourceType) } } : {}),
+    },
     orderBy: { sortRank: 'asc' },
   });
   const taken = await prisma.appointment.findMany({
@@ -165,9 +201,17 @@ export async function availableResources(opts: {
     },
     select: { resourceId: true },
   });
-  const busy = new Set(taken.map((t) => t.resourceId));
+  // Capacity, not a yes/no. A couples room holds two, a foot-spa area holds as
+  // many chairs as it has, and treating one booking as filling the whole room
+  // loses the rest of its slots. Counting per resource is also what stops a
+  // room being handed out more times than it has places.
+  const used = new Map<string, number>();
+  for (const t of taken) {
+    if (!t.resourceId) continue;
+    used.set(t.resourceId, (used.get(t.resourceId) ?? 0) + 1);
+  }
   return resources
-    .filter((r) => !busy.has(r.id))
+    .filter((r) => (used.get(r.id) ?? 0) < Math.max(1, r.capacity))
     .map((r) => ({ id: r.id, name: r.name, type: r.type }));
 }
 
@@ -179,6 +223,8 @@ export async function assertNoConflicts(opts: {
   employeeIds: string[];
   resourceId?: string | null;
   excludeAppointmentId?: string;
+  /** The kind of place the booked services need, when they need a specific one. */
+  resourceType?: ResourceType | null;
 }): Promise<void> {
   if (opts.employeeIds.length) {
     const clash = await prisma.appointmentService.findFirst({
@@ -202,7 +248,22 @@ export async function assertNoConflicts(opts: {
   }
 
   if (opts.resourceId) {
-    const clash = await prisma.appointment.findFirst({
+    // The last line of defence against overbooking: the booking form filters by
+    // availability, but two people can reach checkout at the same moment, so
+    // the count is taken again here rather than trusted from the form.
+    const resource = await prisma.resource.findUnique({ where: { id: opts.resourceId } });
+
+    // Picking the place by hand bypasses the filtered list, so the requirement
+    // is checked again here — otherwise a 90-minute massage can still be put on
+    // a foot-spa chair, and the chair is then unavailable to the foot spa.
+    if (opts.resourceType && resource && !placesSatisfying(opts.resourceType).includes(resource.type)) {
+      throw new Error(
+        `${resource.name} is not the right kind of place for that treatment — it needs a ${opts.resourceType.toLowerCase()}.`,
+      );
+    }
+
+    const capacity = Math.max(1, resource?.capacity ?? 1);
+    const overlapping = await prisma.appointment.count({
       where: {
         branchId: opts.branchId,
         resourceId: opts.resourceId,
@@ -211,10 +272,14 @@ export async function assertNoConflicts(opts: {
         endAt: { gt: opts.startAt },
         ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
       },
-      include: { resource: true },
     });
-    if (clash) {
-      throw new Error(`${clash.resource?.name ?? 'That room/bed'} is already taken at that time.`);
+    if (overlapping >= capacity) {
+      const name = resource?.name ?? 'That room/bed';
+      throw new Error(
+        capacity === 1
+          ? `${name} is already taken at that time.`
+          : `${name} is full at that time — all ${capacity} places are booked.`,
+      );
     }
   }
 }

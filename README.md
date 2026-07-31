@@ -89,20 +89,32 @@ each other on first run.
 
 ## Default logins
 
-All three are forced to change their password on first sign-in.
+The seed creates three accounts — Owner, Admin (Manager) and Receptionist. Their
+credentials are **not published here**: this repository is public, and a live
+deployment is one URL away from anyone reading it.
 
-| Role | Email | Password | Approval PIN |
-|---|---|---|---|
-| Owner | `owner@anicaspa.ph` | `anica-owner` | `2468` |
-| Admin (Manager) | `manager@anicaspa.ph` | `anica-admin` | `1357` |
-| Receptionist | `reception@anicaspa.ph` | `anica-front` | — |
+To find them, run the seed yourself (`npm run db:seed`) — it prints the three
+sign-ins at the end. They are also listed on the login screen, which renders that
+panel in development only and never in production.
 
-The approval PIN authorizes voids, refunds and manual discounts above the configured
-threshold at the POS.
+All three accounts are created with `mustChangePassword`, so the first sign-in is
+forced through `/portal/change-password` before anything else is reachable.
 
-> **Before going live:** sign in as each account, change the password, then change the
-> approval PINs in Settings → Users. The defaults are printed on the login screen in
-> development only.
+The **approval PIN** authorizes voids, refunds and manual discounts above the
+configured threshold at the POS. It is *not* covered by the forced password change,
+which makes it the credential most likely to still be sitting at its seeded value.
+
+> **Before going live, in this order:**
+>
+> 1. **Change both approval PINs** — Settings → User accounts → pick the account →
+>    leave the password blank → enter a new PIN → Save. Owner and Admin only.
+>    There is no confirmation field, so sign out and test the new PIN on a void
+>    before relying on it.
+> 2. **Change every password.** Your own: the "Change my password" link in the
+>    sidebar. Someone else's: Settings → User accounts → Reset password, which
+>    forces them to set their own on next sign-in.
+> 3. **Change the three email addresses** to ones your staff actually read — half
+>    of a login is the username, and notifications go to these.
 
 ---
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import type { ResourceType } from '@prisma/client';
 import { normaliseMapEmbed } from '@/lib/map-embed';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
@@ -168,9 +169,14 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   if (!name) return { error: 'Enter the service name.' };
 
   const commissionType = str(formData, 'commissionType');
+  // Which kind of place the treatment occupies. Blank means "any" — the booking
+  // will take whatever is free, which is only right for a service that genuinely
+  // does not care where it happens.
+  const requires = str(formData, 'requiredResourceType');
   const data = {
     name,
     categoryId: str(formData, 'categoryId'),
+    requiredResourceType: requires ? (requires as ResourceType) : null,
     description: str(formData, 'description'),
     durationMinutes: Math.max(5, num(formData, 'durationMinutes')),
     priceCents: cents(formData, 'price'),

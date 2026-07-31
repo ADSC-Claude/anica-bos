@@ -124,23 +124,27 @@ async function main() {
   const catBody = await prisma.serviceCategory.create({ data: { name: 'Body Treatments', sortRank: 2 } });
   const catAdd = await prisma.serviceCategory.create({ data: { name: 'Add-ons & Sauna', sortRank: 3 } });
 
+  // `place` is where the treatment is performed, and it decides what the booking
+  // engine is allowed to offer. Foot spa and reflexology are done in the chair
+  // area; the sauna is its own room; everything else needs a bed.
   const serviceSpecs: {
     name: string; cat: string; minutes: number; price: number; rank: number; desc: string;
+    place: 'BED' | 'CHAIR' | 'SAUNA';
   }[] = [
-    { name: 'Swedish Massage (60 min)', cat: catMassage.id, minutes: 60, price: 650, rank: 1, desc: 'Long, flowing strokes to ease everyday tension.' },
-    { name: 'Swedish Massage (90 min)', cat: catMassage.id, minutes: 90, price: 900, rank: 2, desc: 'The full-body classic, with extra time on tight areas.' },
-    { name: 'Shiatsu Massage (60 min)', cat: catMassage.id, minutes: 60, price: 700, rank: 3, desc: 'Japanese pressure-point work along the body’s meridians.' },
-    { name: 'Shiatsu Massage (90 min)', cat: catMassage.id, minutes: 90, price: 950, rank: 4, desc: 'Deeper, unhurried pressure-point therapy.' },
-    { name: 'Combination Massage (90 min)', cat: catMassage.id, minutes: 90, price: 980, rank: 5, desc: 'Swedish and Shiatsu blended to your preference.' },
-    { name: 'Thai Massage (90 min)', cat: catMassage.id, minutes: 90, price: 1000, rank: 6, desc: 'Assisted stretching and rhythmic compression.' },
-    { name: 'Hot Stone Massage (90 min)', cat: catMassage.id, minutes: 90, price: 1200, rank: 7, desc: 'Warm basalt stones melt deep muscle tension.' },
-    { name: 'ANICA Signature Massage (90 min)', cat: catMassage.id, minutes: 90, price: 1250, rank: 8, desc: 'Our house blend of Swedish, Shiatsu and warm oil.' },
-    { name: 'Foot Massage (30 min)', cat: catMassage.id, minutes: 30, price: 350, rank: 9, desc: 'Reflexology-inspired relief for tired feet.' },
-    { name: 'Foot Massage (60 min)', cat: catMassage.id, minutes: 60, price: 600, rank: 10, desc: 'A full hour of reflexology from sole to calf.' },
-    { name: 'Body Scrub (60 min)', cat: catBody.id, minutes: 60, price: 800, rank: 11, desc: 'Gentle exfoliation that leaves skin polished and soft.' },
-    { name: 'Foot Spa (45 min)', cat: catBody.id, minutes: 45, price: 500, rank: 12, desc: 'Soak, scrub, and a soothing foot massage.' },
-    { name: 'Sauna Session (30 min)', cat: catAdd.id, minutes: 30, price: 300, rank: 13, desc: 'Dry heat to loosen muscles before your treatment.' },
-    { name: 'Hot Compress Add-on (15 min)', cat: catAdd.id, minutes: 15, price: 150, rank: 14, desc: 'Herbal hot compress for stubborn knots.' },
+    { name: 'Swedish Massage (60 min)', cat: catMassage.id, minutes: 60, price: 650, rank: 1, desc: 'Long, flowing strokes to ease everyday tension.', place: 'BED' },
+    { name: 'Swedish Massage (90 min)', cat: catMassage.id, minutes: 90, price: 900, rank: 2, desc: 'The full-body classic, with extra time on tight areas.', place: 'BED' },
+    { name: 'Shiatsu Massage (60 min)', cat: catMassage.id, minutes: 60, price: 700, rank: 3, desc: 'Japanese pressure-point work along the body’s meridians.', place: 'BED' },
+    { name: 'Shiatsu Massage (90 min)', cat: catMassage.id, minutes: 90, price: 950, rank: 4, desc: 'Deeper, unhurried pressure-point therapy.', place: 'BED' },
+    { name: 'Combination Massage (90 min)', cat: catMassage.id, minutes: 90, price: 980, rank: 5, desc: 'Swedish and Shiatsu blended to your preference.', place: 'BED' },
+    { name: 'Thai Massage (90 min)', cat: catMassage.id, minutes: 90, price: 1000, rank: 6, desc: 'Assisted stretching and rhythmic compression.', place: 'BED' },
+    { name: 'Hot Stone Massage (90 min)', cat: catMassage.id, minutes: 90, price: 1200, rank: 7, desc: 'Warm basalt stones melt deep muscle tension.', place: 'BED' },
+    { name: 'ANICA Signature Massage (90 min)', cat: catMassage.id, minutes: 90, price: 1250, rank: 8, desc: 'Our house blend of Swedish, Shiatsu and warm oil.', place: 'BED' },
+    { name: 'Foot Massage (30 min)', cat: catMassage.id, minutes: 30, price: 350, rank: 9, desc: 'Reflexology-inspired relief for tired feet.', place: 'CHAIR' },
+    { name: 'Foot Massage (60 min)', cat: catMassage.id, minutes: 60, price: 600, rank: 10, desc: 'A full hour of reflexology from sole to calf.', place: 'CHAIR' },
+    { name: 'Body Scrub (60 min)', cat: catBody.id, minutes: 60, price: 800, rank: 11, desc: 'Gentle exfoliation that leaves skin polished and soft.', place: 'BED' },
+    { name: 'Foot Spa (45 min)', cat: catBody.id, minutes: 45, price: 500, rank: 12, desc: 'Soak, scrub, and a soothing foot massage.', place: 'CHAIR' },
+    { name: 'Sauna Session (30 min)', cat: catAdd.id, minutes: 30, price: 300, rank: 13, desc: 'Dry heat to loosen muscles before your treatment.', place: 'SAUNA' },
+    { name: 'Hot Compress Add-on (15 min)', cat: catAdd.id, minutes: 15, price: 150, rank: 14, desc: 'Herbal hot compress for stubborn knots.', place: 'BED' },
   ];
 
   const services = [];
@@ -154,6 +158,7 @@ async function main() {
           priceCents: P(spec.price),
           description: spec.desc,
           sortRank: spec.rank,
+          requiredResourceType: spec.place,
         },
       }),
     );
@@ -162,24 +167,42 @@ async function main() {
   const signature = svcByName.get('ANICA Signature Massage (90 min)')!;
 
   // ---------------------------------------------------------------- resources
+  // The real floor: eight beds — two in each of the two rooms, plus four open
+  // beds — and a foot spa area with two chairs. `capacity` is how many people a
+  // place holds at once, so Room 1 sells twice and the chair area sells twice.
+  // Inventing extra rows to represent the second place would sell beds that do
+  // not exist.
   const resources = [];
   for (const r of [
-    { name: 'Room 1 (Couples)', type: 'ROOM' as const, rank: 1 },
-    { name: 'Room 2 (Private)', type: 'ROOM' as const, rank: 2 },
-    ...Array.from({ length: 6 }, (_, i) => ({
+    { name: 'Room 1 (Couples)', type: 'ROOM' as const, rank: 1, capacity: 2 },
+    { name: 'Room 2 (Couples)', type: 'ROOM' as const, rank: 2, capacity: 2 },
+    ...Array.from({ length: 4 }, (_, i) => ({
       name: `Bed ${i + 1}`,
       type: 'BED' as const,
       rank: 3 + i,
+      capacity: 1,
     })),
-    { name: 'Sauna', type: 'SAUNA' as const, rank: 10 },
+    { name: 'Foot Spa & Reflexology Area', type: 'CHAIR' as const, rank: 8, capacity: 2 },
+    { name: 'Sauna', type: 'SAUNA' as const, rank: 10, capacity: 1 },
   ]) {
     resources.push(
       await prisma.resource.create({
-        data: { branchId: branch.id, name: r.name, type: r.type, sortRank: r.rank },
+        data: {
+          branchId: branch.id,
+          name: r.name,
+          type: r.type,
+          sortRank: r.rank,
+          capacity: r.capacity,
+        },
       }),
     );
   }
-  const beds = resources.filter((r) => r.type === 'BED');
+  const beds = resources.filter((r) => r.type === 'ROOM' || r.type === 'BED');
+  const chairs = resources.filter((r) => r.type === 'CHAIR');
+  const saunas = resources.filter((r) => r.type === 'SAUNA');
+  /** The demo booking has to land somewhere its treatment can actually happen. */
+  const placeFor = (t: string | null) =>
+    t === 'CHAIR' ? pick(chairs) : t === 'SAUNA' ? pick(saunas) : pick(beds);
 
   // ---------------------------------------------------------------- employees
   console.log('› Employees & users…');
@@ -620,7 +643,7 @@ async function main() {
       const service = pick(eligible);
       const startMinute = 720 + Math.floor(rnd() * 10) * 60;
       if (startMinute + service.durationMinutes > 1440) continue;
-      const resource = pick(beds);
+      const resource = placeFor(service.requiredResourceType);
       const online = chance(0.4);
       const isFuture = dayKey === today && startMinute > 900;
 
@@ -930,7 +953,7 @@ async function main() {
   await prisma.shiftNote.create({
     data: {
       branchId: branch.id, noteDate: businessDate(), authorId: reception.id,
-      body: 'Bed 3 squeaks — maintenance called, coming Thursday. Please use Bed 5 for hot stone in the meantime.',
+      body: 'Bed 3 squeaks — maintenance called, coming Thursday. Please use Bed 4 for hot stone in the meantime.',
     },
   });
   await prisma.directMessage.create({

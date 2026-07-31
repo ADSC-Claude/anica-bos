@@ -10,6 +10,16 @@ import { DeleteButton } from '@/components/delete-button';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Service catalog' };
 
+/** What the booking engine will offer for each service. */
+const PLACE_LABEL: Record<string, string> = {
+  BED: 'Bed or room',
+  ROOM: 'Bed or room',
+  CHAIR: 'Chair',
+  SAUNA: 'Sauna',
+  OTHER: 'Other',
+  ANY: 'Anywhere free',
+};
+
 export default async function ServicesSettingsPage({
   searchParams,
 }: {
@@ -57,6 +67,7 @@ export default async function ServicesSettingsPage({
                 <tr>
                   <th>Service</th>
                   <th>Category</th>
+                  <th>Performed on</th>
                   <th className="text-right">Duration</th>
                   <th className="text-right">Price</th>
                   <th>Commission</th>
@@ -70,6 +81,7 @@ export default async function ServicesSettingsPage({
                   <tr key={s.id}>
                     <td className="font-medium text-cocoa-800">{s.name}</td>
                     <td className="text-xs text-cocoa-500">{s.category.name}</td>
+                    <td className="text-xs text-cocoa-500">{PLACE_LABEL[s.requiredResourceType ?? 'ANY']}</td>
                     <td className="num text-right">{s.durationMinutes} min</td>
                     <td className="num text-right">{formatPeso(s.priceCents)}</td>
                     <td className="text-xs">
@@ -145,6 +157,7 @@ export default async function ServicesSettingsPage({
             categoryId: s.categoryId,
             alsoInCategoryIds: s.alsoInCategories.map((c) => c.id),
             description: s.description,
+            requiredResourceType: s.requiredResourceType ?? '',
             durationMinutes: s.durationMinutes,
             price: s.priceCents / 100,
             commissionType: s.commissionType ?? '',

@@ -103,6 +103,7 @@ enum DiscountType {
 enum ResourceType {
   ROOM
   BED
+  CHAIR
   SAUNA
   OTHER
 }
@@ -405,25 +406,29 @@ model ServiceCategory {
 }
 
 model Service {
-  id               String            @id @default(cuid())
-  name             String
-  categoryId       String
-  category         ServiceCategory   @relation("PrimaryCategory", fields: [categoryId], references: [id])
+  id                   String            @id @default(cuid())
+  name                 String
+  categoryId           String
+  category             ServiceCategory   @relation("PrimaryCategory", fields: [categoryId], references: [id])
   /// Extra headings this service also appears under on the public price list.
   /// Deliberately display-only: a treatment that spans two categories should be
   /// findable under both without its revenue landing in two places.
-  alsoInCategories ServiceCategory[] @relation("AdditionalCategories")
-  description      String            @default("")
-  durationMinutes  Int
-  priceCents       Int
+  alsoInCategories     ServiceCategory[] @relation("AdditionalCategories")
+  description          String            @default("")
+  durationMinutes      Int
+  priceCents           Int
   /// null => use the global default commission rule
-  commissionType   DiscountType?
-  commissionValue  Int? // percent basis points not needed: percent stored as whole number, fixed stored as centavos
-  active           Boolean           @default(true)
-  showOnLanding    Boolean           @default(true)
-  sortRank         Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  commissionType       DiscountType?
+  commissionValue      Int? // percent basis points not needed: percent stored as whole number, fixed stored as centavos
+  /// The kind of place this treatment needs. Null means any — a service
+  /// that requires a bed must not be offered the foot-spa chair, and a foot
+  /// spa occupying a bed is a bed that cannot be sold.
+  requiredResourceType ResourceType?
+  active               Boolean           @default(true)
+  showOnLanding        Boolean           @default(true)
+  sortRank             Int               @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   recipes             ServiceRecipe[]
   appointmentServices AppointmentService[]

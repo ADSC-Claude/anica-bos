@@ -37,7 +37,11 @@
   --color-clay-400: #c4614a;
   --color-clay-500: #a8452f;
 
-  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+  /* Cormorant Garamond for display, Lato for everything read at length.
+     Both are self-hosted by next/font — see layout.tsx. The fallbacks matter:
+     they are what renders for the moment before the file lands. */
+  --font-display: var(--font-display-face), ui-serif, Georgia, serif;
+  --font-sans: var(--font-body-face), system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 :root {
@@ -50,6 +54,7 @@ body {
 }
 
 body {
+  font-family: var(--font-sans);
   background: var(--color-sand-50);
   color: var(--color-cocoa-800);
   -webkit-tap-highlight-color: transparent;
@@ -129,8 +134,24 @@ body {
     @apply bg-sand-50;
   }
 
+  /* Figures that line up.
+     Cormorant's numerals are old-style — 6 and 8 rise, 4 and 7 drop below the
+     baseline — which is lovely inside a sentence and unreadable in a price
+     column. Lato's are lining: one height, and tabular locks them to one width
+     so ₱650 and ₱1,200 stay aligned as prices change. */
   .num {
+    font-family: var(--font-sans);
     @apply tabular-nums;
+  }
+
+  /* The wordmark beside the logo.
+     Cormorant at 15px was set as running text and read as decoration — a
+     display face's hairlines thin out at that size. Bold, uppercase and
+     letterspaced turns it into signage, which is what a name next to a mark
+     actually is. */
+  .wordmark {
+    font-family: var(--font-display);
+    @apply text-[15px] font-bold uppercase tracking-[0.1em] text-cocoa-800;
   }
 
   .section-title {

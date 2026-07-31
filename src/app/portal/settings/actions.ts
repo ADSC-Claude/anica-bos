@@ -226,18 +226,41 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   return { ok: 'Saved. The landing page updates immediately.' };
 }
 
-export async function saveServiceCategoryAction(formData: FormData) {
+export async function saveServiceCategoryAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const user = await requirePage('settings.edit');
+  const id = str(formData, 'id');
   const name = str(formData, 'name');
-  if (!name) return;
-  const cat = await prisma.serviceCategory.create({
-    data: { name, sortRank: num(formData, 'sortRank') },
-  });
+  if (!name) return { error: 'Enter the category name.' };
+
+  // Category names are unique. Checking first turns an unreadable constraint
+  // error into a sentence, and lets a category keep its own name on a rename.
+  const clash = await prisma.serviceCategory.findUnique({ where: { name } });
+  if (clash && clash.id !== id) return { error: `There is already a "${name}" category.` };
+
+  const data = {
+    name,
+    sortRank: num(formData, 'sortRank'),
+    active: bool(formData, 'active'),
+  };
+
+  const before = id ? await prisma.serviceCategory.findUnique({ where: { id } }) : null;
+  const cat = id
+    ? await prisma.serviceCategory.update({ where: { id }, data })
+    : await prisma.serviceCategory.create({ data });
+
   await audit(user, {
-    module: 'settings', action: 'create_service_category', entityType: 'ServiceCategory',
-    entityId: cat.id, summary: `Added service category "${name}"`,
+    module: 'settings', action: id ? 'update_service_category' : 'create_service_category',
+    entityType: 'ServiceCategory', entityId: cat.id,
+    summary: `${id ? 'Updated' : 'Added'} service category "${name}"`,
+    ...(before ? diff(before as never, cat as never) : { after: data }),
   });
+
   revalidatePath('/portal/settings/services');
+  revalidatePath('/');
+  return { ok: 'Saved. The price list reorders immediately.' };
 }
 
 export async function saveResourceAction(formData: FormData) {

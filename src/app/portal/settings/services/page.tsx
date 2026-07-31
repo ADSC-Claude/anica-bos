@@ -4,7 +4,7 @@ import { formatPeso } from '@/lib/money';
 import { PageHeader, StatusBadge } from '@/components/ui';
 import { SettingsNav } from '@/components/settings-nav';
 import { ServiceEditor } from './editor';
-import { saveServiceCategoryAction } from '../actions';
+import { ServiceCategoryEditor } from './category-editor';
 import { DeleteButton } from '@/components/delete-button';
 
 export const dynamic = 'force-dynamic';
@@ -20,14 +20,19 @@ export default async function ServicesSettingsPage({
   const branchId = await resolveBranchId(user, params.branchId);
 
   const [categories, services, items] = await Promise.all([
-    prisma.serviceCategory.findMany({ orderBy: { sortRank: 'asc' } }),
+    prisma.serviceCategory.findMany({ orderBy: [{ sortRank: 'asc' }, { name: 'asc' }] }),
     prisma.service.findMany({
       include: {
         category: true,
         alsoInCategories: { select: { id: true } },
         recipes: { include: { item: { include: { unit: true } } } },
       },
-      orderBy: [{ category: { sortRank: 'asc' } }, { sortRank: 'asc' }],
+      orderBy: [
+        { category: { sortRank: 'asc' } },
+        { category: { name: 'asc' } },
+        { sortRank: 'asc' },
+        { name: 'asc' },
+      ],
     }),
     prisma.item.findMany({
       where: { branchId, archived: false },
@@ -45,7 +50,7 @@ export default async function ServicesSettingsPage({
       <SettingsNav role={user.role} current="/portal/settings/services" />
 
       <div className="grid gap-4 lg:grid-cols-[1fr_400px]">
-        <div>
+        <div className="space-y-6">
           <div className="card table-wrap">
             <table className="tbl">
               <thead>
@@ -91,17 +96,42 @@ export default async function ServicesSettingsPage({
             </table>
           </div>
 
-          <form action={saveServiceCategoryAction} className="card-pad mt-4 flex flex-wrap items-end gap-2">
-            <label className="flex-1">
-              <span className="label">New category</span>
-              <input name="name" className="input" placeholder="e.g. Facials" required />
-            </label>
-            <label className="w-24">
-              <span className="label">Order</span>
-              <input name="sortRank" type="number" className="input" defaultValue={categories.length + 1} />
-            </label>
-            <button className="btn-secondary" type="submit">Add category</button>
-          </form>
+          <div>
+            <h2 className="section-title mb-2">Categories</h2>
+            <div className="card table-wrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th className="text-right">Order</th>
+                    <th>Category</th>
+                    <th className="text-right">Services</th>
+                    <th>Price list</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.map((c) => (
+                    <tr key={c.id}>
+                      <td className="num text-right">{c.sortRank}</td>
+                      <td className="font-medium text-cocoa-800">{c.name}</td>
+                      <td className="num text-right">
+                        {services.filter((s) => s.categoryId === c.id).length}
+                      </td>
+                      <td>
+                        <StatusBadge status={c.active ? 'ACTIVE' : 'CANCELLED'}
+                          label={c.active ? 'shown' : 'hidden'} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <ServiceCategoryEditor
+            categories={categories.map((c) => ({
+              id: c.id, name: c.name, sortRank: c.sortRank, active: c.active,
+            }))}
+          />
         </div>
 
         <ServiceEditor

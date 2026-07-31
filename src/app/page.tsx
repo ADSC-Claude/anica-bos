@@ -6,6 +6,7 @@ import { minutesToLabel } from '@/lib/datetime';
 import { buildServiceMenu } from '@/lib/service-menu';
 import { normaliseMapEmbed } from '@/lib/map-embed';
 import { BrandMark } from '@/components/brand-mark';
+import { assetUrl } from '@/lib/asset-url';
 import { publishableFeedback, shortName } from '@/lib/testimonials';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +55,9 @@ export default async function LandingPage() {
   // Photo or video, decided by the file extension rather than a second
   // setting — the Owner should not have to tell the system what they just
   // uploaded.
-  const heroMedia = settings['business.heroImageUrl'].trim();
+  // Versioned for the same reason as the logo: /hero.mp4 keeps its name when
+  // the owner uploads a different video.
+  const heroMedia = assetUrl(settings['business.heroImageUrl']);
   const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
 
   const mapEmbed = normaliseMapEmbed(settings['business.mapEmbedUrl']);
@@ -280,21 +283,46 @@ export default async function LandingPage() {
                 Packages &amp; membership
               </h3>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {packages.map((p) => (
-                  <div key={p.id} className="card-pad">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="font-semibold text-cocoa-800">{p.name}</p>
-                      <p className="num shrink-0 text-[15px] text-gilt-600">
-                        {formatPesoMenu(p.priceCents)}
+                {packages.map((p) => {
+                  // A membership is a list of perks, and the owner writes it as
+                  // one per line. HTML collapses those newlines, which ran the
+                  // perks together into a single unreadable sentence — so a
+                  // description that was written as lines is shown as lines.
+                  const perks = p.description
+                    .split('\n')
+                    .map((line) => line.replace(/^[-•*·]\s*/, '').trim())
+                    .filter(Boolean);
+
+                  return (
+                    <div key={p.id} className="card-pad">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-semibold text-cocoa-800">{p.name}</p>
+                        <p className="num shrink-0 text-[15px] text-gilt-600">
+                          {formatPesoMenu(p.priceCents)}
+                        </p>
+                      </div>
+                      {perks.length > 1 ? (
+                        <ul className="mt-2 space-y-1.5">
+                          {perks.map((perk) => (
+                            <li key={perk} className="flex gap-2.5">
+                              <span
+                                aria-hidden
+                                className="mt-[0.55rem] h-1 w-1 shrink-0 rotate-45 bg-gilt-600/70"
+                              />
+                              <span className="muted">{perk}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="muted mt-1">{p.description}</p>
+                      )}
+                      <p className="mt-2 text-xs text-cocoa-400">
+                        Valid for {Math.round(p.validityDays / 30)} months. Ask at reception to
+                        avail.
                       </p>
                     </div>
-                    <p className="muted mt-1">{p.description}</p>
-                    <p className="mt-2 text-xs text-cocoa-400">
-                      Valid for {Math.round(p.validityDays / 30)} months. Ask at reception to
-                      avail.
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

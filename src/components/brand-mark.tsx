@@ -8,6 +8,8 @@
  * The glyph stays as the fallback rather than an empty box, so the header is
  * never broken while a logo is being prepared.
  */
+import { assetUrl } from '@/lib/asset-url';
+
 export function BrandMark({
   logoUrl,
   size = 36,
@@ -17,7 +19,10 @@ export function BrandMark({
   size?: number;
   className?: string;
 }) {
-  const src = (logoUrl ?? '').trim();
+  // Versioned, because the path never changes when the file does — see
+  // asset-url.ts. Without it a replaced logo shows only to browsers that never
+  // cached the old one.
+  const src = assetUrl(logoUrl);
   return (
     <span
       className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-cocoa-600 text-white ${className}`}

@@ -56,7 +56,9 @@ export default async function PackagesPage() {
                     <StatusBadge status={p.active ? 'ACTIVE' : 'CANCELLED'} label={p.active ? 'active' : 'inactive'} />
                   </span>
                 </div>
-                {p.description && <p className="muted mb-2">{p.description}</p>}
+                {p.description && (
+                  <p className="muted mb-2 whitespace-pre-line">{p.description}</p>
+                )}
                 {p.type === 'MEMBERSHIP' ? (
                   <ul className="space-y-0.5 text-sm text-cocoa-600">
                     <li>• {p.memberDiscountPercent}% off every visit</li>

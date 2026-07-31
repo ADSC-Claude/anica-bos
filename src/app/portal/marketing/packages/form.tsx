@@ -72,7 +72,11 @@ export function PackageForm({
         </div>
         <label className="block">
           <span className="label">Description</span>
-          <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />
+          <textarea name="description" className="textarea" rows={4} defaultValue={current?.description} />
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            One perk per line — each line becomes its own bullet on the price list. A single
+            line stays a sentence.
+          </span>
         </label>
         <label className="block">
           <span className="label">Validity (days)</span>

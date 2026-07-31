@@ -101,15 +101,19 @@ All three accounts are created with `mustChangePassword`, so the first sign-in i
 forced through `/portal/change-password` before anything else is reachable.
 
 The **approval PIN** authorizes voids, refunds and manual discounts above the
-configured threshold at the POS. It is *not* covered by the forced password change,
-which makes it the credential most likely to still be sitting at its seeded value.
+configured threshold at the POS. Only the **Owner** holds one — a void erases a
+sale and a manual discount gives money away, so the approval is the one control a
+manager cannot exercise over their own shift. The PIN field appears only on Owner
+accounts, and saving an account as Manager or Receptionist clears any PIN it held.
+It is *not* covered by the forced password change, which makes it the credential
+most likely to still be sitting at its seeded value.
 
 > **Before going live, in this order:**
 >
-> 1. **Change both approval PINs** — Settings → User accounts → pick the account →
->    leave the password blank → enter a new PIN → Save. Owner and Admin only.
->    There is no confirmation field, so sign out and test the new PIN on a void
->    before relying on it.
+> 1. **Change the Owner's approval PIN** — Settings → User accounts → pick the
+>    Owner → leave the password blank → enter a new PIN → Save. There is no
+>    confirmation field, so sign out and test the new PIN on a void before
+>    relying on it.
 > 2. **Change every password.** Your own: the "Change my password" link in the
 >    sidebar. Someone else's: Settings → User accounts → Reset password, which
 >    forces them to set their own on next sign-in.

@@ -317,7 +317,9 @@ async function main() {
     data: {
       email: 'manager@anicaspa.ph', name: 'Katrina Lopez', role: 'ADMIN',
       passwordHash: hash('anica-admin'), branchId: branch.id, employeeId: managerEmp.id,
-      mustChangePassword: true, approvalPinHash: hash('1357'),
+      // No approval PIN: voids, refunds and large discounts are the Owner's
+      // alone, so the manager cannot sign off on their own shift.
+      mustChangePassword: true,
     },
   });
   const reception = await prisma.user.create({
@@ -980,7 +982,7 @@ async function main() {
   console.log(`  Receipts    : ${saleCount}`);
   console.log('\n  Sign in at /login — all three accounts must change their password first:');
   console.log('    Owner        owner@anicaspa.ph      anica-owner   (approval PIN 2468)');
-  console.log('    Manager      manager@anicaspa.ph    anica-admin   (approval PIN 1357)');
+  console.log('    Manager      manager@anicaspa.ph    anica-admin');
   console.log('    Receptionist reception@anicaspa.ph  anica-front\n');
 }
 

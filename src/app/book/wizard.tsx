@@ -55,6 +55,14 @@ export function BookingWizard() {
 
   const [branchId, setBranchId] = useState('');
   const [serviceIds, setServiceIds] = useState<string[]>([]);
+  /**
+   * Everyone else in the party. Names only — the person booking is the client
+   * of record, and asking four people for a birthday and a medical history at
+   * the point of booking loses the booking.
+   */
+  const [guests, setGuests] = useState<{ name: string; serviceIds: string[] }[]>([]);
+  const [seats, setSeats] = useState<Record<number, string>>({});
+  const [activeGuest, setActiveGuest] = useState(0);
   const [dateKey, setDateKey] = useState(todayKey());
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [startAt, setStartAt] = useState('');
@@ -89,6 +97,14 @@ export function BookingWizard() {
     () => catalog?.categories.flatMap((c) => c.services) ?? [],
     [catalog],
   );
+  /** `svcA,svcB|svcC` — one group per guest, in the order they are shown. */
+  const guestParam = useMemo(
+    () => guests.map((g) => g.serviceIds.join(',')).join('|'),
+    [guests],
+  );
+  const partyReady =
+    serviceIds.length > 0 &&
+    guests.every((g) => g.name.trim() !== '' && g.serviceIds.length > 0);
   const chosen = allServices.filter((s) => serviceIds.includes(s.id));
   const totalMinutes = chosen.reduce((a, s) => a + s.durationMinutes, 0);
   const totalPrice = chosen.reduce((a, s) => a + s.priceCents, 0);
@@ -96,7 +112,7 @@ export function BookingWizard() {
 
   // Load the day's slots whenever the service or date changes.
   useEffect(() => {
-    if (!serviceIds.length || !dateKey || !branchId) {
+    if (!partyReady || !dateKey || !branchId) {
       setSlots(null);
       return;
     }
@@ -104,6 +120,7 @@ export function BookingWizard() {
     setSlots(null);
     setStartAt('');
     const params = new URLSearchParams({ branchId, date: dateKey, serviceIds: serviceIds.join(',') });
+    if (guestParam) params.set('guests', guestParam);
     fetch(`/api/public/availability?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -113,7 +130,7 @@ export function BookingWizard() {
       })
       .catch(() => !cancelled && setError('Could not check availability. Please try again.'));
     return () => { cancelled = true; };
-  }, [serviceIds, dateKey, branchId]);
+  }, [serviceIds, dateKey, branchId, guestParam, partyReady]);
 
   // Load therapists/rooms for the picked slot.
   useEffect(() => {
@@ -121,6 +138,7 @@ export function BookingWizard() {
     const params = new URLSearchParams({
       branchId, date: dateKey, serviceIds: serviceIds.join(','), startAt,
     });
+    if (guestParam) params.set('guests', guestParam);
     fetch(`/api/public/availability?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -133,7 +151,7 @@ export function BookingWizard() {
         setResourceId('any');
       })
       .catch(() => setError('Could not load therapists for that time.'));
-  }, [startAt, branchId, dateKey, serviceIds]);
+  }, [startAt, branchId, dateKey, serviceIds, guestParam]);
 
   async function submit() {
     setError('');
@@ -145,8 +163,14 @@ export function BookingWizard() {
         body: JSON.stringify({
           branchId, serviceIds, startAtIso: startAt,
           therapistId: therapistId === 'any' ? null : therapistId,
-          resourceId: resourceId === 'any' ? null : resourceId,
+          resourceId: guests.length ? (seats[0] ?? null) : resourceId === 'any' ? null : resourceId,
           client, intake, notes, consent, promoCode: promoCode || undefined,
+          guests: guests.map((g, i) => ({
+            name: g.name.trim(),
+            serviceIds: g.serviceIds,
+            // seats[0] is the booker, so a guest's own place is seats[i + 1].
+            resourceId: seats[i + 1] ?? null,
+          })),
         }),
       });
       const data = await res.json();
@@ -221,7 +245,40 @@ export function BookingWizard() {
           )}
 
           <div>
-            <span className="label">Choose your service</span>
+            <span className="label">How many of you?</span>
+            <div className="mb-1 flex flex-wrap gap-1.5">
+              {[1, 2, 3, 4].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() =>
+                    setGuests((prev) => {
+                      const next = prev.slice(0, n - 1);
+                      while (next.length < n - 1) next.push({ name: '', serviceIds: [] });
+                      return next;
+                    })
+                  }
+                  aria-pressed={guests.length === n - 1}
+                  className={`min-h-11 min-w-11 rounded-xl border px-4 text-sm font-semibold transition ${
+                    guests.length === n - 1
+                      ? 'border-cocoa-600 bg-cocoa-600 text-white'
+                      : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
+                  }`}
+                >
+                  {n === 1 ? 'Just me' : n}
+                </button>
+              ))}
+            </div>
+            <p className="mb-4 text-[11px] text-cocoa-400">
+              Everyone books together and pays one reservation fee. Each of you can have a
+              different treatment.
+            </p>
+          </div>
+
+          <div>
+            <span className="label">
+              {guests.length ? 'Your treatment' : 'Choose your service'}
+            </span>
             <div className="space-y-3">
               {catalog.categories.map((cat) => (
                 <fieldset key={cat.id}>
@@ -260,11 +317,101 @@ export function BookingWizard() {
             </div>
           </div>
 
-          {serviceIds.length > 0 && (
+          {/* One block per guest. Deliberately the same service buttons as the
+              booker's, because "the same list, for Nina" is a thing anyone can
+              follow without instructions. */}
+          {guests.map((g, i) => (
+            <div key={i} className="rounded-2xl border border-sand-200 bg-sand-50 p-3">
+              <label className="block">
+                <span className="label">Guest {i + 2} — name</span>
+                <input
+                  className="input"
+                  value={g.name}
+                  placeholder="Who is coming with you?"
+                  onChange={(e) =>
+                    setGuests((prev) =>
+                      prev.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)),
+                    )
+                  }
+                />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  A first name is enough — we take the rest when you arrive.
+                </span>
+              </label>
+              <div className="mt-2">
+                <span className="label">Their treatment</span>
+                <div className="grid gap-1.5">
+                  {allServices.map((sv) => {
+                    const on = g.serviceIds.includes(sv.id);
+                    return (
+                      <button
+                        key={sv.id}
+                        type="button"
+                        onClick={() =>
+                          setGuests((prev) =>
+                            prev.map((x, xi) =>
+                              xi === i
+                                ? {
+                                    ...x,
+                                    serviceIds: on
+                                      ? x.serviceIds.filter((y) => y !== sv.id)
+                                      : [...x.serviceIds, sv.id],
+                                  }
+                                : x,
+                            ),
+                          )
+                        }
+                        className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-1.5 text-left text-sm transition ${
+                          on ? 'border-cocoa-600 bg-cocoa-50' : 'border-sand-200 bg-white'
+                        }`}
+                      >
+                        <span className="min-w-0 truncate text-cocoa-800">{sv.name}</span>
+                        <span className="num shrink-0 text-cocoa-600">
+                          {formatPeso(sv.priceCents)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {serviceIds.length > 0 && !partyReady && (
+            <p className="text-sm text-clay-500">
+              Give every guest a name and a treatment to see the free times.
+            </p>
+          )}
+
+          {partyReady && (
             <>
               <div className="rounded-xl bg-sand-100 px-3 py-2 text-sm text-cocoa-700">
-                {chosen.length} service{chosen.length > 1 ? 's' : ''} · {totalMinutes} minutes ·{' '}
-                <strong className="num">{formatPeso(totalPrice)}</strong>
+                {guests.length ? (
+                  <>
+                    Party of {guests.length + 1} ·{' '}
+                    <strong className="num">
+                      {formatPeso(
+                        totalPrice +
+                          guests.reduce(
+                            (a, g) =>
+                              a +
+                              g.serviceIds.reduce(
+                                (b, id) =>
+                                  b + (allServices.find((x) => x.id === id)?.priceCents ?? 0),
+                                0,
+                              ),
+                            0,
+                          ),
+                      )}
+                    </strong>{' '}
+                    total
+                  </>
+                ) : (
+                  <>
+                    {chosen.length} service{chosen.length > 1 ? 's' : ''} · {totalMinutes} minutes ·{' '}
+                    <strong className="num">{formatPeso(totalPrice)}</strong>
+                  </>
+                )}
               </div>
 
               <label className="block">

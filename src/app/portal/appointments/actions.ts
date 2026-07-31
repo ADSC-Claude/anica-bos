@@ -13,7 +13,7 @@ import {
   requiredPlaceFor,
 } from '@/lib/availability';
 import { bookingReference } from '@/lib/codes';
-import { confirmDeposit } from '@/lib/booking';
+import { approveLateRequest, confirmDeposit, declineLateRequest } from '@/lib/booking';
 import { resolveNotifications } from '@/lib/notifications';
 import { sendTemplateEmail } from '@/lib/email';
 import { formatManila } from '@/lib/datetime';
@@ -305,4 +305,42 @@ export async function walkInNowAction(formData: FormData) {
   });
 
   redirect(`/portal/appointments/${created.id}`);
+}
+
+/* ------------------------------------------------- late booking requests */
+
+export async function approveLateRequestAction(formData: FormData) {
+  const user = await requirePage('appointments.edit');
+  const id = str(formData, 'id');
+  const result = await approveLateRequest({ appointmentId: id, approvedBy: user.name });
+  if (result.ok) {
+    await audit(user, {
+      module: 'appointments', action: 'approve_late_request',
+      entityType: 'Appointment', entityId: id,
+      summary: 'Approved a booking that runs past closing',
+      sensitive: true,
+    });
+  }
+  revalidatePath('/portal/appointments');
+  revalidatePath(`/portal/appointments/${id}`);
+}
+
+export async function declineLateRequestAction(formData: FormData) {
+  const user = await requirePage('appointments.edit');
+  const id = str(formData, 'id');
+  const result = await declineLateRequest({
+    appointmentId: id,
+    reason: str(formData, 'reason'),
+    declinedBy: user.name,
+  });
+  if (result.ok) {
+    await audit(user, {
+      module: 'appointments', action: 'decline_late_request',
+      entityType: 'Appointment', entityId: id,
+      summary: `Declined a booking that runs past closing${str(formData, 'reason') ? ` — ${str(formData, 'reason')}` : ''}`,
+      sensitive: true,
+    });
+  }
+  revalidatePath('/portal/appointments');
+  revalidatePath(`/portal/appointments/${id}`);
 }

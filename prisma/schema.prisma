@@ -969,6 +969,16 @@ model Appointment {
   depositAppliedSaleId String?
   expiresAt            DateTime?
 
+  // --- after-hours request (a treatment that would run past closing) ---
+  /// Set when the guest asked for a slot the spa cannot promise: the booking is
+  /// a request, not a reservation, until someone at the desk says yes. No
+  /// deposit is taken while this is true, so a declined request never has to be
+  /// refunded.
+  needsApproval    Boolean   @default(false)
+  approvedAt       DateTime?
+  approvedBy       String    @default("")
+  declineReason    String    @default("")
+
   checkedInAt  DateTime?
   startedAt    DateTime?
   completedAt  DateTime?

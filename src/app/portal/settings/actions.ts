@@ -75,6 +75,7 @@ export async function saveSettingsAction(
         'booking.expiryMinutes': num(formData, 'expiryMinutes'),
         'booking.leadTimeMinutes': num(formData, 'leadTimeMinutes'),
         'booking.slotStepMinutes': num(formData, 'slotStepMinutes'),
+        'booking.lastCallMinutes': num(formData, 'lastCallMinutes'),
         'booking.manualFallbackEnabled': bool(formData, 'manualFallbackEnabled'),
         'booking.gcashName': str(formData, 'gcashName'),
         'booking.gcashNumber': str(formData, 'gcashNumber'),

@@ -40,7 +40,16 @@ export const DEFAULT_SETTINGS = {
   'booking.bankDetails': 'BDO • ANICA Wellness Spa • 0000 0000 0000',
   'booking.depositOnCancel': 'FORFEIT' as 'FORFEIT' | 'REFUND',
   'booking.leadTimeMinutes': 60,
-  'booking.slotStepMinutes': 30,
+  'booking.slotStepMinutes': 15,
+  /**
+   * How long before closing a booking may still be *requested*.
+   *
+   * A treatment that finishes by closing is sold outright. Between this cut-off
+   * and closing, a longer treatment can still be asked for — it books as a
+   * request the receptionist approves or declines, since it means someone stays
+   * late. 0 turns requests off and the spa simply closes on time.
+   */
+  'booking.lastCallMinutes': 60,
 
   // --- POS ---
   'pos.discountApprovalPercent': 20,

@@ -11,6 +11,8 @@ import { appUrl } from './app-url';
 
 export type TemplateKey =
   | 'booking_received'
+  | 'booking_request_received'
+  | 'booking_request_approved'
   | 'booking_confirmed'
   | 'booking_rejected'
   | 'membership_expiring'
@@ -34,6 +36,42 @@ To hold your slot we ask for a reservation fee of {{deposit}} ({{depositPercent}
 Your booking stays PENDING until the reservation fee is received, and expires automatically after {{expiryMinutes}} minutes if unpaid. The reservation fee is deducted from your final bill.
 
 See you soon!
+{{businessName}} • {{businessContact}}`,
+  },
+  // A slot that runs past closing cannot be sold on the spot, so this replaces
+  // booking_received for those: it must not talk about an expiry clock or ask
+  // for money, because neither applies until someone agrees to stay late.
+  booking_request_received: {
+    subject: 'We received your request — {{reference}}',
+    body: `Hi {{clientName}},
+
+Thank you for choosing {{businessName}}!
+
+  Reference : {{reference}}
+  Service   : {{services}}
+  Date/Time : {{when}}
+
+This time runs past our closing hour, so we need to check that a therapist can stay for you. Consider it requested, not yet booked — we will message you shortly either way.
+
+Nothing has been charged. If we can take you, we will send you a link to pay the {{deposit}} reservation fee, and that fee comes off your final bill.
+
+{{businessName}} • {{businessContact}}`,
+  },
+  booking_request_approved: {
+    subject: 'Good news — we can take you at {{when}}',
+    body: `Hi {{clientName}},
+
+We can stay for you. Your slot is being held.
+
+  Reference : {{reference}}
+  Service   : {{services}}
+  Date/Time : {{when}}
+  Therapist : {{therapist}}
+
+To confirm it, please settle the {{deposit}} reservation fee within {{expiryMinutes}} minutes. {{depositInstructions}}
+
+The fee is deducted from your final bill. See you later tonight!
+
 {{businessName}} • {{businessContact}}`,
   },
   booking_confirmed: {

@@ -27,7 +27,11 @@ type Catalog = {
   bookingEnabled: boolean;
 };
 
-type Slot = { minute: number; label: string; startAt: string; therapists: number };
+type Slot = {
+  minute: number; label: string; startAt: string; therapists: number;
+  /** Runs past closing: can be requested, but the spa has to agree to stay. */
+  needsApproval: boolean;
+};
 
 const CITIES = [
   'Quezon City', 'Caloocan City', 'Las Piñas City', 'Makati City', 'Malabon City',
@@ -285,16 +289,37 @@ export function BookingWizard() {
                         key={s.startAt}
                         type="button"
                         onClick={() => setStartAt(s.startAt)}
-                        className={`min-h-11 rounded-xl border px-2 py-2 text-sm font-medium transition ${
+                        className={`min-h-11 rounded-xl border px-2 py-1.5 text-sm font-medium transition ${
                           startAt === s.startAt
                             ? 'border-cocoa-600 bg-cocoa-600 text-white'
-                            : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
+                            : s.needsApproval
+                              ? 'border-dashed border-gilt-500 bg-white text-cocoa-700 hover:border-cocoa-300'
+                              : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
                         }`}
                       >
                         {s.label}
+                        {/* A dashed edge and a word, not just a colour — the
+                            difference between "booked" and "asked for" is worth
+                            more than a hue nobody decodes. */}
+                        {s.needsApproval && (
+                          <span
+                            className={`block text-[10px] font-normal leading-tight ${
+                              startAt === s.startAt ? 'text-sand-200' : 'text-gilt-600'
+                            }`}
+                          >
+                            on request
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
+                )}
+                {slots?.some((x) => x.needsApproval) && (
+                  <p className="mt-2 text-[11px] leading-relaxed text-cocoa-500">
+                    Times marked <strong className="text-gilt-600">on request</strong> run past
+                    our closing hour. You can still ask for them — we will confirm whether a
+                    therapist can stay, and <strong>nothing is charged until we do</strong>.
+                  </p>
                 )}
               </div>
             </>

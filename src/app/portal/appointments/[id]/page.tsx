@@ -8,7 +8,12 @@ import { medicalAlertsFor } from '@/lib/medical';
 import { formatPeso } from '@/lib/money';
 import { formatManila } from '@/lib/datetime';
 import { PageHeader, StatusBadge, Alert } from '@/components/ui';
-import { setAppointmentStatusAction, verifyDepositAction } from '../actions';
+import {
+  approveLateRequestAction,
+  declineLateRequestAction,
+  setAppointmentStatusAction,
+  verifyDepositAction,
+} from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -101,6 +106,39 @@ export default async function AppointmentDetailPage({
             This booking runs past midnight closing time. Double-check with the therapist
             before confirming it.
           </Alert>
+        </div>
+      )}
+
+      {/* A slot the guest asked for that runs past closing. Nothing has been
+          charged, so this decision costs the spa nothing either way — which is
+          the point of it being a decision at all. */}
+      {appt.needsApproval && canEdit && (
+        <div className="card-pad mb-4 border-cocoa-300 bg-cocoa-50">
+          <h2 className="section-title mb-1">Late request — runs past closing</h2>
+          <p className="muted mb-3">
+            {appt.client.name} asked for {formatManila(appt.startAt, { time: true, weekday: true })},
+            finishing at {formatManila(appt.endAt, { time: true })}. Approving asks them for the{' '}
+            {formatPeso(appt.depositAmountCents)} reservation fee and holds the slot.
+            Nothing has been charged yet, so declining costs them nothing.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <form action={approveLateRequestAction}>
+              <input type="hidden" name="id" value={appt.id} />
+              <button className="btn-primary btn-sm" type="submit">
+                Approve — we can stay
+              </button>
+            </form>
+            <form action={declineLateRequestAction} className="flex items-end gap-2">
+              <input type="hidden" name="id" value={appt.id} />
+              <label className="block">
+                <span className="label">Reason (sent to the client)</span>
+                <input name="reason" className="input w-64" placeholder="No therapist available that late" />
+              </label>
+              <button className="btn-danger btn-sm" type="submit">
+                Decline
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

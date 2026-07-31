@@ -5,6 +5,7 @@ import { PageHeader, StatusBadge } from '@/components/ui';
 import { SettingsNav } from '@/components/settings-nav';
 import { ServiceEditor } from './editor';
 import { saveServiceCategoryAction } from '../actions';
+import { DeleteButton } from '@/components/delete-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Service catalog' };
@@ -56,6 +57,7 @@ export default async function ServicesSettingsPage({
                   <th>Commission</th>
                   <th>Recipe</th>
                   <th>Status</th>
+                  <th className="text-right">Remove</th>
                 </tr>
               </thead>
               <tbody>
@@ -79,6 +81,9 @@ export default async function ServicesSettingsPage({
                     </td>
                     <td>
                       <StatusBadge status={s.active ? 'ACTIVE' : 'CANCELLED'} label={s.active ? 'active' : 'off'} />
+                    </td>
+                    <td className="text-right">
+                      <DeleteButton kind="service" id={s.id} label={s.name} />
                     </td>
                   </tr>
                 ))}

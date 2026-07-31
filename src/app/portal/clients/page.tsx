@@ -6,6 +6,7 @@ import { formatManila, isBirthdayMonth } from '@/lib/datetime';
 import { PageHeader, EmptyState, StatusBadge, Tabs } from '@/components/ui';
 import { getSettings } from '@/lib/settings';
 import { retentionWatch } from '@/lib/retention';
+import { DeleteButton } from '@/components/delete-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Clients' };
@@ -142,6 +143,7 @@ export default async function ClientsPage({
                 <th className="text-right">Lifetime spend</th>
                 <th>Last visit</th>
                 <th>Status</th>
+                <th className="text-right">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -169,6 +171,9 @@ export default async function ClientsPage({
                         <StatusBadge status="OK" label={`${c.loyaltyPoints} pts`} />
                       )}
                     </div>
+                  </td>
+                  <td className="text-right">
+                    <DeleteButton kind="client" id={c.id} label={c.name} />
                   </td>
                 </tr>
               ))}

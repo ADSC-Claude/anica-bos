@@ -5,6 +5,7 @@ import { can } from '@/lib/rbac';
 import { formatPeso } from '@/lib/money';
 import { manilaMonthKey, monthBounds, dateKeyToBusinessDate } from '@/lib/datetime';
 import { PageHeader, EmptyState, StatusBadge, Tabs } from '@/components/ui';
+import { DeleteButton } from '@/components/delete-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Employees' };
@@ -108,6 +109,7 @@ export default async function EmployeesPage({
                 <th className="text-right">Rating</th>
                 <th>Skills</th>
                 <th>Status</th>
+                <th className="text-right">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -144,6 +146,9 @@ export default async function EmployeesPage({
                     <td className="text-xs text-cocoa-400">{e.skills.length} service(s)</td>
                     <td>
                       <StatusBadge status={e.active ? 'ACTIVE' : 'CANCELLED'} label={e.active ? 'active' : 'inactive'} />
+                    </td>
+                    <td className="text-right">
+                      <DeleteButton kind="employee" id={e.id} label={e.name} />
                     </td>
                   </tr>
                 );

@@ -48,6 +48,8 @@ export default async function LandingPage() {
   // leaves whatever was stored before the validation existed rendering as-is —
   // and a pasted <iframe> tag resolves as a relative path, so the frame fills
   // with this site's own 404 rather than a map.
+  const heroImage = settings['business.heroImageUrl'].trim();
+
   const mapEmbed = normaliseMapEmbed(settings['business.mapEmbedUrl']);
   const mapUrl = 'url' in mapEmbed ? mapEmbed.url : '';
 
@@ -115,13 +117,6 @@ export default async function LandingPage() {
                 See services &amp; prices
               </a>
             </div>
-            <p className="mt-6 text-xs text-cocoa-400">
-              A{' '}
-              <strong className="font-semibold text-gilt-600">
-                {settings['booking.depositPercent']}% reservation fee
-              </strong>{' '}
-              secures your booking and is deducted from your final bill.
-            </p>
           </div>
 
           {/* Photo placeholder — swap for a real image in /public.
@@ -129,14 +124,25 @@ export default async function LandingPage() {
           {/* Capped on small screens: at full width the arch is taller than the
               viewport and pushes the price list off the page. */}
           <div className="relative mx-auto aspect-4/5 w-full max-w-xs overflow-hidden rounded-t-full rounded-b-3xl bg-gradient-to-br from-sand-100 via-sand-300 to-sand-400 ring-1 ring-inset ring-gilt-500/40 sm:max-w-sm lg:max-w-none">
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center text-cocoa-700">
-              <span className="font-display text-4xl">✿</span>
-              <p className="text-sm font-medium">Spa photo</p>
-              <p className="text-xs text-cocoa-600">
-                Replace with a photo of your reception or treatment room
-                (<code>/public/hero.jpg</code>).
-              </p>
-            </div>
+            {heroImage ? (
+              // Plain <img>: the source is whatever the Owner typed into
+              // Settings, and next/image would need every possible host declared
+              // in advance.
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={heroImage}
+                alt={`Inside ${settings['business.name']}`}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center text-cocoa-700">
+                <span className="font-display text-4xl">✿</span>
+                <p className="text-sm font-medium">Spa photo</p>
+                <p className="text-xs text-cocoa-600">
+                  Add one in Settings → Business → Photo on the landing page.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -179,12 +185,8 @@ export default async function LandingPage() {
               The menu
             </p>
             <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
-              Services &amp; price list
+              Services &amp; Price List
             </h2>
-            <p className="mx-auto mt-2 max-w-md text-cocoa-600">
-              Every treatment is performed by a trained therapist. Prices in Philippine
-              pesos.
-            </p>
             <div
               aria-hidden
               className="mt-5 flex items-center justify-center gap-4 text-cocoa-300"

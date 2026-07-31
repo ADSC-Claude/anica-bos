@@ -12,6 +12,9 @@ export const DEFAULT_SETTINGS = {
   'business.facebook': 'https://www.facebook.com/ANICAWellnessSpa',
   'business.mapEmbedUrl': '',
   'business.logoUrl': '',
+  /// Photo behind the hero arch. Either a file uploaded to /public ("/hero.jpg")
+  /// or a full https:// URL. Empty shows the placeholder.
+  'business.heroImageUrl': '',
   'business.tin': '000-000-000-00000',
   'business.currency': 'PHP',
   'business.timezone': 'Asia/Manila',

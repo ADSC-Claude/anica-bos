@@ -49,6 +49,7 @@ export async function saveSettingsAction(
         'business.facebook': str(formData, 'facebook'),
         'business.mapEmbedUrl': map.url,
         'business.logoUrl': str(formData, 'logoUrl'),
+        'business.heroImageUrl': str(formData, 'heroImageUrl'),
         'business.tin': str(formData, 'tin'),
         'business.openMinute': num(formData, 'openMinute'),
         'business.closeMinute': num(formData, 'closeMinute'),

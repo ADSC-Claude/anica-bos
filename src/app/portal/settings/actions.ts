@@ -185,10 +185,21 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   };
   if (!data.categoryId) return { error: 'Choose a category.' };
 
+  // "Also list under" is display-only, and the primary is never one of them —
+  // a service listed twice under the same heading would just render twice.
+  const alsoInCategoryIds = [
+    ...new Set(formData.getAll('alsoInCategoryIds').map(String).filter(Boolean)),
+  ].filter((c) => c !== data.categoryId);
+
   const before = id ? await prisma.service.findUnique({ where: { id } }) : null;
   const service = id
-    ? await prisma.service.update({ where: { id }, data })
-    : await prisma.service.create({ data });
+    ? await prisma.service.update({
+        where: { id },
+        data: { ...data, alsoInCategories: { set: alsoInCategoryIds.map((c) => ({ id: c })) } },
+      })
+    : await prisma.service.create({
+        data: { ...data, alsoInCategories: { connect: alsoInCategoryIds.map((c) => ({ id: c })) } },
+      });
 
   // Consumption recipe.
   const itemIds = formData.getAll('recipeItemId').map(String);

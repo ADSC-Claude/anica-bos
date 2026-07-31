@@ -254,40 +254,40 @@ enum JournalSource {
 // ============================================================ tenancy & settings
 
 model Branch {
-  id           String   @id @default(cuid())
-  name         String
-  code         String   @unique
-  address      String   @default("")
-  contact      String   @default("")
-  openMinute   Int      @default(720) // 12:00 PM, minutes from midnight
-  closeMinute  Int      @default(1440) // 12:00 AM next day
-  timezone     String   @default("Asia/Manila")
-  active       Boolean  @default(true)
-  isDefault    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  address     String   @default("")
+  contact     String   @default("")
+  openMinute  Int      @default(720) // 12:00 PM, minutes from midnight
+  closeMinute Int      @default(1440) // 12:00 AM next day
+  timezone    String   @default("Asia/Manila")
+  active      Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  users             User[]
-  employees         Employee[]
-  clients           Client[]
-  appointments      Appointment[]
-  sales             Sale[]
-  resources         Resource[]
-  items             Item[]
-  stockMovements    StockMovement[]
-  expenses          Expense[]
-  receiptSeries     ReceiptSeries[]
-  eodClosings       EodClosing[]
-  pettyCashTxns     PettyCashTxn[]
-  purchaseOrders    PurchaseOrder[]
-  settings          Setting[]
-  payrollPeriods    PayrollPeriod[]
-  stockTakes        StockTake[]
-  journalEntries    JournalEntry[]
-  notifications     Notification[]
-  shiftNotes        ShiftNote[]
-  announcements     Announcement[]
-  attendances       Attendance[]
+  users          User[]
+  employees      Employee[]
+  clients        Client[]
+  appointments   Appointment[]
+  sales          Sale[]
+  resources      Resource[]
+  items          Item[]
+  stockMovements StockMovement[]
+  expenses       Expense[]
+  receiptSeries  ReceiptSeries[]
+  eodClosings    EodClosing[]
+  pettyCashTxns  PettyCashTxn[]
+  purchaseOrders PurchaseOrder[]
+  settings       Setting[]
+  payrollPeriods PayrollPeriod[]
+  stockTakes     StockTake[]
+  journalEntries JournalEntry[]
+  notifications  Notification[]
+  shiftNotes     ShiftNote[]
+  announcements  Announcement[]
+  attendances    Attendance[]
 
   @@index([active])
 }
@@ -391,35 +391,45 @@ model AuditLog {
 // ============================================================ catalog
 
 model ServiceCategory {
-  id       String    @id @default(cuid())
-  name     String    @unique
-  sortRank Int       @default(0)
-  active   Boolean   @default(true)
-  services Service[]
+  id       String  @id @default(cuid())
+  name     String  @unique
+  sortRank Int     @default(0)
+  active   Boolean @default(true)
+
+  /// Services whose primary category this is. Reports, the POS and commissions
+  /// all read this one, so a sale belongs to exactly one category and revenue
+  /// cannot be counted twice.
+  services   Service[] @relation("PrimaryCategory")
+  /// Services listed here as well, on the public price list only.
+  alsoListed Service[] @relation("AdditionalCategories")
 }
 
 model Service {
-  id              String          @id @default(cuid())
-  name            String
-  categoryId      String
-  category        ServiceCategory @relation(fields: [categoryId], references: [id])
-  description     String          @default("")
-  durationMinutes Int
-  priceCents      Int
+  id               String            @id @default(cuid())
+  name             String
+  categoryId       String
+  category         ServiceCategory   @relation("PrimaryCategory", fields: [categoryId], references: [id])
+  /// Extra headings this service also appears under on the public price list.
+  /// Deliberately display-only: a treatment that spans two categories should be
+  /// findable under both without its revenue landing in two places.
+  alsoInCategories ServiceCategory[] @relation("AdditionalCategories")
+  description      String            @default("")
+  durationMinutes  Int
+  priceCents       Int
   /// null => use the global default commission rule
-  commissionType  DiscountType?
-  commissionValue Int? // percent basis points not needed: percent stored as whole number, fixed stored as centavos
-  active          Boolean         @default(true)
-  showOnLanding   Boolean         @default(true)
-  sortRank        Int             @default(0)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  commissionType   DiscountType?
+  commissionValue  Int? // percent basis points not needed: percent stored as whole number, fixed stored as centavos
+  active           Boolean           @default(true)
+  showOnLanding    Boolean           @default(true)
+  sortRank         Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  recipes            ServiceRecipe[]
+  recipes             ServiceRecipe[]
   appointmentServices AppointmentService[]
-  saleLines          SaleLine[]
-  employeeSkills     EmployeeSkill[]
-  packageItems       PackageItem[]
+  saleLines           SaleLine[]
+  employeeSkills      EmployeeSkill[]
+  packageItems        PackageItem[]
   commissionOverrides EmployeeCommissionRule[]
 
   @@index([active])
@@ -454,42 +464,42 @@ model Resource {
 // ============================================================ clients / CRM
 
 model Client {
-  id            String    @id @default(cuid())
-  branchId      String
-  branch        Branch    @relation(fields: [branchId], references: [id])
-  name          String
-  mobile        String
-  email         String    @default("")
-  birthday      DateTime?
-  addressCity   String    @default("")
-  addressLine   String    @default("")
-  barangay      String    @default("")
-  notes         String    @default("")
-  tags          String[]  @default([])
+  id                   String    @id @default(cuid())
+  branchId             String
+  branch               Branch    @relation(fields: [branchId], references: [id])
+  name                 String
+  mobile               String
+  email                String    @default("")
+  birthday             DateTime?
+  addressCity          String    @default("")
+  addressLine          String    @default("")
+  barangay             String    @default("")
+  notes                String    @default("")
+  tags                 String[]  @default([])
   /// Walk-in quick records (name + mobile only) are flagged for completion.
-  incomplete    Boolean   @default(false)
-  pwdIdNumber   String    @default("")
-  seniorIdNumber String   @default("")
-  loyaltyPoints Int       @default(0)
+  incomplete           Boolean   @default(false)
+  pwdIdNumber          String    @default("")
+  seniorIdNumber       String    @default("")
+  loyaltyPoints        Int       @default(0)
   /// PH Data Privacy Act consent for sensitive personal information.
-  consentGiven  Boolean   @default(false)
-  consentAt     DateTime?
-  medicalUpdatedAt DateTime?
+  consentGiven         Boolean   @default(false)
+  consentAt            DateTime?
+  medicalUpdatedAt     DateTime?
   followUpSnoozedUntil DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  fieldValues        ClientFieldValue[]
-  appointments       Appointment[]
-  sales              Sale[]
-  feedback           ClientFeedback[]
-  followUps          ClientFollowUp[]
-  packages           ClientPackage[]
-  loyaltyTxns        LoyaltyTransaction[]
-  corporateLinks     CorporateAccountClient[]
-  emailLogs          EmailLog[]
-  shiftNotes         ShiftNote[]
-  giftCertificates   GiftCertificate[]
+  fieldValues      ClientFieldValue[]
+  appointments     Appointment[]
+  sales            Sale[]
+  feedback         ClientFeedback[]
+  followUps        ClientFollowUp[]
+  packages         ClientPackage[]
+  loyaltyTxns      LoyaltyTransaction[]
+  corporateLinks   CorporateAccountClient[]
+  emailLogs        EmailLog[]
+  shiftNotes       ShiftNote[]
+  giftCertificates GiftCertificate[]
 
   @@unique([branchId, mobile])
   @@index([name])
@@ -532,16 +542,16 @@ model ClientFieldValue {
 }
 
 model ClientFeedback {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   clientId      String
-  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client        Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   appointmentId String?
   employeeId    String?
   employee      Employee? @relation(fields: [employeeId], references: [id])
   rating        Int
-  comment       String   @default("")
-  recordedBy    String   @default("")
-  createdAt     DateTime @default(now())
+  comment       String    @default("")
+  recordedBy    String    @default("")
+  createdAt     DateTime  @default(now())
 
   @@index([clientId])
   @@index([employeeId])
@@ -561,20 +571,20 @@ model ClientFollowUp {
 }
 
 model CorporateAccount {
-  id              String   @id @default(cuid())
-  name            String
-  tin             String   @default("")
-  billingAddress  String   @default("")
-  contactPerson   String   @default("")
-  contactMobile   String   @default("")
-  contactEmail    String   @default("")
-  discountType    DiscountType @default(PERCENT)
-  discountValue   Int      @default(0)
-  creditLimitCents Int     @default(0)
-  paymentTermsDays Int     @default(30)
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               String       @id @default(cuid())
+  name             String
+  tin              String       @default("")
+  billingAddress   String       @default("")
+  contactPerson    String       @default("")
+  contactMobile    String       @default("")
+  contactEmail     String       @default("")
+  discountType     DiscountType @default(PERCENT)
+  discountValue    Int          @default(0)
+  creditLimitCents Int          @default(0)
+  paymentTermsDays Int          @default(30)
+  active           Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   clients    CorporateAccountClient[]
   sales      Sale[]
@@ -593,50 +603,50 @@ model CorporateAccountClient {
 }
 
 model CorporateStatement {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   accountId   String
   account     CorporateAccount @relation(fields: [accountId], references: [id])
-  number      String   @unique
+  number      String           @unique
   periodStart DateTime
   periodEnd   DateTime
   totalCents  Int
   dueDate     DateTime
-  issuedAt    DateTime @default(now())
-  settled     Boolean  @default(false)
+  issuedAt    DateTime         @default(now())
+  settled     Boolean          @default(false)
 
   @@index([accountId])
 }
 
 model CorporatePayment {
-  id         String   @id @default(cuid())
-  accountId  String
-  account    CorporateAccount @relation(fields: [accountId], references: [id])
+  id          String           @id @default(cuid())
+  accountId   String
+  account     CorporateAccount @relation(fields: [accountId], references: [id])
   amountCents Int
-  method     PaymentMethod
-  reference  String   @default("")
-  paidAt     DateTime @default(now())
-  recordedBy String   @default("")
-  note       String   @default("")
+  method      PaymentMethod
+  reference   String           @default("")
+  paidAt      DateTime         @default(now())
+  recordedBy  String           @default("")
+  note        String           @default("")
 
   @@index([accountId, paidAt])
 }
 
 model Partner {
-  id             String       @id @default(cuid())
-  name           String
-  type           String       @default("hotel") // hotel | condo | office | gym | influencer | other
-  contactPerson  String       @default("")
-  contactMobile  String       @default("")
-  contactEmail   String       @default("")
+  id                 String       @id @default(cuid())
+  name               String
+  type               String       @default("hotel") // hotel | condo | office | gym | influencer | other
+  contactPerson      String       @default("")
+  contactMobile      String       @default("")
+  contactEmail       String       @default("")
   /// What we owe the partner per referred sale.
-  feeType        DiscountType @default(PERCENT)
-  feeValue       Int          @default(0)
+  feeType            DiscountType @default(PERCENT)
+  feeValue           Int          @default(0)
   guestDiscountType  DiscountType @default(PERCENT)
-  guestDiscountValue Int      @default(0)
-  promoCode      String?      @unique
-  terms          String       @default("")
-  active         Boolean      @default(true)
-  createdAt      DateTime     @default(now())
+  guestDiscountValue Int          @default(0)
+  promoCode          String?      @unique
+  terms              String       @default("")
+  active             Boolean      @default(true)
+  createdAt          DateTime     @default(now())
 
   appointments Appointment[]
   sales        Sale[]
@@ -645,54 +655,54 @@ model Partner {
 // ============================================================ employees
 
 model Employee {
-  id             String       @id @default(cuid())
-  branchId       String
-  branch         Branch       @relation(fields: [branchId], references: [id])
-  name           String
-  photoUrl       String       @default("")
-  employeeRole   EmployeeRole
-  mobile         String       @default("")
-  email          String       @default("")
-  address        String       @default("")
-  emergencyName    String     @default("")
-  emergencyMobile  String     @default("")
-  hireDate       DateTime     @default(now())
-  active         Boolean      @default(true)
+  id              String       @id @default(cuid())
+  branchId        String
+  branch          Branch       @relation(fields: [branchId], references: [id])
+  name            String
+  photoUrl        String       @default("")
+  employeeRole    EmployeeRole
+  mobile          String       @default("")
+  email           String       @default("")
+  address         String       @default("")
+  emergencyName   String       @default("")
+  emergencyMobile String       @default("")
+  hireDate        DateTime     @default(now())
+  active          Boolean      @default(true)
 
   // --- government numbers (Owner/Admin only) ---
-  sssNumber       String @default("")
-  philhealthNumber String @default("")
-  pagibigNumber   String @default("")
-  tin             String @default("")
-  sssMonthlyCents        Int @default(0)
-  philhealthMonthlyCents Int @default(0)
-  pagibigMonthlyCents    Int @default(0)
+  sssNumber              String @default("")
+  philhealthNumber       String @default("")
+  pagibigNumber          String @default("")
+  tin                    String @default("")
+  sssMonthlyCents        Int    @default(0)
+  philhealthMonthlyCents Int    @default(0)
+  pagibigMonthlyCents    Int    @default(0)
 
   // --- pay structure ---
   /// THERAPIST => DAILY_ALLOWANCE (default ₱200/day).
   /// RECEPTIONIST / MANAGER => Owner-only DAILY_RATE or FIXED_SALARY.
-  payType        PayType @default(DAILY_ALLOWANCE)
-  payRateCents   Int     @default(20000)
+  payType      PayType @default(DAILY_ALLOWANCE)
+  payRateCents Int     @default(20000)
   /// Only the Owner may read/write pay fields when this is true.
-  payOwnerOnly   Boolean @default(false)
+  payOwnerOnly Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user            User?
-  skills          EmployeeSkill[]
-  schedules       EmployeeSchedule[]
-  attendances     Attendance[]
-  loans           EmployeeLoan[]
-  commissions     Commission[]
-  payslips        Payslip[]
-  saleLines       SaleLine[]
+  user                User?
+  skills              EmployeeSkill[]
+  schedules           EmployeeSchedule[]
+  attendances         Attendance[]
+  loans               EmployeeLoan[]
+  commissions         Commission[]
+  payslips            Payslip[]
+  saleLines           SaleLine[]
   appointmentServices AppointmentService[]
-  feedback        ClientFeedback[]
-  commissionRules EmployeeCommissionRule[]
-  certifications  Permit[]
-  employeeRateSales Sale[] @relation("EmployeeRateSale")
-  incentiveResults IncentiveResult[]
+  feedback            ClientFeedback[]
+  commissionRules     EmployeeCommissionRule[]
+  certifications      Permit[]
+  employeeRateSales   Sale[]                   @relation("EmployeeRateSale")
+  incentiveResults    IncentiveResult[]
 
   @@index([branchId, active])
 }
@@ -720,53 +730,53 @@ model EmployeeCommissionRule {
 }
 
 model EmployeeSchedule {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  dayOfWeek  Int // 0 = Sunday .. 6 = Saturday
-  isDayOff   Boolean  @default(false)
-  startMinute Int     @default(720)
-  endMinute   Int     @default(1440)
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int // 0 = Sunday .. 6 = Saturday
+  isDayOff    Boolean  @default(false)
+  startMinute Int      @default(720)
+  endMinute   Int      @default(1440)
 
   @@unique([employeeId, dayOfWeek])
 }
 
 model Attendance {
-  id         String    @id @default(cuid())
-  branchId   String
-  branch     Branch    @relation(fields: [branchId], references: [id])
-  employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  branchId     String
+  branch       Branch    @relation(fields: [branchId], references: [id])
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   /// Business date (Asia/Manila) at 00:00 UTC-normalised.
-  workDate   DateTime  @db.Date
-  timeIn     DateTime?
-  timeOut    DateTime?
-  isLate     Boolean   @default(false)
-  isAbsent   Boolean   @default(false)
-  lateMinutes Int      @default(0)
+  workDate     DateTime  @db.Date
+  timeIn       DateTime?
+  timeOut      DateTime?
+  isLate       Boolean   @default(false)
+  isAbsent     Boolean   @default(false)
+  lateMinutes  Int       @default(0)
   /// Sequence of time-in for the day — drives the therapist rotation queue.
-  rotationRank Int     @default(0)
-  onBreak    Boolean   @default(false)
-  note       String    @default("")
-  recordedBy String    @default("")
-  createdAt  DateTime  @default(now())
+  rotationRank Int       @default(0)
+  onBreak      Boolean   @default(false)
+  note         String    @default("")
+  recordedBy   String    @default("")
+  createdAt    DateTime  @default(now())
 
   @@unique([employeeId, workDate])
   @@index([branchId, workDate])
 }
 
 model EmployeeLoan {
-  id             String     @id @default(cuid())
-  employeeId     String
-  employee       Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  type           LoanType
-  principalCents Int
+  id               String     @id @default(cuid())
+  employeeId       String
+  employee         Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type             LoanType
+  principalCents   Int
   installmentCents Int
-  balanceCents   Int
-  startDate      DateTime
-  status         LoanStatus @default(ACTIVE)
-  note           String     @default("")
-  createdAt      DateTime   @default(now())
+  balanceCents     Int
+  startDate        DateTime
+  status           LoanStatus @default(ACTIVE)
+  note             String     @default("")
+  createdAt        DateTime   @default(now())
 
   payments LoanPayment[]
 
@@ -774,23 +784,23 @@ model EmployeeLoan {
 }
 
 model LoanPayment {
-  id         String   @id @default(cuid())
-  loanId     String
-  loan       EmployeeLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  id          String       @id @default(cuid())
+  loanId      String
+  loan        EmployeeLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
   amountCents Int
-  payslipId  String?
-  paidAt     DateTime @default(now())
-  note       String   @default("")
+  payslipId   String?
+  paidAt      DateTime     @default(now())
+  note        String       @default("")
 }
 
 model PayrollPeriod {
-  id        String        @id @default(cuid())
-  branchId  String
-  branch    Branch        @relation(fields: [branchId], references: [id])
-  startDate DateTime      @db.Date
-  endDate   DateTime      @db.Date
-  status    PayrollStatus @default(DRAFT)
-  createdAt DateTime      @default(now())
+  id          String        @id @default(cuid())
+  branchId    String
+  branch      Branch        @relation(fields: [branchId], references: [id])
+  startDate   DateTime      @db.Date
+  endDate     DateTime      @db.Date
+  status      PayrollStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
   finalizedAt DateTime?
   finalizedBy String?
 
@@ -806,18 +816,18 @@ model Payslip {
   employeeId String
   employee   Employee      @relation(fields: [employeeId], references: [id])
 
-  daysWorked     Int @default(0)
-  holidayDays    Int @default(0)
-  basePayCents   Int @default(0)
+  daysWorked      Int @default(0)
+  holidayDays     Int @default(0)
+  basePayCents    Int @default(0)
   commissionCents Int @default(0)
-  tipsCents      Int @default(0)
-  additionsCents Int @default(0)
+  tipsCents       Int @default(0)
+  additionsCents  Int @default(0)
   deductionsCents Int @default(0)
-  netPayCents    Int @default(0)
+  netPayCents     Int @default(0)
 
-  status     PayrollStatus @default(DRAFT)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  status    PayrollStatus @default(DRAFT)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   lines PayslipLine[]
 
@@ -825,16 +835,16 @@ model Payslip {
 }
 
 model PayslipLine {
-  id        String  @id @default(cuid())
-  payslipId String
-  payslip   Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  id          String  @id @default(cuid())
+  payslipId   String
+  payslip     Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
   /// base | commission | tips | holiday | late | absence | loan | contribution | adjustment
-  kind      String
-  label     String
+  kind        String
+  label       String
   /// Positive = addition, negative = deduction.
   amountCents Int
-  sortRank  Int     @default(0)
-  manual    Boolean @default(false)
+  sortRank    Int     @default(0)
+  manual      Boolean @default(false)
 }
 
 /// Owner-only. Never released through payroll; never appears on a payslip.
@@ -858,16 +868,16 @@ model IncentiveScheme {
 }
 
 model IncentiveResult {
-  id          String          @id @default(cuid())
-  schemeId    String
-  scheme      IncentiveScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
-  employeeId  String
-  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  periodKey   String // 2026-07 or 2026-Q3
-  metricValue Int             @default(0)
-  suggestedCents Int          @default(0)
-  note        String          @default("")
-  computedAt  DateTime        @default(now())
+  id             String          @id @default(cuid())
+  schemeId       String
+  scheme         IncentiveScheme @relation(fields: [schemeId], references: [id], onDelete: Cascade)
+  employeeId     String
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  periodKey      String // 2026-07 or 2026-Q3
+  metricValue    Int             @default(0)
+  suggestedCents Int             @default(0)
+  note           String          @default("")
+  computedAt     DateTime        @default(now())
 
   @@unique([schemeId, employeeId, periodKey])
 }
@@ -875,39 +885,39 @@ model IncentiveResult {
 // ============================================================ appointments
 
 model Appointment {
-  id            String            @id @default(cuid())
-  branchId      String
-  branch        Branch            @relation(fields: [branchId], references: [id])
-  reference     String            @unique
-  clientId      String
-  client        Client            @relation(fields: [clientId], references: [id])
-  resourceId    String?
-  resource      Resource?         @relation(fields: [resourceId], references: [id])
-  partnerId     String?
-  partner       Partner?          @relation(fields: [partnerId], references: [id])
-  startAt       DateTime
-  endAt         DateTime
-  status        AppointmentStatus @default(PENDING)
-  source        BookingSource     @default(PORTAL)
-  notes         String            @default("")
+  id         String            @id @default(cuid())
+  branchId   String
+  branch     Branch            @relation(fields: [branchId], references: [id])
+  reference  String            @unique
+  clientId   String
+  client     Client            @relation(fields: [clientId], references: [id])
+  resourceId String?
+  resource   Resource?         @relation(fields: [resourceId], references: [id])
+  partnerId  String?
+  partner    Partner?          @relation(fields: [partnerId], references: [id])
+  startAt    DateTime
+  endAt      DateTime
+  status     AppointmentStatus @default(PENDING)
+  source     BookingSource     @default(PORTAL)
+  notes      String            @default("")
 
   // --- reservation deposit (online bookings) ---
-  depositStatus       DepositStatus @default(NONE)
-  depositAmountCents  Int           @default(0)
-  depositPaidCents    Int           @default(0)
-  depositReference    String        @default("")
-  depositProofUrl     String        @default("")
-  depositMethod       String        @default("")
-  gatewaySessionId    String        @default("")
-  gatewayPaymentId    String        @default("")
+  depositStatus        DepositStatus @default(NONE)
+  depositAmountCents   Int           @default(0)
+  depositPaidCents     Int           @default(0)
+  depositReference     String        @default("")
+  depositProofUrl      String        @default("")
+  depositMethod        String        @default("")
+  gatewaySessionId     String        @default("")
+  gatewayPaymentId     String        @default("")
   depositAppliedSaleId String?
-  expiresAt           DateTime?
+  expiresAt            DateTime?
 
-  checkedInAt DateTime?
-  startedAt   DateTime?
-  completedAt DateTime?
-  cancelledAt DateTime?
-  cancelReason String   @default("")
+  checkedInAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  cancelReason String    @default("")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -921,17 +931,17 @@ model Appointment {
 }
 
 model AppointmentService {
-  id            String      @id @default(cuid())
-  appointmentId String
-  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  serviceId     String
-  service       Service     @relation(fields: [serviceId], references: [id])
-  employeeId    String?
-  employee      Employee?   @relation(fields: [employeeId], references: [id])
+  id              String      @id @default(cuid())
+  appointmentId   String
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId       String
+  service         Service     @relation(fields: [serviceId], references: [id])
+  employeeId      String?
+  employee        Employee?   @relation(fields: [employeeId], references: [id])
   /// Snapshot of the list price at booking time (centavos).
-  priceCents    Int
+  priceCents      Int
   durationMinutes Int
-  sortRank      Int         @default(0)
+  sortRank        Int         @default(0)
 
   @@index([employeeId])
 }
@@ -939,17 +949,17 @@ model AppointmentService {
 // ============================================================ sales / POS
 
 model ReceiptSeries {
-  id        String  @id @default(cuid())
-  branchId  String
-  branch    Branch  @relation(fields: [branchId], references: [id])
-  name      String  @default("Sales Invoice")
-  prefix    String  @default("SI")
+  id           String  @id @default(cuid())
+  branchId     String
+  branch       Branch  @relation(fields: [branchId], references: [id])
+  name         String  @default("Sales Invoice")
+  prefix       String  @default("SI")
   /// BIR permit range. `next` never goes backwards and numbers are never reused.
-  rangeStart Int    @default(1)
-  rangeEnd   Int    @default(999999)
-  next       Int    @default(1)
-  permitNumber String @default("")
-  active    Boolean @default(true)
+  rangeStart   Int     @default(1)
+  rangeEnd     Int     @default(999999)
+  next         Int     @default(1)
+  permitNumber String  @default("")
+  active       Boolean @default(true)
 
   sales Sale[]
 
@@ -957,51 +967,51 @@ model ReceiptSeries {
 }
 
 model Sale {
-  id        String     @id @default(cuid())
+  id        String        @id @default(cuid())
   branchId  String
-  branch    Branch     @relation(fields: [branchId], references: [id])
+  branch    Branch        @relation(fields: [branchId], references: [id])
   seriesId  String
   series    ReceiptSeries @relation(fields: [seriesId], references: [id])
   /// Gapless, immutable, never reused. Voided numbers are retained.
-  receiptNo String     @unique
+  receiptNo String        @unique
   sequence  Int
 
-  clientId      String?
-  client        Client?   @relation(fields: [clientId], references: [id])
-  appointmentId String?
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  corporateAccountId String?
-  corporateAccount   CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
-  partnerId     String?
-  partner       Partner?  @relation(fields: [partnerId], references: [id])
+  clientId               String?
+  client                 Client?           @relation(fields: [clientId], references: [id])
+  appointmentId          String?
+  appointment            Appointment?      @relation(fields: [appointmentId], references: [id])
+  corporateAccountId     String?
+  corporateAccount       CorporateAccount? @relation(fields: [corporateAccountId], references: [id])
+  partnerId              String?
+  partner                Partner?          @relation(fields: [partnerId], references: [id])
   /// Set when the sale used the employee-rate discount.
   employeeRateEmployeeId String?
-  employeeRateEmployee   Employee? @relation("EmployeeRateSale", fields: [employeeRateEmployeeId], references: [id])
+  employeeRateEmployee   Employee?         @relation("EmployeeRateSale", fields: [employeeRateEmployeeId], references: [id])
 
   cashierId String
   cashier   User   @relation("SaleCashier", fields: [cashierId], references: [id])
 
-  subtotalCents  Int @default(0)
-  discountCents  Int @default(0)
+  subtotalCents      Int @default(0)
+  discountCents      Int @default(0)
   depositCreditCents Int @default(0)
-  tipCents       Int @default(0)
-  totalCents     Int @default(0)
-  paidCents      Int @default(0)
-  changeCents    Int @default(0)
-  cogsCents      Int @default(0)
+  tipCents           Int @default(0)
+  totalCents         Int @default(0)
+  paidCents          Int @default(0)
+  changeCents        Int @default(0)
+  cogsCents          Int @default(0)
 
   // --- tax fields: populated per the configured regime, present in both ---
-  taxRegime       TaxRegime @default(NON_VAT_8)
-  vatableSalesCents Int @default(0)
-  vatExemptSalesCents Int @default(0)
-  zeroRatedSalesCents Int @default(0)
-  vatAmountCents  Int @default(0)
+  taxRegime           TaxRegime @default(NON_VAT_8)
+  vatableSalesCents   Int       @default(0)
+  vatExemptSalesCents Int       @default(0)
+  zeroRatedSalesCents Int       @default(0)
+  vatAmountCents      Int       @default(0)
 
-  status     SaleStatus @default(PAID)
-  voidReason String     @default("")
-  voidedAt   DateTime?
-  voidedById String?
-  voidedBy   User?      @relation("SaleVoider", fields: [voidedById], references: [id])
+  status           SaleStatus @default(PAID)
+  voidReason       String     @default("")
+  voidedAt         DateTime?
+  voidedById       String?
+  voidedBy         User?      @relation("SaleVoider", fields: [voidedById], references: [id])
   /// Void/refund replacement pointer (corrections are never hard deletes).
   replacedBySaleId String?
 
@@ -1009,16 +1019,16 @@ model Sale {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  lines        SaleLine[]
-  discounts    SaleDiscount[]
-  payments     Payment[]
-  commissions  Commission[]
-  loyaltyTxns  LoyaltyTransaction[]
-  journalEntries JournalEntry[]
-  giftCertificatesSold GiftCertificate[] @relation("GcSoldOnSale")
-  gcRedemptions GiftCertificateRedemption[]
-  voucherUses  VoucherRedemption[]
-  clientPackages ClientPackage[]
+  lines                SaleLine[]
+  discounts            SaleDiscount[]
+  payments             Payment[]
+  commissions          Commission[]
+  loyaltyTxns          LoyaltyTransaction[]
+  journalEntries       JournalEntry[]
+  giftCertificatesSold GiftCertificate[]           @relation("GcSoldOnSale")
+  gcRedemptions        GiftCertificateRedemption[]
+  voucherUses          VoucherRedemption[]
+  clientPackages       ClientPackage[]
 
   @@index([branchId, businessDate])
   @@index([status])
@@ -1026,27 +1036,27 @@ model Sale {
 }
 
 model SaleLine {
-  id       String       @id @default(cuid())
-  saleId   String
-  sale     Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  type     SaleLineType
-  serviceId String?
-  service  Service?     @relation(fields: [serviceId], references: [id])
-  itemId   String?
-  item     Item?        @relation(fields: [itemId], references: [id])
-  packageId String?
-  package  Package?     @relation(fields: [packageId], references: [id])
-  employeeId String?
-  employee Employee?    @relation(fields: [employeeId], references: [id])
-  description String
-  quantity  Int          @default(1)
+  id             String       @id @default(cuid())
+  saleId         String
+  sale           Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  type           SaleLineType
+  serviceId      String?
+  service        Service?     @relation(fields: [serviceId], references: [id])
+  itemId         String?
+  item           Item?        @relation(fields: [itemId], references: [id])
+  packageId      String?
+  package        Package?     @relation(fields: [packageId], references: [id])
+  employeeId     String?
+  employee       Employee?    @relation(fields: [employeeId], references: [id])
+  description    String
+  quantity       Int          @default(1)
   /// Price actually charged (0 for perks / prepaid redemptions).
   unitPriceCents Int
   /// Undiscounted list price — commissions are always computed on this.
   basePriceCents Int
   lineTotalCents Int
-  cogsCents      Int     @default(0)
-  sortRank       Int     @default(0)
+  cogsCents      Int          @default(0)
+  sortRank       Int          @default(0)
 
   commissions Commission[]
 
@@ -1054,73 +1064,73 @@ model SaleLine {
 }
 
 model SaleDiscount {
-  id       String       @id @default(cuid())
-  saleId   String
-  sale     Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  presetId String?
-  preset   DiscountPreset? @relation(fields: [presetId], references: [id])
-  label    String
-  type     DiscountType
-  value    Int
-  amountCents Int
+  id               String          @id @default(cuid())
+  saleId           String
+  sale             Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  presetId         String?
+  preset           DiscountPreset? @relation(fields: [presetId], references: [id])
+  label            String
+  type             DiscountType
+  value            Int
+  amountCents      Int
   /// Order of application; each preset applies to the running total.
-  sequence Int          @default(0)
+  sequence         Int             @default(0)
   /// PWD / Senior ID captured at checkout, printed on the receipt (BIR).
-  idNumber String       @default("")
+  idNumber         String          @default("")
   approvedByUserId String?
-  voucherCode String    @default("")
+  voucherCode      String          @default("")
 }
 
 model DiscountPreset {
-  id         String       @id @default(cuid())
-  name       String
-  type       DiscountType
-  value      Int
+  id                String       @id @default(cuid())
+  name              String
+  type              DiscountType
+  value             Int
   /// Empty array => applies to all services.
-  serviceIds String[]     @default([])
-  stackable  Boolean      @default(true)
-  active     Boolean      @default(true)
-  requiresId Boolean      @default(false)
-  membersOnly Boolean     @default(false)
+  serviceIds        String[]     @default([])
+  stackable         Boolean      @default(true)
+  active            Boolean      @default(true)
+  requiresId        Boolean      @default(false)
+  membersOnly       Boolean      @default(false)
   /// Employee-rate preset behaviour.
-  isEmployeeRate Boolean  @default(false)
-  monthlyUsageLimit Int   @default(0)
-  familyIncluded Boolean  @default(false)
-  sortRank   Int          @default(0)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  isEmployeeRate    Boolean      @default(false)
+  monthlyUsageLimit Int          @default(0)
+  familyIncluded    Boolean      @default(false)
+  sortRank          Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   saleDiscounts SaleDiscount[]
 }
 
 model Payment {
-  id        String        @id @default(cuid())
-  saleId    String
-  sale      Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  method    PaymentMethod
+  id          String        @id @default(cuid())
+  saleId      String
+  sale        Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method      PaymentMethod
   amountCents Int
-  reference String        @default("")
-  createdAt DateTime      @default(now())
+  reference   String        @default("")
+  createdAt   DateTime      @default(now())
 
   @@index([saleId])
 }
 
 model Commission {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  saleId     String
-  sale       Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  saleLineId String
-  saleLine   SaleLine @relation(fields: [saleLineId], references: [id], onDelete: Cascade)
+  id           String       @id @default(cuid())
+  employeeId   String
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  saleId       String
+  sale         Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleLineId   String
+  saleLine     SaleLine     @relation(fields: [saleLineId], references: [id], onDelete: Cascade)
   /// The undiscounted base the commission was computed on.
-  basisCents Int
-  rateType   DiscountType
-  rateValue  Int
-  amountCents Int
-  businessDate DateTime @db.Date
-  payslipId  String?
-  createdAt  DateTime @default(now())
+  basisCents   Int
+  rateType     DiscountType
+  rateValue    Int
+  amountCents  Int
+  businessDate DateTime     @db.Date
+  payslipId    String?
+  createdAt    DateTime     @default(now())
 
   @@index([employeeId, businessDate])
 }
@@ -1141,20 +1151,20 @@ model LoyaltyTransaction {
 }
 
 model Package {
-  id            String      @id @default(cuid())
-  name          String
-  type          PackageType @default(SESSION_PACKAGE)
-  description   String      @default("")
-  priceCents    Int
-  validityDays  Int         @default(365)
+  id                    String      @id @default(cuid())
+  name                  String
+  type                  PackageType @default(SESSION_PACKAGE)
+  description           String      @default("")
+  priceCents            Int
+  validityDays          Int         @default(365)
   /// MEMBERSHIP: percent discount granted to the member.
-  memberDiscountPercent Int @default(0)
+  memberDiscountPercent Int         @default(0)
   /// MEMBERSHIP: free birthday-month service perk.
   birthdayPerkServiceId String?
-  active        Boolean     @default(true)
-  showOnLanding Boolean     @default(false)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  active                Boolean     @default(true)
+  showOnLanding         Boolean     @default(false)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
 
   items          PackageItem[]
   clientPackages ClientPackage[]
@@ -1173,19 +1183,19 @@ model PackageItem {
 }
 
 model ClientPackage {
-  id          String              @id @default(cuid())
-  clientId    String
-  client      Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  packageId   String
-  package     Package             @relation(fields: [packageId], references: [id])
-  saleId      String?
-  sale        Sale?               @relation(fields: [saleId], references: [id])
-  purchasedAt DateTime            @default(now())
-  expiresAt   DateTime
-  status      ClientPackageStatus @default(ACTIVE)
+  id                   String              @id @default(cuid())
+  clientId             String
+  client               Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  packageId            String
+  package              Package             @relation(fields: [packageId], references: [id])
+  saleId               String?
+  sale                 Sale?               @relation(fields: [saleId], references: [id])
+  purchasedAt          DateTime            @default(now())
+  expiresAt            DateTime
+  status               ClientPackageStatus @default(ACTIVE)
   /// Membership year in which the birthday perk was consumed (e.g. 2026).
   birthdayPerkUsedYear Int?
-  expiryNotifiedAt DateTime?
+  expiryNotifiedAt     DateTime?
 
   entitlements ClientPackageEntitlement[]
 
@@ -1205,37 +1215,37 @@ model ClientPackageEntitlement {
 }
 
 model GiftCertificate {
-  id           String        @id @default(cuid())
-  code         String        @unique
+  id             String        @id @default(cuid())
+  code           String        @unique
   faceValueCents Int
-  balanceCents Int
+  balanceCents   Int
   /// Optional service-specific GC.
-  serviceId    String?
-  soldSaleId   String?
-  soldSale     Sale?         @relation("GcSoldOnSale", fields: [soldSaleId], references: [id])
-  buyerClientId String?
-  buyerClient  Client?       @relation(fields: [buyerClientId], references: [id])
-  status       VoucherStatus @default(ACTIVE)
-  expiresAt    DateTime?
-  createdAt    DateTime      @default(now())
+  serviceId      String?
+  soldSaleId     String?
+  soldSale       Sale?         @relation("GcSoldOnSale", fields: [soldSaleId], references: [id])
+  buyerClientId  String?
+  buyerClient    Client?       @relation(fields: [buyerClientId], references: [id])
+  status         VoucherStatus @default(ACTIVE)
+  expiresAt      DateTime?
+  createdAt      DateTime      @default(now())
 
   redemptions GiftCertificateRedemption[]
 }
 
 model GiftCertificateRedemption {
-  id     String          @id @default(cuid())
-  gcId   String
-  gc     GiftCertificate @relation(fields: [gcId], references: [id], onDelete: Cascade)
-  saleId String
-  sale   Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  id          String          @id @default(cuid())
+  gcId        String
+  gc          GiftCertificate @relation(fields: [gcId], references: [id], onDelete: Cascade)
+  saleId      String
+  sale        Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
   amountCents Int
-  createdAt DateTime     @default(now())
+  createdAt   DateTime        @default(now())
 }
 
 model VoucherBatch {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   vouchers  Voucher[]
 }
 
@@ -1257,13 +1267,13 @@ model Voucher {
 }
 
 model VoucherRedemption {
-  id        String   @id @default(cuid())
-  voucherId String
-  voucher   Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
-  saleId    String
-  sale      Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  voucherId   String
+  voucher     Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  saleId      String
+  sale        Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
   amountCents Int
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model Promo {
@@ -1299,31 +1309,31 @@ model Unit {
 }
 
 model Item {
-  id            String       @id @default(cuid())
-  branchId      String
-  branch        Branch       @relation(fields: [branchId], references: [id])
-  name          String
-  sku           String       @default("")
-  categoryId    String
-  category      ItemCategory @relation(fields: [categoryId], references: [id])
-  unitId        String
-  unit          Unit         @relation(fields: [unitId], references: [id])
-  costCents     Int          @default(0)
-  retailPriceCents Int       @default(0)
-  sellable      Boolean      @default(false)
-  stockQty      Float        @default(0)
-  reorderLevel  Float        @default(0)
-  supplierId    String?
-  supplier      Supplier?    @relation(fields: [supplierId], references: [id])
-  archived      Boolean      @default(false)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id               String       @id @default(cuid())
+  branchId         String
+  branch           Branch       @relation(fields: [branchId], references: [id])
+  name             String
+  sku              String       @default("")
+  categoryId       String
+  category         ItemCategory @relation(fields: [categoryId], references: [id])
+  unitId           String
+  unit             Unit         @relation(fields: [unitId], references: [id])
+  costCents        Int          @default(0)
+  retailPriceCents Int          @default(0)
+  sellable         Boolean      @default(false)
+  stockQty         Float        @default(0)
+  reorderLevel     Float        @default(0)
+  supplierId       String?
+  supplier         Supplier?    @relation(fields: [supplierId], references: [id])
+  archived         Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
-  movements   StockMovement[]
-  recipes     ServiceRecipe[]
-  poLines     PurchaseOrderLine[]
-  saleLines   SaleLine[]
-  supplierItems SupplierItem[]
+  movements      StockMovement[]
+  recipes        ServiceRecipe[]
+  poLines        PurchaseOrderLine[]
+  saleLines      SaleLine[]
+  supplierItems  SupplierItem[]
   stockTakeLines StockTakeLine[]
 
   @@index([branchId, archived])
@@ -1372,21 +1382,21 @@ model SupplierPriceChange {
 }
 
 model StockMovement {
-  id        String            @id @default(cuid())
-  branchId  String
-  branch    Branch            @relation(fields: [branchId], references: [id])
-  itemId    String
-  item      Item              @relation(fields: [itemId], references: [id])
-  type      StockMovementType
+  id            String            @id @default(cuid())
+  branchId      String
+  branch        Branch            @relation(fields: [branchId], references: [id])
+  itemId        String
+  item          Item              @relation(fields: [itemId], references: [id])
+  type          StockMovementType
   /// Signed: positive adds stock, negative removes it.
-  quantity  Float
-  unitCostCents Int           @default(0)
-  reason    String            @default("")
-  refType   String            @default("")
-  refId     String            @default("")
-  userId    String?
-  userName  String            @default("")
-  createdAt DateTime          @default(now())
+  quantity      Float
+  unitCostCents Int               @default(0)
+  reason        String            @default("")
+  refType       String            @default("")
+  refId         String            @default("")
+  userId        String?
+  userName      String            @default("")
+  createdAt     DateTime          @default(now())
 
   @@index([itemId, createdAt])
   @@index([branchId, createdAt])
@@ -1416,26 +1426,26 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
-  id        String        @id @default(cuid())
-  poId      String
-  po        PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  itemId    String
-  item      Item          @relation(fields: [itemId], references: [id])
-  quantity  Float
+  id            String        @id @default(cuid())
+  poId          String
+  po            PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          Item          @relation(fields: [itemId], references: [id])
+  quantity      Float
   unitCostCents Int
-  receivedQty Float       @default(0)
+  receivedQty   Float         @default(0)
 }
 
 model StockTake {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id])
-  takeDate  DateTime @db.Date
-  status    String   @default("OPEN") // OPEN | CLOSED
-  notes     String   @default("")
-  createdBy String   @default("")
+  branch    Branch    @relation(fields: [branchId], references: [id])
+  takeDate  DateTime  @db.Date
+  status    String    @default("OPEN") // OPEN | CLOSED
+  notes     String    @default("")
+  createdBy String    @default("")
   closedAt  DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   lines StockTakeLine[]
 
@@ -1458,42 +1468,42 @@ model StockTakeLine {
 // ============================================================ finance
 
 model ExpenseCategory {
-  id     String    @id @default(cuid())
-  name   String    @unique
-  active Boolean   @default(true)
+  id          String    @id @default(cuid())
+  name        String    @unique
+  active      Boolean   @default(true)
   /// Inventory purchases are capitalised on receipt and hit the P&L later as
   /// COGS when the stock is consumed — so they are excluded from operating
   /// expenses to avoid double-counting. They still appear in cash flow.
-  capitalized Boolean @default(false)
+  capitalized Boolean   @default(false)
   /// Chart-of-accounts code this category posts to.
-  accountCode String  @default("6900")
-  expenses Expense[]
+  accountCode String    @default("6900")
+  expenses    Expense[]
 }
 
 model Expense {
-  id          String          @id @default(cuid())
-  branchId    String
-  branch      Branch          @relation(fields: [branchId], references: [id])
-  categoryId  String
-  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
-  description String
-  amountCents Int
-  expenseDate DateTime        @db.Date
-  method      PaymentMethod   @default(CASH)
-  receiptUrl  String          @default("")
-  status      ExpenseStatus   @default(PENDING)
+  id            String          @id @default(cuid())
+  branchId      String
+  branch        Branch          @relation(fields: [branchId], references: [id])
+  categoryId    String
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  description   String
+  amountCents   Int
+  expenseDate   DateTime        @db.Date
+  method        PaymentMethod   @default(CASH)
+  receiptUrl    String          @default("")
+  status        ExpenseStatus   @default(PENDING)
   submittedById String
-  submittedBy   User          @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
+  submittedBy   User            @relation("ExpenseSubmitter", fields: [submittedById], references: [id])
   approvedById  String?
-  approvedBy    User?         @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  approvedBy    User?           @relation("ExpenseApprover", fields: [approvedById], references: [id])
   approvedAt    DateTime?
-  rejectReason  String        @default("")
-  refType     String          @default("") // petty_cash | purchase_order | manual
-  refId       String          @default("")
-  voided      Boolean         @default(false)
-  voidReason  String          @default("")
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  rejectReason  String          @default("")
+  refType       String          @default("") // petty_cash | purchase_order | manual
+  refId         String          @default("")
+  voided        Boolean         @default(false)
+  voidReason    String          @default("")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
 
   journalEntries JournalEntry[]
 
@@ -1502,56 +1512,56 @@ model Expense {
 }
 
 model PettyCashTxn {
-  id          String             @id @default(cuid())
-  branchId    String
-  branch      Branch             @relation(fields: [branchId], references: [id])
-  direction   PettyCashDirection
-  amountCents Int
-  categoryId  String?
-  description String
-  receiptUrl  String             @default("")
+  id                String             @id @default(cuid())
+  branchId          String
+  branch            Branch             @relation(fields: [branchId], references: [id])
+  direction         PettyCashDirection
+  amountCents       Int
+  categoryId        String?
+  description       String
+  receiptUrl        String             @default("")
   balanceAfterCents Int
-  businessDate DateTime          @db.Date
-  recordedById String
-  recordedByName String          @default("")
-  expenseId   String?
-  createdAt   DateTime           @default(now())
+  businessDate      DateTime           @db.Date
+  recordedById      String
+  recordedByName    String             @default("")
+  expenseId         String?
+  createdAt         DateTime           @default(now())
 
   @@index([branchId, businessDate])
 }
 
 model PettyCashRequest {
-  id          String                 @id @default(cuid())
-  branchId    String
-  amountCents Int
-  reason      String                 @default("")
-  status      PettyCashRequestStatus @default(PENDING)
-  requestedById String
-  requestedByName String             @default("")
-  decidedById String?
-  decidedAt   DateTime?
-  createdAt   DateTime               @default(now())
+  id              String                 @id @default(cuid())
+  branchId        String
+  amountCents     Int
+  reason          String                 @default("")
+  status          PettyCashRequestStatus @default(PENDING)
+  requestedById   String
+  requestedByName String                 @default("")
+  decidedById     String?
+  decidedAt       DateTime?
+  createdAt       DateTime               @default(now())
 }
 
 model EodClosing {
-  id          String   @id @default(cuid())
-  branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id])
-  businessDate DateTime @db.Date
+  id                     String   @id @default(cuid())
+  branchId               String
+  branch                 Branch   @relation(fields: [branchId], references: [id])
+  businessDate           DateTime @db.Date
   /// { CASH: 1234, GCASH: 0, ... } in centavos
-  expected    Json
-  counted     Json
-  expectedCashCents Int @default(0)
-  countedCashCents  Int @default(0)
-  overShortCents    Int @default(0)
-  pettyCashExpectedCents Int @default(0)
-  pettyCashCountedCents  Int @default(0)
-  salesCount  Int      @default(0)
-  grossSalesCents Int  @default(0)
-  notes       String   @default("")
-  closedById  String
-  closedBy    User     @relation(fields: [closedById], references: [id])
-  closedAt    DateTime @default(now())
+  expected               Json
+  counted                Json
+  expectedCashCents      Int      @default(0)
+  countedCashCents       Int      @default(0)
+  overShortCents         Int      @default(0)
+  pettyCashExpectedCents Int      @default(0)
+  pettyCashCountedCents  Int      @default(0)
+  salesCount             Int      @default(0)
+  grossSalesCents        Int      @default(0)
+  notes                  String   @default("")
+  closedById             String
+  closedBy               User     @relation(fields: [closedById], references: [id])
+  closedAt               DateTime @default(now())
 
   @@unique([branchId, businessDate])
 }
@@ -1568,21 +1578,21 @@ model Account {
 }
 
 model JournalEntry {
-  id        String        @id @default(cuid())
-  branchId  String
-  branch    Branch        @relation(fields: [branchId], references: [id])
-  source    JournalSource
-  entryDate DateTime      @db.Date
-  reference String        @default("")
-  memo      String        @default("")
-  saleId    String?
-  sale      Sale?         @relation(fields: [saleId], references: [id])
-  expenseId String?
-  expense   Expense?      @relation(fields: [expenseId], references: [id])
+  id              String        @id @default(cuid())
+  branchId        String
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  source          JournalSource
+  entryDate       DateTime      @db.Date
+  reference       String        @default("")
+  memo            String        @default("")
+  saleId          String?
+  sale            Sale?         @relation(fields: [saleId], references: [id])
+  expenseId       String?
+  expense         Expense?      @relation(fields: [expenseId], references: [id])
   /// Reversal pointer — corrections are posted, never deleted.
   reversesEntryId String?
-  createdAt DateTime      @default(now())
-  createdBy String        @default("")
+  createdAt       DateTime      @default(now())
+  createdBy       String        @default("")
 
   lines JournalLine[]
 
@@ -1591,35 +1601,35 @@ model JournalEntry {
 }
 
 model JournalLine {
-  id        String       @id @default(cuid())
-  entryId   String
-  entry     JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  accountId String
-  account   Account      @relation(fields: [accountId], references: [id])
-  debitCents  Int        @default(0)
-  creditCents Int        @default(0)
-  memo      String       @default("")
+  id          String       @id @default(cuid())
+  entryId     String
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     Account      @relation(fields: [accountId], references: [id])
+  debitCents  Int          @default(0)
+  creditCents Int          @default(0)
+  memo        String       @default("")
 }
 
 // ============================================================ comms & notifications
 
 model Notification {
-  id        String           @id @default(cuid())
-  branchId  String?
-  branch    Branch?          @relation(fields: [branchId], references: [id])
+  id         String           @id @default(cuid())
+  branchId   String?
+  branch     Branch?          @relation(fields: [branchId], references: [id])
   /// Either targeted at one user, or at a role (userId null + role set).
-  userId    String?
-  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      Role?
-  kind      NotificationKind
-  title     String
-  body      String           @default("")
-  link      String           @default("")
+  userId     String?
+  user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role?
+  kind       NotificationKind
+  title      String
+  body       String           @default("")
+  link       String           @default("")
   /// Stable key so the same condition doesn't create duplicates.
-  dedupeKey String           @unique
-  readAt    DateTime?
+  dedupeKey  String           @unique
+  readAt     DateTime?
   resolvedAt DateTime?
-  createdAt DateTime         @default(now())
+  createdAt  DateTime         @default(now())
 
   @@index([userId, resolvedAt])
   @@index([role, resolvedAt])
@@ -1651,14 +1661,14 @@ model AnnouncementRead {
 }
 
 model DirectMessage {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   fromUserId String
-  fromUser   User     @relation("MessageFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  fromUser   User      @relation("MessageFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUserId   String
-  toUser     User     @relation("MessageTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  toUser     User      @relation("MessageTo", fields: [toUserId], references: [id], onDelete: Cascade)
   body       String
   readAt     DateTime?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
   @@index([toUserId, readAt])
   @@index([fromUserId, toUserId, createdAt])
@@ -1684,13 +1694,13 @@ model ShiftNote {
 }
 
 model ShiftNoteComment {
-  id      String    @id @default(cuid())
-  noteId  String
-  note    ShiftNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  userId  String
-  user    User      @relation(fields: [userId], references: [id])
-  body    String
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  noteId    String
+  note      ShiftNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  body      String
+  createdAt DateTime  @default(now())
 }
 
 model EmailLog {
@@ -1711,10 +1721,10 @@ model EmailLog {
 // ============================================================ compliance & KPIs
 
 model Holiday {
-  id     String      @id @default(cuid())
-  date   DateTime    @unique @db.Date
-  name   String
-  type   HolidayType @default(REGULAR)
+  id   String      @id @default(cuid())
+  date DateTime    @unique @db.Date
+  name String
+  type HolidayType @default(REGULAR)
 }
 
 model KpiTarget {
@@ -1729,20 +1739,20 @@ model KpiTarget {
 }
 
 model Permit {
-  id         String     @id @default(cuid())
-  kind       PermitKind @default(BUSINESS)
-  name       String
-  agency     String     @default("")
-  refNumber  String     @default("")
-  issueDate  DateTime?
-  expiryDate DateTime?
-  fileUrl    String     @default("")
-  notes      String     @default("")
-  employeeId String?
-  employee   Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id             String     @id @default(cuid())
+  kind           PermitKind @default(BUSINESS)
+  name           String
+  agency         String     @default("")
+  refNumber      String     @default("")
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  fileUrl        String     @default("")
+  notes          String     @default("")
+  employeeId     String?
+  employee       Employee?  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   lastRemindedAt DateTime?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   @@index([expiryDate])
 }

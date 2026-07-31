@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react';
 import { saveServiceAction, type FormState } from '../actions';
 
 type Service = {
-  id: string; name: string; categoryId: string; description: string;
+  id: string; name: string; categoryId: string; alsoInCategoryIds: string[]; description: string;
   durationMinutes: number; price: number;
   commissionType: string; commissionValue: number;
   active: boolean; showOnLanding: boolean; sortRank: number;
@@ -26,12 +26,14 @@ export function ServiceEditor({
   const [selectedId, setSelectedId] = useState('');
   const current = services.find((s) => s.id === selectedId);
   const [commissionType, setCommissionType] = useState(current?.commissionType ?? '');
+  const [primaryId, setPrimaryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
   const [recipes, setRecipes] = useState<{ key: string; itemId: string; quantity: string }[]>([]);
 
   function select(id: string) {
     setSelectedId(id);
     const s = services.find((x) => x.id === id);
     setCommissionType(s?.commissionType ?? '');
+    setPrimaryId(s?.categoryId ?? categories[0]?.id ?? '');
     setRecipes(
       (s?.recipes ?? []).map((r) => ({ key: `r${++seq}`, itemId: r.itemId, quantity: String(r.quantity) })),
     );
@@ -55,10 +57,44 @@ export function ServiceEditor({
         </label>
         <label className="block">
           <span className="label">Category *</span>
-          <select name="categoryId" className="select" defaultValue={current?.categoryId ?? categories[0]?.id}>
+          <select
+            name="categoryId"
+            className="select"
+            value={primaryId}
+            onChange={(e) => setPrimaryId(e.target.value)}
+          >
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            Where it sits in the POS, and the category its revenue is reported under.
+          </span>
         </label>
+        {categories.length > 1 && (
+          <fieldset className="block">
+            <legend className="label">Also list under</legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {categories
+                .filter((c) => c.id !== primaryId)
+                .map((c) => (
+                  <label key={c.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="alsoInCategoryIds"
+                      value={c.id}
+                      className="h-5 w-5 accent-[#6b4e35]"
+                      defaultChecked={current?.alsoInCategoryIds.includes(c.id) ?? false}
+                    />
+                    {c.name}
+                  </label>
+                ))}
+            </div>
+            <span className="mt-1 block text-[11px] text-cocoa-400">
+              Optional. The service appears under these headings on the public price list as
+              well — the POS and reports still use the category above, so nothing is counted
+              twice.
+            </span>
+          </fieldset>
+        )}
         <label className="block">
           <span className="label">Description (landing page)</span>
           <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />

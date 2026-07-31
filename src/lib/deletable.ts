@@ -163,7 +163,7 @@ export const DELETABLE = {
         // showing a blank last day.
         await prisma.employee.update({
           where: { id },
-          data: { active: false, status: 'SEPARATED', separatedAt: new Date() },
+          data: { active: false, status: 'SEPARATED', statusFrom: new Date() },
         });
       },
     },

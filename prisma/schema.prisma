@@ -665,26 +665,29 @@ enum EmploymentStatus {
 }
 
 model Employee {
-  id               String           @id @default(cuid())
-  branchId         String
-  branch           Branch           @relation(fields: [branchId], references: [id])
-  name             String
-  photoUrl         String           @default("")
-  employeeRole     EmployeeRole
-  mobile           String           @default("")
-  email            String           @default("")
-  address          String           @default("")
-  emergencyName    String           @default("")
-  emergencyMobile  String           @default("")
-  hireDate         DateTime         @default(now())
+  id              String           @id @default(cuid())
+  branchId        String
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  name            String
+  photoUrl        String           @default("")
+  employeeRole    EmployeeRole
+  mobile          String           @default("")
+  email           String           @default("")
+  address         String           @default("")
+  emergencyName   String           @default("")
+  emergencyMobile String           @default("")
+  hireDate        DateTime         @default(now())
   /// Derived from `status` — kept because the roster, POS, availability and
   /// payroll all filter on it, and a status change must not silently leave
   /// someone bookable.
-  active           Boolean          @default(true)
-  status           EmploymentStatus @default(ACTIVE)
-  /// Set when status becomes SEPARATED; cleared if they are taken back on.
-  separatedAt      DateTime?
-  separationReason String           @default("")
+  active          Boolean          @default(true)
+  status          EmploymentStatus @default(ACTIVE)
+  /// The current spell: when this status began, and — for leave and suspension
+  /// — when it is due to end. One pair of dates for every status rather than a
+  /// field per status, so "since when" is answerable without knowing which.
+  statusFrom      DateTime?
+  statusUntil     DateTime?
+  statusReason    String           @default("")
 
   // --- government numbers (Owner/Admin only) ---
   sssNumber              String @default("")
@@ -720,8 +723,32 @@ model Employee {
   certifications      Permit[]
   employeeRateSales   Sale[]                   @relation("EmployeeRateSale")
   incentiveResults    IncentiveResult[]
+  employmentEvents    EmploymentEvent[]
 
   @@index([branchId, active])
+}
+
+/// Every change of employment status, kept forever.
+///
+/// The Employee row answers "where do they stand today"; this answers "has this
+/// happened before, and when". A suspension that leaves no trace once it is
+/// lifted is not a record — and a second one is a different conversation from a
+/// first.
+model EmploymentEvent {
+  id         String           @id @default(cuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  status     EmploymentStatus
+  /// Effective date of the change — the last day worked, the first day of
+  /// leave — not when someone got round to typing it in.
+  startDate  DateTime
+  /// Expected end, for leave and suspension. Null means open-ended.
+  endDate    DateTime?
+  reason     String           @default("")
+  recordedBy String           @default("")
+  createdAt  DateTime         @default(now())
+
+  @@index([employeeId, startDate])
 }
 
 model EmployeeSkill {

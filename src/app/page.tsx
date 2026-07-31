@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
 import { formatPesoMenu } from '@/lib/money';
 import { minutesToLabel } from '@/lib/datetime';
+import { buildServiceMenu } from '@/lib/service-menu';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,12 @@ export default async function LandingPage() {
       orderBy: { sortRank: 'asc' },
       include: {
         services: {
+          where: { active: true, showOnLanding: true },
+          orderBy: { sortRank: 'asc' },
+        },
+        // A treatment that spans two categories is listed under both here, and
+        // only here — the POS and the revenue report still read the primary.
+        alsoListed: {
           where: { active: true, showOnLanding: true },
           orderBy: { sortRank: 'asc' },
         },
@@ -31,6 +38,8 @@ export default async function LandingPage() {
     }),
     prisma.package.findMany({ where: { active: true, showOnLanding: true } }),
   ]);
+
+  const menu = buildServiceMenu(categories);
 
   const hours = `${minutesToLabel(settings['business.openMinute'])} – ${minutesToLabel(
     settings['business.closeMinute'],
@@ -179,9 +188,7 @@ export default async function LandingPage() {
           {/* Leader dots, as on a printed spa menu — the one structural device
               here that encodes something true about the content. */}
           <div className="mt-12 space-y-11">
-            {categories
-              .filter((c) => c.services.length)
-              .map((cat) => (
+            {menu.map((cat) => (
                 <div key={cat.id}>
                   <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
                     {cat.name}

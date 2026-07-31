@@ -21,7 +21,11 @@ export default async function ServicesSettingsPage({
   const [categories, services, items] = await Promise.all([
     prisma.serviceCategory.findMany({ orderBy: { sortRank: 'asc' } }),
     prisma.service.findMany({
-      include: { category: true, recipes: { include: { item: { include: { unit: true } } } } },
+      include: {
+        category: true,
+        alsoInCategories: { select: { id: true } },
+        recipes: { include: { item: { include: { unit: true } } } },
+      },
       orderBy: [{ category: { sortRank: 'asc' } }, { sortRank: 'asc' }],
     }),
     prisma.item.findMany({
@@ -100,6 +104,7 @@ export default async function ServicesSettingsPage({
             id: s.id,
             name: s.name,
             categoryId: s.categoryId,
+            alsoInCategoryIds: s.alsoInCategories.map((c) => c.id),
             description: s.description,
             durationMinutes: s.durationMinutes,
             price: s.priceCents / 100,

@@ -27,7 +27,7 @@ export default async function PortalLayout({ children }: { children: React.React
         <div className="flex items-center gap-2 px-5 py-5">
           <BrandMark logoUrl={settings['business.logoUrl']} size={36} />
           <div className="leading-tight">
-            <p className="font-display text-sm font-semibold text-cocoa-800">ANICA</p>
+            <p className="wordmark text-[13px]">ANICA</p>
             <p className="text-[11px] text-cocoa-400">Wellness Spa BOS</p>
           </div>
         </div>
@@ -60,7 +60,7 @@ export default async function PortalLayout({ children }: { children: React.React
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-sand-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden no-print">
         <Link href="/portal" className="flex items-center gap-2">
           <BrandMark logoUrl={settings['business.logoUrl']} size={32} />
-          <span className="font-display text-sm font-semibold text-cocoa-800">ANICA</span>
+          <span className="wordmark text-[13px]">ANICA</span>
         </Link>
         <div className="flex items-center gap-2">
           <Link

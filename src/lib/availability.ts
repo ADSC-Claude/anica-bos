@@ -284,7 +284,46 @@ export async function assertNoConflicts(opts: {
   }
 }
 
-/** Bookable start times for a service on a given Manila date. */
+/**
+ * Would this booking still be running after closing time?
+ *
+ * Manila is UTC+8 with no daylight saving, so the offset is a constant rather
+ * than a lookup. Closing is expressed as minutes from midnight and may be 1440
+ * (midnight itself), which is why the start minute is not wrapped: a booking
+ * that starts at 23:30 must compare as 1410, not as 1410 % 1440.
+ */
+export function runsPastClosing(
+  startAt: Date,
+  durationMinutes: number,
+  closeMinute: number,
+): boolean {
+  const startMinute = startAt.getUTCHours() * 60 + startAt.getUTCMinutes() + 8 * 60;
+  return (startMinute % 1440) + durationMinutes > closeMinute;
+}
+
+export type DaySlot = {
+  minute: number;
+  startAt: Date;
+  /**
+   * The treatment would still be running after closing time.
+   *
+   * These are offered rather than hidden, because turning away a 9pm caller who
+   * wants a 90-minute massage is turning away the business the late hours exist
+   * to catch. But they are a request, not a reservation: someone at the desk has
+   * to agree to stay, so nothing is promised and no deposit is taken until they
+   * do.
+   */
+  needsApproval: boolean;
+};
+
+/**
+ * Bookable start times for a service on a given Manila date.
+ *
+ * Two cut-offs, not one. Treatments that finish before closing are sold
+ * normally. After that, `lastCallMinutes` before closing stays open for
+ * requests — the spa's own "last call" — and everything later is not offered at
+ * all, because at some point the answer really is no.
+ */
 export function slotsForDay(opts: {
   dateKey: string;
   openMinute: number;
@@ -292,19 +331,32 @@ export function slotsForDay(opts: {
   durationMinutes: number;
   stepMinutes: number;
   leadTimeMinutes: number;
+  /** How long before closing a request may still start. 0 disables requests. */
+  lastCallMinutes?: number;
   now?: Date;
-}): { minute: number; startAt: Date }[] {
+}): DaySlot[] {
   const now = opts.now ?? new Date();
   const earliest = new Date(now.getTime() + opts.leadTimeMinutes * 60_000);
-  const out: { minute: number; startAt: Date }[] = [];
-  for (
-    let m = opts.openMinute;
-    m + opts.durationMinutes <= opts.closeMinute;
-    m += opts.stepMinutes
-  ) {
+  const lastCall = Math.max(0, opts.lastCallMinutes ?? 0);
+
+  // The latest a booking may start at all: whichever is later of "finishes by
+  // closing" and "starts by last call". Without the Math.max, a short treatment
+  // would lose the slots between last call and closing that it can genuinely
+  // finish inside.
+  const latestStart = Math.max(
+    opts.closeMinute - opts.durationMinutes,
+    lastCall ? opts.closeMinute - lastCall : -1,
+  );
+
+  const out: DaySlot[] = [];
+  for (let m = opts.openMinute; m <= latestStart; m += opts.stepMinutes) {
     const startAt = manilaInstant(opts.dateKey, m);
     if (startAt < earliest) continue;
-    out.push({ minute: m, startAt });
+    out.push({
+      minute: m,
+      startAt,
+      needsApproval: m + opts.durationMinutes > opts.closeMinute,
+    });
   }
   return out;
 }

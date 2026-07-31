@@ -26,7 +26,7 @@ export default async function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <BrandMark logoUrl={settings['business.logoUrl']} size={56} className="mx-auto mb-3" />
-          <h1 className="font-display text-2xl font-semibold text-cocoa-800">
+          <h1 className="wordmark text-xl">
             {settings['business.name']}
           </h1>
           <p className="muted mt-1">Business Operating System</p>

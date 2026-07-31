@@ -61,8 +61,23 @@ export default async function BookingSettingsPage() {
                 <span className="label">Slot interval (minutes)</span>
                 <input name="slotStepMinutes" type="number" min={15} step={15} className="input"
                   defaultValue={s['booking.slotStepMinutes']} />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  How far apart start times are offered. 15 gives 8:00, 8:15, 8:30…
+                </span>
               </label>
             </div>
+            <label className="block">
+              <span className="label">Last call — request window before closing (minutes)</span>
+              <input name="lastCallMinutes" type="number" min={0} step={15} className="input"
+                defaultValue={s['booking.lastCallMinutes']} />
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                A treatment that finishes before closing is booked outright. Inside this window a
+                longer treatment can still be <strong>requested</strong> — it arrives for you to
+                approve or decline, since it means someone stays late. Nothing is charged until
+                you approve, so declining never means a refund. 60 with a midnight close means
+                requests are taken up to 11:00 PM. Set 0 to switch requests off.
+              </span>
+            </label>
             <label className="block">
               <span className="label">If the client cancels or no-shows</span>
               <select name="depositOnCancel" className="select" defaultValue={s['booking.depositOnCancel']}>

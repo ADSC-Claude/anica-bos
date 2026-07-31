@@ -95,7 +95,7 @@ export default async function LandingPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <BrandMark logoUrl={settings['business.logoUrl']} size={36} />
-            <span className="font-display text-base font-semibold text-cocoa-800">
+            <span className="wordmark">
               {settings['business.name']}
             </span>
           </Link>
@@ -251,7 +251,7 @@ export default async function LandingPage() {
                             aria-hidden
                             className="min-w-6 flex-1 -translate-y-1 border-b border-dotted border-sand-300"
                           />
-                          <span className="num shrink-0 font-display text-lg font-semibold text-gilt-600">
+                          <span className="num shrink-0 text-[15px] text-gilt-600">
                             {formatPesoMenu(s.priceCents)}
                           </span>
                         </div>
@@ -284,7 +284,7 @@ export default async function LandingPage() {
                   <div key={p.id} className="card-pad">
                     <div className="flex items-start justify-between gap-3">
                       <p className="font-semibold text-cocoa-800">{p.name}</p>
-                      <p className="num shrink-0 font-display text-lg font-semibold text-gilt-600">
+                      <p className="num shrink-0 text-[15px] text-gilt-600">
                         {formatPesoMenu(p.priceCents)}
                       </p>
                     </div>

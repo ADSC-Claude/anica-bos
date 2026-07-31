@@ -19,7 +19,7 @@ export default async function BookPage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
               ✿
             </span>
-            <span className="font-display text-sm font-semibold text-cocoa-800">
+            <span className="wordmark text-[13px]">
               ANICA Wellness Spa
             </span>
           </Link>

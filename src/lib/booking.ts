@@ -11,6 +11,7 @@ import {
   availableResources,
   nextTherapistInRotation,
   requiredPlaceFor,
+  runsPastClosing,
 } from './availability';
 import { createCheckoutSession, isSimulated } from './paymongo';
 import { sendTemplateEmail } from './email';
@@ -59,6 +60,8 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   checkoutUrl: string | null;
   simulated: boolean;
   manualFallback: boolean;
+  /** The slot runs past closing: requested, not reserved, and not yet charged. */
+  needsApproval: boolean;
 }> {
   const settings = await getSettings(req.branchId);
   if (!settings['booking.enabled']) throw new BookingError('Online booking is currently closed.');
@@ -201,7 +204,13 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   // ---------------------------------------------------------- the deposit
   const priceTotal = services.reduce((a, s) => a + s.priceCents, 0);
   const depositCents = Math.round((priceTotal * settings['booking.depositPercent']) / 100);
-  const manualFallback = settings['booking.manualFallbackEnabled'];
+
+  // A treatment that runs past closing is a request, not a reservation: it means
+  // someone at the desk agrees to stay. Nothing is charged until they do, so a
+  // declined request never has to be refunded — which is the whole reason the
+  // gateway is skipped here rather than charged and reversed later.
+  const needsApproval = runsPastClosing(startAt, totalMinutes, branch.closeMinute);
+  const manualFallback = needsApproval ? false : settings['booking.manualFallbackEnabled'];
 
   const partner = req.promoCode
     ? await prisma.partner.findUnique({ where: { promoCode: req.promoCode.trim().toUpperCase() } })
@@ -224,9 +233,21 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       status: 'PENDING' as AppointmentStatus,
       source: 'ONLINE',
       notes: req.notes ?? '',
-      depositStatus: manualFallback ? 'AWAITING_VERIFICATION' : 'AWAITING_PAYMENT',
+      needsApproval,
+      // The amount is recorded either way so the desk can quote it, but an
+      // unapproved request is not yet awaiting anything.
+      depositStatus: needsApproval
+        ? 'NONE'
+        : manualFallback
+          ? 'AWAITING_VERIFICATION'
+          : 'AWAITING_PAYMENT',
       depositAmountCents: depositCents,
-      expiresAt: new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
+      // Requests do not expire on the deposit clock — there is nothing to pay
+      // yet, and expiring one would cancel a booking the guest is still
+      // waiting to hear about.
+      expiresAt: needsApproval
+        ? null
+        : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
       services: {
         create: services.map((s, i) => ({
           serviceId: s.id,
@@ -242,7 +263,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   // -------------------------------------------------------------- gateway
   let checkoutUrl: string | null = null;
   let simulated = false;
-  if (!manualFallback) {
+  if (!manualFallback && !needsApproval) {
     const base = appUrl();
     const session = await createCheckoutSession({
       amountCents: depositCents,
@@ -264,7 +285,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   const therapist = await prisma.employee.findUnique({ where: { id: therapistId } });
   await sendTemplateEmail({
     to: client.email,
-    template: 'booking_received',
+    template: needsApproval ? 'booking_request_received' : 'booking_received',
     clientId: client.id,
     vars: {
       clientName: client.name,
@@ -275,18 +296,26 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       deposit: formatPeso(depositCents),
       depositPercent: settings['booking.depositPercent'],
       expiryMinutes: settings['booking.expiryMinutes'],
-      depositInstructions: manualFallback
-        ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to ${settings['booking.bankDetails']}, then upload your proof of payment.`
-        : 'You can pay it securely online with GCash, Maya, a card, or online banking.',
+      depositInstructions: needsApproval
+        ? `This time runs past our closing hour, so we need to confirm a therapist can stay. We will message you shortly — nothing is charged until we do, and your ${formatPeso(depositCents)} reservation fee is only requested once we confirm.`
+        : manualFallback
+          ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to ${settings['booking.bankDetails']}, then upload your proof of payment.`
+          : 'You can pay it securely online with GCash, Maya, a card, or online banking.',
     },
   });
 
   await notify({
     kind: manualFallback ? 'DEPOSIT_TO_VERIFY' : 'PENDING_BOOKING',
-    title: manualFallback
-      ? `Deposit to verify — ${client.name}`
-      : `New online booking — ${client.name}`,
-    body: `${services.map((s) => s.name).join(', ')} · ${formatManila(startAt, { time: true })}`,
+    // The late request is the one that actually needs a person to decide
+    // something, so it says so rather than arriving as another booking.
+    title: needsApproval
+      ? `Late request — approve or decline — ${client.name}`
+      : manualFallback
+        ? `Deposit to verify — ${client.name}`
+        : `New online booking — ${client.name}`,
+    body: needsApproval
+      ? `${services.map((s) => s.name).join(', ')} · ${formatManila(startAt, { time: true })} — runs past closing`
+      : `${services.map((s) => s.name).join(', ')} · ${formatManila(startAt, { time: true })}`,
     link: `/portal/appointments/${appointment.id}`,
     dedupeKey: `appointment:${appointment.id}`,
     branchId: branch.id,
@@ -300,6 +329,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
     checkoutUrl,
     simulated: simulated || isSimulated(),
     manualFallback,
+    needsApproval,
   };
 }
 
@@ -396,4 +426,140 @@ export async function expireStaleBookings(): Promise<number> {
     });
   }
   return stale.length;
+}
+
+/**
+ * The desk agrees to stay late: a request becomes a real booking.
+ *
+ * Only now is money asked for. The guest was told nothing would be charged
+ * until someone confirmed, so this is the first point a gateway session exists
+ * — which is also why declining costs nothing and refunds no one.
+ */
+export async function approveLateRequest(opts: {
+  appointmentId: string;
+  approvedBy: string;
+}): Promise<{ ok: boolean; error?: string; checkoutUrl?: string | null }> {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: opts.appointmentId },
+    include: { client: true, branch: true, services: { include: { service: true, employee: true } } },
+  });
+  if (!appointment) return { ok: false, error: 'That booking no longer exists.' };
+  if (!appointment.needsApproval) return { ok: false, error: 'That booking is not awaiting approval.' };
+  if (appointment.status === 'CANCELLED') return { ok: false, error: 'That booking was cancelled.' };
+
+  const settings = await getSettings(appointment.branchId);
+  const manualFallback = settings['booking.manualFallbackEnabled'];
+  const depositCents = appointment.depositAmountCents;
+  const serviceNames = appointment.services.map((s) => s.service.name).join(', ');
+
+  let checkoutUrl: string | null = null;
+  if (!manualFallback && depositCents > 0) {
+    const base = appUrl();
+    const session = await createCheckoutSession({
+      amountCents: depositCents,
+      description: `Reservation fee — ${serviceNames}`,
+      reference: appointment.reference,
+      lineName: `${settings['booking.depositPercent']}% reservation fee`,
+      successUrl: `${base}/book/confirmation/${appointment.reference}?paid=1`,
+      cancelUrl: `${base}/book/confirmation/${appointment.reference}?cancelled=1`,
+      customer: {
+        name: appointment.client.name,
+        email: appointment.client.email,
+        phone: appointment.client.mobile,
+      },
+    });
+    checkoutUrl = session.checkoutUrl;
+    await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { gatewaySessionId: session.id },
+    });
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: {
+      needsApproval: false,
+      approvedAt: new Date(),
+      approvedBy: opts.approvedBy,
+      // The expiry clock starts now, not when the request was made — the guest
+      // has been waiting for an answer and should get the full window to pay.
+      depositStatus: depositCents === 0
+        ? 'NONE'
+        : manualFallback
+          ? 'AWAITING_VERIFICATION'
+          : 'AWAITING_PAYMENT',
+      expiresAt: depositCents === 0
+        ? null
+        : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
+      // With no fee to collect there is nothing left to wait for.
+      status: depositCents === 0 ? 'CONFIRMED' : appointment.status,
+    },
+  });
+
+  await sendTemplateEmail({
+    to: appointment.client.email,
+    template: 'booking_request_approved',
+    clientId: appointment.clientId,
+    vars: {
+      clientName: appointment.client.name,
+      reference: appointment.reference,
+      services: serviceNames,
+      when: formatManila(appointment.startAt, { time: true, weekday: true }),
+      therapist: appointment.services[0]?.employee?.name ?? 'To be assigned',
+      deposit: formatPeso(depositCents),
+      depositPercent: settings['booking.depositPercent'],
+      expiryMinutes: settings['booking.expiryMinutes'],
+      depositInstructions: manualFallback
+        ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to ${settings['booking.bankDetails']}, then upload your proof of payment.`
+        : 'You can pay it securely online with GCash, Maya, a card, or online banking.',
+    },
+  });
+
+  return { ok: true, checkoutUrl };
+}
+
+/**
+ * The desk cannot stay: the request is refused and the slot released.
+ *
+ * Cancelled rather than deleted, because a guest who asked and was told no is
+ * part of the record — and because nothing in this system deletes bookings.
+ */
+export async function declineLateRequest(opts: {
+  appointmentId: string;
+  reason: string;
+  declinedBy: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: opts.appointmentId },
+    include: { client: true, services: { include: { service: true } } },
+  });
+  if (!appointment) return { ok: false, error: 'That booking no longer exists.' };
+  if (!appointment.needsApproval) return { ok: false, error: 'That booking is not awaiting approval.' };
+
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: {
+      needsApproval: false,
+      status: 'CANCELLED',
+      cancelledAt: new Date(),
+      cancelReason: opts.reason || 'We could not stay past closing for this time.',
+      declineReason: opts.reason,
+      approvedBy: opts.declinedBy,
+    },
+  });
+
+  await sendTemplateEmail({
+    to: appointment.client.email,
+    template: 'booking_rejected',
+    clientId: appointment.clientId,
+    vars: {
+      clientName: appointment.client.name,
+      reference: appointment.reference,
+      services: appointment.services.map((s) => s.service.name).join(', '),
+      when: formatManila(appointment.startAt, { time: true, weekday: true }),
+      reason: opts.reason || 'we are unable to stay past closing at that time',
+    },
+  });
+
+  return { ok: true };
 }

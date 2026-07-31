@@ -89,9 +89,12 @@ export async function GET(req: Request) {
     durationMinutes,
     stepMinutes: settings['booking.slotStepMinutes'],
     leadTimeMinutes: settings['booking.leadTimeMinutes'],
+    lastCallMinutes: settings['booking.lastCallMinutes'],
   });
 
-  const slots: { minute: number; label: string; startAt: string; therapists: number }[] = [];
+  const slots: {
+    minute: number; label: string; startAt: string; therapists: number; needsApproval: boolean;
+  }[] = [];
   for (const c of candidates) {
     const endAt = new Date(c.startAt.getTime() + durationMinutes * 60_000);
     const [therapists, resources] = await Promise.all([
@@ -104,6 +107,7 @@ export async function GET(req: Request) {
       label: minutesToLabel(c.minute),
       startAt: c.startAt.toISOString(),
       therapists: therapists.length,
+      needsApproval: c.needsApproval,
     });
   }
 

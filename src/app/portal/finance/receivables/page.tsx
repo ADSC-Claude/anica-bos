@@ -101,14 +101,14 @@ export default async function ReceivablesPage({
               <div key={a.id} className="card-pad">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-moss-800">{a.name}</p>
-                    <p className="text-xs text-moss-400">
+                    <p className="font-semibold text-cocoa-800">{a.name}</p>
+                    <p className="text-xs text-cocoa-400">
                       Terms {a.paymentTermsDays} days
                       {a.creditLimitCents > 0 && ` · limit ${formatPeso(a.creditLimitCents)}`}
                     </p>
                   </div>
                   <span className="flex items-center gap-2">
-                    <span className={`num font-semibold ${outstanding > 0 ? 'text-clay-500' : 'text-moss-600'}`}>
+                    <span className={`num font-semibold ${outstanding > 0 ? 'text-clay-500' : 'text-cocoa-600'}`}>
                       {formatPeso(outstanding)}
                     </span>
                     {ageing.d90 > 0 && <StatusBadge status="BAD" label="over 90 days" />}
@@ -151,7 +151,7 @@ export default async function ReceivablesPage({
                 {a.statements.length > 0 && (
                   <ul className="mt-2 space-y-0.5 text-xs">
                     {a.statements.map((s) => (
-                      <li key={s.id} className="flex justify-between gap-3 text-moss-500">
+                      <li key={s.id} className="flex justify-between gap-3 text-cocoa-500">
                         <span>
                           {s.number} · {s.periodStart.toISOString().slice(0, 10)} →{' '}
                           {s.periodEnd.toISOString().slice(0, 10)} · due {formatManila(s.dueDate)}

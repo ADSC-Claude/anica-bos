@@ -26,12 +26,12 @@ export default async function OperationsSettingsPage() {
               <span className="label">Manual discount approval threshold (%)</span>
               <input name="discountApprovalPercent" type="number" min={0} max={100} className="input"
                 defaultValue={s['pos.discountApprovalPercent']} />
-              <span className="mt-1 block text-[11px] text-moss-400">
+              <span className="mt-1 block text-[11px] text-cocoa-400">
                 Manual discounts above this need an Owner/Manager PIN at checkout.
               </span>
             </label>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="tipsEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="tipsEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['pos.tipsEnabled']} />
               Allow tips at checkout
             </label>
@@ -51,8 +51,8 @@ export default async function OperationsSettingsPage() {
 
           <div className="card-pad space-y-3">
             <p className="section-title">Loyalty</p>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="loyaltyEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="loyaltyEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['loyalty.enabled']} />
               Award loyalty points
             </label>
@@ -83,7 +83,7 @@ export default async function OperationsSettingsPage() {
               <span className="label">Flag a client as lapsed after (days)</span>
               <input name="retentionThresholdDays" type="number" min={7} className="input"
                 defaultValue={s['retention.defaultThresholdDays']} />
-              <span className="mt-1 block text-[11px] text-moss-400">
+              <span className="mt-1 block text-[11px] text-cocoa-400">
                 Each client is also judged against twice their own average gap between visits.
               </span>
             </label>
@@ -93,8 +93,8 @@ export default async function OperationsSettingsPage() {
                 your client base better than the current {s['retention.defaultThresholdDays']}.
               </Alert>
             )}
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="autoDeductRecipes" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="autoDeductRecipes" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['inventory.autoDeductRecipes']} />
               Auto-deduct consumables from service recipes at checkout
             </label>
@@ -114,12 +114,12 @@ export default async function OperationsSettingsPage() {
                   defaultValue={s['membership.expiryAlertDays']} />
               </label>
             </div>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="birthdayPerkEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="birthdayPerkEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['membership.birthdayPerkEnabled']} />
               Members get a free service during their birthday month
             </label>
-            <p className="text-[11px] text-moss-400">
+            <p className="text-[11px] text-cocoa-400">
               Choose which service the perk covers on the membership package in Marketing →
               Packages.
             </p>

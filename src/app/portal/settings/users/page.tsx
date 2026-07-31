@@ -66,11 +66,11 @@ export default async function UsersSettingsPage({
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id}>
-                    <td className="font-medium text-moss-800">{u.name}</td>
+                    <td className="font-medium text-cocoa-800">{u.name}</td>
                     <td className="text-xs">{u.email}</td>
                     <td className="text-xs capitalize">{u.role.toLowerCase()}</td>
-                    <td className="text-xs text-moss-500">{u.branch?.name ?? '—'}</td>
-                    <td className="text-xs text-moss-500">
+                    <td className="text-xs text-cocoa-500">{u.branch?.name ?? '—'}</td>
+                    <td className="text-xs text-cocoa-500">
                       {u.lastLoginAt ? formatManila(u.lastLoginAt, { time: true }) : 'never'}
                     </td>
                     <td className="whitespace-nowrap">
@@ -102,12 +102,12 @@ export default async function UsersSettingsPage({
                       <td className="text-xs">{e.email}</td>
                       <td className="text-xs">
                         {e.success ? (
-                          <span className="text-moss-600">success</span>
+                          <span className="text-cocoa-600">success</span>
                         ) : (
                           <span className="text-clay-500">failed — {e.reason}</span>
                         )}
                       </td>
-                      <td className="num text-xs text-moss-400">{e.ip}</td>
+                      <td className="num text-xs text-cocoa-400">{e.ip}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -54,12 +54,12 @@ export function ExpenseForm({
       </label>
 
       {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-      {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+      {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
       <button className="btn-primary w-full" type="submit">
         {autoApproves ? 'Record expense' : 'Submit for approval'}
       </button>
       {!autoApproves && (
-        <p className="text-[11px] text-moss-400">
+        <p className="text-[11px] text-cocoa-400">
           Your entry stays pending until the Owner or Manager approves it, and only then does it
           appear in the P&amp;L.
         </p>

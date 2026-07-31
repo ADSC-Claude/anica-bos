@@ -17,7 +17,7 @@ export function KpiTargetForm({
       <input type="hidden" name="periodKey" value={periodKey} />
       {rows.map((r) => (
         <div key={r.key} className="flex items-center justify-between gap-3">
-          <label className="flex-1 text-sm text-moss-700" htmlFor={`kpi-${r.key}`}>
+          <label className="flex-1 text-sm text-cocoa-700" htmlFor={`kpi-${r.key}`}>
             {r.label}
           </label>
           <input type="hidden" name="kpiKey" value={r.key} />
@@ -35,9 +35,9 @@ export function KpiTargetForm({
         </div>
       ))}
       {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-      {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+      {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
       <button className="btn-primary" type="submit">Save targets</button>
-      <p className="text-[11px] text-moss-400">
+      <p className="text-[11px] text-cocoa-400">
         Leave a field blank to track the KPI without a target.
       </p>
     </form>

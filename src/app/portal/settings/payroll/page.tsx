@@ -42,7 +42,7 @@ export default async function PayrollSettingsPage() {
                   <span className="label">Default commission (%)</span>
                   <input name="commissionPercent" type="number" min={0} max={100} className="input"
                     defaultValue={s['payroll.commissionPercent']} />
-                  <span className="mt-1 block text-[11px] text-moss-400">
+                  <span className="mt-1 block text-[11px] text-cocoa-400">
                     Always computed on the undiscounted list price.
                   </span>
                 </label>
@@ -101,13 +101,13 @@ export default async function PayrollSettingsPage() {
                   <span className="label">Regular holiday multiplier (%)</span>
                   <input name="regularHolidayMultiplier" type="number" min={100} className="input"
                     defaultValue={s['payroll.regularHolidayMultiplier']} />
-                  <span className="mt-1 block text-[11px] text-moss-400">200 = double pay</span>
+                  <span className="mt-1 block text-[11px] text-cocoa-400">200 = double pay</span>
                 </label>
                 <label className="block">
                   <span className="label">Special holiday multiplier (%)</span>
                   <input name="specialHolidayMultiplier" type="number" min={100} className="input"
                     defaultValue={s['payroll.specialHolidayMultiplier']} />
-                  <span className="mt-1 block text-[11px] text-moss-400">130 = 1.3×</span>
+                  <span className="mt-1 block text-[11px] text-cocoa-400">130 = 1.3×</span>
                 </label>
               </div>
             </div>
@@ -139,8 +139,8 @@ export default async function PayrollSettingsPage() {
             {holidays.map((h) => (
               <div key={h.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
                 <span>
-                  <span className="font-medium text-moss-800">{h.name}</span>
-                  <span className="block text-xs text-moss-400">{formatManila(h.date)}</span>
+                  <span className="font-medium text-cocoa-800">{h.name}</span>
+                  <span className="block text-xs text-cocoa-400">{formatManila(h.date)}</span>
                 </span>
                 <StatusBadge status={h.type === 'REGULAR' ? 'OK' : 'WARN'} label={h.type.toLowerCase()} />
               </div>

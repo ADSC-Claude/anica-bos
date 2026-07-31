@@ -78,12 +78,12 @@ async function DirectMessages({ userId, withId }: { userId: string; withId?: str
               <a
                 href={`/portal/messages?with=${u.id}`}
                 className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
-                  u.id === partnerId ? 'bg-moss-100 font-medium' : 'hover:bg-sand-100'
+                  u.id === partnerId ? 'bg-cocoa-100 font-medium' : 'hover:bg-sand-100'
                 }`}
               >
                 <span>
                   {u.name}
-                  <span className="block text-[11px] capitalize text-moss-400">
+                  <span className="block text-[11px] capitalize text-cocoa-400">
                     {u.role.toLowerCase()}
                   </span>
                 </span>
@@ -109,11 +109,11 @@ async function DirectMessages({ userId, withId }: { userId: string; withId?: str
                 <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                   <div
                     className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                      mine ? 'bg-moss-600 text-white' : 'bg-sand-100 text-moss-800'
+                      mine ? 'bg-cocoa-600 text-white' : 'bg-sand-100 text-cocoa-800'
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{m.body}</p>
-                    <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-moss-400'}`}>
+                    <p className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-cocoa-400'}`}>
                       {formatManila(m.createdAt, { time: true })}
                     </p>
                   </div>
@@ -154,16 +154,16 @@ async function Announcements({ userId, canPost }: { userId: string; canPost: boo
           announcements.map((a) => {
             const readByMe = a.reads.some((r) => r.userId === userId);
             return (
-              <div key={a.id} className={`card-pad ${readByMe ? '' : 'border-moss-400'}`}>
+              <div key={a.id} className={`card-pad ${readByMe ? '' : 'border-cocoa-400'}`}>
                 <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-moss-800">{a.title}</p>
-                  <span className="text-xs text-moss-400">
+                  <p className="font-semibold text-cocoa-800">{a.title}</p>
+                  <span className="text-xs text-cocoa-400">
                     {a.author.name} · {formatManila(a.createdAt, { time: true })}
                   </span>
                 </div>
-                <p className="whitespace-pre-wrap text-sm text-moss-700">{a.body}</p>
+                <p className="whitespace-pre-wrap text-sm text-cocoa-700">{a.body}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-moss-400">
+                  <p className="text-xs text-cocoa-400">
                     Read by: {a.reads.length ? a.reads.map((r) => r.user.name).join(', ') : 'nobody yet'}
                   </p>
                   {!readByMe && (
@@ -224,16 +224,16 @@ async function Logbook({ userId, branchId }: { userId: string; branchId: string 
           notes.map((n) => (
             <div key={n.id} className="card-pad">
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-moss-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
                   {n.noteDate.toISOString().slice(0, 10)}
                 </p>
-                <span className="text-xs text-moss-400">
+                <span className="text-xs text-cocoa-400">
                   {n.author.name} · {formatManila(n.createdAt, { time: true })}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm text-moss-700">{n.body}</p>
+              <p className="whitespace-pre-wrap text-sm text-cocoa-700">{n.body}</p>
               {n.client && (
-                <p className="mt-1 text-xs text-moss-400">
+                <p className="mt-1 text-xs text-cocoa-400">
                   Client:{' '}
                   <a href={`/portal/clients/${n.client.id}`} className="underline underline-offset-4">
                     {n.client.name}
@@ -245,9 +245,9 @@ async function Logbook({ userId, branchId }: { userId: string; branchId: string 
                 <ul className="mt-3 space-y-1 border-l-2 border-sand-200 pl-3">
                   {n.comments.map((c) => (
                     <li key={c.id} className="text-sm">
-                      <span className="font-medium text-moss-700">{c.user.name}:</span>{' '}
-                      <span className="text-moss-600">{c.body}</span>
-                      <span className="ml-1 text-[10px] text-moss-400">
+                      <span className="font-medium text-cocoa-700">{c.user.name}:</span>{' '}
+                      <span className="text-cocoa-600">{c.body}</span>
+                      <span className="ml-1 text-[10px] text-cocoa-400">
                         {formatManila(c.createdAt, { time: true })}
                       </span>
                     </li>
@@ -278,7 +278,7 @@ async function Logbook({ userId, branchId }: { userId: string; branchId: string 
             placeholder="e.g. Bed 3 squeaks — maintenance coming Thursday. Use Bed 5 for hot stone." />
         </label>
         <button className="btn-primary w-full" type="submit">Save note</button>
-        <p className="text-[11px] text-moss-400">
+        <p className="text-[11px] text-cocoa-400">
           Notes cannot be deleted by the receptionist and are covered by the activity log.
         </p>
       </form>

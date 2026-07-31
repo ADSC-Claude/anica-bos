@@ -95,7 +95,7 @@ export default async function PayrollPage({
                     <Link
                       href={`/portal/employees/payroll?periodId=${p.id}`}
                       className={`flex items-center justify-between rounded-lg px-2 py-1.5 ${
-                        p.id === periodId ? 'bg-moss-100 font-medium' : 'hover:bg-sand-100'
+                        p.id === periodId ? 'bg-cocoa-100 font-medium' : 'hover:bg-sand-100'
                       }`}
                     >
                       <span>
@@ -144,14 +144,14 @@ export default async function PayrollPage({
                   <div key={slip.id} className="card-pad">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="font-semibold text-moss-800">{slip.employee.name}</p>
-                        <p className="text-xs capitalize text-moss-400">
+                        <p className="font-semibold text-cocoa-800">{slip.employee.name}</p>
+                        <p className="text-xs capitalize text-cocoa-400">
                           {slip.employee.employeeRole.toLowerCase()} · {slip.daysWorked} day(s)
                           {slip.holidayDays > 0 && `, ${slip.holidayDays} holiday`}
                           {slip.employee.payOwnerOnly && ' · Owner-only pay structure'}
                         </p>
                       </div>
-                      <span className="num text-lg font-semibold text-moss-700">
+                      <span className="num text-lg font-semibold text-cocoa-700">
                         {formatPeso(slip.netPayCents)}
                       </span>
                     </div>
@@ -159,9 +159,9 @@ export default async function PayrollPage({
                     <ul className="space-y-0.5 text-sm">
                       {slip.lines.map((l) => (
                         <li key={l.id} className="flex justify-between gap-3">
-                          <span className={l.amountCents < 0 ? 'text-clay-500' : 'text-moss-600'}>
+                          <span className={l.amountCents < 0 ? 'text-clay-500' : 'text-cocoa-600'}>
                             {l.label}
-                            {l.manual && <span className="ml-1 text-[10px] text-moss-400">(manual)</span>}
+                            {l.manual && <span className="ml-1 text-[10px] text-cocoa-400">(manual)</span>}
                           </span>
                           <span className={`num ${l.amountCents < 0 ? 'text-clay-500' : ''}`}>
                             {l.amountCents < 0 ? '−' : ''}
@@ -193,7 +193,7 @@ export default async function PayrollPage({
                   <button className="btn-primary" type="submit">
                     Finalise payroll for this period
                   </button>
-                  <p className="mt-2 text-xs text-moss-400">
+                  <p className="mt-2 text-xs text-cocoa-400">
                     Finalising locks the payslips, claims the commissions, and posts loan
                     installments against each balance. Incentives are never included here.
                   </p>
@@ -204,7 +204,7 @@ export default async function PayrollPage({
         </div>
       </div>
 
-      <p className="mt-6 text-xs text-moss-400">
+      <p className="mt-6 text-xs text-cocoa-400">
         Period suggested from today: {formatDateKey(suggested.fromKey)} → {formatDateKey(suggested.toKey)}
       </p>
     </div>

@@ -96,15 +96,15 @@ export default async function KpiPage({
                 r.previous === 0 ? null : Math.round(((r.value - r.previous) / Math.abs(r.previous)) * 100);
               return (
                 <tr key={r.key}>
-                  <td className="font-medium text-moss-800">{r.label}</td>
-                  <td className="num text-right text-moss-400">
+                  <td className="font-medium text-cocoa-800">{r.label}</td>
+                  <td className="num text-right text-cocoa-400">
                     {r.previous ? fmt(r.previous, r.format) : '—'}
                   </td>
                   <td className="num text-right font-semibold">{fmt(r.value, r.format)}</td>
-                  <td className="num text-right text-moss-500">
+                  <td className="num text-right text-cocoa-500">
                     {r.target === null ? '—' : fmt(r.target, r.format)}
                   </td>
-                  <td className={`num text-right ${trend === null ? 'text-moss-300' : (trend >= 0) !== Boolean(r.invert) ? 'text-moss-600' : 'text-clay-500'}`}>
+                  <td className={`num text-right ${trend === null ? 'text-cocoa-300' : (trend >= 0) !== Boolean(r.invert) ? 'text-cocoa-600' : 'text-clay-500'}`}>
                     {trend === null ? '—' : `${trend >= 0 ? '▲' : '▼'} ${Math.abs(trend)}%`}
                   </td>
                   <td>
@@ -114,7 +114,7 @@ export default async function KpiPage({
                         label={rag === 'OK' ? 'on target' : rag === 'WARN' ? 'close' : 'off target'}
                       />
                     ) : (
-                      <span className="text-xs text-moss-300">no target set</span>
+                      <span className="text-xs text-cocoa-300">no target set</span>
                     )}
                   </td>
                 </tr>
@@ -124,7 +124,7 @@ export default async function KpiPage({
         </table>
       </div>
 
-      <p className="mt-4 text-sm text-moss-500">
+      <p className="mt-4 text-sm text-cocoa-500">
         Set monthly targets in{' '}
         <Link href="/portal/settings/kpi" className="underline underline-offset-4">
           Settings → KPI targets

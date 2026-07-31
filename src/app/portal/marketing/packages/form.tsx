@@ -78,7 +78,7 @@ export function PackageForm({
           <span className="label">Validity (days)</span>
           <input name="validityDays" type="number" min={1} className="input"
             defaultValue={current?.validityDays ?? 365} />
-          <span className="mt-1 block text-[11px] text-moss-400">
+          <span className="mt-1 block text-[11px] text-cocoa-400">
             Memberships are 1 year (365 days) by default.
           </span>
         </label>
@@ -97,7 +97,7 @@ export function PackageForm({
                 <option value="">— no birthday perk —</option>
                 {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-              <span className="mt-1 block text-[11px] text-moss-400">
+              <span className="mt-1 block text-[11px] text-cocoa-400">
                 POS flags it automatically during the member&apos;s birthday month, once per
                 membership year. Commission is still credited on the base price.
               </span>
@@ -128,19 +128,19 @@ export function PackageForm({
           </fieldset>
         )}
 
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />
           Active
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="showOnLanding" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="showOnLanding" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.showOnLanding ?? false} />
           Show on the public landing page
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">
           {selectedId ? 'Save package' : 'Create package'}
         </button>

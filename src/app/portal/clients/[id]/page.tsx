@@ -185,7 +185,7 @@ export default async function ClientProfilePage({
             key={key}
             href={`/portal/clients/${client.id}?tab=${key}`}
             className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-              tab === key ? 'border-moss-600 text-moss-800' : 'border-transparent text-moss-400'
+              tab === key ? 'border-cocoa-600 text-cocoa-800' : 'border-transparent text-cocoa-400'
             }`}
           >
             {label}
@@ -220,10 +220,10 @@ export default async function ClientProfilePage({
             </dl>
             {client.notes && (
               <>
-                <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-moss-500">
+                <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-cocoa-500">
                   Notes &amp; preferences
                 </h3>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-moss-700">{client.notes}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-cocoa-700">{client.notes}</p>
               </>
             )}
           </div>
@@ -244,17 +244,17 @@ export default async function ClientProfilePage({
                     return (
                       <li key={p.id} className="rounded-xl border border-sand-200 px-3 py-2">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-moss-800">{p.package.name}</span>
+                          <span className="font-medium text-cocoa-800">{p.package.name}</span>
                           <StatusBadge status={expired ? 'EXPIRED' : p.status} />
                         </div>
-                        <p className="mt-0.5 text-xs text-moss-500">
+                        <p className="mt-0.5 text-xs text-cocoa-500">
                           {p.package.type === 'MEMBERSHIP'
                             ? `${p.package.memberDiscountPercent}% member discount`
                             : `${left} session(s) left`}{' '}
                           · expires {formatManila(p.expiresAt)}
                         </p>
                         {p.package.type === 'MEMBERSHIP' && (
-                          <p className="mt-0.5 text-xs text-moss-400">
+                          <p className="mt-0.5 text-xs text-cocoa-400">
                             Birthday perk{' '}
                             {p.birthdayPerkUsedYear === new Date().getUTCFullYear()
                               ? 'already used this membership year'
@@ -276,15 +276,15 @@ export default async function ClientProfilePage({
                   {client.feedback.map((f) => (
                     <li key={f.id} className="rounded-xl bg-sand-50 px-3 py-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-moss-700">
+                        <span className="text-cocoa-700">
                           {'★'.repeat(f.rating)}
                           <span className="text-sand-300">{'★'.repeat(5 - f.rating)}</span>
                         </span>
-                        <span className="text-xs text-moss-400">{formatManila(f.createdAt)}</span>
+                        <span className="text-xs text-cocoa-400">{formatManila(f.createdAt)}</span>
                       </div>
-                      {f.comment && <p className="mt-1 text-moss-600">{f.comment}</p>}
+                      {f.comment && <p className="mt-1 text-cocoa-600">{f.comment}</p>}
                       {f.employee && (
-                        <p className="mt-0.5 text-xs text-moss-400">Therapist: {f.employee.name}</p>
+                        <p className="mt-0.5 text-xs text-cocoa-400">Therapist: {f.employee.name}</p>
                       )}
                     </li>
                   ))}
@@ -298,11 +298,11 @@ export default async function ClientProfilePage({
                 <ul className="space-y-1.5 text-sm">
                   {client.followUps.map((f) => (
                     <li key={f.id} className="flex justify-between gap-3">
-                      <span className="text-moss-700">
+                      <span className="text-cocoa-700">
                         <span className="font-medium capitalize">{f.channel}</span>
                         {f.note ? ` — ${f.note}` : ''}
                       </span>
-                      <span className="shrink-0 text-xs text-moss-400">
+                      <span className="shrink-0 text-xs text-cocoa-400">
                         {formatManila(f.createdAt)}
                       </span>
                     </li>
@@ -325,12 +325,12 @@ export default async function ClientProfilePage({
                 {appointments.map((a) => (
                   <Link key={a.id} href={`/portal/appointments/${a.id}`} className="block px-4 py-3 hover:bg-sand-50">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-moss-800">
+                      <span className="text-sm font-medium text-cocoa-800">
                         {formatManila(a.startAt, { time: true })}
                       </span>
                       <StatusBadge status={a.status} />
                     </div>
-                    <p className="mt-0.5 text-xs text-moss-500">
+                    <p className="mt-0.5 text-xs text-cocoa-500">
                       {a.services.map((s) => s.service.name).join(', ')}
                       {a.services[0]?.employee ? ` · ${a.services[0].employee.name}` : ''}
                     </p>
@@ -348,12 +348,12 @@ export default async function ClientProfilePage({
                 {sales.map((s) => (
                   <Link key={s.id} href={`/portal/sales/${s.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-sand-50">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-moss-800">{s.receiptNo}</p>
-                      <p className="truncate text-xs text-moss-500">
+                      <p className="text-sm font-medium text-cocoa-800">{s.receiptNo}</p>
+                      <p className="truncate text-xs text-cocoa-500">
                         {s.lines.map((l) => l.description).join(', ')}
                       </p>
                     </div>
-                    <span className="shrink-0 num text-sm font-semibold text-moss-700">
+                    <span className="shrink-0 num text-sm font-semibold text-cocoa-700">
                       {formatPeso(s.totalCents)}
                     </span>
                   </Link>
@@ -409,8 +409,8 @@ export default async function ClientProfilePage({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="shrink-0 text-moss-500">{label}</dt>
-      <dd className="text-right text-moss-700">{value}</dd>
+      <dt className="shrink-0 text-cocoa-500">{label}</dt>
+      <dd className="text-right text-cocoa-700">{value}</dd>
     </div>
   );
 }

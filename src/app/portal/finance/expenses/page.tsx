@@ -105,17 +105,17 @@ export default async function ExpensesPage({
                       </td>
                       <td className="text-sm">
                         {e.description}
-                        <span className="block text-[11px] text-moss-400">
+                        <span className="block text-[11px] text-cocoa-400">
                           by {e.submittedBy.name}
                           {e.approvedBy && ` · approved by ${e.approvedBy.name}`}
                           {e.voided && ` · VOIDED: ${e.voidReason}`}
                           {e.rejectReason && ` · ${e.rejectReason}`}
                         </span>
                       </td>
-                      <td className="text-xs text-moss-500">
+                      <td className="text-xs text-cocoa-500">
                         {e.category.name}
                         {e.category.capitalized && (
-                          <span className="block text-[10px] text-moss-400">capitalised</span>
+                          <span className="block text-[10px] text-cocoa-400">capitalised</span>
                         )}
                       </td>
                       <td className="text-xs capitalize">
@@ -130,7 +130,7 @@ export default async function ExpensesPage({
                               <form action={decideExpenseAction} className="inline">
                                 <input type="hidden" name="id" value={e.id} />
                                 <input type="hidden" name="decision" value="approve" />
-                                <button className="btn-ghost btn-sm text-moss-600" type="submit">
+                                <button className="btn-ghost btn-sm text-cocoa-600" type="submit">
                                   Approve
                                 </button>
                               </form>

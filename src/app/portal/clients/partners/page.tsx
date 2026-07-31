@@ -57,21 +57,21 @@ export default async function PartnersPage() {
               {rows.map(({ p, revenue, fee, referrals, sales }) => (
                 <tr key={p.id}>
                   <td>
-                    <span className="font-medium text-moss-800">{p.name}</span>
+                    <span className="font-medium text-cocoa-800">{p.name}</span>
                     {p.contactPerson && (
-                      <span className="block text-xs text-moss-400">{p.contactPerson}</span>
+                      <span className="block text-xs text-cocoa-400">{p.contactPerson}</span>
                     )}
                     {!p.active && <StatusBadge status="CANCELLED" label="inactive" />}
                   </td>
-                  <td className="capitalize text-moss-600">{p.type}</td>
+                  <td className="capitalize text-cocoa-600">{p.type}</td>
                   <td className="num text-xs">{p.promoCode ?? '—'}</td>
                   <td className="num text-right">
                     {referrals}
-                    <span className="block text-[11px] text-moss-400">{sales} paid</span>
+                    <span className="block text-[11px] text-cocoa-400">{sales} paid</span>
                   </td>
                   <td className="num text-right">{formatPeso(revenue)}</td>
-                  <td className="num text-right font-semibold text-moss-700">{formatPeso(fee)}</td>
-                  <td className="text-xs text-moss-500">
+                  <td className="num text-right font-semibold text-cocoa-700">{formatPeso(fee)}</td>
+                  <td className="text-xs text-cocoa-500">
                     {p.guestDiscountType === 'PERCENT'
                       ? `${p.guestDiscountValue}% off`
                       : `${formatPeso(p.guestDiscountValue)} off`}

@@ -125,7 +125,7 @@ export default async function DashboardPage({
         <section className="lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="section-title">Today&apos;s schedule</h2>
-            <Link href="/portal/appointments" className="text-sm text-moss-600 underline underline-offset-4">
+            <Link href="/portal/appointments" className="text-sm text-cocoa-600 underline underline-offset-4">
               Open calendar
             </Link>
           </div>
@@ -147,12 +147,12 @@ export default async function DashboardPage({
                   href={`/portal/appointments/${a.id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-sand-50"
                 >
-                  <div className="w-16 shrink-0 text-sm font-semibold num text-moss-700">
+                  <div className="w-16 shrink-0 text-sm font-semibold num text-cocoa-700">
                     {formatTimeManila(a.startAt)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-moss-800">{a.client.name}</p>
-                    <p className="truncate text-xs text-moss-400">
+                    <p className="truncate text-sm font-medium text-cocoa-800">{a.client.name}</p>
+                    <p className="truncate text-xs text-cocoa-400">
                       {a.services.map((s) => s.service.name).join(', ')}
                       {a.services[0]?.employee ? ` · ${a.services[0].employee.name}` : ''}
                       {a.resource ? ` · ${a.resource.name}` : ''}
@@ -168,7 +168,7 @@ export default async function DashboardPage({
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="section-title">Needs your attention</h2>
-            <Link href="/portal/notifications" className="text-sm text-moss-600 underline underline-offset-4">
+            <Link href="/portal/notifications" className="text-sm text-cocoa-600 underline underline-offset-4">
               See all
             </Link>
           </div>
@@ -253,12 +253,12 @@ async function OwnerView({
               return (
                 <li key={s.name}>
                   <div className="flex justify-between text-sm">
-                    <span className="truncate text-moss-700">{s.name}</span>
-                    <span className="num font-medium text-moss-800">{formatPeso(s.revenueCents)}</span>
+                    <span className="truncate text-cocoa-700">{s.name}</span>
+                    <span className="num font-medium text-cocoa-800">{formatPeso(s.revenueCents)}</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-sand-200">
                     <div
-                      className="h-full rounded-full bg-moss-500"
+                      className="h-full rounded-full bg-cocoa-500"
                       style={{ width: `${Math.round((s.revenueCents / max) * 100)}%` }}
                     />
                   </div>
@@ -370,10 +370,10 @@ async function TherapistsOnDuty() {
               className="flex items-center justify-between gap-2 rounded-xl border border-sand-200 px-3 py-2"
             >
               <span className="flex min-w-0 items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sand-200 text-[11px] font-bold text-moss-600">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sand-200 text-[11px] font-bold text-cocoa-600">
                   {a.rotationRank}
                 </span>
-                <span className="truncate text-sm text-moss-800">{a.employee.name}</span>
+                <span className="truncate text-sm text-cocoa-800">{a.employee.name}</span>
               </span>
               <StatusBadge status={status.tone} label={status.label} />
             </li>

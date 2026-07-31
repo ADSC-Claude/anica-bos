@@ -57,19 +57,19 @@ export function StockPanel({
             {items.map((i) => (
               <tr key={i.id} className={i.low ? 'bg-clay-500/5' : ''}>
                 <td>
-                  <span className="font-medium text-moss-800">{i.name}</span>
-                  {i.sku && <span className="block text-[11px] text-moss-400">{i.sku}</span>}
+                  <span className="font-medium text-cocoa-800">{i.name}</span>
+                  {i.sku && <span className="block text-[11px] text-cocoa-400">{i.sku}</span>}
                 </td>
-                <td className="text-xs text-moss-500">{i.categoryName}</td>
+                <td className="text-xs text-cocoa-500">{i.categoryName}</td>
                 <td className={`num text-right ${i.low ? 'font-semibold text-clay-500' : ''}`}>
                   {i.stockQty} {i.unitName}
                 </td>
-                <td className="num text-right text-moss-400">{i.reorderLevel || '—'}</td>
+                <td className="num text-right text-cocoa-400">{i.reorderLevel || '—'}</td>
                 <td className="num text-right">{formatPeso(Math.round(i.cost * 100))}</td>
                 <td className="num text-right">
                   {i.sellable ? formatPeso(Math.round(i.retailPrice * 100)) : '—'}
                 </td>
-                <td className="text-xs text-moss-500">{i.supplierName || '—'}</td>
+                <td className="text-xs text-cocoa-500">{i.supplierName || '—'}</td>
                 <td className="whitespace-nowrap">
                   <button className="btn-ghost btn-sm" onClick={() => { setAdjusting(i); setEditing(null); setCreating(false); }}>
                     Adjust
@@ -84,7 +84,7 @@ export function StockPanel({
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-moss-400">No items yet.</td>
+                <td colSpan={8} className="py-6 text-center text-cocoa-400">No items yet.</td>
               </tr>
             )}
           </tbody>
@@ -128,7 +128,7 @@ export function StockPanel({
               <input name="reason" className="input" required />
             </label>
             {adjustState.error && <p className="text-sm text-clay-500">{adjustState.error}</p>}
-            {adjustState.ok && <p className="text-sm text-moss-600">{adjustState.ok}</p>}
+            {adjustState.ok && <p className="text-sm text-cocoa-600">{adjustState.ok}</p>}
             <button className="btn-primary w-full" type="submit">Record movement</button>
           </form>
         )}
@@ -197,19 +197,19 @@ export function StockPanel({
               <span className="label">SKU / code</span>
               <input name="sku" className="input" defaultValue={editing?.sku} />
             </label>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="sellable" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="sellable" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={editing?.sellable} />
               Sold at the counter (retail product)
             </label>
             {editing && (
-              <label className="flex items-center gap-2 text-sm text-moss-700">
-                <input type="checkbox" name="archived" className="h-5 w-5 accent-[#345a3e]" />
+              <label className="flex items-center gap-2 text-sm text-cocoa-700">
+                <input type="checkbox" name="archived" className="h-5 w-5 accent-[#6b4e35]" />
                 Archive this item (history is kept)
               </label>
             )}
             {itemState.error && <p className="text-sm text-clay-500">{itemState.error}</p>}
-            {itemState.ok && <p className="text-sm text-moss-600">{itemState.ok}</p>}
+            {itemState.ok && <p className="text-sm text-cocoa-600">{itemState.ok}</p>}
             <button className="btn-primary w-full" type="submit">Save item</button>
           </form>
         )}

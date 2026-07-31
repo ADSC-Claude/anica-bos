@@ -41,8 +41,8 @@ export default async function CommsSettingsPage() {
         <SettingsForm section="comms">
           <div className="card-pad space-y-3">
             <p className="section-title">Channels</p>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="emailEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="emailEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['email.enabled']} />
               Send transactional emails
             </label>
@@ -50,13 +50,13 @@ export default async function CommsSettingsPage() {
               <span className="label">Sender name</span>
               <input name="senderName" className="input" defaultValue={s['email.senderName']} />
             </label>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="birthdayGreetingEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="birthdayGreetingEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['email.birthdayGreetingEnabled']} />
               Send automatic birthday greetings (daily job)
             </label>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="smsEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="smsEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['sms.enabled']} />
               Send SMS greetings (needs a Semaphore API key; per-message cost)
             </label>
@@ -71,7 +71,7 @@ export default async function CommsSettingsPage() {
             </p>
             {templates.map((t) => (
               <details key={t.key} className="rounded-xl border border-sand-200 p-3">
-                <summary className="cursor-pointer text-sm font-medium text-moss-700">
+                <summary className="cursor-pointer text-sm font-medium text-cocoa-700">
                   {t.label}
                 </summary>
                 <div className="mt-2 space-y-2">

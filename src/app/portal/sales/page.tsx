@@ -90,14 +90,14 @@ export default async function SalesPage({
               {sales.map((s) => (
                 <tr key={s.id} className={s.status === 'VOIDED' ? 'opacity-60' : ''}>
                   <td>
-                    <Link href={`/portal/sales/${s.id}`} className="num font-medium text-moss-800 hover:underline">
+                    <Link href={`/portal/sales/${s.id}`} className="num font-medium text-cocoa-800 hover:underline">
                       {s.receiptNo}
                     </Link>
-                    <span className="block text-[11px] text-moss-400">{s.cashier.name}</span>
+                    <span className="block text-[11px] text-cocoa-400">{s.cashier.name}</span>
                   </td>
                   <td className="num whitespace-nowrap text-xs">{formatTimeManila(s.createdAt)}</td>
                   <td className="text-sm">{s.client?.name ?? 'Walk-in'}</td>
-                  <td className="max-w-56 truncate text-xs text-moss-500">
+                  <td className="max-w-56 truncate text-xs text-cocoa-500">
                     {s.lines.map((l) => l.description).join(', ')}
                   </td>
                   <td className="text-xs capitalize">

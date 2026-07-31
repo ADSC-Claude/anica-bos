@@ -53,7 +53,7 @@ export function CampaignHelper({ branchId }: { branchId: string }) {
               'Hi {{name}},\n\nIt has been a while! Book your next session with us and enjoy 10% off — just mention this message at reception.\n\nSee you soon,\nANICA Wellness Spa'
             }
           />
-          <span className="mt-1 block text-[11px] text-moss-400">
+          <span className="mt-1 block text-[11px] text-cocoa-400">
             Use <code>{'{{name}}'}</code> to insert each client&apos;s name.
           </span>
         </label>
@@ -66,7 +66,7 @@ export function CampaignHelper({ branchId }: { branchId: string }) {
           </button>
         </div>
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
       </form>
 
       <div className="space-y-3">
@@ -101,7 +101,7 @@ export function CampaignHelper({ branchId }: { branchId: string }) {
                       <tr key={`${r.mobile}-${r.email}`}>
                         <td>{r.name}</td>
                         <td className="num text-xs">{r.mobile}</td>
-                        <td className="text-xs text-moss-500">{r.email || '—'}</td>
+                        <td className="text-xs text-cocoa-500">{r.email || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -120,7 +120,7 @@ export function CampaignHelper({ branchId }: { branchId: string }) {
                     {copied === 'sms' ? 'Copied!' : 'Copy text'}
                   </button>
                 </div>
-                <pre className="whitespace-pre-wrap rounded-xl bg-sand-100 p-3 text-sm text-moss-700">
+                <pre className="whitespace-pre-wrap rounded-xl bg-sand-100 p-3 text-sm text-cocoa-700">
                   {state.messageText.replaceAll('{{name}}', 'there')}
                 </pre>
               </div>
@@ -128,7 +128,7 @@ export function CampaignHelper({ branchId }: { branchId: string }) {
           </>
         ) : (
           <div className="card px-6 py-10 text-center">
-            <p className="text-sm text-moss-500">
+            <p className="text-sm text-cocoa-500">
               Choose a segment and press <strong>Build list</strong> to see who it reaches.
             </p>
           </div>

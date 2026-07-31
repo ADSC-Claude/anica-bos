@@ -27,7 +27,7 @@ export default async function SimulatePaymentPage({
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-clay-500">
             Simulated gateway — development only
           </p>
-          <h1 className="font-display text-lg font-semibold text-moss-800">
+          <h1 className="font-display text-lg font-semibold text-cocoa-800">
             Pay your reservation fee
           </h1>
           <p className="muted mt-1">
@@ -38,7 +38,7 @@ export default async function SimulatePaymentPage({
           <SimulatePanel reference={ref} />
         </div>
         <p className="mt-4 text-center text-sm">
-          <Link href="/book" className="text-moss-600 underline underline-offset-4">
+          <Link href="/book" className="text-cocoa-600 underline underline-offset-4">
             Cancel and go back
           </Link>
         </p>

@@ -45,8 +45,8 @@ export default async function PackagesPage() {
               <div key={p.id} className="card-pad">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-moss-800">{p.name}</p>
-                    <p className="text-xs capitalize text-moss-400">
+                    <p className="font-semibold text-cocoa-800">{p.name}</p>
+                    <p className="text-xs capitalize text-cocoa-400">
                       {p.type.replaceAll('_', ' ').toLowerCase()} · valid {p.validityDays} days ·{' '}
                       {p.clientPackages.length} active holder(s)
                     </p>
@@ -58,14 +58,14 @@ export default async function PackagesPage() {
                 </div>
                 {p.description && <p className="muted mb-2">{p.description}</p>}
                 {p.type === 'MEMBERSHIP' ? (
-                  <ul className="space-y-0.5 text-sm text-moss-600">
+                  <ul className="space-y-0.5 text-sm text-cocoa-600">
                     <li>• {p.memberDiscountPercent}% off every visit</li>
                     {p.birthdayPerkServiceId && (
                       <li>• Free birthday-month service, once per membership year</li>
                     )}
                   </ul>
                 ) : (
-                  <ul className="space-y-0.5 text-sm text-moss-600">
+                  <ul className="space-y-0.5 text-sm text-cocoa-600">
                     {p.items.map((i) => (
                       <li key={i.id}>
                         • {i.sessions} × {i.service.name}

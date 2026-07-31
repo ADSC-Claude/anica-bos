@@ -70,7 +70,7 @@ export function DiscountPresetForm({
           <div className="max-h-36 space-y-1 overflow-y-auto">
             {services.map((s) => (
               <label key={s.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="serviceIds" value={s.id} className="h-4 w-4 accent-[#345a3e]"
+                <input type="checkbox" name="serviceIds" value={s.id} className="h-4 w-4 accent-[#6b4e35]"
                   defaultChecked={current?.serviceIds.includes(s.id)} />
                 {s.name}
               </label>
@@ -78,23 +78,23 @@ export function DiscountPresetForm({
           </div>
         </fieldset>
 
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="stackable" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="stackable" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.stackable ?? true} />
           Stackable with other discounts
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="requiresId" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="requiresId" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.requiresId ?? false} />
           Prompt for an ID number (PWD / Senior — printed on the receipt)
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="membersOnly" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="membersOnly" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.membersOnly ?? false} />
           Highlight when the client is a member
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="isEmployeeRate" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="isEmployeeRate" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.isEmployeeRate ?? false}
             onChange={(e) => setIsEmployeeRate(e.target.checked)} />
           This is the employee rate
@@ -107,22 +107,22 @@ export function DiscountPresetForm({
               <input name="monthlyUsageLimit" type="number" min={0} className="input"
                 defaultValue={current?.monthlyUsageLimit ?? 0} />
             </label>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="familyIncluded" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="familyIncluded" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={current?.familyIncluded ?? false} />
               Family members may use it too
             </label>
           </div>
         )}
 
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />
           Show this button at checkout
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">
           {selectedId ? 'Save button' : 'Create button'}
         </button>

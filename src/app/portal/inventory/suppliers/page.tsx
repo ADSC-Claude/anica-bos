@@ -48,8 +48,8 @@ export default async function SuppliersPage() {
               <div key={s.id} className="card-pad">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-moss-800">{s.name}</p>
-                    <p className="text-xs text-moss-400">
+                    <p className="font-semibold text-cocoa-800">{s.name}</p>
+                    <p className="text-xs text-cocoa-400">
                       {[s.contactPerson, s.mobile, s.email].filter(Boolean).join(' · ') || 'No contact details'}
                     </p>
                   </div>
@@ -63,15 +63,15 @@ export default async function SuppliersPage() {
                 </dl>
                 {s.supplierItems.length > 0 && (
                   <details className="mt-2 text-sm">
-                    <summary className="cursor-pointer text-moss-600">Agreed prices</summary>
+                    <summary className="cursor-pointer text-cocoa-600">Agreed prices</summary>
                     <ul className="mt-1 space-y-0.5">
                       {s.supplierItems.map((si) => (
                         <li key={si.id} className="flex justify-between gap-3">
-                          <span className="text-moss-600">{si.item.name}</span>
+                          <span className="text-cocoa-600">{si.item.name}</span>
                           <span className="num">
                             {formatPeso(si.priceCents)}
                             {si.priceHistory.length > 0 && (
-                              <span className="ml-1 text-[10px] text-moss-400">
+                              <span className="ml-1 text-[10px] text-cocoa-400">
                                 (was {formatPeso(si.priceHistory[0].oldPriceCents)} on{' '}
                                 {formatManila(si.priceHistory[0].changedAt)})
                               </span>
@@ -82,7 +82,7 @@ export default async function SuppliersPage() {
                     </ul>
                   </details>
                 )}
-                {s.notes && <p className="mt-2 text-xs text-moss-400">{s.notes}</p>}
+                {s.notes && <p className="mt-2 text-xs text-cocoa-400">{s.notes}</p>}
               </div>
             ))
           )}
@@ -111,8 +111,8 @@ export default async function SuppliersPage() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-moss-500">{label}</dt>
-      <dd className="text-right text-moss-700">{value}</dd>
+      <dt className="text-cocoa-500">{label}</dt>
+      <dd className="text-right text-cocoa-700">{value}</dd>
     </div>
   );
 }

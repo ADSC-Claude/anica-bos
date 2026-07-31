@@ -143,7 +143,7 @@ async function DayView({
         <div className="card overflow-x-auto">
           <div className="min-w-[720px]">
             <div
-              className="grid border-b border-sand-200 bg-sand-50 text-[11px] font-semibold uppercase tracking-wide text-moss-500"
+              className="grid border-b border-sand-200 bg-sand-50 text-[11px] font-semibold uppercase tracking-wide text-cocoa-500"
               style={{ gridTemplateColumns: `64px repeat(${columnList.length}, minmax(120px, 1fr))` }}
             >
               <div className="px-2 py-2">Time</div>
@@ -158,7 +158,7 @@ async function DayView({
                 className="grid border-b border-sand-100"
                 style={{ gridTemplateColumns: `64px repeat(${columnList.length}, minmax(120px, 1fr))` }}
               >
-                <div className="px-2 py-1.5 text-[11px] num text-moss-400">
+                <div className="px-2 py-1.5 text-[11px] num text-cocoa-400">
                   {minutesToLabel(hourMinute)}
                 </div>
                 {columnList.map(([id]) => {
@@ -176,12 +176,12 @@ async function DayView({
                         <Link
                           key={a.id}
                           href={`/portal/appointments/${a.id}`}
-                          className="mb-1 block rounded-lg bg-moss-100 px-2 py-1 text-[11px] leading-tight text-moss-800 hover:bg-moss-200"
+                          className="mb-1 block rounded-lg bg-cocoa-100 px-2 py-1 text-[11px] leading-tight text-cocoa-800 hover:bg-cocoa-200"
                         >
                           <span className="block font-semibold">
                             {formatTimeManila(a.startAt)} {a.client.name}
                           </span>
-                          <span className="block truncate text-moss-600">
+                          <span className="block truncate text-cocoa-600">
                             {a.services.map((s) => s.service.name).join(', ')}
                           </span>
                           <span className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -251,13 +251,13 @@ async function WeekView({ branchId, dateKey }: { branchId: string; dateKey: stri
           const items = appointments.filter((a) => manilaDateKey(a.startAt) === d);
           const isToday = d === manilaDateKey();
           return (
-            <div key={d} className={`card p-3 ${isToday ? 'border-moss-400' : ''}`}>
+            <div key={d} className={`card p-3 ${isToday ? 'border-cocoa-400' : ''}`}>
               <Link href={`/portal/appointments?view=day&date=${d}`} className="mb-2 block">
-                <p className="text-xs font-semibold uppercase tracking-wide text-moss-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
                   {formatDateKey(d).slice(0, 3)}
                 </p>
-                <p className="text-sm font-semibold text-moss-800">{d.slice(-2)}</p>
-                <p className="text-[11px] text-moss-400">{items.length} booking(s)</p>
+                <p className="text-sm font-semibold text-cocoa-800">{d.slice(-2)}</p>
+                <p className="text-[11px] text-cocoa-400">{items.length} booking(s)</p>
               </Link>
               <ul className="space-y-1">
                 {items.slice(0, 6).map((a) => (
@@ -265,14 +265,14 @@ async function WeekView({ branchId, dateKey }: { branchId: string; dateKey: stri
                     <Link href={`/portal/appointments/${a.id}`} className="block rounded-lg bg-sand-100 px-2 py-1 text-[11px] leading-tight hover:bg-sand-200">
                       <span className="font-semibold">{formatTimeManila(a.startAt)}</span>{' '}
                       {a.client.name}
-                      <span className="block truncate text-moss-500">
+                      <span className="block truncate text-cocoa-500">
                         {a.services[0]?.employee?.name ?? 'unassigned'}
                       </span>
                     </Link>
                   </li>
                 ))}
                 {items.length > 6 && (
-                  <li className="text-[11px] text-moss-400">+{items.length - 6} more</li>
+                  <li className="text-[11px] text-cocoa-400">+{items.length - 6} more</li>
                 )}
               </ul>
             </div>
@@ -319,13 +319,13 @@ async function MonthView({ branchId, monthKey }: { branchId: string; monthKey: s
         <Link href={`/portal/appointments?view=month&month=${addMonthsToKey(monthKey, -1)}`} className="btn-secondary btn-sm">
           ← Previous
         </Link>
-        <p className="font-display text-lg font-semibold text-moss-800">{formatMonthKey(monthKey)}</p>
+        <p className="font-display text-lg font-semibold text-cocoa-800">{formatMonthKey(monthKey)}</p>
         <Link href={`/portal/appointments?view=month&month=${addMonthsToKey(monthKey, 1)}`} className="btn-secondary btn-sm">
           Next →
         </Link>
       </div>
       <div className="card overflow-hidden">
-        <div className="grid grid-cols-7 border-b border-sand-200 bg-sand-50 text-center text-[11px] font-semibold uppercase tracking-wide text-moss-500">
+        <div className="grid grid-cols-7 border-b border-sand-200 bg-sand-50 text-center text-[11px] font-semibold uppercase tracking-wide text-cocoa-500">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
             <div key={d} className="py-2">{d}</div>
           ))}
@@ -340,12 +340,12 @@ async function MonthView({ branchId, monthKey }: { branchId: string; monthKey: s
                 key={key}
                 href={`/portal/appointments?view=day&date=${key}`}
                 className={`min-h-20 border-b border-r border-sand-100 p-2 transition hover:bg-sand-50 ${
-                  isToday ? 'bg-moss-50' : ''
+                  isToday ? 'bg-cocoa-50' : ''
                 }`}
               >
-                <span className="text-xs font-semibold text-moss-700">{Number(key.slice(-2))}</span>
+                <span className="text-xs font-semibold text-cocoa-700">{Number(key.slice(-2))}</span>
                 {c && (
-                  <span className="mt-1 block text-[11px] text-moss-500">
+                  <span className="mt-1 block text-[11px] text-cocoa-500">
                     {c.total} booking{c.total === 1 ? '' : 's'}
                     {c.pending > 0 && (
                       <span className="mt-0.5 block font-semibold text-clay-500">
@@ -389,7 +389,7 @@ async function ListView({ branchId, status }: { branchId: string; status?: strin
           <Link
             key={s || 'all'}
             href={`/portal/appointments?view=list${s ? `&status=${s}` : ''}`}
-            className={`badge ${status === s || (!status && !s) ? 'bg-moss-600 text-white' : 'bg-sand-200 text-moss-600'}`}
+            className={`badge ${status === s || (!status && !s) ? 'bg-cocoa-600 text-white' : 'bg-sand-200 text-cocoa-600'}`}
           >
             {s ? s.replaceAll('_', ' ').toLowerCase() : 'all'}
           </Link>
@@ -416,15 +416,15 @@ async function ListView({ branchId, status }: { branchId: string; status?: strin
               {appointments.map((a) => (
                 <tr key={a.id}>
                   <td className="whitespace-nowrap">
-                    <Link href={`/portal/appointments/${a.id}`} className="font-medium text-moss-800 hover:underline">
+                    <Link href={`/portal/appointments/${a.id}`} className="font-medium text-cocoa-800 hover:underline">
                       {formatManila(a.startAt, { time: true })}
                     </Link>
                   </td>
                   <td>
                     {a.client.name}
-                    <span className="block text-xs text-moss-400">{a.client.mobile}</span>
+                    <span className="block text-xs text-cocoa-400">{a.client.mobile}</span>
                   </td>
-                  <td className="text-xs text-moss-600">
+                  <td className="text-xs text-cocoa-600">
                     {a.services.map((s) => s.service.name).join(', ')}
                   </td>
                   <td className="text-xs">{a.services[0]?.employee?.name ?? '—'}</td>
@@ -433,7 +433,7 @@ async function ListView({ branchId, status }: { branchId: string; status?: strin
                   <td className="num text-right text-xs">
                     {a.depositAmountCents ? formatPeso(a.depositPaidCents || a.depositAmountCents) : '—'}
                     {a.depositAmountCents > 0 && (
-                      <span className="block text-[10px] text-moss-400">
+                      <span className="block text-[10px] text-cocoa-400">
                         {a.depositStatus.replaceAll('_', ' ').toLowerCase()}
                       </span>
                     )}
@@ -459,9 +459,9 @@ function DayNav({ dateKey, view, step = 1 }: { dateKey: string; view: View; step
         ← Previous
       </Link>
       <div className="text-center">
-        <p className="font-display text-base font-semibold text-moss-800">{formatDateKey(dateKey)}</p>
+        <p className="font-display text-base font-semibold text-cocoa-800">{formatDateKey(dateKey)}</p>
         {dateKey !== manilaDateKey() && (
-          <Link href={`/portal/appointments?view=${view}&date=${manilaDateKey()}`} className="text-xs text-moss-500 underline underline-offset-4">
+          <Link href={`/portal/appointments?view=${view}&date=${manilaDateKey()}`} className="text-xs text-cocoa-500 underline underline-offset-4">
             Jump to today
           </Link>
         )}

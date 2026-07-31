@@ -77,16 +77,16 @@ export default async function PermitsPage() {
                     const st = statusFor(p.expiryDate);
                     return (
                       <tr key={p.id} className={st.tone === 'BAD' ? 'bg-clay-500/5' : ''}>
-                        <td className="font-medium text-moss-800">
+                        <td className="font-medium text-cocoa-800">
                           {p.name}
                           {p.fileUrl && (
                             <a href={p.fileUrl} target="_blank" rel="noreferrer"
-                              className="ml-2 text-xs text-moss-500 underline underline-offset-4">
+                              className="ml-2 text-xs text-cocoa-500 underline underline-offset-4">
                               scan
                             </a>
                           )}
                         </td>
-                        <td className="text-xs text-moss-500">{p.agency || '—'}</td>
+                        <td className="text-xs text-cocoa-500">{p.agency || '—'}</td>
                         <td className="num text-xs">{p.refNumber || '—'}</td>
                         <td className="text-xs">{p.employee?.name ?? 'Business'}</td>
                         <td className="text-xs">{p.expiryDate ? formatManila(p.expiryDate) : '—'}</td>

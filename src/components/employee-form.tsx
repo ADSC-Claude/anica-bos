@@ -102,8 +102,8 @@ export function EmployeeForm({
             <input name="hireDate" type="date" className="input" defaultValue={values.hireDate} />
           </label>
         </div>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={values.active ?? true} />
           Currently employed
         </label>
@@ -153,7 +153,7 @@ export function EmployeeForm({
         <div className="card-pad space-y-3">
           <p className="section-title">Pay structure</p>
           {ownerOnlyRole && (
-            <p className="rounded-xl bg-sand-100 px-3 py-2 text-xs text-moss-600">
+            <p className="rounded-xl bg-sand-100 px-3 py-2 text-xs text-cocoa-600">
               Receptionist and Manager pay is set and finalised by the Owner only. The Manager
               can still run therapist payroll but will not see these figures.
             </p>
@@ -175,7 +175,7 @@ export function EmployeeForm({
               <input name="payRate" type="number" step="0.01" min={0} className="input"
                 defaultValue={values.payRate ?? defaultAllowancePesos} />
               {payType === 'DAILY_ALLOWANCE' && (
-                <span className="mt-1 block text-[11px] text-moss-400">
+                <span className="mt-1 block text-[11px] text-cocoa-400">
                   Default is ₱{defaultAllowancePesos.toFixed(2)}/day, plus 25% commission on the
                   undiscounted service price and 2× on regular holidays.
                 </span>
@@ -200,11 +200,11 @@ export function EmployeeForm({
           </p>
           {[...byCategory.entries()].map(([cat, list]) => (
             <fieldset key={cat}>
-              <legend className="mb-1 text-xs font-semibold text-moss-500">{cat}</legend>
+              <legend className="mb-1 text-xs font-semibold text-cocoa-500">{cat}</legend>
               <div className="grid gap-1.5 sm:grid-cols-2">
                 {list.map((s) => (
                   <label key={s.id} className="flex items-center gap-2 rounded-xl border border-sand-200 px-3 py-2 text-sm">
-                    <input type="checkbox" name="skillIds" value={s.id} className="h-4 w-4 accent-[#345a3e]"
+                    <input type="checkbox" name="skillIds" value={s.id} className="h-4 w-4 accent-[#6b4e35]"
                       defaultChecked={values.skillIds?.includes(s.id)} />
                     {s.name}
                   </label>

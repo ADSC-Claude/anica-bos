@@ -34,8 +34,8 @@ export default async function BookingSettingsPage() {
         <SettingsForm section="booking">
           <div className="card-pad space-y-3">
             <p className="section-title">Reservation fee</p>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="enabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="enabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['booking.enabled']} />
               Accept online bookings
             </label>
@@ -79,8 +79,8 @@ export default async function BookingSettingsPage() {
               screenshot, which appears instantly on the receptionist&apos;s dashboard for one-tap
               verification.
             </p>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="manualFallbackEnabled" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="manualFallbackEnabled" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['booking.manualFallbackEnabled']} />
               Use manual transfer instead of the gateway
             </label>

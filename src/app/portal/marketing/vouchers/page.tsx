@@ -98,10 +98,10 @@ export default async function VouchersPage({
                         <td className="num text-right">{formatPeso(g.faceValueCents)}</td>
                         <td className="num text-right font-semibold">{formatPeso(g.balanceCents)}</td>
                         <td className="text-xs">{g.buyerClient?.name ?? '—'}</td>
-                        <td className="text-xs text-moss-500">
+                        <td className="text-xs text-cocoa-500">
                           {g.expiresAt ? formatManila(g.expiresAt) : 'no expiry'}
                         </td>
-                        <td className="text-xs text-moss-500">
+                        <td className="text-xs text-cocoa-500">
                           {g.redemptions.map((r) => r.sale.receiptNo).join(', ') || '—'}
                         </td>
                         <td><StatusBadge status={g.status === 'ACTIVE' ? 'ACTIVE' : g.status} /></td>
@@ -134,12 +134,12 @@ export default async function VouchersPage({
                     {vouchers.map((v) => (
                       <tr key={v.id}>
                         <td className="num font-medium tracking-wide">{v.code}</td>
-                        <td className="text-xs text-moss-500">{v.batch?.name ?? '—'}</td>
+                        <td className="text-xs text-cocoa-500">{v.batch?.name ?? '—'}</td>
                         <td className="num text-right">
                           {v.type === 'PERCENT' ? `${v.value}%` : formatPeso(v.value)}
                         </td>
                         <td className="num text-right">{v.usesCount} / {v.usesAllowed}</td>
-                        <td className="text-xs text-moss-500">
+                        <td className="text-xs text-cocoa-500">
                           {v.expiresAt ? formatManila(v.expiresAt) : 'no expiry'}
                         </td>
                         <td><StatusBadge status={v.status === 'ACTIVE' ? 'ACTIVE' : v.status} /></td>

@@ -31,8 +31,8 @@ export function SettingsNav({ role, current }: { role: Role; current: string }) 
           href={s.href}
           className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition ${
             current === s.href
-              ? 'border-moss-600 text-moss-800'
-              : 'border-transparent text-moss-400 hover:text-moss-600'
+              ? 'border-cocoa-600 text-cocoa-800'
+              : 'border-transparent text-cocoa-400 hover:text-cocoa-600'
           }`}
         >
           {s.label}
@@ -47,8 +47,8 @@ export function SettingsIndexCards({ role }: { role: Role }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {visible.map((s) => (
-        <Link key={s.href} href={s.href} className="card-pad transition hover:border-moss-300">
-          <p className="font-medium text-moss-800">{s.label}</p>
+        <Link key={s.href} href={s.href} className="card-pad transition hover:border-cocoa-300">
+          <p className="font-medium text-cocoa-800">{s.label}</p>
           <p className="muted mt-0.5">{s.hint}</p>
         </Link>
       ))}

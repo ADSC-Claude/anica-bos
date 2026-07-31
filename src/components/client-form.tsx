@@ -59,7 +59,7 @@ export function ClientForm({ values }: { values: ClientFormValues }) {
           <label className="block">
             <span className="label">Email</span>
             <input name="email" type="email" className="input" defaultValue={values.email} />
-            <span className="mt-1 block text-[11px] text-moss-400">
+            <span className="mt-1 block text-[11px] text-cocoa-400">
               Needed for confirmations, birthday greetings and renewal reminders.
             </span>
           </label>
@@ -105,7 +105,7 @@ export function ClientForm({ values }: { values: ClientFormValues }) {
           <label className="block">
             <span className="label">PWD ID number</span>
             <input name="pwdIdNumber" className="input" defaultValue={values.pwdIdNumber} />
-            <span className="mt-1 block text-[11px] text-moss-400">
+            <span className="mt-1 block text-[11px] text-cocoa-400">
               Saved once, then reused automatically at checkout.
             </span>
           </label>
@@ -115,9 +115,9 @@ export function ClientForm({ values }: { values: ClientFormValues }) {
           </label>
         </div>
         <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
-          <input type="checkbox" name="consentGiven" className="mt-0.5 h-5 w-5 accent-[#345a3e]"
+          <input type="checkbox" name="consentGiven" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
             defaultChecked={values.consentGiven} />
-          <span className="text-xs text-moss-600">
+          <span className="text-xs text-cocoa-600">
             The client consented to us storing their personal and health information
             (Data Privacy Act of 2012).
           </span>

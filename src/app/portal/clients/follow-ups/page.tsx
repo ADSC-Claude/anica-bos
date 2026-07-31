@@ -87,20 +87,20 @@ export default async function FollowUpsPage({
               {rows.map((r) => (
                 <tr key={r.clientId}>
                   <td>
-                    <Link href={`/portal/clients/${r.clientId}`} className="font-medium text-moss-800 hover:underline">
+                    <Link href={`/portal/clients/${r.clientId}`} className="font-medium text-cocoa-800 hover:underline">
                       {r.name}
                     </Link>
-                    <span className="block text-xs text-moss-400">{r.mobile}</span>
+                    <span className="block text-xs text-cocoa-400">{r.mobile}</span>
                   </td>
-                  <td className="whitespace-nowrap text-xs text-moss-500">
+                  <td className="whitespace-nowrap text-xs text-cocoa-500">
                     {r.lastVisit ? formatManila(r.lastVisit) : '—'}
                   </td>
                   <td className="num text-right font-semibold text-clay-500">
                     {r.daysSinceLastVisit}
                   </td>
-                  <td className="num text-right text-moss-600">
+                  <td className="num text-right text-cocoa-600">
                     {r.averageIntervalDays ? `${r.averageIntervalDays} d` : '—'}
-                    <span className="block text-[11px] text-moss-400">
+                    <span className="block text-[11px] text-cocoa-400">
                       flag at {r.suggestedThresholdDays} d
                     </span>
                   </td>

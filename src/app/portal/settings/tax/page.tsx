@@ -43,7 +43,7 @@ export default async function TaxSettingsPage({
                 <option value="NON_VAT_8">Non-VAT — 8% income tax option (current registration)</option>
                 <option value="VAT_REGISTERED">VAT-registered</option>
               </select>
-              <span className="mt-1 block text-[11px] text-moss-400">
+              <span className="mt-1 block text-[11px] text-cocoa-400">
                 Switching reformats receipts and journals immediately. The VAT fields already
                 exist on every record, so no migration is needed.
               </span>
@@ -58,8 +58,8 @@ export default async function TaxSettingsPage({
               <textarea name="nonVatNotice" className="textarea" rows={2}
                 defaultValue={s['tax.nonVatNotice']} />
             </label>
-            <label className="flex items-center gap-2 text-sm text-moss-700">
-              <input type="checkbox" name="casAccredited" className="h-5 w-5 accent-[#345a3e]"
+            <label className="flex items-center gap-2 text-sm text-cocoa-700">
+              <input type="checkbox" name="casAccredited" className="h-5 w-5 accent-[#6b4e35]"
                 defaultChecked={s['tax.casAccredited']} />
               This system is now BIR-accredited (hides the &ldquo;not yet accredited&rdquo; notice
               on receipts)
@@ -84,14 +84,14 @@ export default async function TaxSettingsPage({
                 <tr key={r.id}>
                   <td>{r.name}</td>
                   <td className="num">{r.prefix}</td>
-                  <td className="text-xs text-moss-500">{r.permitNumber || '—'}</td>
+                  <td className="text-xs text-cocoa-500">{r.permitNumber || '—'}</td>
                   <td className="num text-right">{r.rangeStart}–{r.rangeEnd}</td>
                   <td className="num text-right">{r.next}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-[11px] text-moss-400">
+          <p className="mt-2 text-[11px] text-cocoa-400">
             The VAT registration threshold is {formatPeso(s['tax.vatThresholdCents'])} of gross
             sales per year — the P&amp;L page tracks how close you are.
           </p>

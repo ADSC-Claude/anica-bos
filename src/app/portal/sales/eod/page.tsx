@@ -105,7 +105,7 @@ export default async function EodPage({
                       <td className="capitalize">{method.replaceAll('_', ' ').toLowerCase()}</td>
                       <td className="num text-right">{formatPeso(amount)}</td>
                       <td className="num text-right">{formatPeso(counted)}</td>
-                      <td className={`num text-right ${diff === 0 ? '' : diff > 0 ? 'text-moss-600' : 'text-clay-500'}`}>
+                      <td className={`num text-right ${diff === 0 ? '' : diff > 0 ? 'text-cocoa-600' : 'text-clay-500'}`}>
                         {diff === 0 ? '—' : formatPeso(diff)}
                       </td>
                     </tr>
@@ -122,15 +122,15 @@ export default async function EodPage({
               </tbody>
             </table>
           </div>
-          <p className={`mt-3 text-sm font-semibold ${closing.overShortCents === 0 ? 'text-moss-600' : 'text-clay-500'}`}>
+          <p className={`mt-3 text-sm font-semibold ${closing.overShortCents === 0 ? 'text-cocoa-600' : 'text-clay-500'}`}>
             {closing.overShortCents === 0
               ? 'Cash balanced exactly.'
               : closing.overShortCents > 0
                 ? `Over by ${formatPeso(closing.overShortCents)}.`
                 : `Short by ${formatPeso(-closing.overShortCents)}.`}
           </p>
-          {closing.notes && <p className="mt-1 text-sm text-moss-600">{closing.notes}</p>}
-          <p className="mt-2 text-xs text-moss-400">
+          {closing.notes && <p className="mt-1 text-sm text-cocoa-600">{closing.notes}</p>}
+          <p className="mt-2 text-xs text-cocoa-400">
             The day is locked — new sales, voids and edits for this date are blocked.
           </p>
           {canReopen && (
@@ -178,16 +178,16 @@ export default async function EodPage({
                 return (
                   <tr key={h.id}>
                     <td>
-                      <Link href={`/portal/sales/eod?date=${key}`} className="text-moss-800 hover:underline">
+                      <Link href={`/portal/sales/eod?date=${key}`} className="text-cocoa-800 hover:underline">
                         {formatDateKey(key)}
                       </Link>
                     </td>
                     <td className="num text-right">{h.salesCount}</td>
                     <td className="num text-right">{formatPeso(h.grossSalesCents)}</td>
-                    <td className={`num text-right ${h.overShortCents === 0 ? '' : h.overShortCents > 0 ? 'text-moss-600' : 'text-clay-500'}`}>
+                    <td className={`num text-right ${h.overShortCents === 0 ? '' : h.overShortCents > 0 ? 'text-cocoa-600' : 'text-clay-500'}`}>
                       {h.overShortCents === 0 ? 'balanced' : formatPeso(h.overShortCents)}
                     </td>
-                    <td className="text-xs text-moss-500">{h.closedBy.name}</td>
+                    <td className="text-xs text-cocoa-500">{h.closedBy.name}</td>
                   </tr>
                 );
               })}
@@ -196,7 +196,7 @@ export default async function EodPage({
         </div>
       )}
 
-      <p className="mt-4 text-xs text-moss-400">
+      <p className="mt-4 text-xs text-cocoa-400">
         Tip: yesterday was {formatDateKey(addDaysToKey(dateKey, -1))} —{' '}
         <Link href={`/portal/sales/eod?date=${addDaysToKey(dateKey, -1)}`} className="underline underline-offset-4">
           open it

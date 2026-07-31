@@ -33,7 +33,7 @@ export default async function ConfirmationPage({
   const failed = appt.depositStatus === 'FAILED' || appt.status === 'EXPIRED';
 
   const tone = paid
-    ? { bg: 'bg-moss-600', label: 'Reservation confirmed', icon: '✓' }
+    ? { bg: 'bg-cocoa-600', label: 'Reservation confirmed', icon: '✓' }
     : failed
       ? { bg: 'bg-clay-500', label: 'Not confirmed', icon: '!' }
       : { bg: 'bg-sand-400', label: 'Awaiting your reservation fee', icon: '⏳' };
@@ -79,7 +79,7 @@ export default async function ConfirmationPage({
         </div>
 
         {paid && (
-          <div className="card-pad mt-4 border-moss-200 bg-moss-50 text-sm text-moss-700">
+          <div className="card-pad mt-4 border-cocoa-200 bg-cocoa-50 text-sm text-cocoa-700">
             <p className="font-semibold">Your slot is secured. See you soon!</p>
             <p className="mt-1">
               The {formatPeso(appt.depositPaidCents)} you paid is deducted from your final
@@ -91,7 +91,7 @@ export default async function ConfirmationPage({
 
         {awaitingVerification && (
           <div className="mt-4 space-y-4">
-            <div className="card-pad border-sand-300 bg-sand-100 text-sm text-moss-700">
+            <div className="card-pad border-sand-300 bg-sand-100 text-sm text-cocoa-700">
               <p className="font-semibold">One last step — send your reservation fee</p>
               <p className="mt-1">
                 Send <strong>{formatPeso(appt.depositAmountCents)}</strong> to:
@@ -109,7 +109,7 @@ export default async function ConfirmationPage({
               </p>
             </div>
             {appt.depositProofUrl ? (
-              <div className="card-pad text-sm text-moss-700">
+              <div className="card-pad text-sm text-cocoa-700">
                 <p className="font-semibold">Proof received — thank you!</p>
                 <p className="mt-1">
                   Reference {appt.depositReference}. Our receptionist is checking it now.
@@ -123,7 +123,7 @@ export default async function ConfirmationPage({
         )}
 
         {!paid && !awaitingVerification && !failed && (
-          <div className="card-pad mt-4 text-sm text-moss-700">
+          <div className="card-pad mt-4 text-sm text-cocoa-700">
             <p className="font-semibold">Payment not completed</p>
             <p className="mt-1">
               Your slot is held until{' '}
@@ -137,7 +137,7 @@ export default async function ConfirmationPage({
         )}
 
         {failed && (
-          <div className="card-pad mt-4 text-sm text-moss-700">
+          <div className="card-pad mt-4 text-sm text-cocoa-700">
             <p className="font-semibold">This booking was not confirmed</p>
             <p className="mt-1">
               Nothing has been charged. You&apos;re very welcome to book another slot, or
@@ -150,7 +150,7 @@ export default async function ConfirmationPage({
         )}
 
         <p className="mt-6 text-center text-sm">
-          <Link href="/" className="text-moss-600 underline underline-offset-4">
+          <Link href="/" className="text-cocoa-600 underline underline-offset-4">
             ← Back to the ANICA website
           </Link>
         </p>
@@ -162,8 +162,8 @@ export default async function ConfirmationPage({
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-moss-500">{label}</span>
-      <span className={`text-right ${strong ? 'font-semibold text-moss-800' : 'text-moss-700'}`}>
+      <span className="text-cocoa-500">{label}</span>
+      <span className={`text-right ${strong ? 'font-semibold text-cocoa-800' : 'text-cocoa-700'}`}>
         {value}
       </span>
     </div>

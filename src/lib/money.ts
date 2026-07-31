@@ -26,6 +26,15 @@ export function formatPeso(cents: number, withSymbol = true): string {
   return `${negative ? '-' : ''}${withSymbol ? PESO : ''}${whole}.${frac}`;
 }
 
+/**
+ * Menu prices for the public site: "₱650" rather than "₱650.00", but "₱650.50"
+ * when there really are centavos. Display only — never for receipts, exports or
+ * anything the BIR reads, which all keep two decimals.
+ */
+export function formatPesoMenu(cents: number): string {
+  return cents % 100 === 0 ? formatPeso(cents).replace(/\.00$/, '') : formatPeso(cents);
+}
+
 /** Plain "1234.50" for CSV exports — no symbol, no thousands separator. */
 export function centsToDecimalString(cents: number): string {
   const negative = cents < 0;

@@ -46,10 +46,10 @@ export default async function ResourcesPage({
             <tbody>
               {resources.map((r) => (
                 <tr key={r.id}>
-                  <td className="font-medium text-moss-800">{r.name}</td>
+                  <td className="font-medium text-cocoa-800">{r.name}</td>
                   <td className="text-xs capitalize">{r.type.toLowerCase()}</td>
                   <td className="num text-right">{r.capacity}</td>
-                  <td className="num text-right text-moss-400">{r.sortRank}</td>
+                  <td className="num text-right text-cocoa-400">{r.sortRank}</td>
                   <td>
                     <StatusBadge status={r.active ? 'ACTIVE' : 'CANCELLED'} label={r.active ? 'bookable' : 'off'} />
                   </td>
@@ -91,8 +91,8 @@ export default async function ResourcesPage({
                 defaultValue={editing?.sortRank ?? resources.length + 1} />
             </label>
           </div>
-          <label className="flex items-center gap-2 text-sm text-moss-700">
-            <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+          <label className="flex items-center gap-2 text-sm text-cocoa-700">
+            <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
               defaultChecked={editing?.active ?? true} />
             Bookable
           </label>

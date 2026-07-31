@@ -34,7 +34,7 @@ export function BranchForm({ branches }: { branches: B[] }) {
           <span className="label">Short code *</span>
           <input name="code" className="input uppercase" defaultValue={current?.code} required
             maxLength={6} placeholder="MRK" />
-          <span className="mt-1 block text-[11px] text-moss-400">
+          <span className="mt-1 block text-[11px] text-cocoa-400">
             Used for the branch receipt prefix (SI + code).
           </span>
         </label>
@@ -58,13 +58,13 @@ export function BranchForm({ branches }: { branches: B[] }) {
               defaultValue={current?.closeMinute ?? 1440} />
           </label>
         </div>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />
           Branch is open for business
         </label>
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">
           {selectedId ? 'Save branch' : 'Open branch'}
         </button>

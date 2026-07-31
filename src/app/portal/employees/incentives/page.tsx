@@ -74,12 +74,12 @@ export default async function IncentivesPage({
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h2 className="section-title">{list[0].schemeName}</h2>
-                    <p className="text-xs capitalize text-moss-400">
+                    <p className="text-xs capitalize text-cocoa-400">
                       {list[0].employeeRole.toLowerCase()} · {list[0].formula.replaceAll('_', ' ').toLowerCase()} ·{' '}
                       {scheme?.period.toLowerCase()}
                     </p>
                   </div>
-                  <span className="num font-semibold text-moss-700">
+                  <span className="num font-semibold text-cocoa-700">
                     {formatPeso(list.reduce((a, r) => a + r.suggestedCents, 0))} suggested
                   </span>
                 </div>
@@ -97,8 +97,8 @@ export default async function IncentivesPage({
                     <tbody>
                       {list.map((r) => (
                         <tr key={`${r.schemeId}-${r.employeeId}`}>
-                          <td className="font-medium text-moss-800">{r.employeeName}</td>
-                          <td className="text-xs text-moss-500">{r.metricLabel}</td>
+                          <td className="font-medium text-cocoa-800">{r.employeeName}</td>
+                          <td className="text-xs text-cocoa-500">{r.metricLabel}</td>
                           <td className="num text-right">
                             {r.metric === 'revenue'
                               ? formatPeso(r.metricValue)
@@ -110,7 +110,7 @@ export default async function IncentivesPage({
                             {r.suggestedCents > 0 ? (
                               formatPeso(r.suggestedCents)
                             ) : (
-                              <span className="text-moss-300">—</span>
+                              <span className="text-cocoa-300">—</span>
                             )}
                           </td>
                         </tr>
@@ -131,8 +131,8 @@ export default async function IncentivesPage({
             {schemes.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                 <span>
-                  <span className="font-medium text-moss-800">{s.name}</span>
-                  <span className="block text-xs capitalize text-moss-400">
+                  <span className="font-medium text-cocoa-800">{s.name}</span>
+                  <span className="block text-xs capitalize text-cocoa-400">
                     {s.targetRole.toLowerCase()} · {s.formula.replaceAll('_', ' ').toLowerCase()} ·{' '}
                     {s.formula === 'FIXED_AMOUNT' ? formatPeso(s.value) : `${s.value}%`}
                   </span>
@@ -158,7 +158,7 @@ export default async function IncentivesPage({
         />
       </div>
 
-      <p className="mt-6 text-xs text-moss-400">
+      <p className="mt-6 text-xs text-cocoa-400">
         Previous month:{' '}
         <a href={`/portal/employees/incentives?month=${addMonthsToKey(monthKey, -1)}`} className="underline underline-offset-4">
           {formatMonthKey(addMonthsToKey(monthKey, -1))}

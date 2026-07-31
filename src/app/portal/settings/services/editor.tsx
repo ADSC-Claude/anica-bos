@@ -123,19 +123,19 @@ export function ServiceEditor({
           </button>
         </fieldset>
 
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="active" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />
           Active (bookable and sellable)
         </label>
-        <label className="flex items-center gap-2 text-sm text-moss-700">
-          <input type="checkbox" name="showOnLanding" className="h-5 w-5 accent-[#345a3e]"
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="showOnLanding" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.showOnLanding ?? true} />
           Show on the public price list
         </label>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
-        {state.ok && <p className="text-sm text-moss-600">{state.ok}</p>}
+        {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
         <button className="btn-primary w-full" type="submit">
           {selectedId ? 'Save service' : 'Create service'}
         </button>

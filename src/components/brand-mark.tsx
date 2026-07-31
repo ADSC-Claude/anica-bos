@@ -32,7 +32,15 @@ export function BrandMark({
           src={src}
           alt=""
           className="h-full w-full object-contain"
-          style={{ padding: Math.round(size * 0.14) }}
+          // Sized to sit where the ✿ glyph sat, so swapping a logo in does not
+          // change the weight of the header. The glyph rendered at half the
+          // tile; this lands a shade larger, which is what a real mark needs to
+          // stay legible at 32px.
+          //
+          // Trim the file, not this number: padding cannot recover space baked
+          // into an image. A logo exported with its own wide margin will look
+          // small here no matter what this says.
+          style={{ padding: Math.max(2, Math.round(size * 0.28)) }}
         />
       ) : (
         <span style={{ fontSize: Math.round(size * 0.5), lineHeight: 1 }}>✿</span>

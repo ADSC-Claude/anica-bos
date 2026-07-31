@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { can } from '@/lib/rbac';
 import { getSettings } from '@/lib/settings';
 import { formatPeso } from '@/lib/money';
-import { formatManila, manilaMonthKey, monthBounds, dateKeyToBusinessDate } from '@/lib/datetime';
+import { formatManila, manilaMonthKey, monthBounds, dateKeyToBusinessDate, manilaDateKey } from '@/lib/datetime';
 import { PageHeader, StatCard, StatusBadge, EmptyState } from '@/components/ui';
 import { EmployeeForm } from '@/components/employee-form';
 import { LoanForm } from './loan-form';
@@ -31,6 +31,7 @@ export default async function EmployeeDetailPage({
       loans: { include: { payments: true }, orderBy: { createdAt: 'desc' } },
       certifications: true,
       feedback: { orderBy: { createdAt: 'desc' }, take: 10 },
+      employmentEvents: { orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }] },
     },
   });
   if (!employee) notFound();
@@ -131,6 +132,28 @@ export default async function EmployeeDetailPage({
 
       {tab === 'overview' && (
         <div className="grid gap-4 lg:grid-cols-2">
+          {/* Anything other than plain "active" belongs at the top of the
+              profile, not buried — it changes what you can ask of them. */}
+          {employee.status !== 'ACTIVE' && (
+            <div className="card-pad border-gilt-500/40 bg-gilt-500/5 lg:col-span-2">
+              <h2 className="section-title mb-1">
+                Currently {employee.status.replace('_', ' ').toLowerCase()}
+              </h2>
+              <p className="text-sm text-cocoa-600">
+                {employee.status === 'SEPARATED' ? 'Last day' : 'From'}{' '}
+                <strong>
+                  {employee.statusFrom ? manilaDateKey(employee.statusFrom) : 'not recorded'}
+                </strong>
+                {employee.statusUntil && (
+                  <>
+                    {' '}until <strong>{manilaDateKey(employee.statusUntil)}</strong>
+                  </>
+                )}
+                {employee.statusReason && <> — {employee.statusReason}</>}
+              </p>
+            </div>
+          )}
+
           <div className="card-pad">
             <h2 className="section-title mb-3">Details</h2>
             <dl className="space-y-1.5 text-sm">
@@ -159,6 +182,35 @@ export default async function EmployeeDetailPage({
           </div>
 
           <div className="space-y-4">
+            {employee.employmentEvents.length > 0 && (
+              <div className="card-pad lg:col-span-2">
+                <h2 className="section-title mb-1">Employment history</h2>
+                <p className="mb-3 text-xs text-cocoa-400">
+                  Every change of status, kept permanently — a suspension that disappeared
+                  once it was lifted would not be a record.
+                </p>
+                <ul className="divide-y divide-sand-100">
+                  {employee.employmentEvents.map((ev) => (
+                    <li key={ev.id} className="flex flex-wrap items-baseline gap-x-3 py-2">
+                      <span className="text-sm font-medium capitalize text-cocoa-800">
+                        {ev.status.replace('_', ' ').toLowerCase()}
+                      </span>
+                      <span className="num text-xs text-cocoa-600">
+                        {manilaDateKey(ev.startDate)}
+                        {ev.endDate ? ` – ${manilaDateKey(ev.endDate)}` : ''}
+                      </span>
+                      {ev.reason && (
+                        <span className="text-xs text-cocoa-500">{ev.reason}</span>
+                      )}
+                      <span className="ml-auto text-[11px] text-cocoa-400">
+                        {ev.recordedBy ? `recorded by ${ev.recordedBy}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="card-pad">
               <h2 className="section-title mb-2">Skills</h2>
               {employee.skills.length === 0 ? (

@@ -158,8 +158,9 @@ export default async function EmployeesPage({
                         employeeId={e.id}
                         name={e.name}
                         status={e.status}
-                        separatedAt={e.separatedAt ? manilaDateKey(e.separatedAt) : null}
-                        separationReason={e.separationReason}
+                        statusFrom={e.statusFrom ? manilaDateKey(e.statusFrom) : null}
+                        statusUntil={e.statusUntil ? manilaDateKey(e.statusUntil) : null}
+                        statusReason={e.statusReason}
                         canEdit={canEditStaff}
                       />
                     </td>
@@ -209,16 +210,17 @@ export default async function EmployeesPage({
                       {e.employeeRole.toLowerCase()}
                     </td>
                     <td className="num whitespace-nowrap text-xs">
-                      {e.separatedAt ? manilaDateKey(e.separatedAt) : '—'}
+                      {e.statusFrom ? manilaDateKey(e.statusFrom) : '—'}
                     </td>
-                    <td className="text-xs text-cocoa-500">{e.separationReason || '—'}</td>
+                    <td className="text-xs text-cocoa-500">{e.statusReason || '—'}</td>
                     <td>
                       <EmploymentStatusControl
                         employeeId={e.id}
                         name={e.name}
                         status={e.status}
-                        separatedAt={e.separatedAt ? manilaDateKey(e.separatedAt) : null}
-                        separationReason={e.separationReason}
+                        statusFrom={e.statusFrom ? manilaDateKey(e.statusFrom) : null}
+                        statusUntil={e.statusUntil ? manilaDateKey(e.statusUntil) : null}
+                        statusReason={e.statusReason}
                         canEdit={canEditStaff}
                       />
                     </td>

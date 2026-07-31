@@ -393,7 +393,8 @@ export async function setEmploymentStatusAction(
   const id = str(formData, 'employeeId');
   const status = str(formData, 'status') as EmploymentStatus;
   const reason = str(formData, 'reason');
-  const dateKey = str(formData, 'separatedOn');
+  const fromKey = str(formData, 'statusFrom');
+  const untilKey = str(formData, 'statusUntil');
 
   const valid: EmploymentStatus[] = ['ACTIVE', 'ON_LEAVE', 'SUSPENDED', 'SEPARATED'];
   if (!valid.includes(status)) return { error: 'Choose a status.' };
@@ -401,12 +402,24 @@ export async function setEmploymentStatusAction(
   const before = await prisma.employee.findUnique({ where: { id } });
   if (!before) return { error: 'That employee no longer exists.' };
 
-  if (status === 'SEPARATED' && !dateKey) {
-    return { error: 'Enter the last day worked.' };
+  // Every status but ACTIVE is a spell with a beginning: the last day worked,
+  // the first day of leave, the day a suspension starts.
+  if (status !== 'ACTIVE' && !fromKey) {
+    return {
+      error:
+        status === 'SEPARATED' ? 'Enter the last day worked.' : 'Enter the start date.',
+    };
+  }
+  if (untilKey && fromKey && untilKey < fromKey) {
+    return { error: 'The end date cannot be before the start date.' };
   }
 
-  const separatedAt =
-    status === 'SEPARATED' ? dateKeyToBusinessDate(dateKey) : null;
+  const statusFrom = status === 'ACTIVE' ? null : dateKeyToBusinessDate(fromKey);
+  // A separation has no end, and returning to work is not scheduled in advance.
+  const statusUntil =
+    (status === 'ON_LEAVE' || status === 'SUSPENDED') && untilKey
+      ? dateKeyToBusinessDate(untilKey)
+      : null;
 
   const after = await prisma.employee.update({
     where: { id },
@@ -416,8 +429,23 @@ export async function setEmploymentStatusAction(
       // on the payroll but off the roster, which is what `active: false` means
       // everywhere else in the system.
       active: status === 'ACTIVE',
-      separatedAt,
-      separationReason: status === 'SEPARATED' ? reason : '',
+      statusFrom,
+      statusUntil,
+      statusReason: status === 'ACTIVE' ? '' : reason,
+    },
+  });
+
+  // The employee row says where they stand today; this says it happened. A
+  // suspension that vanishes once lifted is not a record, and a second one is a
+  // different conversation from a first.
+  await prisma.employmentEvent.create({
+    data: {
+      employeeId: id,
+      status,
+      startDate: statusFrom ?? new Date(),
+      endDate: statusUntil,
+      reason,
+      recordedBy: user.name,
     },
   });
 
@@ -427,9 +455,11 @@ export async function setEmploymentStatusAction(
     entityType: 'Employee',
     entityId: id,
     summary:
-      status === 'SEPARATED'
-        ? `${after.name} separated, last day ${dateKey}${reason ? ` — ${reason}` : ''}`
-        : `${after.name} set to ${status.replace('_', ' ').toLowerCase()}`,
+      status === 'ACTIVE'
+        ? `${after.name} returned to active duty`
+        : `${after.name} ${status.replace('_', ' ').toLowerCase()} from ${fromKey}${
+            untilKey ? ` to ${untilKey}` : ''
+          }${reason ? ` — ${reason}` : ''}`,
     sensitive: true,
     ...diff(before as never, after as never),
   });
@@ -440,6 +470,10 @@ export async function setEmploymentStatusAction(
     ok:
       status === 'SEPARATED'
         ? `${after.name} moved to separated staff. Their records are kept.`
-        : `${after.name} is now ${status.replace('_', ' ').toLowerCase()}.`,
+        : status === 'ACTIVE'
+          ? `${after.name} is back on the roster.`
+          : `${after.name} is ${status.replace('_', ' ').toLowerCase()}${
+              untilKey ? ` until ${untilKey}` : ''
+            }.`,
   };
 }

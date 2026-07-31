@@ -28,15 +28,17 @@ export function EmploymentStatusControl({
   employeeId,
   name,
   status,
-  separatedAt,
-  separationReason,
+  statusFrom,
+  statusUntil,
+  statusReason,
   canEdit,
 }: {
   employeeId: string;
   name: string;
   status: string;
-  separatedAt: string | null;
-  separationReason: string;
+  statusFrom: string | null;
+  statusUntil: string | null;
+  statusReason: string;
   canEdit: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(
@@ -50,8 +52,10 @@ export function EmploymentStatusControl({
     <span
       className={`badge ${TONE[status] ?? TONE.ACTIVE}`}
       title={
-        status === 'SEPARATED' && separatedAt
-          ? `Last day ${separatedAt}${separationReason ? ` — ${separationReason}` : ''}`
+        statusFrom
+          ? `${status === 'SEPARATED' ? 'Last day' : 'From'} ${statusFrom}${
+              statusUntil ? ` to ${statusUntil}` : ''
+            }${statusReason ? ` — ${statusReason}` : ''}`
           : undefined
       }
     >
@@ -77,8 +81,14 @@ export function EmploymentStatusControl({
         </button>
       )}
 
-      {status === 'SEPARATED' && separatedAt && !open && (
-        <span className="block text-[11px] text-cocoa-400">since {separatedAt}</span>
+      {statusFrom && !open && (
+        <span className="block text-[11px] text-cocoa-400">
+          {status === 'SEPARATED'
+            ? `since ${statusFrom}`
+            : statusUntil
+              ? `until ${statusUntil}`
+              : `since ${statusFrom}`}
+        </span>
       )}
 
       {open && (
@@ -101,38 +111,54 @@ export function EmploymentStatusControl({
             </select>
           </label>
 
-          {choice === 'SEPARATED' && (
+          {choice !== 'ACTIVE' && (
             <>
-              <label className="mt-2 block">
-                <span className="label">Last day worked *</span>
-                <input
-                  type="date"
-                  name="separatedOn"
-                  className="input"
-                  defaultValue={separatedAt ?? ''}
-                  required
-                />
-              </label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="label">
+                    {choice === 'SEPARATED' ? 'Last day worked *' : 'From *'}
+                  </span>
+                  <input
+                    type="date"
+                    name="statusFrom"
+                    className="input"
+                    defaultValue={statusFrom ?? ''}
+                    required
+                  />
+                </label>
+                {choice !== 'SEPARATED' && (
+                  <label className="block">
+                    <span className="label">Until</span>
+                    <input
+                      type="date"
+                      name="statusUntil"
+                      className="input"
+                      defaultValue={statusUntil ?? ''}
+                    />
+                  </label>
+                )}
+              </div>
               <label className="mt-2 block">
                 <span className="label">Reason</span>
                 <input
                   name="reason"
                   className="input"
-                  defaultValue={separationReason}
-                  placeholder="Resigned, end of contract, …"
+                  defaultValue={statusReason}
+                  placeholder={
+                    choice === 'SEPARATED'
+                      ? 'Resigned, end of contract, …'
+                      : choice === 'ON_LEAVE'
+                        ? 'Maternity, sick leave, …'
+                        : 'Reason for suspension'
+                  }
                 />
               </label>
               <p className="mt-2 text-[11px] text-cocoa-400">
-                They move to the separated list. Payslips, commissions and attendance are
-                all kept.
+                {choice === 'SEPARATED'
+                  ? 'They move to the separated list. Payslips, commissions and attendance are all kept.'
+                  : 'They stay on the payroll but come off the roster and the POS. Leave Until blank if the end date is not known yet.'}
               </p>
             </>
-          )}
-
-          {choice !== 'ACTIVE' && choice !== 'SEPARATED' && (
-            <p className="mt-2 text-[11px] text-cocoa-400">
-              They stay on the payroll but come off the roster and the POS.
-            </p>
           )}
 
           {state.error && (

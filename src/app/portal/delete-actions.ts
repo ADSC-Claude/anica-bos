@@ -78,6 +78,7 @@ export async function deleteRecordAction(
 function revalidateFor(kind: DeletableKind) {
   const paths: Record<DeletableKind, string[]> = {
     service: ['/portal/settings/services', '/'],
+    serviceCategory: ['/portal/settings/services', '/'],
     client: ['/portal/clients'],
     employee: ['/portal/employees'],
     item: ['/portal/inventory'],

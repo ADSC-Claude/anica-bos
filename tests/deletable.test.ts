@@ -114,6 +114,24 @@ test('the registry covers only records that are safe to remove', () => {
   // from the delete action.
   assert.deepEqual(
     Object.keys(DELETABLE).sort(),
-    ['client', 'employee', 'item', 'service'],
+    ['client', 'employee', 'item', 'service', 'serviceCategory'],
   );
+});
+
+test('a category with services in it is refused, and offers to hide instead', async () => {
+  const check = await checkDeletable('serviceCategory', categoryId);
+  assert.equal(check?.deletable, false);
+  if (check && !check.deletable) {
+    assert.match(check.blockedBy.join(', '), /service/);
+    assert.match(String(check.deactivate), /Hide it instead/);
+  }
+});
+
+test('a category nothing is filed under can be deleted', async () => {
+  const empty = await prisma.serviceCategory.create({ data: { name: `Empty ${stamp}` } });
+  try {
+    assert.equal((await checkDeletable('serviceCategory', empty.id))?.deletable, true);
+  } finally {
+    await prisma.serviceCategory.deleteMany({ where: { id: empty.id } });
+  }
 });

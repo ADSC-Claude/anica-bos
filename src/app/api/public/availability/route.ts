@@ -101,7 +101,10 @@ export async function GET(req: Request) {
     const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
     const [therapists, resources, plan] = await Promise.all([
       availableTherapists({ branchId: branch.id, startAt, endAt, serviceIds }),
-      availableResources({ branchId: branch.id, startAt, endAt, resourceType: place }),
+      // partySize matters here as much as in the slot loop: without it a
+      // couples room is filtered out of the picker for a booking of two, which
+      // is the one case it exists for.
+      availableResources({ branchId: branch.id, startAt, endAt, resourceType: place, partySize }),
       // The whole floor, so the picker can draw the taken places too — hiding
       // them just moves "why not that one?" to after the click.
       floorPlan({ branchId: branch.id, startAt, endAt }),
@@ -112,6 +115,14 @@ export async function GET(req: Request) {
       plan,
       /** Which place types this booking's treatments can actually use. */
       accepts: place ? placesSatisfying(place) : null,
+      /**
+       * The same, per guest and in the order they were sent, so the picker can
+       * dim the beds while a foot-spa guest is selected without re-deriving the
+       * rule in the browser.
+       */
+      guestAccepts: guestSeats.map((seat) =>
+        seat.place ? placesSatisfying(seat.place) : null,
+      ),
       durationMinutes,
       priceCents: partyPriceCents,
       depositCents: Math.round((partyPriceCents * settings['booking.depositPercent']) / 100),

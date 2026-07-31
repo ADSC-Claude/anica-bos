@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const settings = await getSettings();
 
-  const [branches, categories, fields] = await Promise.all([
+  const [branches, categories, fields, places] = await Promise.all([
     prisma.branch.findMany({
       where: { active: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
@@ -40,7 +40,25 @@ export async function GET() {
         required: true,
       },
     }),
+    // How many people the spa can physically hold at once, so the party-size
+    // choices follow the floor instead of a number typed here. Eight beds and
+    // two chairs is ten; adding a bed makes it eleven without anyone editing
+    // this file.
+    prisma.resource.groupBy({
+      by: ['branchId'],
+      where: { active: true, type: { not: 'SAUNA' } },
+      _sum: { capacity: true },
+    }),
   ]);
+
+  // The sauna is left out: it seats four, but a party is unlikely to book it as
+  // their treatment, and counting it would offer a party size the beds cannot
+  // serve. Therapist availability trims this further at the slot stage — a
+  // party of eight simply finds no free times when six therapists are on.
+  const seats = Math.max(
+    1,
+    places.reduce((a, p) => a + (p._sum.capacity ?? 0), 0),
+  );
 
   return NextResponse.json({
     branches,
@@ -57,5 +75,7 @@ export async function GET() {
       bank: settings['booking.bankDetails'],
     },
     bookingEnabled: settings['booking.enabled'],
+    /** The largest party the floor could hold. Offered as choices, not promised. */
+    maxParty: Math.min(seats, 12),
   });
 }

@@ -67,12 +67,34 @@ if (!DATABASE_URL) {
 //   direct              db.<ref>.supabase.co:5432    migrations, but IPv6 only
 //                                                    unless the IPv4 add-on is
 //                                                    bought
-function describe(url) {
+function describe(name, url) {
   let parsed;
   try {
     parsed = new URL(url);
   } catch {
-    return { host: null, port: null, transactionPooler: false, ipv6Only: false };
+    // Worth catching separately: a value that is not a URL at all reaches
+    // Prisma as "Validation Error Count: 1 [Context: getConfig]", which says
+    // nothing about which variable is wrong or what is wrong with it.
+    fail(`${name} is not a valid connection string.`, [
+      'It could not be parsed as a URL, so nothing downstream can use it.',
+      '',
+      'It should begin with postgresql:// and nothing else. The usual causes,',
+      'all from copying the wrong part of a connection-string panel:',
+      '  • A psql prefix — the value starts with `psql ` and the URL is in',
+      '    quotes. Copy the URI tab, not the psql command.',
+      '  • Surrounding " or \' quotes. Vercel stores the value literally, so',
+      '    quotes become part of the string.',
+      '  • A line break or trailing space pasted along with it.',
+      '',
+      'Supabase: Project Settings → Database → Connection string → URI,',
+      `and replace [YOUR-PASSWORD] with the real password.`,
+    ]);
+  }
+  if (!/^postgres(ql)?:$/.test(parsed.protocol)) {
+    fail(`${name} does not look like a Postgres connection string.`, [
+      `Its scheme is "${parsed.protocol.replace(':', '')}"; Prisma requires`,
+      'postgresql:// (postgres:// is also accepted).',
+    ]);
   }
   const host = parsed.hostname;
   const port = parsed.port || '5432';
@@ -86,11 +108,11 @@ function describe(url) {
   };
 }
 
-const runtime = describe(DATABASE_URL);
+const runtime = describe('DATABASE_URL', DATABASE_URL);
 
 // The URL migrations run against.
 const migrationUrl = DIRECT_URL || DATABASE_URL;
-const migration = describe(migrationUrl);
+const migration = describe(DIRECT_URL ? 'DIRECT_URL' : 'DATABASE_URL', migrationUrl);
 
 if (!DIRECT_URL && runtime.transactionPooler) {
   fail('DIRECT_URL is not set, but DATABASE_URL is the transaction pooler.', [

@@ -567,7 +567,7 @@ export function PosTerminal(props: {
               {needsPin && (
                 <label className="block">
                   <span className="label text-clay-500">
-                    Manual discount is above {props.discountApprovalPercent}% — approval PIN required
+                    Manual discount is above {props.discountApprovalPercent}% — Owner approval PIN required
                   </span>
                   <input className="input" type="password" inputMode="numeric" value={approvalPin}
                     onChange={(e) => setApprovalPin(e.target.value)} />

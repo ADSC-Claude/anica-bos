@@ -14,7 +14,7 @@ export function VoidForm({ saleId }: { saleId: string }) {
         <input name="reason" className="input" required placeholder="e.g. wrong service rung up" />
       </label>
       <label className="block">
-        <span className="label">Owner / Manager approval PIN *</span>
+        <span className="label">Owner approval PIN *</span>
         <input name="pin" type="password" inputMode="numeric" className="input" required />
       </label>
       {state.error && <p className="text-sm text-clay-500">{state.error}</p>}

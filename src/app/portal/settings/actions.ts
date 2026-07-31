@@ -411,6 +411,17 @@ export async function saveUserAction(_prev: FormState, formData: FormData): Prom
     employeeId: str(formData, 'employeeId') || null,
   };
 
+  // Only the Owner approves voids, refunds and large discounts, so only an
+  // Owner account carries a PIN. Setting the role to anything else clears any
+  // PIN already stored — otherwise a demoted manager's hash would sit in the
+  // table looking like it still granted something.
+  const pinChange =
+    role === 'OWNER'
+      ? pin
+        ? { approvalPinHash: await bcrypt.hash(pin, 11) }
+        : {}
+      : { approvalPinHash: null };
+
   if (id) {
     const before = await prisma.user.findUnique({ where: { id } });
     await prisma.user.update({
@@ -418,7 +429,7 @@ export async function saveUserAction(_prev: FormState, formData: FormData): Prom
       data: {
         ...base,
         ...(password ? { passwordHash: await hashPassword(password), mustChangePassword: true } : {}),
-        ...(pin ? { approvalPinHash: await bcrypt.hash(pin, 11) } : {}),
+        ...pinChange,
       },
     });
     await audit(user, {
@@ -434,7 +445,7 @@ export async function saveUserAction(_prev: FormState, formData: FormData): Prom
         ...base,
         passwordHash: await hashPassword(password),
         mustChangePassword: true,
-        ...(pin ? { approvalPinHash: await bcrypt.hash(pin, 11) } : {}),
+        ...pinChange,
       },
     });
     await audit(user, {

@@ -159,13 +159,20 @@ export async function login(email: string, password: string): Promise<LoginResul
   return { ok: true, user: sessionUser };
 }
 
-/** Verifies an Owner/Admin approval PIN for voids, refunds, big discounts. */
+/**
+ * Verifies an Owner approval PIN for voids, refunds and big discounts.
+ *
+ * The Owner alone: a void erases a sale and a manual discount gives money
+ * away, so the approval is the one control a manager cannot exercise over
+ * their own shift. A PIN held by anyone else is not accepted here even if one
+ * is stored, and saveUserAction will not store one for a non-Owner account.
+ */
 export async function verifyApprovalPin(
   pin: string,
 ): Promise<{ id: string; name: string; role: Role } | null> {
   if (!pin || pin.length < 4) return null;
   const approvers = await prisma.user.findMany({
-    where: { active: true, role: { in: ['OWNER', 'ADMIN'] }, approvalPinHash: { not: null } },
+    where: { active: true, role: 'OWNER', approvalPinHash: { not: null } },
     select: { id: true, name: true, role: true, approvalPinHash: true },
   });
   for (const a of approvers) {

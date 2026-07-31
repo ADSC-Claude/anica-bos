@@ -1,0 +1,80 @@
+#
+# Loads the demo dataset into a live database, on demand.
+#
+# This exists because seeding a hosted database needs somewhere with both the
+# connection string and a real Node runtime. A serverless function is the wrong
+# place — the seed is several hundred sequential statements, which is fast on a
+# local socket and slow enough over the network to outlive a function timeout.
+# A runner has neither limit.
+#
+# It DELETES EVERYTHING first. The confirmation input is the only thing standing
+# between a curious click and a wiped ledger, so it is deliberately awkward.
+#
+# Setup, once: Settings → Secrets and variables → Actions → New repository secret
+#   DIRECT_URL   Supabase → Connect → Session pooler (port 5432)
+#
+# Session mode, not the transaction pooler: the seed relies on prepared
+# statements, which a transaction pooler multiplexes away.
+#
+name: Seed database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ERASE AND SEED to confirm. Every existing row is deleted.'
+        required: true
+        type: string
+
+concurrency:
+  group: seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Erase and seed
+    runs-on: ubuntu-latest
+    # No environment URL and no deploy — this only ever talks to the database.
+    steps:
+      - name: Check the confirmation phrase
+        if: inputs.confirm != 'ERASE AND SEED'
+        run: |
+          echo "::error::Confirmation phrase did not match. Nothing was touched."
+          echo "Re-run and type exactly: ERASE AND SEED"
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the secret is present
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::The DIRECT_URL repository secret is not set."
+            echo "Add it under Settings → Secrets and variables → Actions,"
+            echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      - name: Seed
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+        run: npm run db:seed
+
+      - name: Verify the seeded books reconcile
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+        run: npx tsx scripts/verify-integrity.ts

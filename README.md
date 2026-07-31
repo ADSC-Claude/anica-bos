@@ -290,20 +290,51 @@ Or locally: `npm run jobs:daily`.
 ### Vercel + Supabase or Neon (recommended, free to start)
 
 1. Create a Postgres database at [supabase.com](https://supabase.com) or
-   [neon.tech](https://neon.tech). Copy **both** connection strings: the pooled one
-   for `DATABASE_URL` and the direct one for `DIRECT_URL`.
+   [neon.tech](https://neon.tech). On Supabase, **Connect** offers three strings
+   and the choice matters:
+
+   | String | Port | Goes in |
+   | --- | --- | --- |
+   | Transaction pooler | 6543 | `DATABASE_URL` — the app at runtime |
+   | Session pooler | 5432 | `DIRECT_URL` — migrations and seeding |
+   | Direct connection | 5432 | neither, on Vercel — see below |
+
+   The direct host resolves over IPv6 only unless the IPv4 add-on is bought, and
+   build runners generally have no IPv6 route. The session pooler is the same
+   database over IPv4. Copy each string whole rather than editing one into the
+   other: the pooler routes by project reference in the *username*, so a pooler
+   host with the direct string's `postgres` username is rejected with the rather
+   misleading "Tenant or user not found".
 2. Import the repo at [vercel.com](https://vercel.com).
-3. Add the environment variables from [Configuration](#configuration).
-4. Deploy. The build runs `scripts/build.mjs`.
-5. **The schema creates itself.** The build command is
-   `prisma generate && prisma migrate deploy && next build`, so the first deploy
-   applies `prisma/migrations/` to an empty database with no manual step.
-   To load the demo data as well, run once from your machine:
-   ```bash
-   DATABASE_URL="postgres://…" DIRECT_URL="postgres://…" npm run db:seed
-   ```
-6. Register the PayMongo webhook against your deployed URL.
-7. Sign in as each account and change the passwords and PINs.
+3. Add the environment variables from [Configuration](#configuration), ticking
+   **Production** and **Preview** on each. A variable saved for Production only
+   is invisible to preview builds, which then fail on the missing value.
+4. Deploy. The build runs `scripts/build.mjs`, which validates both connection
+   strings and prints them with the passwords stripped before touching the
+   database — so a failed build says which variable is wrong and why.
+5. **The schema creates itself.** `scripts/build.mjs` runs `prisma migrate
+   deploy` before `next build`, so the first deploy applies
+   `prisma/migrations/` to an empty database with no manual step.
+6. Load the demo data — the schema arrives empty, including the login accounts.
+   See [Seeding a hosted database](#seeding-a-hosted-database).
+7. Register the PayMongo webhook against your deployed URL.
+8. Sign in as each account and change the passwords and PINs.
+
+### Seeding a hosted database
+
+A fresh deploy has tables but no rows — no branch, no services, and nothing to
+log in with. Either run the seed against the hosted database from your machine:
+
+```bash
+DATABASE_URL="<session pooler string>" npm run db:seed
+```
+
+or, with no local setup, use the **Seed database** workflow under the repository's
+Actions tab. It needs one secret — Settings → Secrets and variables → Actions →
+`DIRECT_URL`, holding the session pooler string — and asks for a typed
+confirmation, because it deletes every existing row before seeding. Use the
+session pooler for both: the seed relies on prepared statements, which a
+transaction pooler multiplexes away.
 
 Cost at this size: **₱0/month** until you outgrow the free tiers.
 

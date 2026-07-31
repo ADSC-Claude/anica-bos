@@ -4,15 +4,31 @@ import { useEffect, useState } from 'react';
 
 /**
  * Registers the service worker and shows a persistent offline banner.
- * v1 caches today's schedule read-only; nothing critical is queued offline.
+ * Caches today's schedule read-only; nothing critical is queued offline.
  */
-export function RegisterServiceWorker() {
+export function RegisterServiceWorker({ version }: { version: string }) {
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        /* registration is best-effort */
+      // The version in the URL is what makes a deployment produce a *different*
+      // service worker, so the old one's caches get dropped instead of
+      // outliving it. updateViaCache: 'none' stops the browser serving this
+      // script itself from its HTTP cache, which would defeat the same thing.
+      navigator.serviceWorker
+        .register(`/sw.js?v=${encodeURIComponent(version)}`, { updateViaCache: 'none' })
+        .catch(() => {
+          /* registration is best-effort */
+        });
+
+      // A tab open across a deployment is holding markup whose Server Action
+      // ids no longer exist — its forms would post into the void. When the new
+      // worker takes over, reload once to pick the new deployment up.
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
       });
     }
     const update = () => setOffline(!navigator.onLine);
@@ -23,7 +39,7 @@ export function RegisterServiceWorker() {
       window.removeEventListener('online', update);
       window.removeEventListener('offline', update);
     };
-  }, []);
+  }, [version]);
 
   if (!offline) return null;
   return (

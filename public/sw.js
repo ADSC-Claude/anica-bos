@@ -9,13 +9,19 @@
  *    fails loudly offline — a sale must never be silently lost or duplicated.
  */
 
-const VERSION = 'anica-v1';
+// The registration URL carries ?v=<deployment id>, so every deployment is a
+// different service worker script. Without that the activate handler below has
+// nothing to clean up — it only deletes caches from a *previous* version, and a
+// hardcoded version is never previous.
+const VERSION = new URL(self.location.href).searchParams.get('v') || 'dev';
 const SHELL_CACHE = `${VERSION}-shell`;
 const DATA_CACHE = `${VERSION}-data`;
 
+// Static assets only. HTML must never be pre-cached: Next.js embeds a Server
+// Action id in the markup, and serving yesterday's markup against today's
+// deployment makes every form submission fail silently. Pages still reach the
+// offline cache, but only after a successful visit — see the schedule handler.
 const SHELL_ASSETS = [
-  '/portal',
-  '/portal/appointments',
   '/offline',
   '/manifest.webmanifest',
   '/icons/icon.svg',

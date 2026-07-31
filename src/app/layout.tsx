@@ -36,12 +36,21 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+/**
+ * Identifies this deployment to the service worker, so a new deployment
+ * registers a new worker and the previous one's caches are dropped. Vercel sets
+ * both of these; anywhere else the fallback is fine, because a machine serving
+ * one build has no stale build to clear.
+ */
+const buildId =
+  process.env.VERCEL_DEPLOYMENT_ID ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-PH">
       <body className="min-h-full antialiased">
         {children}
-        <RegisterServiceWorker />
+        <RegisterServiceWorker version={buildId} />
       </body>
     </html>
   );

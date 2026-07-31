@@ -452,14 +452,24 @@ model ServiceRecipe {
 }
 
 model Resource {
-  id       String       @id @default(cuid())
-  branchId String
-  branch   Branch       @relation(fields: [branchId], references: [id])
-  name     String
-  type     ResourceType
-  capacity Int          @default(1)
-  active   Boolean      @default(true)
-  sortRank Int          @default(0)
+  id           String       @id @default(cuid())
+  branchId     String
+  branch       Branch       @relation(fields: [branchId], references: [id])
+  name         String
+  type         ResourceType
+  capacity     Int          @default(1)
+  /// Whether the places in here are shared between unrelated bookings.
+  ///
+  /// A row of open beds is shared: two strangers lie on Bed 1 and Bed 2 quite
+  /// happily. A couples room and the sauna are not — one party takes the whole
+  /// thing, and it is unavailable to anyone else until they leave, however many
+  /// places are technically free inside it.
+  ///
+  /// This is also what stops a room being sold to one person: a whole unit can
+  /// only go to a party that fills it, so a couples room needs two.
+  exclusiveUse Boolean      @default(false)
+  active       Boolean      @default(true)
+  sortRank     Int          @default(0)
 
   appointments Appointment[]
 
@@ -969,15 +979,28 @@ model Appointment {
   depositAppliedSaleId String?
   expiresAt            DateTime?
 
+  // --- group booking ---
+  /// Shared by every appointment made in one go, so a party of three is three
+  /// bookings that were made together and are paid for together. Modelling a
+  /// party as a single appointment holding several people would break capacity,
+  /// conflict checking, therapist rotation and commission all at once — each of
+  /// those is already per-person, and already correct.
+  partyRef  String @default("")
+  /// Who is on this bed, when it is not the person who booked. The booker stays
+  /// the client of record: they pay, they earn the loyalty, and they are who we
+  /// can contact. A guest is a name until they arrive and the desk takes their
+  /// details properly.
+  guestName String @default("")
+
   // --- after-hours request (a treatment that would run past closing) ---
   /// Set when the guest asked for a slot the spa cannot promise: the booking is
   /// a request, not a reservation, until someone at the desk says yes. No
   /// deposit is taken while this is true, so a declined request never has to be
   /// refunded.
-  needsApproval    Boolean   @default(false)
-  approvedAt       DateTime?
-  approvedBy       String    @default("")
-  declineReason    String    @default("")
+  needsApproval Boolean   @default(false)
+  approvedAt    DateTime?
+  approvedBy    String    @default("")
+  declineReason String    @default("")
 
   checkedInAt  DateTime?
   startedAt    DateTime?
@@ -992,6 +1015,7 @@ model Appointment {
   sales    Sale[]
 
   @@index([branchId, startAt])
+  @@index([partyRef])
   @@index([status, startAt])
   @@index([clientId])
 }

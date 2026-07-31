@@ -19,7 +19,7 @@
     "restore": "tsx scripts/restore.ts",
     "jobs:daily": "tsx scripts/daily-jobs.ts",
     "verify": "tsx scripts/verify-integrity.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "build:local": "prisma generate && next build"
   },
   "prisma": {

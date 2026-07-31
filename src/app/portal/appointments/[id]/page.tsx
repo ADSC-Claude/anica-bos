@@ -65,6 +65,24 @@ export default async function AppointmentDetailPage({
   });
   if (!appt) notFound();
 
+  // The rest of the party, when there is one. Loaded separately rather than as
+  // a relation because a party is a shared reference, not a parent row — there
+  // is deliberately no "party" record for a booking of one to belong to.
+  const party = appt.partyRef
+    ? await prisma.appointment.findMany({
+        where: { partyRef: appt.partyRef, id: { not: appt.id } },
+        include: {
+          client: { select: { name: true } },
+          resource: { select: { name: true } },
+          services: {
+            include: { service: true, employee: { select: { name: true } } },
+            orderBy: { sortRank: 'asc' },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      })
+    : [];
+
   const alerts = can(user.role, 'clients.medical')
     ? (await medicalAlertsFor([appt.clientId])).get(appt.clientId) ?? []
     : [];
@@ -75,8 +93,10 @@ export default async function AppointmentDetailPage({
   return (
     <div className="max-w-3xl">
       <PageHeader
-        title={appt.client.name}
-        subtitle={`${formatManila(appt.startAt, { time: true, weekday: true })} · ${appt.reference}`}
+        title={appt.guestName || appt.client.name}
+        subtitle={`${formatManila(appt.startAt, { time: true, weekday: true })} · ${appt.reference}${
+          appt.guestName ? ` · guest of ${appt.client.name}` : ''
+        }`}
         actions={
           <>
             <Link href={`/portal/clients/${appt.clientId}`} className="btn-secondary btn-sm">
@@ -139,6 +159,32 @@ export default async function AppointmentDetailPage({
               </button>
             </form>
           </div>
+        </div>
+      )}
+
+      {party.length > 0 && (
+        <div className="card-pad mb-4">
+          <h2 className="section-title mb-2">
+            Booked together — party of {party.length + 1}
+          </h2>
+          <ul className="space-y-1 text-sm">
+            {party.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-baseline gap-x-2">
+                <Link href={`/portal/appointments/${p.id}`} className="font-medium text-cocoa-800 hover:underline">
+                  {p.guestName || p.client.name}
+                </Link>
+                <span className="text-xs text-cocoa-500">
+                  {p.services.map((s) => s.service.name).join(', ')}
+                  {p.resource ? ` · ${p.resource.name}` : ''}
+                  {p.services[0]?.employee?.name ? ` · ${p.services[0].employee.name}` : ''}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[11px] text-cocoa-400">
+            One reservation fee covers the party, and it sits on {appt.client.name}&apos;s
+            booking. Confirming, declining or cancelling any of these moves all of them.
+          </p>
         </div>
       )}
 

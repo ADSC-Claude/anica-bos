@@ -282,6 +282,7 @@ export async function saveResourceAction(formData: FormData) {
     name,
     type: (str(formData, 'type') || 'BED') as never,
     capacity: Math.max(1, num(formData, 'capacity') || 1),
+    exclusiveUse: bool(formData, 'exclusiveUse'),
     active: bool(formData, 'active'),
     sortRank: num(formData, 'sortRank'),
   };

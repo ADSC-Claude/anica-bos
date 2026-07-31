@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { bookingFor } from '@/lib/party';
 import { requirePage, resolveBranchId } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { medicalAlertsFor } from '@/lib/medical';
@@ -264,7 +265,7 @@ async function WeekView({ branchId, dateKey }: { branchId: string; dateKey: stri
                   <li key={a.id}>
                     <Link href={`/portal/appointments/${a.id}`} className="block rounded-lg bg-sand-100 px-2 py-1 text-[11px] leading-tight hover:bg-sand-200">
                       <span className="font-semibold">{formatTimeManila(a.startAt)}</span>{' '}
-                      {a.client.name}
+                      {bookingFor(a)}
                       <span className="block truncate text-cocoa-500">
                         {a.services[0]?.employee?.name ?? 'unassigned'}
                       </span>
@@ -421,8 +422,11 @@ async function ListView({ branchId, status }: { branchId: string; status?: strin
                     </Link>
                   </td>
                   <td>
-                    {a.client.name}
-                    <span className="block text-xs text-cocoa-400">{a.client.mobile}</span>
+                    {bookingFor(a)}
+                    {/* A guest is on the bed, but the booker is who to call. */}
+                    <span className="block text-xs text-cocoa-400">
+                      {a.guestName ? `with ${a.client.name}` : a.client.mobile}
+                    </span>
                   </td>
                   <td className="text-xs text-cocoa-600">
                     {a.services.map((s) => s.service.name).join(', ')}

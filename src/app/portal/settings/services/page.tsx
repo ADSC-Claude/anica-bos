@@ -106,6 +106,7 @@ export default async function ServicesSettingsPage({
                     <th>Category</th>
                     <th className="text-right">Services</th>
                     <th>Price list</th>
+                    <th className="text-right">Remove</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -119,6 +120,9 @@ export default async function ServicesSettingsPage({
                       <td>
                         <StatusBadge status={c.active ? 'ACTIVE' : 'CANCELLED'}
                           label={c.active ? 'shown' : 'hidden'} />
+                      </td>
+                      <td className="text-right">
+                        <DeleteButton kind="serviceCategory" id={c.id} label={c.name} />
                       </td>
                     </tr>
                   ))}

@@ -85,6 +85,39 @@ export const DELETABLE = {
     },
   },
 
+  serviceCategory: {
+    noun: 'service category',
+    permission: 'settings.edit',
+    module: 'settings',
+    name: async (id) =>
+      (await prisma.serviceCategory.findUnique({ where: { id }, select: { name: true } }))?.name ??
+      null,
+    blockers: [
+      // Only the primary category counts. Nothing else points at a category:
+      // sale lines reference the service, and reach the category through it,
+      // so a category with no services of its own is not holding up history.
+      {
+        label: (n) => `${plural(n, 'service')}`,
+        count: (id) => prisma.service.count({ where: { categoryId: id } }),
+      },
+    ],
+    deactivate: {
+      verb: 'Hide it instead — the heading leaves the price list and the booking form, and its services stay where they are.',
+      run: async (id) => {
+        await prisma.serviceCategory.update({ where: { id }, data: { active: false } });
+      },
+    },
+    // "Also list under" is display-only by design, so a service pointing here
+    // as a second heading is configuration rather than history: the extra
+    // heading goes with the category, and the service itself is untouched.
+    cascade: async (id) => {
+      await prisma.serviceCategory.update({ where: { id }, data: { alsoListed: { set: [] } } });
+    },
+    remove: async (id) => {
+      await prisma.serviceCategory.delete({ where: { id } });
+    },
+  },
+
   client: {
     noun: 'client',
     permission: 'clients.edit',

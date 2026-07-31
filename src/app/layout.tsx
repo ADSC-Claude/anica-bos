@@ -22,8 +22,25 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_PH',
     siteName: 'ANICA Wellness Spa',
+    // Without this, a shared link has nothing to show and every app falls back
+    // to guessing at a favicon — which is how the old green tile kept turning
+    // up long after the palette moved to brown. A card is metadata, never a
+    // picture of the page: nothing here is read off the landing page itself.
+    images: [
+      {
+        url: '/og.png',
+        width: 1200,
+        height: 630,
+        alt: 'ANICA Wellness Spa',
+      },
+    ],
   },
-  twitter: { card: 'summary_large_image', title: 'ANICA Wellness Spa' },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'ANICA Wellness Spa',
+    // summary_large_image was already declared with no image to fill it.
+    images: ['/og.png'],
+  },
   icons: {
     icon: [{ url: '/icons/icon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/icons/icon-192.png' }],

@@ -118,6 +118,29 @@ export const DELETABLE = {
     },
   },
 
+  resource: {
+    noun: 'room or bed',
+    permission: 'settings.edit',
+    module: 'settings',
+    name: async (id) =>
+      (await prisma.resource.findUnique({ where: { id }, select: { name: true } }))?.name ?? null,
+    blockers: [
+      {
+        label: (n) => `${plural(n, 'appointment')}`,
+        count: (id) => prisma.appointment.count({ where: { resourceId: id } }),
+      },
+    ],
+    deactivate: {
+      verb: 'Turn it off instead — it stops being bookable and stays on the appointments that used it.',
+      run: async (id) => {
+        await prisma.resource.update({ where: { id }, data: { active: false } });
+      },
+    },
+    remove: async (id) => {
+      await prisma.resource.delete({ where: { id } });
+    },
+  },
+
   client: {
     noun: 'client',
     permission: 'clients.edit',

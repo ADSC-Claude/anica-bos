@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { PageHeader, StatusBadge } from '@/components/ui';
 import { SettingsNav } from '@/components/settings-nav';
 import { saveResourceAction } from '../actions';
+import { DeleteButton } from '@/components/delete-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Rooms & beds' };
@@ -54,7 +55,10 @@ export default async function ResourcesPage({
                     <StatusBadge status={r.active ? 'ACTIVE' : 'CANCELLED'} label={r.active ? 'bookable' : 'off'} />
                   </td>
                   <td>
-                    <a href={`/portal/settings/resources?edit=${r.id}`} className="btn-ghost btn-sm">Edit</a>
+                    <div className="flex flex-wrap items-start gap-1">
+                      <a href={`/portal/settings/resources?edit=${r.id}`} className="btn-ghost btn-sm">Edit</a>
+                      <DeleteButton kind="resource" id={r.id} label={r.name} />
+                    </div>
                   </td>
                 </tr>
               ))}

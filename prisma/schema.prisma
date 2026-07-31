@@ -12,13 +12,14 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Pooled connection used by the app at runtime (Supabase: port 6543).
   url      = env("DATABASE_URL")
-  // Direct connection used for migrations, which cannot run through a
-  // transaction pooler (Supabase: port 5432). Falls back to DATABASE_URL
-  // on hosts where the two are the same.
-  directUrl = env("DIRECT_URL")
 }
+
+// Note: there is deliberately no `directUrl` here. Prisma treats a datasource
+// env var as required at *schema validation* time, so declaring DIRECT_URL
+// would break `prisma generate` on every host that does not need it. Instead
+// scripts/build.mjs points DATABASE_URL at DIRECT_URL for the migration step
+// only — see there for why a transaction pooler cannot run migrations.
 
 // ============================================================ enums
 

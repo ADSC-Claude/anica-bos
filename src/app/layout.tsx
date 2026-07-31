@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { RegisterServiceWorker } from '@/components/register-sw';
+import { appUrlObject } from '@/lib/app-url';
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: appUrlObject(),
   title: {
     default: 'ANICA Wellness Spa — Quezon City',
     template: '%s · ANICA Wellness Spa',

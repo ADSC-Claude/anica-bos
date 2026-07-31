@@ -13,7 +13,9 @@ export default async function LandingPage() {
   const [categories, promos, packages] = await Promise.all([
     prisma.serviceCategory.findMany({
       where: { active: true },
-      orderBy: { sortRank: 'asc' },
+      // Name breaks ties, so two categories sharing a rank keep a stable order
+      // between loads instead of coming back however Postgres feels.
+      orderBy: [{ sortRank: 'asc' }, { name: 'asc' }],
       include: {
         services: {
           where: { active: true, showOnLanding: true },

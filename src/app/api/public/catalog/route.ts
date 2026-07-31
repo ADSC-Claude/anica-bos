@@ -16,13 +16,13 @@ export async function GET() {
     }),
     prisma.serviceCategory.findMany({
       where: { active: true },
-      orderBy: { sortRank: 'asc' },
+      orderBy: [{ sortRank: 'asc' }, { name: 'asc' }],
       select: {
         id: true,
         name: true,
         services: {
           where: { active: true },
-          orderBy: { sortRank: 'asc' },
+          orderBy: [{ sortRank: 'asc' }, { name: 'asc' }],
           select: { id: true, name: true, durationMinutes: true, priceCents: true },
         },
       },

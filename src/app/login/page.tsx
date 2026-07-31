@@ -3,7 +3,13 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { LoginForm } from './login-form';
 
-export const metadata = { title: 'Staff sign in' };
+// robots.txt asks crawlers not to fetch this; `noindex` tells the ones that
+// fetched it anyway not to list it. A staff sign-in form in search results is an
+// invitation to try passwords against it.
+export const metadata = {
+  title: 'Staff sign in',
+  robots: { index: false, follow: false },
+};
 export const dynamic = 'force-dynamic';
 
 export default async function LoginPage() {

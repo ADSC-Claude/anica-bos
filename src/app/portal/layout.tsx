@@ -9,6 +9,9 @@ import { BranchSwitcher } from '@/components/branch-switcher';
 
 export const dynamic = 'force-dynamic';
 
+/** Nothing behind the sign-in belongs in a search index. */
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSessionPage();
   const modules = visibleModules(user.role);
@@ -39,6 +42,12 @@ export default async function PortalLayout({ children }: { children: React.React
               <BranchSwitcher branches={branches} />
             </div>
           )}
+          <Link
+            href="/portal/change-password"
+            className="mb-2 block text-center text-[11px] text-cocoa-500 underline underline-offset-4"
+          >
+            Change my password
+          </Link>
           <form action={logoutAction}>
             <button className="btn-secondary btn-sm w-full" type="submit">
               Sign out
@@ -67,6 +76,14 @@ export default async function PortalLayout({ children }: { children: React.React
                 {unread > 99 ? '99+' : unread}
               </span>
             )}
+          </Link>
+          <Link
+            href="/portal/change-password"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-sand-200 text-cocoa-600"
+            aria-label="Change my password"
+            title="Change my password"
+          >
+            ✳
           </Link>
           <form action={logoutAction}>
             <button className="btn-secondary btn-sm" type="submit">

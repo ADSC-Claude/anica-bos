@@ -369,9 +369,12 @@ export default async function LandingPage() {
           <p>
             © {new Date().getFullYear()} {settings['business.name']} · {settings['business.address']}
           </p>
-          <Link href="/login" className="underline underline-offset-4">
-            Staff sign in
-          </Link>
+          {/*
+            No staff door on the customer's page. Staff reach the system at /login
+            directly — bookmarked, or through the installed app. This keeps the
+            landing page for clients only; it does not make /login secret, and is
+            not a substitute for strong passwords.
+          */}
         </div>
       </footer>
     </div>

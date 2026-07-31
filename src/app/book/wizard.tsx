@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { FloorPlan, type PlanPlace } from '@/components/floor-plan';
 import { useRouter } from 'next/navigation';
 import { formatPeso } from '@/lib/money';
 
@@ -59,6 +60,8 @@ export function BookingWizard() {
   const [startAt, setStartAt] = useState('');
   const [therapists, setTherapists] = useState<{ id: string; name: string }[]>([]);
   const [resources, setResources] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [plan, setPlan] = useState<PlanPlace[]>([]);
+  const [accepts, setAccepts] = useState<string[] | null>(null);
   const [therapistId, setTherapistId] = useState('any');
   const [resourceId, setResourceId] = useState('any');
   const [slotInfo, setSlotInfo] = useState<{ priceCents: number; depositCents: number } | null>(null);
@@ -123,6 +126,8 @@ export function BookingWizard() {
       .then((data) => {
         setTherapists(data.therapists ?? []);
         setResources(data.resources ?? []);
+        setPlan(data.plan ?? []);
+        setAccepts(data.accepts ?? null);
         setSlotInfo({ priceCents: data.priceCents, depositCents: data.depositCents });
         setTherapistId('any');
         setResourceId('any');
@@ -381,15 +386,32 @@ export function BookingWizard() {
             </div>
           </div>
 
-          <label className="block">
-            <span className="label">Room / bed</span>
-            <select className="select" value={resourceId} onChange={(e) => setResourceId(e.target.value)}>
-              <option value="any">Any available</option>
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </label>
+          <div className="block">
+            <span className="label">Choose your place</span>
+            {/* Most bookings are one person on any free bed, and for them a
+                floor plan is a step a single button would have skipped. The
+                shortcut stays first; the plan is there for anyone who cares
+                which bed, or who is booking for two. */}
+            <label className="mb-2 flex items-center gap-2 text-sm text-cocoa-700">
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-[#6b4e35]"
+                checked={resourceId === 'any'}
+                onChange={(e) => setResourceId(e.target.checked ? 'any' : '')}
+              />
+              Any free bed — let the spa choose
+            </label>
+            {resourceId !== 'any' && (
+              <FloorPlan
+                plan={plan}
+                guests={[{ name: '', accepts, serviceLabel: chosen.map((s) => s.name).join(", ") }]}
+                seats={resourceId ? { 0: resourceId } : {}}
+                activeGuest={0}
+                onSelectGuest={() => {}}
+                onPick={(id) => setResourceId((cur) => (cur === id ? '' : id))}
+              />
+            )}
+          </div>
 
           <div className="flex gap-2">
             <button type="button" className="btn-secondary flex-1" onClick={() => setStep(1)}>

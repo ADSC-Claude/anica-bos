@@ -172,18 +172,25 @@ async function main() {
   // place holds at once, so Room 1 sells twice and the chair area sells twice.
   // Inventing extra rows to represent the second place would sell beds that do
   // not exist.
+  //
+  // `exclusive` is the difference between a place two strangers share and a
+  // place one party takes whole. Open beds and the foot-spa chairs are shared:
+  // Bed 1 and Bed 2 hold unrelated bookings all evening. A couples room and the
+  // sauna are not — which is also what stops a room being sold to one person,
+  // since a whole-unit place is only offered to a party that fills it.
   const resources = [];
   for (const r of [
-    { name: 'Room 1 (Couples)', type: 'ROOM' as const, rank: 1, capacity: 2 },
-    { name: 'Room 2 (Couples)', type: 'ROOM' as const, rank: 2, capacity: 2 },
+    { name: 'Room 1 (Couples)', type: 'ROOM' as const, rank: 1, capacity: 2, exclusive: true },
+    { name: 'Room 2 (Couples)', type: 'ROOM' as const, rank: 2, capacity: 2, exclusive: true },
     ...Array.from({ length: 4 }, (_, i) => ({
       name: `Bed ${i + 1}`,
       type: 'BED' as const,
       rank: 3 + i,
       capacity: 1,
+      exclusive: false,
     })),
-    { name: 'Foot Spa & Reflexology Area', type: 'CHAIR' as const, rank: 8, capacity: 2 },
-    { name: 'Sauna', type: 'SAUNA' as const, rank: 10, capacity: 1 },
+    { name: 'Foot Spa & Reflexology Area', type: 'CHAIR' as const, rank: 8, capacity: 2, exclusive: false },
+    { name: 'Sauna', type: 'SAUNA' as const, rank: 10, capacity: 4, exclusive: true },
   ]) {
     resources.push(
       await prisma.resource.create({
@@ -193,6 +200,7 @@ async function main() {
           type: r.type,
           sortRank: r.rank,
           capacity: r.capacity,
+          exclusiveUse: r.exclusive,
         },
       }),
     );

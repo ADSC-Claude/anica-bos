@@ -4,6 +4,8 @@ import { getSettings } from '@/lib/settings';
 import {
   availableResources,
   availableTherapists,
+  floorPlan,
+  placesSatisfying,
   requiredPlaceFor,
   slotsForDay,
 } from '@/lib/availability';
@@ -68,13 +70,19 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid start time.' }, { status: 400 });
     }
     const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
-    const [therapists, resources] = await Promise.all([
+    const [therapists, resources, plan] = await Promise.all([
       availableTherapists({ branchId: branch.id, startAt, endAt, serviceIds }),
       availableResources({ branchId: branch.id, startAt, endAt, resourceType: place }),
+      // The whole floor, so the picker can draw the taken places too — hiding
+      // them just moves "why not that one?" to after the click.
+      floorPlan({ branchId: branch.id, startAt, endAt }),
     ]);
     return NextResponse.json({
       therapists: therapists.map((t) => ({ id: t.id, name: t.name })),
       resources,
+      plan,
+      /** Which place types this booking's treatments can actually use. */
+      accepts: place ? placesSatisfying(place) : null,
       durationMinutes,
       priceCents,
       depositCents: Math.round((priceCents * settings['booking.depositPercent']) / 100),

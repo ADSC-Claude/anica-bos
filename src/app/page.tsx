@@ -4,6 +4,7 @@ import { getSettings } from '@/lib/settings';
 import { formatPesoMenu } from '@/lib/money';
 import { minutesToLabel } from '@/lib/datetime';
 import { buildServiceMenu } from '@/lib/service-menu';
+import { normaliseMapEmbed } from '@/lib/map-embed';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,13 @@ export default async function LandingPage() {
   ]);
 
   const menu = buildServiceMenu(categories);
+
+  // Normalised on the way out as well as on the way in. Validating only on save
+  // leaves whatever was stored before the validation existed rendering as-is —
+  // and a pasted <iframe> tag resolves as a relative path, so the frame fills
+  // with this site's own 404 rather than a map.
+  const mapEmbed = normaliseMapEmbed(settings['business.mapEmbedUrl']);
+  const mapUrl = 'url' in mapEmbed ? mapEmbed.url : '';
 
   const hours = `${minutesToLabel(settings['business.openMinute'])} – ${minutesToLabel(
     settings['business.closeMinute'],
@@ -313,10 +321,10 @@ export default async function LandingPage() {
           <div>
             <h2 className="font-display text-2xl text-cocoa-800 sm:text-3xl">Find us</h2>
             <div className="mt-3 aspect-video overflow-hidden rounded-2xl border border-sand-200 bg-sand-100">
-              {settings['business.mapEmbedUrl'] ? (
+              {mapUrl ? (
                 <iframe
                   title="Map to ANICA Wellness Spa"
-                  src={settings['business.mapEmbedUrl']}
+                  src={mapUrl}
                   className="h-full w-full"
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
@@ -324,9 +332,10 @@ export default async function LandingPage() {
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center text-sm text-cocoa-500">
                   <span className="text-3xl">📍</span>
-                  <p className="font-medium">Map embed placeholder</p>
+                  <p className="font-medium">Map goes here</p>
                   <p className="text-xs">
-                    Paste a Google Maps embed URL in Settings → Business profile.
+                    Settings → Business → Map for the landing page. In Google Maps: Share →
+                    Embed a map → Copy HTML.
                   </p>
                 </div>
               )}

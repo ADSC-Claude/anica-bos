@@ -155,9 +155,16 @@ export const DELETABLE = {
       },
     ],
     deactivate: {
-      verb: 'Mark them inactive instead — they stop appearing in the rota and the POS, and their payroll history is kept.',
+      verb: 'Mark them separated instead — they leave the roster and the POS, and their payroll history is kept.',
       run: async (id) => {
-        await prisma.employee.update({ where: { id }, data: { active: false } });
+        // Both fields, always: `active` alone would leave a SEPARATED employee
+        // reading as ACTIVE, which is the one pair the rest of the system
+        // cannot interpret. Set a date here too, so the separated list is not
+        // showing a blank last day.
+        await prisma.employee.update({
+          where: { id },
+          data: { active: false, status: 'SEPARATED', separatedAt: new Date() },
+        });
       },
     },
     cascade: async (id) => {
@@ -213,32 +220,6 @@ export const DELETABLE = {
     },
   },
 
-  appointment: {
-    noun: 'appointment',
-    permission: 'appointments.edit',
-    module: 'appointments',
-    name: async (id) =>
-      (await prisma.appointment.findUnique({ where: { id }, select: { reference: true } }))
-        ?.reference ?? null,
-    blockers: [
-      {
-        label: (n) => `${plural(n, 'sale')}`,
-        count: (id) => prisma.sale.count({ where: { appointmentId: id } }),
-      },
-    ],
-    deactivate: {
-      verb: 'Cancel it instead — it leaves the schedule and stays on the record.',
-      run: async (id) => {
-        await prisma.appointment.update({ where: { id }, data: { status: 'CANCELLED' } });
-      },
-    },
-    cascade: async (id) => {
-      await prisma.appointmentService.deleteMany({ where: { appointmentId: id } });
-    },
-    remove: async (id) => {
-      await prisma.appointment.delete({ where: { id } });
-    },
-  },
 } satisfies Record<string, Entity>;
 
 export type DeletableKind = keyof typeof DELETABLE;

@@ -114,6 +114,6 @@ test('the registry covers only records that are safe to remove', () => {
   // from the delete action.
   assert.deepEqual(
     Object.keys(DELETABLE).sort(),
-    ['appointment', 'client', 'employee', 'item', 'service'],
+    ['client', 'employee', 'item', 'service'],
   );
 });

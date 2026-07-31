@@ -3,9 +3,10 @@ import { requirePage, resolveBranchId } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { can } from '@/lib/rbac';
 import { formatPeso } from '@/lib/money';
-import { manilaMonthKey, monthBounds, dateKeyToBusinessDate } from '@/lib/datetime';
-import { PageHeader, EmptyState, StatusBadge, Tabs } from '@/components/ui';
+import { manilaMonthKey, monthBounds, dateKeyToBusinessDate, manilaDateKey } from '@/lib/datetime';
+import { PageHeader, EmptyState, Tabs } from '@/components/ui';
 import { DeleteButton } from '@/components/delete-button';
+import { EmploymentStatusControl } from './status-control';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Employees' };
@@ -74,6 +75,12 @@ export default async function EmployeesPage({
     orderBy: [{ active: 'desc' }, { employeeRole: 'asc' }, { name: 'asc' }],
   });
 
+  // Separated staff leave the roster but not the system — their payslips,
+  // commissions and attendance stay readable under "Separated staff" below.
+  const roster = employees.filter((e) => e.status !== 'SEPARATED');
+  const separated = employees.filter((e) => e.status === 'SEPARATED');
+  const canEditStaff = can(user.role, 'employees.edit');
+
   const tabs = [
     { href: '/portal/employees', label: 'Team' },
     { href: '/portal/employees/attendance', label: 'Attendance' },
@@ -85,7 +92,9 @@ export default async function EmployeesPage({
     <div>
       <PageHeader
         title="Employees"
-        subtitle={`${employees.filter((e) => e.active).length} active`}
+        subtitle={`${employees.filter((e) => e.active).length} active${
+          separated.length ? ` · ${separated.length} separated` : ''
+        }`}
         actions={
           <Link href="/portal/employees/new" className="btn-primary btn-sm">
             + Add employee
@@ -94,7 +103,7 @@ export default async function EmployeesPage({
       />
       <Tabs tabs={tabs} current="/portal/employees" />
 
-      {employees.length === 0 ? (
+      {roster.length === 0 && separated.length === 0 ? (
         <EmptyState title="No employees yet" />
       ) : (
         <div className="card table-wrap">
@@ -113,7 +122,7 @@ export default async function EmployeesPage({
               </tr>
             </thead>
             <tbody>
-              {employees.map((e) => {
+              {roster.map((e) => {
                 const ratings = e.feedback.map((f) => f.rating);
                 const avg = ratings.length
                   ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
@@ -145,7 +154,14 @@ export default async function EmployeesPage({
                     <td className="num text-right">{avg ? `${avg} ★` : '—'}</td>
                     <td className="text-xs text-cocoa-400">{e.skills.length} service(s)</td>
                     <td>
-                      <StatusBadge status={e.active ? 'ACTIVE' : 'CANCELLED'} label={e.active ? 'active' : 'inactive'} />
+                      <EmploymentStatusControl
+                        employeeId={e.id}
+                        name={e.name}
+                        status={e.status}
+                        separatedAt={e.separatedAt ? manilaDateKey(e.separatedAt) : null}
+                        separationReason={e.separationReason}
+                        canEdit={canEditStaff}
+                      />
                     </td>
                     <td className="text-right">
                       <DeleteButton kind="employee" id={e.id} label={e.name} />
@@ -156,6 +172,62 @@ export default async function EmployeesPage({
             </tbody>
           </table>
         </div>
+      )}
+
+      {separated.length > 0 && (
+        <details className="card mt-4">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-cocoa-700">
+            Separated staff ({separated.length})
+          </summary>
+          <p className="px-4 pb-2 text-xs text-cocoa-400">
+            Off the roster and the POS. Payslips, commissions and attendance are kept — open
+            anyone here to see their history.
+          </p>
+          <div className="table-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Last day</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {separated.map((e) => (
+                  <tr key={e.id} className="opacity-70">
+                    <td>
+                      <Link
+                        href={`/portal/employees/${e.id}`}
+                        className="font-medium text-cocoa-800 hover:underline"
+                      >
+                        {e.name}
+                      </Link>
+                    </td>
+                    <td className="text-xs capitalize text-cocoa-600">
+                      {e.employeeRole.toLowerCase()}
+                    </td>
+                    <td className="num whitespace-nowrap text-xs">
+                      {e.separatedAt ? manilaDateKey(e.separatedAt) : '—'}
+                    </td>
+                    <td className="text-xs text-cocoa-500">{e.separationReason || '—'}</td>
+                    <td>
+                      <EmploymentStatusControl
+                        employeeId={e.id}
+                        name={e.name}
+                        status={e.status}
+                        separatedAt={e.separatedAt ? manilaDateKey(e.separatedAt) : null}
+                        separationReason={e.separationReason}
+                        canEdit={canEditStaff}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
     </div>
   );

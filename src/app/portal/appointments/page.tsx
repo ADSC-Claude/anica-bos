@@ -17,7 +17,6 @@ import {
 } from '@/lib/datetime';
 import { PageHeader, StatusBadge, EmptyState, Tabs } from '@/components/ui';
 import { formatPeso } from '@/lib/money';
-import { DeleteButton } from '@/components/delete-button';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Appointments' };
@@ -411,7 +410,6 @@ async function ListView({ branchId, status }: { branchId: string; status?: strin
                 <th>Source</th>
                 <th className="text-right">Deposit</th>
                 <th>Status</th>
-                <th className="text-right">Remove</th>
               </tr>
             </thead>
             <tbody>
@@ -441,13 +439,6 @@ async function ListView({ branchId, status }: { branchId: string; status?: strin
                     )}
                   </td>
                   <td><StatusBadge status={a.status} /></td>
-                  <td className="text-right">
-                    <DeleteButton
-                      kind="appointment"
-                      id={a.id}
-                      label={`${a.reference} — ${a.client.name}`}
-                    />
-                  </td>
                 </tr>
               ))}
             </tbody>

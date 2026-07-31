@@ -81,7 +81,6 @@ function revalidateFor(kind: DeletableKind) {
     client: ['/portal/clients'],
     employee: ['/portal/employees'],
     item: ['/portal/inventory'],
-    appointment: ['/portal/appointments'],
   };
   for (const p of paths[kind]) revalidatePath(p);
 }

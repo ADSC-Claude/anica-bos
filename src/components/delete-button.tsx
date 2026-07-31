@@ -18,7 +18,7 @@ export function DeleteButton({
   label,
   size = 'sm',
 }: {
-  kind: 'service' | 'client' | 'employee' | 'item' | 'appointment';
+  kind: 'service' | 'client' | 'employee' | 'item';
   id: string;
   /** What is being deleted, shown in the confirmation. */
   label: string;

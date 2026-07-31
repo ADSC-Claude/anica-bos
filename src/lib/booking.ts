@@ -6,7 +6,12 @@ import type { AppointmentStatus } from '@prisma/client';
 import { prisma } from './db';
 import { getSettings } from './settings';
 import { bookingReference } from './codes';
-import { assertNoConflicts, availableResources, nextTherapistInRotation } from './availability';
+import {
+  assertNoConflicts,
+  availableResources,
+  nextTherapistInRotation,
+  requiredPlaceFor,
+} from './availability';
 import { createCheckoutSession, isSimulated } from './paymongo';
 import { sendTemplateEmail } from './email';
 import { notify } from './notifications';
@@ -111,12 +116,24 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
     }
   }
 
-  // Room/bed: explicit pick, or first free one.
+  // Room, bed or chair: explicit pick, or first free one of the right kind.
+  const place = requiredPlaceFor(services);
   let resourceId = req.resourceId && req.resourceId !== 'any' ? req.resourceId : null;
   if (!resourceId) {
-    const free = await availableResources({ branchId: branch.id, startAt, endAt });
+    const free = await availableResources({
+      branchId: branch.id,
+      startAt,
+      endAt,
+      resourceType: place,
+    });
     resourceId = free[0]?.id ?? null;
-    if (!resourceId) throw new BookingError('All rooms and beds are taken at that time.');
+    if (!resourceId) {
+      throw new BookingError(
+        place
+          ? `No ${place.toLowerCase()} is free at that time.`
+          : 'All rooms and beds are taken at that time.',
+      );
+    }
   }
 
   await assertNoConflicts({
@@ -125,6 +142,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
     endAt,
     employeeIds: [therapistId],
     resourceId,
+    resourceType: place,
   });
 
   // ------------------------------------------------------------- the client

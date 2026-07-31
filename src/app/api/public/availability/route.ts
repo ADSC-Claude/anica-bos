@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
-import { availableResources, availableTherapists, slotsForDay } from '@/lib/availability';
+import {
+  availableResources,
+  availableTherapists,
+  requiredPlaceFor,
+  slotsForDay,
+} from '@/lib/availability';
 import { minutesToLabel } from '@/lib/datetime';
 
 export const dynamic = 'force-dynamic';
@@ -38,13 +43,23 @@ export async function GET(req: Request) {
   const settings = await getSettings(branch.id);
   const services = await prisma.service.findMany({
     where: { id: { in: serviceIds }, active: true },
-    select: { id: true, durationMinutes: true, priceCents: true, name: true },
+    select: {
+      id: true,
+      durationMinutes: true,
+      priceCents: true,
+      name: true,
+      requiredResourceType: true,
+    },
   });
   if (services.length !== serviceIds.length) {
     return NextResponse.json({ error: 'A selected service is unavailable.' }, { status: 400 });
   }
   const durationMinutes = services.reduce((a, s) => a + s.durationMinutes, 0);
   const priceCents = services.reduce((a, s) => a + s.priceCents, 0);
+  // A foot spa needs a chair, a massage needs a bed. Offering the wrong kind of
+  // place is what puts a 90-minute massage on a foot-spa chair and a foot spa
+  // on a bed that could have been sold.
+  const place = requiredPlaceFor(services);
 
   // --- one specific slot: who and which room is free? ---
   if (startAtParam) {
@@ -55,7 +70,7 @@ export async function GET(req: Request) {
     const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
     const [therapists, resources] = await Promise.all([
       availableTherapists({ branchId: branch.id, startAt, endAt, serviceIds }),
-      availableResources({ branchId: branch.id, startAt, endAt }),
+      availableResources({ branchId: branch.id, startAt, endAt, resourceType: place }),
     ]);
     return NextResponse.json({
       therapists: therapists.map((t) => ({ id: t.id, name: t.name })),
@@ -81,7 +96,7 @@ export async function GET(req: Request) {
     const endAt = new Date(c.startAt.getTime() + durationMinutes * 60_000);
     const [therapists, resources] = await Promise.all([
       availableTherapists({ branchId: branch.id, startAt: c.startAt, endAt, serviceIds }),
-      availableResources({ branchId: branch.id, startAt: c.startAt, endAt }),
+      availableResources({ branchId: branch.id, startAt: c.startAt, endAt, resourceType: place }),
     ]);
     if (!therapists.length || !resources.length) continue;
     slots.push({

@@ -6,7 +6,12 @@ import type { AppointmentStatus } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
 import { audit } from '@/lib/audit';
-import { assertNoConflicts, availableResources, nextTherapistInRotation } from '@/lib/availability';
+import {
+  assertNoConflicts,
+  availableResources,
+  nextTherapistInRotation,
+  requiredPlaceFor,
+} from '@/lib/availability';
 import { bookingReference } from '@/lib/codes';
 import { confirmDeposit } from '@/lib/booking';
 import { resolveNotifications } from '@/lib/notifications';
@@ -59,10 +64,15 @@ export async function saveAppointmentAction(
     if (!therapistId) return { error: 'No therapist is free for that slot.' };
   }
 
+  const place = requiredPlaceFor(services);
   let finalResourceId = resourceId && resourceId !== 'any' ? resourceId : null;
   if (!finalResourceId) {
     const free = await availableResources({
-      branchId, startAt, endAt, excludeAppointmentId: id || undefined,
+      branchId,
+      startAt,
+      endAt,
+      excludeAppointmentId: id || undefined,
+      resourceType: place,
     });
     finalResourceId = free[0]?.id ?? null;
   }
@@ -72,6 +82,7 @@ export async function saveAppointmentAction(
       branchId, startAt, endAt,
       employeeIds: [therapistId],
       resourceId: finalResourceId,
+      resourceType: place,
       excludeAppointmentId: id || undefined,
     });
   } catch (err) {

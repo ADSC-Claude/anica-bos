@@ -32,7 +32,13 @@ export function BrandMark({
           src={src}
           alt=""
           className="h-full w-full object-contain"
-          style={{ padding: Math.round(size * 0.14) }}
+          // Just enough to keep the artwork off the tile's rounded corners.
+          // This was 14%, which stacked on top of whatever margin the file
+          // already carried — the supplied logo was 93% empty canvas, so the
+          // mark rendered at roughly a third of the size it should have.
+          // Trim the file, not the box: padding here cannot recover space that
+          // was baked into the image.
+          style={{ padding: Math.max(2, Math.round(size * 0.08)) }}
         />
       ) : (
         <span style={{ fontSize: Math.round(size * 0.5), lineHeight: 1 }}>✿</span>

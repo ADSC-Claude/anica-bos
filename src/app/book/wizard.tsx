@@ -26,6 +26,8 @@ type Catalog = {
   manualFallback: boolean;
   gcash: { name: string; number: string; bank: string };
   bookingEnabled: boolean;
+  /** The largest party the floor could hold — 8 beds and 2 chairs is 10. */
+  maxParty?: number;
 };
 
 type Slot = {
@@ -269,7 +271,7 @@ export function BookingWizard() {
           <div>
             <span className="label">How many of you?</span>
             <div className="mb-1 flex flex-wrap gap-1.5">
-              {[1, 2, 3, 4].map((n) => (
+              {Array.from({ length: Math.max(4, catalog.maxParty ?? 4) }, (_, i) => i + 1).map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -293,7 +295,8 @@ export function BookingWizard() {
             </div>
             <p className="mb-4 text-[11px] text-cocoa-400">
               Everyone books together and pays one reservation fee. Each of you can have a
-              different treatment.
+              different treatment. Larger groups depend on the therapists on shift that
+              evening — pick your size and the free times will show what we can take.
             </p>
           </div>
 

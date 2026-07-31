@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
+import { getSettings } from '@/lib/settings';
+import { BrandMark } from '@/components/brand-mark';
 import { LoginForm } from './login-form';
 
 // robots.txt asks crawlers not to fetch this; `noindex` tells the ones that
@@ -15,6 +17,7 @@ export const dynamic = 'force-dynamic';
 export default async function LoginPage() {
   const session = await getSession();
   if (session) redirect('/portal');
+  const settings = await getSettings();
 
   const showDemo = process.env.NODE_ENV !== 'production';
 
@@ -22,10 +25,10 @@ export default async function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-sand-100 to-sand-50 px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-cocoa-600 text-2xl text-white">
-            ✿
-          </div>
-          <h1 className="font-display text-2xl font-semibold text-cocoa-800">ANICA Wellness Spa</h1>
+          <BrandMark logoUrl={settings['business.logoUrl']} size={56} className="mx-auto mb-3" />
+          <h1 className="font-display text-2xl font-semibold text-cocoa-800">
+            {settings['business.name']}
+          </h1>
           <p className="muted mt-1">Business Operating System</p>
         </div>
 

@@ -200,6 +200,9 @@ export async function addFeedbackAction(
       rating,
       comment: str(formData, 'comment'),
       recordedBy: user.name,
+      // Never on by default. Quoting someone on a public page is a separate
+      // act from them telling the receptionist they enjoyed it.
+      showOnLanding: formData.get('showOnLanding') === 'on',
     },
   });
   await audit(user, {

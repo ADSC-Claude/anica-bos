@@ -59,8 +59,17 @@ export default async function SettingsPage() {
                 </span>
               </label>
               <label className="block">
-                <span className="label">Logo URL</span>
-                <input name="logoUrl" className="input" defaultValue={s['business.logoUrl']} />
+                <span className="label">Logo</span>
+                <input name="logoUrl" className="input" defaultValue={s['business.logoUrl']}
+                  placeholder="/logo.png" />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Shown in the website header, on the sign-in screen and in this system&apos;s
+                  sidebar. It sits inside the brown tile, so the artwork needs to be{' '}
+                  <strong>white or gold on a transparent background</strong> — a dark logo will
+                  disappear. Square PNG or SVG, 256px or larger. Upload it to the
+                  repository&apos;s <code>public</code> folder and enter <code>/logo.png</code>.
+                  Leave blank for the ✿ mark.
+                </span>
               </label>
               <label className="block">
                 <span className="label">Photo or video on the landing page</span>

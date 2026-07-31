@@ -42,6 +42,17 @@ export function FeedbackForm({
         <span className="label">Comment</span>
         <input name="comment" className="input" placeholder="What did the client say?" />
       </label>
+      <label className="flex items-start gap-2 text-sm text-cocoa-700">
+        <input type="checkbox" name="showOnLanding" className="mt-0.5 h-5 w-5 accent-[#6b4e35]" />
+        <span>
+          Quote this on the website
+          <span className="mt-0.5 block text-[11px] text-cocoa-400">
+            Only tick this if the client is happy to be quoted publicly. Their first name and
+            last initial appear on the landing page — never the full name, and never the
+            comment on its own.
+          </span>
+        </span>
+      </label>
       {state.error && <p className="text-sm text-clay-500">{state.error}</p>}
       {state.ok && <p className="text-sm text-cocoa-600">{state.ok}</p>}
       <button className="btn-secondary btn-sm" type="submit">

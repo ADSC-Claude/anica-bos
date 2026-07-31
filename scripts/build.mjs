@@ -1,14 +1,17 @@
 /**
  * Production build.
  *
- * Wraps `prisma generate → prisma migrate deploy → next build` so the two
- * things that most often go wrong on a first deploy fail with an explanation
- * instead of a Prisma stack trace:
+ * Wraps `prisma generate → prisma migrate deploy → next build` so the things
+ * that most often go wrong on a first deploy fail with an explanation instead
+ * of a Prisma stack trace:
  *
  *   1. DIRECT_URL unset. Only Supabase-style hosts need it to differ from
  *      DATABASE_URL; everywhere else the two are identical, so we default it.
  *   2. A Supabase pooler URL without ?pgbouncer=true, which works during the
  *      build and then fails at runtime with "prepared statement already exists".
+ *   3. Migrations aimed at Supabase's *direct* host, which resolves to IPv6
+ *      only. Most build runners — Vercel's included — have no IPv6 route, so
+ *      the connection times out somewhere unhelpful inside Prisma.
  */
 import { execSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
@@ -52,23 +55,65 @@ if (!DATABASE_URL) {
   ]);
 }
 
-const isPooler = /pooler\.supabase\.com|:6543/.test(DATABASE_URL);
+// Supabase offers three endpoints and the difference decides whether DDL works:
+//
+//   transaction pooler  ...pooler.supabase.com:6543  runtime only — multiplexes
+//                                                    connections, so it cannot
+//                                                    hold the session state DDL
+//                                                    needs
+//   session pooler      ...pooler.supabase.com:5432  migrations — one backend
+//                                                    per client, and reachable
+//                                                    over IPv4
+//   direct              db.<ref>.supabase.co:5432    migrations, but IPv6 only
+//                                                    unless the IPv4 add-on is
+//                                                    bought
+function describe(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { host: null, port: null, transactionPooler: false, ipv6Only: false };
+  }
+  const host = parsed.hostname;
+  const port = parsed.port || '5432';
+  return {
+    host,
+    port,
+    // Anything on 6543 is the transaction pooler, whoever hosts it.
+    transactionPooler: port === '6543',
+    // Supabase's direct host has no A record on the free plan.
+    ipv6Only: /^db\..+\.supabase\.co$/.test(host),
+  };
+}
 
-// The URL migrations run against. A transaction pooler multiplexes connections
-// and cannot hold the session state DDL needs, so it must be the direct one.
-let migrationUrl = DIRECT_URL || DATABASE_URL;
+const runtime = describe(DATABASE_URL);
 
-if (!DIRECT_URL && isPooler) {
-  fail('DIRECT_URL is not set, but DATABASE_URL points at a connection pooler.', [
-    'Migrations cannot run through a transaction pooler, so a direct',
-    'connection is required.',
+// The URL migrations run against.
+const migrationUrl = DIRECT_URL || DATABASE_URL;
+const migration = describe(migrationUrl);
+
+if (!DIRECT_URL && runtime.transactionPooler) {
+  fail('DIRECT_URL is not set, but DATABASE_URL is the transaction pooler.', [
+    'Migrations cannot run through a transaction pooler — it multiplexes',
+    'connections and cannot hold the session state DDL needs.',
     '',
     'In Vercel: Settings → Environment Variables → add DIRECT_URL,',
     'tick all three environments, then redeploy. Variables added after a',
     'build has started are not picked up until the next deployment.',
     '',
     'Supabase: Project Settings → Database → Connection string →',
-    'the Direct connection string (port 5432, db.<ref>.supabase.co).',
+    'the SESSION POOLER string (port 5432 on ...pooler.supabase.com).',
+    'Prefer it over the Direct connection — see the note below.',
+  ]);
+}
+
+if (migration.transactionPooler) {
+  fail('DIRECT_URL points at the transaction pooler (port 6543).', [
+    'Migrations need a session-mode connection. Port 6543 is the',
+    'transaction pooler and will fail partway through the first migration.',
+    '',
+    'Supabase: use the Session pooler string instead — same host,',
+    'port 5432.',
   ]);
 }
 
@@ -76,9 +121,20 @@ if (!DIRECT_URL) {
   warn('DIRECT_URL not set; using DATABASE_URL for migrations (no pooler detected).');
 }
 
+// Worth saying out loud before it fails: Supabase's direct host resolves to an
+// AAAA record only, and build runners on Vercel, GitHub Actions and Fly have no
+// IPv6 route out. The session pooler is the same database over IPv4.
+if (migration.ipv6Only) {
+  warn(`Migrating against ${migration.host}, which resolves over IPv6 only.`);
+  warn('If this times out, switch DIRECT_URL to the Supabase Session pooler');
+  warn('(port 5432 on ...pooler.supabase.com) — same database, reachable over IPv4.');
+}
+
 // Prisma needs ?pgbouncer=true against a transaction pooler, or queries fail at
-// runtime once connections start being reused.
-if (isPooler && !/[?&]pgbouncer=/.test(DATABASE_URL)) {
+// runtime once connections start being reused. Session mode gives each client
+// its own backend, so prepared statements are safe there and the flag would
+// only cost performance.
+if (runtime.transactionPooler && !/[?&]pgbouncer=/.test(DATABASE_URL)) {
   const joiner = DATABASE_URL.includes('?') ? '&' : '?';
   process.env.DATABASE_URL = `${DATABASE_URL}${joiner}pgbouncer=true&connection_limit=1`;
   warn('Added ?pgbouncer=true to DATABASE_URL — required by Prisma behind a pooler.');
@@ -98,18 +154,26 @@ const run = (cmd, onError) => {
 step('Generating the Prisma client');
 run('npx prisma generate', () => fail('prisma generate failed.', ['See the output above.']));
 
-step('Applying database migrations');
-// Swap in the direct connection for this step only; the app keeps the pooled
-// URL at runtime.
+step(`Applying database migrations (${migration.host}:${migration.port})`);
+// Swap in the migration connection for this step only; the app keeps the
+// pooled URL at runtime.
 const runtimeUrl = process.env.DATABASE_URL;
 process.env.DATABASE_URL = migrationUrl;
 run('npx prisma migrate deploy', () =>
   fail('Migrations could not be applied.', [
-    'The build reached the database step but could not complete it.',
+    `The build reached the database step but could not complete it against`,
+    `${migration.host}:${migration.port}.`,
     '',
     'Most likely causes, in order:',
-    '  • DIRECT_URL points at the pooler (port 6543) rather than the',
-    '    direct connection (port 5432). Migrations need the direct one.',
+    ...(migration.ipv6Only
+      ? [
+          '  • That host resolves over IPv6 only, and this build runner has no',
+          '    IPv6 route. Set DIRECT_URL to the Supabase SESSION POOLER string',
+          '    instead: Project Settings → Database → Connection string →',
+          '    Session pooler (port 5432 on ...pooler.supabase.com). It is the',
+          '    same database, reachable over IPv4.',
+        ]
+      : []),
     '  • The password in the connection string is wrong or contains',
     '    characters that need URL-encoding (@ : / ? # [ ] are all special).',
     '  • The database is paused. Supabase pauses free projects when idle —',

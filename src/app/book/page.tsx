@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BookingWizard } from './wizard';
 import { getSettings } from '@/lib/settings';
+import { BrandMark } from '@/components/brand-mark';
 
 export const metadata = {
   title: 'Book an appointment',
@@ -16,11 +17,9 @@ export default async function BookPage() {
       <header className="border-b border-sand-200 bg-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
-              ✿
-            </span>
-            <span className="wordmark text-[13px]">
-              ANICA Wellness Spa
+            <BrandMark logoUrl={settings['business.logoUrl']} size={36} />
+            <span className="wordmark">
+              {settings['business.name']}
             </span>
           </Link>
           <Link href="/" className="text-sm text-cocoa-600 underline underline-offset-4">

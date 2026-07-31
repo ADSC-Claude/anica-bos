@@ -165,9 +165,17 @@ export async function availableResources(opts: {
     },
     select: { resourceId: true },
   });
-  const busy = new Set(taken.map((t) => t.resourceId));
+  // Capacity, not a yes/no. A couples room holds two, a foot-spa area holds as
+  // many chairs as it has, and treating one booking as filling the whole room
+  // loses the rest of its slots. Counting per resource is also what stops a
+  // room being handed out more times than it has places.
+  const used = new Map<string, number>();
+  for (const t of taken) {
+    if (!t.resourceId) continue;
+    used.set(t.resourceId, (used.get(t.resourceId) ?? 0) + 1);
+  }
   return resources
-    .filter((r) => !busy.has(r.id))
+    .filter((r) => (used.get(r.id) ?? 0) < Math.max(1, r.capacity))
     .map((r) => ({ id: r.id, name: r.name, type: r.type }));
 }
 
@@ -202,7 +210,12 @@ export async function assertNoConflicts(opts: {
   }
 
   if (opts.resourceId) {
-    const clash = await prisma.appointment.findFirst({
+    // The last line of defence against overbooking: the booking form filters by
+    // availability, but two people can reach checkout at the same moment, so
+    // the count is taken again here rather than trusted from the form.
+    const resource = await prisma.resource.findUnique({ where: { id: opts.resourceId } });
+    const capacity = Math.max(1, resource?.capacity ?? 1);
+    const overlapping = await prisma.appointment.count({
       where: {
         branchId: opts.branchId,
         resourceId: opts.resourceId,
@@ -211,10 +224,14 @@ export async function assertNoConflicts(opts: {
         endAt: { gt: opts.startAt },
         ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
       },
-      include: { resource: true },
     });
-    if (clash) {
-      throw new Error(`${clash.resource?.name ?? 'That room/bed'} is already taken at that time.`);
+    if (overlapping >= capacity) {
+      const name = resource?.name ?? 'That room/bed';
+      throw new Error(
+        capacity === 1
+          ? `${name} is already taken at that time.`
+          : `${name} is full at that time — all ${capacity} places are booked.`,
+      );
     }
   }
 }

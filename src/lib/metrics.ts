@@ -275,10 +275,14 @@ export async function therapistUtilisation(branchIds: string[], range: Range) {
 /** Room/bed occupancy against the branch's operating window. */
 export async function roomOccupancy(branchIds: string[], range: Range) {
   const branches = await prisma.branch.findMany({ where: { id: { in: branchIds } } });
-  const resourceCount = await prisma.resource.count({
+  // Sum of places, not a count of rows: a couples room is two of them, so
+  // counting rooms understates capacity and overstates occupancy.
+  const places = await prisma.resource.aggregate({
     where: { branchId: { in: branchIds }, active: true },
+    _sum: { capacity: true },
   });
-  if (!resourceCount || !branches.length) return 0;
+  const resourcePlaces = places._sum.capacity ?? 0;
+  if (!resourcePlaces || !branches.length) return 0;
 
   const days =
     Math.round(
@@ -289,7 +293,8 @@ export async function roomOccupancy(branchIds: string[], range: Range) {
 
   const openMinutesPerDay =
     branches.reduce((a, b) => a + (b.closeMinute - b.openMinute), 0) / branches.length;
-  const capacity = resourceCount * openMinutesPerDay * days;
+  // Places, not rooms — a couples room is two of them.
+  const capacity = resourcePlaces * openMinutesPerDay * days;
 
   const booked = await prisma.appointment.findMany({
     where: {

@@ -70,6 +70,7 @@ export function BookingWizard() {
   const [resources, setResources] = useState<{ id: string; name: string; type: string }[]>([]);
   const [plan, setPlan] = useState<PlanPlace[]>([]);
   const [accepts, setAccepts] = useState<string[] | null>(null);
+  const [guestAccepts, setGuestAccepts] = useState<(string[] | null)[]>([]);
   const [therapistId, setTherapistId] = useState('any');
   const [resourceId, setResourceId] = useState('any');
   const [slotInfo, setSlotInfo] = useState<{ priceCents: number; depositCents: number } | null>(null);
@@ -105,6 +106,24 @@ export function BookingWizard() {
   const partyReady =
     serviceIds.length > 0 &&
     guests.every((g) => g.name.trim() !== '' && g.serviceIds.length > 0);
+
+  /**
+   * A whole-unit place the party has half filled.
+   *
+   * Picking one bed of a couples room and letting the spa assign the other
+   * guest elsewhere leaves a bed nobody can book. The engine refuses it, but
+   * being refused after the payment step is a bad way to find out.
+   */
+  const stranded = useMemo(() => {
+    if (resourceId === 'any') return null;
+    const chosenIds = Object.values(seats);
+    for (const p of plan) {
+      if (!p.exclusiveUse) continue;
+      const ours = chosenIds.filter((id) => id === p.id).length;
+      if (ours > 0 && ours + p.taken < p.capacity) return p;
+    }
+    return null;
+  }, [seats, plan, resourceId]);
   const chosen = allServices.filter((s) => serviceIds.includes(s.id));
   const totalMinutes = chosen.reduce((a, s) => a + s.durationMinutes, 0);
   const totalPrice = chosen.reduce((a, s) => a + s.priceCents, 0);
@@ -146,6 +165,9 @@ export function BookingWizard() {
         setResources(data.resources ?? []);
         setPlan(data.plan ?? []);
         setAccepts(data.accepts ?? null);
+        setGuestAccepts(data.guestAccepts ?? []);
+        setSeats({});
+        setActiveGuest(0);
         setSlotInfo({ priceCents: data.priceCents, depositCents: data.depositCents });
         setTherapistId('any');
         setResourceId('any');
@@ -163,13 +185,13 @@ export function BookingWizard() {
         body: JSON.stringify({
           branchId, serviceIds, startAtIso: startAt,
           therapistId: therapistId === 'any' ? null : therapistId,
-          resourceId: guests.length ? (seats[0] ?? null) : resourceId === 'any' ? null : resourceId,
+          resourceId: resourceId === 'any' ? null : (seats[0] ?? null),
           client, intake, notes, consent, promoCode: promoCode || undefined,
           guests: guests.map((g, i) => ({
             name: g.name.trim(),
             serviceIds: g.serviceIds,
             // seats[0] is the booker, so a guest's own place is seats[i + 1].
-            resourceId: seats[i + 1] ?? null,
+            resourceId: resourceId === 'any' ? null : (seats[i + 1] ?? null),
           })),
         }),
       });
@@ -534,37 +556,84 @@ export function BookingWizard() {
           </div>
 
           <div className="block">
-            <span className="label">Choose your place</span>
-            {/* Most bookings are one person on any free bed, and for them a
-                floor plan is a step a single button would have skipped. The
-                shortcut stays first; the plan is there for anyone who cares
-                which bed, or who is booking for two. */}
-            <label className="mb-2 flex items-center gap-2 text-sm text-cocoa-700">
+            <span className="label">
+              {guests.length ? 'Choose your places' : 'Choose your place'}
+            </span>
+            {resourceId !== 'any' && (
+              <FloorPlan
+                plan={plan}
+                // The real party, not a placeholder. Passing a party of one
+                // here is what kept the couples rooms locked for a booking of
+                // two: the picker only offers a whole-unit place to a party
+                // that can fill it, and it was being told there was one of us.
+                guests={[
+                  { name: '', accepts, serviceLabel: chosen.map((x) => x.name).join(', ') },
+                  ...guests.map((g, i) => ({
+                    name: g.name.trim() || `Guest ${i + 2}`,
+                    accepts: guestAccepts[i] ?? null,
+                    serviceLabel: g.serviceIds
+                      .map((id) => allServices.find((x) => x.id === id)?.name ?? '')
+                      .filter(Boolean)
+                      .join(', '),
+                  })),
+                ]}
+                seats={seats}
+                activeGuest={activeGuest}
+                onSelectGuest={setActiveGuest}
+                onPick={(id) =>
+                  setSeats((prev) => {
+                    const next = { ...prev };
+                    if (next[activeGuest] === id) delete next[activeGuest];
+                    else next[activeGuest] = id;
+                    // Move to whoever still has nowhere to go, so a party of
+                    // three is three taps rather than three taps and two
+                    // clicks on the right name.
+                    const total = guests.length + 1;
+                    for (let k = 1; k <= total; k++) {
+                      const j = (activeGuest + k) % total;
+                      if (!next[j]) { setActiveGuest(j); break; }
+                    }
+                    return next;
+                  })
+                }
+              />
+            )}
+            {/* Below the plan, not above it: the choice is "or just give me
+                anything", and an escape hatch reads as one only after the thing
+                it escapes from. */}
+            <label className="mt-3 flex items-center gap-2 text-sm text-cocoa-700">
               <input
                 type="checkbox"
                 className="h-5 w-5 accent-[#6b4e35]"
                 checked={resourceId === 'any'}
-                onChange={(e) => setResourceId(e.target.checked ? 'any' : '')}
+                onChange={(e) => {
+                  setResourceId(e.target.checked ? 'any' : '');
+                  if (e.target.checked) setSeats({});
+                }}
               />
-              Any free bed — let the spa choose
+              {guests.length
+                ? 'Any free places — let the spa choose'
+                : 'Any free bed — let the spa choose'}
             </label>
-            {resourceId !== 'any' && (
-              <FloorPlan
-                plan={plan}
-                guests={[{ name: '', accepts, serviceLabel: chosen.map((s) => s.name).join(", ") }]}
-                seats={resourceId ? { 0: resourceId } : {}}
-                activeGuest={0}
-                onSelectGuest={() => {}}
-                onPick={(id) => setResourceId((cur) => (cur === id ? '' : id))}
-              />
-            )}
           </div>
+
+          {stranded && (
+            <p className="text-sm text-clay-500">
+              {stranded.name} takes {stranded.capacity}. Put another of your party in it, or
+              choose somewhere else — otherwise a place is left that nobody can book.
+            </p>
+          )}
 
           <div className="flex gap-2">
             <button type="button" className="btn-secondary flex-1" onClick={() => setStep(1)}>
               Back
             </button>
-            <button type="button" className="btn-primary flex-1" onClick={() => setStep(3)}>
+            <button
+              type="button"
+              className="btn-primary flex-1"
+              disabled={Boolean(stranded)}
+              onClick={() => setStep(3)}
+            >
               Continue
             </button>
           </div>

@@ -12,6 +12,7 @@ import { sendTemplateEmail } from './email';
 import { notify } from './notifications';
 import { formatManila } from './datetime';
 import { formatPeso } from './money';
+import { appUrl } from './app-url';
 
 export class BookingError extends Error {}
 
@@ -224,14 +225,14 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   let checkoutUrl: string | null = null;
   let simulated = false;
   if (!manualFallback) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const base = appUrl();
     const session = await createCheckoutSession({
       amountCents: depositCents,
       description: `Reservation fee — ${services.map((s) => s.name).join(', ')}`,
       reference,
       lineName: `${settings['booking.depositPercent']}% reservation fee`,
-      successUrl: `${appUrl}/book/confirmation/${reference}?paid=1`,
-      cancelUrl: `${appUrl}/book/confirmation/${reference}?cancelled=1`,
+      successUrl: `${base}/book/confirmation/${reference}?paid=1`,
+      cancelUrl: `${base}/book/confirmation/${reference}?cancelled=1`,
       customer: { name: client.name, email: client.email, phone: client.mobile },
     });
     checkoutUrl = session.checkoutUrl;

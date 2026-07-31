@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { getSettings } from './settings';
+import { appUrl } from './app-url';
 
 /**
  * Transactional email. If RESEND_API_KEY is unset the message is logged to the
@@ -129,7 +130,7 @@ export async function sendTemplateEmail(opts: {
     businessName: settings['business.name'],
     businessContact: settings['business.contact'],
     businessAddress: settings['business.address'],
-    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
+    appUrl: appUrl(),
     ...opts.vars,
   };
   const subject = render(tpl.subject, baseVars);

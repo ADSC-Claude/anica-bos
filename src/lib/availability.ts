@@ -451,3 +451,76 @@ export function slotsForDay(opts: {
   }
   return out;
 }
+
+export type PlanPlace = {
+  id: string;
+  name: string;
+  type: ResourceType;
+  capacity: number;
+  exclusiveUse: boolean;
+  /** Places already occupied in this window. */
+  taken: number;
+  remaining: number;
+  /** Exclusive, and somebody who is not the asking party is inside. */
+  heldByOther: boolean;
+  /** When the earliest overlapping booking ends, for "until 8:30". */
+  freeFromIso: string | null;
+};
+
+/**
+ * Every place in the branch with its state for one window — not only the free
+ * ones.
+ *
+ * A picker that hides taken beds leaves the guest asking "why can I not have
+ * that one", and answering that question after the click is worse than
+ * answering it before. So this returns the whole floor and lets the caller
+ * draw it: free, taken until a time, or held whole by another party.
+ */
+export async function floorPlan(opts: {
+  branchId: string;
+  startAt: Date;
+  endAt: Date;
+  partyRef?: string;
+  excludeAppointmentId?: string;
+}): Promise<PlanPlace[]> {
+  const [resources, taken] = await Promise.all([
+    prisma.resource.findMany({
+      where: { branchId: opts.branchId, active: true },
+      orderBy: { sortRank: 'asc' },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        branchId: opts.branchId,
+        resourceId: { not: null },
+        status: { in: [...BUSY_STATUSES] },
+        startAt: { lt: opts.endAt },
+        endAt: { gt: opts.startAt },
+        ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
+      },
+      select: { resourceId: true, partyRef: true, endAt: true },
+    }),
+  ]);
+
+  const mine = opts.partyRef ?? '';
+  return resources.map((r) => {
+    const here = taken.filter((t) => t.resourceId === r.id);
+    const capacity = Math.max(1, r.capacity);
+    const strangers = here.filter((t) => !mine || t.partyRef !== mine);
+    // The soonest it frees up, which is the only useful thing to say about a
+    // place somebody cannot have.
+    const freeFrom = here.length
+      ? here.reduce((a, b) => (a.endAt < b.endAt ? a : b)).endAt
+      : null;
+    return {
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      capacity,
+      exclusiveUse: r.exclusiveUse,
+      taken: here.length,
+      remaining: Math.max(0, capacity - here.length),
+      heldByOther: r.exclusiveUse && strangers.length > 0,
+      freeFromIso: freeFrom ? freeFrom.toISOString() : null,
+    };
+  });
+}

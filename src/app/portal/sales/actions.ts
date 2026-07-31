@@ -56,7 +56,7 @@ export async function checkoutAction(payload: string): Promise<CheckoutState> {
     const approver = await verifyApprovalPin(body.approvalPin ?? '');
     if (!approver) {
       return {
-        error: `A discount above ${threshold}% needs an Owner or Manager approval PIN.`,
+        error: `A discount above ${threshold}% needs the Owner's approval PIN.`,
       };
     }
     approverId = approver.id;

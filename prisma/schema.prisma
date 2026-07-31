@@ -654,20 +654,37 @@ model Partner {
 
 // ============================================================ employees
 
+/// Where someone stands with the business. `active` stays as the operational
+/// flag every roster, POS and payroll query already filters on; this is the
+/// human answer, and it is what the Owner sets.
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  SUSPENDED
+  SEPARATED
+}
+
 model Employee {
-  id              String       @id @default(cuid())
-  branchId        String
-  branch          Branch       @relation(fields: [branchId], references: [id])
-  name            String
-  photoUrl        String       @default("")
-  employeeRole    EmployeeRole
-  mobile          String       @default("")
-  email           String       @default("")
-  address         String       @default("")
-  emergencyName   String       @default("")
-  emergencyMobile String       @default("")
-  hireDate        DateTime     @default(now())
-  active          Boolean      @default(true)
+  id               String           @id @default(cuid())
+  branchId         String
+  branch           Branch           @relation(fields: [branchId], references: [id])
+  name             String
+  photoUrl         String           @default("")
+  employeeRole     EmployeeRole
+  mobile           String           @default("")
+  email            String           @default("")
+  address          String           @default("")
+  emergencyName    String           @default("")
+  emergencyMobile  String           @default("")
+  hireDate         DateTime         @default(now())
+  /// Derived from `status` — kept because the roster, POS, availability and
+  /// payroll all filter on it, and a status change must not silently leave
+  /// someone bookable.
+  active           Boolean          @default(true)
+  status           EmploymentStatus @default(ACTIVE)
+  /// Set when status becomes SEPARATED; cleared if they are taken back on.
+  separatedAt      DateTime?
+  separationReason String           @default("")
 
   // --- government numbers (Owner/Admin only) ---
   sssNumber              String @default("")

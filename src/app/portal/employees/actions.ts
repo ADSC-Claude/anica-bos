@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import type { EmployeeRole, PayType } from '@prisma/client';
+import type { EmployeeRole, EmploymentStatus, PayType } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
 import { audit, diff } from '@/lib/audit';
@@ -370,4 +370,76 @@ export async function saveIncentiveSchemeAction(
   });
   revalidatePath('/portal/employees/incentives');
   return { ok: 'Saved. Incentives are never released through payroll.' };
+}
+
+/* --------------------------------------------------------- employment status */
+
+/**
+ * Changing where someone stands with the business.
+ *
+ * `active` is derived here rather than set by hand, because the roster, the
+ * POS, availability and payroll all filter on it — a status change that left
+ * `active` alone would keep a separated therapist bookable.
+ *
+ * The record itself is never removed. A separated employee keeps every payslip,
+ * commission and attendance row, and moves out of the roster into the separated
+ * list, which is where their history stays readable.
+ */
+export async function setEmploymentStatusAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requirePage('employees.edit');
+  const id = str(formData, 'employeeId');
+  const status = str(formData, 'status') as EmploymentStatus;
+  const reason = str(formData, 'reason');
+  const dateKey = str(formData, 'separatedOn');
+
+  const valid: EmploymentStatus[] = ['ACTIVE', 'ON_LEAVE', 'SUSPENDED', 'SEPARATED'];
+  if (!valid.includes(status)) return { error: 'Choose a status.' };
+
+  const before = await prisma.employee.findUnique({ where: { id } });
+  if (!before) return { error: 'That employee no longer exists.' };
+
+  if (status === 'SEPARATED' && !dateKey) {
+    return { error: 'Enter the last day worked.' };
+  }
+
+  const separatedAt =
+    status === 'SEPARATED' ? dateKeyToBusinessDate(dateKey) : null;
+
+  const after = await prisma.employee.update({
+    where: { id },
+    data: {
+      status,
+      // Only ACTIVE staff are bookable and payable. On leave and suspended stay
+      // on the payroll but off the roster, which is what `active: false` means
+      // everywhere else in the system.
+      active: status === 'ACTIVE',
+      separatedAt,
+      separationReason: status === 'SEPARATED' ? reason : '',
+    },
+  });
+
+  await audit(user, {
+    module: 'employees',
+    action: 'set_employment_status',
+    entityType: 'Employee',
+    entityId: id,
+    summary:
+      status === 'SEPARATED'
+        ? `${after.name} separated, last day ${dateKey}${reason ? ` — ${reason}` : ''}`
+        : `${after.name} set to ${status.replace('_', ' ').toLowerCase()}`,
+    sensitive: true,
+    ...diff(before as never, after as never),
+  });
+
+  revalidatePath('/portal/employees');
+  revalidatePath(`/portal/employees/${id}`);
+  return {
+    ok:
+      status === 'SEPARATED'
+        ? `${after.name} moved to separated staff. Their records are kept.`
+        : `${after.name} is now ${status.replace('_', ' ').toLowerCase()}.`,
+  };
 }

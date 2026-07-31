@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { adjustStockAction, saveItemAction, type FormState } from './actions';
 import { formatPeso } from '@/lib/money';
+import { DeleteButton } from '@/components/delete-button';
 
 type Item = {
   id: string; name: string; sku: string;
@@ -79,6 +80,7 @@ export function StockPanel({
                       Edit
                     </button>
                   )}
+                  {canEdit && <DeleteButton kind="item" id={i.id} label={i.name} />}
                 </td>
               </tr>
             ))}

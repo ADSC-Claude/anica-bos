@@ -71,28 +71,51 @@ export function FloorPlan({
   onPick: (placeId: string) => void;
 }) {
   const party = guests.length;
-  const ownerOf = (placeId: string) =>
-    Object.entries(seats).find(([, id]) => id === placeId)?.[0];
-
-  /** How many of the party are already in a given place. */
-  const oursIn = (placeId: string) =>
-    Object.values(seats).filter((id) => id === placeId).length;
-
   const guest = guests[activeGuest];
 
-  function stateOf(p: PlanPlace) {
-    const ours = oursIn(p.id);
-    if (ownerOf(p.id) === String(activeGuest)) return 'mine' as const;
+  /** Which of our party are in a place, in guest order. */
+  const occupantsOf = (placeId: string) =>
+    guests.map((_, i) => i).filter((i) => seats[i] === placeId);
+
+  /**
+   * The state of one *place inside* a resource, not of the resource.
+   *
+   * A couples room holds two, and drawing it as a single box was the bug: one
+   * of you could be put in it and the other could not, so a room the pair had
+   * come for looked taken by their own booking.
+   */
+  function stateOfSlot(p: PlanPlace, k: number) {
+    // Places already sold to somebody else fill up from the left.
+    if (k < p.taken) return p.heldByOther ? ('held' as const) : ('full' as const);
+
+    const occupants = occupantsOf(p.id);
+    const occupant = occupants[k - p.taken];
+    if (occupant === activeGuest) return 'mine-active' as const;
+    if (occupant !== undefined) return 'mine' as const;
+
     if (p.heldByOther) return 'held' as const;
-    if (p.remaining - ours <= 0) return 'full' as const;
     if (guest?.accepts && !guest.accepts.includes(p.type)) return 'wrong-type' as const;
-    // A whole-unit place only opens to a party that can fill it. `ours` counts
-    // guests already inside, so the second person of a couple can still join
-    // the first rather than being told the room is too big for them.
-    if (p.exclusiveUse && p.taken === 0 && ours === 0 && party < p.capacity) {
+    // A whole-unit place only opens to a party that can fill it — but once one
+    // of us is inside, the rest may join rather than being told it is too big.
+    if (p.exclusiveUse && p.taken === 0 && occupants.length === 0 && party < p.capacity) {
       return 'needs-more' as const;
     }
     return 'free' as const;
+  }
+
+  /**
+   * What to call one place inside a resource.
+   *
+   * "Room 1 (Private)" twice tells a couple nothing; "Bed 1" and "Bed 2" under
+   * a heading that already says Room 1 tells them exactly what they are
+   * choosing between.
+   */
+  function slotLabel(p: PlanPlace, k: number) {
+    if (p.capacity === 1) return p.name;
+    if (p.type === 'ROOM') return `Bed ${k + 1}`;
+    if (p.type === 'CHAIR') return `Chair ${k + 1}`;
+    if (p.type === 'SAUNA') return `Place ${k + 1}`;
+    return `${p.name} ${k + 1}`;
   }
 
   // Group by kind, keeping each room its own box so two beds read as a pair.
@@ -153,7 +176,7 @@ export function FloorPlan({
           <div
             key={z.key}
             className={`rounded-2xl border p-3 ${
-              z.places.every((p) => stateOf(p) === 'needs-more')
+              z.places.every((p) => stateOfSlot(p, p.taken) === 'needs-more')
                 ? 'border-dashed border-sand-300 bg-sand-50'
                 : 'border-sand-200 bg-white'
             }`}
@@ -161,13 +184,13 @@ export function FloorPlan({
             <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-cocoa-400">
               {z.label}
             </p>
-            {z.places.every((p) => stateOf(p) === 'needs-more') && (
+            {z.places.every((p) => stateOfSlot(p, p.taken) === 'needs-more') && (
               <p className="mb-2 text-[10px] leading-tight text-clay-500">
                 Takes {z.places[0].capacity} — a smaller booking would leave a place nobody
                 else can use.
               </p>
             )}
-            {z.places.some((p) => stateOf(p) === 'held') && (
+            {z.places.some((p) => stateOfSlot(p, p.taken) === 'held') && (
               <p className="mb-2 text-[10px] leading-tight text-clay-500">
                 Another booking is inside
                 {z.places[0].freeFromIso ? ` until ${shortTime(z.places[0].freeFromIso)}` : ''} —
@@ -175,13 +198,17 @@ export function FloorPlan({
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              {z.places.flatMap((p) => {
-                const state = stateOf(p);
-                // A place that holds several shows one shape per place, so a
-                // two-chair area reads as two chairs rather than a number.
-                const slots = p.exclusiveUse ? 1 : p.capacity;
-                return Array.from({ length: slots }, (_, k) => {
-                  const disabled = state !== 'free' && state !== 'mine';
+              {z.places.flatMap((p) =>
+                // One box per place the resource holds. A couples room draws
+                // two beds, the chair area draws its chairs — drawing the
+                // resource as a single box is what stopped a pair booking the
+                // room they came for.
+                Array.from({ length: Math.max(1, p.capacity) }, (_, k) => {
+                  const state = stateOfSlot(p, k);
+                  const mine = state === 'mine' || state === 'mine-active';
+                  const disabled = !mine && state !== 'free';
+                  const occupants = occupantsOf(p.id);
+                  const owner = occupants[k - p.taken];
                   const isChair = p.type === 'CHAIR';
                   const isSauna = p.type === 'SAUNA';
                   return (
@@ -190,25 +217,27 @@ export function FloorPlan({
                       type="button"
                       disabled={disabled}
                       onClick={() => onPick(p.id)}
-                      aria-pressed={state === 'mine'}
-                      aria-label={`${p.name}${slots > 1 ? ` place ${k + 1}` : ''}`}
+                      aria-pressed={state === 'mine-active'}
+                      aria-label={`${p.name}${p.capacity > 1 ? `, ${slotLabel(p, k)}` : ''}`}
                       className={[
                         'relative flex min-h-16 w-[74px] flex-col items-center justify-end rounded-xl border px-1 pb-1.5 pt-5 text-[10px] font-semibold leading-tight transition',
                         isChair ? 'rounded-t-3xl' : '',
-                        isSauna ? 'w-full' : '',
-                        state === 'mine'
-                          ? 'border-cocoa-600 bg-cocoa-600 text-white'
-                          : state === 'free'
-                            ? 'border-sand-300 bg-sand-50 text-cocoa-700 hover:-translate-y-px hover:border-cocoa-400'
-                            : state === 'full' || state === 'held'
-                              ? 'cursor-not-allowed border-sand-200 bg-sand-100 text-cocoa-300'
-                              : 'cursor-not-allowed border-dashed border-sand-300 bg-white text-cocoa-300 opacity-40',
+                        isSauna ? 'w-[74px]' : '',
+                        state === 'mine-active'
+                          ? 'border-cocoa-600 bg-cocoa-600 text-white ring-2 ring-gilt-500'
+                          : state === 'mine'
+                            ? 'border-cocoa-600 bg-cocoa-600 text-white'
+                            : state === 'free'
+                              ? 'border-sand-300 bg-sand-50 text-cocoa-700 hover:-translate-y-px hover:border-cocoa-400'
+                              : state === 'full' || state === 'held'
+                                ? 'cursor-not-allowed border-sand-200 bg-sand-100 text-cocoa-300'
+                                : 'cursor-not-allowed border-dashed border-sand-300 bg-white text-cocoa-300 opacity-40',
                       ].join(' ')}
                     >
-                      <span>{p.name}</span>
-                      {state === 'mine' && (
+                      <span>{slotLabel(p, k)}</span>
+                      {mine && (
                         <span className="mt-0.5 block max-w-full truncate text-[9px] font-bold">
-                          {guests[Number(ownerOf(p.id))]?.name || 'You'}
+                          {guests[owner ?? activeGuest]?.name || 'You'}
                         </span>
                       )}
                       {(state === 'full' || state === 'held') && p.freeFromIso && (
@@ -218,8 +247,8 @@ export function FloorPlan({
                       )}
                     </button>
                   );
-                });
-              })}
+                }),
+              )}
             </div>
           </div>
         ))}

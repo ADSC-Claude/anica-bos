@@ -78,6 +78,31 @@ export function FloorPlan({
     guests.map((_, i) => i).filter((i) => seats[i] === placeId);
 
   /**
+   * Guests who could still go somewhere new: whoever has no place yet, plus the
+   * one being placed right now, who may be moved.
+   *
+   * This is what decides whether an empty couples room is offered. Comparing
+   * against the *whole* party would offer Room 2 to the last unplaced guest of
+   * four, who cannot fill it on their own.
+   */
+  const movable = guests.filter((_, i) => i === activeGuest || seats[i] === undefined).length;
+
+  /**
+   * A whole-unit place this party has started and not finished.
+   *
+   * A couples room is sold whole, so the moment one of the party is in it the
+   * rest of it is theirs to fill — and until they do, nothing else may be
+   * chosen. Allowing the next guest to wander into Room 2 is how both rooms end
+   * up half-occupied, which is the state that leaves two beds nobody can book.
+   */
+  const pendingRoom =
+    plan.find((p) => {
+      if (!p.exclusiveUse) return false;
+      const inside = occupantsOf(p.id).length;
+      return inside > 0 && inside + p.taken < p.capacity;
+    }) ?? null;
+
+  /**
    * The state of one *place inside* a resource, not of the resource.
    *
    * A couples room holds two, and drawing it as a single box was the bug: one
@@ -94,10 +119,12 @@ export function FloorPlan({
     if (occupant !== undefined) return 'mine' as const;
 
     if (p.heldByOther) return 'held' as const;
+    // Finish the room you started before anything else opens up.
+    if (pendingRoom && p.id !== pendingRoom.id) return 'finish-room' as const;
     if (guest?.accepts && !guest.accepts.includes(p.type)) return 'wrong-type' as const;
     // A whole-unit place only opens to a party that can fill it — but once one
     // of us is inside, the rest may join rather than being told it is too big.
-    if (p.exclusiveUse && p.taken === 0 && occupants.length === 0 && party < p.capacity) {
+    if (p.exclusiveUse && p.taken === 0 && occupants.length === 0 && movable < p.capacity) {
       return 'needs-more' as const;
     }
     return 'free' as const;
@@ -167,7 +194,17 @@ export function FloorPlan({
 
       {party > 1 && (
         <p className="mb-3 text-[11px] text-cocoa-500">
-          Choose a place for <strong>{guest?.name || 'you'}</strong>.
+          {pendingRoom ? (
+            <>
+              <strong>{pendingRoom.name}</strong> holds {pendingRoom.capacity}, and it is sold
+              whole — choose the other place in it for{' '}
+              <strong>{guest?.name || 'you'}</strong>, or release the one already taken.
+            </>
+          ) : (
+            <>
+              Choose a place for <strong>{guest?.name || 'you'}</strong>.
+            </>
+          )}
         </p>
       )}
 
@@ -188,6 +225,11 @@ export function FloorPlan({
               <p className="mb-2 text-[10px] leading-tight text-clay-500">
                 Takes {z.places[0].capacity} — a smaller booking would leave a place nobody
                 else can use.
+              </p>
+            )}
+            {pendingRoom && z.places.every((p) => p.id !== pendingRoom.id) && (
+              <p className="mb-2 text-[10px] leading-tight text-cocoa-400">
+                Finish {pendingRoom.name} first.
               </p>
             )}
             {z.places.some((p) => stateOfSlot(p, p.taken) === 'held') && (

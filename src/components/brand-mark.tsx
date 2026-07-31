@@ -40,7 +40,7 @@ export function BrandMark({
           // Trim the file, not this number: padding cannot recover space baked
           // into an image. A logo exported with its own wide margin will look
           // small here no matter what this says.
-          style={{ padding: Math.max(2, Math.round(size * 0.26)) }}
+          style={{ padding: Math.max(2, Math.round(size * 0.28)) }}
         />
       ) : (
         <span style={{ fontSize: Math.round(size * 0.5), lineHeight: 1 }}>✿</span>

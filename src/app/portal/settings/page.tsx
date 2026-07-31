@@ -49,11 +49,13 @@ export default async function SettingsPage() {
                 <input name="facebook" className="input" defaultValue={s['business.facebook']} />
               </label>
               <label className="block">
-                <span className="label">Google Maps embed URL</span>
+                <span className="label">Map for the landing page</span>
                 <input name="mapEmbedUrl" className="input" defaultValue={s['business.mapEmbedUrl']}
-                  placeholder="https://www.google.com/maps/embed?pb=…" />
+                  placeholder="Paste the Google Maps embed code or URL" />
                 <span className="mt-1 block text-[11px] text-cocoa-400">
-                  In Google Maps: Share → Embed a map → copy the src URL.
+                  In Google Maps: Share → <strong>Embed a map</strong> → Copy HTML. Paste the
+                  whole thing — the address is picked out for you. Share → Send a link gives
+                  a different kind of link that will not display.
                 </span>
               </label>
               <label className="block">

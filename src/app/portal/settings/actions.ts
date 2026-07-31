@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { normaliseMapEmbed } from '@/lib/map-embed';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
 import { audit, diff } from '@/lib/audit';
@@ -36,7 +37,9 @@ export async function saveSettingsAction(
   let entries: Record<string, unknown> = {};
 
   switch (section) {
-    case 'business':
+    case 'business': {
+      const map = normaliseMapEmbed(str(formData, 'mapEmbedUrl'));
+      if ('error' in map) return { error: map.error };
       entries = {
         'business.name': str(formData, 'name'),
         'business.tagline': str(formData, 'tagline'),
@@ -44,7 +47,7 @@ export async function saveSettingsAction(
         'business.contact': str(formData, 'contact'),
         'business.email': str(formData, 'email'),
         'business.facebook': str(formData, 'facebook'),
-        'business.mapEmbedUrl': str(formData, 'mapEmbedUrl'),
+        'business.mapEmbedUrl': map.url,
         'business.logoUrl': str(formData, 'logoUrl'),
         'business.tin': str(formData, 'tin'),
         'business.openMinute': num(formData, 'openMinute'),
@@ -52,6 +55,7 @@ export async function saveSettingsAction(
         'business.receiptFooter': str(formData, 'receiptFooter'),
       };
       break;
+    }
 
     case 'tax':
       entries = {

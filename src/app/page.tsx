@@ -179,12 +179,8 @@ export default async function LandingPage() {
               The menu
             </p>
             <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
-              Services &amp; price list
+              Services &amp; Price List
             </h2>
-            <p className="mx-auto mt-2 max-w-md text-cocoa-600">
-              Every treatment is performed by a trained therapist. Prices in Philippine
-              pesos.
-            </p>
             <div
               aria-hidden
               className="mt-5 flex items-center justify-center gap-4 text-cocoa-300"

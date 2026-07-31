@@ -24,6 +24,15 @@ export async function GET(req: Request) {
   const dateKey = url.searchParams.get('date') ?? '';
   const serviceIds = (url.searchParams.get('serviceIds') ?? '').split(',').filter(Boolean);
   const startAtParam = url.searchParams.get('startAt');
+  // Everyone else in the party, one group of service ids per guest:
+  //   guests=svcA,svcB|svcC
+  // Their treatments decide which places they need, so a slot is only offered
+  // when the whole party fits — otherwise a couple picks 8pm, fills the form,
+  // and finds out at the last step that there is one bed and two of them.
+  const guestGroups = (url.searchParams.get('guests') ?? '')
+    .split('|')
+    .map((g) => g.split(',').filter(Boolean))
+    .filter((g) => g.length);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
     return NextResponse.json({ error: 'A valid date is required.' }, { status: 400 });
@@ -58,6 +67,26 @@ export async function GET(req: Request) {
   }
   const durationMinutes = services.reduce((a, s) => a + s.durationMinutes, 0);
   const priceCents = services.reduce((a, s) => a + s.priceCents, 0);
+
+  // The guests' treatments too, so the fee quoted is the party's and the slot
+  // filter knows what each of them needs.
+  const guestCatalog = guestGroups.length
+    ? await prisma.service.findMany({
+        where: { id: { in: [...new Set(guestGroups.flat())] }, active: true },
+        select: { id: true, durationMinutes: true, priceCents: true, requiredResourceType: true },
+      })
+    : [];
+  const guestById = new Map(guestCatalog.map((g) => [g.id, g]));
+  const guestSeats = guestGroups.map((ids) => {
+    const rows = ids.map((id) => guestById.get(id)).filter(Boolean) as typeof guestCatalog;
+    return {
+      minutes: rows.reduce((a, r) => a + r.durationMinutes, 0),
+      price: rows.reduce((a, r) => a + r.priceCents, 0),
+      place: requiredPlaceFor(rows),
+    };
+  });
+  const partySize = 1 + guestSeats.length;
+  const partyPriceCents = priceCents + guestSeats.reduce((a, s) => a + s.price, 0);
   // A foot spa needs a chair, a massage needs a bed. Offering the wrong kind of
   // place is what puts a 90-minute massage on a foot-spa chair and a foot spa
   // on a bed that could have been sold.
@@ -84,8 +113,9 @@ export async function GET(req: Request) {
       /** Which place types this booking's treatments can actually use. */
       accepts: place ? placesSatisfying(place) : null,
       durationMinutes,
-      priceCents,
-      depositCents: Math.round((priceCents * settings['booking.depositPercent']) / 100),
+      priceCents: partyPriceCents,
+      depositCents: Math.round((partyPriceCents * settings['booking.depositPercent']) / 100),
+      partySize,
     });
   }
 
@@ -107,9 +137,40 @@ export async function GET(req: Request) {
     const endAt = new Date(c.startAt.getTime() + durationMinutes * 60_000);
     const [therapists, resources] = await Promise.all([
       availableTherapists({ branchId: branch.id, startAt: c.startAt, endAt, serviceIds }),
-      availableResources({ branchId: branch.id, startAt: c.startAt, endAt, resourceType: place }),
+      availableResources({
+        branchId: branch.id, startAt: c.startAt, endAt, resourceType: place, partySize,
+      }),
     ]);
     if (!therapists.length || !resources.length) continue;
+
+    // A party needs a therapist and a place each. Checking only the booker's
+    // would offer a slot with one free bed to a couple, and the disappointment
+    // would land after they had filled in the whole form.
+    if (partySize > 1) {
+      if (therapists.length < partySize) continue;
+      const enough = await Promise.all(
+        guestSeats.map((seat) =>
+          availableResources({
+            branchId: branch.id,
+            startAt: c.startAt,
+            endAt: new Date(c.startAt.getTime() + seat.minutes * 60_000),
+            resourceType: seat.place,
+            partySize,
+          }),
+        ),
+      );
+      if (enough.some((free) => !free.length)) continue;
+      // Places, not rows: the booker plus two guests all wanting a bed need
+      // three beds, and one couples room with two places is not three.
+      const bedLike = [resources, ...enough].filter((_, i) =>
+        i === 0 ? true : guestSeats[i - 1].place !== 'CHAIR' && guestSeats[i - 1].place !== 'SAUNA',
+      );
+      if (bedLike.length > 1) {
+        const roomFor = resources.reduce((a, r) => a + r.remaining, 0);
+        if (roomFor < bedLike.length) continue;
+      }
+    }
+
     slots.push({
       minute: c.minute,
       label: minutesToLabel(c.minute),
@@ -122,8 +183,9 @@ export async function GET(req: Request) {
   return NextResponse.json({
     branchId: branch.id,
     durationMinutes,
-    priceCents,
-    depositCents: Math.round((priceCents * settings['booking.depositPercent']) / 100),
+    priceCents: partyPriceCents,
+    depositCents: Math.round((partyPriceCents * settings['booking.depositPercent']) / 100),
+    partySize,
     slots,
   });
 }

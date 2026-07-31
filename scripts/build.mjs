@@ -195,14 +195,11 @@ if (migration.ipv6Only) {
   warn('(port 5432 on ...pooler.supabase.com) — same database, reachable over IPv4.');
 }
 
-// Prisma needs ?pgbouncer=true against a transaction pooler, or queries fail at
-// runtime once connections start being reused. Session mode gives each client
-// its own backend, so prepared statements are safe there and the flag would
-// only cost performance.
-if (runtime.transactionPooler && !/[?&]pgbouncer=/.test(DATABASE_URL)) {
-  const joiner = DATABASE_URL.includes('?') ? '&' : '?';
-  process.env.DATABASE_URL = `${DATABASE_URL}${joiner}pgbouncer=true&connection_limit=1`;
-  warn('Added ?pgbouncer=true to DATABASE_URL — required by Prisma behind a pooler.');
+// A transaction pooler also needs ?pgbouncer=true, but adding it here would be
+// theatre: mutating this process's env cannot reach the server that runs later.
+// src/lib/db.ts applies it where the client is actually constructed.
+if (runtime.transactionPooler) {
+  warn('DATABASE_URL is a transaction pooler; src/lib/db.ts will add ?pgbouncer=true at runtime.');
 }
 
 // ------------------------------------------------------------------- build

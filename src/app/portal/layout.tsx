@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { requireSessionPage } from '@/lib/guard';
 import { visibleModules } from '@/lib/rbac';
 import { unreadCount } from '@/lib/notifications';
-import { listBranches } from '@/lib/settings';
+import { listBranches, getSettings } from '@/lib/settings';
 import { logoutAction } from './actions';
+import { BrandMark } from '@/components/brand-mark';
 import { PortalNav } from '@/components/portal-nav';
 import { BranchSwitcher } from '@/components/branch-switcher';
 
@@ -17,15 +18,14 @@ export default async function PortalLayout({ children }: { children: React.React
   const modules = visibleModules(user.role);
   const unread = await unreadCount(user);
   const branches = await listBranches();
+  const settings = await getSettings(user.branchId);
 
   return (
     <div className="flex min-h-dvh flex-col bg-sand-50 lg:flex-row">
       {/* Desktop sidebar — the reception desk computer */}
       <aside className="hidden w-60 shrink-0 border-r border-sand-200 bg-white lg:flex lg:flex-col no-print">
         <div className="flex items-center gap-2 px-5 py-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
-            ✿
-          </span>
+          <BrandMark logoUrl={settings['business.logoUrl']} size={36} />
           <div className="leading-tight">
             <p className="font-display text-sm font-semibold text-cocoa-800">ANICA</p>
             <p className="text-[11px] text-cocoa-400">Wellness Spa BOS</p>
@@ -59,9 +59,7 @@ export default async function PortalLayout({ children }: { children: React.React
       {/* Mobile top bar — the owner's phone */}
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-sand-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden no-print">
         <Link href="/portal" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cocoa-600 text-white">
-            ✿
-          </span>
+          <BrandMark logoUrl={settings['business.logoUrl']} size={32} />
           <span className="font-display text-sm font-semibold text-cocoa-800">ANICA</span>
         </Link>
         <div className="flex items-center gap-2">

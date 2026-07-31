@@ -556,6 +556,13 @@ model ClientFeedback {
   rating        Int
   comment       String    @default("")
   recordedBy    String    @default("")
+  /// Whether this may be quoted on the public landing page.
+  ///
+  /// Defaults to false and must be ticked deliberately. Feedback given to a
+  /// receptionist at the counter is not the same act as publishing a review
+  /// under your own name on a website anyone can read — so nothing appears
+  /// there until someone confirms the guest is happy for it to.
+  showOnLanding Boolean   @default(false)
   createdAt     DateTime  @default(now())
 
   @@index([clientId])

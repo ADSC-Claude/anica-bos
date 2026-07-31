@@ -5,13 +5,15 @@ import { formatPesoMenu } from '@/lib/money';
 import { minutesToLabel } from '@/lib/datetime';
 import { buildServiceMenu } from '@/lib/service-menu';
 import { normaliseMapEmbed } from '@/lib/map-embed';
+import { BrandMark } from '@/components/brand-mark';
+import { publishableFeedback, shortName } from '@/lib/testimonials';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LandingPage() {
   const settings = await getSettings();
 
-  const [categories, promos, packages] = await Promise.all([
+  const [categories, promos, packages, testimonials] = await Promise.all([
     prisma.serviceCategory.findMany({
       where: { active: true },
       // Name breaks ties, so two categories sharing a rank keep a stable order
@@ -40,6 +42,7 @@ export default async function LandingPage() {
       orderBy: { endDate: 'asc' },
     }),
     prisma.package.findMany({ where: { active: true, showOnLanding: true } }),
+    publishableFeedback(prisma, 3),
   ]);
 
   const menu = buildServiceMenu(categories);
@@ -61,6 +64,22 @@ export default async function LandingPage() {
     settings['business.closeMinute'],
   )} daily`;
 
+  const openLabel = minutesToLabel(settings['business.openMinute']);
+  const closeLabel = minutesToLabel(settings['business.closeMinute']);
+
+  // The latest a booking can still start, derived from closing time so it
+  // cannot drift out of date the way a hardcoded string would.
+  //
+  // One hour, not the shortest thing on the menu: the booking engine refuses
+  // any slot that would run past closing, so a 15-minute hot compress could
+  // technically start at 11:45 — but "last booking 11:45 PM" would promise a
+  // massage that cannot be had. An hour is the honest headline, and it is what
+  // a full-length treatment actually needs.
+  const STANDARD_TREATMENT_MINUTES = 60;
+  const lastBookingLabel = minutesToLabel(
+    settings['business.closeMinute'] - STANDARD_TREATMENT_MINUTES,
+  );
+
   // The tagline's last sentence is set in italic gilt — the eye should land on
   // the promise, not on the middle of a list of verbs. Falls back gracefully
   // when the Owner writes a one-word tagline in Settings.
@@ -75,11 +94,9 @@ export default async function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-sand-200 bg-sand-50/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cocoa-600 text-lg text-white">
-              ✿
-            </span>
+            <BrandMark logoUrl={settings['business.logoUrl']} size={36} />
             <span className="font-display text-base font-semibold text-cocoa-800">
-              ANICA Wellness Spa
+              {settings['business.name']}
             </span>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
@@ -100,8 +117,11 @@ export default async function LandingPage() {
       <section className="relative overflow-hidden">
         <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <div>
+            {/* "Open 12:00 PM – 12:00 MN daily" is a data field. "Open until
+                midnight" is a reason to come — same fact, read by a person
+                deciding at 9pm rather than by a form. */}
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cocoa-400">
-              Quezon City · Open {hours}
+              Quezon City · Open until {closeLabel}, daily
             </p>
             <span aria-hidden className="mt-6 block h-px w-14 bg-gilt-500/70" />
             <h1 className="mt-6 font-display text-[2.75rem] leading-[1.02] text-cocoa-800 sm:text-6xl">
@@ -287,6 +307,85 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* ---------------------------------------------------- late hours */}
+      {/* The one dark band on the page, and the only place gold is used at
+          size. Gold measures 3.4:1 on sand-50 — a hairline of contrast — but
+          reads properly on cocoa-800, so the accent finally does the job it
+          was picked for. It also breaks a page that is otherwise cream from
+          top to bottom. */}
+      <section className="relative overflow-hidden border-t border-sand-200 bg-cocoa-800">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_78%_15%,rgba(168,130,60,0.20),transparent_68%)]"
+        />
+        <div className="relative mx-auto max-w-3xl px-4 py-16 sm:py-20">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sand-300">
+            Why we stay open late
+          </p>
+          <h2 className="mt-3 font-display text-3xl leading-tight text-sand-50 sm:text-4xl">
+            The city closes at six. <em className="italic text-gilt-500">We don&apos;t.</em>
+          </h2>
+          <p className="mt-4 max-w-xl leading-relaxed text-sand-200">
+            Most spas in Quezon City have locked up by the time you finish work. We take our
+            last booking at {lastBookingLabel}, so a day that ran long can still end on a warm
+            bed with the lights low.
+          </p>
+          <dl className="mt-8 flex flex-wrap gap-x-10 gap-y-5 border-t border-sand-200/20 pt-6">
+            <div>
+              <dd className="num font-display text-2xl text-gilt-500">{openLabel}</dd>
+              <dt className="text-[11px] uppercase tracking-wider text-sand-300">Doors open</dt>
+            </div>
+            <div>
+              <dd className="num font-display text-2xl text-gilt-500">{lastBookingLabel}</dd>
+              <dt className="text-[11px] uppercase tracking-wider text-sand-300">Last booking</dt>
+            </div>
+            <div>
+              <dd className="num font-display text-2xl text-gilt-500">{closeLabel}</dd>
+              <dt className="text-[11px] uppercase tracking-wider text-sand-300">We close</dt>
+            </div>
+            <div>
+              <dd className="num font-display text-2xl text-gilt-500">7 days</dd>
+              <dt className="text-[11px] uppercase tracking-wider text-sand-300">Every week</dt>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------- testimonials */}
+      {/* Absent entirely when there is nothing released — an empty "what guests
+          say" heading above three blank cards says something worse than
+          silence. */}
+      {testimonials.length > 0 && (
+        <section className="border-t border-sand-200 bg-sand-100">
+          <div className="mx-auto max-w-5xl px-4 py-16 sm:py-20">
+            <div className="text-center">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
+                In their words
+              </p>
+              <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
+                What guests say
+              </h2>
+            </div>
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {testimonials.map((t) => (
+                <figure key={t.id} className="card-pad">
+                  <p aria-label={`${t.rating} out of 5`} className="tracking-[0.12em] text-gilt-500">
+                    {'★'.repeat(t.rating)}
+                    <span className="text-sand-300">{'★'.repeat(5 - t.rating)}</span>
+                  </p>
+                  <blockquote className="mt-3 font-display text-[15px] italic leading-relaxed text-cocoa-700">
+                    &ldquo;{t.comment}&rdquo;
+                  </blockquote>
+                  <figcaption className="mt-3 text-xs text-cocoa-400">
+                    {shortName(t.client.name)}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* --------------------------------------------------- about/visit */}
       <section id="visit" className="border-t border-sand-200 bg-sand-50">
         <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-2">
@@ -362,6 +461,26 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ------------------------------------------- sticky booking (mobile) */}
+      {/* On a phone the header's "Book now" scrolls away within a screen and
+          never returns, so the moment someone decides — halfway down the price
+          list — there is nothing to tap. Desktop keeps the sticky header and
+          does not need this. The padding below keeps the bar from covering the
+          last line of the footer. */}
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-sand-200 bg-sand-50/95 px-4 py-3 backdrop-blur lg:hidden">
+        <div className="flex items-center gap-3">
+          <p className="shrink-0 text-[11px] leading-tight text-cocoa-500">
+            Open until
+            <br />
+            <span className="font-semibold text-cocoa-700">{closeLabel}</span>
+          </p>
+          <Link href="/book" className="btn-primary flex-1 justify-center rounded-full text-center">
+            Book a slot
+          </Link>
+        </div>
+      </div>
+      <div aria-hidden className="h-20 lg:hidden" />
 
       {/* ------------------------------------------------------- footer */}
       <footer className="border-t border-sand-200 bg-sand-100">

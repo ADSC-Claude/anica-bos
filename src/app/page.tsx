@@ -109,9 +109,9 @@ export default async function LandingPage() {
               {taglineTail && <em className="italic text-gilt-600">{taglineTail}</em>}
             </h1>
             <p className="mt-6 max-w-lg leading-relaxed text-cocoa-600">
-              Massage, body scrub, foot spa and sauna in the heart of Quezon City. Reserve
-              your slot in under a minute — choose your therapist, your room, and your
-              hour.
+              Your wellness escape in Quezon City awaits. Enjoy massage, body scrubs, foot
+              spas, and sauna treatments, then book your preferred therapist, room, and time
+              in just a few clicks.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/book" className="btn-primary rounded-full px-7">

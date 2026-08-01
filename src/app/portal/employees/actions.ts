@@ -63,6 +63,11 @@ export async function saveEmployeeAction(
     address: str(formData, 'address'),
     emergencyName: str(formData, 'emergencyName'),
     emergencyMobile: str(formData, 'emergencyMobile'),
+    // Optional: an existing roster should not be unsaveable over a date
+    // somebody has to go and look up.
+    birthday: str(formData, 'birthday')
+      ? new Date(`${str(formData, 'birthday')}T00:00:00Z`)
+      : null,
     hireDate: str(formData, 'hireDate')
       ? new Date(`${str(formData, 'hireDate')}T00:00:00Z`)
       : new Date(),

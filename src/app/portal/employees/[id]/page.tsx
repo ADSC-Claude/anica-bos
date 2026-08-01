@@ -373,6 +373,7 @@ export default async function EmployeeDetailPage({
               address: employee.address,
               emergencyName: employee.emergencyName,
               emergencyMobile: employee.emergencyMobile,
+              birthday: employee.birthday ? employee.birthday.toISOString().slice(0, 10) : '',
               hireDate: employee.hireDate.toISOString().slice(0, 10),
               active: employee.active,
               sssNumber: employee.sssNumber,

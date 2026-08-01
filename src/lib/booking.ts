@@ -6,7 +6,7 @@ import type { AppointmentStatus, ResourceType } from '@prisma/client';
 import { prisma } from './db';
 import { getSettings } from './settings';
 import { bookingReference } from './codes';
-import { createCheckoutSession, isSimulated } from './paymongo';
+import { createCheckoutSession, createRefund, isSimulated, resolvePaymentId } from './paymongo';
 import { sendTemplateEmail } from './email';
 import { notify } from './notifications';
 import {
@@ -706,6 +706,101 @@ export async function confirmDeposit(opts: {
   });
 
   return true;
+}
+
+/**
+ * Sends a reservation fee back to the guest.
+ *
+ * The counterpart to confirmDeposit, and deliberately as narrow: it refuses
+ * anything that is not a fee actually sitting paid, because the way to lose
+ * money here is to refund the same booking twice.
+ *
+ * A fee taken through the gateway is refunded through the gateway. One taken by
+ * bank transfer or GCash by hand has no payment for PayMongo to reverse, so it
+ * is marked refunded and the sending is left to whoever holds the phone — said
+ * plainly in the result rather than pretended otherwise.
+ */
+export async function refundDeposit(opts: {
+  appointmentId: string;
+  reason: string;
+  refundedBy: string;
+}): Promise<{
+  ok: boolean;
+  error?: string;
+  amountCents?: number;
+  /** Set when the money still has to be sent by hand. */
+  manual?: boolean;
+  gatewayRefundId?: string;
+  gatewayStatus?: string;
+}> {
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: opts.appointmentId },
+    include: { client: true },
+  });
+  if (!appointment) return { ok: false, error: 'That booking no longer exists.' };
+  if (appointment.depositStatus === 'REFUNDED') {
+    return { ok: false, error: 'That reservation fee has already been refunded.' };
+  }
+  if (appointment.depositStatus !== 'PAID') {
+    return {
+      ok: false,
+      error: `There is no paid reservation fee to refund — it is ${appointment.depositStatus
+        .replaceAll('_', ' ')
+        .toLowerCase()}.`,
+    };
+  }
+
+  const amountCents = appointment.depositPaidCents || appointment.depositAmountCents;
+  if (amountCents <= 0) return { ok: false, error: 'That booking has no fee recorded.' };
+
+  const paymentId = await resolvePaymentId(
+    appointment.gatewayPaymentId || appointment.gatewaySessionId,
+  );
+
+  let gatewayRefundId: string | undefined;
+  let gatewayStatus: string | undefined;
+  let manual = false;
+
+  if (paymentId) {
+    let refund;
+    try {
+      refund = await createRefund({
+        paymentId,
+        amountCents,
+        reason: 'requested_by_customer',
+        notes: `${appointment.reference} — ${opts.reason || 'cancelled booking'}`,
+        reference: appointment.reference,
+      });
+    } catch (err) {
+      // The gateway refused. Say so and change nothing: a booking left PAID can
+      // be refunded again once the reason is fixed, whereas one wrongly marked
+      // REFUNDED is money quietly never sent.
+      return { ok: false, error: (err as Error).message };
+    }
+    gatewayRefundId = refund.id;
+    gatewayStatus = refund.status;
+  } else {
+    manual = true;
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointment.id },
+    data: { depositStatus: 'REFUNDED' },
+  });
+
+  await notify({
+    kind: 'PENDING_BOOKING',
+    title: `Reservation fee refunded — ${appointment.client.name}`,
+    body: `${formatPeso(amountCents)} · ${appointment.reference}${
+      manual ? ' · send this one by hand' : ''
+    }`,
+    link: `/portal/appointments/${appointment.id}`,
+    dedupeKey: `deposit-refunded:${appointment.id}`,
+    branchId: appointment.branchId,
+    roles: ['RECEPTIONIST'],
+  });
+
+  return { ok: true, amountCents, manual, gatewayRefundId, gatewayStatus };
 }
 
 /** Expires unpaid bookings past their window. Runs from the daily/periodic job. */

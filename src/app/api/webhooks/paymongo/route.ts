@@ -12,7 +12,11 @@ export const dynamic = 'force-dynamic';
  * Register with:
  *   curl -u sk_test_xxx: https://api.paymongo.com/v1/webhooks \
  *     -d '{"data":{"attributes":{"url":"https://YOUR_APP/api/webhooks/paymongo",
- *          "events":["checkout_session.payment.paid","payment.paid","payment.failed"]}}}'
+ *          "events":["checkout_session.payment.paid","payment.paid","payment.failed",
+ *                    "payment.refunded"]}}}'
+ *
+ * Or from the dashboard: Developer Tools → Webhooks → Add Endpoint. Test and
+ * live endpoints are separate and each has its own signing secret.
  */
 export async function POST(req: Request) {
   const raw = await req.text();
@@ -74,6 +78,17 @@ export async function POST(req: Request) {
         (attributes.source as Record<string, string> | undefined)?.type ?? 'paymongo',
       ),
       gatewayPaymentId: String(resource?.id ?? ''),
+    });
+    return NextResponse.json({ received: true });
+  }
+
+  // A refund we issued, coming back confirmed — an e-wallet refund can sit
+  // pending for days after the desk pressed the button. The booking reference
+  // rides along in the metadata we attached when creating it.
+  if (eventType === 'payment.refunded' || eventType === 'payment.refund.updated') {
+    await prisma.appointment.updateMany({
+      where: { reference, depositStatus: { in: ['PAID', 'REFUNDED'] } },
+      data: { depositStatus: 'REFUNDED' },
     });
     return NextResponse.json({ received: true });
   }

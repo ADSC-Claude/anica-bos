@@ -13,7 +13,9 @@ import {
   requiredPlaceFor,
 } from '@/lib/availability';
 import { bookingReference } from '@/lib/codes';
-import { approveLateRequest, confirmDeposit, declineLateRequest } from '@/lib/booking';
+import { approveLateRequest, confirmDeposit, declineLateRequest, refundDeposit } from '@/lib/booking';
+import { verifyApprovalPin } from '@/lib/auth';
+import { formatPeso } from '@/lib/money';
 import { resolveNotifications } from '@/lib/notifications';
 import { sendTemplateEmail } from '@/lib/email';
 import { formatManila } from '@/lib/datetime';
@@ -290,6 +292,64 @@ export async function setAppointmentStatusAction(formData: FormData) {
 }
 
 /** Receptionist one-tap verify of a manual-transfer deposit. */
+export type RefundState = { error?: string; ok?: string };
+
+/**
+ * Sends a reservation fee back to the guest.
+ *
+ * Behind the Owner's approval PIN, like every other way money leaves this
+ * system. A receptionist can see that a fee is owed and say so to the guest;
+ * releasing it is the one thing she cannot do on her own shift.
+ */
+export async function refundDepositAction(
+  _prev: RefundState,
+  formData: FormData,
+): Promise<RefundState> {
+  const user = await requirePage('appointments.edit');
+  const id = str(formData, 'id');
+  const reason = str(formData, 'reason');
+  const pin = str(formData, 'approvalPin');
+
+  const approver = await verifyApprovalPin(pin);
+  if (!approver) return { error: "Refunds need the Owner's approval PIN." };
+
+  const result = await refundDeposit({ appointmentId: id, reason, refundedBy: user.name });
+  if (!result.ok) return { error: result.error ?? 'That refund could not be completed.' };
+
+  await audit(user, {
+    module: 'appointments',
+    action: 'refund_deposit',
+    entityType: 'Appointment',
+    entityId: id,
+    summary:
+      `${approver.name} approved a ${formatPeso(result.amountCents ?? 0)} reservation fee refund` +
+      (result.manual ? ' — no gateway payment, send it by hand' : ` (${result.gatewayRefundId})`),
+    sensitive: true,
+    // The gateway's own id lives here: it is the only place it is kept, and it
+    // is what a refund is matched against in the PayMongo dashboard later.
+    after: {
+      amountCents: result.amountCents,
+      gatewayRefundId: result.gatewayRefundId ?? null,
+      gatewayStatus: result.gatewayStatus ?? null,
+      manual: Boolean(result.manual),
+      reason,
+      approvedByUserId: approver.id,
+    },
+  });
+
+  revalidatePath('/portal/appointments');
+  revalidatePath(`/portal/appointments/${id}`);
+  return {
+    ok: result.manual
+      ? `Marked refunded. There is no gateway payment behind this fee, so send the ${formatPeso(result.amountCents ?? 0)} yourself.`
+      : `${formatPeso(result.amountCents ?? 0)} refunded${
+          result.gatewayStatus && result.gatewayStatus !== 'succeeded'
+            ? ` — PayMongo reports it as ${result.gatewayStatus}, which can take a few days to settle.`
+            : '.'
+        }`,
+  };
+}
+
 export async function verifyDepositAction(formData: FormData) {
   const user = await requirePage('appointments.edit');
   const id = str(formData, 'id');

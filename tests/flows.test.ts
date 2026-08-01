@@ -422,3 +422,45 @@ test('only cash may be overpaid, since change comes from the drawer', async () =
     /Only cash may be overpaid/i,
   );
 });
+
+test('a 7.5% preset rings up at 7.5%, not 7 or 8', async () => {
+  // The reason the column is no longer an integer. ₱1,000 service + ₱500 of
+  // product = ₱1,500; 7.5% of that is exactly ₱112.50. Rounded to a whole
+  // percent it would be ₱105 or ₱120 — neither the advertised price.
+  const preset = await prisma.discountPreset.create({
+    data: { name: `Anniversary 7.5% ${stamp}`, type: 'PERCENT', value: 7.5 },
+  });
+  try {
+    const stored = await prisma.discountPreset.findUniqueOrThrow({ where: { id: preset.id } });
+    assert.equal(stored.value, 7.5, 'the half survives the round trip to the database');
+
+    const result = await checkout({
+      branchId,
+      cashierId,
+      businessDateKey: today,
+      discounts: [
+        { presetId: preset.id, label: preset.name, type: 'PERCENT', value: stored.value },
+      ],
+      lines: [
+        { type: 'SERVICE', serviceId, employeeId: therapistId, quantity: 1 },
+        { type: 'PRODUCT', itemId: productId, quantity: 2 },
+      ],
+      payments: [{ method: 'CASH', amountCents: P(1500) }],
+    });
+
+    const sale = await prisma.sale.findUniqueOrThrow({
+      where: { id: result.saleId },
+      include: { discounts: true },
+    });
+    assert.equal(sale.subtotalCents, P(1500));
+    assert.equal(sale.discountCents, P(112.5), '7.5% of ₱1,500');
+    assert.equal(sale.totalCents, P(1387.5));
+    // The rate is recorded as applied; the money stays whole centavos.
+    assert.equal(sale.discounts[0].value, 7.5);
+    assert.equal(sale.discounts[0].amountCents, P(112.5));
+    assert.ok(Number.isInteger(sale.discounts[0].amountCents), 'no fractional centavo is stored');
+  } finally {
+    await prisma.saleDiscount.deleteMany({ where: { presetId: preset.id } });
+    await prisma.discountPreset.deleteMany({ where: { id: preset.id } });
+  }
+});

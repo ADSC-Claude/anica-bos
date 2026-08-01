@@ -537,8 +537,9 @@ export function PosTerminal(props: {
                   <option value="PERCENT">%</option>
                   <option value="FIXED">₱</option>
                 </select>
-                <input className="input" type="number" min={0} placeholder="Value" value={manualValue}
-                  onChange={(e) => setManualValue(e.target.value)} />
+                {/* step, or the browser marks a one-off 7.5% discount invalid. */}
+                <input className="input" type="number" step="0.01" min={0} placeholder="Value"
+                  value={manualValue} onChange={(e) => setManualValue(e.target.value)} />
               </div>
               <div className="flex gap-1.5">
                 <button className="btn-secondary btn-sm"

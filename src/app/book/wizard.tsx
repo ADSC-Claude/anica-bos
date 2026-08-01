@@ -15,7 +15,7 @@ type Catalog = {
     name: string;
     services: {
       id: string; name: string; durationMinutes: number; priceCents: number;
-      sequenceRank: number; changeoverMinutes: number | null;
+      sequenceRank: number; changeoverMinutes: number | null; isAddOn: boolean;
     }[];
   }[];
   fields: {
@@ -182,6 +182,14 @@ export function BookingWizard() {
   >([]);
   /** The visit's real length in minutes, as the server plans it. */
   const [quotedMinutes, setQuotedMinutes] = useState<number | null>(null);
+  /**
+   * Minutes the guest has asked to wait before a treatment, by service id.
+   *
+   * Empty for almost every booking — one tap on a start time gives a visit with
+   * the treatments as close together as the floor allows. This is for the guest
+   * who wants lunch between her sauna and her massage and says so.
+   */
+  const [waits, setWaits] = useState<Record<string, number>>({});
   const [startAt, setStartAt] = useState('');
   const [therapists, setTherapists] = useState<{ id: string; name: string }[]>([]);
   const [resources, setResources] = useState<{ id: string; name: string; type: string }[]>([]);
@@ -251,6 +259,20 @@ export function BookingWizard() {
     () => guests.map((g) => g.serviceIds.join(',')).join('|'),
     [guests],
   );
+  /**
+   * `svcA:15,svcB:30` — only the treatments she has actually pushed later.
+   *
+   * Keyed by service so it survives reordering: a wait belongs to the treatment
+   * she wants later, not to a position in the list.
+   */
+  const waitParam = useMemo(
+    () =>
+      serviceIds
+        .filter((id) => (waits[id] ?? 0) > 0)
+        .map((id) => `${id}:${waits[id]}`)
+        .join(','),
+    [serviceIds, waits],
+  );
   const partyReady =
     serviceIds.length > 0 &&
     guests.every((g) => g.name.trim() !== '' && g.serviceIds.length > 0);
@@ -293,7 +315,19 @@ export function BookingWizard() {
   const totalPrice = chosen.reduce((a, s) => a + s.priceCents, 0);
   const deposit = slotInfo?.depositCents ?? Math.round((totalPrice * (catalog?.depositPercent ?? 30)) / 100);
 
-  // Load the day's slots whenever the service or date changes.
+  /**
+   * A different service or a different day means the chosen time is gone.
+   *
+   * Asking for a break does *not*: she picked three o'clock and still wants
+   * three o'clock, only with lunch in the middle. Clearing it here as well
+   * would take her slot away every time she tapped +, which is a strange
+   * punishment for using the control.
+   */
+  useEffect(() => {
+    setStartAt('');
+  }, [serviceIds, dateKey, guestParam]);
+
+  // Load the day's slots whenever the service, the day or the visit changes.
   useEffect(() => {
     if (!partyReady || !dateKey || !branchId) {
       setSlots(null);
@@ -304,9 +338,9 @@ export function BookingWizard() {
     setNoSlotReason('');
     setBlocked([]);
     setQuotedMinutes(null);
-    setStartAt('');
     const params = new URLSearchParams({ branchId, date: dateKey, serviceIds: serviceIds.join(',') });
     if (guestParam) params.set('guests', guestParam);
+    if (waitParam) params.set('waits', waitParam);
     fetch(`/api/public/availability?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -316,10 +350,16 @@ export function BookingWizard() {
         setNoSlotReason(data.reason?.message ?? '');
         setBlocked(data.blocked ?? []);
         if (typeof data.durationMinutes === 'number') setQuotedMinutes(data.durationMinutes);
+        // A longer visit may no longer fit where it did. Rather than leave her
+        // holding a time the floor has stopped offering, let it go and say so
+        // by simply not having it selected.
+        setStartAt((at) =>
+          at && (data.slots ?? []).some((s: { startAt: string }) => s.startAt === at) ? at : '',
+        );
       })
       .catch(() => !cancelled && setError('Could not check availability. Please try again.'));
     return () => { cancelled = true; };
-  }, [serviceIds, dateKey, branchId, guestParam, partyReady]);
+  }, [serviceIds, dateKey, branchId, guestParam, waitParam, partyReady]);
 
   // Load therapists/rooms for the picked slot.
   useEffect(() => {
@@ -328,6 +368,7 @@ export function BookingWizard() {
       branchId, date: dateKey, serviceIds: serviceIds.join(','), startAt,
     });
     if (guestParam) params.set('guests', guestParam);
+    if (waitParam) params.set('waits', waitParam);
     fetch(`/api/public/availability?${params}`)
       .then((r) => r.json())
       .then((data) => {
@@ -344,7 +385,7 @@ export function BookingWizard() {
         setResourceId('any');
       })
       .catch(() => setError('Could not load therapists for that time.'));
-  }, [startAt, branchId, dateKey, serviceIds, guestParam]);
+  }, [startAt, branchId, dateKey, serviceIds, guestParam, waitParam]);
 
   async function submit() {
     setError('');
@@ -355,6 +396,8 @@ export function BookingWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           branchId, serviceIds, startAtIso: startAt,
+          // Only sent when she actually asked for a break.
+          ...(Object.keys(waits).length ? { waits } : {}),
           therapistId: therapistId === 'any' ? null : therapistId,
           // The first leg's place, kept for the appointment row itself.
           resourceId: resourceId === 'any' ? null : (placeFor(0, 0) ?? null),
@@ -700,10 +743,20 @@ export function BookingWizard() {
                 durationMinutes: x.durationMinutes,
                 changeoverMinutes: x.changeoverMinutes,
                 sequenceRank: x.sequenceRank,
+                isAddOn: x.isAddOn,
+                gapBefore: waits[x.id] ?? 0,
               }))}
               changeoverMinutes={catalog.changeoverMinutes ?? 15}
               startAt={startAt ? new Date(startAt) : null}
               onReorder={(next) => setServiceIds(next.map((t) => t.serviceId))}
+              onWait={(serviceId, minutes) =>
+                setWaits((prev) => {
+                  const next = { ...prev };
+                  if (minutes > 0) next[serviceId] = minutes;
+                  else delete next[serviceId];
+                  return next;
+                })
+              }
             />
           )}
 

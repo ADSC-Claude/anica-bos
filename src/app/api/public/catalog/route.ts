@@ -25,9 +25,10 @@ export async function GET() {
           orderBy: [{ sortRank: 'asc' }, { name: 'asc' }],
           select: {
             id: true, name: true, durationMinutes: true, priceCents: true,
-            // The visit planner needs both: where a treatment usually falls in
-            // a visit, and how much floor time it needs after itself.
-            sequenceRank: true, changeoverMinutes: true,
+            // The visit planner needs all three: where a treatment usually
+            // falls in a visit, how much floor time it needs after itself, and
+            // whether it is an extra that runs on with no gap at all.
+            sequenceRank: true, changeoverMinutes: true, isAddOn: true,
           },
         },
       },

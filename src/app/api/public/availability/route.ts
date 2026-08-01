@@ -38,6 +38,22 @@ export async function GET(req: Request) {
     .split('|')
     .map((g) => g.split(',').filter(Boolean))
     .filter((g) => g.length);
+  // Deliberate waits the booker has asked for: `svcA:15,svcB:30`. Keyed by
+  // service so the wait belongs to the treatment she wants later rather than
+  // to a position in a list she can still reorder.
+  //
+  // Clamped, because this arrives from a browser: a wait longer than the day
+  // is not a booking, it is a way to make the planner do arithmetic all night.
+  const waits = new Map<string, number>(
+    (url.searchParams.get('waits') ?? '')
+      .split(',')
+      .filter(Boolean)
+      .map((pair) => {
+        const [id, mins] = pair.split(':');
+        return [id, Math.min(720, Math.max(0, Math.round(Number(mins) || 0)))] as const;
+      })
+      .filter(([id, mins]) => id && mins > 0),
+  );
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
     return NextResponse.json({ error: 'A valid date is required.' }, { status: 400 });
@@ -80,7 +96,7 @@ export async function GET(req: Request) {
     .map((id) => services.find((s) => s.id === id))
     .filter(Boolean) as typeof services;
   const houseChangeover = settings['booking.changeoverMinutes'];
-  const treatments = ordered.map((s) => ({
+  const treatments = ordered.map((s, i) => ({
     serviceId: s.id,
     name: s.name,
     durationMinutes: s.durationMinutes,
@@ -88,6 +104,9 @@ export async function GET(req: Request) {
     sequenceRank: s.sequenceRank,
     placeType: s.requiredResourceType,
     isAddOn: s.isAddOn,
+    // A wait before the first treatment is just a later start time, and an
+    // add-on cannot be pushed away from what it extends.
+    gapBefore: i === 0 || s.isAddOn ? 0 : (waits.get(s.id) ?? 0),
   }));
   // Door to door, gaps included. A sauna and a massage is 110 minutes, not 90,
   // and quoting 90 is how the desk ends up an hour behind by nine o'clock.

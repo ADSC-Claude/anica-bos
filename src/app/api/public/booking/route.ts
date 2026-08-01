@@ -8,6 +8,8 @@ export const dynamic = 'force-dynamic';
 const schema = z.object({
   branchId: z.string().min(1),
   serviceIds: z.array(z.string().min(1)).min(1),
+  /** serviceId → minutes of deliberate wait before that treatment. */
+  waits: z.record(z.string(), z.number().int().min(0).max(720)).optional(),
   startAtIso: z.string().min(1),
   therapistId: z.string().nullish(),
   resourceId: z.string().nullish(),

@@ -48,6 +48,18 @@ export type Treatment = {
    * *before* it and always belongs to the run in front of it.
    */
   isAddOn?: boolean;
+  /**
+   * Extra minutes of wait before this treatment, on top of the changeover.
+   *
+   * The guest's own doing, not the house's: she wants her massage at three
+   * rather than straight after the sauna, and asked for it. Zero — the usual
+   * case — means the treatments run as close together as the floor allows.
+   *
+   * It is a wait, not a hold. The place she is not yet in stays sellable to
+   * somebody else for the length of it, which is exactly why she has to ask
+   * for it rather than getting one by accident.
+   */
+  gapBefore?: number;
 };
 
 export type Segment<T extends Treatment = Treatment> = T & {
@@ -108,8 +120,10 @@ export function gapBetween(
   houseDefault: number,
 ): number {
   if (!after) return 0;
+  // An add-on is a continuation, so it takes no changeover — and it cannot be
+  // pushed away from the treatment it extends either.
   if (after.isAddOn) return 0;
-  return changeoverFor(before, houseDefault);
+  return changeoverFor(before, houseDefault) + Math.max(0, after.gapBefore ?? 0);
 }
 
 /**
@@ -165,7 +179,13 @@ export function placeRuns<T extends Treatment>(segments: Segment<T>[]): PlaceRun
     const type = seg.placeType ?? null;
     // An add-on never starts a run: it is part of the treatment before it and
     // happens wherever that one happened.
-    const joins = open && (seg.isAddOn || (open.placeType ?? null) === type);
+    //
+    // A deliberate wait does break the run, even between two bed treatments.
+    // She is not lying on the bed during her break, so it goes back on sale —
+    // the honest cost of asking for the gap, and the reason she may not get
+    // the same bed back afterwards.
+    const waited = !seg.isAddOn && (seg.gapBefore ?? 0) > 0;
+    const joins = open && !waited && (seg.isAddOn || (open.placeType ?? null) === type);
     if (joins) {
       open.segments.push(seg);
       open.endAt = seg.endAt > open.endAt ? seg.endAt : open.endAt;

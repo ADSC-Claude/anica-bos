@@ -26,6 +26,14 @@ export class BookingError extends Error {}
 export type BookingRequest = {
   branchId: string;
   serviceIds: string[];
+  /**
+   * Minutes the booker asked to wait before a treatment, keyed by service.
+   *
+   * Almost always empty. It exists for the guest who wants lunch between her
+   * sauna and her massage — and it is re-planned and re-checked here rather
+   * than trusted, because the browser sent it.
+   */
+  waits?: Record<string, number>;
   startAtIso: string;
   therapistId?: string | null; // null / "any" => rotation
   resourceId?: string | null; // null / "any" => auto-assign
@@ -213,7 +221,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
     // after it for the shower, the consultation and the therapist setting up.
     // The order given is the order used — reordering happened before this.
     const itinerary = planVisit({
-      treatments: services.map((x) => ({
+      treatments: services.map((x, i) => ({
         serviceId: x.id,
         name: x.name,
         durationMinutes: x.durationMinutes,
@@ -221,6 +229,14 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
         sequenceRank: x.sequenceRank,
         placeType: x.requiredResourceType,
         isAddOn: x.isAddOn,
+        // Only the booker may ask for a break, and only between treatments: a
+        // wait before the first is simply a later start, and an add-on cannot
+        // be pushed away from the treatment it extends. Clamped because it
+        // came from a browser.
+        gapBefore:
+          i === 0 || x.isAddOn || guest !== requested[0]
+            ? 0
+            : Math.min(720, Math.max(0, Math.round(req.waits?.[x.id] ?? 0))),
       })),
       startAt,
       changeoverMinutes: houseChangeover,

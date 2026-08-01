@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveClientAction, type FormState } from '@/app/portal/clients/actions';
 import { DateSelect } from '@/components/date-select';
+import { WAIVER_STAFF } from '@/lib/consent';
 
 const CITIES = [
   'Quezon City', 'Caloocan City', 'Las Piñas City', 'Makati City', 'Malabon City',
@@ -27,6 +28,7 @@ export type ClientFormValues = {
   pwdIdNumber?: string;
   seniorIdNumber?: string;
   consentGiven?: boolean;
+  waiverGiven?: boolean;
 };
 
 function Save({ label }: { label: string }) {
@@ -130,6 +132,11 @@ export function ClientForm({ values }: { values: ClientFormValues }) {
             The client consented to us storing their personal and health information
             (Data Privacy Act of 2012).
           </span>
+        </label>
+        <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
+          <input type="checkbox" name="waiverGiven" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+            defaultChecked={values.waiverGiven} />
+          <span className="text-xs text-cocoa-600">{WAIVER_STAFF}</span>
         </label>
       </div>
 

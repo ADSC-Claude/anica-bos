@@ -50,6 +50,8 @@ export type BookingRequest = {
   intake: Record<string, unknown>;
   notes?: string;
   consent: boolean;
+  /** Treatment consent and liability waiver — separate from the one above. */
+  waiver: boolean;
   promoCode?: string;
   /**
    * Everyone else in the party. Empty for a booking of one.
@@ -109,6 +111,11 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   if (!req.consent) {
     throw new BookingError(
       'Please tick the data-privacy consent box so we can keep your health information on file.',
+    );
+  }
+  if (!req.waiver) {
+    throw new BookingError(
+      'Please tick the treatment consent box — we cannot book a treatment without it.',
     );
   }
   if (!req.serviceIds.length) throw new BookingError('Choose at least one service.');
@@ -387,6 +394,8 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
           incomplete: false,
           consentGiven: true,
           consentAt: new Date(),
+          waiverGiven: true,
+          waiverAt: new Date(),
           medicalUpdatedAt: new Date(),
         },
       })
@@ -402,6 +411,8 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
           barangay: req.client.barangay ?? '',
           consentGiven: true,
           consentAt: new Date(),
+          waiverGiven: true,
+          waiverAt: new Date(),
           medicalUpdatedAt: new Date(),
         },
       });

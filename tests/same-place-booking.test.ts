@@ -133,6 +133,7 @@ after(async () => {
 async function bookAndRead(serviceIds: string[], day: number) {
   const res = await createOnlineBooking({
     branchId, serviceIds, startAtIso: slotIso(day), client: client(), intake: {}, consent: true,
+    waiver: true,
   });
   const appt = (await prisma.appointment.findFirst({
     where: { reference: res.reference },

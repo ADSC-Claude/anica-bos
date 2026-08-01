@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveMedicalAction, type FormState } from '@/app/portal/clients/actions';
+import { WAIVER_STAFF } from '@/lib/consent';
 
 export type FieldDef = {
   id: string;
@@ -33,11 +34,13 @@ export function MedicalForm({
   fields,
   values,
   consentGiven,
+  waiverGiven,
 }: {
   clientId: string;
   fields: FieldDef[];
   values: Record<string, unknown>;
   consentGiven: boolean;
+  waiverGiven: boolean;
 }) {
   const [state, action] = useActionState<FormState, FormData>(saveMedicalAction, {});
   const profile = fields.filter((f) => f.section === 'PROFILE');
@@ -75,6 +78,12 @@ export function MedicalForm({
           details are visible only to signed-in staff and are excluded from every export
           except the Owner&apos;s full backup.
         </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
+        <input type="checkbox" name="waiverGiven" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+          defaultChecked={waiverGiven} />
+        <span className="text-xs text-cocoa-600">{WAIVER_STAFF}</span>
       </label>
 
       {state.error && (

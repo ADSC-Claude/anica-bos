@@ -321,10 +321,21 @@ export async function saveDiscountPresetAction(
   if (!name) return { error: 'Name the discount button.' };
 
   const type = (str(formData, 'type') || 'PERCENT') as 'PERCENT' | 'FIXED';
+  const raw = num(formData, 'value');
+  if (!Number.isFinite(raw) || raw < 0) {
+    return { error: 'Enter a discount value of zero or more.' };
+  }
+  if (type === 'PERCENT' && raw > 100) {
+    return { error: 'A percentage discount cannot be more than 100%.' };
+  }
+  // Percentages carry decimals — 7.5% is a normal promotion — but only to two
+  // places. Past that the difference is smaller than a centavo on any bill this
+  // spa will write, and a trailing 7.499999 in the settings table is just noise.
+  // FIXED goes through cents(), so it is already whole centavos.
   const data = {
     name,
     type,
-    value: type === 'FIXED' ? cents(formData, 'value') : num(formData, 'value'),
+    value: type === 'FIXED' ? cents(formData, 'value') : Math.round(raw * 100) / 100,
     serviceIds: formData.getAll('serviceIds').map(String).filter(Boolean),
     stackable: bool(formData, 'stackable'),
     requiresId: bool(formData, 'requiresId'),

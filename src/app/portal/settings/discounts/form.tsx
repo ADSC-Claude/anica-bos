@@ -58,6 +58,7 @@ export function DiscountPresetForm({
             <span className="label">Value</span>
             <input name="value" type="number" step="0.01" min={0} className="input"
               defaultValue={current?.value ?? 0} />
+            <span className="mt-1 block text-[11px] text-cocoa-400">Decimals are fine — 7.5</span>
           </label>
           <label className="block">
             <span className="label">Order</span>

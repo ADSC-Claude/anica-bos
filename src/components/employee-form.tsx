@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { saveEmployeeAction, type FormState } from '@/app/portal/employees/actions';
 import { TITLES, displayName } from '@/lib/people';
+import { DateSelect } from '@/components/date-select';
 
 export type EmployeeValues = {
   id?: string;
@@ -155,14 +156,15 @@ export function EmployeeForm({
           <input name="address" className="input" defaultValue={values.address} />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
+          <div className="block">
             <span className="label">Birthday</span>
-            <input name="birthday" type="date" max={todayKey()} className="input"
-              defaultValue={values.birthday} />
+            {/* Three lists rather than a date field: a native picker means
+                paging back three hundred months to reach 1994. */}
+            <DateSelect name="birthday" value={values.birthday} />
             <span className="mt-1 block text-[11px] text-cocoa-400">
               Asked for on every government form — SSS, PhilHealth, Pag-IBIG and BIR.
             </span>
-          </label>
+          </div>
           <label className="block">
             <span className="label">Hire date</span>
             <input name="hireDate" type="date" className="input" defaultValue={values.hireDate} />
@@ -359,7 +361,3 @@ export function EmployeeForm({
   );
 }
 
-/** Today in Manila, so a birthday cannot be set in the future. */
-function todayKey(): string {
-  return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
-}

@@ -735,6 +735,9 @@ model Employee {
   address         String           @default("")
   emergencyName   String           @default("")
   emergencyMobile String           @default("")
+  /// Date of birth. Asked for by SSS, PhilHealth, Pag-IBIG and BIR on every
+  /// form, and the only way the spa knows whose birthday it is.
+  birthday        DateTime?
   hireDate        DateTime         @default(now())
   /// Derived from `status` — kept because the roster, POS, availability and
   /// payroll all filter on it, and a status change must not silently leave

@@ -17,6 +17,7 @@ export type EmployeeValues = {
   address?: string;
   emergencyName?: string;
   emergencyMobile?: string;
+  birthday?: string;
   hireDate?: string;
   active?: boolean;
   sssNumber?: string;
@@ -56,6 +57,8 @@ export function EmployeeForm({
     nickname: values.nickname ?? '',
   });
   const [payType, setPayType] = useState(values.payType ?? 'DAILY_ALLOWANCE');
+  // Controlled, so "she does everything" can tick the lot in one go.
+  const [skills, setSkills] = useState<string[]>(values.skillIds ?? []);
   const ownerOnlyRole = role === 'RECEPTIONIST' || role === 'MANAGER';
 
   const byCategory = new Map<string, typeof services>();
@@ -151,7 +154,21 @@ export function EmployeeForm({
           <span className="label">Address</span>
           <input name="address" className="input" defaultValue={values.address} />
         </label>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="label">Birthday</span>
+            <input name="birthday" type="date" max={todayKey()} className="input"
+              defaultValue={values.birthday} />
+            <span className="mt-1 block text-[11px] text-cocoa-400">
+              Asked for on every government form — SSS, PhilHealth, Pag-IBIG and BIR.
+            </span>
+          </label>
+          <label className="block">
+            <span className="label">Hire date</span>
+            <input name="hireDate" type="date" className="input" defaultValue={values.hireDate} />
+          </label>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="label">Emergency contact</span>
             <input name="emergencyName" className="input" defaultValue={values.emergencyName} />
@@ -159,10 +176,6 @@ export function EmployeeForm({
           <label className="block">
             <span className="label">Emergency mobile</span>
             <input name="emergencyMobile" className="input" defaultValue={values.emergencyMobile} />
-          </label>
-          <label className="block">
-            <span className="label">Hire date</span>
-            <input name="hireDate" type="date" className="input" defaultValue={values.hireDate} />
           </label>
         </div>
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
@@ -256,25 +269,80 @@ export function EmployeeForm({
 
       {role === 'THERAPIST' && (
         <div className="card-pad space-y-3">
-          <p className="section-title">Skills</p>
-          <p className="muted">
-            Only therapists with the right skill are offered for a service — on the booking form
-            and in the portal.
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="section-title">Skills</p>
+              <p className="muted">
+                Only therapists with the right skill are offered for a service — on the booking
+                form and in the portal. A therapist with none ticked cannot be booked for
+                anything, and every date will come back empty.
+              </p>
+            </div>
+            {/* Most therapists here do everything, and ticking fourteen boxes
+                one at a time is how a treatment gets missed — which is exactly
+                how a full calendar reads as "no slots" for a week. Worded
+                without a pronoun: the roster has a title field for a reason. */}
+            <label className="flex shrink-0 items-center gap-2 rounded-xl border border-cocoa-300 bg-cocoa-50 px-3 py-2 text-sm font-medium text-cocoa-800">
+              <input
+                type="checkbox"
+                className="h-5 w-5 accent-[#6b4e35]"
+                checked={skills.length === services.length && services.length > 0}
+                ref={(el) => {
+                  // Part-way is neither on nor off, and a box that looks empty
+                  // while half the treatments are ticked invites clearing them.
+                  if (el) el.indeterminate = skills.length > 0 && skills.length < services.length;
+                }}
+                onChange={(e) => setSkills(e.target.checked ? services.map((x) => x.id) : [])}
+              />
+              Does every treatment
+            </label>
+          </div>
+
+          {[...byCategory.entries()].map(([cat, list]) => {
+            const on = list.filter((x) => skills.includes(x.id)).length;
+            return (
+              <fieldset key={cat}>
+                <legend className="mb-1 flex w-full items-center justify-between gap-2 text-xs font-semibold text-cocoa-500">
+                  <span>{cat}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSkills((prev) =>
+                        on === list.length
+                          ? prev.filter((id) => !list.some((x) => x.id === id))
+                          : [...new Set([...prev, ...list.map((x) => x.id)])],
+                      )
+                    }
+                    className="font-medium text-cocoa-600 underline underline-offset-2 hover:text-cocoa-900"
+                  >
+                    {on === list.length ? 'clear' : 'all'}
+                  </button>
+                </legend>
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {list.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 rounded-xl border border-sand-200 px-3 py-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="skillIds"
+                        value={s.id}
+                        className="h-4 w-4 accent-[#6b4e35]"
+                        checked={skills.includes(s.id)}
+                        onChange={(e) =>
+                          setSkills((prev) =>
+                            e.target.checked ? [...prev, s.id] : prev.filter((x) => x !== s.id),
+                          )
+                        }
+                      />
+                      {s.name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            );
+          })}
+          <p className="text-[11px] text-cocoa-400">
+            {skills.length} of {services.length} treatments ticked.
           </p>
-          {[...byCategory.entries()].map(([cat, list]) => (
-            <fieldset key={cat}>
-              <legend className="mb-1 text-xs font-semibold text-cocoa-500">{cat}</legend>
-              <div className="grid gap-1.5 sm:grid-cols-2">
-                {list.map((s) => (
-                  <label key={s.id} className="flex items-center gap-2 rounded-xl border border-sand-200 px-3 py-2 text-sm">
-                    <input type="checkbox" name="skillIds" value={s.id} className="h-4 w-4 accent-[#6b4e35]"
-                      defaultChecked={values.skillIds?.includes(s.id)} />
-                    {s.name}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          ))}
         </div>
       )}
 
@@ -289,4 +357,9 @@ export function EmployeeForm({
       </button>
     </form>
   );
+}
+
+/** Today in Manila, so a birthday cannot be set in the future. */
+function todayKey(): string {
+  return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
 }

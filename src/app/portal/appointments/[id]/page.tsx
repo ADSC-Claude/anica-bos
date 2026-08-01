@@ -14,6 +14,8 @@ import {
   setAppointmentStatusAction,
   verifyDepositAction,
 } from '../actions';
+import { ItineraryPanel } from './itinerary-panel';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +60,11 @@ export default async function AppointmentDetailPage({
       partner: true,
       sales: { select: { id: true, receiptNo: true, totalCents: true, status: true } },
       services: {
-        include: { service: true, employee: { select: { id: true, name: true } } },
+        include: {
+          service: true,
+          employee: { select: { id: true, name: true, displayName: true } },
+          resource: { select: { id: true, name: true } },
+        },
         orderBy: { sortRank: 'asc' },
       },
     },
@@ -268,22 +274,27 @@ export default async function AppointmentDetailPage({
           </dl>
         </div>
 
+        <div className="space-y-4">
+          <ItineraryPanel
+            appointmentId={appt.id}
+            canEdit={canEdit}
+            legs={appt.services.map((s) => ({
+              id: s.id,
+              name: s.service.name,
+              therapist: s.employee ? shownName(s.employee) : 'unassigned',
+              placeName: s.resource?.name ?? 'no place yet',
+              durationMinutes: s.durationMinutes,
+              priceCents: s.priceCents,
+              startAtIso: s.startAt ? s.startAt.toISOString() : null,
+              endAtIso: s.endAt ? s.endAt.toISOString() : null,
+              actualStartAtIso: s.actualStartAt ? s.actualStartAt.toISOString() : null,
+              actualEndAtIso: s.actualEndAt ? s.actualEndAt.toISOString() : null,
+              changeoverAfter: s.changeoverMinutes,
+            }))}
+          />
+
         <div className="card-pad">
-          <h2 className="section-title mb-3">Services</h2>
-          <ul className="space-y-2 text-sm">
-            {appt.services.map((s) => (
-              <li key={s.id} className="flex items-start justify-between gap-3">
-                <span>
-                  <span className="block font-medium text-cocoa-800">{s.service.name}</span>
-                  <span className="block text-xs text-cocoa-400">
-                    {s.durationMinutes} min · {s.employee?.name ?? 'unassigned'}
-                  </span>
-                </span>
-                <span className="num shrink-0 font-medium">{formatPeso(s.priceCents)}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3 border-t border-sand-200 pt-3 text-sm">
+          <div className="text-sm">
             <div className="flex justify-between font-semibold">
               <span>Service total</span>
               <span className="num">{formatPeso(total)}</span>
@@ -307,6 +318,7 @@ export default async function AppointmentDetailPage({
               </>
             )}
           </div>
+        </div>
         </div>
       </div>
 

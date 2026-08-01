@@ -11,6 +11,7 @@ import {
   slotsForDay,
 } from '@/lib/availability';
 import { minutesToLabel } from '@/lib/datetime';
+import { houseOrder, planVisit, visitMinutes } from '@/lib/itinerary';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,12 +62,30 @@ export async function GET(req: Request) {
       priceCents: true,
       name: true,
       requiredResourceType: true,
+      sequenceRank: true,
+      changeoverMinutes: true,
     },
   });
   if (services.length !== serviceIds.length) {
     return NextResponse.json({ error: 'A selected service is unavailable.' }, { status: 400 });
   }
-  const durationMinutes = services.reduce((a, s) => a + s.durationMinutes, 0);
+  // Keep the order the caller sent — the booking form lets the guest reorder
+  // her visit, and re-sorting here would silently undo it. Only when nothing
+  // has been ordered yet does the house order apply.
+  const ordered = serviceIds
+    .map((id) => services.find((s) => s.id === id))
+    .filter(Boolean) as typeof services;
+  const houseChangeover = settings['booking.changeoverMinutes'];
+  const treatments = ordered.map((s) => ({
+    serviceId: s.id,
+    name: s.name,
+    durationMinutes: s.durationMinutes,
+    changeoverMinutes: s.changeoverMinutes,
+    sequenceRank: s.sequenceRank,
+  }));
+  // Door to door, gaps included. A sauna and a massage is 110 minutes, not 90,
+  // and quoting 90 is how the desk ends up an hour behind by nine o'clock.
+  const durationMinutes = visitMinutes(treatments, houseChangeover);
   const priceCents = services.reduce((a, s) => a + s.priceCents, 0);
 
   // The guests' treatments too, so the fee quoted is the party's and the slot
@@ -74,14 +93,26 @@ export async function GET(req: Request) {
   const guestCatalog = guestGroups.length
     ? await prisma.service.findMany({
         where: { id: { in: [...new Set(guestGroups.flat())] }, active: true },
-        select: { id: true, durationMinutes: true, priceCents: true, requiredResourceType: true },
+        select: {
+          id: true, durationMinutes: true, priceCents: true, requiredResourceType: true,
+          sequenceRank: true, changeoverMinutes: true,
+        },
       })
     : [];
   const guestById = new Map(guestCatalog.map((g) => [g.id, g]));
   const guestSeats = guestGroups.map((ids) => {
     const rows = ids.map((id) => guestById.get(id)).filter(Boolean) as typeof guestCatalog;
     return {
-      minutes: rows.reduce((a, r) => a + r.durationMinutes, 0),
+      minutes: visitMinutes(
+        rows.map((r) => ({
+          serviceId: r.id,
+          name: '',
+          durationMinutes: r.durationMinutes,
+          changeoverMinutes: r.changeoverMinutes,
+          sequenceRank: r.sequenceRank,
+        })),
+        houseChangeover,
+      ),
       price: rows.reduce((a, r) => a + r.priceCents, 0),
       place: requiredPlaceFor(rows),
     };
@@ -110,10 +141,31 @@ export async function GET(req: Request) {
       // them just moves "why not that one?" to after the click.
       floorPlan({ branchId: branch.id, startAt, endAt }),
     ]);
+    // The visit, treatment by treatment: when each runs, how long the gap
+    // after it is, and what kind of place it needs. The form draws this as a
+    // list you can reorder, so the guest sees the consequence of the order
+    // rather than being asked an abstract question about it.
+    const itinerary = planVisit({ treatments, startAt, changeoverMinutes: houseChangeover }).map(
+      (step) => {
+        const svc = ordered.find((x) => x.id === step.serviceId)!;
+        const needs = requiredPlaceFor([svc]);
+        return {
+          serviceId: step.serviceId,
+          name: step.name,
+          durationMinutes: step.durationMinutes,
+          startAt: step.startAt.toISOString(),
+          endAt: step.endAt.toISOString(),
+          changeoverAfter: step.changeoverAfter,
+          accepts: needs ? placesSatisfying(needs) : null,
+        };
+      },
+    );
+
     return NextResponse.json({
       therapists: therapists.map((t) => ({ id: t.id, name: t.name })),
       resources,
       plan,
+      itinerary,
       /** Which place types this booking's treatments can actually use. */
       accepts: place ? placesSatisfying(place) : null,
       /**

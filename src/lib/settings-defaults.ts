@@ -50,6 +50,22 @@ export const DEFAULT_SETTINGS = {
    * late. 0 turns requests off and the spa simply closes on time.
    */
   'booking.lastCallMinutes': 60,
+  /**
+   * Minutes left free between two treatments in the same visit.
+   *
+   * A guest coming out of the sauna showers, is consulted, has her feet soaked
+   * and waits for the therapist to set up. Booking the massage the instant the
+   * sauna ends quotes a finish time the spa cannot hit.
+   *
+   * Five minutes, deliberately short. It is a changeover, not a buffer for
+   * every delay: a sauna at 1:30 then an hour's massage runs 1:30–2:00 and
+   * 2:05–3:05, which puts the next bookable slot at 3:15 on the quarter-hour
+   * grid. That ten minutes of slack is where a slow consultation goes. Padding
+   * the gap instead would price a whole extra treatment out of the evening.
+   * A treatment that genuinely needs longer can override this in
+   * Settings → Services.
+   */
+  'booking.changeoverMinutes': 5,
 
   // --- POS ---
   'pos.discountApprovalPercent': 20,

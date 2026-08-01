@@ -424,6 +424,14 @@ model Service {
   /// that requires a bed must not be offered the foot-spa chair, and a foot
   /// spa occupying a bed is a bed that cannot be sold.
   requiredResourceType ResourceType?
+  /// Where this treatment usually falls in a visit. Lower runs first, so a
+  /// sauna at 10 comes before a massage at 30 without anybody being asked.
+  /// A number rather than a rule in code, so the spa can reorder its own flow.
+  sequenceRank         Int               @default(50)
+  /// Minutes needed after this treatment before the next can start, when the
+  /// house default is not right — a sauna needs a shower, a foot spa does not.
+  /// Null means use the branch default.
+  changeoverMinutes    Int?
   active               Boolean           @default(true)
   showOnLanding        Boolean           @default(true)
   sortRank             Int               @default(0)
@@ -482,6 +490,9 @@ model Resource {
   sortRank     Int          @default(0)
 
   appointments Appointment[]
+  /// Individual treatments held here. A visit's sauna leg and its massage leg
+  /// are separate holds on separate places.
+  segments     AppointmentService[]
 
   @@unique([branchId, name])
 }
@@ -1046,6 +1057,13 @@ model Appointment {
   @@index([clientId])
 }
 
+/// One treatment inside a visit — a *segment*, with its own place and its own
+/// clock.
+///
+/// A guest booking a sauna and a massage is one visit in two parts: half an
+/// hour in the sauna, then an hour on a bed, with a gap between for the shower,
+/// the consultation and the therapist to set up. Holding one place for the
+/// whole visit would keep a bed empty through the sauna and sell neither.
 model AppointmentService {
   id              String      @id @default(cuid())
   appointmentId   String
@@ -1054,12 +1072,33 @@ model AppointmentService {
   service         Service     @relation(fields: [serviceId], references: [id])
   employeeId      String?
   employee        Employee?   @relation(fields: [employeeId], references: [id])
+  /// Where this treatment happens. The sauna for the sauna, a bed for the
+  /// massage — the appointment's own `resourceId` is only the first one, kept
+  /// so lists and receipts have something to name.
+  resourceId      String?
+  resource        Resource?   @relation(fields: [resourceId], references: [id])
   /// Snapshot of the list price at booking time (centavos).
   priceCents      Int
   durationMinutes Int
+  /// Where it sits in the visit. Lower runs first.
   sortRank        Int         @default(0)
 
+  /// The plan: when this treatment is scheduled to run.
+  startAt           DateTime?
+  endAt             DateTime?
+  /// What actually happened, logged by the desk as the visit runs.
+  ///
+  /// A treatment that started late holds its place late, so occupancy is read
+  /// from these when they are set and from the plan when they are not. Without
+  /// them the calendar shows a bed free while somebody is still on it.
+  actualStartAt     DateTime?
+  actualEndAt       DateTime?
+  /// Minutes to leave free *after* this treatment before the next one starts:
+  /// the shower after a sauna, the foot soak and consultation before a massage.
+  changeoverMinutes Int       @default(0)
+
   @@index([employeeId])
+  @@index([resourceId, startAt])
 }
 
 // ============================================================ sales / POS

@@ -19,6 +19,7 @@ import {
 import { PageHeader, StatusBadge, EmptyState, Tabs } from '@/components/ui';
 import { formatPeso } from '@/lib/money';
 import { shownName } from '@/lib/people';
+import { effectiveWindow } from '@/lib/itinerary';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Appointments' };
@@ -95,7 +96,14 @@ async function DayView({
       include: {
         client: { select: { id: true, name: true } },
         resource: { select: { name: true } },
-        services: { include: { service: { select: { name: true } }, employee: { select: { id: true, name: true } } } },
+        services: {
+          include: {
+            service: { select: { name: true } },
+            employee: { select: { id: true, name: true, displayName: true } },
+            resource: { select: { name: true } },
+          },
+          orderBy: { sortRank: 'asc' },
+        },
       },
       orderBy: { startAt: 'asc' },
     }),
@@ -118,7 +126,7 @@ async function DayView({
   for (const a of therapists) columns.set(a.employee.id, shownName(a.employee));
   for (const appt of appointments) {
     for (const s of appt.services) {
-      if (s.employee) columns.set(s.employee.id, s.employee.name);
+      if (s.employee) columns.set(s.employee.id, shownName(s.employee));
     }
   }
   const columnList = [...columns.entries()];
@@ -164,38 +172,61 @@ async function DayView({
                   {minutesToLabel(hourMinute)}
                 </div>
                 {columnList.map(([id]) => {
-                  const inHour = appointments.filter((a) => {
-                    const start = manilaMinuteOfDay(a.startAt);
-                    return (
-                      start >= hourMinute &&
-                      start < hourMinute + 60 &&
-                      a.services.some((s) => s.employee?.id === id)
-                    );
-                  });
+                  // One block per *treatment*, not per visit. A guest booked for
+                  // a sauna at 1:30 and a massage at 2:20 belongs in two rows of
+                  // the calendar, in two different places — drawing her as a
+                  // single block from 1:30 to 3:20 hides the bed she is not on
+                  // yet and the sauna she has already left.
+                  const inHour = appointments.flatMap((a) =>
+                    a.services
+                      .filter((sv) => {
+                        if (sv.employee?.id !== id) return false;
+                        const w = effectiveWindow(sv);
+                        if (!w) return false;
+                        const start = manilaMinuteOfDay(w.start);
+                        return start >= hourMinute && start < hourMinute + 60;
+                      })
+                      .map((sv) => ({ a, sv, w: effectiveWindow(sv)! })),
+                  );
                   return (
                     <div key={id} className="min-h-12 border-l border-sand-100 p-1">
-                      {inHour.map((a) => (
-                        <Link
-                          key={a.id}
-                          href={`/portal/appointments/${a.id}`}
-                          className="mb-1 block rounded-lg bg-cocoa-100 px-2 py-1 text-[11px] leading-tight text-cocoa-800 hover:bg-cocoa-200"
-                        >
-                          <span className="block font-semibold">
-                            {formatTimeManila(a.startAt)} {a.client.name}
-                          </span>
-                          <span className="block truncate text-cocoa-600">
-                            {a.services.map((s) => s.service.name).join(', ')}
-                          </span>
-                          <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                            <StatusBadge status={a.status} />
-                            {(alerts.get(a.client.id)?.length ?? 0) > 0 && (
-                              <span className="badge bg-clay-500 text-white" title="Health alert">
-                                ⚕ alert
-                              </span>
-                            )}
-                          </span>
-                        </Link>
-                      ))}
+                      {inHour.map(({ a, sv, w }) => {
+                        const running = Boolean(sv.actualStartAt) && !sv.actualEndAt;
+                        const logged = Boolean(sv.actualStartAt || sv.actualEndAt);
+                        return (
+                          <Link
+                            key={sv.id}
+                            href={`/portal/appointments/${a.id}`}
+                            className={`mb-1 block rounded-lg px-2 py-1 text-[11px] leading-tight text-cocoa-800 ${
+                              running
+                                ? 'bg-gilt-500/25 hover:bg-gilt-500/40'
+                                : 'bg-cocoa-100 hover:bg-cocoa-200'
+                            }`}
+                          >
+                            <span className="num block font-semibold">
+                              {formatTimeManila(w.start)}–{formatTimeManila(w.end)}
+                              {logged && (
+                                <span className="ml-1 font-normal text-cocoa-500" title="actual time">
+                                  ●
+                                </span>
+                              )}
+                            </span>
+                            <span className="block truncate font-medium">{a.client.name}</span>
+                            <span className="block truncate text-cocoa-600">
+                              {sv.service.name}
+                              {sv.resource ? ` · ${sv.resource.name}` : ''}
+                            </span>
+                            <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                              <StatusBadge status={a.status} />
+                              {(alerts.get(a.client.id)?.length ?? 0) > 0 && (
+                                <span className="badge bg-clay-500 text-white" title="Health alert">
+                                  ⚕ alert
+                                </span>
+                              )}
+                            </span>
+                          </Link>
+                        );
+                      })}
                     </div>
                   );
                 })}

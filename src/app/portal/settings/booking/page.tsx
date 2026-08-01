@@ -67,6 +67,21 @@ export default async function BookingSettingsPage() {
               </label>
             </div>
             <label className="block">
+              <span className="label">Changeover between treatments (minutes)</span>
+              <input name="changeoverMinutes" type="number" min={0} step={5} className="input"
+                defaultValue={s['booking.changeoverMinutes']} />
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                Time left free between two treatments in the same visit — the shower after a
+                sauna, the consultation and foot soak before a massage, the therapist setting up.
+                A sauna at 1:30 followed by an hour&rsquo;s massage finishes at 3:20 with 20
+                minutes here, not at 3:00. Booking them back to back quotes a finish time you
+                cannot hit. A treatment that needs longer can override this in{' '}
+                <a href="/portal/settings/services" className="underline underline-offset-2">
+                  Services
+                </a>.
+              </span>
+            </label>
+            <label className="block">
               <span className="label">Last call — request window before closing (minutes)</span>
               <input name="lastCallMinutes" type="number" min={0} step={15} className="input"
                 defaultValue={s['booking.lastCallMinutes']} />

@@ -9,6 +9,7 @@
 import type { ResourceType } from '@prisma/client';
 import { prisma } from './db';
 import { shownName } from './people';
+import { effectiveWindow, overlaps as windowsOverlap } from './itinerary';
 import {
   businessDate,
   dateKeyToBusinessDate,
@@ -145,6 +146,111 @@ export async function nextTherapistInRotation(opts: {
   )[0];
 }
 
+/**
+ * One treatment holding one place for a stretch of time.
+ *
+ * Occupancy is counted from these rather than from appointments, because a
+ * visit is no longer one block in one place: a guest booked for a sauna then a
+ * massage holds the sauna from 1:30 and a bed from 2:20, and the bed is free to
+ * sell to somebody else until then. Reading the appointment's own window would
+ * hold both places for the whole visit and sell neither.
+ */
+type PlaceHold = {
+  resourceId: string;
+  appointmentId: string;
+  /** Blank for a booking of one; shared by everyone in a group. */
+  partyRef: string;
+  start: Date;
+  end: Date;
+};
+
+/**
+ * Every treatment occupying a place during the window asked about.
+ *
+ * The database cannot compute "actual time if logged, plan otherwise" in a
+ * WHERE clause, so the query casts a slightly wider net — anything whose plan
+ * *or* logged times could reach into the window — and `effectiveWindow` decides
+ * precisely. The third clause is the one that matters at the desk: a treatment
+ * that has started and not finished is still holding its place, however far
+ * past its planned end it has run.
+ */
+async function placeHolds(opts: {
+  branchId: string;
+  startAt: Date;
+  endAt: Date;
+  excludeAppointmentId?: string;
+  excludeSegmentIds?: string[];
+}): Promise<PlaceHold[]> {
+  const rows = await prisma.appointmentService.findMany({
+    where: {
+      resourceId: { not: null },
+      ...(opts.excludeSegmentIds?.length ? { id: { notIn: opts.excludeSegmentIds } } : {}),
+      appointment: {
+        branchId: opts.branchId,
+        status: { in: [...BUSY_STATUSES] },
+        ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
+      },
+      OR: [
+        { startAt: { lt: opts.endAt }, endAt: { gt: opts.startAt } },
+        { actualStartAt: { lt: opts.endAt }, actualEndAt: { gt: opts.startAt } },
+        { actualStartAt: { lt: opts.endAt, not: null }, actualEndAt: null },
+      ],
+    },
+    select: {
+      resourceId: true,
+      appointmentId: true,
+      startAt: true,
+      endAt: true,
+      actualStartAt: true,
+      actualEndAt: true,
+      durationMinutes: true,
+      appointment: { select: { partyRef: true } },
+    },
+  });
+
+  const want = { start: opts.startAt, end: opts.endAt };
+  const out: PlaceHold[] = [];
+  for (const r of rows) {
+    const w = effectiveWindow(r);
+    if (!w || !windowsOverlap(w, want)) continue;
+    out.push({
+      resourceId: r.resourceId!,
+      appointmentId: r.appointmentId,
+      partyRef: r.appointment.partyRef,
+      start: w.start,
+      end: w.end,
+    });
+  }
+
+  // A booking that holds a place but lists no treatments — a room blocked out
+  // for cleaning, a reservation taken before the guest decided what she wants —
+  // still holds it for its whole window. Counting only treatments would quietly
+  // release those places and sell them twice, so the appointment's own window
+  // stands in when it has nothing else to say.
+  const bare = await prisma.appointment.findMany({
+    where: {
+      branchId: opts.branchId,
+      resourceId: { not: null },
+      status: { in: [...BUSY_STATUSES] },
+      startAt: { lt: opts.endAt },
+      endAt: { gt: opts.startAt },
+      services: { none: {} },
+      ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
+    },
+    select: { id: true, resourceId: true, partyRef: true, startAt: true, endAt: true },
+  });
+  for (const a of bare) {
+    out.push({
+      resourceId: a.resourceId!,
+      appointmentId: a.id,
+      partyRef: a.partyRef,
+      start: a.startAt,
+      end: a.endAt,
+    });
+  }
+  return out;
+}
+
 export type AvailableResource = {
   id: string;
   name: string;
@@ -207,6 +313,8 @@ export async function availableResources(opts: {
   startAt: Date;
   endAt: Date;
   excludeAppointmentId?: string;
+  /** Ignore these treatments' own holds — used when re-timing one of them. */
+  excludeSegmentIds?: string[];
   /** Restrict to one kind of place. Omitted means any. */
   resourceType?: ResourceType | null;
   /**
@@ -229,17 +337,7 @@ export async function availableResources(opts: {
     },
     orderBy: { sortRank: 'asc' },
   });
-  const taken = await prisma.appointment.findMany({
-    where: {
-      branchId: opts.branchId,
-      resourceId: { not: null },
-      status: { in: [...BUSY_STATUSES] },
-      startAt: { lt: opts.endAt },
-      endAt: { gt: opts.startAt },
-      ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
-    },
-    select: { resourceId: true, partyRef: true },
-  });
+  const taken = await placeHolds(opts);
 
   // Capacity, not a yes/no. A couples room holds two and a foot-spa area holds
   // as many chairs as it has; treating one booking as filling the whole thing
@@ -251,11 +349,11 @@ export async function availableResources(opts: {
   const used = new Map<string, number>();
   const holders = new Map<string, Set<string>>();
   for (const t of taken) {
-    if (!t.resourceId) continue;
     used.set(t.resourceId, (used.get(t.resourceId) ?? 0) + 1);
     const set = holders.get(t.resourceId) ?? new Set<string>();
-    // An appointment with no partyRef is its own party of one.
-    set.add(t.partyRef || `solo:${t.resourceId}:${set.size}`);
+    // A booking with no partyRef is its own party of one. Keyed by appointment
+    // so the same solo booking is never counted as two different strangers.
+    set.add(t.partyRef || `solo:${t.appointmentId}`);
     holders.set(t.resourceId, set);
   }
 
@@ -307,6 +405,8 @@ export async function assertNoConflicts(opts: {
   partyRef?: string;
   /** How many guests the party is placing here, for whole-unit places. */
   partySize?: number;
+  /** Treatments whose own holds to ignore — used when re-timing one of them. */
+  excludeSegmentIds?: string[];
 }): Promise<void> {
   if (opts.employeeIds.length) {
     const clash = await prisma.appointmentService.findFirst({
@@ -345,17 +445,17 @@ export async function assertNoConflicts(opts: {
     }
 
     const capacity = Math.max(1, resource?.capacity ?? 1);
-    const overlappingRows = await prisma.appointment.findMany({
-      where: {
+    // Counted per treatment, so a guest who leaves this bed at 2:00 stops
+    // holding it at 2:00 even though her visit runs to 3:20.
+    const overlappingRows = (
+      await placeHolds({
         branchId: opts.branchId,
-        resourceId: opts.resourceId,
-        status: { in: [...BUSY_STATUSES] },
-        startAt: { lt: opts.endAt },
-        endAt: { gt: opts.startAt },
-        ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
-      },
-      select: { partyRef: true },
-    });
+        startAt: opts.startAt,
+        endAt: opts.endAt,
+        excludeAppointmentId: opts.excludeAppointmentId,
+        excludeSegmentIds: opts.excludeSegmentIds,
+      })
+    ).filter((h) => h.resourceId === opts.resourceId);
     const overlapping = overlappingRows.length;
 
     if (resource?.exclusiveUse) {
@@ -627,17 +727,9 @@ export async function floorPlan(opts: {
       where: { branchId: opts.branchId, active: true },
       orderBy: { sortRank: 'asc' },
     }),
-    prisma.appointment.findMany({
-      where: {
-        branchId: opts.branchId,
-        resourceId: { not: null },
-        status: { in: [...BUSY_STATUSES] },
-        startAt: { lt: opts.endAt },
-        endAt: { gt: opts.startAt },
-        ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
-      },
-      select: { resourceId: true, partyRef: true, endAt: true },
-    }),
+    // Treatments, not visits: the bed a guest moves to at 2:20 is free until
+    // then, and the picker has to draw it that way or it sells nothing.
+    placeHolds(opts),
   ]);
 
   const mine = opts.partyRef ?? '';
@@ -646,9 +738,10 @@ export async function floorPlan(opts: {
     const capacity = Math.max(1, r.capacity);
     const strangers = here.filter((t) => !mine || t.partyRef !== mine);
     // The soonest it frees up, which is the only useful thing to say about a
-    // place somebody cannot have.
+    // place somebody cannot have. Read from the real end when the desk has
+    // logged one, so "until 8:30" is not a promise the floor will not keep.
     const freeFrom = here.length
-      ? here.reduce((a, b) => (a.endAt < b.endAt ? a : b)).endAt
+      ? here.reduce((a, b) => (a.end < b.end ? a : b)).end
       : null;
     return {
       id: r.id,

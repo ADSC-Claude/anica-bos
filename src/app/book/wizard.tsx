@@ -4,13 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FloorPlan, type PlanPlace } from '@/components/floor-plan';
 import { useRouter } from 'next/navigation';
 import { formatPeso } from '@/lib/money';
+import { VisitOrder } from '@/components/visit-order';
+import { houseOrder } from '@/lib/itinerary';
 
 type Catalog = {
   branches: { id: string; name: string; address: string }[];
   categories: {
     id: string;
     name: string;
-    services: { id: string; name: string; durationMinutes: number; priceCents: number }[];
+    services: {
+      id: string; name: string; durationMinutes: number; priceCents: number;
+      sequenceRank: number; changeoverMinutes: number | null;
+    }[];
   }[];
   fields: {
     key: string;
@@ -22,6 +27,8 @@ type Catalog = {
     required: boolean;
   }[];
   depositPercent: number;
+  /** House gap between two treatments in one visit. */
+  changeoverMinutes: number;
   expiryMinutes: number;
   manualFallback: boolean;
   gcash: { name: string; number: string; bank: string };
@@ -191,7 +198,11 @@ export function BookingWizard() {
     }
     return null;
   }, [seats, plan, resourceId]);
-  const chosen = allServices.filter((s) => serviceIds.includes(s.id));
+  // In *visit* order, not catalogue order — the list is reorderable and the
+  // schedule, the summary and the API all key off this sequence.
+  const chosen = serviceIds
+    .map((id) => allServices.find((s) => s.id === id))
+    .filter(Boolean) as typeof allServices;
   const totalMinutes = chosen.reduce((a, s) => a + s.durationMinutes, 0);
   const totalPrice = chosen.reduce((a, s) => a + s.priceCents, 0);
   const deposit = slotInfo?.depositCents ?? Math.round((totalPrice * (catalog?.depositPercent ?? 30)) / 100);
@@ -526,9 +537,23 @@ export function BookingWizard() {
                           key={s.id}
                           type="button"
                           onClick={() =>
-                            setServiceIds((prev) =>
-                              prev.includes(s.id) ? prev.filter((x) => x !== s.id) : [...prev, s.id],
-                            )
+                            setServiceIds((prev) => {
+                              if (prev.includes(s.id)) return prev.filter((x) => x !== s.id);
+                              // Dropped in where the spa usually runs it, so a
+                              // sauna ticked after a massage still comes first.
+                              const picked = [...prev, s.id]
+                                .map((id) => allServices.find((x) => x.id === id))
+                                .filter(Boolean) as typeof allServices;
+                              return houseOrder(
+                                picked.map((x) => ({
+                                  serviceId: x.id,
+                                  name: x.name,
+                                  durationMinutes: x.durationMinutes,
+                                  changeoverMinutes: x.changeoverMinutes,
+                                  sequenceRank: x.sequenceRank,
+                                })),
+                              ).map((t) => t.serviceId);
+                            })
                           }
                           className={`flex min-h-12 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
                             active
@@ -551,6 +576,21 @@ export function BookingWizard() {
               ))}
             </div>
           </div>
+
+          {chosen.length > 1 && (
+            <VisitOrder
+              treatments={chosen.map((x) => ({
+                serviceId: x.id,
+                name: x.name,
+                durationMinutes: x.durationMinutes,
+                changeoverMinutes: x.changeoverMinutes,
+                sequenceRank: x.sequenceRank,
+              }))}
+              changeoverMinutes={catalog.changeoverMinutes ?? 15}
+              startAt={startAt ? new Date(startAt) : null}
+              onReorder={(next) => setServiceIds(next.map((t) => t.serviceId))}
+            />
+          )}
 
           {/* One block per guest. Deliberately the same service buttons as the
               booker's, because "the same list, for Nina" is a thing anyone can

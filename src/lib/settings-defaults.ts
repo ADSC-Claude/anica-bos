@@ -38,7 +38,23 @@ export const DEFAULT_SETTINGS = {
   'booking.gcashName': 'ANICA Wellness Spa',
   'booking.gcashNumber': '0900 000 0000',
   'booking.bankDetails': 'BDO • ANICA Wellness Spa • 0000 0000 0000',
-  'booking.depositOnCancel': 'FORFEIT' as 'FORFEIT' | 'REFUND',
+  /**
+   * How a reservation fee is treated when the guest cancels *in time* — that
+   * is, at least `booking.cancellationHours` before her appointment.
+   *
+   * A late cancellation and a no-show always forfeit, whatever this says: the
+   * bed was held and the hour could no longer be resold.
+   */
+  'booking.depositOnCancel': 'REFUND' as 'FORFEIT' | 'REFUND',
+  /**
+   * How many hours before her appointment a guest must cancel to keep her
+   * reservation fee.
+   *
+   * The number is not about the guest, it is about the floor: it is how much
+   * notice the spa needs to sell the hour to somebody else on the same day. Set
+   * it to the point where a freed slot can still realistically be filled.
+   */
+  'booking.cancellationHours': 5,
   'booking.leadTimeMinutes': 60,
   'booking.slotStepMinutes': 15,
   /**

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { cancellationPolicyText } from '@/lib/booking-policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,15 @@ export async function GET() {
     /** House gap between two treatments in one visit, so the form can quote it. */
     changeoverMinutes: settings['booking.changeoverMinutes'],
     expiryMinutes: settings['booking.expiryMinutes'],
+    /**
+     * The cancellation rule, rendered from the same settings the desk enforces
+     * it with. Sent as finished text rather than raw numbers so the booking
+     * form cannot word it differently from the portal.
+     */
+    cancellationPolicy: cancellationPolicyText({
+      windowHours: settings['booking.cancellationHours'],
+      inTimePolicy: settings['booking.depositOnCancel'],
+    }),
     manualFallback: settings['booking.manualFallbackEnabled'],
     leadTimeMinutes: settings['booking.leadTimeMinutes'],
     slotStepMinutes: settings['booking.slotStepMinutes'],

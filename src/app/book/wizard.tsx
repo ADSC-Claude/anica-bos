@@ -36,6 +36,8 @@ type Catalog = {
   /** House gap between two treatments in one visit. */
   changeoverMinutes: number;
   expiryMinutes: number;
+  /** Finished sentence from the server — see lib/booking-policy.ts. */
+  cancellationPolicy: string;
   manualFallback: boolean;
   gcash: { name: string; number: string; bank: string };
   bookingEnabled: boolean;
@@ -1254,6 +1256,20 @@ export function BookingWizard() {
               released after {catalog.expiryMinutes} minutes.
             </p>
           </div>
+
+          {/* The cancellation rule, on the step with the pay button rather than
+              behind a link. A guest who only learns the fee was non-refundable
+              after losing it was never really told. */}
+          {catalog.cancellationPolicy && (
+            <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+                Cancellations &amp; no-shows
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-cocoa-600">
+                {catalog.cancellationPolicy}
+              </p>
+            </div>
+          )}
 
           {/* The same reason, again, beside the button it is stopping.
               The checklist at the top of the step is where the detail lives,

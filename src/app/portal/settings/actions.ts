@@ -83,6 +83,7 @@ export async function saveSettingsAction(
         'booking.gcashNumber': str(formData, 'gcashNumber'),
         'booking.bankDetails': str(formData, 'bankDetails'),
         'booking.depositOnCancel': str(formData, 'depositOnCancel'),
+        'booking.cancellationHours': num(formData, 'cancellationHours'),
       };
       break;
 

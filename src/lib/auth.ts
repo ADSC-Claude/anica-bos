@@ -27,6 +27,12 @@ export type SessionUser = {
   role: Role;
   branchId: string | null;
   mustChangePassword: boolean;
+  /**
+   * When the token was signed, in seconds. Read back from the cookie rather
+   * than passed in — `createSession` stamps it itself. Used only to tell a
+   * token issued before an account was locked from one issued after.
+   */
+  issuedAt?: number;
 };
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -91,10 +97,42 @@ export async function getSession(): Promise<SessionUser | null> {
       role: payload.role as Role,
       branchId: (payload.branchId as string | null) ?? null,
       mustChangePassword: Boolean(payload.mcp),
+      issuedAt: typeof payload.iat === 'number' ? payload.iat : undefined,
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether a cookie that still verifies belongs to an account that may still
+ * use the system.
+ *
+ * The session token is self-contained and lives for twelve hours, so on its
+ * own it says nothing about what has happened since it was signed. An account
+ * deleted or disabled at ten in the morning would keep working until evening —
+ * which is not what the person clicking "Delete" believes they have done.
+ *
+ * Three ways an account stops standing: the row is gone, the row is disabled,
+ * or its sessions were revoked after this token was signed (a password reset
+ * by the Owner, or the disable itself). The last is what makes locking someone
+ * out immediate instead of eventual.
+ */
+export async function accountStanding(session: SessionUser): Promise<'ok' | 'revoked'> {
+  const row = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { active: true, sessionsRevoked: true },
+  });
+  if (!row || !row.active) return 'revoked';
+  // Both sides in whole seconds, because `iat` is stamped in seconds: comparing
+  // it against a millisecond timestamp reads a token minted at 10:00:00.2 as
+  // older than a revocation at 10:00:00.7, and locks out the sign-in that was
+  // meant to restore access.
+  if (row.sessionsRevoked && session.issuedAt !== undefined) {
+    const revokedAt = Math.floor(row.sessionsRevoked.getTime() / 1000);
+    if (session.issuedAt < revokedAt) return 'revoked';
+  }
+  return 'ok';
 }
 
 export type LoginResult =

@@ -35,6 +35,15 @@ type Entity = {
   module: string;
   name: (id: string) => Promise<string | null>;
   blockers: Blocker[];
+  /**
+   * Refusals that depend on who is asking, or on what the spa would be left
+   * holding — not on rows pointing at the record, which is what `blockers`
+   * covers. Returns the reason to refuse, or null to allow.
+   *
+   * Applied to hiding as well as deleting: locking the spa out of its own
+   * Owner account is no better done gently.
+   */
+  guard?: (id: string, actorId: string) => Promise<string | null>;
   /** Offered when a blocker stops the delete. */
   deactivate?: { verb: string; run: (id: string) => Promise<void> };
   /** Rows that exist only to configure this record; they go with it. */
@@ -273,6 +282,88 @@ export const DELETABLE = {
     },
     remove: async (id) => {
       await prisma.item.delete({ where: { id } });
+    },
+  },
+
+  user: {
+    noun: 'user account',
+    permission: 'users.manage',
+    module: 'settings',
+    name: async (id) =>
+      (await prisma.user.findUnique({ where: { id }, select: { name: true } }))?.name ?? null,
+    // An account that has rung up a sale, closed a day or approved an expense
+    // is part of the paper trail: a receipt has to keep saying who served it,
+    // and a BIR examiner reads a nameless one as a hidden transaction.
+    // Announcements and shift notes block for a quieter reason — they were
+    // addressed to other people, and should not vanish from their screens
+    // because the author left.
+    //
+    // What is deliberately *not* a blocker: audit entries and sign-in history
+    // (both keep a denormalised name and email, so the trail survives the row
+    // going — see AuditLog.userName), and notifications, read receipts and
+    // direct messages, which the schema already cascades away.
+    blockers: [
+      {
+        label: (n) => `${plural(n, 'sale')} rung up at the till`,
+        count: (id) => prisma.sale.count({ where: { cashierId: id } }),
+      },
+      {
+        label: (n) => `${plural(n, 'voided sale')}`,
+        count: (id) => prisma.sale.count({ where: { voidedById: id } }),
+      },
+      {
+        label: (n) => `${plural(n, 'end-of-day closing')}`,
+        count: (id) => prisma.eodClosing.count({ where: { closedById: id } }),
+      },
+      {
+        label: (n) => `${plural(n, 'expense')}`,
+        count: (id) =>
+          prisma.expense.count({ where: { OR: [{ submittedById: id }, { approvedById: id }] } }),
+      },
+      {
+        label: (n) => `${plural(n, 'announcement')}`,
+        count: (id) => prisma.announcement.count({ where: { authorId: id } }),
+      },
+      {
+        label: (n) => `${plural(n, 'shift note')}`,
+        count: (id) => prisma.shiftNote.count({ where: { authorId: id } }),
+      },
+      {
+        label: (n) => `${plural(n, 'comment on a shift note')}`,
+        count: (id) => prisma.shiftNoteComment.count({ where: { userId: id } }),
+      },
+    ],
+    guard: async (id, actorId) => {
+      if (id === actorId) {
+        return 'You cannot lock yourself out of the account you are signed in with.';
+      }
+      const target = await prisma.user.findUnique({ where: { id }, select: { role: true } });
+      // Losing the last Owner is unrecoverable from inside the app: nobody
+      // left can approve a void, reset a password or make another Owner.
+      if (target?.role === 'OWNER') {
+        const others = await prisma.user.count({
+          where: { role: 'OWNER', active: true, id: { not: id } },
+        });
+        if (others === 0) {
+          return 'This is the only active Owner account. Locking it would leave nobody able to approve a void or manage accounts — make another account an Owner first.';
+        }
+      }
+      return null;
+    },
+    deactivate: {
+      verb: 'Disable it instead — sign-in stops at once, any session already open is ended, and their name stays on what they did.',
+      run: async (id) => {
+        // `sessionsRevoked` is what makes this immediate. Without it the
+        // account keeps working until its signed cookie expires, which is not
+        // what "remove their access" means to the person clicking it.
+        await prisma.user.update({
+          where: { id },
+          data: { active: false, sessionsRevoked: new Date() },
+        });
+      },
+    },
+    remove: async (id) => {
+      await prisma.user.delete({ where: { id } });
     },
   },
 

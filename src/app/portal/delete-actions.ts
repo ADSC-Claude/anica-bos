@@ -31,6 +31,15 @@ export async function deleteRecordAction(
   const check = await checkDeletable(kind, id);
   if (!check) return { error: `That ${entity.noun} no longer exists.` };
 
+  // Refusals about the actor rather than the record — deleting the account you
+  // are holding, or the last Owner. Checked before the mode branch because
+  // hiding those is exactly as bad as deleting them.
+  const guard = 'guard' in entity ? entity.guard : undefined;
+  if (guard) {
+    const refusal = await guard(id, user.id);
+    if (refusal) return { error: refusal };
+  }
+
   if (mode === 'deactivate') {
     const deactivate = 'deactivate' in entity ? entity.deactivate : undefined;
     if (!deactivate) return { error: `A ${entity.noun} cannot be hidden — it can only be deleted.` };
@@ -83,6 +92,7 @@ function revalidateFor(kind: DeletableKind) {
     client: ['/portal/clients'],
     employee: ['/portal/employees'],
     item: ['/portal/inventory'],
+    user: ['/portal/settings/users'],
   };
   for (const p of paths[kind]) revalidatePath(p);
 }

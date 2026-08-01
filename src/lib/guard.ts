@@ -1,7 +1,7 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
-import { getSession, type SessionUser } from './auth';
+import { accountStanding, getSession, type SessionUser } from './auth';
 import { can, type Permission } from './rbac';
 import { prisma } from './db';
 
@@ -18,6 +18,8 @@ export class HttpError extends Error {
 export async function requirePage(permission?: Permission): Promise<SessionUser> {
   const user = await getSession();
   if (!user) redirect('/login');
+  // A valid cookie is not the same as a valid account — see accountStanding.
+  if ((await accountStanding(user)) === 'revoked') redirect('/login?ended=1');
   if (user.mustChangePassword) redirect('/portal/change-password');
   if (permission && !can(user.role, permission)) redirect('/portal?denied=' + permission);
   return user;
@@ -27,6 +29,7 @@ export async function requirePage(permission?: Permission): Promise<SessionUser>
 export async function requireSessionPage(): Promise<SessionUser> {
   const user = await getSession();
   if (!user) redirect('/login');
+  if ((await accountStanding(user)) === 'revoked') redirect('/login?ended=1');
   return user;
 }
 
@@ -34,6 +37,9 @@ export async function requireSessionPage(): Promise<SessionUser> {
 export async function requireApi(permission?: Permission): Promise<SessionUser> {
   const user = await getSession();
   if (!user) throw new HttpError(401, 'Not signed in.');
+  if ((await accountStanding(user)) === 'revoked') {
+    throw new HttpError(401, 'This account no longer has access. Please sign in again.');
+  }
   if (permission && !can(user.role, permission)) {
     throw new HttpError(403, `Your role (${user.role}) cannot perform this action.`);
   }

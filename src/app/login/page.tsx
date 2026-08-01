@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/auth';
+import { accountStanding, getSession } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
 import { BrandMark } from '@/components/brand-mark';
 import { LoginForm } from './login-form';
@@ -14,9 +14,18 @@ export const metadata = {
 };
 export const dynamic = 'force-dynamic';
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ended?: string }>;
+}) {
   const session = await getSession();
-  if (session) redirect('/portal');
+  // Only send them on if the account behind the cookie still stands. A deleted
+  // or disabled account keeps a cookie that verifies until it expires, and
+  // redirecting on that alone bounces them between here and the portal guard
+  // forever. The stale cookie is harmless — signing in overwrites it.
+  if (session && (await accountStanding(session)) === 'ok') redirect('/portal');
+  const ended = Boolean((await searchParams).ended);
   const settings = await getSettings();
 
   const showDemo = process.env.NODE_ENV !== 'production';
@@ -31,6 +40,12 @@ export default async function LoginPage() {
           </h1>
           <p className="muted mt-1">Business Operating System</p>
         </div>
+
+        {ended && (
+          <div className="mb-4 rounded-xl border border-clay-500/40 bg-clay-500/5 px-3 py-2 text-sm text-cocoa-700">
+            Your session has ended. Please sign in again.
+          </div>
+        )}
 
         <div className="card-pad">
           <LoginForm />

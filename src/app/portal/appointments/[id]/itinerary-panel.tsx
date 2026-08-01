@@ -72,8 +72,10 @@ export function ItineraryPanel({
       <h2 className="section-title mb-1">The visit</h2>
       <p className="mb-3 text-[11px] leading-relaxed text-cocoa-400">
         Each treatment has its own place and its own clock. Logging when one really started or
-        finished moves the rest of the visit and frees the place at the right time — the website
-        will not offer a bed somebody is still on.
+        finished moves the rest of <em>this</em> visit and frees the place at the right time, so
+        the website stops offering a bed somebody is still on. Nobody else&rsquo;s booking is
+        touched — if the change clashes with one, you are told which, and it is yours to sort out
+        with the client.
       </p>
 
       {state.error && (
@@ -179,7 +181,7 @@ export function ItineraryPanel({
 
               {leg.changeoverAfter > 0 && i < legs.length - 1 && (
                 <p className="py-1.5 pl-4 text-[11px] text-cocoa-400">
-                  ↓ {leg.changeoverAfter} min changeover — shower, consultation, setting up
+                  ↓ {leg.changeoverAfter} min changeover — moving over and setting up
                 </p>
               )}
             </li>

@@ -48,6 +48,45 @@ const plan = (treatments: Treatment[], changeoverMinutes = 15) =>
 const shape = (treatments: Treatment[], changeoverMinutes = 15) =>
   plan(treatments, changeoverMinutes).map((s) => `${s.name} ${hhmm(s.startAt)}–${hhmm(s.endAt)}`);
 
+// -------------------------------------------- the house rule: five minutes flat
+
+test('the owner’s arithmetic: five minutes, and the next slot at 3:15', () => {
+  // "only allot 5 mins each services made, not twenty... Sauna 1:30 - 2:00pm
+  //  then Bed 2:05 to 3:05, so the online booking can show the 3:15pm can be
+  //  booked."
+  //
+  // The ten minutes between 3:05 and 3:15 is not a gap anyone configured — it
+  // falls out of the quarter-hour slot grid, and it is where a slow
+  // consultation goes. Padding the changeover instead would push the same
+  // visit to 3:30 and cost the evening a whole treatment.
+  const HOUSE = 5;
+  const plain = [
+    { ...sauna, changeoverMinutes: null },
+    { ...massage, changeoverMinutes: null },
+  ];
+  const segs = planVisit({ treatments: plain, startAt: AT, changeoverMinutes: HOUSE });
+  assert.deepEqual(
+    segs.map((x) => `${x.name} ${hhmm(x.startAt)}–${hhmm(x.endAt)}`),
+    ['Sauna Session 13:30–14:00', 'Swedish Massage 14:05–15:05'],
+  );
+  assert.equal(visitMinutes(plain, HOUSE), 95);
+
+  // The next start time the booking form would offer, on a 15-minute grid.
+  const STEP = 15;
+  const endMinute = 15 * 60 + 5;
+  assert.equal(Math.ceil(endMinute / STEP) * STEP, 15 * 60 + 15, 'the 3:15 slot is bookable');
+});
+
+test('three treatments still carry one gap each, not a compounding buffer', () => {
+  const HOUSE = 5;
+  const plain = [
+    { ...sauna, changeoverMinutes: null },
+    { ...footSpa, changeoverMinutes: null },
+    { ...massage, changeoverMinutes: null },
+  ];
+  assert.equal(visitMinutes(plain, HOUSE), 30 + 5 + 45 + 5 + 60);
+});
+
 // ------------------------------------------------------------ the worked example
 
 test('the owner’s example, with the lapses counted', () => {

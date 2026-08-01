@@ -119,7 +119,7 @@ export function VisitOrder({
                 // Named rather than left as dead space: a guest who sees an
                 // unexplained twenty-minute hole assumes it is a mistake.
                 <p className="py-1 pl-8 text-[11px] text-cocoa-400">
-                  ↓ {gap} min to shower, settle in and get you ready
+                  ↓ {gap} min to change over and get you settled
                 </p>
               )}
             </li>

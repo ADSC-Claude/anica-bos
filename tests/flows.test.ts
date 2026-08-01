@@ -120,6 +120,11 @@ after(async () => {
   await prisma.item.deleteMany({ where: { branchId } });
   await prisma.service.deleteMany({ where: { id: serviceId } });
   await prisma.attendance.deleteMany({ where: { branchId } });
+  // Holidays are global, not branch-scoped, so this is the one row the branch
+  // teardown cannot reach. Left behind, it lands inside a later run's payroll
+  // window once the Manila date rolls over and the run counts two holidays
+  // where the test set one.
+  await prisma.holiday.deleteMany({ where: { name: { startsWith: 'Test Holiday ' } } });
   await prisma.employee.deleteMany({ where: { id: therapistId } });
   await prisma.client.deleteMany({ where: { branchId } });
   await prisma.expense.deleteMany({ where: { branchId } });

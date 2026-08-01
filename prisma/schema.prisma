@@ -432,6 +432,11 @@ model Service {
   /// house default is not right — a sauna needs a shower, a foot spa does not.
   /// Null means use the branch default.
   changeoverMinutes    Int?
+  /// An extra that runs on the end of the treatment before it, in the same
+  /// place and with no gap. A hot compress after a massage is not a second
+  /// appointment: she does not get up and the bed is not turned over, so
+  /// charging the visit five minutes of floor time for it invents work.
+  isAddOn              Boolean           @default(false)
   active               Boolean           @default(true)
   showOnLanding        Boolean           @default(true)
   sortRank             Int               @default(0)
@@ -1229,7 +1234,9 @@ model SaleDiscount {
   preset           DiscountPreset? @relation(fields: [presetId], references: [id])
   label            String
   type             DiscountType
-  value            Int
+  /// The rate or centavo amount applied — see DiscountPreset.value. The money
+  /// is amountCents, which is always a whole number of centavos.
+  value            Float
   amountCents      Int
   /// Order of application; each preset applies to the running total.
   sequence         Int             @default(0)
@@ -1243,7 +1250,12 @@ model DiscountPreset {
   id                String       @id @default(cuid())
   name              String
   type              DiscountType
-  value             Int
+  /// A rate for PERCENT (7.5 means 7.5%), or whole centavos for FIXED.
+  ///
+  /// Not an integer: a 7.5% promotion is an ordinary thing to run, and forcing
+  /// it to 7 or 8 quotes the guest a price the spa did not advertise. The money
+  /// never becomes fractional — discountAmount() rounds the result to centavos.
+  value             Float
   /// Empty array => applies to all services.
   serviceIds        String[]     @default([])
   stackable         Boolean      @default(true)

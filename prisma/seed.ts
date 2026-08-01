@@ -131,6 +131,8 @@ async function main() {
   const serviceSpecs: {
     name: string; cat: string; minutes: number; price: number; rank: number; desc: string;
     place: 'BED' | 'CHAIR' | 'SAUNA';
+    /** Runs on the end of the treatment before it, same place, no gap. */
+    addOn?: boolean;
   }[] = [
     { name: 'Swedish Massage (60 min)', cat: catMassage.id, minutes: 60, price: 650, rank: 1, desc: 'Long, flowing strokes to ease everyday tension.', place: 'BED' },
     { name: 'Swedish Massage (90 min)', cat: catMassage.id, minutes: 90, price: 900, rank: 2, desc: 'The full-body classic, with extra time on tight areas.', place: 'BED' },
@@ -145,7 +147,8 @@ async function main() {
     { name: 'Body Scrub (60 min)', cat: catBody.id, minutes: 60, price: 800, rank: 11, desc: 'Gentle exfoliation that leaves skin polished and soft.', place: 'BED' },
     { name: 'Foot Spa (45 min)', cat: catBody.id, minutes: 45, price: 500, rank: 12, desc: 'Soak, scrub, and a soothing foot massage.', place: 'CHAIR' },
     { name: 'Sauna Session (30 min)', cat: catAdd.id, minutes: 30, price: 300, rank: 13, desc: 'Dry heat to loosen muscles before your treatment.', place: 'SAUNA' },
-    { name: 'Hot Compress Add-on (15 min)', cat: catAdd.id, minutes: 15, price: 150, rank: 14, desc: 'Herbal hot compress for stubborn knots.', place: 'BED' },
+    { name: 'Ear Candling (30 min)', cat: catBody.id, minutes: 30, price: 400, rank: 13, desc: 'Gentle ear coning, done lying down.', place: 'BED' },
+    { name: 'Hot Compress Add-on (15 min)', cat: catAdd.id, minutes: 15, price: 150, rank: 14, desc: 'Herbal hot compress for stubborn knots.', place: 'BED', addOn: true },
   ];
 
   const services = [];
@@ -160,6 +163,7 @@ async function main() {
           description: spec.desc,
           sortRank: spec.rank,
           requiredResourceType: spec.place,
+          isAddOn: spec.addOn ?? false,
         },
       }),
     );

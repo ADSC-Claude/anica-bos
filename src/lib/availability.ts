@@ -338,7 +338,32 @@ export async function availableResources(opts: {
     orderBy: { sortRank: 'asc' },
   });
   const taken = await placeHolds(opts);
+  return filterFreePlaces(resources, taken, opts);
+}
 
+/** The shape `filterFreePlaces` needs — a Prisma `Resource` satisfies it. */
+type PlaceRow = {
+  id: string;
+  name: string;
+  type: string;
+  capacity: number;
+  exclusiveUse: boolean;
+  fillWhole: boolean;
+};
+
+/**
+ * Which of these places still have room, given what is already holding them.
+ *
+ * Split out from the query so the same rules can be applied to a day's worth of
+ * holds loaded once. The day list checks forty-odd start times against several
+ * treatments each; going back to the database for every one of those was two
+ * queries a slot, and it is the same answer every time.
+ */
+export function filterFreePlaces<R extends PlaceRow>(
+  resources: R[],
+  taken: PlaceHold[],
+  opts: { partyRef?: string; partySize?: number },
+): AvailableResource[] {
   // Capacity, not a yes/no. A couples room holds two and a foot-spa area holds
   // as many chairs as it has; treating one booking as filling the whole thing
   // loses the rest. Counting per resource is also what stops a place being
@@ -360,7 +385,7 @@ export async function availableResources(opts: {
   const mine = opts.partyRef ?? '';
   const stillToPlace = Math.max(1, opts.partySize ?? 1);
 
-  return resources
+  return (resources as PlaceRow[])
     .map((r) => {
       const capacity = Math.max(1, r.capacity);
       const inUse = used.get(r.id) ?? 0;
@@ -389,6 +414,150 @@ export async function availableResources(opts: {
       fillWhole: r.fillWhole,
       capacity,
     }));
+}
+
+/**
+ * Every place in the branch and everything holding one, for a whole day.
+ *
+ * The day list asks the same question of the same rows forty-odd times over.
+ * Loading it once and answering in memory is the difference between two
+ * database round trips per candidate time and two for the day.
+ */
+export type DayFloor = {
+  resources: PlaceRow[];
+  holds: PlaceHold[];
+};
+
+export async function loadDayFloor(opts: {
+  branchId: string;
+  from: Date;
+  to: Date;
+  excludeAppointmentId?: string;
+  excludeSegmentIds?: string[];
+}): Promise<DayFloor> {
+  const [resources, holds] = await Promise.all([
+    prisma.resource.findMany({
+      where: { branchId: opts.branchId, active: true },
+      orderBy: { sortRank: 'asc' },
+      select: {
+        id: true, name: true, type: true, capacity: true,
+        exclusiveUse: true, fillWhole: true,
+      },
+    }),
+    placeHolds({
+      branchId: opts.branchId,
+      startAt: opts.from,
+      endAt: opts.to,
+      excludeAppointmentId: opts.excludeAppointmentId,
+      excludeSegmentIds: opts.excludeSegmentIds,
+    }),
+  ]);
+  return { resources, holds };
+}
+
+/** The places of a given kind with room to spare during one window. */
+export function placesFreeDuring(
+  floor: DayFloor,
+  opts: {
+    startAt: Date;
+    endAt: Date;
+    resourceType?: string | null;
+    partyRef?: string;
+    partySize?: number;
+  },
+): AvailableResource[] {
+  const want = { start: opts.startAt, end: opts.endAt };
+  const kinds = opts.resourceType
+    ? placesSatisfying(opts.resourceType as ResourceType)
+    : null;
+  const resources = kinds
+    ? floor.resources.filter((r) => kinds.includes(r.type as ResourceType))
+    : floor.resources;
+  const holds = floor.holds.filter((h) => windowsOverlap(h, want));
+  return filterFreePlaces(resources, holds, opts);
+}
+
+/**
+ * A treatment that cannot happen, and why.
+ *
+ * "No slots" is true and useless. The guest wants a sauna and a massage; if
+ * the sauna is spoken for until half past two, that is the sentence to say —
+ * she can then move her own booking rather than trying every time on the list.
+ */
+export type VisitBlocker = {
+  /** The treatment that cannot be placed. */
+  treatment: string;
+  /** The kind of place it needed. */
+  placeType: string | null;
+  /** When one of those places next comes free, if any is coming free at all. */
+  freeAt: Date | null;
+};
+
+/**
+ * Check a planned visit against the floor, run by run.
+ *
+ * A *run* is a stretch spent in one place — two bed treatments back to back are
+ * one bed held throughout, not two beds with a stranger allowed into the five
+ * minutes between them. Checking runs rather than treatments is what makes
+ * "massage then ear candling" a single, simple hold.
+ *
+ * Returns what stops the visit. Empty means it fits.
+ */
+export function blockersForRuns(
+  floor: DayFloor,
+  runs: { placeType: string | null; startAt: Date; endAt: Date; label: string }[],
+  opts?: { partyRef?: string; partySize?: number },
+): VisitBlocker[] {
+  const out: VisitBlocker[] = [];
+  // Runs are placed one after another against a floor that fills up as we go,
+  // because they are all going to be booked at once. Checking each against the
+  // *original* floor would tell three friends who all want a massage that one
+  // free bed is enough for them.
+  const holds = [...floor.holds];
+  for (const run of runs) {
+    const free = placesFreeDuring(
+      { resources: floor.resources, holds },
+      {
+        startAt: run.startAt,
+        endAt: run.endAt,
+        resourceType: run.placeType,
+        partyRef: opts?.partyRef,
+        partySize: opts?.partySize,
+      },
+    );
+    if (free.length) {
+      // Take one and let the next run see it as taken. The party's own ref goes
+      // on it so a couples room stays open to the rest of the party and closed
+      // to everyone else — the same rule a stored booking gets.
+      holds.push({
+        resourceId: free[0].id,
+        appointmentId: '__planned__',
+        partyRef: opts?.partyRef ?? '',
+        start: run.startAt,
+        end: run.endAt,
+      });
+      continue;
+    }
+
+    // When it frees: the earliest any place of the right kind is given back.
+    // Only holds that actually overlap this run count — a bed booked for the
+    // evening says nothing about a two o'clock massage.
+    const kinds = run.placeType ? placesSatisfying(run.placeType as ResourceType) : null;
+    const ofKind = new Set(
+      floor.resources.filter((r) => !kinds || kinds.includes(r.type as ResourceType)).map((r) => r.id),
+    );
+    let freeAt: Date | null = null;
+    // `holds`, not `floor.holds`: when the thing in the way is an earlier run
+    // of this same booking, the honest answer is still the time that place
+    // comes back — not silence.
+    for (const h of holds) {
+      if (!ofKind.has(h.resourceId)) continue;
+      if (!windowsOverlap(h, { start: run.startAt, end: run.endAt })) continue;
+      if (!freeAt || h.end < freeAt) freeAt = h.end;
+    }
+    out.push({ treatment: run.label, placeType: run.placeType, freeAt });
+  }
+  return out;
 }
 
 /** Throws when a therapist or room would be double-booked. */

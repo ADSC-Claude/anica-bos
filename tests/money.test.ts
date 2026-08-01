@@ -40,6 +40,18 @@ test('discounts never exceed the base and round half-up', () => {
   assert.equal(percentOf(65000, 25), 16250);
 });
 
+test('a fractional percentage still lands on a whole centavo', () => {
+  // 7.5% of ₱650 is exactly ₱48.75 — the case the integer column used to force
+  // to 7% or 8%, quoting a price the spa never advertised.
+  assert.equal(discountAmount(65000, 'PERCENT', 7.5), 4875);
+  // 12.5% of ₱333.33 is ₱41.666…, which has to become centavos somewhere.
+  assert.equal(discountAmount(33333, 'PERCENT', 12.5), 4167, 'rounded, never fractional');
+  // Two decimal places is the finest the settings form stores.
+  assert.equal(discountAmount(100000, 'PERCENT', 7.25), 7250);
+  // Whole percentages are unchanged by allowing decimals.
+  assert.equal(discountAmount(65000, 'PERCENT', 20), 13000);
+});
+
 test('stacked discounts apply sequentially on the running total', () => {
   // Member 10% then a weekday promo 15% on ₱1,000.
   let running = 100000;

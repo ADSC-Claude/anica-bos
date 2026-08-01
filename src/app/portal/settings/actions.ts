@@ -8,6 +8,7 @@ import { requirePage, resolveBranchId } from '@/lib/guard';
 import { audit, diff } from '@/lib/audit';
 import { setSettings } from '@/lib/settings';
 import { hashPassword } from '@/lib/auth';
+import { DELETABLE } from '@/lib/deletable';
 import bcrypt from 'bcryptjs';
 import { dateKeyToBusinessDate } from '@/lib/datetime';
 import { ensureAccounts } from '@/lib/accounting';
@@ -320,10 +321,21 @@ export async function saveDiscountPresetAction(
   if (!name) return { error: 'Name the discount button.' };
 
   const type = (str(formData, 'type') || 'PERCENT') as 'PERCENT' | 'FIXED';
+  const raw = num(formData, 'value');
+  if (!Number.isFinite(raw) || raw < 0) {
+    return { error: 'Enter a discount value of zero or more.' };
+  }
+  if (type === 'PERCENT' && raw > 100) {
+    return { error: 'A percentage discount cannot be more than 100%.' };
+  }
+  // Percentages carry decimals — 7.5% is a normal promotion — but only to two
+  // places. Past that the difference is smaller than a centavo on any bill this
+  // spa will write, and a trailing 7.499999 in the settings table is just noise.
+  // FIXED goes through cents(), so it is already whole centavos.
   const data = {
     name,
     type,
-    value: type === 'FIXED' ? cents(formData, 'value') : num(formData, 'value'),
+    value: type === 'FIXED' ? cents(formData, 'value') : Math.round(raw * 100) / 100,
     serviceIds: formData.getAll('serviceIds').map(String).filter(Boolean),
     stackable: bool(formData, 'stackable'),
     requiresId: bool(formData, 'requiresId'),
@@ -421,6 +433,17 @@ export async function saveUserAction(_prev: FormState, formData: FormData): Prom
     employeeId: str(formData, 'employeeId') || null,
   };
 
+  // Clearing "can sign in" reaches the same lockout the delete button refuses,
+  // so it answers to the same rule rather than a second copy of it.
+  if (id && !base.active) {
+    const refusal = await DELETABLE.user.guard(id, user.id);
+    if (refusal) return { error: refusal };
+  }
+
+  // Switching an account off or resetting its password should take hold now,
+  // not whenever the twelve-hour session token happens to lapse.
+  const revoke = !base.active || password ? { sessionsRevoked: new Date() } : {};
+
   // Only the Owner approves voids, refunds and large discounts, so only an
   // Owner account carries a PIN. Setting the role to anything else clears any
   // PIN already stored — otherwise a demoted manager's hash would sit in the
@@ -440,6 +463,7 @@ export async function saveUserAction(_prev: FormState, formData: FormData): Prom
         ...base,
         ...(password ? { passwordHash: await hashPassword(password), mustChangePassword: true } : {}),
         ...pinChange,
+        ...revoke,
       },
     });
     await audit(user, {

@@ -30,6 +30,24 @@ export type Treatment = {
   changeoverMinutes?: number | null;
   /** Where it usually falls in a visit. Lower runs first. */
   sequenceRank?: number;
+  /**
+   * The kind of place this treatment needs — 'BED', 'CHAIR', 'SAUNA', or null
+   * for "anywhere".
+   *
+   * Kept as a plain string so this module stays arithmetic with no database
+   * types in it, and so the browser can run the same planning code.
+   */
+  placeType?: string | null;
+  /**
+   * An extra that runs on the end of the treatment before it, in the same
+   * place, with no gap.
+   *
+   * A hot compress after a massage is not a second appointment: she does not
+   * get up, the bed is not turned over, and charging her five minutes of floor
+   * time for it would be inventing work. So an add-on takes no changeover
+   * *before* it and always belongs to the run in front of it.
+   */
+  isAddOn?: boolean;
 };
 
 export type Segment<T extends Treatment = Treatment> = T & {
@@ -51,10 +69,18 @@ const plus = (d: Date, minutes: number) => new Date(d.getTime() + minutes * MIN)
  * Ties keep the order they arrived in, so two massages stay as chosen.
  */
 export function houseOrder<T extends Treatment>(treatments: T[]): T[] {
-  return treatments
-    .map((t, i) => ({ t, i }))
-    .sort((a, b) => (a.t.sequenceRank ?? 50) - (b.t.sequenceRank ?? 50) || a.i - b.i)
-    .map(({ t }) => t);
+  // Add-ons travel with the treatment they extend. Sorting them on their own
+  // rank would put a hot compress before the massage it is a compress *for*,
+  // so what gets sorted is the group, and the group moves as one.
+  const groups: T[][] = [];
+  for (const t of treatments) {
+    if (t.isAddOn && groups.length) groups[groups.length - 1].push(t);
+    else groups.push([t]);
+  }
+  return groups
+    .map((g, i) => ({ g, i }))
+    .sort((a, b) => (a.g[0].sequenceRank ?? 50) - (b.g[0].sequenceRank ?? 50) || a.i - b.i)
+    .flatMap(({ g }) => g);
 }
 
 /**
@@ -66,6 +92,24 @@ export function houseOrder<T extends Treatment>(treatments: T[]): T[] {
  */
 export function changeoverFor(t: Treatment, houseDefault: number): number {
   return Math.max(0, t.changeoverMinutes ?? houseDefault);
+}
+
+/**
+ * The gap between one treatment and the next.
+ *
+ * Two treatments on the same bed still need their five minutes — the linen is
+ * changed and the oils are set out, and pretending otherwise is how the desk
+ * ends up running late. An add-on is the exception: it is a continuation of
+ * the treatment before it, so it starts the moment that one ends.
+ */
+export function gapBetween(
+  before: Treatment,
+  after: Treatment | undefined,
+  houseDefault: number,
+): number {
+  if (!after) return 0;
+  if (after.isAddOn) return 0;
+  return changeoverFor(before, houseDefault);
 }
 
 /**
@@ -83,13 +127,53 @@ export function planVisit<T extends Treatment>(opts: {
   const out: Segment<T>[] = [];
   let cursor = opts.startAt;
   opts.treatments.forEach((t, i) => {
-    const last = i === opts.treatments.length - 1;
     const endAt = plus(cursor, Math.max(0, t.durationMinutes));
-    const gap = last ? 0 : changeoverFor(t, opts.changeoverMinutes);
+    const gap = gapBetween(t, opts.treatments[i + 1], opts.changeoverMinutes);
     out.push({ ...t, startAt: cursor, endAt, changeoverAfter: gap });
     cursor = plus(endAt, gap);
   });
   return out;
+}
+
+/**
+ * A stretch of the visit spent in one place.
+ *
+ * Two bed treatments in a row are not two bookings of two beds. She lies down
+ * once, the five minutes between them is the therapist changing the linen
+ * *around* her, and the bed is hers throughout. Treating them as separate holds
+ * would let the booking engine offer her Bed 3 then Bed 7 and ask her to get up
+ * and walk in between, and would let a stranger book "her" bed for the five
+ * minutes in the middle.
+ *
+ * So consecutive treatments wanting the same kind of place become one run, held
+ * end to end. The guest only ever moves when the *kind* of place changes — bed
+ * to sauna, chair to bed — and that move is the only place a real changeover
+ * belongs.
+ */
+export type PlaceRun<T extends Treatment = Treatment> = {
+  placeType: string | null;
+  /** The whole stretch this place is held for, gaps inside it included. */
+  startAt: Date;
+  endAt: Date;
+  segments: Segment<T>[];
+};
+
+export function placeRuns<T extends Treatment>(segments: Segment<T>[]): PlaceRun<T>[] {
+  const runs: PlaceRun<T>[] = [];
+  for (const seg of segments) {
+    const open = runs[runs.length - 1];
+    const type = seg.placeType ?? null;
+    // An add-on never starts a run: it is part of the treatment before it and
+    // happens wherever that one happened.
+    const joins = open && (seg.isAddOn || (open.placeType ?? null) === type);
+    if (joins) {
+      open.segments.push(seg);
+      open.endAt = seg.endAt > open.endAt ? seg.endAt : open.endAt;
+    } else {
+      runs.push({ placeType: type, startAt: seg.startAt, endAt: seg.endAt, segments: [seg] });
+    }
+  }
+  return runs;
 }
 
 /** When the guest actually walks out — the end of the last treatment. */
@@ -105,10 +189,13 @@ export function visitEnd(segments: Segment[], fallback: Date): Date {
  * 90 minutes; it is 110.
  */
 export function visitMinutes(treatments: Treatment[], changeoverMinutes: number): number {
-  return treatments.reduce((total, t, i) => {
-    const last = i === treatments.length - 1;
-    return total + Math.max(0, t.durationMinutes) + (last ? 0 : changeoverFor(t, changeoverMinutes));
-  }, 0);
+  return treatments.reduce(
+    (total, t, i) =>
+      total +
+      Math.max(0, t.durationMinutes) +
+      gapBetween(t, treatments[i + 1], changeoverMinutes),
+    0,
+  );
 }
 
 export type TimedSegment = {

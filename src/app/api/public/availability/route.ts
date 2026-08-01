@@ -4,14 +4,17 @@ import { getSettings } from '@/lib/settings';
 import {
   availableResources,
   availableTherapists,
+  blockersForRuns,
   diagnoseNoSlots,
   floorPlan,
+  loadDayFloor,
   placesSatisfying,
   requiredPlaceFor,
   slotsForDay,
+  type VisitBlocker,
 } from '@/lib/availability';
 import { minutesToLabel } from '@/lib/datetime';
-import { houseOrder, planVisit, visitMinutes } from '@/lib/itinerary';
+import { placeRuns, planVisit, visitMinutes } from '@/lib/itinerary';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +67,7 @@ export async function GET(req: Request) {
       requiredResourceType: true,
       sequenceRank: true,
       changeoverMinutes: true,
+      isAddOn: true,
     },
   });
   if (services.length !== serviceIds.length) {
@@ -82,6 +86,8 @@ export async function GET(req: Request) {
     durationMinutes: s.durationMinutes,
     changeoverMinutes: s.changeoverMinutes,
     sequenceRank: s.sequenceRank,
+    placeType: s.requiredResourceType,
+    isAddOn: s.isAddOn,
   }));
   // Door to door, gaps included. A sauna and a massage is 110 minutes, not 90,
   // and quoting 90 is how the desk ends up an hour behind by nine o'clock.
@@ -94,8 +100,9 @@ export async function GET(req: Request) {
     ? await prisma.service.findMany({
         where: { id: { in: [...new Set(guestGroups.flat())] }, active: true },
         select: {
-          id: true, durationMinutes: true, priceCents: true, requiredResourceType: true,
-          sequenceRank: true, changeoverMinutes: true,
+          id: true, name: true, durationMinutes: true, priceCents: true,
+          requiredResourceType: true, sequenceRank: true, changeoverMinutes: true,
+          isAddOn: true,
         },
       })
     : [];
@@ -103,13 +110,16 @@ export async function GET(req: Request) {
   const guestSeats = guestGroups.map((ids) => {
     const rows = ids.map((id) => guestById.get(id)).filter(Boolean) as typeof guestCatalog;
     return {
+      rows,
       minutes: visitMinutes(
         rows.map((r) => ({
           serviceId: r.id,
-          name: '',
+          name: r.name,
           durationMinutes: r.durationMinutes,
           changeoverMinutes: r.changeoverMinutes,
           sequenceRank: r.sequenceRank,
+          placeType: r.requiredResourceType,
+          isAddOn: r.isAddOn,
         })),
         houseChangeover,
       ),
@@ -150,6 +160,77 @@ export async function GET(req: Request) {
       // them just moves "why not that one?" to after the click.
       floorPlan({ branchId: branch.id, startAt, endAt, excludeAppointmentId }),
     ]);
+    /**
+     * Every treatment in the whole party, each with the floor as it stands
+     * during *its own* window.
+     *
+     * This is what a picker needs and what it was not being given. A guest
+     * booking a sauna then a massage needs two places, not one — and the bed
+     * she wants at 2:05 may be occupied at 1:30, when she is in the sauna.
+     * Drawing one floor for the whole visit marks that bed taken and refuses a
+     * booking the spa could have sold.
+     *
+     * One `floorPlan` per leg is a handful of extra queries on a screen that is
+     * already fetching, and it is the difference between offering the right
+     * places and offering the wrong ones.
+     */
+    const partyLegs: {
+      guestIndex: number;
+      serviceId: string;
+      name: string;
+      startAt: string;
+      endAt: string;
+      accepts: string[] | null;
+    }[] = [];
+    const legWindows: { startAt: Date; endAt: Date }[] = [];
+
+    const collect = (
+      guestIndex: number,
+      rows: { id: string; durationMinutes: number; requiredResourceType: typeof place;
+              sequenceRank: number; changeoverMinutes: number | null; name?: string }[],
+      names: Map<string, string>,
+    ) => {
+      const steps = planVisit({
+        treatments: rows.map((r) => ({
+          serviceId: r.id,
+          name: names.get(r.id) ?? '',
+          durationMinutes: r.durationMinutes,
+          changeoverMinutes: r.changeoverMinutes,
+          sequenceRank: r.sequenceRank,
+        })),
+        startAt,
+        changeoverMinutes: houseChangeover,
+      });
+      for (const step of steps) {
+        const row = rows.find((r) => r.id === step.serviceId)!;
+        const needs = requiredPlaceFor([row]);
+        partyLegs.push({
+          guestIndex,
+          serviceId: step.serviceId,
+          name: step.name,
+          startAt: step.startAt.toISOString(),
+          endAt: step.endAt.toISOString(),
+          accepts: needs ? placesSatisfying(needs) : null,
+        });
+        legWindows.push({ startAt: step.startAt, endAt: step.endAt });
+      }
+    };
+
+    const bookerNames = new Map(ordered.map((x) => [x.id, x.name]));
+    collect(0, ordered, bookerNames);
+    guestSeats.forEach((seat, i) => {
+      collect(i + 1, seat.rows, new Map(seat.rows.map((r) => [r.id, r.name ?? ''])));
+    });
+
+    const legPlans = await Promise.all(
+      legWindows.map((w) =>
+        floorPlan({
+          branchId: branch.id, startAt: w.startAt, endAt: w.endAt, excludeAppointmentId,
+        }),
+      ),
+    );
+    const legs = partyLegs.map((leg, i) => ({ ...leg, plan: legPlans[i] }));
+
     // The visit, treatment by treatment: when each runs, how long the gap
     // after it is, and what kind of place it needs. The form draws this as a
     // list you can reorder, so the guest sees the consequence of the order
@@ -175,6 +256,8 @@ export async function GET(req: Request) {
       resources,
       plan,
       itinerary,
+      /** One entry per treatment of every guest, each with its own floor. */
+      legs,
       /** Which place types this booking's treatments can actually use. */
       accepts: place ? placesSatisfying(place) : null,
       /**
@@ -206,42 +289,81 @@ export async function GET(req: Request) {
   const slots: {
     minute: number; label: string; startAt: string; therapists: number; needsApproval: boolean;
   }[] = [];
+
+  /**
+   * The floor for the whole day, loaded once.
+   *
+   * Every candidate start time asks the same rows the same question. Forty-odd
+   * candidates times a treatment each was two queries per candidate; this is
+   * two for the day.
+   */
+  const dayFloor = candidates.length
+    ? await loadDayFloor({
+        branchId: branch.id,
+        from: candidates[0].startAt,
+        // The last visit of the day is the one that reaches furthest, and a
+        // hold that starts before the window still has to be seen.
+        to: new Date(
+          candidates[candidates.length - 1].startAt.getTime() +
+            Math.max(durationMinutes, ...guestSeats.map((s) => s.minutes), 0) * 60_000,
+        ),
+      })
+    : { resources: [], holds: [] };
+
+  /** Everything the whole party needs a place for, laid out from one start. */
+  const runsFrom = (startAt: Date) => {
+    const seats = [
+      { treatments, label: 'you' },
+      ...guestSeats.map((seat, i) => ({
+        treatments: seat.rows.map((r) => ({
+          serviceId: r.id,
+          name: r.name,
+          durationMinutes: r.durationMinutes,
+          changeoverMinutes: r.changeoverMinutes,
+          sequenceRank: r.sequenceRank,
+          placeType: r.requiredResourceType,
+          isAddOn: r.isAddOn,
+        })),
+        label: `guest ${i + 2}`,
+      })),
+    ];
+    return seats.flatMap((seat) =>
+      placeRuns(
+        planVisit({
+          treatments: seat.treatments,
+          startAt,
+          changeoverMinutes: houseChangeover,
+        }),
+      ).map((run) => ({
+        placeType: run.placeType,
+        startAt: run.startAt,
+        endAt: run.endAt,
+        // Name the treatment, not the run: "the sauna is taken" means nothing
+        // to someone who picked "Sauna Session (30 min)" off a list.
+        label: run.segments.map((s) => s.name).join(' and '),
+      })),
+    );
+  };
+
+  /** Why a start time was refused, kept so an empty day can explain itself. */
+  const refusals: VisitBlocker[] = [];
+
   for (const c of candidates) {
     const endAt = new Date(c.startAt.getTime() + durationMinutes * 60_000);
-    const [therapists, resources] = await Promise.all([
-      availableTherapists({ branchId: branch.id, startAt: c.startAt, endAt, serviceIds }),
-      availableResources({
-        branchId: branch.id, startAt: c.startAt, endAt, resourceType: place, partySize,
-      }),
-    ]);
-    if (!therapists.length || !resources.length) continue;
+    const therapists = await availableTherapists({
+      branchId: branch.id, startAt: c.startAt, endAt, serviceIds,
+    });
+    if (!therapists.length) continue;
+    // A party needs a therapist each, not one between them.
+    if (partySize > 1 && therapists.length < partySize) continue;
 
-    // A party needs a therapist and a place each. Checking only the booker's
-    // would offer a slot with one free bed to a couple, and the disappointment
-    // would land after they had filled in the whole form.
-    if (partySize > 1) {
-      if (therapists.length < partySize) continue;
-      const enough = await Promise.all(
-        guestSeats.map((seat) =>
-          availableResources({
-            branchId: branch.id,
-            startAt: c.startAt,
-            endAt: new Date(c.startAt.getTime() + seat.minutes * 60_000),
-            resourceType: seat.place,
-            partySize,
-          }),
-        ),
-      );
-      if (enough.some((free) => !free.length)) continue;
-      // Places, not rows: the booker plus two guests all wanting a bed need
-      // three beds, and one couples room with two places is not three.
-      const bedLike = [resources, ...enough].filter((_, i) =>
-        i === 0 ? true : guestSeats[i - 1].place !== 'CHAIR' && guestSeats[i - 1].place !== 'SAUNA',
-      );
-      if (bedLike.length > 1) {
-        const roomFor = resources.reduce((a, r) => a + r.remaining, 0);
-        if (roomFor < bedLike.length) continue;
-      }
+    // Every treatment against the place *it* needs, in the window it actually
+    // runs. Asking once for "a bed for the whole visit" both offered times the
+    // sauna could not honour and hid times that would have sold.
+    const blockers = blockersForRuns(dayFloor, runsFrom(c.startAt), { partySize });
+    if (blockers.length) {
+      refusals.push(...blockers);
+      continue;
     }
 
     slots.push({
@@ -266,6 +388,33 @@ export async function GET(req: Request) {
         partySize,
       });
 
+  /**
+   * Which treatment kept getting in the way, and when its place comes back.
+   *
+   * A guest booking a sauna and a massage on a day the sauna is spoken for
+   * until half past two should be told exactly that, once, rather than left to
+   * try every greyed-out time on the list. One line per treatment, holding the
+   * earliest moment its place was ever free, because that is the first time
+   * worth trying.
+   */
+  const blocked = [...
+    refusals
+      .reduce((map, b) => {
+        const seen = map.get(b.treatment);
+        // The earliest release is the useful one: it is the soonest this
+        // treatment could possibly go ahead.
+        if (!seen || (b.freeAt && seen.freeAt && b.freeAt < seen.freeAt) || (b.freeAt && !seen.freeAt)) {
+          map.set(b.treatment, b);
+        }
+        return map;
+      }, new Map<string, VisitBlocker>())
+      .values(),
+  ].map((b) => ({
+    treatment: b.treatment,
+    placeType: b.placeType,
+    freeAt: b.freeAt ? b.freeAt.toISOString() : null,
+  }));
+
   return NextResponse.json({
     branchId: branch.id,
     durationMinutes,
@@ -274,5 +423,7 @@ export async function GET(req: Request) {
     partySize,
     slots,
     reason,
+    /** Only worth showing when the day came back thin or empty. */
+    blocked,
   });
 }

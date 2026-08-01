@@ -51,6 +51,13 @@ const CITIES = [
   'Taguig City', 'Valenzuela City', 'Antipolo City', 'Cainta', 'Other',
 ];
 
+/** "1:30 PM" in Manila, for labelling a treatment's own slot. */
+function clockOf(iso: string): string {
+  return new Intl.DateTimeFormat('en-PH', {
+    hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila',
+  }).format(new Date(iso));
+}
+
 function todayKey(): string {
   const now = new Date(Date.now() + 8 * 3600_000);
   return now.toISOString().slice(0, 10);
@@ -130,6 +137,24 @@ export function BookingWizard() {
   const [plan, setPlan] = useState<PlanPlace[]>([]);
   const [accepts, setAccepts] = useState<string[] | null>(null);
   const [guestAccepts, setGuestAccepts] = useState<(string[] | null)[]>([]);
+  /**
+   * Every treatment of every guest, each with the floor as it stands during its
+   * own window.
+   *
+   * A place is chosen per *treatment*, not per person. Somebody booking a sauna
+   * then a massage needs two of them, and the bed she wants at 2:05 may well be
+   * occupied at 1:30 while she is in the sauna — so each leg is picked against
+   * its own moment rather than against the whole visit.
+   */
+  const [legs, setLegs] = useState<{
+    guestIndex: number;
+    serviceId: string;
+    name: string;
+    startAt: string;
+    endAt: string;
+    accepts: string[] | null;
+    plan: PlanPlace[];
+  }[]>([]);
   const [therapistId, setTherapistId] = useState('any');
   const [resourceId, setResourceId] = useState('any');
   const [slotInfo, setSlotInfo] = useState<{ priceCents: number; depositCents: number } | null>(null);
@@ -247,6 +272,7 @@ export function BookingWizard() {
         setPlan(data.plan ?? []);
         setAccepts(data.accepts ?? null);
         setGuestAccepts(data.guestAccepts ?? []);
+        setLegs(data.legs ?? []);
         setSeats({});
         setActiveGuest(0);
         setSlotInfo({ priceCents: data.priceCents, depositCents: data.depositCents });
@@ -266,13 +292,17 @@ export function BookingWizard() {
         body: JSON.stringify({
           branchId, serviceIds, startAtIso: startAt,
           therapistId: therapistId === 'any' ? null : therapistId,
-          resourceId: resourceId === 'any' ? null : (seats[0] ?? null),
+          // The first leg's place, kept for the appointment row itself.
+          resourceId: resourceId === 'any' ? null : (placeFor(0, 0) ?? null),
+          // And one per treatment — a sauna leg in the sauna, a massage leg on
+          // a bed. The server places anything left null.
+          placeByService: resourceId === 'any' ? undefined : placesForGuest(0),
           client, intake, notes, consent, promoCode: promoCode || undefined,
           guests: guests.map((g, i) => ({
             name: g.name.trim(),
             serviceIds: g.serviceIds,
-            // seats[0] is the booker, so a guest's own place is seats[i + 1].
-            resourceId: resourceId === 'any' ? null : (seats[i + 1] ?? null),
+            resourceId: resourceId === 'any' ? null : (placeFor(i + 1, 0) ?? null),
+            placeByService: resourceId === 'any' ? undefined : placesForGuest(i + 1),
           })),
         }),
       });
@@ -324,6 +354,20 @@ export function BookingWizard() {
   const seatNames = ['You', ...guests.map((g, i) => g.name.trim() || `Guest ${i + 2}`)];
   const partyAccepts = [accepts, ...guestAccepts];
 
+  /** The place chosen for one guest's nth treatment, if any. */
+  const placeFor = (guestIndex: number, nth: number) => {
+    const idx = legs.findIndex((l) => l.guestIndex === guestIndex);
+    return idx < 0 ? null : seats[idx + nth] ?? null;
+  };
+  /** serviceId → place, for one guest. Only the legs actually chosen. */
+  const placesForGuest = (guestIndex: number) => {
+    const out: Record<string, string | null> = {};
+    legs.forEach((l, i) => {
+      if (l.guestIndex === guestIndex && seats[i]) out[l.serviceId] = seats[i];
+    });
+    return Object.keys(out).length ? out : undefined;
+  };
+
   const blockers: {
     /** What is missing, addressed to the person booking. */
     message: string;
@@ -361,15 +405,21 @@ export function BookingWizard() {
   // Step 2: everyone needs somewhere to lie, sit or sweat — unless the guest has
   // handed the whole choice back to the spa.
   if (resourceId !== 'any') {
-    seatNames.forEach((name, i) => {
-      if (!seats[i]) {
-        blockers.push({
-          message: `${name === 'You' ? 'You have' : `${name} has`} no place yet.`,
-          step: 2,
-          anchor: 'floor-plan',
-          guest: i,
-        });
-      }
+    legs.forEach((leg, i) => {
+      if (seats[i]) return;
+      const who = leg.guestIndex === 0
+        ? 'You have'
+        : `${guests[leg.guestIndex - 1]?.name.trim() || `Guest ${leg.guestIndex + 1}`} has`;
+      blockers.push({
+        // Named by treatment: "you have no place yet" is a puzzle when the
+        // visit has three of them and only the sauna leg is missing one.
+        message: legs.length > 1
+          ? `${who} no place for ${leg.name} at ${clockOf(leg.startAt)}.`
+          : `${who} no place yet.`,
+        step: 2,
+        anchor: 'floor-plan',
+        guest: i,
+      });
     });
     if (stranded) {
       // Point at whoever could still finish the room, so "Take me there" lands
@@ -808,24 +858,22 @@ export function BookingWizard() {
             <span className="label">
               {guests.length ? 'Choose your places' : 'Choose your place'}
             </span>
-            {resourceId !== 'any' && (
+            {resourceId !== 'any' && legs.length > 0 && (
               <FloorPlan
-                plan={plan}
-                // The real party, not a placeholder. Passing a party of one
-                // here is what kept the couples rooms locked for a booking of
-                // two: the picker only offers a whole-unit place to a party
-                // that can fill it, and it was being told there was one of us.
-                guests={[
-                  { name: '', accepts, serviceLabel: chosen.map((x) => x.name).join(', ') },
-                  ...guests.map((g, i) => ({
-                    name: g.name.trim() || `Guest ${i + 2}`,
-                    accepts: guestAccepts[i] ?? null,
-                    serviceLabel: g.serviceIds
-                      .map((id) => allServices.find((x) => x.id === id)?.name ?? '')
-                      .filter(Boolean)
-                      .join(', '),
-                  })),
-                ]}
+                // The floor during *this* treatment's window, not the whole
+                // visit's. A bed busy while she is in the sauna is still hers
+                // to book for the massage afterwards.
+                plan={legs[activeGuest]?.plan ?? plan}
+                // One entry per treatment rather than per person. A sauna and a
+                // massage are two places at two times, and asking for one was
+                // what greyed the sauna out and offered only beds.
+                guests={legs.map((leg) => ({
+                  name: leg.guestIndex === 0
+                    ? 'You'
+                    : guests[leg.guestIndex - 1]?.name.trim() || `Guest ${leg.guestIndex + 1}`,
+                  accepts: leg.accepts,
+                  serviceLabel: `${leg.name} · ${clockOf(leg.startAt)}`,
+                }))}
                 seats={seats}
                 activeGuest={activeGuest}
                 onSelectGuest={setActiveGuest}
@@ -834,12 +882,11 @@ export function BookingWizard() {
                     const next = { ...prev };
                     if (next[activeGuest] === id) delete next[activeGuest];
                     else next[activeGuest] = id;
-                    // Move to whoever still has nowhere to go, so a party of
-                    // three is three taps rather than three taps and two
-                    // clicks on the right name.
-                    const total = guests.length + 1;
-                    for (let k = 1; k <= total; k++) {
-                      const j = (activeGuest + k) % total;
+                    // Move on to whatever still has nowhere to go, so a visit
+                    // of three treatments is three taps rather than three taps
+                    // and two clicks on the right name.
+                    for (let k = 1; k <= legs.length; k++) {
+                      const j = (activeGuest + k) % legs.length;
                       if (!next[j]) { setActiveGuest(j); break; }
                     }
                     return next;

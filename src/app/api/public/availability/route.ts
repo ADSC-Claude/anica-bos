@@ -94,8 +94,8 @@ export async function GET(req: Request) {
     ? await prisma.service.findMany({
         where: { id: { in: [...new Set(guestGroups.flat())] }, active: true },
         select: {
-          id: true, durationMinutes: true, priceCents: true, requiredResourceType: true,
-          sequenceRank: true, changeoverMinutes: true,
+          id: true, name: true, durationMinutes: true, priceCents: true,
+          requiredResourceType: true, sequenceRank: true, changeoverMinutes: true,
         },
       })
     : [];
@@ -103,6 +103,7 @@ export async function GET(req: Request) {
   const guestSeats = guestGroups.map((ids) => {
     const rows = ids.map((id) => guestById.get(id)).filter(Boolean) as typeof guestCatalog;
     return {
+      rows,
       minutes: visitMinutes(
         rows.map((r) => ({
           serviceId: r.id,
@@ -150,6 +151,77 @@ export async function GET(req: Request) {
       // them just moves "why not that one?" to after the click.
       floorPlan({ branchId: branch.id, startAt, endAt, excludeAppointmentId }),
     ]);
+    /**
+     * Every treatment in the whole party, each with the floor as it stands
+     * during *its own* window.
+     *
+     * This is what a picker needs and what it was not being given. A guest
+     * booking a sauna then a massage needs two places, not one — and the bed
+     * she wants at 2:05 may be occupied at 1:30, when she is in the sauna.
+     * Drawing one floor for the whole visit marks that bed taken and refuses a
+     * booking the spa could have sold.
+     *
+     * One `floorPlan` per leg is a handful of extra queries on a screen that is
+     * already fetching, and it is the difference between offering the right
+     * places and offering the wrong ones.
+     */
+    const partyLegs: {
+      guestIndex: number;
+      serviceId: string;
+      name: string;
+      startAt: string;
+      endAt: string;
+      accepts: string[] | null;
+    }[] = [];
+    const legWindows: { startAt: Date; endAt: Date }[] = [];
+
+    const collect = (
+      guestIndex: number,
+      rows: { id: string; durationMinutes: number; requiredResourceType: typeof place;
+              sequenceRank: number; changeoverMinutes: number | null; name?: string }[],
+      names: Map<string, string>,
+    ) => {
+      const steps = planVisit({
+        treatments: rows.map((r) => ({
+          serviceId: r.id,
+          name: names.get(r.id) ?? '',
+          durationMinutes: r.durationMinutes,
+          changeoverMinutes: r.changeoverMinutes,
+          sequenceRank: r.sequenceRank,
+        })),
+        startAt,
+        changeoverMinutes: houseChangeover,
+      });
+      for (const step of steps) {
+        const row = rows.find((r) => r.id === step.serviceId)!;
+        const needs = requiredPlaceFor([row]);
+        partyLegs.push({
+          guestIndex,
+          serviceId: step.serviceId,
+          name: step.name,
+          startAt: step.startAt.toISOString(),
+          endAt: step.endAt.toISOString(),
+          accepts: needs ? placesSatisfying(needs) : null,
+        });
+        legWindows.push({ startAt: step.startAt, endAt: step.endAt });
+      }
+    };
+
+    const bookerNames = new Map(ordered.map((x) => [x.id, x.name]));
+    collect(0, ordered, bookerNames);
+    guestSeats.forEach((seat, i) => {
+      collect(i + 1, seat.rows, new Map(seat.rows.map((r) => [r.id, r.name ?? ''])));
+    });
+
+    const legPlans = await Promise.all(
+      legWindows.map((w) =>
+        floorPlan({
+          branchId: branch.id, startAt: w.startAt, endAt: w.endAt, excludeAppointmentId,
+        }),
+      ),
+    );
+    const legs = partyLegs.map((leg, i) => ({ ...leg, plan: legPlans[i] }));
+
     // The visit, treatment by treatment: when each runs, how long the gap
     // after it is, and what kind of place it needs. The form draws this as a
     // list you can reorder, so the guest sees the consequence of the order
@@ -175,6 +247,8 @@ export async function GET(req: Request) {
       resources,
       plan,
       itinerary,
+      /** One entry per treatment of every guest, each with its own floor. */
+      legs,
       /** Which place types this booking's treatments can actually use. */
       accepts: place ? placesSatisfying(place) : null,
       /**

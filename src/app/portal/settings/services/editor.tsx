@@ -22,7 +22,7 @@ export function ServiceEditor({
   items,
 }: {
   services: Service[];
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; isAddOns?: boolean }[];
   items: { id: string; name: string; unitName: string }[];
 }) {
   const [state, action] = useActionState<FormState, FormData>(saveServiceAction, {});
@@ -30,6 +30,8 @@ export function ServiceEditor({
   const current = services.find((s) => s.id === selectedId);
   const [commissionType, setCommissionType] = useState(current?.commissionType ?? '');
   const [primaryId, setPrimaryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
+  /** The chosen category, when it is the add-ons shelf. */
+  const addOnCategory = categories.find((c) => c.id === primaryId && c.isAddOns);
   const [recipes, setRecipes] = useState<{ key: string; itemId: string; quantity: string }[]>([]);
 
   function select(id: string) {
@@ -142,6 +144,16 @@ export function ServiceEditor({
             </span>
           </label>
         </div>
+        {/* Being an add-on follows from the category, so it is reported here
+            rather than asked again. Two places to set one thing is how they
+            end up disagreeing. */}
+        {addOnCategory && (
+          <p className="rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-[11px] text-cocoa-600">
+            Filed under <strong>{addOnCategory.name}</strong>, so this runs straight on from the
+            treatment before it — no changeover in front of it, and in the same place. Move it to
+            another category if a guest should be able to book it on its own.
+          </p>
+        )}
         <label className="block">
           <span className="label">Description (landing page)</span>
           <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />

@@ -186,6 +186,7 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
     changeoverMinutes: str(formData, 'changeoverMinutes') === ''
       ? null
       : Math.max(0, num(formData, 'changeoverMinutes')),
+
     description: str(formData, 'description'),
     durationMinutes: Math.max(5, num(formData, 'durationMinutes')),
     priceCents: cents(formData, 'price'),
@@ -201,6 +202,18 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   };
   if (!data.categoryId) return { error: 'Choose a category.' };
 
+  // Being an add-on is a property of the shelf, not of the service: "add on is
+  // a category, anything in it is if adding no interval". Derived here rather
+  // than asked again on the form, so the two can never disagree.
+  const primary = await prisma.serviceCategory.findUnique({
+    where: { id: data.categoryId },
+    select: { isAddOns: true },
+  });
+  // …except that a treatment needing the sauna can never be one. An add-on
+  // stays where the treatment before it happened, and the sauna is somewhere
+  // else by definition, so filing it under add-ons must not silently strand it.
+  const isAddOn = (primary?.isAddOns ?? false) && data.requiredResourceType !== 'SAUNA';
+
   // "Also list under" is display-only, and the primary is never one of them —
   // a service listed twice under the same heading would just render twice.
   const alsoInCategoryIds = [
@@ -211,10 +224,18 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   const service = id
     ? await prisma.service.update({
         where: { id },
-        data: { ...data, alsoInCategories: { set: alsoInCategoryIds.map((c) => ({ id: c })) } },
+        data: {
+          ...data,
+          isAddOn,
+          alsoInCategories: { set: alsoInCategoryIds.map((c) => ({ id: c })) },
+        },
       })
     : await prisma.service.create({
-        data: { ...data, alsoInCategories: { connect: alsoInCategoryIds.map((c) => ({ id: c })) } },
+        data: {
+          ...data,
+          isAddOn,
+          alsoInCategories: { connect: alsoInCategoryIds.map((c) => ({ id: c })) },
+        },
       });
 
   // Consumption recipe.
@@ -260,12 +281,26 @@ export async function saveServiceCategoryAction(
     name,
     sortRank: num(formData, 'sortRank'),
     active: bool(formData, 'active'),
+    isAddOns: bool(formData, 'isAddOns'),
   };
 
   const before = id ? await prisma.serviceCategory.findUnique({ where: { id } }) : null;
   const cat = id
     ? await prisma.serviceCategory.update({ where: { id }, data })
     : await prisma.serviceCategory.create({ data });
+
+  // Ticking the box has to reach the services already on the shelf, or the
+  // setting would only apply to whatever is filed here afterwards. The sauna
+  // is held back: an add-on stays where the treatment before it happened, and
+  // the sauna is somewhere else by definition.
+  await prisma.service.updateMany({
+    where: { categoryId: cat.id, requiredResourceType: { not: 'SAUNA' } },
+    data: { isAddOn: data.isAddOns },
+  });
+  await prisma.service.updateMany({
+    where: { categoryId: cat.id, requiredResourceType: 'SAUNA' },
+    data: { isAddOn: false },
+  });
 
   await audit(user, {
     module: 'settings', action: id ? 'update_service_category' : 'create_service_category',

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { formatManila } from '@/lib/datetime';
 import { PageHeader, StatusBadge, Alert } from '@/components/ui';
 import { SettingsNav } from '@/components/settings-nav';
+import { DeleteButton } from '@/components/delete-button';
 import { UserForm } from './form';
 
 export const dynamic = 'force-dynamic';
@@ -47,10 +48,19 @@ export default async function UsersSettingsPage({
           <strong>Receptionist</strong> handles day-to-day work and never sees profit, payroll or
           full reports. These limits are enforced on the server, not just hidden in the interface.
         </Alert>
+        <p className="mt-2 text-xs text-cocoa-500">
+          <strong>Removing access:</strong> deleting an account works only while nothing on the
+          books points at it. Once someone has rung up a sale or closed a day, the delete is
+          refused and offers to disable the account instead — either way they can no longer sign
+          in, and any session they already have open ends at once.
+        </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
+      {/* minmax(0,…) rather than 1fr: an auto-sized track grows to fit the
+          widest table instead of letting .table-wrap scroll, which pushes the
+          form off the side of the screen when a confirmation opens. */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="min-w-0 space-y-6">
           <div className="card table-wrap">
             <table className="tbl">
               <thead>
@@ -61,6 +71,7 @@ export default async function UsersSettingsPage({
                   <th>Branch</th>
                   <th>Last sign-in</th>
                   <th>Status</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -76,6 +87,18 @@ export default async function UsersSettingsPage({
                     <td className="whitespace-nowrap">
                       <StatusBadge status={u.active ? 'ACTIVE' : 'CANCELLED'} label={u.active ? 'active' : 'disabled'} />
                       {u.mustChangePassword && <StatusBadge status="WARN" label="must change password" />}
+                    </td>
+                    <td className="text-right">
+                      {u.id === user.id ? (
+                        <span className="text-[11px] text-cocoa-400">this is you</span>
+                      ) : (
+                        <DeleteButton
+                          kind="user"
+                          id={u.id}
+                          label={u.name}
+                          deactivateLabel="Disable sign-in"
+                        />
+                      )}
                     </td>
                   </tr>
                 ))}

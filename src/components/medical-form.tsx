@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveMedicalAction, type FormState } from '@/app/portal/clients/actions';
+import { WAIVER_STAFF } from '@/lib/consent';
 
 export type FieldDef = {
   id: string;
@@ -12,6 +13,10 @@ export type FieldDef = {
   type: string;
   options: string[];
   helpText: string;
+  /** Only meaningful once the named question is ticked. */
+  dependsOnKey?: string | null;
+  /** Ticking this means none of the others in its section apply. */
+  isNoneOption?: boolean;
 };
 
 function Save() {
@@ -33,11 +38,13 @@ export function MedicalForm({
   fields,
   values,
   consentGiven,
+  waiverGiven,
 }: {
   clientId: string;
   fields: FieldDef[];
   values: Record<string, unknown>;
   consentGiven: boolean;
+  waiverGiven: boolean;
 }) {
   const [state, action] = useActionState<FormState, FormData>(saveMedicalAction, {});
   const profile = fields.filter((f) => f.section === 'PROFILE');
@@ -62,9 +69,25 @@ export function MedicalForm({
           Encode what the client wrote on the paper intake form. Flagged answers show as an
           alert on the appointment card and at checkout.
         </p>
-        {medical.map((f) => (
-          <FieldInput key={f.id} field={f} value={values[f.key]} />
-        ))}
+        {/* Follow-ups sit under the question they belong to rather than in the
+            flat list. Unlike the guest's own form nothing is hidden here — the
+            desk is copying a paper form and needs to see every box — but
+            "Whereabouts?" on its own line, between two unrelated questions, is
+            a riddle. */}
+        {medical
+          .filter((f) => !f.dependsOnKey)
+          .map((f) => (
+            <div key={f.id} className="space-y-2">
+              <FieldInput field={f} value={values[f.key]} />
+              {medical
+                .filter((d) => d.dependsOnKey === f.key)
+                .map((d) => (
+                  <div key={d.id} className="ml-3 border-l-2 border-sand-200 pl-3">
+                    <FieldInput field={d} value={values[d.key]} />
+                  </div>
+                ))}
+            </div>
+          ))}
       </div>
 
       <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
@@ -75,6 +98,12 @@ export function MedicalForm({
           details are visible only to signed-in staff and are excluded from every export
           except the Owner&apos;s full backup.
         </span>
+      </label>
+
+      <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
+        <input type="checkbox" name="waiverGiven" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+          defaultChecked={waiverGiven} />
+        <span className="text-xs text-cocoa-600">{WAIVER_STAFF}</span>
       </label>
 
       {state.error && (

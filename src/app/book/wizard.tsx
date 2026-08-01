@@ -7,6 +7,7 @@ import { formatPeso } from '@/lib/money';
 import { VisitOrder } from '@/components/visit-order';
 import { DateSelect } from '@/components/date-select';
 import { houseOrder } from '@/lib/itinerary';
+import { PRIVACY_CONSENT, WAIVER_CLAUSES, WAIVER_LEAD } from '@/lib/consent';
 
 type Catalog = {
   branches: { id: string; name: string; address: string }[];
@@ -26,6 +27,10 @@ type Catalog = {
     options: string[];
     helpText: string;
     required: boolean;
+    /** Only asked once this question has been ticked. */
+    dependsOnKey: string | null;
+    /** Ticking this one means none of the others apply. */
+    isNoneOption: boolean;
   }[];
   depositPercent: number;
   /** House gap between two treatments in one visit. */
@@ -226,6 +231,7 @@ export function BookingWizard() {
   const [notes, setNotes] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [consent, setConsent] = useState(false);
+  const [waiver, setWaiver] = useState(false);
 
   // Step 1 is the page's own history entry, and Back from it should leave for
   // the landing page — so the URL is cleaned rather than pushed on mount. A
@@ -404,7 +410,7 @@ export function BookingWizard() {
           // And one per treatment — a sauna leg in the sauna, a massage leg on
           // a bed. The server places anything left null.
           placeByService: resourceId === 'any' ? undefined : placesForGuest(0),
-          client, intake, notes, consent, promoCode: promoCode || undefined,
+          client, intake, notes, consent, waiver, promoCode: promoCode || undefined,
           guests: guests.map((g, i) => ({
             name: g.name.trim(),
             serviceIds: g.serviceIds,
@@ -441,6 +447,43 @@ export function BookingWizard() {
 
   const maxDate = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
   const medicalFields = catalog.fields.filter((f) => f.section === 'MEDICAL');
+  /**
+   * The health checklist, in three parts.
+   *
+   * The ticks come first, each with its follow-up tucked underneath and shown
+   * only once it is ticked. "None of the above" goes last, because it is the
+   * answer you give after reading the rest. The written answers — allergies,
+   * anything else — come after the list.
+   */
+  const followUps = medicalFields.filter((f) => f.dependsOnKey);
+  const noneField = medicalFields.find((f) => f.isNoneOption);
+  const ticks = medicalFields.filter(
+    (f) => f.type === 'BOOLEAN' && !f.dependsOnKey && !f.isNoneOption,
+  );
+  const written = medicalFields.filter(
+    (f) => f.type !== 'BOOLEAN' && !f.dependsOnKey && !f.isNoneOption,
+  );
+
+  /**
+   * Tick a condition and "none of the above" lets go; tick that and every
+   * condition does, along with the answers they had revealed.
+   *
+   * Leaving a typed answer behind under an unticked box would put a sentence
+   * about last year's surgery on a record that says there was none.
+   */
+  const setMedical = (key: string, value: unknown) => {
+    const next = { ...intake, [key]: value };
+    if (noneField && key === noneField.key && value) {
+      for (const f of [...ticks, ...followUps]) delete next[f.key];
+    } else if (noneField && value && key !== noneField.key) {
+      delete next[noneField.key];
+    }
+    if (!value) {
+      // Untick the condition, drop what it asked about.
+      for (const f of followUps.filter((x) => x.dependsOnKey === key)) delete next[f.key];
+    }
+    setIntake(next);
+  };
   const profileFields = catalog.fields.filter((f) => f.section === 'PROFILE');
 
   /**
@@ -554,6 +597,7 @@ export function BookingWizard() {
     [Boolean(client.birthday), 'We need your birthday.', 'detail-birthday'],
     [Boolean(client.addressCity), 'Choose your city.', 'detail-city'],
     [consent, 'Please tick the consent box so we can keep your booking.', 'detail-consent'],
+    [waiver, 'Please tick the treatment consent box before we reserve your slot.', 'detail-waiver'],
   ];
   for (const [ok, message, anchor] of details) {
     if (!ok) blockers.push({ message, step: 3, anchor });
@@ -1125,7 +1169,30 @@ export function BookingWizard() {
               This keeps you safe — your therapist needs to know before the treatment. Tick
               anything that applies.
             </p>
-            {medicalFields.map((f) => (
+            {ticks.map((f) => (
+              <div key={f.key} className="space-y-2">
+                <IntakeField field={f} value={intake[f.key]}
+                  onChange={(v) => setMedical(f.key, v)} />
+                {/* Indented and hairlined, so it reads as part of the answer
+                    above it rather than as another question in the list. */}
+                {Boolean(intake[f.key]) &&
+                  followUps
+                    .filter((d) => d.dependsOnKey === f.key)
+                    .map((d) => (
+                      <div key={d.key} className="ml-3 border-l-2 border-sand-200 pl-3">
+                        <IntakeField field={d} value={intake[d.key]}
+                          onChange={(v) => setMedical(d.key, v)} />
+                      </div>
+                    ))}
+              </div>
+            ))}
+
+            {noneField && (
+              <IntakeField field={noneField} value={intake[noneField.key]}
+                onChange={(v) => setMedical(noneField.key, v)} />
+            )}
+
+            {written.map((f) => (
               <IntakeField key={f.key} field={f} value={intake[f.key]}
                 onChange={(v) => setIntake({ ...intake, [f.key]: v })} />
             ))}
@@ -1147,11 +1214,25 @@ export function BookingWizard() {
             <label id="detail-consent" className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
                 checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span className="text-xs text-cocoa-600">{PRIVACY_CONSENT}</span>
+            </label>
+
+            {/* Its own box, below the privacy one: this is the client agreeing
+                to the treatment and its risks, which is a different thing to
+                agree to and has to be provable on its own. */}
+            <label id="detail-waiver" className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
+              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
+                checked={waiver} onChange={(e) => setWaiver(e.target.checked)} />
               <span className="text-xs text-cocoa-600">
-                I consent to ANICA Wellness Spa collecting and storing my personal and health
-                information for my treatment, safety and booking records, in line with the
-                Philippine Data Privacy Act of 2012 (RA 10173). My health details are visible
-                only to spa staff and are never shared or exported.
+                {WAIVER_LEAD}
+                <span className="mt-1.5 block space-y-1.5">
+                  {WAIVER_CLAUSES.map((clause) => (
+                    <span key={clause} className="flex gap-1.5">
+                      <span aria-hidden>•</span>
+                      <span>{clause}</span>
+                    </span>
+                  ))}
+                </span>
               </span>
             </label>
           </div>
@@ -1173,6 +1254,29 @@ export function BookingWizard() {
               released after {catalog.expiryMinutes} minutes.
             </p>
           </div>
+
+          {/* The same reason, again, beside the button it is stopping.
+              The checklist at the top of the step is where the detail lives,
+              but by the time a guest has filled in a long form it is a screen
+              and a half away, and a dead button with no explanation next to it
+              reads as the site being broken. */}
+          {blocking(3).length > 0 && (
+            <p className="text-sm text-clay-500">
+              <strong>
+                {blocking(3).length === 1
+                  ? 'One thing left:'
+                  : `${blocking(3).length} things left, starting with:`}
+              </strong>{' '}
+              {blocking(3)[0].message}{' '}
+              <button
+                type="button"
+                onClick={() => goFix(blocking(3)[0])}
+                className="font-semibold text-cocoa-700 underline underline-offset-2 hover:text-cocoa-900"
+              >
+                Take me there
+              </button>
+            </p>
+          )}
 
           <div className="flex gap-2">
             <button type="button" className="btn-secondary flex-1" onClick={() => setStep(2)}>

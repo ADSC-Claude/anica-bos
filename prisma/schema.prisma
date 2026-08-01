@@ -534,6 +534,10 @@ model Client {
   /// PH Data Privacy Act consent for sensitive personal information.
   consentGiven         Boolean   @default(false)
   consentAt            DateTime?
+  /// Treatment consent and liability waiver — a separate agreement from the
+  /// one above, and worth nothing without the date it was accepted.
+  waiverGiven          Boolean   @default(false)
+  waiverAt             DateTime?
   medicalUpdatedAt     DateTime?
   followUpSnoozedUntil DateTime?
   createdAt            DateTime  @default(now())
@@ -568,6 +572,19 @@ model ClientFieldDefinition {
   helpText    String       @default("")
   required    Boolean      @default(false)
   showOnline  Boolean      @default(false)
+  /// Only ask this when the named question has been ticked.
+  ///
+  /// "Recent surgery or injury" on its own tells the therapist to be careful
+  /// of something without saying what or where, which is the half of the
+  /// answer that matters. The follow-up appears under its parent the moment
+  /// the box is ticked, and stays out of the way when it is not.
+  dependsOnKey String?
+  /// Ticking this means none of the other questions in its section apply.
+  ///
+  /// A blank checklist cannot be told from a skipped one, and "she didn't say"
+  /// is not something to write on a medical record. This gives the guest a way
+  /// to answer *no* out loud.
+  isNoneOption Boolean     @default(false)
   /// Values that should raise a visible alert on the appointment card / POS.
   alertValues String[]     @default([])
   sortRank    Int          @default(0)

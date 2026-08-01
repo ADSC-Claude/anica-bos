@@ -44,6 +44,10 @@ export async function GET() {
         options: true,
         helpText: true,
         required: true,
+        // What turns a checklist into a conversation: which tick reveals this
+        // question, and which tick means none of them apply.
+        dependsOnKey: true,
+        isNoneOption: true,
       },
     }),
     // How many people the spa can physically hold at once, so the party-size

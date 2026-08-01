@@ -25,6 +25,9 @@ const schema = z.object({
   intake: z.record(z.string(), z.unknown()).default({}),
   notes: z.string().max(1000).optional(),
   consent: z.boolean(),
+  // Defaulted rather than required so a request that omits it fails in
+  // createOnlineBooking with words a client can act on, not a schema error.
+  waiver: z.boolean().default(false),
   promoCode: z.string().optional(),
 });
 

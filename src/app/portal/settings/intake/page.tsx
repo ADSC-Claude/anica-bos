@@ -69,6 +69,7 @@ export default async function IntakeSettingsPage() {
             id: f.id, label: f.label, section: f.section, type: f.type,
             options: f.options.join(', '), helpText: f.helpText, required: f.required,
             showOnline: f.showOnline, alertValues: f.alertValues.join(', '),
+            dependsOnKey: f.dependsOnKey ?? '', isNoneOption: f.isNoneOption,
             sortRank: f.sortRank, retired: f.retired,
           }))}
         />

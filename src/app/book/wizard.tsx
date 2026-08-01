@@ -58,6 +58,44 @@ function clockOf(iso: string): string {
   }).format(new Date(iso));
 }
 
+/** 'BED' as a guest would say it. */
+const PLACE_WORDS: Record<string, string> = {
+  BED: 'bed', ROOM: 'room', CHAIR: 'chair', SAUNA: 'sauna',
+};
+
+/**
+ * Which treatment is keeping times off the list.
+ *
+ * A visit of two treatments needs two places, and when only one of them is
+ * short there is nothing on screen to say which. The guest tries every date in
+ * the calendar and finds the same empty list, because the sauna is booked all
+ * afternoon and nobody told her.
+ */
+function BlockedNote({
+  blocked,
+  className = '',
+}: {
+  blocked: { treatment: string; placeType: string | null; freeAt: string | null }[];
+  className?: string;
+}) {
+  if (!blocked.length) return null;
+  return (
+    <ul className={`space-y-0.5 text-[11px] leading-relaxed text-cocoa-500 ${className}`}>
+      {blocked.slice(0, 3).map((b) => {
+        const place = b.placeType ? PLACE_WORDS[b.placeType] ?? b.placeType.toLowerCase() : 'place';
+        return (
+          <li key={b.treatment}>
+            <strong className="text-cocoa-700">{b.treatment}</strong>{' '}
+            {b.freeAt
+              ? `needs the ${place}, and it is taken until ${clockOf(b.freeAt)}.`
+              : `needs a ${place}, and we have none free that day.`}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function todayKey(): string {
   const now = new Date(Date.now() + 8 * 3600_000);
   return now.toISOString().slice(0, 10);
@@ -131,6 +169,19 @@ export function BookingWizard() {
   const [slots, setSlots] = useState<Slot[] | null>(null);
   /** Why the day came back empty — a tick box, a shift, or genuinely full. */
   const [noSlotReason, setNoSlotReason] = useState('');
+  /**
+   * Which treatment kept the times off the list, and when its place comes back.
+   *
+   * A visit of two treatments needs two places, and when only one of them is
+   * short the guest has no way of knowing which. "No free times" sends her
+   * round every date in the calendar; "the sauna is taken until 2:30pm" tells
+   * her what to do next.
+   */
+  const [blocked, setBlocked] = useState<
+    { treatment: string; placeType: string | null; freeAt: string | null }[]
+  >([]);
+  /** The visit's real length in minutes, as the server plans it. */
+  const [quotedMinutes, setQuotedMinutes] = useState<number | null>(null);
   const [startAt, setStartAt] = useState('');
   const [therapists, setTherapists] = useState<{ id: string; name: string }[]>([]);
   const [resources, setResources] = useState<{ id: string; name: string; type: string }[]>([]);
@@ -229,7 +280,16 @@ export function BookingWizard() {
   const chosen = serviceIds
     .map((id) => allServices.find((s) => s.id === id))
     .filter(Boolean) as typeof allServices;
-  const totalMinutes = chosen.reduce((a, s) => a + s.durationMinutes, 0);
+  /**
+   * Door to door, gaps included — the number the server plans with.
+   *
+   * Adding up the treatments alone quotes a sauna and a massage as 90 minutes
+   * when the floor gives up 95, and the guest reads a finish time she will not
+   * meet. The API already computes this properly, so the summary uses its
+   * answer and only falls back to the raw sum before the first reply lands.
+   */
+  const totalMinutes =
+    quotedMinutes ?? chosen.reduce((a, s) => a + s.durationMinutes, 0);
   const totalPrice = chosen.reduce((a, s) => a + s.priceCents, 0);
   const deposit = slotInfo?.depositCents ?? Math.round((totalPrice * (catalog?.depositPercent ?? 30)) / 100);
 
@@ -242,6 +302,8 @@ export function BookingWizard() {
     let cancelled = false;
     setSlots(null);
     setNoSlotReason('');
+    setBlocked([]);
+    setQuotedMinutes(null);
     setStartAt('');
     const params = new URLSearchParams({ branchId, date: dateKey, serviceIds: serviceIds.join(',') });
     if (guestParam) params.set('guests', guestParam);
@@ -252,6 +314,8 @@ export function BookingWizard() {
         if (data.error) { setError(data.error); return; }
         setSlots(data.slots ?? []);
         setNoSlotReason(data.reason?.message ?? '');
+        setBlocked(data.blocked ?? []);
+        if (typeof data.durationMinutes === 'number') setQuotedMinutes(data.durationMinutes);
       })
       .catch(() => !cancelled && setError('Could not check availability. Please try again.'));
     return () => { cancelled = true; };
@@ -752,9 +816,12 @@ export function BookingWizard() {
                 {slots === null ? (
                   <p className="text-sm text-cocoa-400">Checking availability…</p>
                 ) : slots.length === 0 ? (
-                  <p className="text-sm text-clay-500">
-                    {noSlotReason || 'No free times left that day. Please try another date.'}
-                  </p>
+                  <div className="space-y-1.5">
+                    <p className="text-sm text-clay-500">
+                      {noSlotReason || 'No free times left that day. Please try another date.'}
+                    </p>
+                    <BlockedNote blocked={blocked} />
+                  </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
                     {slots.map((s) => (
@@ -787,6 +854,10 @@ export function BookingWizard() {
                     ))}
                   </div>
                 )}
+                {/* Times *are* on offer, but earlier ones were held back and the
+                    guest cannot see why. Saying which treatment did it turns a
+                    thin list into an explained one. */}
+                {slots !== null && slots.length > 0 && <BlockedNote blocked={blocked} className="mt-2" />}
                 {slots?.some((x) => x.needsApproval) && (
                   <p className="mt-2 text-[11px] leading-relaxed text-cocoa-500">
                     Times marked <strong className="text-gilt-600">on request</strong> run past
@@ -856,7 +927,7 @@ export function BookingWizard() {
 
           <div className="block" id="floor-plan">
             <span className="label">
-              {guests.length ? 'Choose your places' : 'Choose your place'}
+              {guests.length || legs.length > 1 ? 'Choose your places' : 'Choose your place'}
             </span>
             {resourceId !== 'any' && legs.length > 0 && (
               <FloorPlan
@@ -907,7 +978,9 @@ export function BookingWizard() {
                   if (e.target.checked) setSeats({});
                 }}
               />
-              {guests.length
+              {/* "bed" is only right for one guest having one bed treatment.
+                  A sauna and a massage are two places, and a party is more. */}
+              {guests.length || legs.length > 1
                 ? 'Any free places — let the spa choose'
                 : 'Any free bed — let the spa choose'}
             </label>

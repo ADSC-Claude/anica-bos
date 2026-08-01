@@ -2,7 +2,7 @@
  * Online booking: turns a public form submission into a client record, a
  * PENDING appointment, and a PayMongo checkout session for the reservation fee.
  */
-import type { AppointmentStatus } from '@prisma/client';
+import type { AppointmentStatus, ResourceType } from '@prisma/client';
 import { prisma } from './db';
 import { getSettings } from './settings';
 import { bookingReference } from './codes';
@@ -16,7 +16,7 @@ import {
   requiredPlaceFor,
   runsPastClosing,
 } from './availability';
-import { planVisit } from './itinerary';
+import { placeRuns, planVisit } from './itinerary';
 import { formatManila } from './datetime';
 import { formatPeso } from './money';
 import { appUrl } from './app-url';
@@ -219,6 +219,8 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
         durationMinutes: x.durationMinutes,
         changeoverMinutes: x.changeoverMinutes,
         sequenceRank: x.sequenceRank,
+        placeType: x.requiredResourceType,
+        isAddOn: x.isAddOn,
       })),
       startAt,
       changeoverMinutes: houseChangeover,
@@ -244,25 +246,30 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       }
     }
 
-    // One place per treatment, each checked against its own window. A sauna at
-    // 1:30 and a bed at 2:20 are two separate holds, and the bed is somebody
-    // else's to book until she gets on it.
+    // One place per *run* — a stretch of the visit spent in one place.
+    //
+    // A sauna at 1:30 and a bed at 2:20 are two holds, and the bed is somebody
+    // else's to book until she gets on it. But a massage followed by ear
+    // candling is one bed held right through: she does not get up, and the five
+    // minutes between them is the therapist working around her. Assigning per
+    // treatment would hand her Bed 3 and then Bed 7, and would leave those five
+    // minutes bookable by a stranger.
     const legs: Leg[] = [];
-    for (const step of itinerary) {
-      const svc = byId.get(step.serviceId)!;
-      const needs = requiredPlaceFor([svc]);
+    for (const run of placeRuns(itinerary)) {
+      const needs = run.placeType as ResourceType | null;
       const asked =
-        guest.placeByService?.[step.serviceId] ??
+        // Any treatment in the run may carry the choice; they all share it.
+        run.segments.map((seg) => guest.placeByService?.[seg.serviceId]).find(Boolean) ??
         // A visit of one treatment still accepts the old single-place field,
-        // and so does the first leg of a longer one.
+        // and so does the first run of a longer one.
         (legs.length === 0 ? guest.resourceId : null);
       let resourceId = asked && asked !== 'any' ? asked : null;
 
       if (!resourceId) {
         const free = await availableResources({
           branchId: branch.id,
-          startAt: step.startAt,
-          endAt: step.endAt,
+          startAt: run.startAt,
+          endAt: run.endAt,
           resourceType: needs,
           partyRef,
           // Auto-assignment takes a place for one person, so it must not be
@@ -277,17 +284,18 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
               r.capacity > 1 ||
               !seats.some((t) =>
                 t.legs.some(
-                  (l) => l.resourceId === r.id && l.startAt < step.endAt && step.startAt < l.endAt,
+                  (l) => l.resourceId === r.id && l.startAt < run.endAt && run.startAt < l.endAt,
                 ),
               ),
           )?.id ??
           free[0]?.id ??
           null;
         if (!resourceId) {
+          const what = run.segments.map((seg) => seg.name).join(' and ');
           throw new BookingError(
             needs
-              ? `No ${needs.toLowerCase()} is free for ${who}'s ${svc.name} at that time.`
-              : `Nowhere is free for ${who}'s ${svc.name} at that time.`,
+              ? `No ${needs.toLowerCase()} is free for ${who}'s ${what} at that time.`
+              : `Nowhere is free for ${who}'s ${what} at that time.`,
           );
         }
       }
@@ -298,7 +306,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
         .flatMap((t) => t.legs)
         .concat(legs)
         .filter(
-          (l) => l.resourceId === resourceId && l.startAt < step.endAt && step.startAt < l.endAt,
+          (l) => l.resourceId === resourceId && l.startAt < run.endAt && run.startAt < l.endAt,
         );
       const capacity = placeCapacity.get(resourceId) ?? 1;
       if (clash.length >= capacity) {
@@ -309,8 +317,8 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
 
       await assertNoConflicts({
         branchId: branch.id,
-        startAt: step.startAt,
-        endAt: step.endAt,
+        startAt: run.startAt,
+        endAt: run.endAt,
         employeeIds: [therapistId],
         resourceId,
         resourceType: needs,
@@ -318,15 +326,18 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
         partySize: wantedPer.get(resourceId) ?? 1,
       });
 
-      legs.push({
-        serviceId: step.serviceId,
-        priceCents: svc.priceCents,
-        durationMinutes: svc.durationMinutes,
-        resourceId,
-        startAt: step.startAt,
-        endAt: step.endAt,
-        changeoverAfter: step.changeoverAfter,
-      });
+      for (const step of run.segments) {
+        const svc = byId.get(step.serviceId)!;
+        legs.push({
+          serviceId: step.serviceId,
+          priceCents: svc.priceCents,
+          durationMinutes: svc.durationMinutes,
+          resourceId,
+          startAt: step.startAt,
+          endAt: step.endAt,
+          changeoverAfter: step.changeoverAfter,
+        });
+      }
     }
 
     const resourceId = legs[0]?.resourceId ?? '';

@@ -162,7 +162,11 @@ export function FloorPlan({
             </>
           ) : (
             <>
-              Choose a place for <strong>{guest?.name || 'you'}</strong>.
+              {/* Name the treatment, not just the person. One guest booking a
+                  sauna and a massage sees this prompt twice, and "choose a
+                  place for you" gives her no way to tell the two apart. */}
+              Choose a place for{' '}
+              <strong>{guest?.serviceLabel || guest?.name || 'you'}</strong>.
             </>
           )}
         </p>

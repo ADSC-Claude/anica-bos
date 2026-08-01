@@ -432,6 +432,11 @@ model Service {
   /// house default is not right — a sauna needs a shower, a foot spa does not.
   /// Null means use the branch default.
   changeoverMinutes    Int?
+  /// An extra that runs on the end of the treatment before it, in the same
+  /// place and with no gap. A hot compress after a massage is not a second
+  /// appointment: she does not get up and the bed is not turned over, so
+  /// charging the visit five minutes of floor time for it invents work.
+  isAddOn              Boolean           @default(false)
   active               Boolean           @default(true)
   showOnLanding        Boolean           @default(true)
   sortRank             Int               @default(0)

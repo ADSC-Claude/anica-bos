@@ -463,6 +463,129 @@ export function slotsForDay(opts: {
   return out;
 }
 
+/**
+ * Why a day came back with nothing.
+ *
+ * "No free slots left that day. Try another date." is true and useless. When
+ * *every* day is empty the cause is never the date — it is a therapist with no
+ * treatments ticked, a shift nobody is on, or a place that was switched off —
+ * and the person staring at the empty list is usually the one who could fix it
+ * in a minute if anybody told them what was wrong.
+ */
+export type NoSlotReason =
+  | 'CLOSED_FOR_DAY'
+  | 'NO_THERAPIST_AT_ALL'
+  | 'NO_SKILLED_THERAPIST'
+  | 'NO_THERAPIST_ON_DUTY'
+  | 'NO_PLACE_CONFIGURED'
+  | 'PARTY_TOO_LARGE'
+  | 'FULLY_BOOKED';
+
+export async function diagnoseNoSlots(opts: {
+  branchId: string;
+  serviceIds: string[];
+  serviceNames: string[];
+  place: ResourceType | null;
+  candidates: DaySlot[];
+  partySize: number;
+}): Promise<{ code: NoSlotReason; message: string }> {
+  const what = opts.serviceNames.join(' + ') || 'that treatment';
+
+  // Nothing was even offered: the day is over, or starts later than we close.
+  if (!opts.candidates.length) {
+    return {
+      code: 'CLOSED_FOR_DAY',
+      message: 'That day is past our last booking time. Please try another date.',
+    };
+  }
+
+  // Is there anybody at all? Switching the last therapist off, or setting them
+  // all to a status that is not active, empties every date in the calendar.
+  const anyTherapist = await prisma.employee.count({
+    where: { branchId: opts.branchId, active: true, employeeRole: 'THERAPIST' },
+  });
+  if (!anyTherapist) {
+    return {
+      code: 'NO_THERAPIST_AT_ALL',
+      message:
+        'We have no therapists available for online booking at the moment. ' +
+        'Please call us and we will take your booking by phone.',
+    };
+  }
+
+  // Can anybody here do it? This is the one that empties every date, and it is
+  // a tick box rather than a busy evening.
+  const skilled = await prisma.employee.findMany({
+    where: {
+      branchId: opts.branchId,
+      active: true,
+      employeeRole: 'THERAPIST',
+      ...(opts.serviceIds.length ? { skills: { some: { serviceId: { in: opts.serviceIds } } } } : {}),
+    },
+    include: { skills: { select: { serviceId: true } } },
+  });
+  const fullySkilled = skilled.filter((e) => {
+    const owned = new Set(e.skills.map((s) => s.serviceId));
+    return opts.serviceIds.every((id) => owned.has(id));
+  });
+  if (!fullySkilled.length) {
+    return {
+      code: 'NO_SKILLED_THERAPIST',
+      message:
+        `None of our therapists is set up for ${what} yet, so it cannot be booked online. ` +
+        'Please call us and we will arrange it.',
+    };
+  }
+
+  // Somewhere to put them.
+  const places = await prisma.resource.count({
+    where: {
+      branchId: opts.branchId,
+      active: true,
+      ...(opts.place ? { type: { in: placesSatisfying(opts.place) } } : {}),
+    },
+  });
+  if (!places) {
+    return {
+      code: 'NO_PLACE_CONFIGURED',
+      message:
+        `We have no ${(opts.place ?? 'room').toLowerCase()} set up for ${what} at the moment. ` +
+        'Please call us and we will arrange it.',
+    };
+  }
+
+  // Skilled and housed, so it is the shift — nobody is working that day.
+  const first = opts.candidates[0];
+  const onDuty = await availableTherapists({
+    branchId: opts.branchId,
+    startAt: first.startAt,
+    endAt: new Date(first.startAt.getTime() + 60_000),
+    serviceIds: opts.serviceIds,
+  });
+  if (!onDuty.length) {
+    return {
+      code: 'NO_THERAPIST_ON_DUTY',
+      message:
+        'No therapist is on shift for that treatment that day. Please try another date, ' +
+        'or call us and we will see who we can bring in.',
+    };
+  }
+
+  if (opts.partySize > 1 && (fullySkilled.length < opts.partySize || places < opts.partySize)) {
+    return {
+      code: 'PARTY_TOO_LARGE',
+      message:
+        `We cannot take a group of ${opts.partySize} for ${what} on any time that day. ` +
+        'Please call us — a smaller group or a split time is usually possible.',
+    };
+  }
+
+  return {
+    code: 'FULLY_BOOKED',
+    message: 'Every time that day is already booked. Please try another date.',
+  };
+}
+
 export type PlanPlace = {
   id: string;
   name: string;

@@ -4,6 +4,7 @@ import { getSettings } from '@/lib/settings';
 import {
   availableResources,
   availableTherapists,
+  diagnoseNoSlots,
   floorPlan,
   placesSatisfying,
   requiredPlaceFor,
@@ -191,6 +192,19 @@ export async function GET(req: Request) {
     });
   }
 
+  // An empty list needs a reason. When every date comes back empty the cause is
+  // never the date, and "try another day" sends the guest round in circles.
+  const reason = slots.length
+    ? null
+    : await diagnoseNoSlots({
+        branchId: branch.id,
+        serviceIds,
+        serviceNames: services.map((s) => s.name),
+        place,
+        candidates,
+        partySize,
+      });
+
   return NextResponse.json({
     branchId: branch.id,
     durationMinutes,
@@ -198,5 +212,6 @@ export async function GET(req: Request) {
     depositCents: Math.round((partyPriceCents * settings['booking.depositPercent']) / 100),
     partySize,
     slots,
+    reason,
   });
 }

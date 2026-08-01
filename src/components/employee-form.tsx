@@ -31,7 +31,11 @@ export type EmployeeValues = {
   payType?: string;
   payRate?: number;
   skillIds?: string[];
+  /** Weekdays she does not work. 0 = Sunday .. 6 = Saturday. */
+  dayOffDays?: number[];
 };
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function EmployeeForm({
   branchId,
@@ -60,6 +64,7 @@ export function EmployeeForm({
   const [payType, setPayType] = useState(values.payType ?? 'DAILY_ALLOWANCE');
   // Controlled, so "she does everything" can tick the lot in one go.
   const [skills, setSkills] = useState<string[]>(values.skillIds ?? []);
+  const [daysOff, setDaysOff] = useState<number[]>(values.dayOffDays ?? [0]);
   const ownerOnlyRole = role === 'RECEPTIONIST' || role === 'MANAGER';
 
   const byCategory = new Map<string, typeof services>();
@@ -180,6 +185,46 @@ export function EmployeeForm({
             <input name="emergencyMobile" className="input" defaultValue={values.emergencyMobile} />
           </label>
         </div>
+        <div>
+          <span className="label">Rest days</span>
+          <input type="hidden" name="daysOffSubmitted" value="1" />
+          {daysOff.map((d) => (
+            <input key={d} type="hidden" name="dayOff" value={d} />
+          ))}
+          <div className="flex flex-wrap gap-1.5">
+            {WEEKDAYS.map((label, d) => {
+              const off = daysOff.includes(d);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() =>
+                    setDaysOff((prev) =>
+                      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
+                    )
+                  }
+                  aria-pressed={off}
+                  className={`min-h-11 min-w-[52px] rounded-xl border px-3 text-sm font-medium transition ${
+                    off
+                      ? 'border-clay-500 bg-clay-500/10 text-clay-500'
+                      : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            {daysOff.length === 0
+              ? 'No rest day — she is offered for booking every day of the week.'
+              : `Off ${daysOff.map((d) => WEEKDAYS[d]).join(', ')}. `}
+            Rest days remove her from the online booking form on those weekdays. For today and
+            past days the attendance log decides instead, so a rest day she comes in for is not
+            a problem — just time her in.
+          </span>
+        </div>
+
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
           <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={values.active ?? true} />

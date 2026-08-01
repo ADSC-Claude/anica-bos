@@ -386,6 +386,7 @@ export default async function EmployeeDetailPage({
               payType: employee.payType,
               payRate: employee.payRateCents / 100,
               skillIds: employee.skills.map((s) => s.serviceId),
+              dayOffDays: employee.schedules.filter((s) => s.isDayOff).map((s) => s.dayOfWeek),
             }}
           />
         </div>

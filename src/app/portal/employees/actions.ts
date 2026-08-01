@@ -111,16 +111,31 @@ export async function saveEmployeeAction(
       },
     });
     employeeId = created.id;
-    // Sensible default: works every day except Sunday.
-    for (let d = 0; d < 7; d++) {
-      await prisma.employeeSchedule.create({
-        data: { employeeId: created.id, dayOfWeek: d, isDayOff: d === 0 },
-      });
-    }
     await audit(user, {
       module: 'employees', action: 'create', entityType: 'Employee', entityId: created.id,
       summary: `Added ${created.name} (${employeeRole.toLowerCase()})`, sensitive: true,
     });
+  }
+
+  // Rest days. Seven rows either way, so every weekday has an answer rather
+  // than an absence that availability has to guess at.
+  //
+  // Only written when the form actually carried the control — an action called
+  // from somewhere without it must not silently put everybody on duty all week.
+  if (formData.has('daysOffSubmitted') || !id) {
+    const off = new Set(
+      formData.getAll('dayOff').map((d) => Number(d)).filter((d) => d >= 0 && d <= 6),
+    );
+    // A brand new employee with nothing chosen keeps the old default of Sunday
+    // off, rather than starting life on a seven-day week.
+    if (!id && !formData.has('daysOffSubmitted')) off.add(0);
+    for (let d = 0; d < 7; d += 1) {
+      await prisma.employeeSchedule.upsert({
+        where: { employeeId_dayOfWeek: { employeeId, dayOfWeek: d } },
+        create: { employeeId, dayOfWeek: d, isDayOff: off.has(d) },
+        update: { isDayOff: off.has(d) },
+      });
+    }
   }
 
   // Skills

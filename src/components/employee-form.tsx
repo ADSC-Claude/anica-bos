@@ -3,6 +3,7 @@
 import { useActionState, useState } from 'react';
 import { saveEmployeeAction, type FormState } from '@/app/portal/employees/actions';
 import { TITLES, displayName } from '@/lib/people';
+import { DateSelect } from '@/components/date-select';
 
 export type EmployeeValues = {
   id?: string;
@@ -30,7 +31,11 @@ export type EmployeeValues = {
   payType?: string;
   payRate?: number;
   skillIds?: string[];
+  /** Weekdays she does not work. 0 = Sunday .. 6 = Saturday. */
+  dayOffDays?: number[];
 };
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function EmployeeForm({
   branchId,
@@ -59,6 +64,7 @@ export function EmployeeForm({
   const [payType, setPayType] = useState(values.payType ?? 'DAILY_ALLOWANCE');
   // Controlled, so "she does everything" can tick the lot in one go.
   const [skills, setSkills] = useState<string[]>(values.skillIds ?? []);
+  const [daysOff, setDaysOff] = useState<number[]>(values.dayOffDays ?? [0]);
   const ownerOnlyRole = role === 'RECEPTIONIST' || role === 'MANAGER';
 
   const byCategory = new Map<string, typeof services>();
@@ -155,14 +161,15 @@ export function EmployeeForm({
           <input name="address" className="input" defaultValue={values.address} />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
+          <div className="block">
             <span className="label">Birthday</span>
-            <input name="birthday" type="date" max={todayKey()} className="input"
-              defaultValue={values.birthday} />
+            {/* Three lists rather than a date field: a native picker means
+                paging back three hundred months to reach 1994. */}
+            <DateSelect name="birthday" value={values.birthday} />
             <span className="mt-1 block text-[11px] text-cocoa-400">
               Asked for on every government form — SSS, PhilHealth, Pag-IBIG and BIR.
             </span>
-          </label>
+          </div>
           <label className="block">
             <span className="label">Hire date</span>
             <input name="hireDate" type="date" className="input" defaultValue={values.hireDate} />
@@ -178,6 +185,46 @@ export function EmployeeForm({
             <input name="emergencyMobile" className="input" defaultValue={values.emergencyMobile} />
           </label>
         </div>
+        <div>
+          <span className="label">Rest days</span>
+          <input type="hidden" name="daysOffSubmitted" value="1" />
+          {daysOff.map((d) => (
+            <input key={d} type="hidden" name="dayOff" value={d} />
+          ))}
+          <div className="flex flex-wrap gap-1.5">
+            {WEEKDAYS.map((label, d) => {
+              const off = daysOff.includes(d);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() =>
+                    setDaysOff((prev) =>
+                      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort(),
+                    )
+                  }
+                  aria-pressed={off}
+                  className={`min-h-11 min-w-[52px] rounded-xl border px-3 text-sm font-medium transition ${
+                    off
+                      ? 'border-clay-500 bg-clay-500/10 text-clay-500'
+                      : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            {daysOff.length === 0
+              ? 'No rest day — she is offered for booking every day of the week.'
+              : `Off ${daysOff.map((d) => WEEKDAYS[d]).join(', ')}. `}
+            Rest days remove her from the online booking form on those weekdays. For today and
+            past days the attendance log decides instead, so a rest day she comes in for is not
+            a problem — just time her in.
+          </span>
+        </div>
+
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
           <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={values.active ?? true} />
@@ -359,7 +406,3 @@ export function EmployeeForm({
   );
 }
 
-/** Today in Manila, so a birthday cannot be set in the future. */
-function todayKey(): string {
-  return new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
-}

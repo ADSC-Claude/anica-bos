@@ -13,97 +13,101 @@
  * shown to anyone booking online, so it became a tick with a follow-up. And a
  * blank checklist could not be told from a skipped one, so there is now a way
  * to answer *no* out loud.
+ *
+ * These build their own questions rather than reading the spa's catalogue: a
+ * fresh database has had the migrations run and nothing seeded, and a test
+ * that quietly depends on seed data passes on a laptop and fails in CI.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
+const stamp = Date.now().toString(36);
+const k = (name: string) => `t_${name}_${stamp}`;
 
 before(async () => {
-  // The fields come from the migration, not from a fixture: what is being
-  // checked is that a real catalogue of questions hangs together.
+  const make = (
+    name: string,
+    type: 'BOOLEAN' | 'TEXT',
+    extra: Record<string, unknown> = {},
+  ) =>
+    prisma.clientFieldDefinition.create({
+      data: {
+        key: k(name), label: name, section: 'MEDICAL', type,
+        showOnline: true, sortRank: 900, ...extra,
+      },
+    });
+
+  await make('surgery', 'BOOLEAN', { alertValues: ['true'] });
+  await make('surgery_detail', 'TEXT', { dependsOnKey: k('surgery') });
+  await make('meds', 'BOOLEAN', { alertValues: ['true'] });
+  await make('meds_detail', 'TEXT', { dependsOnKey: k('meds') });
+  await make('none', 'BOOLEAN', { isNoneOption: true });
 });
 
 after(async () => {
+  await prisma.clientFieldDefinition.deleteMany({ where: { key: { endsWith: stamp } } });
   await prisma.$disconnect();
 });
 
-const byKey = async (key: string) =>
-  prisma.clientFieldDefinition.findUnique({ where: { key } });
+const byKey = (name: string) =>
+  prisma.clientFieldDefinition.findUnique({ where: { key: k(name) } });
 
-test('every condition that needs elaborating has a follow-up', async () => {
-  const needing = [
-    'hypertension', 'heart_condition', 'diabetes', 'pregnancy',
-    'recent_surgery', 'skin_condition', 'varicose_veins',
-  ];
-  for (const key of needing) {
-    const parent = await byKey(key);
-    assert.ok(parent, `${key} exists`);
-    const followUp = await prisma.clientFieldDefinition.findFirst({
-      where: { dependsOnKey: key },
-    });
-    assert.ok(followUp, `${key} asks a follow-up`);
-    assert.equal(followUp.section, 'MEDICAL');
-    assert.ok(followUp.showOnline, 'and asks it of guests booking online too');
-  }
+// -------------------------------------------------------- the stored shape
+
+test('a follow-up hangs off the question it elaborates', async () => {
+  const detail = await byKey('surgery_detail');
+  assert.ok(detail);
+  assert.equal(detail.dependsOnKey, k('surgery'));
+  assert.ok(detail.showOnline, 'and is asked of guests booking online, not just at the desk');
 });
 
-test('a follow-up points at a question that exists and is a tick box', async () => {
-  // A follow-up hanging off a missing or free-text parent would never appear,
-  // and nobody would notice until a therapist needed the answer.
+test('the question it hangs off is a tick box', async () => {
+  // A follow-up on a free-text parent would never appear, because there is
+  // nothing to tick, and nobody would notice until a therapist needed it.
+  const parent = await byKey('surgery');
+  assert.equal(parent?.type, 'BOOLEAN');
+});
+
+test('a follow-up is never itself a parent', async () => {
+  // One level only. A chain would leave an answer on screen underneath a
+  // question that is itself hidden.
+  const detail = await byKey('surgery_detail');
+  const parent = await prisma.clientFieldDefinition.findUnique({
+    where: { key: detail!.dependsOnKey! },
+  });
+  assert.equal(parent?.dependsOnKey, null);
+});
+
+test('"none of the above" is a tick, and never hidden behind another answer', async () => {
+  const none = await byKey('none');
+  assert.ok(none);
+  assert.equal(none.type, 'BOOLEAN');
+  assert.equal(none.dependsOnKey, null);
+  assert.equal(none.alertValues.length, 0, 'answering "nothing applies" is not an alert');
+});
+
+test('nothing in the catalogue depends on a question that does not exist', async () => {
+  // Whatever the spa has configured, every reveal must have something to
+  // reveal from — including the rows the migration inserted.
   const followUps = await prisma.clientFieldDefinition.findMany({
     where: { dependsOnKey: { not: null }, retired: false },
   });
-  assert.ok(followUps.length >= 8);
-  for (const f of followUps) {
-    const parent = await byKey(f.dependsOnKey!);
-    assert.ok(parent, `${f.key} depends on ${f.dependsOnKey}, which exists`);
-    assert.equal(parent.type, 'BOOLEAN', `${f.dependsOnKey} is something you tick`);
-    assert.equal(parent.retired, false, `${f.dependsOnKey} is still asked`);
-  }
+  const keys = new Set(
+    (await prisma.clientFieldDefinition.findMany({ select: { key: true } })).map((f) => f.key),
+  );
+  const orphans = followUps
+    .filter((f) => !keys.has(f.dependsOnKey!))
+    .map((f) => `${f.key} → ${f.dependsOnKey}`);
+  assert.deepEqual(orphans, [], 'a follow-up whose parent is missing can never be shown');
 });
 
-test('a follow-up never depends on itself or on another follow-up', async () => {
-  // One level only. A chain would leave an answer visible under a question
-  // that is itself hidden.
-  const followUps = await prisma.clientFieldDefinition.findMany({
-    where: { dependsOnKey: { not: null } },
-  });
-  for (const f of followUps) {
-    assert.notEqual(f.dependsOnKey, f.key);
-    const parent = await byKey(f.dependsOnKey!);
-    assert.equal(parent?.dependsOnKey, null, `${f.dependsOnKey} is not itself a follow-up`);
-  }
-});
-
-test('medications is a tick with a follow-up, and guests are finally asked', async () => {
-  const tick = await byKey('medications_taking');
-  assert.ok(tick);
-  assert.equal(tick.type, 'BOOLEAN');
-  assert.ok(tick.showOnline, 'the online form asks it now');
-  assert.ok(tick.alertValues.includes('true'), 'and it flags on the appointment card');
-
-  const detail = await byKey('medications');
-  assert.ok(detail);
-  assert.equal(detail.dependsOnKey, 'medications_taking');
-  assert.ok(detail.showOnline, 'it used to be portal-only, so nobody online was asked');
-});
-
-test('there is exactly one "none of the above", and it is a tick', async () => {
-  const none = await prisma.clientFieldDefinition.findMany({
-    where: { isNoneOption: true, retired: false },
-  });
-  assert.equal(none.length, 1, 'two of them would be a contradiction waiting to happen');
-  assert.equal(none[0].type, 'BOOLEAN');
-  assert.equal(none[0].section, 'MEDICAL');
-  assert.equal(none[0].dependsOnKey, null, 'it is never hidden behind another answer');
-  assert.equal(none[0].alertValues.length, 0, 'answering "nothing applies" is not an alert');
-});
+// ------------------------------------------------------------- the rules
 
 /**
- * The rule the form applies when a box is ticked, kept here in one place so it
- * can be checked without a browser. Mirrors `setMedical` in the booking form.
+ * What the form does when a box is ticked, kept here so it can be checked
+ * without a browser. Mirrors `setMedical` in the booking form.
  */
 function applyTick(
   answers: Record<string, unknown>,

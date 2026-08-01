@@ -389,8 +389,19 @@ async function main() {
   const defs = [];
   for (const f of intake) {
     defs.push(
-      await prisma.clientFieldDefinition.create({
-        data: {
+      // Upsert, not create. The migration that introduced follow-ups inserts
+      // some of these rows, so on a database built by running the migrations
+      // and *then* seeding, a plain create collides on the unique key and the
+      // whole seed dies halfway through the catalogue.
+      await prisma.clientFieldDefinition.upsert({
+        where: { key: f.key },
+        update: {
+          label: f.label, section: f.section, type: f.type,
+          options: f.options ?? [], showOnline: f.online, alertValues: f.alert ?? [],
+          sortRank: f.rank, helpText: f.help ?? '',
+          dependsOnKey: f.dependsOn ?? null, isNoneOption: f.none ?? false,
+        },
+        create: {
           key: f.key, label: f.label, section: f.section, type: f.type,
           options: f.options ?? [], showOnline: f.online, alertValues: f.alert ?? [],
           sortRank: f.rank, helpText: f.help ?? '',

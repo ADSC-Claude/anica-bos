@@ -8,6 +8,7 @@ import { formatManila, manilaMonthKey, monthBounds, dateKeyToBusinessDate, manil
 import { PageHeader, StatCard, StatusBadge, EmptyState } from '@/components/ui';
 import { EmployeeForm } from '@/components/employee-form';
 import { LoanForm } from './loan-form';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 
@@ -93,8 +94,16 @@ export default async function EmployeeDetailPage({
   return (
     <div>
       <PageHeader
-        title={employee.name}
-        subtitle={`${employee.employeeRole.toLowerCase()} · ${employee.branch.name} · hired ${formatManila(employee.hireDate)}`}
+        title={shownName(employee)}
+        // The legal name belongs on her own record even though nothing else
+        // shows it: this is the page you open to find out who Ms. Jenny is on
+        // a payslip.
+        subtitle={[
+          employee.name !== shownName(employee) ? employee.name : '',
+          employee.employeeRole.toLowerCase(),
+          employee.branch.name,
+          `hired ${formatManila(employee.hireDate)}`,
+        ].filter(Boolean).join(' · ')}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -353,7 +362,11 @@ export default async function EmployeeDetailPage({
             services={services.map((s) => ({ id: s.id, name: s.name, categoryName: s.category.name }))}
             values={{
               id: employee.id,
-              name: employee.name,
+              firstName: employee.firstName,
+              middleName: employee.middleName,
+              lastName: employee.lastName,
+              nickname: employee.nickname,
+              title: employee.title,
               employeeRole: employee.employeeRole,
               mobile: employee.mobile,
               email: employee.email,

@@ -4,6 +4,7 @@ import { getSettings } from '@/lib/settings';
 import { manilaDateKey, dateKeyToBusinessDate } from '@/lib/datetime';
 import { Alert } from '@/components/ui';
 import { PosTerminal } from './terminal';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'POS checkout' };
@@ -49,8 +50,10 @@ export default async function PosPage({
       prisma.package.findMany({ where: { active: true }, orderBy: { name: 'asc' } }),
       prisma.employee.findMany({
         where: { branchId, active: true, employeeRole: 'THERAPIST' },
-        select: { id: true, name: true },
-        orderBy: { name: 'asc' },
+        // The terminal names a therapist on each line and that name reaches the
+        // receipt, so it is the one the client knows her by.
+        select: { id: true, name: true, displayName: true },
+        orderBy: { displayName: 'asc' },
       }),
       prisma.corporateAccount.findMany({
         where: { active: true },
@@ -121,7 +124,7 @@ export default async function PosPage({
           isEmployeeRate: p.isEmployeeRate,
         }))}
         clients={clients}
-        therapists={therapists}
+        therapists={therapists.map((t) => ({ id: t.id, name: shownName(t) }))}
         corporates={corporates}
         partners={partners}
         prefill={

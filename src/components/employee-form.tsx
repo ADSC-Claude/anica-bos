@@ -2,10 +2,15 @@
 
 import { useActionState, useState } from 'react';
 import { saveEmployeeAction, type FormState } from '@/app/portal/employees/actions';
+import { TITLES, displayName } from '@/lib/people';
 
 export type EmployeeValues = {
   id?: string;
-  name?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  nickname?: string;
+  title?: string;
   employeeRole?: string;
   mobile?: string;
   email?: string;
@@ -43,6 +48,13 @@ export function EmployeeForm({
 }) {
   const [state, action] = useActionState<FormState, FormData>(saveEmployeeAction, {});
   const [role, setRole] = useState(values.employeeRole ?? 'THERAPIST');
+  // Shown back as you type, because "Ms." plus a nickname is the name clients
+  // will see on the booking page and it should not be a surprise on save.
+  const [called, setCalled] = useState({
+    title: values.title ?? 'Ms.',
+    firstName: values.firstName ?? '',
+    nickname: values.nickname ?? '',
+  });
   const [payType, setPayType] = useState(values.payType ?? 'DAILY_ALLOWANCE');
   const ownerOnlyRole = role === 'RECEPTIONIST' || role === 'MANAGER';
 
@@ -59,11 +71,62 @@ export function EmployeeForm({
 
       <div className="card-pad space-y-3">
         <p className="section-title">Basics</p>
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/* Legal name, in the parts SSS, PhilHealth and BIR ask for. */}
+        <div className="grid gap-3 sm:grid-cols-3">
           <label className="block">
-            <span className="label">Full name *</span>
-            <input name="name" className="input" defaultValue={values.name} required />
+            <span className="label">First name *</span>
+            <input
+              name="firstName"
+              className="input"
+              defaultValue={values.firstName}
+              required
+              onChange={(e) => setCalled((c) => ({ ...c, firstName: e.target.value }))}
+            />
           </label>
+          <label className="block">
+            <span className="label">Middle name</span>
+            <input name="middleName" className="input" defaultValue={values.middleName} />
+          </label>
+          <label className="block">
+            <span className="label">Surname *</span>
+            <input name="lastName" className="input" defaultValue={values.lastName} required />
+          </label>
+        </div>
+        <p className="text-[11px] text-cocoa-400">
+          The full legal name, as it should appear on payslips and government forms.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="label">Called</span>
+            <select
+              name="title"
+              className="select"
+              value={called.title}
+              onChange={(e) => setCalled((c) => ({ ...c, title: e.target.value }))}
+            >
+              {TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="label">Nickname</span>
+            <input
+              name="nickname"
+              className="input"
+              defaultValue={values.nickname}
+              placeholder={called.firstName || 'e.g. Jen'}
+              onChange={(e) => setCalled((c) => ({ ...c, nickname: e.target.value }))}
+            />
+          </label>
+        </div>
+        <p className="text-[11px] text-cocoa-400">
+          How clients and the desk address her. Leave the nickname blank to use her first
+          name. She appears as{' '}
+          <strong className="text-cocoa-700">{displayName(called) || 'Ms. —'}</strong>{' '}
+          on the booking page, the schedule and the roster.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="label">Role</span>
             <select name="employeeRole" className="select" value={role}

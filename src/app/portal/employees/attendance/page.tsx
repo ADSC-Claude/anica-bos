@@ -11,6 +11,7 @@ import {
 } from '@/lib/datetime';
 import { PageHeader, StatCard, StatusBadge, Tabs, Alert } from '@/components/ui';
 import { attendanceAction } from '../actions';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Attendance' };
@@ -91,7 +92,7 @@ export default async function AttendancePage({
             <div key={e.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <div className="min-w-40 flex-1">
                 <Link href={`/portal/employees/${e.id}`} className="text-sm font-medium text-cocoa-800 hover:underline">
-                  {e.name}
+                  {shownName(e)}
                 </Link>
                 <p className="text-xs capitalize text-cocoa-400">
                   {e.employeeRole.toLowerCase()}

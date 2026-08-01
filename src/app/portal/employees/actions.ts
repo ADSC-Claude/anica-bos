@@ -11,6 +11,7 @@ import { dateKeyToBusinessDate, manilaDateKey, manilaMinuteOfDay } from '@/lib/d
 import { buildPayslipDrafts, finalizePayroll, savePayslips } from '@/lib/payroll';
 import { formatPeso } from '@/lib/money';
 import { getSettings } from '@/lib/settings';
+import { TITLES, displayName, legalName } from '@/lib/people';
 
 export type FormState = { error?: string; ok?: string };
 
@@ -23,8 +24,22 @@ export async function saveEmployeeAction(
 ): Promise<FormState> {
   const user = await requirePage('employees.edit');
   const id = str(formData, 'id');
-  const name = str(formData, 'name');
-  if (name.length < 2) return { error: 'Enter the employee’s name.' };
+
+  // The legal name is assembled from its parts rather than typed twice: two
+  // boxes that must agree are two boxes that will not.
+  const parts = {
+    firstName: str(formData, 'firstName'),
+    middleName: str(formData, 'middleName'),
+    lastName: str(formData, 'lastName'),
+  };
+  if (parts.firstName.length < 2) return { error: 'Enter the employee’s first name.' };
+  if (!parts.lastName) return { error: 'Enter the employee’s surname.' };
+
+  const title = TITLES.includes(str(formData, 'title') as never)
+    ? str(formData, 'title')
+    : 'Ms.';
+  const nickname = str(formData, 'nickname');
+  const name = legalName(parts);
 
   const branchId = await resolveBranchId(user, str(formData, 'branchId'));
   const employeeRole = (str(formData, 'employeeRole') || 'THERAPIST') as EmployeeRole;
@@ -34,7 +49,13 @@ export async function saveEmployeeAction(
   const mayEditPay = !ownerOnlyRole || can(user.role, 'payroll.ownerOnlyPay');
 
   const base = {
+    ...parts,
+    title,
+    nickname,
     name,
+    // Stored, so every list can sort and search on the name people actually
+    // use without rebuilding it per row.
+    displayName: displayName({ title, nickname, firstName: parts.firstName, name }),
     branchId,
     employeeRole,
     mobile: str(formData, 'mobile'),

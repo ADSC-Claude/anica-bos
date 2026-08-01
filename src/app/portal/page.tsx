@@ -26,6 +26,7 @@ import { listBranches } from '@/lib/settings';
 import { PageHeader, StatCard, StatusBadge, EmptyState, Alert } from '@/components/ui';
 import { BranchSwitcher } from '@/components/branch-switcher';
 import { NotificationList } from '@/components/notification-list';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Dashboard' };
@@ -373,7 +374,7 @@ async function TherapistsOnDuty() {
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sand-200 text-[11px] font-bold text-cocoa-600">
                   {a.rotationRank}
                 </span>
-                <span className="truncate text-sm text-cocoa-800">{a.employee.name}</span>
+                <span className="truncate text-sm text-cocoa-800">{shownName(a.employee)}</span>
               </span>
               <StatusBadge status={status.tone} label={status.label} />
             </li>

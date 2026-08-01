@@ -7,6 +7,7 @@ import { manilaMonthKey, monthBounds, dateKeyToBusinessDate, manilaDateKey } fro
 import { PageHeader, EmptyState, Tabs } from '@/components/ui';
 import { DeleteButton } from '@/components/delete-button';
 import { EmploymentStatusControl } from './status-control';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Employees' };
@@ -41,7 +42,7 @@ export default async function EmployeesPage({
         <div className="card divide-y divide-sand-100">
           {employees.map((e) => (
             <div key={e.id} className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm font-medium text-cocoa-800">{e.name}</span>
+              <span className="text-sm font-medium text-cocoa-800">{shownName(e)}</span>
               <span className="text-xs capitalize text-cocoa-400">
                 {e.employeeRole.toLowerCase()}
               </span>
@@ -131,8 +132,11 @@ export default async function EmployeesPage({
                   <tr key={e.id} className={e.active ? '' : 'opacity-60'}>
                     <td>
                       <Link href={`/portal/employees/${e.id}`} className="font-medium text-cocoa-800 hover:underline">
-                        {e.name}
+                        {shownName(e)}
                       </Link>
+                      {e.name !== shownName(e) && (
+                        <span className="block text-[11px] text-cocoa-400">{e.name}</span>
+                      )}
                       {e.loans.length > 0 && (
                         <span className="block text-[11px] text-clay-500">
                           {e.loans.length} active loan(s)
@@ -156,7 +160,7 @@ export default async function EmployeesPage({
                     <td>
                       <EmploymentStatusControl
                         employeeId={e.id}
-                        name={e.name}
+                        name={shownName(e)}
                         status={e.status}
                         statusFrom={e.statusFrom ? manilaDateKey(e.statusFrom) : null}
                         statusUntil={e.statusUntil ? manilaDateKey(e.statusUntil) : null}
@@ -165,7 +169,7 @@ export default async function EmployeesPage({
                       />
                     </td>
                     <td className="text-right">
-                      <DeleteButton kind="employee" id={e.id} label={e.name} />
+                      <DeleteButton kind="employee" id={e.id} label={shownName(e)} />
                     </td>
                   </tr>
                 );
@@ -203,7 +207,7 @@ export default async function EmployeesPage({
                         href={`/portal/employees/${e.id}`}
                         className="font-medium text-cocoa-800 hover:underline"
                       >
-                        {e.name}
+                        {shownName(e)}
                       </Link>
                     </td>
                     <td className="text-xs capitalize text-cocoa-600">
@@ -216,7 +220,7 @@ export default async function EmployeesPage({
                     <td>
                       <EmploymentStatusControl
                         employeeId={e.id}
-                        name={e.name}
+                        name={shownName(e)}
                         status={e.status}
                         statusFrom={e.statusFrom ? manilaDateKey(e.statusFrom) : null}
                         statusUntil={e.statusUntil ? manilaDateKey(e.statusUntil) : null}

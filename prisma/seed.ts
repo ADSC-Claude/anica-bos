@@ -12,6 +12,7 @@ import { checkout } from '../src/lib/pos';
 import { businessDate, manilaDateKey, addDaysToKey, manilaInstant, dateKeyToBusinessDate } from '../src/lib/datetime';
 import { bookingReference } from '../src/lib/codes';
 import { DEFAULT_SETTINGS } from '../src/lib/settings-defaults';
+import { displayName, splitFullName } from '../src/lib/people';
 
 const prisma = new PrismaClient();
 
@@ -226,10 +227,16 @@ async function main() {
 
   const therapists = [];
   for (const [i, name] of therapistNames.entries()) {
+    // Legal name in parts, plus the name the desk and the clients use. A
+    // seeded therapist should look exactly like one entered through the form.
+    const parts = splitFullName(name);
     const emp = await prisma.employee.create({
       data: {
         branchId: branch.id,
         name,
+        ...parts,
+        title: 'Ms.',
+        displayName: displayName({ title: 'Ms.', firstName: parts.firstName, name }),
         employeeRole: 'THERAPIST',
         mobile: `0917${String(1000000 + i * 11111).slice(0, 7)}`,
         email: `${name.split(' ')[0].toLowerCase()}@anicaspa.ph`,
@@ -276,7 +283,8 @@ async function main() {
 
   const managerEmp = await prisma.employee.create({
     data: {
-      branchId: branch.id, name: 'Katrina Lopez', employeeRole: 'MANAGER',
+      branchId: branch.id, name: 'Katrina Lopez', ...splitFullName('Katrina Lopez'), title: 'Ms.',
+      displayName: displayName({ title: 'Ms.', firstName: splitFullName('Katrina Lopez').firstName }), employeeRole: 'MANAGER',
       mobile: '0917 555 0101', email: 'manager@anicaspa.ph', address: 'Quezon City',
       hireDate: new Date(Date.UTC(2023, 5, 1)),
       sssNumber: '34-9000001-1', philhealthNumber: '12-900000001-2',
@@ -287,7 +295,8 @@ async function main() {
   });
   const receptionEmp = await prisma.employee.create({
     data: {
-      branchId: branch.id, name: 'Joy Mendoza', employeeRole: 'RECEPTIONIST',
+      branchId: branch.id, name: 'Joy Mendoza', ...splitFullName('Joy Mendoza'), title: 'Ms.',
+      displayName: displayName({ title: 'Ms.', firstName: splitFullName('Joy Mendoza').firstName }), employeeRole: 'RECEPTIONIST',
       mobile: '0917 555 0102', email: 'reception@anicaspa.ph', address: 'Quezon City',
       hireDate: new Date(Date.UTC(2024, 1, 15)),
       sssNumber: '34-9000002-1', philhealthNumber: '12-900000002-2',
@@ -298,7 +307,8 @@ async function main() {
   });
   const ownerEmp = await prisma.employee.create({
     data: {
-      branchId: branch.id, name: 'Angelica Corporal', employeeRole: 'OWNER',
+      branchId: branch.id, name: 'Angelica Corporal', ...splitFullName('Angelica Corporal'), title: 'Ms.',
+      displayName: displayName({ title: 'Ms.', firstName: splitFullName('Angelica Corporal').firstName }), employeeRole: 'OWNER',
       mobile: '0917 555 0100', email: 'owner@anicaspa.ph',
       hireDate: new Date(Date.UTC(2023, 0, 1)),
       payType: 'FIXED_SALARY', payRateCents: 0, payOwnerOnly: true,

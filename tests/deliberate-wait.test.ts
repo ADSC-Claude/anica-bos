@@ -222,6 +222,7 @@ async function book(waits: Record<string, number> | undefined, day: number) {
     },
     intake: {},
     consent: true,
+    waiver: true,
   });
   const appt = (await prisma.appointment.findFirst({
     where: { reference: res.reference },

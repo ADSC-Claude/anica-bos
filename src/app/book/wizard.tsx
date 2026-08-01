@@ -7,6 +7,7 @@ import { formatPeso } from '@/lib/money';
 import { VisitOrder } from '@/components/visit-order';
 import { DateSelect } from '@/components/date-select';
 import { houseOrder } from '@/lib/itinerary';
+import { PRIVACY_CONSENT, WAIVER_CLAUSES, WAIVER_LEAD } from '@/lib/consent';
 
 type Catalog = {
   branches: { id: string; name: string; address: string }[];
@@ -226,6 +227,7 @@ export function BookingWizard() {
   const [notes, setNotes] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [consent, setConsent] = useState(false);
+  const [waiver, setWaiver] = useState(false);
 
   // Step 1 is the page's own history entry, and Back from it should leave for
   // the landing page — so the URL is cleaned rather than pushed on mount. A
@@ -404,7 +406,7 @@ export function BookingWizard() {
           // And one per treatment — a sauna leg in the sauna, a massage leg on
           // a bed. The server places anything left null.
           placeByService: resourceId === 'any' ? undefined : placesForGuest(0),
-          client, intake, notes, consent, promoCode: promoCode || undefined,
+          client, intake, notes, consent, waiver, promoCode: promoCode || undefined,
           guests: guests.map((g, i) => ({
             name: g.name.trim(),
             serviceIds: g.serviceIds,
@@ -554,6 +556,7 @@ export function BookingWizard() {
     [Boolean(client.birthday), 'We need your birthday.', 'detail-birthday'],
     [Boolean(client.addressCity), 'Choose your city.', 'detail-city'],
     [consent, 'Please tick the consent box so we can keep your booking.', 'detail-consent'],
+    [waiver, 'Please tick the treatment consent box before we reserve your slot.', 'detail-waiver'],
   ];
   for (const [ok, message, anchor] of details) {
     if (!ok) blockers.push({ message, step: 3, anchor });
@@ -1147,11 +1150,25 @@ export function BookingWizard() {
             <label id="detail-consent" className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
                 checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span className="text-xs text-cocoa-600">{PRIVACY_CONSENT}</span>
+            </label>
+
+            {/* Its own box, below the privacy one: this is the client agreeing
+                to the treatment and its risks, which is a different thing to
+                agree to and has to be provable on its own. */}
+            <label id="detail-waiver" className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
+              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
+                checked={waiver} onChange={(e) => setWaiver(e.target.checked)} />
               <span className="text-xs text-cocoa-600">
-                I consent to ANICA Wellness Spa collecting and storing my personal and health
-                information for my treatment, safety and booking records, in line with the
-                Philippine Data Privacy Act of 2012 (RA 10173). My health details are visible
-                only to spa staff and are never shared or exported.
+                {WAIVER_LEAD}
+                <span className="mt-1.5 block space-y-1.5">
+                  {WAIVER_CLAUSES.map((clause) => (
+                    <span key={clause} className="flex gap-1.5">
+                      <span aria-hidden>•</span>
+                      <span>{clause}</span>
+                    </span>
+                  ))}
+                </span>
               </span>
             </label>
           </div>

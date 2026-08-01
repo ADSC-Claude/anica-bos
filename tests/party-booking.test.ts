@@ -131,8 +131,26 @@ const book = (guests: { name: string; serviceIds: string[] }[] = [], day = 30) =
     client: client(),
     intake: {},
     consent: true,
+    waiver: true,
     guests,
   });
+
+test('a booking without the treatment waiver is refused', async () => {
+  await assert.rejects(
+    () =>
+      createOnlineBooking({
+        branchId,
+        serviceIds: [massageId],
+        startAtIso: slotIso(29),
+        client: client(),
+        intake: {},
+        consent: true,
+        waiver: false,
+      }),
+    /treatment consent/i,
+    'data-privacy consent alone does not cover the treatment itself',
+  );
+});
 
 test('a booking of one creates one appointment and no party reference', async () => {
   const res = await book([], 30);

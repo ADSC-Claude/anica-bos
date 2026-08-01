@@ -217,6 +217,10 @@ export default async function ClientProfilePage({
                 label="Data-privacy consent"
                 value={client.consentGiven ? `Given ${client.consentAt ? formatManila(client.consentAt) : ''}` : 'Not given'}
               />
+              <Row
+                label="Treatment waiver"
+                value={client.waiverGiven ? `Signed ${client.waiverAt ? formatManila(client.waiverAt) : ''}` : 'Not signed'}
+              />
             </dl>
             {client.notes && (
               <>
@@ -376,6 +380,7 @@ export default async function ClientProfilePage({
               fields={fieldDefs}
               values={valuesByKey}
               consentGiven={client.consentGiven}
+              waiverGiven={client.waiverGiven}
             />
           </div>
         </div>
@@ -398,6 +403,7 @@ export default async function ClientProfilePage({
               pwdIdNumber: client.pwdIdNumber,
               seniorIdNumber: client.seniorIdNumber,
               consentGiven: client.consentGiven,
+              waiverGiven: client.waiverGiven,
             }}
           />
         </div>

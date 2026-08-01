@@ -578,6 +578,8 @@ async function main() {
         tags: chance(0.3) ? ['regular'] : [],
         consentGiven: true,
         consentAt: new Date(),
+        waiverGiven: true,
+        waiverAt: new Date(),
         medicalUpdatedAt: new Date(),
       },
     });

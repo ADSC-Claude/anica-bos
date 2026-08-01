@@ -534,6 +534,10 @@ model Client {
   /// PH Data Privacy Act consent for sensitive personal information.
   consentGiven         Boolean   @default(false)
   consentAt            DateTime?
+  /// Treatment consent and liability waiver — a separate agreement from the
+  /// one above, and worth nothing without the date it was accepted.
+  waiverGiven          Boolean   @default(false)
+  waiverAt             DateTime?
   medicalUpdatedAt     DateTime?
   followUpSnoozedUntil DateTime?
   createdAt            DateTime  @default(now())

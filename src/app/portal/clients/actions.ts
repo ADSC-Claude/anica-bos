@@ -54,6 +54,7 @@ export async function saveClientAction(
       .map((t) => t.trim())
       .filter(Boolean),
     consentGiven: formData.get('consentGiven') === 'on',
+    waiverGiven: formData.get('waiverGiven') === 'on',
   };
 
   // A record is "complete" once it carries the details the CRM needs.
@@ -79,6 +80,7 @@ export async function saveClientAction(
         ...data,
         incomplete,
         consentAt: data.consentGiven && !before.consentGiven ? new Date() : before.consentAt,
+        waiverAt: data.waiverGiven && !before.waiverGiven ? new Date() : before.waiverAt,
       },
     });
     await audit(user, {
@@ -96,6 +98,7 @@ export async function saveClientAction(
         branchId,
         incomplete,
         consentAt: data.consentGiven ? new Date() : null,
+        waiverAt: data.waiverGiven ? new Date() : null,
       },
     });
     clientId = created.id;
@@ -167,6 +170,8 @@ export async function saveMedicalAction(
       medicalUpdatedAt: new Date(),
       consentGiven: formData.get('consentGiven') === 'on',
       consentAt: formData.get('consentGiven') === 'on' ? new Date() : null,
+      waiverGiven: formData.get('waiverGiven') === 'on',
+      waiverAt: formData.get('waiverGiven') === 'on' ? new Date() : null,
     },
   });
 

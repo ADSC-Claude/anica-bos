@@ -217,6 +217,12 @@ const run = (cmd, onError) => {
 step('Generating the Prisma client');
 run('npx prisma generate', () => fail('prisma generate failed.', ['See the output above.']));
 
+step(`Applying database migrations (${migration.host}:${migration.port})`);
+// Swap in the migration connection for this step only; the app keeps the
+// pooled URL at runtime.
+const runtimeUrl = process.env.DATABASE_URL;
+process.env.DATABASE_URL = migrationUrl;
+
 // ------------------------------------------- destructive migrations on preview
 //
 // Every build runs `prisma migrate deploy`, and preview deployments share the
@@ -234,7 +240,12 @@ run('npx prisma generate', () => fail('prisma generate failed.', ['See the outpu
 function pendingMigrations() {
   let out = '';
   try {
-    out = execSync('npx prisma migrate status', { env: process.env, encoding: 'utf8' });
+    // Capped, and never inheriting stdio: a check that protects the build must
+    // not be able to hang it. Anything unexpected lands in the catch and the
+    // build carries on to the migration step, which reports properly.
+    out = execSync('npx prisma migrate status', {
+      env: process.env, encoding: 'utf8', stdio: 'pipe', timeout: 90_000,
+    });
   } catch (err) {
     // A pending migration is itself a non-zero exit, so the output is on the
     // error rather than the return value. Genuine failures land here too and
@@ -324,11 +335,6 @@ if (dangerous.length) {
   warn('Could not list pending migrations, so the destructive-change check was skipped.');
 }
 
-step(`Applying database migrations (${migration.host}:${migration.port})`);
-// Swap in the migration connection for this step only; the app keeps the
-// pooled URL at runtime.
-const runtimeUrl = process.env.DATABASE_URL;
-process.env.DATABASE_URL = migrationUrl;
 run('npx prisma migrate deploy', () =>
   fail('Migrations could not be applied.', [
     `The build reached the database step but could not complete it against`,

@@ -16,6 +16,7 @@ import {
   requiredPlaceFor,
   runsPastClosing,
 } from './availability';
+import { planVisit } from './itinerary';
 import { formatManila } from './datetime';
 import { formatPeso } from './money';
 import { appUrl } from './app-url';
@@ -56,8 +57,22 @@ export type BookingRequest = {
 
 export type PartyGuest = {
   name: string;
-  /** Each guest chooses their own treatment; a party rarely wants the same one. */
+  /**
+   * Each guest chooses their own treatments, in the order they want them.
+   *
+   * The order is the visit: a sauna then a massage is a different schedule, a
+   * different pair of places and a different finish time from a massage then a
+   * sauna. The list arrives already ordered by whoever built it.
+   */
   serviceIds: string[];
+  /**
+   * The place chosen for one treatment, keyed by service id.
+   *
+   * A visit no longer has *a* place. The sauna leg is in the sauna and the
+   * massage leg is on a bed, and either may be left out for the spa to assign.
+   */
+  placeByService?: Record<string, string | null>;
+  /** Fallback for a visit of one treatment, and for bookings made before the split. */
   resourceId?: string | null;
   therapistId?: string | null;
 };
@@ -134,14 +149,30 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   }
   const byId = new Map(catalog.map((s) => [s.id, s]));
 
+  /** One treatment of one guest's visit, with its own place and window. */
+  type Leg = {
+    serviceId: string;
+    priceCents: number;
+    durationMinutes: number;
+    resourceId: string;
+    startAt: Date;
+    endAt: Date;
+    changeoverAfter: number;
+  };
+
   type Seat = {
     name: string;
     services: typeof catalog;
+    legs: Leg[];
+    /** When this guest actually leaves — the end of her last treatment. */
     endAt: Date;
     therapistId: string;
+    /** Her first place, which is what the appointment row names. */
     resourceId: string;
     place: ReturnType<typeof requiredPlaceFor>;
   };
+
+  const houseChangeover = settings['booking.changeoverMinutes'];
 
   // One shared reference for the whole party, so its own guests never read as
   // strangers to each other when an exclusive place is checked.
@@ -149,19 +180,51 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
 
   // How many of the party are being put in each place. A couples room is only
   // offered to a booking that fills it, and that count is what proves it.
+  //
+  // Counted across every treatment now, not one place per person: a guest may
+  // ask for the sauna and a bed, and both choices count towards their place.
   const wantedPer = new Map<string, number>();
   for (const g of requested) {
-    const id = g.resourceId && g.resourceId !== 'any' ? g.resourceId : null;
-    if (id) wantedPer.set(id, (wantedPer.get(id) ?? 0) + 1);
+    const asked = [
+      ...Object.values(g.placeByService ?? {}),
+      ...(g.placeByService ? [] : [g.resourceId]),
+    ];
+    for (const id of asked) {
+      if (id && id !== 'any') wantedPer.set(id, (wantedPer.get(id) ?? 0) + 1);
+    }
   }
+
+  // Capacity and names for the places this booking touches, so two guests are
+  // not put on one bed at the same moment — nothing stored would catch that,
+  // because neither row exists yet.
+  const placeRows = await prisma.resource.findMany({
+    where: { branchId: branch.id, active: true },
+    select: { id: true, name: true, capacity: true },
+  });
+  const placeCapacity = new Map(placeRows.map((r) => [r.id, Math.max(1, r.capacity)]));
+  const placeName = new Map(placeRows.map((r) => [r.id, r.name]));
 
   const seats: Seat[] = [];
   for (const guest of requested) {
     const services = guest.serviceIds.map((id) => byId.get(id)!);
-    const minutes = services.reduce((a, x) => a + x.durationMinutes, 0);
-    const seatEnd = new Date(startAt.getTime() + minutes * 60_000);
-    const place = requiredPlaceFor(services);
     const who = guest.name || req.client.name.trim() || 'you';
+
+    // The visit, laid out: each treatment gets its own window, with the gap
+    // after it for the shower, the consultation and the therapist setting up.
+    // The order given is the order used — reordering happened before this.
+    const itinerary = planVisit({
+      treatments: services.map((x) => ({
+        serviceId: x.id,
+        name: x.name,
+        durationMinutes: x.durationMinutes,
+        changeoverMinutes: x.changeoverMinutes,
+        sequenceRank: x.sequenceRank,
+      })),
+      startAt,
+      changeoverMinutes: houseChangeover,
+    });
+    const seatEnd = itinerary.length ? itinerary[itinerary.length - 1].endAt : startAt;
+    const place = requiredPlaceFor(services);
 
     let therapistId = guest.therapistId && guest.therapistId !== 'any' ? guest.therapistId : null;
     if (!therapistId) {
@@ -181,50 +244,93 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       }
     }
 
-    let resourceId = guest.resourceId && guest.resourceId !== 'any' ? guest.resourceId : null;
-    if (!resourceId) {
-      const free = await availableResources({
-        branchId: branch.id,
-        startAt,
-        endAt: seatEnd,
-        resourceType: place,
-        partyRef,
-        // Auto-assignment takes a place for one person, so it must not be
-        // handed a couples room — that is a choice only the party can make.
-        partySize: 1,
-      });
-      resourceId = free.find((r) => !seats.some((t) => t.resourceId === r.id && r.capacity === 1))?.id
-        ?? free[0]?.id
-        ?? null;
+    // One place per treatment, each checked against its own window. A sauna at
+    // 1:30 and a bed at 2:20 are two separate holds, and the bed is somebody
+    // else's to book until she gets on it.
+    const legs: Leg[] = [];
+    for (const step of itinerary) {
+      const svc = byId.get(step.serviceId)!;
+      const needs = requiredPlaceFor([svc]);
+      const asked =
+        guest.placeByService?.[step.serviceId] ??
+        // A visit of one treatment still accepts the old single-place field,
+        // and so does the first leg of a longer one.
+        (legs.length === 0 ? guest.resourceId : null);
+      let resourceId = asked && asked !== 'any' ? asked : null;
+
       if (!resourceId) {
+        const free = await availableResources({
+          branchId: branch.id,
+          startAt: step.startAt,
+          endAt: step.endAt,
+          resourceType: needs,
+          partyRef,
+          // Auto-assignment takes a place for one person, so it must not be
+          // handed a couples room — that is a choice only the party can make.
+          partySize: 1,
+        });
+        // Avoid handing two of our own guests the same single-occupancy place
+        // at overlapping times; a shared area can take them both.
+        resourceId =
+          free.find(
+            (r) =>
+              r.capacity > 1 ||
+              !seats.some((t) =>
+                t.legs.some(
+                  (l) => l.resourceId === r.id && l.startAt < step.endAt && step.startAt < l.endAt,
+                ),
+              ),
+          )?.id ??
+          free[0]?.id ??
+          null;
+        if (!resourceId) {
+          throw new BookingError(
+            needs
+              ? `No ${needs.toLowerCase()} is free for ${who}'s ${svc.name} at that time.`
+              : `Nowhere is free for ${who}'s ${svc.name} at that time.`,
+          );
+        }
+      }
+
+      // Checked against the database and against the legs already planned in
+      // this same booking, which nothing stored would catch.
+      const clash = seats
+        .flatMap((t) => t.legs)
+        .concat(legs)
+        .filter(
+          (l) => l.resourceId === resourceId && l.startAt < step.endAt && step.startAt < l.endAt,
+        );
+      const capacity = placeCapacity.get(resourceId) ?? 1;
+      if (clash.length >= capacity) {
         throw new BookingError(
-          place
-            ? `No ${place.toLowerCase()} is free for ${who} at that time.`
-            : `Nowhere is free for ${who} at that time.`,
+          `Your party cannot all be in ${placeName.get(resourceId) ?? 'that place'} at once.`,
         );
       }
+
+      await assertNoConflicts({
+        branchId: branch.id,
+        startAt: step.startAt,
+        endAt: step.endAt,
+        employeeIds: [therapistId],
+        resourceId,
+        resourceType: needs,
+        partyRef,
+        partySize: wantedPer.get(resourceId) ?? 1,
+      });
+
+      legs.push({
+        serviceId: step.serviceId,
+        priceCents: svc.priceCents,
+        durationMinutes: svc.durationMinutes,
+        resourceId,
+        startAt: step.startAt,
+        endAt: step.endAt,
+        changeoverAfter: step.changeoverAfter,
+      });
     }
 
-    // Each seat is checked against the ones already placed as well as against
-    // the database, because two guests in one party can be handed the same
-    // single bed and neither would clash with anything already stored.
-    const alreadyHere = seats.filter((t) => t.resourceId === resourceId).length;
-    await assertNoConflicts({
-      branchId: branch.id,
-      startAt,
-      endAt: seatEnd,
-      employeeIds: [therapistId],
-      resourceId,
-      resourceType: place,
-      partyRef,
-      partySize: wantedPer.get(resourceId) ?? 1,
-    });
-    const resource = await prisma.resource.findUnique({ where: { id: resourceId } });
-    if (resource && alreadyHere + 1 > Math.max(1, resource.capacity)) {
-      throw new BookingError(`${resource.name} does not hold that many of your party.`);
-    }
-
-    seats.push({ name: guest.name, services, endAt: seatEnd, therapistId, resourceId, place });
+    const resourceId = legs[0]?.resourceId ?? '';
+    seats.push({ name: guest.name, services, legs, endAt: seatEnd, therapistId, resourceId, place });
   }
 
   // The booker's own row leads: its reference is the one quoted, and its window
@@ -351,12 +457,19 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
         : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
       partyRef,
       services: {
-        create: services.map((s, i) => ({
-          serviceId: s.id,
+        // One row per treatment, each with the place it happens in and the
+        // window it runs for. This is what makes a sauna at 1:30 and a bed at
+        // 2:20 two separate holds instead of one bed held all afternoon.
+        create: seats[0].legs.map((l, i) => ({
+          serviceId: l.serviceId,
           employeeId: therapistId,
-          priceCents: s.priceCents,
-          durationMinutes: s.durationMinutes,
+          resourceId: l.resourceId,
+          priceCents: l.priceCents,
+          durationMinutes: l.durationMinutes,
           sortRank: i,
+          startAt: l.startAt,
+          endAt: l.endAt,
+          changeoverMinutes: l.changeoverAfter,
         })),
       },
     },
@@ -390,12 +503,16 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
           ? null
           : new Date(Date.now() + settings['booking.expiryMinutes'] * 60_000),
         services: {
-          create: seat.services.map((x, i) => ({
-            serviceId: x.id,
+          create: seat.legs.map((l, i) => ({
+            serviceId: l.serviceId,
             employeeId: seat.therapistId,
-            priceCents: x.priceCents,
-            durationMinutes: x.durationMinutes,
+            resourceId: l.resourceId,
+            priceCents: l.priceCents,
+            durationMinutes: l.durationMinutes,
             sortRank: i,
+            startAt: l.startAt,
+            endAt: l.endAt,
+            changeoverMinutes: l.changeoverAfter,
           })),
         },
       },

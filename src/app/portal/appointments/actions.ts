@@ -17,6 +17,8 @@ import { approveLateRequest, confirmDeposit, declineLateRequest } from '@/lib/bo
 import { resolveNotifications } from '@/lib/notifications';
 import { sendTemplateEmail } from '@/lib/email';
 import { formatManila } from '@/lib/datetime';
+import { effectiveWindow, planVisit, visitMinutes } from '@/lib/itinerary';
+import { getSettings } from '@/lib/settings';
 
 export type FormState = { error?: string; ok?: string };
 
@@ -49,8 +51,28 @@ export async function saveAppointmentAction(
 
   const services = await prisma.service.findMany({ where: { id: { in: serviceIds } } });
   if (services.length !== serviceIds.length) return { error: 'A selected service is unavailable.' };
-  const duration = services.reduce((a, s) => a + s.durationMinutes, 0);
-  const endAt = new Date(startAt.getTime() + duration * 60_000);
+
+  // The order the desk ticked them in is the order of the visit, and the gaps
+  // between are real floor time — the shower after a sauna, the consultation
+  // and foot soak before a massage. Scheduling back to back quotes a finish the
+  // spa cannot hit.
+  const ordered = serviceIds
+    .map((sid) => services.find((x) => x.id === sid))
+    .filter(Boolean) as typeof services;
+  const settings = await getSettings(branchId);
+  const houseChangeover = settings['booking.changeoverMinutes'];
+  const treatments = ordered.map((x) => ({
+    serviceId: x.id,
+    name: x.name,
+    durationMinutes: x.durationMinutes,
+    changeoverMinutes: x.changeoverMinutes,
+    sequenceRank: x.sequenceRank,
+  }));
+  const duration = visitMinutes(treatments, houseChangeover);
+  const itinerary = planVisit({ treatments, startAt, changeoverMinutes: houseChangeover });
+  const endAt = itinerary.length
+    ? itinerary[itinerary.length - 1].endAt
+    : new Date(startAt.getTime() + duration * 60_000);
 
   const branch = await prisma.branch.findUniqueOrThrow({ where: { id: branchId } });
   const startMinute = startAt.getUTCHours() * 60 + startAt.getUTCMinutes() + 8 * 60;
@@ -65,29 +87,61 @@ export async function saveAppointmentAction(
   }
 
   const place = requiredPlaceFor(services);
-  let finalResourceId = resourceId && resourceId !== 'any' ? resourceId : null;
-  if (!finalResourceId) {
-    const free = await availableResources({
-      branchId,
-      startAt,
-      endAt,
-      excludeAppointmentId: id || undefined,
-      resourceType: place,
-    });
-    finalResourceId = free[0]?.id ?? null;
-  }
 
-  try {
-    await assertNoConflicts({
-      branchId, startAt, endAt,
-      employeeIds: [therapistId],
-      resourceId: finalResourceId,
-      resourceType: place,
-      excludeAppointmentId: id || undefined,
+  // One place per treatment, each free for its own window. The place the desk
+  // picked applies to the first treatment; the rest are assigned to whatever
+  // suits them, so a sauna leg lands in the sauna rather than on the bed the
+  // massage needs.
+  type Leg = {
+    serviceId: string; priceCents: number; durationMinutes: number;
+    resourceId: string | null; startAt: Date; endAt: Date; changeoverAfter: number;
+  };
+  const legs: Leg[] = [];
+  const picked = resourceId && resourceId !== 'any' ? resourceId : null;
+
+  for (const step of itinerary) {
+    const svc = ordered.find((x) => x.id === step.serviceId)!;
+    const needs = requiredPlaceFor([svc]);
+    let legResource = legs.length === 0 ? picked : null;
+    if (!legResource) {
+      const free = await availableResources({
+        branchId,
+        startAt: step.startAt,
+        endAt: step.endAt,
+        excludeAppointmentId: id || undefined,
+        resourceType: needs,
+      });
+      legResource = free[0]?.id ?? null;
+    }
+
+    try {
+      await assertNoConflicts({
+        branchId,
+        startAt: step.startAt,
+        endAt: step.endAt,
+        employeeIds: [therapistId],
+        resourceId: legResource,
+        resourceType: needs,
+        excludeAppointmentId: id || undefined,
+      });
+    } catch (err) {
+      // Name the treatment: "Bed 3 is already taken" is a puzzle when the visit
+      // has three of them and only one is the problem.
+      const why = (err as Error).message;
+      return { error: ordered.length > 1 ? `${svc.name}: ${why}` : why };
+    }
+
+    legs.push({
+      serviceId: step.serviceId,
+      priceCents: svc.priceCents,
+      durationMinutes: svc.durationMinutes,
+      resourceId: legResource,
+      startAt: step.startAt,
+      endAt: step.endAt,
+      changeoverAfter: step.changeoverAfter,
     });
-  } catch (err) {
-    return { error: (err as Error).message };
   }
+  const finalResourceId = legs[0]?.resourceId ?? null;
 
   let appointmentId = id;
   if (id) {
@@ -104,12 +158,16 @@ export async function saveAppointmentAction(
         data: {
           clientId, startAt, endAt, resourceId: finalResourceId, notes, partnerId,
           services: {
-            create: services.map((s, i) => ({
-              serviceId: s.id,
+            create: legs.map((l, i) => ({
+              serviceId: l.serviceId,
               employeeId: therapistId,
-              priceCents: s.priceCents,
-              durationMinutes: s.durationMinutes,
+              resourceId: l.resourceId,
+              priceCents: l.priceCents,
+              durationMinutes: l.durationMinutes,
               sortRank: i,
+              startAt: l.startAt,
+              endAt: l.endAt,
+              changeoverMinutes: l.changeoverAfter,
             })),
           },
         },
@@ -133,12 +191,16 @@ export async function saveAppointmentAction(
         status: 'CONFIRMED',
         source: str(formData, 'source') === 'WALK_IN' ? 'WALK_IN' : 'PORTAL',
         services: {
-          create: services.map((s, i) => ({
-            serviceId: s.id,
+          create: legs.map((l, i) => ({
+            serviceId: l.serviceId,
             employeeId: therapistId,
-            priceCents: s.priceCents,
-            durationMinutes: s.durationMinutes,
+            resourceId: l.resourceId,
+            priceCents: l.priceCents,
+            durationMinutes: l.durationMinutes,
             sortRank: i,
+            startAt: l.startAt,
+            endAt: l.endAt,
+            changeoverMinutes: l.changeoverAfter,
           })),
         },
       },
@@ -343,4 +405,158 @@ export async function declineLateRequestAction(formData: FormData) {
   }
   revalidatePath('/portal/appointments');
   revalidatePath(`/portal/appointments/${id}`);
+}
+
+/**
+ * Record when a treatment really started or finished, and move what follows.
+ *
+ * The plan is a guess made at booking time; the floor is what happened. A sauna
+ * that ran twenty minutes over holds the sauna twenty minutes longer and pushes
+ * the massage back by the same, and the website must stop offering that bed at
+ * the old time. That is what this does — the times are not a log, they are the
+ * booking.
+ *
+ * The gaps are preserved rather than eaten to catch up: the shower does not get
+ * shorter because the sauna ran late.
+ */
+export async function logTreatmentTimeAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requirePage('appointments.edit');
+  const appointmentId = str(formData, 'appointmentId');
+  const segmentId = str(formData, 'segmentId');
+  if (!appointmentId || !segmentId) return { error: 'Nothing to record.' };
+
+  const appt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      services: { orderBy: { sortRank: 'asc' }, include: { service: true, resource: true } },
+    },
+  });
+  if (!appt) return { error: 'That booking no longer exists.' };
+
+  const index = appt.services.findIndex((s) => s.id === segmentId);
+  if (index < 0) return { error: 'That treatment is not part of this booking.' };
+  const seg = appt.services[index];
+
+  // "Started just now" / "Ended just now" beat the pickers — the desk should not
+  // have to type the current time to say a treatment is happening.
+  const stamp = str(formData, 'stamp');
+  const parse = (name: string) => {
+    const raw = str(formData, name);
+    if (!raw) return null;
+    const d = new Date(`${raw}:00+08:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  let actualStartAt = stamp === 'start' ? new Date() : parse('actualStartAt');
+  let actualEndAt = stamp === 'end' ? new Date() : parse('actualEndAt');
+  if (stamp === 'end') actualStartAt = seg.actualStartAt ?? actualStartAt ?? seg.startAt;
+  if (stamp === 'start') actualEndAt = seg.actualEndAt;
+
+  if (actualStartAt && actualEndAt && actualEndAt < actualStartAt) {
+    return { error: 'That treatment cannot end before it started — check the times.' };
+  }
+
+  const finishedAt =
+    actualEndAt ??
+    (actualStartAt ? new Date(actualStartAt.getTime() + seg.durationMinutes * 60_000) : null);
+
+  // Everything after this treatment shifts by however long it overran, keeping
+  // its own changeover.
+  const moves: { id: string; startAt: Date; endAt: Date }[] = [];
+  if (finishedAt) {
+    let cursor = new Date(finishedAt.getTime() + seg.changeoverMinutes * 60_000);
+    for (const later of appt.services.slice(index + 1)) {
+      // A treatment already under way keeps the start it really had.
+      if (later.actualStartAt) {
+        cursor = new Date(
+          (later.actualEndAt ??
+            new Date(later.actualStartAt.getTime() + later.durationMinutes * 60_000)
+          ).getTime() + later.changeoverMinutes * 60_000,
+        );
+        continue;
+      }
+      const endAt = new Date(cursor.getTime() + later.durationMinutes * 60_000);
+      moves.push({ id: later.id, startAt: cursor, endAt });
+      cursor = new Date(endAt.getTime() + later.changeoverMinutes * 60_000);
+    }
+  }
+
+  // Nothing is silently double-booked: if the shift lands a treatment on a
+  // place somebody else has, say which one and let the desk decide.
+  const clashes: string[] = [];
+  for (const move of moves) {
+    const later = appt.services.find((s) => s.id === move.id)!;
+    if (!later.resourceId) continue;
+    try {
+      await assertNoConflicts({
+        branchId: appt.branchId,
+        startAt: move.startAt,
+        endAt: move.endAt,
+        employeeIds: [],
+        resourceId: later.resourceId,
+        excludeAppointmentId: appt.id,
+      });
+    } catch (err) {
+      clashes.push(`${later.service.name} → ${(err as Error).message}`);
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.appointmentService.update({
+      where: { id: segmentId },
+      data: {
+        actualStartAt,
+        actualEndAt,
+        ...(finishedAt && !actualEndAt ? {} : {}),
+      },
+    });
+    for (const move of moves) {
+      await tx.appointmentService.update({
+        where: { id: move.id },
+        data: { startAt: move.startAt, endAt: move.endAt },
+      });
+    }
+    // The visit's own window is the envelope of its parts, and the calendar,
+    // the day list and every availability query read it.
+    const all = await tx.appointmentService.findMany({
+      where: { appointmentId },
+      select: { startAt: true, endAt: true, actualStartAt: true, actualEndAt: true, durationMinutes: true },
+    });
+    const windows = all.map(effectiveWindow).filter(Boolean) as { start: Date; end: Date }[];
+    if (windows.length) {
+      await tx.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          startAt: new Date(Math.min(...windows.map((w) => +w.start))),
+          endAt: new Date(Math.max(...windows.map((w) => +w.end))),
+        },
+      });
+    }
+  });
+
+  await audit(user, {
+    module: 'appointments', action: 'log_treatment_time',
+    entityType: 'AppointmentService', entityId: segmentId,
+    summary: `${seg.service.name}: ${
+      actualStartAt ? `started ${formatManila(actualStartAt, { time: true })}` : 'start cleared'
+    }${actualEndAt ? `, ended ${formatManila(actualEndAt, { time: true })}` : ''}`,
+    before: { actualStartAt: seg.actualStartAt, actualEndAt: seg.actualEndAt },
+    after: { actualStartAt, actualEndAt },
+  });
+
+  revalidatePath(`/portal/appointments/${appointmentId}`);
+  revalidatePath('/portal/appointments');
+  return clashes.length
+    ? {
+        error:
+          `Times saved, and the rest of the visit moved — but ${clashes.join('; ')}. ` +
+          'Move that treatment or the other booking.',
+      }
+    : {
+        ok: moves.length
+          ? `Saved. The rest of the visit moved to match.`
+          : 'Saved.',
+      };
 }

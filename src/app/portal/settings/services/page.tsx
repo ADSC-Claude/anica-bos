@@ -158,6 +158,8 @@ export default async function ServicesSettingsPage({
             alsoInCategoryIds: s.alsoInCategories.map((c) => c.id),
             description: s.description,
             requiredResourceType: s.requiredResourceType ?? '',
+            sequenceRank: s.sequenceRank,
+            changeoverMinutes: s.changeoverMinutes,
             durationMinutes: s.durationMinutes,
             price: s.priceCents / 100,
             commissionType: s.commissionType ?? '',

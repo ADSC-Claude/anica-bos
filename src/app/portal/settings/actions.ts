@@ -76,6 +76,7 @@ export async function saveSettingsAction(
         'booking.leadTimeMinutes': num(formData, 'leadTimeMinutes'),
         'booking.slotStepMinutes': num(formData, 'slotStepMinutes'),
         'booking.lastCallMinutes': num(formData, 'lastCallMinutes'),
+        'booking.changeoverMinutes': num(formData, 'changeoverMinutes'),
         'booking.manualFallbackEnabled': bool(formData, 'manualFallbackEnabled'),
         'booking.gcashName': str(formData, 'gcashName'),
         'booking.gcashNumber': str(formData, 'gcashNumber'),
@@ -178,6 +179,12 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
     name,
     categoryId: str(formData, 'categoryId'),
     requiredResourceType: requires ? (requires as ResourceType) : null,
+    sequenceRank: num(formData, 'sequenceRank') || 50,
+    // Blank means "use the house default", which is not the same as zero — a
+    // treatment genuinely needing no gap has to be able to say so.
+    changeoverMinutes: str(formData, 'changeoverMinutes') === ''
+      ? null
+      : Math.max(0, num(formData, 'changeoverMinutes')),
     description: str(formData, 'description'),
     durationMinutes: Math.max(5, num(formData, 'durationMinutes')),
     priceCents: cents(formData, 'price'),

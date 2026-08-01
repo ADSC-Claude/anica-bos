@@ -50,6 +50,16 @@ export const DEFAULT_SETTINGS = {
    * late. 0 turns requests off and the spa simply closes on time.
    */
   'booking.lastCallMinutes': 60,
+  /**
+   * Minutes left free between two treatments in the same visit.
+   *
+   * A guest coming out of the sauna showers, is consulted, has her feet soaked
+   * and waits for the therapist to set up. Booking the massage the instant the
+   * sauna ends quotes a finish time the spa cannot hit and puts the desk behind
+   * from the first booking of the evening. A treatment that needs longer — the
+   * sauna does — overrides this in Settings → Services.
+   */
+  'booking.changeoverMinutes': 15,
 
   // --- POS ---
   'pos.discountApprovalPercent': 20,

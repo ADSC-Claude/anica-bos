@@ -6,6 +6,8 @@ import { saveServiceAction, type FormState } from '../actions';
 type Service = {
   id: string; name: string; categoryId: string; alsoInCategoryIds: string[]; description: string;
   requiredResourceType: string;
+  sequenceRank?: number;
+  changeoverMinutes?: number | null;
   durationMinutes: number; price: number;
   commissionType: string; commissionValue: number;
   active: boolean; showOnLanding: boolean; sortRank: number;
@@ -114,6 +116,32 @@ export function ServiceEditor({
             set to &ldquo;chair&rdquo; would block the foot spa area.
           </span>
         </label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block">
+            <span className="label">Usual place in a visit</span>
+            <input name="sequenceRank" type="number" min={0} step={10} className="input"
+              defaultValue={current?.sequenceRank ?? 50} />
+            <span className="mt-1 block text-[11px] text-cocoa-400">
+              When a guest books more than one treatment, the lower number runs first. Sauna 10,
+              foot spa 20, massage 30 — so heat and soaking come before the table without anyone
+              being asked. The guest can still reorder her own visit.
+            </span>
+          </label>
+          <label className="block">
+            <span className="label">Changeover after (minutes)</span>
+            <input name="changeoverMinutes" type="number" min={0} step={5} className="input"
+              placeholder="house default"
+              defaultValue={current?.changeoverMinutes ?? ''} />
+            <span className="mt-1 block text-[11px] text-cocoa-400">
+              Floor time needed after this treatment before the next can start. Leave blank to use
+              the house default from{' '}
+              <a href="/portal/settings/booking" className="underline underline-offset-2">
+                Booking
+              </a>
+              . A sauna wants longer for the shower; most treatments do not.
+            </span>
+          </label>
+        </div>
         <label className="block">
           <span className="label">Description (landing page)</span>
           <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />
@@ -132,6 +160,7 @@ export function ServiceEditor({
           <label className="block">
             <span className="label">Order</span>
             <input name="sortRank" type="number" className="input" defaultValue={current?.sortRank ?? 0} />
+            <span className="mt-1 block text-[11px] text-cocoa-400">On the price list.</span>
           </label>
         </div>
 

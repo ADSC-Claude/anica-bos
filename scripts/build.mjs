@@ -14,7 +14,8 @@
  *      the connection times out somewhere unhelpful inside Prisma.
  */
 import { execSync } from 'node:child_process';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Vercel injects env vars directly; locally they live in .env, which nothing has
 // loaded yet at this point in the build.
@@ -215,6 +216,113 @@ const run = (cmd, onError) => {
 
 step('Generating the Prisma client');
 run('npx prisma generate', () => fail('prisma generate failed.', ['See the output above.']));
+
+// ------------------------------------------- destructive migrations on preview
+//
+// Every build runs `prisma migrate deploy`, and preview deployments share the
+// production database. So a pull request's *preview* changes live data before
+// anyone has reviewed the pull request. Adding a column that way is harmless.
+// Dropping one is not: it is gone from real bookings, real staff and real
+// receipts, and there is no undo and no separate copy to restore from.
+//
+// Additive migrations therefore keep running on previews — that is what makes a
+// preview worth looking at, since it shows the spa's actual data. Anything that
+// destroys data is refused there and waits for the production deploy, which
+// happens only after the change has been merged deliberately.
+
+/** Migration folders the database has not seen yet. Null when it cannot tell. */
+function pendingMigrations() {
+  let out = '';
+  try {
+    out = execSync('npx prisma migrate status', { env: process.env, encoding: 'utf8' });
+  } catch (err) {
+    // A pending migration is itself a non-zero exit, so the output is on the
+    // error rather than the return value. Genuine failures land here too and
+    // fall through to the null below.
+    out = `${err.stdout ?? ''}${err.stderr ?? ''}`;
+  }
+  if (!/have not yet been applied/i.test(out)) {
+    return /schema is up to date/i.test(out) ? [] : null;
+  }
+  const after = out.split(/have not yet been applied:?\s*\n/i)[1] ?? '';
+  const names = [];
+  for (const line of after.split('\n')) {
+    const name = line.trim();
+    if (!name) break;
+    if (/^to apply/i.test(name)) break;
+    names.push(name);
+  }
+  return names;
+}
+
+/**
+ * Statements that lose data, ignoring anything inside a comment.
+ *
+ * The comment stripping is not fussiness: these migration files explain
+ * themselves at length, and several of ours discuss dropping and deleting in
+ * prose while doing nothing of the sort. Matching the prose would refuse every
+ * build for a migration that only adds a column.
+ */
+function destructiveStatements(sql) {
+  const code = sql
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/--[^\n]*/g, ' ');
+  const patterns = [
+    [/\bDROP\s+TABLE\b/i, 'drops a table'],
+    [/\bDROP\s+COLUMN\b/i, 'drops a column'],
+    [/\bDROP\s+SCHEMA\b/i, 'drops a schema'],
+    [/\bDROP\s+DATABASE\b/i, 'drops the database'],
+    [/\bTRUNCATE\b/i, 'empties a table'],
+    [/\bDELETE\s+FROM\b/i, 'deletes rows'],
+  ];
+  return patterns.filter(([re]) => re.test(code)).map(([, what]) => what);
+}
+
+const isPreview = Boolean(process.env.VERCEL_ENV) && process.env.VERCEL_ENV !== 'production';
+const pending = pendingMigrations();
+const dangerous = [];
+if (pending?.length) {
+  for (const name of pending) {
+    const file = join('prisma', 'migrations', name, 'migration.sql');
+    if (!existsSync(file)) continue;
+    const what = destructiveStatements(readFileSync(file, 'utf8'));
+    if (what.length) dangerous.push({ name, what });
+  }
+}
+
+if (dangerous.length && isPreview) {
+  fail('This preview would destroy live data, so it was stopped.', [
+    'Preview deployments share the production database. These migrations have',
+    'not run yet, and each one removes something that cannot be brought back:',
+    '',
+    ...dangerous.map((d) => `  • ${d.name} — ${d.what.join(', ')}`),
+    '',
+    'Nothing has been changed. The build stopped before the migration step.',
+    '',
+    'This is deliberate. An additive migration is safe to try on a preview and',
+    'genuinely useful, because the preview shows the real spa data. A migration',
+    'that deletes is not: it would take effect on live bookings and staff before',
+    'anyone had reviewed the pull request.',
+    '',
+    'What to do:',
+    '  • Merge the pull request when you are happy with it. The production',
+    '    deploy will apply the migration normally.',
+    '  • To preview the rest of the change first, take the destructive migration',
+    '    out of this branch and add it back once the rest is merged.',
+    '  • Back up before merging: Portal → Settings → Backup.',
+  ]);
+}
+
+if (dangerous.length) {
+  warn('This deploy applies migrations that remove data:');
+  for (const d of dangerous) warn(`    • ${d.name} — ${d.what.join(', ')}`);
+  warn('  Merged and deliberate, so it is going ahead. There is no undo.');
+} else if (pending === null) {
+  // The check is a guard, not a gate: if the database could not be reached to
+  // ask what is pending, the migration step below will fail with a far better
+  // message than anything that could be said here.
+  warn('Could not list pending migrations, so the destructive-change check was skipped.');
+}
 
 step(`Applying database migrations (${migration.host}:${migration.port})`);
 // Swap in the migration connection for this step only; the app keeps the

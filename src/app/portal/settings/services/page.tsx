@@ -146,6 +146,7 @@ export default async function ServicesSettingsPage({
           <ServiceCategoryEditor
             categories={categories.map((c) => ({
               id: c.id, name: c.name, sortRank: c.sortRank, active: c.active,
+              isAddOns: c.isAddOns,
             }))}
           />
         </div>
@@ -160,6 +161,7 @@ export default async function ServicesSettingsPage({
             requiredResourceType: s.requiredResourceType ?? '',
             sequenceRank: s.sequenceRank,
             changeoverMinutes: s.changeoverMinutes,
+            isAddOn: s.isAddOn,
             durationMinutes: s.durationMinutes,
             price: s.priceCents / 100,
             commissionType: s.commissionType ?? '',
@@ -169,7 +171,7 @@ export default async function ServicesSettingsPage({
             sortRank: s.sortRank,
             recipes: s.recipes.map((r) => ({ itemId: r.itemId, quantity: r.quantity })),
           }))}
-          categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          categories={categories.map((c) => ({ id: c.id, name: c.name, isAddOns: c.isAddOns }))}
           items={items.map((i) => ({ id: i.id, name: i.name, unitName: i.unit.name }))}
         />
       </div>

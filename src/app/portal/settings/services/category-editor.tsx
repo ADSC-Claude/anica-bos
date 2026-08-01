@@ -3,7 +3,9 @@
 import { useActionState, useState } from 'react';
 import { saveServiceCategoryAction, type FormState } from '../actions';
 
-type Category = { id: string; name: string; sortRank: number; active: boolean };
+type Category = {
+  id: string; name: string; sortRank: number; active: boolean; isAddOns?: boolean;
+};
 
 export function ServiceCategoryEditor({ categories }: { categories: Category[] }) {
   const [state, action] = useActionState<FormState, FormData>(saveServiceCategoryAction, {});
@@ -50,6 +52,19 @@ export function ServiceCategoryEditor({ categories }: { categories: Category[] }
         <span className="block text-[11px] text-cocoa-400">
           Turning this off hides the heading from clients. Its services stay bookable in the
           portal and sellable at the POS.
+        </span>
+
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="isAddOns" className="h-5 w-5 accent-[#6b4e35]"
+            defaultChecked={current?.isAddOns ?? false} />
+          Everything here is an add-on
+        </label>
+        <span className="block text-[11px] text-cocoa-400">
+          An add-on runs straight on from the treatment before it: no five-minute changeover in
+          front of it, and it happens in the same place, because the guest never gets up. A hot
+          compress after a massage belongs here; ear candling and a sauna session do not — a guest
+          can book those on their own. Anything needing the sauna is left alone even if you tick
+          this, since the sauna is a different room and she has to walk to it.
         </span>
 
         {state.error && <p className="text-sm text-clay-500">{state.error}</p>}

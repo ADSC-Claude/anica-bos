@@ -123,7 +123,14 @@ async function main() {
   console.log('› Service catalog…');
   const catMassage = await prisma.serviceCategory.create({ data: { name: 'Massage', sortRank: 1 } });
   const catBody = await prisma.serviceCategory.create({ data: { name: 'Body Treatments', sortRank: 2 } });
-  const catAdd = await prisma.serviceCategory.create({ data: { name: 'Add-ons & Sauna', sortRank: 3 } });
+  // One heading, two kinds of thing. Most of what is filed here is an extra a
+  // guest has without getting up — head, hand, back, foot, hot stone, ventosa,
+  // a shower — so the category pre-ticks the box. The sauna and ear candling
+  // sit beside them and are treatments a guest books on their own, so each
+  // service still keeps its own answer.
+  const catAdd = await prisma.serviceCategory.create({
+    data: { name: 'Add-ons & Sauna', sortRank: 3, isAddOns: true },
+  });
 
   // `place` is where the treatment is performed, and it decides what the booking
   // engine is allowed to offer. Foot spa and reflexology are done in the chair
@@ -131,7 +138,7 @@ async function main() {
   const serviceSpecs: {
     name: string; cat: string; minutes: number; price: number; rank: number; desc: string;
     place: 'BED' | 'CHAIR' | 'SAUNA';
-    /** Runs on the end of the treatment before it, same place, no gap. */
+    /** Runs on the end of the treatment before it: same place, no interval. */
     addOn?: boolean;
   }[] = [
     { name: 'Swedish Massage (60 min)', cat: catMassage.id, minutes: 60, price: 650, rank: 1, desc: 'Long, flowing strokes to ease everyday tension.', place: 'BED' },
@@ -147,7 +154,7 @@ async function main() {
     { name: 'Body Scrub (60 min)', cat: catBody.id, minutes: 60, price: 800, rank: 11, desc: 'Gentle exfoliation that leaves skin polished and soft.', place: 'BED' },
     { name: 'Foot Spa (45 min)', cat: catBody.id, minutes: 45, price: 500, rank: 12, desc: 'Soak, scrub, and a soothing foot massage.', place: 'CHAIR' },
     { name: 'Sauna Session (30 min)', cat: catAdd.id, minutes: 30, price: 300, rank: 13, desc: 'Dry heat to loosen muscles before your treatment.', place: 'SAUNA' },
-    { name: 'Ear Candling (30 min)', cat: catBody.id, minutes: 30, price: 400, rank: 13, desc: 'Gentle ear coning, done lying down.', place: 'BED' },
+    { name: 'Ear Candling (30 min)', cat: catAdd.id, minutes: 30, price: 400, rank: 15, desc: 'Gentle ear coning, done lying down.', place: 'BED' },
     { name: 'Hot Compress Add-on (15 min)', cat: catAdd.id, minutes: 15, price: 150, rank: 14, desc: 'Herbal hot compress for stubborn knots.', place: 'BED', addOn: true },
   ];
 
@@ -163,7 +170,9 @@ async function main() {
           description: spec.desc,
           sortRank: spec.rank,
           requiredResourceType: spec.place,
-          isAddOn: spec.addOn ?? false,
+          // Never the sauna: an add-on happens where the treatment before it
+          // happened, and the sauna is a walk to another room.
+          isAddOn: (spec.addOn ?? false) && spec.place !== 'SAUNA',
         },
       }),
     );

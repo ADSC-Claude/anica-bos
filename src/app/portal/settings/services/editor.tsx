@@ -8,6 +8,7 @@ type Service = {
   requiredResourceType: string;
   sequenceRank?: number;
   changeoverMinutes?: number | null;
+  isAddOn?: boolean;
   durationMinutes: number; price: number;
   commissionType: string; commissionValue: number;
   active: boolean; showOnLanding: boolean; sortRank: number;
@@ -22,7 +23,7 @@ export function ServiceEditor({
   items,
 }: {
   services: Service[];
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; isAddOns?: boolean }[];
   items: { id: string; name: string; unitName: string }[];
 }) {
   const [state, action] = useActionState<FormState, FormData>(saveServiceAction, {});
@@ -30,6 +31,8 @@ export function ServiceEditor({
   const current = services.find((s) => s.id === selectedId);
   const [commissionType, setCommissionType] = useState(current?.commissionType ?? '');
   const [primaryId, setPrimaryId] = useState(current?.categoryId ?? categories[0]?.id ?? '');
+  /** The chosen category, when it is the add-ons shelf. */
+  const addOnCategory = categories.find((c) => c.id === primaryId && c.isAddOns);
   const [recipes, setRecipes] = useState<{ key: string; itemId: string; quantity: string }[]>([]);
 
   function select(id: string) {
@@ -142,6 +145,32 @@ export function ServiceEditor({
             </span>
           </label>
         </div>
+        {/* Per service, because one shelf holds both kinds. Head, Hand, Back,
+            Foot, Hot Stone, Ventosa and Shower are things you add to a
+            treatment; Sauna and Ear Candling sit beside them and are treatments
+            a guest books on their own. */}
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            name="isAddOn"
+            className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+            defaultChecked={current?.isAddOn ?? addOnCategory != null}
+          />
+          <span>
+            <span className="block text-sm font-medium text-cocoa-800">
+              Added to another treatment — no interval
+            </span>
+            <span className="mt-0.5 block text-[11px] text-cocoa-400">
+              Head, hand, back, foot, hot stone, ventosa, a shower: things a guest has on the end
+              of a treatment without getting up. No five-minute changeover in front of it, and it
+              happens in the same place.{' '}
+              {addOnCategory
+                ? `Ticked by default because this is filed under ${addOnCategory.name}.`
+                : 'Leave this off for anything bookable on its own.'}{' '}
+              A sauna session can never be one — she has to walk to another room.
+            </span>
+          </span>
+        </label>
         <label className="block">
           <span className="label">Description (landing page)</span>
           <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />

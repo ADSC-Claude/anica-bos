@@ -60,17 +60,23 @@ before(async () => {
     capacity: number,
     exclusiveUse: boolean,
     rank: number,
+    fillWhole = false,
   ) =>
     (
       await prisma.resource.create({
-        data: { branchId, name: `${name} ${stamp}`, type, capacity, exclusiveUse, sortRank: rank },
+        data: {
+          branchId, name: `${name} ${stamp}`, type, capacity, exclusiveUse, fillWhole,
+          sortRank: rank,
+        },
       })
     ).id;
 
-  roomId = await mk('Room', 'ROOM', 2, true, 1);
+  // The room is exclusive *and* must be filled; the sauna is exclusive only.
+  // That is the whole distinction these tests exist to hold in place.
+  roomId = await mk('Room', 'ROOM', 2, true, 1, true);
   bedId = await mk('Bed', 'BED', 1, false, 2);
   chairsId = await mk('Chairs', 'CHAIR', 2, false, 3);
-  saunaId = await mk('Sauna', 'SAUNA', 4, true, 4);
+  saunaId = await mk('Sauna', 'SAUNA', 4, true, 4, false);
 
   clientId = (
     await prisma.client.create({
@@ -129,6 +135,41 @@ test('the guard allows the room to a pair', async () => {
       branchId, startAt: AT, endAt: UNTIL,
       employeeIds: [], resourceId: roomId, partySize: 2, partyRef: OURS,
     }),
+  );
+});
+
+// ------------------------------- but the sauna does not, and that is not the same rule
+
+test('one guest may book the whole sauna to herself', async () => {
+  // Reported from the live site: the fourth person in a party, booked in for a
+  // sauna session, was refused it with "takes 4 — a smaller booking would leave
+  // a place nobody else can use". That is the couples-room rule, and it is
+  // wrong here. The sauna holds four but the spa is happy to sell it to one:
+  // she has it to herself, and the next booking takes it after she leaves.
+  const got = await ids(await free(1));
+  assert.ok(got.includes(saunaId), 'first to book gets it, however few of them there are');
+});
+
+test('the guard lets her have it too', async () => {
+  await assert.doesNotReject(() =>
+    assertNoConflicts({
+      branchId, startAt: AT, endAt: UNTIL,
+      employeeIds: [], resourceId: saunaId, partySize: 1, partyRef: OURS,
+    }),
+  );
+});
+
+test('the two rules are reported separately, so a picker can tell them apart', async () => {
+  const all = await free(2);
+  const room = all.find((r) => r.id === roomId);
+  const sauna = all.find((r) => r.id === saunaId);
+  assert.deepEqual(
+    { excl: room?.exclusiveUse, fill: room?.fillWhole },
+    { excl: true, fill: true },
+  );
+  assert.deepEqual(
+    { excl: sauna?.exclusiveUse, fill: sauna?.fillWhole },
+    { excl: true, fill: false },
   );
 });
 

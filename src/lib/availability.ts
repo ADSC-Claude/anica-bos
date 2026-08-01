@@ -157,6 +157,14 @@ export type AvailableResource = {
    * join you.
    */
   exclusiveUse: boolean;
+  /**
+   * Must be taken whole or not at all.
+   *
+   * A couples room: one guest in it leaves a bed nobody can book, so it is
+   * offered only to a party that fills it. The sauna is exclusive but *not*
+   * this — one person booking it alone is a normal sale.
+   */
+  fillWhole: boolean;
   /** Total places, so the caller can tell "2 of 2 free" from "2 of 4 free". */
   capacity: number;
 };
@@ -266,8 +274,9 @@ export async function availableResources(opts: {
       const others = [...(holders.get(r.id) ?? [])].filter((ref) => !mine || ref !== mine);
       // Anyone else inside means the place is gone, however much room is left.
       if (others.length) return false;
-      // Empty and exclusive: only offer it to a party that can fill it.
-      if (inUse === 0 && stillToPlace < capacity) return false;
+      // Empty and must be filled: only offer it to a party that can fill it.
+      // The sauna is exclusive without this, so one guest may have it alone.
+      if (r.fillWhole && inUse === 0 && stillToPlace < capacity) return false;
       return true;
     })
     .map(({ r, capacity, remaining }) => ({
@@ -276,6 +285,7 @@ export async function availableResources(opts: {
       type: r.type,
       remaining,
       exclusiveUse: r.exclusiveUse,
+      fillWhole: r.fillWhole,
       capacity,
     }));
 }
@@ -356,9 +366,10 @@ export async function assertNoConflicts(opts: {
           `${resource.name} is taken by another booking at that time — it is not shared.`,
         );
       }
-      // Empty and exclusive: only a party that fills it may have it, or the
-      // remaining places are stranded for the evening.
-      if (overlapping === 0 && (opts.partySize ?? 1) < capacity) {
+      // Empty and must be filled: only a party that fills it may have it, or
+      // the remaining places are stranded for the evening. Not the sauna —
+      // there, one guest alone simply has it to herself.
+      if (resource.fillWhole && overlapping === 0 && (opts.partySize ?? 1) < capacity) {
         throw new Error(
           `${resource.name} takes ${capacity} — a smaller booking would leave places nobody else can use.`,
         );
@@ -458,6 +469,8 @@ export type PlanPlace = {
   type: ResourceType;
   capacity: number;
   exclusiveUse: boolean;
+  /** Must be taken whole: a couples room, but not the sauna. */
+  fillWhole: boolean;
   /** Places already occupied in this window. */
   taken: number;
   remaining: number;
@@ -517,6 +530,7 @@ export async function floorPlan(opts: {
       type: r.type,
       capacity,
       exclusiveUse: r.exclusiveUse,
+      fillWhole: r.fillWhole,
       taken: here.length,
       remaining: Math.max(0, capacity - here.length),
       heldByOther: r.exclusiveUse && strangers.length > 0,

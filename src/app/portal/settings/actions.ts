@@ -283,6 +283,9 @@ export async function saveResourceAction(formData: FormData) {
     type: (str(formData, 'type') || 'BED') as never,
     capacity: Math.max(1, num(formData, 'capacity') || 1),
     exclusiveUse: bool(formData, 'exclusiveUse'),
+    // Meaningless on a shared place, and storing it anyway would leave a tick
+    // that does nothing to explain later.
+    fillWhole: bool(formData, 'exclusiveUse') && bool(formData, 'fillWhole'),
     active: bool(formData, 'active'),
     sortRank: num(formData, 'sortRank'),
   };

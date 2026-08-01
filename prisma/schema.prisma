@@ -465,9 +465,19 @@ model Resource {
   /// thing, and it is unavailable to anyone else until they leave, however many
   /// places are technically free inside it.
   ///
-  /// This is also what stops a room being sold to one person: a whole unit can
-  /// only go to a party that fills it, so a couples room needs two.
   exclusiveUse Boolean      @default(false)
+  /// Whether a booking must take *every* place in here, or may take fewer.
+  ///
+  /// These are two different rules and they were one flag, which is how the
+  /// sauna came to be refused to a single guest. A couples room must be filled:
+  /// one person in Room 1 leaves a bed nobody can book, so it is offered only to
+  /// a pair. The sauna must not be: it holds four, but one person booking it
+  /// alone is a normal sale — she simply has it to herself, and the next booking
+  /// takes it after her.
+  ///
+  /// Only meaningful when `exclusiveUse` is set, since a shared place never has
+  /// to be filled by anyone.
+  fillWhole    Boolean      @default(false)
   active       Boolean      @default(true)
   sortRank     Int          @default(0)
 

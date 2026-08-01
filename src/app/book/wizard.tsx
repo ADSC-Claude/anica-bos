@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FloorPlan, type PlanPlace } from '@/components/floor-plan';
 import { useRouter } from 'next/navigation';
 import { formatPeso } from '@/lib/money';
@@ -76,6 +76,31 @@ export function BookingWizard() {
   };
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  /**
+   * The control a "Take me there" is currently pointing at.
+   *
+   * The nonce is not decoration: pressing the same fix twice must move the page
+   * twice, and a bare string would be unchanged state the second time.
+   */
+  const [focus, setFocus] = useState<{ id: string; n: number } | null>(null);
+  const focusNonce = useRef(0);
+  useEffect(() => {
+    if (!focus) return;
+    const el = document.getElementById(focus.id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Focus the field itself where there is one; a group of buttons or the floor
+    // plan has nothing sensible to focus, so the outline is the whole signal.
+    const field = el.matches('input,select,textarea')
+      ? (el as HTMLElement)
+      : el.querySelector<HTMLElement>('input,select,textarea');
+    field?.focus({ preventScroll: true });
+    const ring = ['ring-2', 'ring-clay-500', 'rounded-2xl'];
+    el.classList.add(...ring);
+    const t = setTimeout(() => el.classList.remove(...ring), 2200);
+    return () => clearTimeout(t);
+  }, [focus]);
 
   const [branchId, setBranchId] = useState('');
   const [serviceIds, setServiceIds] = useState<string[]>([]);
@@ -155,7 +180,10 @@ export function BookingWizard() {
     if (resourceId === 'any') return null;
     const chosenIds = Object.values(seats);
     for (const p of plan) {
-      if (!p.exclusiveUse) continue;
+      // Must-fill places only. The sauna is exclusive without being must-fill:
+      // one guest booking it alone strands nothing, she simply has it to
+      // herself until she leaves.
+      if (!p.fillWhole) continue;
       const ours = chosenIds.filter((id) => id === p.id).length;
       if (ours > 0 && ours + p.taken < p.capacity) return p;
     }
@@ -262,11 +290,118 @@ export function BookingWizard() {
   const medicalFields = catalog.fields.filter((f) => f.section === 'MEDICAL');
   const profileFields = catalog.fields.filter((f) => f.section === 'PROFILE');
 
-  const canStep2 = serviceIds.length > 0 && Boolean(startAt);
-  const canSubmit =
-    canStep2 && client.name.length > 1 && client.mobile.length > 6 &&
-    /\S+@\S+\.\S+/.test(client.email) && Boolean(client.birthday) &&
-    Boolean(client.addressCity) && consent;
+  /**
+   * Everything still missing, in one list.
+   *
+   * A greyed-out Continue that will not say why is the worst control on a form:
+   * the guest can see the button, cannot press it, and has to hunt for what they
+   * missed. Worse, it was not even greyed out — a party of four could reach
+   * Continue with the fourth person unplaced, because the gate only checked the
+   * booker.
+   *
+   * So every requirement is written down once, with the step it belongs to and
+   * the control that fixes it. The red panel lists them, the button is disabled
+   * while any remain, and "Take me there" walks the guest to the exact field —
+   * across steps if need be, since forgetting a guest's treatment on step 1 is
+   * something you only notice on step 2.
+   */
+  const seatNames = ['You', ...guests.map((g, i) => g.name.trim() || `Guest ${i + 2}`)];
+  const partyAccepts = [accepts, ...guestAccepts];
+
+  const blockers: {
+    /** What is missing, addressed to the person booking. */
+    message: string;
+    /** Which step fixes it. */
+    step: number;
+    /** The element to scroll to and focus. */
+    anchor: string;
+    /** Whose place is missing, for the floor plan's guest chips. */
+    guest?: number;
+  }[] = [];
+
+  if (!serviceIds.length) {
+    blockers.push({ message: 'Choose your own treatment.', step: 1, anchor: 'pick-service' });
+  }
+  guests.forEach((g, i) => {
+    if (!g.name.trim()) {
+      blockers.push({
+        message: `Tell us who guest ${i + 2} is — a first name is enough.`,
+        step: 1,
+        anchor: `guest-${i}-name`,
+      });
+    }
+    if (!g.serviceIds.length) {
+      blockers.push({
+        message: `Choose a treatment for ${g.name.trim() || `guest ${i + 2}`}.`,
+        step: 1,
+        anchor: `guest-${i}-service`,
+      });
+    }
+  });
+  if (partyReady && !startAt) {
+    blockers.push({ message: 'Pick a start time.', step: 1, anchor: 'pick-time' });
+  }
+
+  // Step 2: everyone needs somewhere to lie, sit or sweat — unless the guest has
+  // handed the whole choice back to the spa.
+  if (resourceId !== 'any') {
+    seatNames.forEach((name, i) => {
+      if (!seats[i]) {
+        blockers.push({
+          message: `${name === 'You' ? 'You have' : `${name} has`} no place yet.`,
+          step: 2,
+          anchor: 'floor-plan',
+          guest: i,
+        });
+      }
+    });
+    if (stranded) {
+      // Point at whoever could still finish the room, so "Take me there" lands
+      // on a guest who can actually click the empty bed.
+      const filler = seatNames.findIndex(
+        (_, i) =>
+          seats[i] !== stranded.id &&
+          (!partyAccepts[i] || partyAccepts[i]!.includes(stranded.type)),
+      );
+      blockers.push({
+        message:
+          `${stranded.name} takes ${stranded.capacity} and is sold whole. Put another of ` +
+          'your party in it, or move out of it — otherwise a place is left that nobody can book.',
+        step: 2,
+        anchor: 'floor-plan',
+        guest: filler >= 0 ? filler : undefined,
+      });
+    }
+  }
+
+  const details: [boolean, string, string][] = [
+    [client.name.trim().length > 1, 'We need your full name.', 'detail-name'],
+    [client.mobile.replace(/\D/g, '').length > 6, 'We need a mobile number to reach you.', 'detail-mobile'],
+    [/\S+@\S+\.\S+/.test(client.email), 'We need an email for your confirmation.', 'detail-email'],
+    [Boolean(client.birthday), 'We need your birthday.', 'detail-birthday'],
+    [Boolean(client.addressCity), 'Choose your city.', 'detail-city'],
+    [consent, 'Please tick the consent box so we can keep your booking.', 'detail-consent'],
+  ];
+  for (const [ok, message, anchor] of details) {
+    if (!ok) blockers.push({ message, step: 3, anchor });
+  }
+
+  const blocking = (s: number) => blockers.filter((b) => b.step <= s);
+
+  /**
+   * Walk the guest to the control that fixes it.
+   *
+   * The step change and the scroll cannot happen in one go — the field does not
+   * exist until the step has rendered — so the anchor is parked in state and an
+   * effect does the moving once it is on screen. The nonce is what lets the same
+   * field be pointed at twice in a row.
+   */
+  const goFix = (b: { step: number; anchor: string; guest?: number }) => {
+    setError('');
+    if (b.guest !== undefined) setActiveGuest(b.guest);
+    if (b.step !== step) setStep(b.step);
+    setFocus({ id: b.anchor, n: focusNonce.current++ });
+  };
 
   return (
     <div className="mt-6 space-y-4">
@@ -288,6 +423,42 @@ export function BookingWizard() {
           {error}
         </p>
       )}
+
+      {/* What is still missing, and a way straight to it. Rendered at the top of
+          every step rather than only beside the button, because on a phone the
+          button and the field that blocks it are rarely on screen together. */}
+      {(() => {
+        const here = blocking(step);
+        // Quiet until the guest has actually started. A checklist of three red
+        // items on a form nobody has touched yet reads as a telling-off.
+        const started = step > 1 || serviceIds.length > 0 || guests.length > 0;
+        if (!here.length || !started) return null;
+        return (
+          <div
+            role="alert"
+            className="rounded-xl border border-clay-500/30 bg-clay-500/10 px-3 py-2.5"
+          >
+            <p className="text-sm font-semibold text-clay-500">
+              {here.length === 1 ? 'One thing left' : `${here.length} things left`} before you can
+              continue
+            </p>
+            <ul className="mt-1.5 space-y-1.5">
+              {here.map((b, i) => (
+                <li key={i} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-sm text-clay-500">{b.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => goFix(b)}
+                    className="shrink-0 text-xs font-semibold text-cocoa-700 underline underline-offset-2 hover:text-cocoa-900"
+                  >
+                    Take me there
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {/* ------------------------------------------------- step 1 */}
       {step === 1 && (
@@ -335,7 +506,7 @@ export function BookingWizard() {
             </p>
           </div>
 
-          <div>
+          <div id="pick-service">
             <span className="label">
               {guests.length ? 'Your treatment' : 'Choose your service'}
             </span>
@@ -385,6 +556,7 @@ export function BookingWizard() {
               <label className="block">
                 <span className="label">Guest {i + 2} — name</span>
                 <input
+                  id={`guest-${i}-name`}
                   className="input"
                   value={g.name}
                   placeholder="Who is coming with you?"
@@ -398,7 +570,7 @@ export function BookingWizard() {
                   A first name is enough — we take the rest when you arrive.
                 </span>
               </label>
-              <div className="mt-2">
+              <div className="mt-2" id={`guest-${i}-service`}>
                 <span className="label">Their treatment</span>
                 <div className="grid gap-1.5">
                   {allServices.map((sv) => {
@@ -436,12 +608,6 @@ export function BookingWizard() {
               </div>
             </div>
           ))}
-
-          {serviceIds.length > 0 && !partyReady && (
-            <p className="text-sm text-clay-500">
-              Give every guest a name and a treatment to see the free times.
-            </p>
-          )}
 
           {partyReady && (
             <>
@@ -486,7 +652,7 @@ export function BookingWizard() {
                 />
               </label>
 
-              <div>
+              <div id="pick-time">
                 <span className="label">Available start times (12nn – 12mn)</span>
                 {slots === null ? (
                   <p className="text-sm text-cocoa-400">Checking availability…</p>
@@ -540,7 +706,7 @@ export function BookingWizard() {
           <button
             type="button"
             className="btn-primary w-full"
-            disabled={!canStep2}
+            disabled={blocking(1).length > 0}
             onClick={() => { setError(''); setStep(2); }}
           >
             Continue
@@ -593,7 +759,7 @@ export function BookingWizard() {
             </div>
           </div>
 
-          <div className="block">
+          <div className="block" id="floor-plan">
             <span className="label">
               {guests.length ? 'Choose your places' : 'Choose your place'}
             </span>
@@ -655,13 +821,6 @@ export function BookingWizard() {
             </label>
           </div>
 
-          {stranded && (
-            <p className="text-sm text-clay-500">
-              {stranded.name} takes {stranded.capacity}. Put another of your party in it, or
-              choose somewhere else — otherwise a place is left that nobody can book.
-            </p>
-          )}
-
           <div className="flex gap-2">
             <button type="button" className="btn-secondary flex-1" onClick={() => setStep(1)}>
               Back
@@ -669,7 +828,7 @@ export function BookingWizard() {
             <button
               type="button"
               className="btn-primary flex-1"
-              disabled={Boolean(stranded)}
+              disabled={blocking(2).length > 0}
               onClick={() => setStep(3)}
             >
               Continue
@@ -685,19 +844,19 @@ export function BookingWizard() {
             <p className="section-title">Your details</p>
             <label className="block">
               <span className="label">Full name *</span>
-              <input className="input" value={client.name}
+              <input id="detail-name" className="input" value={client.name}
                 onChange={(e) => setClient({ ...client, name: e.target.value })} />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="label">Mobile number *</span>
-                <input className="input" inputMode="tel" placeholder="0917 123 4567"
+                <input id="detail-mobile" className="input" inputMode="tel" placeholder="0917 123 4567"
                   value={client.mobile}
                   onChange={(e) => setClient({ ...client, mobile: e.target.value })} />
               </label>
               <label className="block">
                 <span className="label">Email *</span>
-                <input className="input" type="email" placeholder="you@email.com"
+                <input id="detail-email" className="input" type="email" placeholder="you@email.com"
                   value={client.email}
                   onChange={(e) => setClient({ ...client, email: e.target.value })} />
               </label>
@@ -705,12 +864,12 @@ export function BookingWizard() {
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="label">Birthday *</span>
-                <input className="input" type="date" max={todayKey()} value={client.birthday}
+                <input id="detail-birthday" className="input" type="date" max={todayKey()} value={client.birthday}
                   onChange={(e) => setClient({ ...client, birthday: e.target.value })} />
               </label>
               <label className="block">
                 <span className="label">City *</span>
-                <select className="select" value={client.addressCity}
+                <select id="detail-city" className="select" value={client.addressCity}
                   onChange={(e) => setClient({ ...client, addressCity: e.target.value })}>
                   {CITIES.map((c) => <option key={c}>{c}</option>)}
                 </select>
@@ -760,7 +919,7 @@ export function BookingWizard() {
                 onChange={(e) => setPromoCode(e.target.value.toUpperCase())} />
             </label>
 
-            <label className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
+            <label id="detail-consent" className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
                 checked={consent} onChange={(e) => setConsent(e.target.checked)} />
               <span className="text-xs text-cocoa-600">
@@ -794,7 +953,8 @@ export function BookingWizard() {
             <button type="button" className="btn-secondary flex-1" onClick={() => setStep(2)}>
               Back
             </button>
-            <button type="button" className="btn-primary flex-1" disabled={!canSubmit || busy}
+            <button type="button" className="btn-primary flex-1"
+              disabled={blocking(3).length > 0 || busy}
               onClick={submit}>
               {busy
                 ? 'Please wait…'

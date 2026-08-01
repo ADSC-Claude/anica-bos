@@ -19,6 +19,7 @@ import { sendTemplateEmail } from '@/lib/email';
 import { formatManila } from '@/lib/datetime';
 import { effectiveWindow, planVisit, visitMinutes } from '@/lib/itinerary';
 import { getSettings } from '@/lib/settings';
+import { depositOutcome } from '@/lib/booking-policy';
 
 export type FormState = { error?: string; ok?: string };
 
@@ -230,6 +231,35 @@ export async function setAppointmentStatusAction(formData: FormData) {
   if (!before) return;
 
   const now = new Date();
+
+  // The reservation fee on a cancel or a no-show, decided by the house rule
+  // rather than by whoever happens to be on the desk — and by the same rule the
+  // guest was shown before she paid. Forfeiting means the fee stays; keeping it
+  // PAID on a cancelled booking is how "we owe her this back" is recorded,
+  // since nothing here can move money at the gateway yet.
+  const ending = status === 'CANCELLED' || status === 'NO_SHOW';
+  let depositStatus = before.depositStatus;
+  let feeNote = '';
+  if (ending && before.depositStatus === 'PAID') {
+    const s = await getSettings(before.branchId);
+    const outcome = depositOutcome({
+      status,
+      startAt: before.startAt,
+      cancelledAt: now,
+      windowHours: s['booking.cancellationHours'],
+      inTimePolicy: s['booking.depositOnCancel'],
+    });
+    if (outcome === 'FORFEIT') {
+      depositStatus = 'FORFEITED';
+      feeNote =
+        status === 'NO_SHOW'
+          ? ' — reservation fee forfeited (no-show)'
+          : ` — reservation fee forfeited (cancelled inside ${s['booking.cancellationHours']}h)`;
+    } else {
+      feeNote = ' — reservation fee refundable (cancelled in time)';
+    }
+  }
+
   await prisma.appointment.update({
     where: { id },
     data: {
@@ -237,13 +267,9 @@ export async function setAppointmentStatusAction(formData: FormData) {
       checkedInAt: status === 'CHECKED_IN' ? now : before.checkedInAt,
       startedAt: status === 'IN_SERVICE' ? now : before.startedAt,
       completedAt: status === 'COMPLETED' ? now : before.completedAt,
-      cancelledAt: status === 'CANCELLED' || status === 'NO_SHOW' ? now : before.cancelledAt,
+      cancelledAt: ending ? now : before.cancelledAt,
       cancelReason: reason || before.cancelReason,
-      // Deposit handling on cancel/no-show follows the configured policy.
-      depositStatus:
-        (status === 'CANCELLED' || status === 'NO_SHOW') && before.depositStatus === 'PAID'
-          ? 'FORFEITED'
-          : before.depositStatus,
+      depositStatus,
     },
   });
 
@@ -252,8 +278,8 @@ export async function setAppointmentStatusAction(formData: FormData) {
     action: 'status_change',
     entityType: 'Appointment',
     entityId: id,
-    summary: `${before.status} → ${status}${reason ? ` (${reason})` : ''}`,
-    sensitive: status === 'CANCELLED' || status === 'NO_SHOW',
+    summary: `${before.status} → ${status}${reason ? ` (${reason})` : ''}${feeNote}`,
+    sensitive: ending,
     before: { status: before.status },
     after: { status },
   });

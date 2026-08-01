@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
 import { formatPeso } from '@/lib/money';
 import { formatManila } from '@/lib/datetime';
+import { cancellationPolicyText } from '@/lib/booking-policy';
 import { ProofUpload } from './proof-upload';
 
 export const dynamic = 'force-dynamic';
@@ -85,6 +86,27 @@ export default async function ConfirmationPage({
               The {formatPeso(appt.depositPaidCents)} you paid is deducted from your final
               bill. Please arrive 10 minutes early. A confirmation email is on its way to{' '}
               {appt.client.email}.
+            </p>
+          </div>
+        )}
+
+        {/* Repeated here, not only on the booking form: this is the page a guest
+            comes back to when her plans change, and it is the moment she needs
+            to know how much notice to give. */}
+        {!failed && (
+          <div className="card-pad mt-4 text-xs leading-relaxed text-cocoa-500">
+            <p className="font-semibold uppercase tracking-wide text-cocoa-500">
+              Cancellations &amp; no-shows
+            </p>
+            <p className="mt-1">
+              {cancellationPolicyText({
+                windowHours: settings['booking.cancellationHours'],
+                inTimePolicy: settings['booking.depositOnCancel'],
+              })}
+            </p>
+            <p className="mt-1">
+              To cancel or move your booking, contact us on{' '}
+              {settings['business.contact']} and quote {appt.reference}.
             </p>
           </div>
         )}

@@ -22,7 +22,7 @@ export default async function BookingSettingsPage() {
         <Alert tone={mode === 'live' ? 'success' : mode === 'test' ? 'info' : 'warn'}>
           <strong>PayMongo is in {mode} mode.</strong>{' '}
           {mode === 'simulated'
-            ? 'No API keys are configured, so bookings use a local simulated checkout page. Set PAYMONGO_SECRET_KEY, PAYMONGO_PUBLIC_KEY and PAYMONGO_WEBHOOK_SECRET in your environment to take real payments.'
+            ? 'No API key is configured, so bookings use a local simulated checkout page. Set PAYMONGO_SECRET_KEY and PAYMONGO_WEBHOOK_SECRET in your environment to take real payments. The public key is not used here — everything happens server-side.'
             : mode === 'test'
               ? 'Test keys are in use — no real money moves. Switch to sk_live_ keys when you are ready.'
               : 'Live keys are in use. Real payments are being taken.'}
@@ -94,11 +94,27 @@ export default async function BookingSettingsPage() {
               </span>
             </label>
             <label className="block">
-              <span className="label">If the client cancels or no-shows</span>
+              <span className="label">Cancellation notice required (hours)</span>
+              <input name="cancellationHours" type="number" min={0} className="input"
+                defaultValue={s['booking.cancellationHours']} />
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                How much warning you need to resell the hour to somebody else the same day.
+                Cancel earlier than this and the rule below applies; cancel inside it, or
+                simply not turn up, and the reservation fee is kept. 0 switches the deadline
+                off, so any cancellation counts as in time.
+              </span>
+            </label>
+            <label className="block">
+              <span className="label">If the client cancels in time</span>
               <select name="depositOnCancel" className="select" defaultValue={s['booking.depositOnCancel']}>
-                <option value="FORFEIT">Forfeit the deposit (default)</option>
-                <option value="REFUND">Refund the deposit</option>
+                <option value="REFUND">Refund the reservation fee</option>
+                <option value="FORFEIT">Keep it anyway — never refundable</option>
               </select>
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                A late cancellation and a no-show always forfeit, whichever you pick here.
+                Whatever you choose is what the booking form promises the guest before she
+                pays, so the two can never disagree.
+              </span>
             </label>
           </div>
 

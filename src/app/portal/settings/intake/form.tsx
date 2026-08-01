@@ -6,6 +6,7 @@ import { saveFieldDefinitionAction, type FormState } from '../actions';
 type F = {
   id: string; label: string; section: string; type: string; options: string;
   helpText: string; required: boolean; showOnline: boolean; alertValues: string;
+  dependsOnKey: string; isNoneOption: boolean;
   sortRank: number; retired: boolean;
 };
 
@@ -81,6 +82,28 @@ export function IntakeFieldForm({ fields }: { fields: F[] }) {
           <span className="label">Display order</span>
           <input name="sortRank" type="number" className="input" defaultValue={current?.sortRank ?? 0} />
         </label>
+
+        <label className="block">
+          <span className="label">Only ask this if another question is ticked</span>
+          <input name="dependsOnKey" className="input" defaultValue={current?.dependsOnKey}
+            placeholder="recent_surgery" />
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            The key of a tick-box question. This one then appears underneath it, and only once
+            it is ticked — &ldquo;Recent surgery or injury&rdquo; tells a therapist to be careful
+            of something without saying what or where.
+          </span>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-cocoa-700">
+          <input type="checkbox" name="isNoneOption" className="h-5 w-5 accent-[#6b4e35]"
+            defaultChecked={current?.isNoneOption ?? false} />
+          Ticking this means none of the others apply
+        </label>
+        <span className="block text-[11px] text-cocoa-400">
+          Shown last in its section. Ticking it clears the rest; ticking any of the rest clears
+          it. A blank checklist cannot be told from a skipped one, and &ldquo;she didn&rsquo;t
+          say&rdquo; is not something to write on a medical record.
+        </span>
 
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
           <input type="checkbox" name="showOnline" className="h-5 w-5 accent-[#6b4e35]"

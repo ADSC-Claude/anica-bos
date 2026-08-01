@@ -383,6 +383,10 @@ export async function saveFieldDefinitionAction(
     alertValues: str(formData, 'alertValues').split(',').map((o) => o.trim()).filter(Boolean),
     sortRank: num(formData, 'sortRank'),
     retired: bool(formData, 'retired'),
+    // Blank means "always ask this", which is not the same as depending on a
+    // question called "".
+    dependsOnKey: str(formData, 'dependsOnKey') || null,
+    isNoneOption: bool(formData, 'isNoneOption'),
   };
 
   if (id) {

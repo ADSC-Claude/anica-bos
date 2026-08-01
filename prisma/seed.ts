@@ -354,19 +354,37 @@ async function main() {
   const intake: {
     key: string; label: string; section: 'PROFILE' | 'MEDICAL'; type: 'TEXT' | 'TEXTAREA' | 'BOOLEAN' | 'SELECT' | 'MULTISELECT';
     options?: string[]; online: boolean; alert?: string[]; rank: number; help?: string;
+    /** Only asked once the named tick box is ticked. */
+    dependsOn?: string;
+    /** Ticking this means none of the others in the section apply. */
+    none?: boolean;
   }[] = [
     { key: 'pressure_preference', label: 'Preferred pressure', section: 'PROFILE', type: 'SELECT', options: ['Light', 'Medium', 'Firm', 'Deep'], online: true, rank: 1 },
     { key: 'how_heard', label: 'How did you hear about us?', section: 'PROFILE', type: 'SELECT', options: ['Facebook', 'Walk-by', 'Friend/Referral', 'Hotel/Partner', 'Other'], online: true, rank: 2 },
+    // Each condition that needs one carries its follow-up. A tick on its own
+    // tells the therapist to be careful of something without saying what or
+    // where, which is the half of the answer that matters.
     { key: 'hypertension', label: 'High blood pressure / hypertension', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 10 },
+    { key: 'hypertension_detail', label: 'Is it controlled, and are you on medication for it?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 10, dependsOn: 'hypertension' },
     { key: 'heart_condition', label: 'Heart condition', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 11 },
+    { key: 'heart_condition_detail', label: 'What should your therapist be careful of?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 11, dependsOn: 'heart_condition' },
     { key: 'diabetes', label: 'Diabetes', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 12 },
+    { key: 'diabetes_detail', label: 'Any numbness in your hands or feet?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 12, dependsOn: 'diabetes', help: 'Numb areas need a lighter touch and a careful check of the skin.' },
     { key: 'pregnancy', label: 'Pregnant or recently gave birth', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 13 },
+    { key: 'pregnancy_detail', label: 'How many weeks, or how long since you gave birth?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 13, dependsOn: 'pregnancy' },
     { key: 'recent_surgery', label: 'Recent surgery or injury', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 14 },
+    { key: 'recent_surgery_detail', label: 'What was it, when, and which area should we avoid?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 14, dependsOn: 'recent_surgery' },
     { key: 'skin_condition', label: 'Skin condition or open wounds', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 15 },
+    { key: 'skin_condition_detail', label: 'Whereabouts on your body?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 15, dependsOn: 'skin_condition' },
     { key: 'varicose_veins', label: 'Varicose veins', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 16 },
-    { key: 'allergies', label: 'Allergies (oils, scents, nuts, etc.)', section: 'MEDICAL', type: 'TEXT', online: true, rank: 17, help: 'Tell us anything we should avoid using on you.' },
-    { key: 'medications', label: 'Current medications', section: 'MEDICAL', type: 'TEXT', online: false, rank: 18 },
-    { key: 'other_conditions', label: 'Other conditions or notes for your therapist', section: 'MEDICAL', type: 'TEXTAREA', online: true, rank: 19 },
+    { key: 'varicose_veins_detail', label: 'Whereabouts?', section: 'MEDICAL', type: 'TEXT', online: true, rank: 16, dependsOn: 'varicose_veins' },
+    { key: 'medications_taking', label: 'Currently taking any medication', section: 'MEDICAL', type: 'BOOLEAN', online: true, alert: ['true'], rank: 18 },
+    { key: 'medications', label: 'If yes, please specify:', section: 'MEDICAL', type: 'TEXT', online: true, rank: 19, dependsOn: 'medications_taking', help: 'Anything you take regularly, including vitamins and herbal remedies.' },
+    // Last in the list, because it is the answer you give after reading the
+    // rest. Without it a blank checklist cannot be told from a skipped one.
+    { key: 'none_apply', label: 'None of the above', section: 'MEDICAL', type: 'BOOLEAN', online: true, rank: 17, none: true },
+    { key: 'allergies', label: 'Allergies (oils, scents, nuts, etc.)', section: 'MEDICAL', type: 'TEXT', online: true, rank: 30, help: 'Tell us anything we should avoid using on you.' },
+    { key: 'other_conditions', label: 'Other conditions or notes for your therapist', section: 'MEDICAL', type: 'TEXTAREA', online: true, rank: 31 },
   ];
   const defs = [];
   for (const f of intake) {
@@ -376,6 +394,7 @@ async function main() {
           key: f.key, label: f.label, section: f.section, type: f.type,
           options: f.options ?? [], showOnline: f.online, alertValues: f.alert ?? [],
           sortRank: f.rank, helpText: f.help ?? '',
+          dependsOnKey: f.dependsOn ?? null, isNoneOption: f.none ?? false,
         },
       }),
     );

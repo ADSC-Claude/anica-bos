@@ -23,7 +23,12 @@ export async function GET() {
         services: {
           where: { active: true },
           orderBy: [{ sortRank: 'asc' }, { name: 'asc' }],
-          select: { id: true, name: true, durationMinutes: true, priceCents: true },
+          select: {
+            id: true, name: true, durationMinutes: true, priceCents: true,
+            // The visit planner needs both: where a treatment usually falls in
+            // a visit, and how much floor time it needs after itself.
+            sequenceRank: true, changeoverMinutes: true,
+          },
         },
       },
     }),
@@ -65,6 +70,8 @@ export async function GET() {
     categories: categories.filter((c) => c.services.length),
     fields,
     depositPercent: settings['booking.depositPercent'],
+    /** House gap between two treatments in one visit, so the form can quote it. */
+    changeoverMinutes: settings['booking.changeoverMinutes'],
     expiryMinutes: settings['booking.expiryMinutes'],
     manualFallback: settings['booking.manualFallbackEnabled'],
     leadTimeMinutes: settings['booking.leadTimeMinutes'],

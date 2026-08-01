@@ -202,17 +202,14 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   };
   if (!data.categoryId) return { error: 'Choose a category.' };
 
-  // Being an add-on is a property of the shelf, not of the service: "add on is
-  // a category, anything in it is if adding no interval". Derived here rather
-  // than asked again on the form, so the two can never disagree.
-  const primary = await prisma.serviceCategory.findUnique({
-    where: { id: data.categoryId },
-    select: { isAddOns: true },
-  });
-  // …except that a treatment needing the sauna can never be one. An add-on
-  // stays where the treatment before it happened, and the sauna is somewhere
-  // else by definition, so filing it under add-ons must not silently strand it.
-  const isAddOn = (primary?.isAddOns ?? false) && data.requiredResourceType !== 'SAUNA';
+  // The category sets the default for anything new filed there, but the service
+  // has the last word — the spa keeps Sauna and Ear Candling on the same shelf
+  // as Head, Hand, Back and the rest, and only the latter run on with no gap.
+  //
+  // A treatment needing the sauna is held back regardless: an add-on stays
+  // where the treatment before it happened, and the sauna is somewhere else by
+  // definition, so it could never honour the rule.
+  const isAddOn = bool(formData, 'isAddOn') && data.requiredResourceType !== 'SAUNA';
 
   // "Also list under" is display-only, and the primary is never one of them —
   // a service listed twice under the same heading would just render twice.
@@ -289,18 +286,11 @@ export async function saveServiceCategoryAction(
     ? await prisma.serviceCategory.update({ where: { id }, data })
     : await prisma.serviceCategory.create({ data });
 
-  // Ticking the box has to reach the services already on the shelf, or the
-  // setting would only apply to whatever is filed here afterwards. The sauna
-  // is held back: an add-on stays where the treatment before it happened, and
-  // the sauna is somewhere else by definition.
-  await prisma.service.updateMany({
-    where: { categoryId: cat.id, requiredResourceType: { not: 'SAUNA' } },
-    data: { isAddOn: data.isAddOns },
-  });
-  await prisma.service.updateMany({
-    where: { categoryId: cat.id, requiredResourceType: 'SAUNA' },
-    data: { isAddOn: false },
-  });
+  // Deliberately *not* applied to the services already on this shelf. The spa's
+  // add-ons category also holds Sauna and Ear Candling, which are treatments a
+  // guest books on their own; a bulk update here would quietly turn them into
+  // add-ons every time somebody renamed the category. The flag pre-fills the
+  // box for anything new filed here, and each service keeps its own answer.
 
   await audit(user, {
     module: 'settings', action: id ? 'update_service_category' : 'create_service_category',

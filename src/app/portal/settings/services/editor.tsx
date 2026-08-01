@@ -8,6 +8,7 @@ type Service = {
   requiredResourceType: string;
   sequenceRank?: number;
   changeoverMinutes?: number | null;
+  isAddOn?: boolean;
   durationMinutes: number; price: number;
   commissionType: string; commissionValue: number;
   active: boolean; showOnLanding: boolean; sortRank: number;
@@ -144,16 +145,32 @@ export function ServiceEditor({
             </span>
           </label>
         </div>
-        {/* Being an add-on follows from the category, so it is reported here
-            rather than asked again. Two places to set one thing is how they
-            end up disagreeing. */}
-        {addOnCategory && (
-          <p className="rounded-xl border border-sand-200 bg-sand-50 px-3 py-2 text-[11px] text-cocoa-600">
-            Filed under <strong>{addOnCategory.name}</strong>, so this runs straight on from the
-            treatment before it — no changeover in front of it, and in the same place. Move it to
-            another category if a guest should be able to book it on its own.
-          </p>
-        )}
+        {/* Per service, because one shelf holds both kinds. Head, Hand, Back,
+            Foot, Hot Stone, Ventosa and Shower are things you add to a
+            treatment; Sauna and Ear Candling sit beside them and are treatments
+            a guest books on their own. */}
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            name="isAddOn"
+            className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+            defaultChecked={current?.isAddOn ?? addOnCategory != null}
+          />
+          <span>
+            <span className="block text-sm font-medium text-cocoa-800">
+              Added to another treatment — no interval
+            </span>
+            <span className="mt-0.5 block text-[11px] text-cocoa-400">
+              Head, hand, back, foot, hot stone, ventosa, a shower: things a guest has on the end
+              of a treatment without getting up. No five-minute changeover in front of it, and it
+              happens in the same place.{' '}
+              {addOnCategory
+                ? `Ticked by default because this is filed under ${addOnCategory.name}.`
+                : 'Leave this off for anything bookable on its own.'}{' '}
+              A sauna session can never be one — she has to walk to another room.
+            </span>
+          </span>
+        </label>
         <label className="block">
           <span className="label">Description (landing page)</span>
           <textarea name="description" className="textarea" rows={2} defaultValue={current?.description} />

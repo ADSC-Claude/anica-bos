@@ -1,13 +1,22 @@
 /**
- * An add-on is decided by the category, not by a box on each service.
+ * Which services run on with no interval, and which are treatments.
  *
- *   "Add on is a category, anything in it is if adding no interval."
+ *   "single word like this: Head, Hand, Back, Foot, Hot Stone, Ventosa, Shower
+ *    this is the only thing that if add up into anything doesnt need interval."
  *
- * Filing an extra under the right heading is then the whole of the work. The
- * one thing the shelf cannot decide is the sauna: an add-on happens wherever
- * the treatment before it happened, and a sauna session is a walk to another
- * room that is then held for her alone. So a sauna service filed under add-ons
- * is held back rather than quietly given no changeover and no place of its own.
+ * Those seven share a shelf with the sauna and ear candling, which a guest
+ * books on her own — so the category cannot be the answer by itself, and each
+ * service keeps its own. The category only pre-ticks the box for anything new
+ * filed there.
+ *
+ * The names are matched whole and never as a substring. The catalogue also
+ * holds Foot Massage, Foot Spa and Hot Stone Massage, and a substring rule
+ * would give a ninety-minute massage no changeover and make it share the
+ * previous guest's bed.
+ *
+ * One thing no box can override: a sauna session. An add-on happens wherever
+ * the treatment before it happened, and the sauna is a walk to another room
+ * that is then held for her alone.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -40,19 +49,44 @@ after(async () => {
 });
 
 /** What the settings action does when it saves a service. */
-const derive = (categoryIsAddOns: boolean, place: string | null) =>
-  categoryIsAddOns && place !== 'SAUNA';
+const derive = (ticked: boolean, place: string | null) => ticked && place !== 'SAUNA';
 
-test('the add-ons category makes its services add-ons', () => {
+/** The migration's rule, which must match on the whole name and never part. */
+const ADD_ON_NAMES = ['head', 'hand', 'back', 'foot', 'hot stone', 'ventosa', 'shower'];
+const byName = (name: string) => ADD_ON_NAMES.includes(name.trim().toLowerCase());
+
+test('the seven add-ons are matched by their whole name', () => {
+  for (const n of ['Head', 'Hand', 'Back', 'Foot', 'Hot Stone', 'Ventosa', 'Shower']) {
+    assert.equal(byName(n), true, `${n} is an add-on`);
+  }
+});
+
+test('and a treatment that merely starts with one of those words is not', () => {
+  // The catalogue holds all of these. Matching on a substring would give a
+  // ninety-minute hot stone massage no changeover and make it share the
+  // previous guest's bed.
+  for (const n of [
+    'Foot Massage (30 min)',
+    'Foot Massage (60 min)',
+    'Foot Spa (45 min)',
+    'Hot Stone Massage (90 min)',
+    'Back Massage (60 min)',
+    'Head Spa (45 min)',
+  ]) {
+    assert.equal(byName(n), false, `${n} is a treatment in its own right`);
+  }
+});
+
+test('ticking the box makes a service an add-on', () => {
   assert.equal(derive(true, 'BED'), true);
   assert.equal(derive(true, 'CHAIR'), true);
 });
 
-test('an ordinary category does not', () => {
+test('leaving it unticked does not', () => {
   assert.equal(derive(false, 'BED'), false);
 });
 
-test('a sauna session is never an add-on, whatever shelf it is on', () => {
+test('a sauna session is never an add-on, however it is ticked or filed', () => {
   // She gets up and walks to another room, and the room is hers alone while
   // she is in it. Treating that as a continuation of the massage would give it
   // no changeover and force it to share the bed, which it cannot.
@@ -64,18 +98,36 @@ test('the category flag survives a round trip to the database', async () => {
   assert.equal(cat?.isAddOns, true);
 });
 
-test('a service filed under add-ons is stored as one', async () => {
-  const svc = await prisma.service.create({
+test('one category can hold both kinds at once', async () => {
+  // The spa's real shelf: Head and the rest are add-ons, Sauna and Ear Candling
+  // are treatments a guest books on her own, and they live together.
+  const add = await prisma.service.create({
     data: {
-      name: `Compress ${stamp}`, categoryId: addOnCatId, durationMinutes: 15,
-      priceCents: 15_000, requiredResourceType: 'BED',
-      isAddOn: derive(true, 'BED'),
+      name: `Head ${stamp}`, categoryId: addOnCatId, durationMinutes: 15,
+      priceCents: 15_000, requiredResourceType: 'BED', isAddOn: derive(true, 'BED'),
     },
   });
-  assert.equal(svc.isAddOn, true);
+  const candling = await prisma.service.create({
+    data: {
+      name: `Ear Candling ${stamp}`, categoryId: addOnCatId, durationMinutes: 30,
+      priceCents: 40_000, requiredResourceType: 'BED', isAddOn: derive(false, 'BED'),
+    },
+  });
+  const sauna = await prisma.service.create({
+    data: {
+      name: `Sauna ${stamp}`, categoryId: addOnCatId, durationMinutes: 30,
+      priceCents: 30_000, requiredResourceType: 'SAUNA', isAddOn: derive(true, 'SAUNA'),
+    },
+  });
+
+  assert.equal(add.isAddOn, true);
+  assert.equal(candling.isAddOn, false, 'a guest books ear candling on its own');
+  assert.equal(sauna.isAddOn, false, 'and the sauna is a different room');
+  assert.equal(add.categoryId, candling.categoryId);
+  assert.equal(add.categoryId, sauna.categoryId);
 });
 
-test('and moving it to an ordinary category makes it a treatment again', async () => {
+test('unticking a service makes it a treatment again', async () => {
   const svc = await prisma.service.create({
     data: {
       name: `Moved ${stamp}`, categoryId: addOnCatId, durationMinutes: 30,

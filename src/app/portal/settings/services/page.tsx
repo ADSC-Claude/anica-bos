@@ -161,6 +161,7 @@ export default async function ServicesSettingsPage({
             requiredResourceType: s.requiredResourceType ?? '',
             sequenceRank: s.sequenceRank,
             changeoverMinutes: s.changeoverMinutes,
+            isAddOn: s.isAddOn,
             durationMinutes: s.durationMinutes,
             price: s.priceCents / 100,
             commissionType: s.commissionType ?? '',

@@ -51,7 +51,29 @@ function todayKey(): string {
 export function BookingWizard() {
   const router = useRouter();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [step, setStep] = useState(1);
+  const [step, setStepState] = useState(1);
+
+  /**
+   * Move between steps, leaving a trail the browser can walk.
+   *
+   * The steps live in one page, so without this the browser's Back button —
+   * and the Back in the header — leave the booking entirely and throw away
+   * everything typed. `pushState` keeps the React state exactly where it is
+   * while giving Back somewhere sensible to land.
+   */
+  const setStep = (next: number) => {
+    if (next === step) return;
+    if (next > step) {
+      window.history.pushState({ step: next }, '', `?step=${next}`);
+      setStepState(next);
+      return;
+    }
+    // Going back through a control rather than the browser button: rewind the
+    // history rather than pushing, or Back would replay the steps just left.
+    // The popstate handler is what actually moves the step, so the two routes
+    // back cannot disagree.
+    window.history.back();
+  };
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -85,6 +107,19 @@ export function BookingWizard() {
   const [notes, setNotes] = useState('');
   const [promoCode, setPromoCode] = useState('');
   const [consent, setConsent] = useState(false);
+
+  // Step 1 is the page's own history entry, and Back from it should leave for
+  // the landing page — so the URL is cleaned rather than pushed on mount. A
+  // reload lands on step 1 with an empty form, which is what a reload means.
+  useEffect(() => {
+    window.history.replaceState({ step: 1 }, '', window.location.pathname);
+    const onPop = (e: PopStateEvent) => {
+      const to = Number((e.state as { step?: number } | null)?.step ?? 1);
+      setStepState(Number.isFinite(to) && to >= 1 ? to : 1);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     fetch('/api/public/catalog')

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BookingWizard } from './wizard';
 import { getSettings } from '@/lib/settings';
 import { BrandMark } from '@/components/brand-mark';
+import { BackLink } from '@/components/back-link';
 
 export const metadata = {
   title: 'Book an appointment',
@@ -22,9 +23,7 @@ export default async function BookPage() {
               {settings['business.name']}
             </span>
           </Link>
-          <Link href="/" className="text-sm text-cocoa-600 underline underline-offset-4">
-            Back
-          </Link>
+          <BackLink />
         </div>
       </header>
 

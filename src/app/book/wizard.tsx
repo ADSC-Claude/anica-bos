@@ -114,6 +114,8 @@ export function BookingWizard() {
   const [activeGuest, setActiveGuest] = useState(0);
   const [dateKey, setDateKey] = useState(todayKey());
   const [slots, setSlots] = useState<Slot[] | null>(null);
+  /** Why the day came back empty — a tick box, a shift, or genuinely full. */
+  const [noSlotReason, setNoSlotReason] = useState('');
   const [startAt, setStartAt] = useState('');
   const [therapists, setTherapists] = useState<{ id: string; name: string }[]>([]);
   const [resources, setResources] = useState<{ id: string; name: string; type: string }[]>([]);
@@ -202,6 +204,7 @@ export function BookingWizard() {
     }
     let cancelled = false;
     setSlots(null);
+    setNoSlotReason('');
     setStartAt('');
     const params = new URLSearchParams({ branchId, date: dateKey, serviceIds: serviceIds.join(',') });
     if (guestParam) params.set('guests', guestParam);
@@ -211,6 +214,7 @@ export function BookingWizard() {
         if (cancelled) return;
         if (data.error) { setError(data.error); return; }
         setSlots(data.slots ?? []);
+        setNoSlotReason(data.reason?.message ?? '');
       })
       .catch(() => !cancelled && setError('Could not check availability. Please try again.'));
     return () => { cancelled = true; };
@@ -658,7 +662,7 @@ export function BookingWizard() {
                   <p className="text-sm text-cocoa-400">Checking availability…</p>
                 ) : slots.length === 0 ? (
                   <p className="text-sm text-clay-500">
-                    No free slots left that day. Try another date.
+                    {noSlotReason || 'No free times left that day. Please try another date.'}
                   </p>
                 ) : (
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">

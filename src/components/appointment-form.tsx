@@ -3,7 +3,17 @@
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveAppointmentAction, type FormState } from '@/app/portal/appointments/actions';
+import { FloorPlan, type PlanPlace } from '@/components/floor-plan';
 import { formatPeso } from '@/lib/money';
+
+/**
+ * How often the desk re-reads the floor while a booking is being written up.
+ *
+ * A walk-in is served with the guest standing there, which is exactly when
+ * somebody online takes the last bed. The server refuses an overlap either way,
+ * but being told after typing the whole booking is a bad way to find out.
+ */
+const FLOOR_REFRESH_MS = 15_000;
 
 export type ServiceOption = { id: string; name: string; durationMinutes: number; priceCents: number; categoryName: string };
 export type ClientOption = { id: string; name: string; mobile: string };
@@ -56,8 +66,12 @@ export function AppointmentForm({
   const [employeeId, setEmployeeId] = useState(initial?.employeeId ?? 'any');
   const [resourceId, setResourceId] = useState(initial?.resourceId ?? 'any');
   const [therapists, setTherapists] = useState<SimpleOption[]>([]);
-  const [resources, setResources] = useState<SimpleOption[]>([]);
+  const [plan, setPlan] = useState<PlanPlace[]>([]);
+  /** Which kinds of place these treatments can be done in; null means any. */
+  const [accepts, setAccepts] = useState<string[] | null>(null);
   const [checking, setChecking] = useState(false);
+  /** Bumped on a poll so the effect re-runs without the time having changed. */
+  const [floorTick, setFloorTick] = useState(0);
 
   const chosen = services.filter((s) => serviceIds.includes(s.id));
   const duration = chosen.reduce((a, s) => a + s.durationMinutes, 0);
@@ -67,7 +81,8 @@ export function AppointmentForm({
   useEffect(() => {
     if (!serviceIds.length || !startIso) {
       setTherapists([]);
-      setResources([]);
+      setPlan([]);
+      setAccepts(null);
       return;
     }
     let cancelled = false;
@@ -78,16 +93,35 @@ export function AppointmentForm({
       serviceIds: serviceIds.join(','),
       startAt: startIso,
     });
+    if (initial?.id) params.set('excludeAppointmentId', initial.id);
     fetch(`/api/public/availability?${params}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
         setTherapists(data.therapists ?? []);
-        setResources(data.resources ?? []);
+        setPlan(data.plan ?? []);
+        setAccepts(data.accepts ?? null);
       })
       .finally(() => !cancelled && setChecking(false));
     return () => { cancelled = true; };
-  }, [serviceIds, startIso, branchId, startLocal]);
+  }, [serviceIds, startIso, branchId, startLocal, initial?.id, floorTick]);
+
+  // The floor keeps moving while the form is open — an online booking can take
+  // the bed the receptionist is about to pick. Only polls once there is a time
+  // to check against, and stops as soon as the form closes.
+  useEffect(() => {
+    if (!serviceIds.length || !startIso) return;
+    const t = setInterval(() => setFloorTick((n) => n + 1), FLOOR_REFRESH_MS);
+    return () => clearInterval(t);
+  }, [serviceIds.length, startIso]);
+
+  // A place that was free when it was picked can be taken a moment later. Drop
+  // the selection rather than submit a booking the server is about to refuse.
+  useEffect(() => {
+    if (resourceId === 'any' || !plan.length) return;
+    const still = plan.find((p) => p.id === resourceId);
+    if (!still || still.remaining <= 0 || still.heldByOther) setResourceId('any');
+  }, [plan, resourceId]);
 
   const filteredClients = clientQuery
     ? clients.filter(
@@ -210,17 +244,55 @@ export function AppointmentForm({
               </span>
             )}
           </label>
-          <label className="block">
-            <span className="label">Room / bed</span>
-            <select name="resourceId" className="select" value={resourceId}
-              onChange={(e) => setResourceId(e.target.value)}>
-              <option value="any">Any available</option>
-              {resources.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </label>
         </div>
+
+        <input type="hidden" name="resourceId" value={resourceId} />
+        <fieldset className="block">
+          <legend className="label">Room / bed</legend>
+          {serviceIds.length === 0 || !startIso ? (
+            <p className="muted text-sm">Choose a treatment and a time to see the floor.</p>
+          ) : plan.length === 0 ? (
+            <p className="muted text-sm">
+              {checking ? 'Checking the floor…' : 'Nothing is free at that time.'}
+            </p>
+          ) : (
+            <>
+              <FloorPlan
+                plan={plan}
+                guests={[{
+                  name: '',
+                  accepts,
+                  serviceLabel: chosen.map((s) => s.name).join(', '),
+                }]}
+                seats={resourceId === 'any' ? {} : { 0: resourceId }}
+                activeGuest={0}
+                onSelectGuest={() => {}}
+                // Tapping the chosen place again releases it, which is the only
+                // way back to "any" once something has been picked.
+                onPick={(placeId) => setResourceId((p) => (p === placeId ? 'any' : placeId))}
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setResourceId('any')}
+                  className={`min-h-9 rounded-xl border px-3 text-xs font-semibold transition ${
+                    resourceId === 'any'
+                      ? 'border-cocoa-600 bg-cocoa-600 text-white'
+                      : 'border-sand-200 bg-white text-cocoa-700 hover:border-cocoa-300'
+                  }`}
+                >
+                  Any available
+                </button>
+                <span className="text-[11px] text-cocoa-400">
+                  {resourceId === 'any'
+                    ? 'The first free place is taken at save time.'
+                    : 'Tap the chosen place again to go back to any.'}
+                  {' '}Re-checked every {FLOOR_REFRESH_MS / 1000}s.
+                </span>
+              </div>
+            </>
+          )}
+        </fieldset>
 
         {partners.length > 0 && (
           <label className="block">

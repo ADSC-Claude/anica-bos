@@ -131,15 +131,24 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid start time.' }, { status: 400 });
     }
     const endAt = new Date(startAt.getTime() + durationMinutes * 60_000);
+    // Rescheduling an existing booking: its own bed and therapist must not read
+    // as taken, or the desk cannot move an appointment without first freeing it.
+    // Ignored by the public form, which never sends it.
+    const excludeAppointmentId = url.searchParams.get('excludeAppointmentId') ?? undefined;
     const [therapists, resources, plan] = await Promise.all([
-      availableTherapists({ branchId: branch.id, startAt, endAt, serviceIds }),
+      availableTherapists({
+        branchId: branch.id, startAt, endAt, serviceIds, excludeAppointmentId,
+      }),
       // partySize matters here as much as in the slot loop: without it a
       // couples room is filtered out of the picker for a booking of two, which
       // is the one case it exists for.
-      availableResources({ branchId: branch.id, startAt, endAt, resourceType: place, partySize }),
+      availableResources({
+        branchId: branch.id, startAt, endAt, resourceType: place, partySize,
+        excludeAppointmentId,
+      }),
       // The whole floor, so the picker can draw the taken places too — hiding
       // them just moves "why not that one?" to after the click.
-      floorPlan({ branchId: branch.id, startAt, endAt }),
+      floorPlan({ branchId: branch.id, startAt, endAt, excludeAppointmentId }),
     ]);
     // The visit, treatment by treatment: when each runs, how long the gap
     // after it is, and what kind of place it needs. The form draws this as a

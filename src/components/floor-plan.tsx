@@ -12,7 +12,12 @@
  * Taken places are drawn struck through with the time they free up rather than
  * hidden, because "why can I not have that one" is a question worth answering
  * before it is asked.
+ *
+ * Which places may be clicked is decided in `@/lib/place-picker`, so the rules
+ * can be tested without a browser. This file is only the drawing.
  */
+
+import { blockingFill, slotState } from '@/lib/place-picker';
 
 export type PlanPlace = {
   id: string;
@@ -20,6 +25,8 @@ export type PlanPlace = {
   type: string;
   capacity: number;
   exclusiveUse: boolean;
+  /** Must be taken whole — a couples room. The sauna is exclusive but not this. */
+  fillWhole: boolean;
   taken: number;
   remaining: number;
   heldByOther: boolean;
@@ -77,58 +84,11 @@ export function FloorPlan({
   const occupantsOf = (placeId: string) =>
     guests.map((_, i) => i).filter((i) => seats[i] === placeId);
 
-  /**
-   * Guests who could still go somewhere new: whoever has no place yet, plus the
-   * one being placed right now, who may be moved.
-   *
-   * This is what decides whether an empty couples room is offered. Comparing
-   * against the *whole* party would offer Room 2 to the last unplaced guest of
-   * four, who cannot fill it on their own.
-   */
-  const movable = guests.filter((_, i) => i === activeGuest || seats[i] === undefined).length;
+  /** The must-fill place holding this guest back, if any. */
+  const pendingRoom = blockingFill(plan, guests, seats, activeGuest);
 
-  /**
-   * A whole-unit place this party has started and not finished.
-   *
-   * A couples room is sold whole, so the moment one of the party is in it the
-   * rest of it is theirs to fill — and until they do, nothing else may be
-   * chosen. Allowing the next guest to wander into Room 2 is how both rooms end
-   * up half-occupied, which is the state that leaves two beds nobody can book.
-   */
-  const pendingRoom =
-    plan.find((p) => {
-      if (!p.exclusiveUse) return false;
-      const inside = occupantsOf(p.id).length;
-      return inside > 0 && inside + p.taken < p.capacity;
-    }) ?? null;
-
-  /**
-   * The state of one *place inside* a resource, not of the resource.
-   *
-   * A couples room holds two, and drawing it as a single box was the bug: one
-   * of you could be put in it and the other could not, so a room the pair had
-   * come for looked taken by their own booking.
-   */
-  function stateOfSlot(p: PlanPlace, k: number) {
-    // Places already sold to somebody else fill up from the left.
-    if (k < p.taken) return p.heldByOther ? ('held' as const) : ('full' as const);
-
-    const occupants = occupantsOf(p.id);
-    const occupant = occupants[k - p.taken];
-    if (occupant === activeGuest) return 'mine-active' as const;
-    if (occupant !== undefined) return 'mine' as const;
-
-    if (p.heldByOther) return 'held' as const;
-    // Finish the room you started before anything else opens up.
-    if (pendingRoom && p.id !== pendingRoom.id) return 'finish-room' as const;
-    if (guest?.accepts && !guest.accepts.includes(p.type)) return 'wrong-type' as const;
-    // A whole-unit place only opens to a party that can fill it — but once one
-    // of us is inside, the rest may join rather than being told it is too big.
-    if (p.exclusiveUse && p.taken === 0 && occupants.length === 0 && movable < p.capacity) {
-      return 'needs-more' as const;
-    }
-    return 'free' as const;
-  }
+  const stateOfSlot = (p: PlanPlace, k: number) =>
+    slotState({ plan, place: p, index: k, guests, seats, activeGuest });
 
   /**
    * What to call one place inside a resource.
@@ -223,8 +183,9 @@ export function FloorPlan({
             </p>
             {z.places.every((p) => stateOfSlot(p, p.taken) === 'needs-more') && (
               <p className="mb-2 text-[10px] leading-tight text-clay-500">
-                Takes {z.places[0].capacity} — a smaller booking would leave a place nobody
-                else can use.
+                Takes {z.places[0].capacity} of you together, and not enough of your party is
+                booked for a treatment that goes in here — a place would be left that nobody
+                else can book.
               </p>
             )}
             {pendingRoom && z.places.every((p) => p.id !== pendingRoom.id) && (

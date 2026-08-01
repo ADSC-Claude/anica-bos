@@ -52,7 +52,11 @@ export default async function ResourcesPage({
                   <td className="text-xs capitalize">{r.type.toLowerCase()}</td>
                   <td className="num text-right">{r.capacity}</td>
                   <td className="text-xs text-cocoa-500">
-                    {r.exclusiveUse ? 'One booking at a time' : 'Shared'}
+                    {r.exclusiveUse
+                      ? r.fillWhole
+                        ? `One booking at a time, all ${r.capacity} places`
+                        : 'One booking at a time'
+                      : 'Shared'}
                   </td>
                   <td className="num text-right text-cocoa-400">{r.sortRank}</td>
                   <td>
@@ -117,10 +121,22 @@ export default async function ResourcesPage({
               One booking at a time
               <span className="mt-0.5 block text-[11px] text-cocoa-400">
                 Tick for a couples room or the sauna: one party takes the whole thing, and it is
-                unavailable to anyone else even with places to spare. It also means a party has to
-                fill it — a couples room will not be offered to a single guest, because the other
-                bed would be left for nobody. Leave unticked for open beds and the foot spa chairs,
-                where two unrelated bookings sit side by side.
+                unavailable to anyone else even with places to spare — first booking gets it, the
+                next one waits until they leave. Leave unticked for open beds and the foot spa
+                chairs, where two unrelated bookings sit side by side.
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-cocoa-700">
+            <input type="checkbox" name="fillWhole" className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+              defaultChecked={editing?.fillWhole ?? false} />
+            <span>
+              And the booking must fill every place
+              <span className="mt-0.5 block text-[11px] text-cocoa-400">
+                Tick for a couples room: it will not be offered to a single guest, because the
+                other bed would be left for nobody to book. Leave unticked for the sauna — it
+                holds four, but one person booking it alone is a normal sale and simply has it to
+                herself. Only does anything when &ldquo;one booking at a time&rdquo; is ticked.
               </span>
             </span>
           </label>

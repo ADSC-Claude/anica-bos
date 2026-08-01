@@ -180,17 +180,21 @@ async function main() {
   // since a whole-unit place is only offered to a party that fills it.
   const resources = [];
   for (const r of [
-    { name: 'Room 1 (Couples)', type: 'ROOM' as const, rank: 1, capacity: 2, exclusive: true },
-    { name: 'Room 2 (Couples)', type: 'ROOM' as const, rank: 2, capacity: 2, exclusive: true },
+    // fill: a room must be taken whole — one guest in it leaves a bed nobody
+    // can book. The sauna is exclusive without that: one person alone is a
+    // normal sale, and the next booking takes it after her.
+    { name: 'Room 1 (Couples)', type: 'ROOM' as const, rank: 1, capacity: 2, exclusive: true, fill: true },
+    { name: 'Room 2 (Couples)', type: 'ROOM' as const, rank: 2, capacity: 2, exclusive: true, fill: true },
     ...Array.from({ length: 4 }, (_, i) => ({
       name: `Bed ${i + 1}`,
       type: 'BED' as const,
       rank: 3 + i,
       capacity: 1,
       exclusive: false,
+      fill: false,
     })),
-    { name: 'Foot Spa & Reflexology Area', type: 'CHAIR' as const, rank: 8, capacity: 2, exclusive: false },
-    { name: 'Sauna', type: 'SAUNA' as const, rank: 10, capacity: 4, exclusive: true },
+    { name: 'Foot Spa & Reflexology Area', type: 'CHAIR' as const, rank: 8, capacity: 2, exclusive: false, fill: false },
+    { name: 'Sauna', type: 'SAUNA' as const, rank: 10, capacity: 4, exclusive: true, fill: false },
   ]) {
     resources.push(
       await prisma.resource.create({
@@ -201,6 +205,7 @@ async function main() {
           sortRank: r.rank,
           capacity: r.capacity,
           exclusiveUse: r.exclusive,
+          fillWhole: r.fill,
         },
       }),
     );

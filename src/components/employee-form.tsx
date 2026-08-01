@@ -170,10 +170,17 @@ export function EmployeeForm({
               Asked for on every government form — SSS, PhilHealth, Pag-IBIG and BIR.
             </span>
           </div>
-          <label className="block">
+          <div className="block">
             <span className="label">Hire date</span>
-            <input name="hireDate" type="date" className="input" defaultValue={values.hireDate} />
-          </label>
+            {/* Same three lists. A hire date is recent, so the years run from
+                next year back twenty rather than back eighty-five. */}
+            <DateSelect
+              name="hireDate"
+              value={values.hireDate}
+              latestYear={new Date(Date.now() + 8 * 3600_000).getUTCFullYear() + 1}
+              earliestYear={new Date(Date.now() + 8 * 3600_000).getUTCFullYear() - 20}
+            />
+          </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">

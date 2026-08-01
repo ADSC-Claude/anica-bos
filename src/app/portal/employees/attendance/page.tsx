@@ -76,13 +76,45 @@ export default async function AttendancePage({
         <StatCard label="Not yet logged" value={String(employees.length - timedIn.length - absent.length)} />
       </div>
 
-      <div className="mb-4">
-        <Alert tone="info">
-          The order of time-in sets today&apos;s <strong>rotation queue</strong> for walk-ins and
-          &ldquo;no preference&rdquo; online bookings — and only timed-in therapists appear as
-          available on the public booking form.
-        </Alert>
-      </div>
+      {/* What this screen actually controls. It looks like a register and is
+          not one: four separate things downstream read it, and none of them is
+          obvious from a list of names and times. */}
+      <details className="card-pad mb-4" open={!timedIn.length}>
+        <summary className="cursor-pointer text-sm font-semibold text-cocoa-800">
+          What timing in and out actually does
+        </summary>
+        <ul className="mt-2 space-y-2 text-sm text-cocoa-600">
+          <li>
+            <strong className="text-cocoa-800">It decides who can be booked today.</strong> A
+            therapist who is not timed in is <em>not offered</em> on the public booking form or in
+            the portal for today, however free she looks. Timing out ends it — she stops being
+            offered for the rest of the day. This applies to <em>today and past days only</em>;
+            future dates use her rest days from her employee record instead.
+          </li>
+          <li>
+            <strong className="text-cocoa-800">The order of time-in is the queue.</strong> First
+            in is first offered for walk-ins and &ldquo;no preference&rdquo; bookings, then it
+            rotates by who has served fewest that day. Timing in early genuinely matters to a
+            therapist&apos;s takings.
+          </li>
+          <li>
+            <strong className="text-cocoa-800">Late is calculated, not typed.</strong> Timing in
+            after opening plus the grace period marks the day late and records the minutes.
+            Payroll turns that into the deduction set in Settings → Payroll. Nobody decides
+            &ldquo;late&rdquo; by hand.
+          </li>
+          <li>
+            <strong className="text-cocoa-800">It is what payroll counts.</strong> Days with a
+            time-in are the days paid; days marked absent are deducted. A day never logged is
+            neither — it simply does not exist, which is why an unlogged shift is worse than a
+            late one.
+          </li>
+        </ul>
+        <p className="mt-2 text-[11px] text-cocoa-400">
+          Marked the wrong person, or forgot? Log it on the day it happened — use the arrows above
+          to go back to that date. Payroll reads the log, not the day it was typed.
+        </p>
+      </details>
 
       <div className="card divide-y divide-sand-100">
         {employees.map((e) => {

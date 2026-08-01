@@ -186,7 +186,6 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
     changeoverMinutes: str(formData, 'changeoverMinutes') === ''
       ? null
       : Math.max(0, num(formData, 'changeoverMinutes')),
-
     description: str(formData, 'description'),
     durationMinutes: Math.max(5, num(formData, 'durationMinutes')),
     priceCents: cents(formData, 'price'),
@@ -202,15 +201,6 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   };
   if (!data.categoryId) return { error: 'Choose a category.' };
 
-  // The category sets the default for anything new filed there, but the service
-  // has the last word — the spa keeps Sauna and Ear Candling on the same shelf
-  // as Head, Hand, Back and the rest, and only the latter run on with no gap.
-  //
-  // A treatment needing the sauna is held back regardless: an add-on stays
-  // where the treatment before it happened, and the sauna is somewhere else by
-  // definition, so it could never honour the rule.
-  const isAddOn = bool(formData, 'isAddOn') && data.requiredResourceType !== 'SAUNA';
-
   // "Also list under" is display-only, and the primary is never one of them —
   // a service listed twice under the same heading would just render twice.
   const alsoInCategoryIds = [
@@ -221,18 +211,10 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   const service = id
     ? await prisma.service.update({
         where: { id },
-        data: {
-          ...data,
-          isAddOn,
-          alsoInCategories: { set: alsoInCategoryIds.map((c) => ({ id: c })) },
-        },
+        data: { ...data, alsoInCategories: { set: alsoInCategoryIds.map((c) => ({ id: c })) } },
       })
     : await prisma.service.create({
-        data: {
-          ...data,
-          isAddOn,
-          alsoInCategories: { connect: alsoInCategoryIds.map((c) => ({ id: c })) },
-        },
+        data: { ...data, alsoInCategories: { connect: alsoInCategoryIds.map((c) => ({ id: c })) } },
       });
 
   // Consumption recipe.
@@ -278,19 +260,12 @@ export async function saveServiceCategoryAction(
     name,
     sortRank: num(formData, 'sortRank'),
     active: bool(formData, 'active'),
-    isAddOns: bool(formData, 'isAddOns'),
   };
 
   const before = id ? await prisma.serviceCategory.findUnique({ where: { id } }) : null;
   const cat = id
     ? await prisma.serviceCategory.update({ where: { id }, data })
     : await prisma.serviceCategory.create({ data });
-
-  // Deliberately *not* applied to the services already on this shelf. The spa's
-  // add-ons category also holds Sauna and Ear Candling, which are treatments a
-  // guest books on their own; a bulk update here would quietly turn them into
-  // add-ons every time somebody renamed the category. The flag pre-fills the
-  // box for anything new filed here, and each service keeps its own answer.
 
   await audit(user, {
     module: 'settings', action: id ? 'update_service_category' : 'create_service_category',

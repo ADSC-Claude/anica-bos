@@ -396,11 +396,14 @@ model ServiceCategory {
   name     String  @unique
   sortRank Int     @default(0)
   active   Boolean @default(true)
-  /// Everything filed here is an extra on the end of the treatment before it:
-  /// no changeover in front of it, and it happens wherever that treatment
-  /// happened. Set on the category rather than the service because that is how
-  /// the spa thinks about it — a thing is an add-on because of the shelf it
-  /// sits on, not because somebody remembered to tick a box.
+  /// Reserved, and deliberately unread.
+  ///
+  /// Added by work that was reverted: the owner's add-ons share a heading with
+  /// the sauna and ear candling, which are treatments a guest books on her own,
+  /// so a category-wide flag cannot express the catalogue. Nothing sets or
+  /// reads this. It is kept rather than dropped because dropping a column
+  /// mid-deploy breaks the code still serving requests, and an unused boolean
+  /// costs nothing. See docs/add-ons.md before building on it.
   isAddOns Boolean @default(false)
 
   /// Services whose primary category this is. Reports, the POS and commissions

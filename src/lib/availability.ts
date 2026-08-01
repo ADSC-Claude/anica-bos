@@ -8,6 +8,7 @@
  */
 import type { ResourceType } from '@prisma/client';
 import { prisma } from './db';
+import { shownName } from './people';
 import {
   businessDate,
   dateKeyToBusinessDate,
@@ -100,7 +101,9 @@ export async function availableTherapists(opts: {
     .filter((e) => !busy.has(e.id))
     .map((e) => ({
       id: e.id,
-      name: e.name,
+      // "Ms. Jenny", not "Jennifer Delos Santos Ramos" — this list is read by
+      // clients on the booking page and by the desk on the schedule.
+      name: shownName(e),
       rotationRank: e.attendances[0]?.rotationRank ?? 999,
       onDuty: Boolean(e.attendances[0]?.timeIn),
     }))

@@ -1,5 +1,6 @@
 import { formatPeso } from '@/lib/money';
 import { formatManila } from '@/lib/datetime';
+import { shownName } from '@/lib/people';
 
 type SaleForReceipt = {
   receiptNo: string;
@@ -102,7 +103,7 @@ export function Receipt({
           <div className="flex justify-between text-[10px] text-neutral-600">
             <span>
               {l.quantity} × {formatPeso(l.unitPriceCents, false)}
-              {l.employee ? ` · ${l.employee.name}` : ''}
+              {l.employee ? ` · ${shownName(l.employee)}` : ''}
             </span>
           </div>
         </div>

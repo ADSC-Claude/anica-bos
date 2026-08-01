@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import { saveUserAction, type FormState } from '../actions';
+import { shownName } from '@/lib/people';
 
 type U = {
   id: string; name: string; email: string; role: string;
@@ -69,7 +70,7 @@ export function UserForm({
           <select name="employeeId" className="select" defaultValue={current?.employeeId ?? ''}>
             <option value="">— none —</option>
             {employees.map((e) => (
-              <option key={e.id} value={e.id}>{e.name} ({e.employeeRole.toLowerCase()})</option>
+              <option key={e.id} value={e.id}>{shownName(e)} ({e.employeeRole.toLowerCase()})</option>
             ))}
           </select>
         </label>

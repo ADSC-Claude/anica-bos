@@ -700,7 +700,23 @@ model Employee {
   id              String           @id @default(cuid())
   branchId        String
   branch          Branch           @relation(fields: [branchId], references: [id])
+  /// Full legal name, assembled from the parts below. This is what payroll and
+  /// the government forms carry — SSS and BIR do not know anyone as "Ms. Jenny".
   name            String
+  firstName       String           @default("")
+  middleName      String           @default("")
+  lastName        String           @default("")
+  /// What everyone actually calls her — clients, the desk, the manager. Blank
+  /// means her first name serves, which is the common case.
+  nickname        String           @default("")
+  /// Ms. / Mr. / Mx. A field rather than a constant: the spa's therapists are
+  /// all women today, and the day one is not, nobody should have to change code
+  /// to stop the booking page addressing him wrongly.
+  title           String           @default("Ms.")
+  /// "Ms. Jenny" — how she appears everywhere except payroll and government
+  /// forms. Stored rather than computed on read so lists can sort and search on
+  /// it in the database, the same as any other name.
+  displayName     String           @default("")
   photoUrl        String           @default("")
   employeeRole    EmployeeRole
   mobile          String           @default("")

@@ -18,6 +18,7 @@ import {
 } from '@/lib/datetime';
 import { PageHeader, StatusBadge, EmptyState, Tabs } from '@/components/ui';
 import { formatPeso } from '@/lib/money';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Appointments' };
@@ -114,7 +115,7 @@ async function DayView({
 
   // Therapist columns = who is on duty, plus anyone booked that day.
   const columns = new Map<string, string>();
-  for (const a of therapists) columns.set(a.employee.id, a.employee.name);
+  for (const a of therapists) columns.set(a.employee.id, shownName(a.employee));
   for (const appt of appointments) {
     for (const s of appt.services) {
       if (s.employee) columns.set(s.employee.id, s.employee.name);

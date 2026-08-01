@@ -10,6 +10,7 @@ import { PageHeader, StatusBadge, Alert } from '@/components/ui';
 import { Receipt } from '@/components/receipt';
 import { VoidForm } from './void-form';
 import { PrintClient } from './print-button';
+import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
 
@@ -124,7 +125,7 @@ export default async function SaleDetailPage({ params }: { params: Promise<{ id:
                 {sale.commissions.map((c) => (
                   <li key={c.id} className="flex justify-between gap-3">
                     <span className="text-cocoa-600">
-                      {c.employee.name}
+                      {shownName(c.employee)}
                       <span className="ml-1 text-xs text-cocoa-400">
                         ({c.rateType === 'PERCENT' ? `${c.rateValue}% of ${formatPeso(c.basisCents)}` : 'fixed'})
                       </span>

@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveClientAction, type FormState } from '@/app/portal/clients/actions';
+import { DateSelect } from '@/components/date-select';
 
 const CITIES = [
   'Quezon City', 'Caloocan City', 'Las Piñas City', 'Makati City', 'Malabon City',
@@ -65,10 +66,18 @@ export function ClientForm({ values }: { values: ClientFormValues }) {
           </label>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
+          {/* A div, not a label: a label points at one control, and this is
+              three. Wrapping them all would make a click anywhere on the word
+              "Birthday" focus the month and nothing else. */}
+          <div className="block">
             <span className="label">Birthday</span>
-            <input name="birthday" type="date" className="input" defaultValue={values.birthday} />
-          </label>
+            <DateSelect
+              name="birthday"
+              value={values.birthday}
+              latestYear={new Date(Date.now() + 8 * 3600_000).getUTCFullYear()}
+              earliestYear={new Date(Date.now() + 8 * 3600_000).getUTCFullYear() - 100}
+            />
+          </div>
           <label className="block">
             <span className="label">City</span>
             <select name="addressCity" className="select" defaultValue={values.addressCity ?? 'Quezon City'}>

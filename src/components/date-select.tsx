@@ -38,45 +38,67 @@ export function DateSelect({
   /** Newest year offered. Defaults to 15 years back, the minimum working age. */
   latestYear,
   required,
+  /**
+   * Called with the composed `YYYY-MM-DD` whenever it changes, or `''` while
+   * the date is incomplete.
+   *
+   * Optional because the two callers are different shapes: a form that posts
+   * needs the hidden field, and a wizard holding its own state needs to be
+   * told. Both are supported rather than making one of them adapt.
+   */
+  onChange,
+  id,
 }: {
-  name: string;
+  name?: string;
   /** `YYYY-MM-DD`, or blank. */
   value?: string;
   earliestYear?: number;
   latestYear?: number;
   required?: boolean;
+  onChange?: (value: string) => void;
+  id?: string;
 }) {
   const thisYear = new Date(Date.now() + 8 * 3600_000).getUTCFullYear();
   const newest = latestYear ?? thisYear - 15;
   const oldest = earliestYear ?? thisYear - 85;
 
   const [y, m, d] = (value ?? '').split('-');
-  const [year, setYear] = useState(y ?? '');
-  const [month, setMonth] = useState(m ?? '');
-  const [day, setDay] = useState(d ?? '');
+  const [parts, setParts] = useState({ year: y ?? '', month: m ?? '', day: d ?? '' });
 
-  const maxDay = daysIn(Number(year), Number(month));
-  // A day that no longer exists after changing month — 31 to February — is
-  // dropped rather than silently rolling the date into March.
-  const safeDay = Number(day) > maxDay ? '' : day;
+  const compose = (p: { year: string; month: string; day: string }) =>
+    p.year && p.month && p.day
+      ? `${p.year}-${pad(Number(p.month))}-${pad(Number(p.day))}`
+      : '';
 
-  const composed = year && month && safeDay ? `${year}-${pad(Number(month))}-${pad(Number(safeDay))}` : '';
+  /** Apply a change, dropping a day the new month cannot hold. */
+  const change = (patch: Partial<typeof parts>) => {
+    const next = { ...parts, ...patch };
+    // 31 January then February: clear the day rather than letting the date roll
+    // silently into March. A date that quietly becomes a different date is
+    // worse than one that asks to be finished — and on a birthday it ends up
+    // on a government form.
+    if (Number(next.day) > daysIn(Number(next.year), Number(next.month))) next.day = '';
+    setParts(next);
+    onChange?.(compose(next));
+  };
 
-  // Newest first: a therapist born in 1998 is a short scroll, and 1941 is not
-  // the common case.
+  const maxDay = daysIn(Number(parts.year), Number(parts.month));
+
+  // Newest first: someone born in 1998 is a short scroll, and 1941 is not the
+  // common case.
   const years: number[] = [];
   for (let yy = newest; yy >= oldest; yy -= 1) years.push(yy);
 
   return (
     <>
-      <input type="hidden" name={name} value={composed} />
-      <div className="grid grid-cols-3 gap-1.5">
+      {name && <input type="hidden" name={name} value={compose(parts)} />}
+      <div className="grid grid-cols-3 gap-1.5" id={id}>
         <select
           className="select"
           aria-label="Month"
-          value={month}
+          value={parts.month}
           required={required}
-          onChange={(e) => setMonth(e.target.value)}
+          onChange={(e) => change({ month: e.target.value })}
         >
           <option value="">Month</option>
           {MONTHS.map((label, i) => (
@@ -86,9 +108,9 @@ export function DateSelect({
         <select
           className="select"
           aria-label="Day"
-          value={safeDay}
+          value={parts.day}
           required={required}
-          onChange={(e) => setDay(e.target.value)}
+          onChange={(e) => change({ day: e.target.value })}
         >
           <option value="">Day</option>
           {Array.from({ length: maxDay }, (_, i) => i + 1).map((n) => (
@@ -98,9 +120,9 @@ export function DateSelect({
         <select
           className="select"
           aria-label="Year"
-          value={year}
+          value={parts.year}
           required={required}
-          onChange={(e) => setYear(e.target.value)}
+          onChange={(e) => change({ year: e.target.value })}
         >
           <option value="">Year</option>
           {years.map((yy) => (

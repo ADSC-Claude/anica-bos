@@ -5,6 +5,7 @@ import { FloorPlan, type PlanPlace } from '@/components/floor-plan';
 import { useRouter } from 'next/navigation';
 import { formatPeso } from '@/lib/money';
 import { VisitOrder } from '@/components/visit-order';
+import { DateSelect } from '@/components/date-select';
 import { houseOrder } from '@/lib/itinerary';
 
 type Catalog = {
@@ -906,11 +907,18 @@ export function BookingWizard() {
               </label>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
+              {/* A div, not a label: a label points at one control and this
+                  is three. The id stays here so "Take me there" can still find
+                  and outline the whole group. */}
+              <div className="block" id="detail-birthday">
                 <span className="label">Birthday *</span>
-                <input id="detail-birthday" className="input" type="date" max={todayKey()} value={client.birthday}
-                  onChange={(e) => setClient({ ...client, birthday: e.target.value })} />
-              </label>
+                <DateSelect
+                  value={client.birthday}
+                  latestYear={new Date(Date.now() + 8 * 3600_000).getUTCFullYear()}
+                  earliestYear={new Date(Date.now() + 8 * 3600_000).getUTCFullYear() - 100}
+                  onChange={(v) => setClient({ ...client, birthday: v })}
+                />
+              </div>
               <label className="block">
                 <span className="label">City *</span>
                 <select id="detail-city" className="select" value={client.addressCity}

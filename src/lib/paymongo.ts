@@ -107,6 +107,79 @@ export async function retrieveCheckoutSession(id: string) {
 }
 
 /**
+ * PayMongo refunds are issued against a *payment*, never against a checkout
+ * session — but which of the two we stored depends on which webhook told us the
+ * fee had been paid. `checkout_session.payment.paid` carries the session
+ * (`cs_…`), `payment.paid` carries the payment (`pay_…`). Resolve one to the
+ * other here rather than making every caller care which arrived first.
+ *
+ * Returns null when the payment cannot be found, which the caller must treat as
+ * "refund this by hand" rather than as a failure to record.
+ */
+export async function resolvePaymentId(storedId: string): Promise<string | null> {
+  const id = storedId.trim();
+  if (!id) return null;
+  if (id.startsWith('pay_')) return id;
+  if (!id.startsWith('cs_')) return null;
+
+  const session = await retrieveCheckoutSession(id);
+  const payments = (session?.attributes as { payments?: { id?: string }[] } | undefined)?.payments;
+  return payments?.find((p) => p.id)?.id ?? null;
+}
+
+export type RefundResult = { id: string; status: string; simulated: boolean };
+
+/**
+ * Sends money back for a payment already taken.
+ *
+ * PayMongo will not refund less than ₱1.00, and a refund on an e-wallet can sit
+ * `pending` for days before it settles — so `status` is reported rather than
+ * assumed, and the `payment.refunded` webhook is what confirms it later.
+ */
+export async function createRefund(opts: {
+  paymentId: string;
+  amountCents: number;
+  /** PayMongo's fixed vocabulary. A guest changing her mind is the usual one. */
+  reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer' | 'others';
+  notes?: string;
+  /** Booking reference, carried in metadata so the webhook can find its way home. */
+  reference?: string;
+}): Promise<RefundResult> {
+  if (isSimulated()) {
+    return { id: `sim_refund_${opts.reference || opts.paymentId}`, status: 'succeeded', simulated: true };
+  }
+
+  const res = await fetch(`${API}/refunds`, {
+    method: 'POST',
+    headers: { Authorization: authHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data: {
+        attributes: {
+          payment_id: opts.paymentId,
+          amount: Math.round(opts.amountCents),
+          reason: opts.reason ?? 'requested_by_customer',
+          // The field is capped at 255 characters and PayMongo rejects anything
+          // longer outright, so trim rather than risk losing the whole refund.
+          notes: (opts.notes ?? '').slice(0, 255),
+          ...(opts.reference ? { metadata: { reference: opts.reference } } : {}),
+        },
+      },
+    }),
+  });
+
+  const json = (await res.json()) as {
+    data?: { id: string; attributes?: { status?: string } };
+    errors?: { detail: string }[];
+  };
+  if (!res.ok || !json.data) {
+    throw new Error(
+      `PayMongo refund failed: ${json.errors?.map((e) => e.detail).join('; ') ?? res.statusText}`,
+    );
+  }
+  return { id: json.data.id, status: json.data.attributes?.status ?? 'pending', simulated: false };
+}
+
+/**
  * Verifies the `paymongo-signature` header:
  *   t=<unix>,te=<test sig>,li=<live sig>
  * Signature = HMAC-SHA256(`${t}.${rawBody}`, webhookSecret).

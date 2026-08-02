@@ -15,6 +15,7 @@ import {
   verifyDepositAction,
 } from '../actions';
 import { ItineraryPanel } from './itinerary-panel';
+import { RefundPanel } from './refund-panel';
 import { shownName } from '@/lib/people';
 
 export const dynamic = 'force-dynamic';
@@ -206,6 +207,20 @@ export default async function AppointmentDetailPage({
               ))}
             </ul>
           </Alert>
+        </div>
+      )}
+
+      {/* A cancelled booking whose fee is still paid is the system's way of
+          saying the money is owed back — see lib/booking-policy.ts. A late
+          cancellation forfeits instead, and never reaches this. */}
+      {appt.status === 'CANCELLED' && appt.depositStatus === 'PAID' && canEdit && (
+        <div className="mb-4 max-w-2xl">
+          <RefundPanel
+            appointmentId={appt.id}
+            amountCents={appt.depositPaidCents || appt.depositAmountCents}
+            cancelReason={appt.cancelReason}
+            viaGateway={Boolean(appt.gatewayPaymentId || appt.gatewaySessionId)}
+          />
         </div>
       )}
 

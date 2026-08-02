@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { bookingFor } from '@/lib/party';
 import { requirePage, resolveBranchId } from '@/lib/guard';
@@ -162,25 +163,41 @@ async function DayView({
           }
         />
       ) : (
-        <div className="card overflow-x-auto">
-          <div className="min-w-[720px]">
-            <div
-              className="grid border-b border-sand-200 bg-sand-50 text-[11px] font-semibold uppercase tracking-wide text-cocoa-500"
-              style={{ gridTemplateColumns: `64px repeat(${columnList.length}, minmax(120px, 1fr))` }}
-            >
-              <div className="px-2 py-2">Time</div>
-              {columnList.map(([id, name]) => (
-                <div key={id} className="truncate px-2 py-2">{name}</div>
-              ))}
+        /*
+         * One grid for the whole day, not one per hour.
+         *
+         * Each hour used to be its own grid sharing a `1fr` template, which
+         * only lines up while every row happens to measure the same. One
+         * booking with a long service name or an extra badge widened its own
+         * row's columns and nothing below the header agreed with anything
+         * above it. Fixed column widths inside a single grid cannot drift.
+         *
+         * The header and the time column are frozen, because a calendar you
+         * have to scroll is a calendar where the labels are the first thing to
+         * disappear — nine therapists do not fit on a laptop, and a column of
+         * appointments with no name at the top of it is unreadable.
+         */
+        <div className="card max-h-[calc(100vh-15rem)] overflow-auto">
+          <div
+            className="grid min-w-max"
+            style={{ gridTemplateColumns: `72px repeat(${columnList.length}, 160px)` }}
+          >
+            <div className="sticky left-0 top-0 z-30 border-b border-r border-sand-200 bg-sand-50 px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-cocoa-500">
+              Time
             </div>
+            {columnList.map(([id, name]) => (
+              <div
+                key={id}
+                title={name}
+                className="sticky top-0 z-20 truncate border-b border-l border-sand-200 bg-sand-50 px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-cocoa-500"
+              >
+                {name}
+              </div>
+            ))}
 
             {hours.map((hourMinute) => (
-              <div
-                key={hourMinute}
-                className="grid border-b border-sand-100"
-                style={{ gridTemplateColumns: `64px repeat(${columnList.length}, minmax(120px, 1fr))` }}
-              >
-                <div className="px-2 py-1.5 text-[11px] num text-cocoa-400">
+              <Fragment key={hourMinute}>
+                <div className="num sticky left-0 z-10 border-b border-r border-sand-100 bg-white px-2 py-1.5 text-[11px] text-cocoa-400">
                   {minutesToLabel(hourMinute)}
                 </div>
                 {columnList.map(([id]) => {
@@ -201,7 +218,7 @@ async function DayView({
                       .map((sv) => ({ a, sv, w: effectiveWindow(sv)! })),
                   );
                   return (
-                    <div key={id} className="min-h-12 border-l border-sand-100 p-1">
+                    <div key={id} className="min-h-12 border-b border-l border-sand-100 p-1">
                       {inHour.map(({ a, sv, w }) => {
                         const running = Boolean(sv.actualStartAt) && !sv.actualEndAt;
                         const logged = Boolean(sv.actualStartAt || sv.actualEndAt);
@@ -242,7 +259,7 @@ async function DayView({
                     </div>
                   );
                 })}
-              </div>
+              </Fragment>
             ))}
           </div>
         </div>

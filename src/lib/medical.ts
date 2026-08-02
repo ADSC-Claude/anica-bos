@@ -1,4 +1,5 @@
 import { prisma } from './db';
+import { isNotApplicable } from './intake';
 
 export type MedicalAlert = { label: string; detail: string };
 
@@ -29,8 +30,12 @@ export async function medicalAlertsFor(clientIds: string[]): Promise<Map<string,
       const asString = typeof raw === 'boolean' ? String(raw) : String(raw ?? '');
       flagged = def.alertValues.includes(asString);
       detail = asString === 'true' ? 'Yes' : asString;
-    } else if (typeof raw === 'string' && raw.trim()) {
-      // Free-text answers (allergies, medications) always matter.
+    } else if (typeof raw === 'string' && raw.trim() && !isNotApplicable(raw)) {
+      // Free-text answers (allergies, medications) always matter — except the
+      // ones that say there is nothing to report. Now that the checklist has to
+      // be answered, "no allergies" is stored rather than left blank, and
+      // alerting on it would put a line on every appointment card and bury the
+      // warnings that are real.
       flagged = true;
       detail = raw.trim();
     }

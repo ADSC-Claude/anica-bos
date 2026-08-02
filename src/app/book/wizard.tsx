@@ -8,6 +8,7 @@ import { VisitOrder } from '@/components/visit-order';
 import { DateSelect } from '@/components/date-select';
 import { houseOrder } from '@/lib/itinerary';
 import { PRIVACY_CONSENT, WAIVER_CLAUSES, WAIVER_LEAD } from '@/lib/consent';
+import { NOT_APPLICABLE, isAnswered, isNotApplicable } from '@/lib/intake';
 
 type Catalog = {
   branches: { id: string; name: string; address: string }[];
@@ -486,6 +487,17 @@ export function BookingWizard() {
     }
     setIntake(next);
   };
+  /**
+   * The checklist counts as answered when the guest has said something.
+   *
+   * A condition ticked says it; "None of the above" says it just as well, which
+   * is what that box is for. What does not say it is an untouched list — and an
+   * untouched list is the one case a therapist cannot act on, because it reads
+   * identically whether the guest is in perfect health or simply scrolled past.
+   */
+  const checklistAnswered =
+    ticks.some((f) => Boolean(intake[f.key])) || Boolean(noneField && intake[noneField.key]);
+
   const profileFields = catalog.fields.filter((f) => f.section === 'PROFILE');
 
   /**
@@ -600,6 +612,21 @@ export function BookingWizard() {
     [Boolean(client.addressCity), 'Choose your city.', 'detail-city'],
     [consent, 'Please tick the consent box so we can keep your booking.', 'detail-consent'],
     [waiver, 'Please tick the treatment consent box before we reserve your slot.', 'detail-waiver'],
+    [
+      checklistAnswered,
+      'Please answer the health checklist — tick anything that applies, or "None of the above".',
+      'health-checklist',
+    ],
+    // Each written question separately, so the guest is told which one is
+    // short rather than being sent back to the section to hunt for it.
+    ...written.map(
+      (f) =>
+        [
+          isAnswered(intake[f.key]),
+          `Please answer "${f.label}", or tick N/A if it does not apply.`,
+          `medical-${f.key}`,
+        ] as [boolean, string, string],
+    ),
   ];
   for (const [ok, message, anchor] of details) {
     if (!ok) blockers.push({ message, step: 3, anchor });
@@ -1165,11 +1192,11 @@ export function BookingWizard() {
             ))}
           </div>
 
-          <div className="card-pad space-y-3">
+          <div className="card-pad space-y-3" id="health-checklist">
             <p className="section-title">Health checklist</p>
             <p className="muted">
               This keeps you safe — your therapist needs to know before the treatment. Tick
-              anything that applies.
+              anything that applies, or &ldquo;None of the above&rdquo;.
             </p>
             {ticks.map((f) => (
               <div key={f.key} className="space-y-2">
@@ -1195,8 +1222,13 @@ export function BookingWizard() {
             )}
 
             {written.map((f) => (
-              <IntakeField key={f.key} field={f} value={intake[f.key]}
-                onChange={(v) => setIntake({ ...intake, [f.key]: v })} />
+              <div key={f.key} id={`medical-${f.key}`}>
+                <IntakeField field={f} value={intake[f.key]}
+                  onChange={(v) => setIntake({ ...intake, [f.key]: v })}
+                  onNotApplicable={(on) =>
+                    setIntake({ ...intake, [f.key]: on ? NOT_APPLICABLE : '' })
+                  } />
+              </div>
             ))}
           </div>
 
@@ -1329,11 +1361,59 @@ function IntakeField({
   field,
   value,
   onChange,
+  onNotApplicable,
 }: {
   field: Catalog['fields'][number];
   value: unknown;
   onChange: (v: unknown) => void;
+  /** Present on the written questions that have to be answered one way or the other. */
+  onNotApplicable?: (on: boolean) => void;
 }) {
+  const na = isNotApplicable(value);
+  const inputId = `intake-${field.key}`;
+
+  /**
+   * A written question that can be waved off, with "N/A" beside its label.
+   *
+   * Beside the question rather than under the box: it is an answer to that
+   * question, and a guest with none to give should be able to say so without
+   * first working out what to type. Ticking it empties and locks the box, so
+   * the record cannot end up claiming both "nothing to report" and a sentence
+   * about a nut allergy.
+   *
+   * A div rather than a label, unlike every other field here: the N/A tick
+   * needs a label of its own, one label cannot live inside another, and if it
+   * did the click would land on the text box instead of the tick.
+   */
+  if (onNotApplicable) {
+    const Box = field.type === 'TEXTAREA' ? 'textarea' : 'input';
+    return (
+      <div className="block">
+        <span className="flex items-baseline justify-between gap-3">
+          <label className="label" htmlFor={inputId}>{field.label}</label>
+          <label className="flex shrink-0 cursor-pointer items-center gap-1.5 pb-1 text-xs text-cocoa-500">
+            <input type="checkbox" className="h-4 w-4 accent-[#6b4e35]"
+              checked={na} onChange={(e) => onNotApplicable(e.target.checked)} />
+            N/A
+          </label>
+        </span>
+        <Box
+          id={inputId}
+          className={field.type === 'TEXTAREA' ? 'textarea' : 'input'}
+          {...(field.type === 'TEXTAREA' ? { rows: 2 } : {})}
+          disabled={na}
+          value={na ? '' : String(value ?? '')}
+          placeholder={na ? 'Nothing to report' : undefined}
+          onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+            onChange(e.target.value)}
+        />
+        {field.helpText && (
+          <span className="mt-1 block text-[11px] text-cocoa-400">{field.helpText}</span>
+        )}
+      </div>
+    );
+  }
+
   if (field.type === 'BOOLEAN') {
     return (
       <label className="flex min-h-11 items-center gap-3 rounded-xl border border-sand-200 px-3 py-2">

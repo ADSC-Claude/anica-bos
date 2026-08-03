@@ -17,6 +17,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { dateKeyToBusinessDate } from './datetime';
 import { DEFAULT_SETTINGS } from './settings-defaults';
+import { bandFor, bandLabel, parseLateBands, type LateBand } from './late-bands';
 
 export type PayslipLineDraft = {
   kind: string;
@@ -46,6 +47,8 @@ type PayrollSettings = {
   dailyAllowanceCents: number;
   lateDeductionType: 'FIXED' | 'PERCENT';
   lateDeductionValue: number;
+  /** Banded by minutes past grace. Empty falls back to the flat charge. */
+  lateBands: LateBand[];
   absenceDeductionType: 'FIXED' | 'PERCENT';
   absenceDeductionValue: number;
   regularHolidayMultiplier: number;
@@ -53,11 +56,74 @@ type PayrollSettings = {
   periodType: 'WEEKLY' | 'SEMI_MONTHLY';
 };
 
+/**
+ * What the late arrivals in a period cost, as payslip lines.
+ *
+ * Pulled out of the payslip builder so it can be checked without a database
+ * and without touching the global settings row — payroll settings are not
+ * per-branch, so a test that wrote its own would change every other test's
+ * arithmetic underneath it.
+ *
+ * With bands configured, each morning is charged by how late it was and shown
+ * band by band: "3 late arrival(s) −₱350" invites a disagreement nobody can
+ * settle, while three lines naming their bands answer it before it starts.
+ * With no bands, the flat charge the spa has always used.
+ */
+export function lateDeductionLines(
+  lates: { lateMinutes: number }[],
+  settings: Pick<PayrollSettings, 'lateBands' | 'lateDeductionType' | 'lateDeductionValue'>,
+  dailyRate: number,
+): PayslipLineDraft[] {
+  if (lates.length === 0) return [];
+
+  if (settings.lateBands.length === 0) {
+    const per =
+      settings.lateDeductionType === 'FIXED'
+        ? settings.lateDeductionValue
+        : Math.round((dailyRate * settings.lateDeductionValue) / 100);
+    const amount = per * lates.length;
+    if (amount <= 0) return [];
+    return [{
+      kind: 'late',
+      label: `${lates.length} late arrival(s)`,
+      amountCents: -amount,
+      sortRank: 10,
+    }];
+  }
+
+  const perBand = new Map<string, { label: string; count: number; each: number }>();
+  for (const a of lates) {
+    const band = bandFor(settings.lateBands, a.lateMinutes);
+    // Nothing covering it means the owner did not describe this case, and
+    // charging anyway would invent a rule she never wrote down.
+    if (!band) continue;
+    const key = `${band.from}-${band.to ?? 'up'}`;
+    const row = perBand.get(key) ?? { label: bandLabel(band), count: 0, each: band.amountCents };
+    row.count += 1;
+    perBand.set(key, row);
+  }
+
+  let rank = 10;
+  const out: PayslipLineDraft[] = [];
+  for (const row of perBand.values()) {
+    const amount = row.each * row.count;
+    if (amount <= 0) continue;
+    out.push({
+      kind: 'late',
+      label: `${row.count} late arrival(s), ${row.label}`,
+      amountCents: -amount,
+      sortRank: rank++,
+    });
+  }
+  return out;
+}
+
 export async function loadPayrollSettings(): Promise<PayrollSettings> {
   const keys = [
     'payroll.dailyAllowanceCents',
     'payroll.lateDeductionType',
     'payroll.lateDeductionValue',
+    'payroll.lateBands',
     'payroll.absenceDeductionType',
     'payroll.absenceDeductionValue',
     'payroll.regularHolidayMultiplier',
@@ -71,6 +137,7 @@ export async function loadPayrollSettings(): Promise<PayrollSettings> {
     dailyAllowanceCents: Number(get('payroll.dailyAllowanceCents')),
     lateDeductionType: get('payroll.lateDeductionType'),
     lateDeductionValue: Number(get('payroll.lateDeductionValue')),
+    lateBands: parseLateBands(get('payroll.lateBands')),
     absenceDeductionType: get('payroll.absenceDeductionType'),
     absenceDeductionValue: Number(get('payroll.absenceDeductionValue')),
     regularHolidayMultiplier: Number(get('payroll.regularHolidayMultiplier')),
@@ -232,15 +299,13 @@ export async function buildPayslipDrafts(opts: {
 
     // --- deductions ---
     let deductions = 0;
-    const lateCount = e.attendances.filter((a) => a.isLate).length;
-    if (lateCount > 0) {
-      const per =
-        settings.lateDeductionType === 'FIXED'
-          ? settings.lateDeductionValue
-          : Math.round((dailyRate * settings.lateDeductionValue) / 100);
-      const amount = per * lateCount;
-      deductions += amount;
-      lines.push({ kind: 'late', label: `${lateCount} late arrival(s)`, amountCents: -amount, sortRank: 10 });
+    for (const line of lateDeductionLines(
+      e.attendances.filter((a) => a.isLate),
+      settings,
+      dailyRate,
+    )) {
+      deductions += -line.amountCents;
+      lines.push(line);
     }
 
     const absentCount = e.attendances.filter((a) => a.isAbsent).length;

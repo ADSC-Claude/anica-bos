@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import type { ResourceType } from '@prisma/client';
 import { normaliseMapEmbed } from '@/lib/map-embed';
+import { parseLateBands } from '@/lib/late-bands';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
 import { audit, diff } from '@/lib/audit';
@@ -116,6 +117,9 @@ export async function saveSettingsAction(
             ? cents(formData, 'lateDeductionValue')
             : num(formData, 'lateDeductionValue'),
         'payroll.lateGraceMinutes': num(formData, 'lateGraceMinutes'),
+        // Re-parsed here rather than trusted: the browser composed this JSON,
+        // and it decides what comes off somebody's pay.
+        'payroll.lateBands': parseLateBands(safeJson(str(formData, 'lateBands'))),
         'payroll.absenceDeductionType': str(formData, 'absenceDeductionType'),
         'payroll.absenceDeductionValue':
           str(formData, 'absenceDeductionType') === 'FIXED'
@@ -241,6 +245,16 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   revalidatePath('/portal/settings/services');
   revalidatePath('/');
   return { ok: 'Saved. The landing page updates immediately.' };
+}
+
+/** Parse JSON that arrived from a form field, treating rubbish as absent. */
+function safeJson(raw: string): unknown {
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }
 
 export async function saveServiceCategoryAction(

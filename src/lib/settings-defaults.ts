@@ -105,6 +105,14 @@ export const DEFAULT_SETTINGS = {
   'payroll.lateDeductionType': 'FIXED' as 'FIXED' | 'PERCENT',
   'payroll.lateDeductionValue': 5_000, // ₱50 per late
   'payroll.lateGraceMinutes': 15,
+  /**
+   * What a late arrival costs, banded by how far past grace it was.
+   *
+   * Empty means "use the flat charge above", so payroll does not change for
+   * anybody until the bands are actually filled in. Minutes are past grace,
+   * not past opening — see src/lib/late-bands.ts.
+   */
+  'payroll.lateBands': [] as { from: number; to: number | null; amountCents: number }[],
   'payroll.absenceDeductionType': 'PERCENT' as 'FIXED' | 'PERCENT',
   'payroll.absenceDeductionValue': 100, // 100% of the daily allowance
   'payroll.regularHolidayMultiplier': 200, // 2.00x, in whole percent

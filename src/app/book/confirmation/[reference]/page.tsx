@@ -5,6 +5,7 @@ import { getSettings } from '@/lib/settings';
 import { formatPeso } from '@/lib/money';
 import { formatManila } from '@/lib/datetime';
 import { cancellationPolicyText } from '@/lib/booking-policy';
+import { transferAccounts } from '@/lib/transfer-accounts';
 import { ProofUpload } from './proof-upload';
 
 export const dynamic = 'force-dynamic';
@@ -123,7 +124,11 @@ export default async function ConfirmationPage({
                   GCash: <strong>{settings['booking.gcashNumber']}</strong> (
                   {settings['booking.gcashName']})
                 </li>
-                <li>Bank: {settings['booking.bankDetails']}</li>
+                {/* One line per bank, so a guest who does not use BDO can see
+                    at a glance whether there is one she does use. */}
+                {transferAccounts(settings['booking.bankDetails']).map((account) => (
+                  <li key={account}>Bank: {account}</li>
+                ))}
               </ul>
               <p className="mt-2">
                 Then upload a screenshot below. We verify it at the front desk within

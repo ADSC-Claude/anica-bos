@@ -142,7 +142,12 @@ export default async function BookingSettingsPage() {
             </div>
             <label className="block">
               <span className="label">Bank details</span>
-              <input name="bankDetails" className="input" defaultValue={s['booking.bankDetails']} />
+              <textarea name="bankDetails" className="textarea" rows={3}
+                defaultValue={s['booking.bankDetails']} />
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                One account per line — the guest sees them as a list and picks whichever bank
+                she has. e.g. <code>BDO • ANICA Wellness Spa • 1234 5678 9012</code>
+              </span>
             </label>
           </div>
         </SettingsForm>

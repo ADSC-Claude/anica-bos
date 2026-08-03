@@ -20,6 +20,7 @@ import { placeRuns, planVisit } from './itinerary';
 import { formatManila } from './datetime';
 import { formatPeso } from './money';
 import { appUrl } from './app-url';
+import { transferAccountsSentence } from './transfer-accounts';
 
 export class BookingError extends Error {}
 
@@ -596,7 +597,7 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
       depositInstructions: needsApproval
         ? `This time runs past our closing hour, so we need to confirm a therapist can stay. We will message you shortly — nothing is charged until we do, and your ${formatPeso(depositCents)} reservation fee is only requested once we confirm.`
         : manualFallback
-          ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to ${settings['booking.bankDetails']}, then upload your proof of payment.`
+          ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to any of: ${transferAccountsSentence(settings['booking.bankDetails'])}, then upload your proof of payment.`
           : 'You can pay it securely online with GCash, Maya, a card, or online banking.',
     },
   });
@@ -942,7 +943,7 @@ export async function approveLateRequest(opts: {
       depositPercent: settings['booking.depositPercent'],
       expiryMinutes: settings['booking.expiryMinutes'],
       depositInstructions: manualFallback
-        ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to ${settings['booking.bankDetails']}, then upload your proof of payment.`
+        ? `Send it via GCash to ${settings['booking.gcashName']} (${settings['booking.gcashNumber']}) or bank transfer to any of: ${transferAccountsSentence(settings['booking.bankDetails'])}, then upload your proof of payment.`
         : 'You can pay it securely online with GCash, Maya, a card, or online banking.',
     },
   });

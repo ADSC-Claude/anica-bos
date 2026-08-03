@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { checkBands, type LateBand } from '@/lib/late-bands';
 
-type Row = { key: string; from: string; to: string; amount: string };
+type Row = { key: string; from: string; to: string; type: 'FIXED' | 'PERCENT'; amount: string };
 
 let seq = 0;
 const newKey = () => `b${++seq}`;
@@ -28,7 +28,13 @@ function toBands(rows: Row[]): LateBand[] {
     .map((r) => ({
       from: Math.max(0, Math.round(Number(r.from) || 0)),
       to: r.to === '' ? null : Math.round(Number(r.to)),
-      amountCents: Math.round((Number(r.amount) || 0) * 100),
+      type: r.type,
+      // Pesos are typed with centavos; a percentage is a whole number and
+      // must not be multiplied by a hundred on its way in.
+      amountCents:
+        r.type === 'PERCENT'
+          ? Math.round(Number(r.amount) || 0)
+          : Math.round((Number(r.amount) || 0) * 100),
     }));
 }
 
@@ -57,7 +63,8 @@ export function LateBandsEditor({
           key: newKey(),
           from: String(b.from),
           to: b.to === null ? '' : String(b.to),
-          amount: (b.amountCents / 100).toFixed(2),
+          type: b.type,
+          amount: b.type === 'PERCENT' ? String(b.amountCents) : (b.amountCents / 100).toFixed(2),
         }))
       : [],
   );
@@ -106,12 +113,25 @@ export function LateBandsEditor({
                     onChange={(e) => set(r.key, { to: e.target.value })}
                   />
                 </label>
-                <label className="block w-32">
+                <label className="block w-40">
                   <span className="block text-[10px] font-semibold uppercase tracking-wide text-cocoa-400">
-                    Deduct ₱
+                    Deduct
+                  </span>
+                  <select
+                    className="select" value={r.type}
+                    onChange={(e) => set(r.key, { type: e.target.value as Row['type'] })}
+                  >
+                    <option value="FIXED">Fixed ₱</option>
+                    <option value="PERCENT">% of a day</option>
+                  </select>
+                </label>
+                <label className="block w-28">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wide text-cocoa-400">
+                    {r.type === 'PERCENT' ? 'Percent' : 'Amount ₱'}
                   </span>
                   <input
-                    type="number" min={0} step="0.01" className="input" value={r.amount}
+                    type="number" min={0} step={r.type === 'PERCENT' ? 1 : 0.01} className="input"
+                    value={r.amount}
                     onChange={(e) => set(r.key, { amount: e.target.value })}
                   />
                 </label>
@@ -155,6 +175,8 @@ export function LateBandsEditor({
                 ? String((Number(prev[prev.length - 1].to) || Number(prev[prev.length - 1].from) || 0) + 1)
                 : '1',
               to: '',
+              // The rung above is usually the right shape for the next one.
+              type: prev.length ? prev[prev.length - 1].type : 'FIXED',
               amount: '',
             },
           ])
@@ -167,7 +189,8 @@ export function LateBandsEditor({
       {rows.length > 0 && (
         <p className="text-[11px] text-cocoa-400">
           A late arrival outside every band is not charged. The flat amount above is ignored
-          while any band is set.
+          while any band is set. A percentage is taken from that employee&apos;s own daily
+          allowance, so one ladder suits everybody.
         </p>
       )}
     </div>

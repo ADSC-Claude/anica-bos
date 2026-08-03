@@ -12,6 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  bandAmount,
   bandFor,
   bandLabel,
   checkBands,
@@ -20,9 +21,9 @@ import {
 } from '../src/lib/late-bands';
 
 const LADDER: LateBand[] = [
-  { from: 1, to: 15, amountCents: 5_000 },
-  { from: 16, to: 45, amountCents: 10_000 },
-  { from: 46, to: null, amountCents: 20_000 },
+  { from: 1, to: 15, type: 'FIXED', amountCents: 5_000 },
+  { from: 16, to: 45, type: 'FIXED', amountCents: 10_000 },
+  { from: 46, to: null, type: 'FIXED', amountCents: 20_000 },
 ];
 
 // ------------------------------------------------------------- which band
@@ -51,7 +52,7 @@ test('lateness no band describes is not charged', () => {
   // late at all, and inventing a charge for a case she did not describe is
   // taking money for a rule nobody wrote down.
   assert.equal(bandFor(LADDER, 0), null);
-  assert.equal(bandFor([{ from: 10, to: 20, amountCents: 5_000 }], 5), null);
+  assert.equal(bandFor([{ from: 10, to: 20, type: 'FIXED', amountCents: 5_000 }], 5), null);
   assert.equal(bandFor([], 30), null, 'no bands at all means the flat charge applies instead');
 });
 
@@ -59,17 +60,17 @@ test('lateness no band describes is not charged', () => {
 
 test('bands are sorted, so the ladder reads in order however it was typed', () => {
   const parsed = parseLateBands([
-    { from: 46, to: null, amountCents: 20_000 },
-    { from: 1, to: 15, amountCents: 5_000 },
-    { from: 16, to: 45, amountCents: 10_000 },
+    { from: 46, to: null, type: 'FIXED', amountCents: 20_000 },
+    { from: 1, to: 15, type: 'FIXED', amountCents: 5_000 },
+    { from: 16, to: 45, type: 'FIXED', amountCents: 10_000 },
   ]);
   assert.deepEqual(parsed.map((b) => b.from), [1, 16, 46]);
 });
 
 test('half-typed and malformed rows are dropped, not guessed at', () => {
   const parsed = parseLateBands([
-    { from: 1, to: 15, amountCents: 5_000 },
-    { from: 20, to: 10, amountCents: 5_000 },   // ends before it starts
+    { from: 1, to: 15, type: 'FIXED', amountCents: 5_000 },
+    { from: 20, to: 10, type: 'FIXED', amountCents: 5_000 },   // ends before it starts
     { from: 'x', to: 5, amountCents: 'y' },      // not numbers at all
     null,
     'nonsense',
@@ -99,12 +100,32 @@ test('negative minutes and negative money are clamped away', () => {
   assert.equal(b.amountCents, 0);
 });
 
+test('a band with no type stated is a peso amount, as it always was', () => {
+  // Bands written before percentages existed have no `type` field. They must
+  // keep meaning exactly what they meant, not silently become percentages.
+  const [b] = parseLateBands([{ from: 1, to: 15, amountCents: 5_000 }]);
+  assert.equal(b.type, 'FIXED');
+  assert.equal(bandAmount(b, 20_000), 5_000);
+});
+
+test('a percentage band is a share of the day, not centavos', () => {
+  const [b] = parseLateBands([{ from: 1, to: null, type: 'PERCENT', amountCents: 25 }]);
+  assert.equal(b.type, 'PERCENT');
+  assert.equal(bandAmount(b, 20_000), 5_000, '25% of a ₱200 day');
+  assert.equal(bandAmount(b, 40_000), 10_000, 'and of a ₱400 day');
+});
+
+test('a made-up type is treated as pesos rather than trusted', () => {
+  const [b] = parseLateBands([{ from: 1, to: null, type: 'MOONBEAMS', amountCents: 100 }]);
+  assert.equal(b.type, 'FIXED');
+});
+
 // --------------------------------------------------------------- warnings
 
 test('overlapping bands are called out, because the charge would be arbitrary', () => {
   const problems = checkBands([
-    { from: 1, to: 20, amountCents: 5_000 },
-    { from: 15, to: 40, amountCents: 10_000 },
+    { from: 1, to: 20, type: 'FIXED', amountCents: 5_000 },
+    { from: 15, to: 40, type: 'FIXED', amountCents: 10_000 },
   ]);
   assert.equal(problems.length, 1);
   assert.match(problems[0].message, /overlaps/);
@@ -112,8 +133,8 @@ test('overlapping bands are called out, because the charge would be arbitrary', 
 
 test('a gap is pointed out, because a gap is silently free', () => {
   const problems = checkBands([
-    { from: 1, to: 15, amountCents: 5_000 },
-    { from: 30, to: null, amountCents: 10_000 },
+    { from: 1, to: 15, type: 'FIXED', amountCents: 5_000 },
+    { from: 30, to: null, type: 'FIXED', amountCents: 10_000 },
   ]);
   assert.equal(problems.length, 1);
   assert.match(problems[0].message, /between 16 and 29/);
@@ -121,8 +142,8 @@ test('a gap is pointed out, because a gap is silently free', () => {
 
 test('a band after an open-ended one can never apply', () => {
   const problems = checkBands([
-    { from: 1, to: null, amountCents: 5_000 },
-    { from: 30, to: 60, amountCents: 10_000 },
+    { from: 1, to: null, type: 'FIXED', amountCents: 5_000 },
+    { from: 30, to: 60, type: 'FIXED', amountCents: 10_000 },
   ]);
   assert.equal(problems.length, 1);
   assert.match(problems[0].message, /never applies/);
@@ -137,5 +158,5 @@ test('a clean ladder has nothing to say about it', () => {
 test('a band names itself the way it should read on a payslip', () => {
   assert.equal(bandLabel(LADDER[0]), '1–15 min past grace');
   assert.equal(bandLabel(LADDER[2]), 'over 45 min past grace');
-  assert.equal(bandLabel({ from: 5, to: 5, amountCents: 100 }), '5 min past grace');
+  assert.equal(bandLabel({ from: 5, to: 5, type: 'FIXED', amountCents: 100 }), '5 min past grace');
 });

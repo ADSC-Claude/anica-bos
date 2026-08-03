@@ -2,6 +2,8 @@
  * Setting defaults, kept free of `server-only` so the seed script and CLI
  * jobs can import them too.
  */
+import type { LateBand } from './late-bands';
+
 export const DEFAULT_SETTINGS = {
   // --- business profile ---
   'business.name': 'ANICA Wellness Spa',
@@ -110,9 +112,10 @@ export const DEFAULT_SETTINGS = {
    *
    * Empty means "use the flat charge above", so payroll does not change for
    * anybody until the bands are actually filled in. Minutes are past grace,
-   * not past opening — see src/lib/late-bands.ts.
+   * not past opening, and a rung is either a peso amount or a share of that
+   * employee's own daily allowance — see src/lib/late-bands.ts.
    */
-  'payroll.lateBands': [] as { from: number; to: number | null; amountCents: number }[],
+  'payroll.lateBands': [] as LateBand[],
   'payroll.absenceDeductionType': 'PERCENT' as 'FIXED' | 'PERCENT',
   'payroll.absenceDeductionValue': 100, // 100% of the daily allowance
   'payroll.regularHolidayMultiplier': 200, // 2.00x, in whole percent

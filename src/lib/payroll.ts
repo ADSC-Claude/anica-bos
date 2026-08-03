@@ -17,7 +17,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from './db';
 import { dateKeyToBusinessDate } from './datetime';
 import { DEFAULT_SETTINGS } from './settings-defaults';
-import { bandFor, bandLabel, parseLateBands, type LateBand } from './late-bands';
+import { bandAmount, bandFor, bandLabel, parseLateBands, type LateBand } from './late-bands';
 
 export type PayslipLineDraft = {
   kind: string;
@@ -98,7 +98,14 @@ export function lateDeductionLines(
     // charging anyway would invent a rule she never wrote down.
     if (!band) continue;
     const key = `${band.from}-${band.to ?? 'up'}`;
-    const row = perBand.get(key) ?? { label: bandLabel(band), count: 0, each: band.amountCents };
+    const row = perBand.get(key) ?? {
+      label: bandLabel(band),
+      count: 0,
+      // A percentage band is worked out against this employee's own daily
+      // rate, so the same ladder means the right money for a therapist and
+      // for a receptionist.
+      each: bandAmount(band, dailyRate),
+    };
     row.count += 1;
     perBand.set(key, row);
   }

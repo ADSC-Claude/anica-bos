@@ -21,9 +21,25 @@ export type LateBand = {
   from: number;
   /** Where it ends, inclusive. Null means "and anything beyond". */
   to: number | null;
-  /** Deducted once for each late arrival that lands in this band. */
+  /**
+   * A flat peso amount, or a share of that day's allowance.
+   *
+   * Both are wanted for different rungs of the same ladder: a token ₱50 for
+   * being a few minutes over, and half a day's pay for turning up at three.
+   * A spa that later changes what a day is worth should not have to retype
+   * the bottom of its ladder.
+   */
+  type: 'FIXED' | 'PERCENT';
+  /** Centavos when FIXED. Whole percent of the daily allowance when PERCENT. */
   amountCents: number;
 };
+
+/** What one band costs against a given daily rate. */
+export function bandAmount(band: LateBand, dailyRateCents: number): number {
+  return band.type === 'PERCENT'
+    ? Math.round((dailyRateCents * band.amountCents) / 100)
+    : band.amountCents;
+}
 
 /**
  * Read bands off a settings value that came from JSON.
@@ -38,6 +54,9 @@ export function parseLateBands(raw: unknown): LateBand[] {
     if (!item || typeof item !== 'object') continue;
     const r = item as Record<string, unknown>;
     const from = Math.max(0, Math.round(Number(r.from ?? 0)));
+    // Anything that is not the word PERCENT is a peso amount, so a band
+    // written before this existed keeps meaning what it meant.
+    const type = r.type === 'PERCENT' ? 'PERCENT' : 'FIXED';
     const amountCents = Math.max(0, Math.round(Number(r.amountCents ?? 0)));
     const to =
       r.to === null || r.to === undefined || r.to === ''
@@ -45,7 +64,7 @@ export function parseLateBands(raw: unknown): LateBand[] {
         : Math.round(Number(r.to));
     if (!Number.isFinite(from) || !Number.isFinite(amountCents)) continue;
     if (to !== null && (!Number.isFinite(to) || to < from)) continue;
-    out.push({ from, to, amountCents });
+    out.push({ from, to, type, amountCents });
   }
   // Lowest first, so the first match is always the narrowest sensible one and
   // the screen reads like a ladder.

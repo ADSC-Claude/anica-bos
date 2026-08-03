@@ -37,6 +37,7 @@ export const DEFAULT_SETTINGS = {
   'booking.manualFallbackEnabled': false,
   'booking.gcashName': 'ANICA Wellness Spa',
   'booking.gcashNumber': '0900 000 0000',
+  /** One account per line — see lib/transfer-accounts.ts. */
   'booking.bankDetails': 'BDO • ANICA Wellness Spa • 0000 0000 0000',
   /**
    * How a reservation fee is treated when the guest cancels *in time* — that

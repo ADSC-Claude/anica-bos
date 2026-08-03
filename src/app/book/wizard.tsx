@@ -463,8 +463,23 @@ export function BookingWizard() {
   const ticks = medicalFields.filter(
     (f) => f.type === 'BOOLEAN' && !f.dependsOnKey && !f.isNoneOption,
   );
+  /**
+   * The free-text questions — allergies, anything else — which get the N/A
+   * escape and so are the ones that have to be answered.
+   *
+   * Type-checked rather than "everything that is not a tick box": the Owner can
+   * add a dropdown to the health section from Settings, and a dropdown handed
+   * the N/A treatment would render as a plain text box and lose its options.
+   * It also has a blank of its own already, so it needs no waive-off.
+   */
   const written = medicalFields.filter(
-    (f) => f.type !== 'BOOLEAN' && !f.dependsOnKey && !f.isNoneOption,
+    (f) => (f.type === 'TEXT' || f.type === 'TEXTAREA') && !f.dependsOnKey && !f.isNoneOption,
+  );
+  /** Anything else the Owner has added — a dropdown, a number — as it comes. */
+  const otherAsked = medicalFields.filter(
+    (f) =>
+      f.type !== 'BOOLEAN' && f.type !== 'TEXT' && f.type !== 'TEXTAREA' &&
+      !f.dependsOnKey && !f.isNoneOption,
   );
 
   /**
@@ -1229,6 +1244,11 @@ export function BookingWizard() {
                     setIntake({ ...intake, [f.key]: on ? NOT_APPLICABLE : '' })
                   } />
               </div>
+            ))}
+
+            {otherAsked.map((f) => (
+              <IntakeField key={f.key} field={f} value={intake[f.key]}
+                onChange={(v) => setIntake({ ...intake, [f.key]: v })} />
             ))}
           </div>
 

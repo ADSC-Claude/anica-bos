@@ -6,6 +6,8 @@ import { PageHeader, StatusBadge } from '@/components/ui';
 import { SettingsNav } from '@/components/settings-nav';
 import { SettingsForm } from '@/components/settings-form';
 import { saveHolidayAction } from '../actions';
+import { parseLateBands } from '@/lib/late-bands';
+import { LateBandsEditor } from './late-bands-editor';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Payroll settings' };
@@ -14,6 +16,16 @@ export default async function PayrollSettingsPage() {
   const user = await requirePage('settings.edit');
   const s = await getSettings(user.branchId);
   const holidays = await prisma.holiday.findMany({ orderBy: { date: 'asc' } });
+  // Only so the band editor can show what a band means in clock terms — "1
+  // minute past grace" is abstract, "arriving 12:16 PM" is not.
+  // findFirst, not findUnique: an Owner signed in across branches has no
+  // branch of their own, and the example times only need *a* branch's hours.
+  const branch = await prisma.branch.findFirst({
+    where: user.branchId ? { id: user.branchId } : { active: true },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    select: { openMinute: true },
+  });
+  const openMinute = branch?.openMinute ?? 720;
 
   return (
     <div>
@@ -72,8 +84,18 @@ export default async function PayrollSettingsPage() {
                         ? s['payroll.lateDeductionValue'] / 100
                         : s['payroll.lateDeductionValue']
                     } />
+                  <span className="mt-1 block text-[11px] text-cocoa-400">
+                    Charged once per late arrival, however late. Add bands below to charge by
+                    how late instead.
+                  </span>
                 </label>
               </div>
+
+              <LateBandsEditor
+                initial={parseLateBands(s['payroll.lateBands'])}
+                openMinute={openMinute}
+                graceMinutes={s['payroll.lateGraceMinutes']}
+              />
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="label">Absence deduction type</span>

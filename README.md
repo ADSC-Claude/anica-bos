@@ -222,13 +222,27 @@ depends on.
 
 ## Data privacy (RA 10173)
 
+**The notice your clients read** lives at `/privacy`, linked from the landing-page
+footer and from the consent tick box in the booking wizard — a notice you can only
+reach after booking is written for the spa's benefit, not the client's. It is built
+from live settings in `src/lib/privacy-notice.ts`, so the retention periods it quotes
+are the ones the nightly job is actually enforcing. Name a contact for data requests
+under Settings → Operations; until you do, it tells clients to write to "the owner".
+
 **Where the data lives.** One PostgreSQL database, and nothing else. There is no
 second store, no analytics warehouse, no third-party CRM holding a copy. Payment
 proof screenshots are written into the appointment row as data URLs rather than to
-an object store, so the database really is the whole of it. Its region is whatever
-you chose when you created it; the app itself runs in the Vercel region named in
-`vercel.json` (`bom1`, Mumbai), so processing happens outside the Philippines —
-permitted, but say so in your privacy notice.
+an object store, so the database really is the whole of it.
+
+**Which region.** The app runs in `sin1` (Singapore), set in `vercel.json`. Vercel
+has no Philippines region, and Singapore is the closest one to Manila — roughly
+2,400 km against Mumbai's 5,300, which is the difference between about 40 ms and
+about 120 ms on every request. Put your database in the same region (Supabase and
+Neon both offer `ap-southeast-1`): a Singapore app talking to a Mumbai database
+crosses the Indian Ocean on every query, and co-locating them matters far more than
+either choice alone. Processing still happens outside the Philippines, which RA 10173
+permits — you remain accountable for it, and the notice at `/privacy` says so. If you
+move either, update `privacy.hostingLocations` in Settings so the notice stays true.
 
 **Who else sees anything.** PayMongo (card and e-wallet payments — checkout is
 hosted on their side, so no card number ever reaches this system), Resend (email),
@@ -271,10 +285,12 @@ pruned nightly on the windows set by `privacy.loginLogRetentionDays` and
 deliberately never pruned: it is append-only, an examiner reads it, and it is where
 the record of who opened whose health file lives.
 
-**Still on you.** A client-facing privacy notice, and checking whether the spa meets
-the National Privacy Commission's registration thresholds — broadly, sensitive
-personal information on 1,000+ individuals. Neither is something the software can
-do for you.
+**Still on you.** Naming a Data Protection Officer, and checking whether the spa
+meets the National Privacy Commission's registration thresholds — broadly, sensitive
+personal information on 1,000+ individuals. The notice at `/privacy` is written to be
+accurate about this system, but it has not been reviewed by a lawyer and it cannot
+know your circumstances; read it once against how the spa actually operates before
+you rely on it.
 
 ---
 
@@ -568,6 +584,7 @@ src/lib/
   guard.ts                  page and API guards, branch scoping
   audit.ts                  the append-only activity log
   consent.ts                the two things a client agrees to, in one place
+  privacy-notice.ts         the RA 10173 notice, built from live settings
   medical.ts                therapist health alerts, and the access log behind them
   erasure.ts                RA 10173 erasure that leaves the books standing
   backup-crypto.ts          AES-256-GCM backup envelope (also used by scripts/)

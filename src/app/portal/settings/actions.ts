@@ -104,6 +104,9 @@ export async function saveSettingsAction(
         'membership.birthdayPerkEnabled': bool(formData, 'birthdayPerkEnabled'),
         'privacy.loginLogRetentionDays': num(formData, 'loginLogRetentionDays'),
         'privacy.emailLogRetentionDays': num(formData, 'emailLogRetentionDays'),
+        'privacy.dpoName': str(formData, 'dpoName'),
+        'privacy.dpoEmail': str(formData, 'dpoEmail'),
+        'privacy.hostingLocations': str(formData, 'hostingLocations'),
       };
       break;
 

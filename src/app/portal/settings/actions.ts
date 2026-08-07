@@ -102,6 +102,8 @@ export async function saveSettingsAction(
         'membership.validityDays': num(formData, 'membershipValidityDays'),
         'membership.expiryAlertDays': num(formData, 'membershipExpiryAlertDays'),
         'membership.birthdayPerkEnabled': bool(formData, 'birthdayPerkEnabled'),
+        'privacy.loginLogRetentionDays': num(formData, 'loginLogRetentionDays'),
+        'privacy.emailLogRetentionDays': num(formData, 'emailLogRetentionDays'),
       };
       break;
 

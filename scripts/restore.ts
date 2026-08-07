@@ -4,24 +4,54 @@
  *
  *   npm run restore -- ./backups/anica-backup-....json [--force]
  *
+ * Encrypted backups (`.json.enc`, or any file written by an app that had a
+ * passphrase set) are detected by their envelope rather than their extension —
+ * a renamed file still restores. The passphrase comes from BACKUP_PASSPHRASE or
+ * a `--passphrase=` argument.
+ *
  * Refuses to run against a database that already holds data unless --force is
  * given, in which case existing rows are wiped first.
  */
 import { PrismaClient } from '@prisma/client';
 import { readFile } from 'node:fs/promises';
 import { TABLES } from './backup';
+import { decryptBackup, isEncryptedEnvelope } from '../src/lib/backup-crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const file = process.argv.find((a) => a.endsWith('.json'));
+  const file = process.argv.find((a) => a.endsWith('.json') || a.endsWith('.json.enc'));
   const force = process.argv.includes('--force');
   if (!file) {
-    console.error('Usage: npm run restore -- <backup.json> [--force]');
+    console.error('Usage: npm run restore -- <backup.json|backup.json.enc> [--force]');
     process.exit(1);
   }
 
-  const raw = JSON.parse(await readFile(file, 'utf8')) as {
+  let text = await readFile(file, 'utf8');
+  const parsed: unknown = JSON.parse(text);
+
+  // Detected from the envelope, not the file name. Someone will rename one.
+  if (isEncryptedEnvelope(parsed)) {
+    const fromArg = process.argv
+      .find((a) => a.startsWith('--passphrase='))
+      ?.slice('--passphrase='.length);
+    const passphrase = fromArg ?? process.env.BACKUP_PASSPHRASE ?? '';
+    if (!passphrase) {
+      console.error(
+        'This backup is encrypted. Provide the passphrase with BACKUP_PASSPHRASE=... or --passphrase=...',
+      );
+      process.exit(1);
+    }
+    console.log(`› Decrypting a backup written ${parsed.encryptedAt}…`);
+    try {
+      text = await decryptBackup(parsed, passphrase);
+    } catch (e) {
+      console.error(`✗ ${e instanceof Error ? e.message : String(e)}`);
+      process.exit(1);
+    }
+  }
+
+  const raw = JSON.parse(text) as {
     data: Record<string, Record<string, unknown>[]>;
   };
   // The Owner's download nests differently from the CLI dump; accept both.

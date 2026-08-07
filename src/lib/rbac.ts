@@ -15,6 +15,8 @@ export const PERMISSIONS = [
   'clients.edit',
   'clients.merge',
   'clients.medical',
+  /** Carrying out an RA 10173 erasure request. Owner only — see erasure.ts. */
+  'clients.erase',
   'corporate.view',
   'corporate.manage',
   'partners.view',
@@ -85,6 +87,19 @@ const RECEPTIONIST: Permission[] = [
   'dashboard.view',
   'clients.view',
   'clients.edit',
+  /**
+   * Deliberate, and the one grant here worth defending out loud.
+   *
+   * The receptionist is who takes the booking, and the allergy has to be known
+   * before the treatment is assigned, not after. Withholding it would mean a
+   * permission escalated several times a day, which in a spa means one manager
+   * account left signed in at the desk — worse for the client than the access
+   * it was meant to prevent.
+   *
+   * So the protection is not the permission, it is `recordMedicalAccess`: every
+   * health record opened is written to the audit log against the person who
+   * opened it. See src/lib/medical.ts.
+   */
   'clients.medical',
   'corporate.view',
   'partners.view',

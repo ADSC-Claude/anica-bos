@@ -101,6 +101,38 @@ export default async function OperationsSettingsPage() {
           </div>
 
           <div className="card-pad space-y-3">
+            <p className="section-title">How long the logs are kept</p>
+            <p className="muted">
+              Neither of these is a business record. Sign-in attempts store an IP address and the
+              email log stores a client address, and the Data Privacy Act asks that personal data
+              be kept no longer than its purpose needs. Set either to <strong>0</strong> to keep it
+              forever.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="label">Sign-in history (days)</span>
+                <input name="loginLogRetentionDays" type="number" min={0} className="input"
+                  defaultValue={s['privacy.loginLogRetentionDays']} />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Kept to investigate a break-in, which is a question asked about last month.
+                </span>
+              </label>
+              <label className="block">
+                <span className="label">Email history (days)</span>
+                <input name="emailLogRetentionDays" type="number" min={0} className="input"
+                  defaultValue={s['privacy.emailLogRetentionDays']} />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Kept to explain a message that never arrived.
+                </span>
+              </label>
+            </div>
+            <Alert tone="info">
+              The audit log is never pruned, whatever these say. It is append-only, it is what an
+              examiner reads, and it is where the record of who opened whose health file lives.
+            </Alert>
+          </div>
+
+          <div className="card-pad space-y-3">
             <p className="section-title">Membership</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">

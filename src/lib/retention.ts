@@ -41,7 +41,9 @@ export async function retentionWatch(
   opts: { fallbackDays: number; onlyOverdue?: boolean } = { fallbackDays: 60 },
 ): Promise<RetentionRow[]> {
   const clients = await prisma.client.findMany({
-    where: { branchId: { in: branchIds } },
+    // An erased client is a shell with no name and no way to reach her, which
+    // is the whole point — chasing her to come back would undo the erasure.
+    where: { branchId: { in: branchIds }, erasedAt: null },
     select: {
       id: true,
       name: true,

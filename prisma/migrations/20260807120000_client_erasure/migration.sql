@@ -1,0 +1,13 @@
+-- When a client asked to be forgotten, and it was done.
+--
+-- The Data Privacy Act gives a client the right to have their personal
+-- information erased. The spa cannot honour that by deleting the row: paid
+-- receipts point at it, and BIR wants those receipts for ten years in an
+-- unbroken series. Deleting the customer behind receipt 000412 does not remove
+-- a person from the records, it removes receipt 000412 from the books.
+--
+-- So erasure empties the row instead of dropping it, and this column is how the
+-- system knows the difference between a client who has never filled in her
+-- details and one whose details were deliberately taken out. Nullable, and null
+-- for every existing row: nobody has asked yet.
+ALTER TABLE "Client" ADD COLUMN "erasedAt" TIMESTAMP(3);

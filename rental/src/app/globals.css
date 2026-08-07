@@ -1,0 +1,168 @@
+@import 'tailwindcss';
+
+/*
+  Two skins on one stylesheet.
+
+  The public site is warm, unhurried, hospitality — deep clay and sand, a serif
+  for headings, generous space. The portal is quick and legible on a phone held
+  in one hand: bigger type, bigger targets, status stated in a word as well as
+  a colour, because a colour alone fails for the colour-blind cleaner and in
+  direct Manila sunlight.
+*/
+
+@theme {
+  --color-sand-50: #faf7f2;
+  --color-sand-100: #f3ede3;
+  --color-sand-200: #e6dbc9;
+  --color-sand-300: #d4c3a8;
+  --color-clay-500: #a4633f;
+  --color-clay-600: #8a4f30;
+  --color-clay-700: #6f3e26;
+  --color-ink-900: #241d17;
+  --color-ink-700: #4a3f36;
+  --color-ink-500: #7a6d61;
+
+  --font-display: Georgia, 'Times New Roman', serif;
+}
+
+:root {
+  --ok: #2f7d4f;
+  --warn: #b26a00;
+  --bad: #b3261e;
+  --info: #2a5d8f;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-sand-50);
+  color: var(--color-ink-900);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+/* Touch targets, enforced in one place. Cleaners use this with wet hands. */
+button,
+[role='button'],
+a.btn,
+input[type='submit'] {
+  min-height: 44px;
+}
+
+input,
+select,
+textarea {
+  min-height: 44px;
+  font-size: 16px; /* under 16px, iOS zooms the whole page on focus */
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn-primary {
+  background: var(--color-clay-600);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--color-clay-700);
+}
+.btn-secondary {
+  background: #fff;
+  border-color: var(--color-sand-300);
+  color: var(--color-ink-900);
+}
+.btn-secondary:hover {
+  background: var(--color-sand-100);
+}
+.btn-danger {
+  background: var(--bad);
+  color: #fff;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-sand-300);
+  border-radius: 0.5rem;
+  background: #fff;
+}
+.field:focus {
+  outline: 2px solid var(--color-clay-500);
+  outline-offset: 1px;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid var(--color-sand-200);
+  border-radius: 0.75rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink-700);
+  margin-bottom: 0.25rem;
+}
+
+/* Status pills. The word carries the meaning; the colour only reinforces it. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.pill-ok    { background: #e6f2ea; color: var(--ok); }
+.pill-warn  { background: #fdf0dd; color: var(--warn); }
+.pill-bad   { background: #fbe9e7; color: var(--bad); }
+.pill-info  { background: #e7eef6; color: var(--info); }
+.pill-muted { background: var(--color-sand-100); color: var(--color-ink-500); }
+
+/* Calendar cells */
+.cal-cell {
+  height: 2.25rem;
+  border: 1px solid var(--color-sand-200);
+  font-size: 0.6875rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.cal-AVAILABLE   { background: #fff; }
+.cal-RESERVED    { background: #cfe0ef; color: #17324b; }
+.cal-OCCUPIED    { background: #9fc3e0; color: #10283c; }
+.cal-CLEANING    { background: #fbe3bd; color: #6a4405; }
+.cal-MAINTENANCE { background: #f6c9c4; color: #6d1a13; }
+.cal-OWNER       { background: #ded4ea; color: #3f2d59; }
+.cal-UNAVAILABLE { background: #e2ded8; color: #4a4239; }
+.cal-EXTERNAL    { background: #d6e8dd; color: #1d4630; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { border-color: #ccc; }
+}

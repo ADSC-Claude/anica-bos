@@ -1,0 +1,81 @@
+#
+# CI for the rental PMS (rental/). The spa's own workflow covers the repo root;
+# this one only runs when something under rental/ changes.
+#
+name: Rental CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['rental/**', '.github/workflows/rental-ci.yml']
+  pull_request:
+    paths: ['rental/**', '.github/workflows/rental-ci.yml']
+
+concurrency:
+  group: rental-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rental
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: stays
+          POSTGRES_PASSWORD: stays
+          POSTGRES_DB: stays_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd="pg_isready -U stays"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DATABASE_URL: postgresql://stays:stays@localhost:5432/stays_test?schema=public
+      # No pooler in CI, so the direct URL is the same.
+      DIRECT_URL: postgresql://stays:stays@localhost:5432/stays_test?schema=public
+      # CI-only secret; never used outside the ephemeral runner.
+      SESSION_SECRET: ci-session-secret-at-least-32-characters-long
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      CRON_SECRET: ci-cron-secret-value
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: rental/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      # This also creates the btree_gist extension and the exclusion constraint
+      # the whole product rests on — if it fails here, nothing else matters.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build:local
+
+      - name: Seed, then check the data reconciles with itself
+        run: |
+          npm run db:seed
+          npm run verify

@@ -7,22 +7,26 @@ import { formatPeso } from '@/lib/money';
 /**
  * Sending a reservation fee back.
  *
- * Only appears where the money is genuinely owed — a cancelled booking whose
- * fee is still sitting paid. That pairing is how the cancellation rule records
- * "we owe her this", so the desk never has to work out whether a refund is due;
- * the panel is either there or it is not.
+ * Only appears where the money is genuinely owed, which the status pairing
+ * already records: a cancelled booking whose fee is still sitting paid, or a
+ * lapsed one that was paid too late to keep its place. Either way the desk
+ * never has to work out whether a refund is due — the panel is there or it is
+ * not.
  */
 export function RefundPanel({
   appointmentId,
   amountCents,
   cancelReason,
   viaGateway,
+  lapsed = false,
 }: {
   appointmentId: string;
   amountCents: number;
   cancelReason: string;
   /** False when the fee arrived by hand, so there is nothing to reverse. */
   viaGateway: boolean;
+  /** Paid after the holding window closed, with the place already gone. */
+  lapsed?: boolean;
 }) {
   const [state, action, pending] = useActionState<RefundState, FormData>(refundDepositAction, {});
   const [open, setOpen] = useState(false);
@@ -38,10 +42,23 @@ export function RefundPanel({
 
   return (
     <div className="card-pad space-y-2 border-clay-500/30 bg-clay-500/5">
-      <p className="section-title">Reservation fee owed back</p>
+      <p className="section-title">
+        {lapsed ? 'Paid too late — refund or rebook' : 'Reservation fee owed back'}
+      </p>
       <p className="text-sm text-cocoa-700">
-        This booking was cancelled in time, so the{' '}
-        <strong className="num">{formatPeso(amountCents)}</strong> fee is refundable.{' '}
+        {lapsed ? (
+          <>
+            Her <strong className="num">{formatPeso(amountCents)}</strong> reached us after the
+            holding window closed, and the time had already gone to somebody else. She has paid
+            for a place we cannot give her, so this is owed back — unless she would rather take
+            another time.
+          </>
+        ) : (
+          <>
+            This booking was cancelled in time, so the{' '}
+            <strong className="num">{formatPeso(amountCents)}</strong> fee is refundable.
+          </>
+        )}{' '}
         {viaGateway
           ? 'It was paid through PayMongo and can be sent back from here.'
           : 'It was paid by hand, so there is nothing for PayMongo to reverse — mark it refunded here and send the money yourself.'}
@@ -53,8 +70,9 @@ export function RefundPanel({
             Refund {formatPeso(amountCents)}
           </button>
           <span className="text-[11px] text-cocoa-400">
-            Ask the guest first whether she would rather move the booking — a reschedule keeps
-            the fee against her new date.
+            {lapsed
+              ? 'Call her first: if a free time suits her, edit this booking to it and the fee stays against her visit — no money has to move.'
+              : 'Ask the guest first whether she would rather move the booking — a reschedule keeps the fee against her new date.'}
           </span>
         </div>
       )}

@@ -99,7 +99,10 @@ export default async function ConfirmationPage({
           />
         </div>
 
-        {paid && (
+        {/* Paid is not the same as held. A fee that arrived after the place had
+            gone leaves both true at once, and "see you soon" is the last thing
+            that guest should read. */}
+        {paid && !paidTooLate && (
           <div className="card-pad mt-4 border-cocoa-200 bg-cocoa-50 text-sm text-cocoa-700">
             <p className="font-semibold">Your slot is secured. See you soon!</p>
             <p className="mt-1">

@@ -32,12 +32,31 @@ export default async function ConfirmationPage({
 
   const paid = appt.depositStatus === 'PAID';
   const awaitingVerification = appt.depositStatus === 'AWAITING_VERIFICATION';
-  const failed = appt.depositStatus === 'FAILED' || appt.status === 'EXPIRED';
+  /**
+   * Past the deadline with no fee, whatever the status column still says.
+   *
+   * The sweep that writes EXPIRED runs on a schedule, so for a while after the
+   * window shuts the row still reads PENDING. The place has already gone back
+   * on sale by then, so telling her it is "held until 11:00" at half past
+   * eleven would be inviting her to pay for something she can no longer have.
+   */
+  const windowClosed =
+    !paid && !awaitingVerification &&
+    appt.expiresAt !== null && appt.expiresAt.getTime() < Date.now();
+  const failed = appt.depositStatus === 'FAILED' || appt.status === 'EXPIRED' || windowClosed;
+  /**
+   * She paid, but too late to keep the time — the fee is here and the place is
+   * not. It reads as paid and as expired at once, so it has to be named, or the
+   * banner would congratulate her on a booking she does not have.
+   */
+  const paidTooLate = paid && appt.status === 'EXPIRED';
 
-  const tone = paid
-    ? { bg: 'bg-cocoa-600', label: 'Reservation confirmed', icon: '✓' }
-    : failed
-      ? { bg: 'bg-clay-500', label: 'Not confirmed', icon: '!' }
+  // Failure is checked before payment: a fee that arrived after the place had
+  // gone is not a confirmation, however much money changed hands.
+  const tone = failed
+    ? { bg: 'bg-clay-500', label: paidTooLate ? 'Paid, but not held' : 'Not confirmed', icon: '!' }
+    : paid
+      ? { bg: 'bg-cocoa-600', label: 'Reservation confirmed', icon: '✓' }
       : { bg: 'bg-sand-400', label: 'Awaiting your reservation fee', icon: '⏳' };
 
   return (
@@ -150,13 +169,22 @@ export default async function ConfirmationPage({
         )}
 
         {!paid && !awaitingVerification && !failed && (
-          <div className="card-pad mt-4 text-sm text-cocoa-700">
-            <p className="font-semibold">Payment not completed</p>
-            <p className="mt-1">
-              Your slot is held until{' '}
-              {appt.expiresAt ? formatManila(appt.expiresAt, { time: true }) : 'shortly'}. You
-              can start a fresh booking any time.
-            </p>
+          <div className="card-pad mt-4 border-sand-400 bg-sand-100 text-sm text-cocoa-700">
+            <p className="font-semibold">Please settle the reservation fee</p>
+            {appt.expiresAt ? (
+              <p className="mt-1">
+                Your time is held until{' '}
+                <strong>{formatManila(appt.expiresAt, { time: true, weekday: true })}</strong>.
+                If the fee has not reached us by then the booking is released and the time goes
+                back to whoever wants it next — so pay before then, or start a fresh booking any
+                time.
+              </p>
+            ) : (
+              <p className="mt-1">
+                Your time is held for a short while yet. If the fee has not reached us by then
+                the booking is released and the time goes back to whoever wants it next.
+              </p>
+            )}
             <Link href="/book" className="btn-primary mt-3 w-full">
               Book again
             </Link>
@@ -166,13 +194,24 @@ export default async function ConfirmationPage({
         {failed && (
           <div className="card-pad mt-4 text-sm text-cocoa-700">
             <p className="font-semibold">This booking was not confirmed</p>
-            <p className="mt-1">
-              Nothing has been charged. You&apos;re very welcome to book another slot, or
-              call us at {settings['business.contact']} and we&apos;ll fit you in.
-            </p>
-            <Link href="/book" className="btn-primary mt-3 w-full">
-              Book again
-            </Link>
+            {paidTooLate ? (
+              <p className="mt-1">
+                Your reservation fee reached us after the holding time had passed, and the slot
+                had already been taken. <strong>We have your payment</strong> — we will call you
+                on {settings['business.contact']} to move you to another time, or send it back,
+                whichever you prefer.
+              </p>
+            ) : (
+              <p className="mt-1">
+                Nothing has been charged. You&apos;re very welcome to book another slot, or
+                call us at {settings['business.contact']} and we&apos;ll fit you in.
+              </p>
+            )}
+            {!paidTooLate && (
+              <Link href="/book" className="btn-primary mt-3 w-full">
+                Book again
+              </Link>
+            )}
           </div>
         )}
 

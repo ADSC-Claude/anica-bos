@@ -66,7 +66,7 @@ drains it) and Integrated (Resend carries it).
 | Campaign helper (filter → export or send) | Native + Integrated | Consent and unsubscribe enforced in the query |
 | SMS gateway | **Future Phase** | `channel` column exists, dispatcher does not |
 | WhatsApp automation | **Future Phase** | Same seam |
-| Guest mobile app | **Future Phase** | The site is a PWA; an app is not planned |
+| Guest mobile app | **Future Phase** | The site is responsive; a native app is not planned |
 
 ## Operations
 
@@ -88,7 +88,7 @@ drains it) and Integrated (Resend carries it).
 | Linen tracking by state | Native | Six states, movement ledger |
 | Laundry batches and costs | Native + Automated | Batch cost becomes an expense |
 | Staff and vendor directory | Native | Contacts, rates, assignments, performance notes |
-| Offline-tolerant checklist | Native | PWA; ticks queue and flush |
+| Offline-tolerant checklist | **Future Phase** | Saving per item already survives a slow connection; the service worker that survives a dead one is not built |
 | Smart-lock integration | **Future Phase** | `AccessRecord.method = SMART_LOCK` reserved |
 
 ## Money and management
@@ -129,7 +129,7 @@ drains it) and Integrated (Resend carries it).
 | Backup: PITR | Integrated | Supabase |
 | Backup: nightly logical export | Automated | GitHub Action, 30-day retention |
 | Backup: owner-held copy | Native | Manual, monthly, by design |
-| PWA / offline shell | Native | Matters for cleaners in stairwells |
+| PWA / offline shell | **Future Phase** | Matters for cleaners in stairwells. Per-item saving already limits the damage; the service worker is not built. |
 
 ## Counts
 
@@ -141,3 +141,11 @@ drains it) and Integrated (Resend carries it).
 | Future Phase | 11 |
 
 Rows are counted once per class they carry, so the totals overlap by design.
+
+## Where the build actually is
+
+This table classifies the brief. It is not a claim that every Native row has a
+screen yet — several have a tested library behind them and no portal page on
+top. The honest, current state is the built / not-built table in the
+[README](../README.md#what-is-built-and-what-is-not), and it is the one to
+trust when the two disagree.

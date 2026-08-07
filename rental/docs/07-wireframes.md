@@ -250,5 +250,7 @@ Decisions that make it usable in the field:
 - **No prices, no guest surnames, no other properties.** The scope gate in
   document 3 is visible on screen, which is how a cleaner can be trusted with a
   login at all.
-- **Offline-tolerant**: the checklist is a PWA route with a service worker, ticks
-  queue locally and flush when signal returns.
+- **Offline tolerance is designed, not yet built.** The checklist saves per item
+  rather than on a final submit, which already survives a slow connection; a
+  service worker that queues ticks through a dead one is still to come. Marked
+  as such in [document 10](./10-function-classification.md).

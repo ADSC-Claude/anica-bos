@@ -3,17 +3,14 @@ import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import type { Role } from '@prisma/client';
 import { accountStanding, getSession, type SessionUser } from './auth';
+import { HttpError } from './errors';
 import { can, isFieldRole, type Permission } from './rbac';
 import { prisma } from './db';
 
-export class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+// HttpError lives in errors.ts so the domain can throw a 409 without dragging
+// next/navigation — and therefore React — in behind it. Re-exported here
+// because every route already imports it from this module.
+export { HttpError, assert } from './errors';
 
 /** Page guard: redirects rather than throwing. */
 export async function requirePage(permission?: Permission): Promise<SessionUser> {
@@ -49,10 +46,6 @@ export async function requireApi(permission?: Permission): Promise<SessionUser> 
 /** Where a role lands after signing in. A cleaner's home is their task list. */
 export function home(role: Role): string {
   return isFieldRole(role) ? '/portal/tasks' : '/portal';
-}
-
-export function assert(condition: unknown, status: number, message: string): asserts condition {
-  if (!condition) throw new HttpError(status, message);
 }
 
 export function assertPermission(user: SessionUser, permission: Permission) {

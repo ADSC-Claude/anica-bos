@@ -1,7 +1,7 @@
 import 'server-only';
 import type { LineKind, Property } from '@prisma/client';
 import { prisma } from './db';
-import { HttpError } from './guard';
+import { HttpError } from './errors';
 import { getSettings } from './settings';
 import { discountAmount, percentOf, sum } from './money';
 import {

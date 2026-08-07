@@ -1,7 +1,7 @@
 import 'server-only';
 import type { BlockReason, Prisma as PrismaTypes } from '@prisma/client';
 import { prisma, isOverlapError, type Tx } from './db';
-import { HttpError } from './guard';
+import { HttpError } from './errors';
 import { toStayDate, toDateKey, dateKeyRange, addDays, type DateKey } from './datetime';
 
 /**

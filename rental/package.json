@@ -11,18 +11,18 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --conditions=react-server prisma/seed.ts",
     "db:reset": "prisma migrate reset --force --skip-seed && npm run db:seed",
-    "backup": "tsx scripts/backup.ts",
-    "restore": "tsx scripts/restore.ts",
-    "jobs:minute": "tsx scripts/run-jobs.ts minute",
-    "jobs:daily": "tsx scripts/run-jobs.ts daily",
-    "verify": "tsx scripts/verify-integrity.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "backup": "tsx --conditions=react-server scripts/backup.ts",
+    "restore": "tsx --conditions=react-server scripts/restore.ts",
+    "jobs:minute": "tsx --conditions=react-server scripts/run-jobs.ts minute",
+    "jobs:daily": "tsx --conditions=react-server scripts/run-jobs.ts daily",
+    "verify": "tsx --conditions=react-server scripts/verify-integrity.ts",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "build:local": "prisma generate && next build"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --conditions=react-server prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

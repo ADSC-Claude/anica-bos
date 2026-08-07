@@ -1268,7 +1268,22 @@ export function BookingWizard() {
             <label id="detail-consent" className="flex items-start gap-3 rounded-xl bg-sand-100 p-3">
               <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#6b4e35]"
                 checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span className="text-xs text-cocoa-600">{PRIVACY_CONSENT}</span>
+              <span className="text-xs text-cocoa-600">
+                {PRIVACY_CONSENT}{' '}
+                {/* The full notice, reachable at the moment of consent rather
+                    than only from the front page. It opens in a new tab on
+                    purpose: this is the one screen where sending someone away
+                    costs them a half-filled booking form. */}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                >
+                  Read the full privacy notice
+                </a>
+                .
+              </span>
             </label>
 
             {/* Its own box, below the privacy one: this is the client agreeing

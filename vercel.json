@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "node scripts/build.mjs",
   "regions": [
-    "bom1"
+    "sin1"
   ],
   "crons": [
     {

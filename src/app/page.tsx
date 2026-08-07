@@ -516,6 +516,9 @@ export default async function LandingPage() {
           <p>
             © {new Date().getFullYear()} {settings['business.name']} · {settings['business.address']}
           </p>
+          <Link href="/privacy" className="underline underline-offset-4 hover:text-cocoa-700">
+            Privacy notice
+          </Link>
           {/*
             No staff door on the customer's page. Staff reach the system at /login
             directly — bookmarked, or through the installed app. This keeps the

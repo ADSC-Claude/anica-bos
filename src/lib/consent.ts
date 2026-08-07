@@ -16,12 +16,27 @@
 
 // ------------------------------------------------------------ what the client reads
 
-/** RA 10173 consent for holding personal and health information. */
+/**
+ * RA 10173 consent for holding personal and health information.
+ *
+ * An earlier version of this promised health details were "never exported",
+ * which the system does not honour: the Owner's full backup contains them, by
+ * design, because a spa that cannot restore its own records has no records.
+ * Consent that describes something the software does not do is worse than no
+ * consent at all — the client agreed to a system that does not exist. So the
+ * sentence now says what actually happens, including the part that is less
+ * comfortable to write down.
+ */
 export const PRIVACY_CONSENT =
   'I consent to ANICA Wellness Spa collecting and storing my personal and health ' +
   'information for my treatment, safety and booking records, in line with the ' +
-  'Philippine Data Privacy Act of 2012 (RA 10173). My health details are visible ' +
-  'only to spa staff and are never shared or exported.';
+  'Philippine Data Privacy Act of 2012 (RA 10173). My health details are seen ' +
+  'only by spa staff caring for me, are never sold or given to anyone outside ' +
+  'the spa, and leave the spa only inside the encrypted backup the owner keeps. ' +
+  'Every time a staff member opens my health record it is logged. I may ask to see, ' +
+  'correct or erase my personal information at any time — my paid receipts are ' +
+  'kept for ten years, as the BIR requires, but my health answers and contact ' +
+  'details are erased on request.';
 
 /** The sentence the waiver clauses hang off. */
 export const WAIVER_LEAD =

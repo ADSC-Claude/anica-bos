@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { requirePage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { can } from '@/lib/rbac';
-import { medicalAlertsFor } from '@/lib/medical';
+import { medicalAlertsFor, recordMedicalAccess } from '@/lib/medical';
 import { formatPeso } from '@/lib/money';
 import { formatManila } from '@/lib/datetime';
 import { PageHeader, StatusBadge, Alert } from '@/components/ui';
@@ -93,6 +93,9 @@ export default async function AppointmentDetailPage({
   const alerts = can(user.role, 'clients.medical')
     ? (await medicalAlertsFor([appt.clientId])).get(appt.clientId) ?? []
     : [];
+  if (can(user.role, 'clients.medical')) {
+    await recordMedicalAccess(user, appt.clientId, 'alerts');
+  }
   const canEdit = can(user.role, 'appointments.edit');
   const total = appt.services.reduce((a, s) => a + s.priceCents, 0);
   const actions = NEXT_STATUS[appt.status] ?? [];

@@ -540,6 +540,17 @@ model Client {
   waiverAt             DateTime?
   medicalUpdatedAt     DateTime?
   followUpSnoozedUntil DateTime?
+  /// Set when this client asked to be forgotten under RA 10173 and the request
+  /// was carried out.
+  ///
+  /// The row survives its own erasure, which looks wrong until you try the
+  /// alternative: paid receipts point at this id, and a receipt whose customer
+  /// row has vanished is a hole in a gapless series — the exact thing an
+  /// examiner reads as a hidden sale. So the record stays and is emptied. What
+  /// is left is a shell holding an id, the branch, and the dates the books
+  /// need; the name, contact details, address, health answers and consent are
+  /// gone. See src/lib/erasure.ts for the line between the two.
+  erasedAt             DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

@@ -1,16 +1,38 @@
-import { handle, requireApi } from '@/lib/guard';
+import { handle, requireApi, assert } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { audit } from '@/lib/audit';
+import { encryptBackup, passphraseProblem, samePassphrase } from '@/lib/backup-crypto';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Owner-only full backup: every table as JSON, including client health
- * information — this is the one export that contains it. Restore with
+ * Owner-only full backup: every table, including client health information —
+ * this is the one export that contains it. Restore with
  * `npm run restore -- <file>`.
+ *
+ * POST rather than GET, and always encrypted. Both follow from what this file
+ * is: the entire spa in one download, health records included. A GET is a link
+ * that can be prefetched by a browser, sat in history, and shared without being
+ * opened; and a passphrase does not belong in a URL. The client consent form
+ * now states that health information leaves the spa only inside an encrypted
+ * backup, so there is deliberately no way from here to produce a readable one.
  */
-export const GET = handle(async () => {
+export const POST = handle(async (req) => {
   const user = await requireApi('settings.critical');
+
+  const form = await req.formData().catch(() => null);
+  assert(form, 400, 'Invalid request.');
+
+  const passphrase = String(form.get('passphrase') ?? '');
+  const confirm = String(form.get('passphraseConfirm') ?? '');
+
+  const problem = passphraseProblem(passphrase);
+  assert(!problem, 400, problem ?? '');
+  assert(
+    samePassphrase(passphrase, confirm),
+    400,
+    'The two passphrases do not match. A backup nobody can open is not a backup.',
+  );
 
   const [
     branches, settings, accounts, users, employees, employeeSkills, employeeSchedules,
@@ -85,19 +107,23 @@ export const GET = handle(async () => {
     },
   };
 
+  const now = new Date();
+  const envelope = await encryptBackup(JSON.stringify(payload, null, 1), passphrase, now);
+
   await audit(user, {
     module: 'settings',
     action: 'full_backup',
     entityType: 'Backup',
-    summary: 'Downloaded a full data backup (includes client health information)',
+    summary:
+      'Downloaded a full, encrypted data backup (includes client health information)',
     sensitive: true,
   });
 
-  const date = new Date().toISOString().slice(0, 10);
-  return new Response(JSON.stringify(payload, null, 1), {
+  const date = now.toISOString().slice(0, 10);
+  return new Response(JSON.stringify(envelope), {
     headers: {
-      'Content-Type': 'application/json',
-      'Content-Disposition': `attachment; filename="anica-backup-${date}.json"`,
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="anica-backup-${date}.json.enc"`,
       'Cache-Control': 'no-store',
     },
   });

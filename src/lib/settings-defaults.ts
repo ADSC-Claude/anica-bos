@@ -122,6 +122,46 @@ export const DEFAULT_SETTINGS = {
   'email.birthdayGreetingEnabled': true,
   'sms.enabled': false,
   'permits.reminderLeadDays': [60, 30],
+
+  // --- privacy ---
+  //
+  // How long the two logs that are *not* business records are kept. Both hold
+  // personal information the spa has no lasting reason to keep: sign-in
+  // attempts carry an IP address, and the email log carries a client address
+  // beside what was sent to it. The Data Privacy Act asks that personal data be
+  // held no longer than the purpose needs — the purpose here is investigating a
+  // recent break-in or a bounced email, and neither purpose is served by a
+  // record from four years ago.
+  //
+  // Set either to 0 to keep it forever. The audit log is deliberately absent
+  // and cannot be pruned at all: it is append-only, it is what an examiner
+  // reads, and BIR wants ten years of it.
+  'privacy.loginLogRetentionDays': 365,
+  'privacy.emailLogRetentionDays': 730,
+
+  /**
+   * Who a client writes to about their own data, named on the privacy notice.
+   *
+   * The Data Privacy Act expects a person, not a department: a request to see
+   * or erase a record has to land with someone who can act on it. Both default
+   * to blank and the notice falls back to the business name and email, so a
+   * guest never reads a half-filled form — but a named person is the point, and
+   * the settings screen says so.
+   */
+  'privacy.dpoName': '',
+  'privacy.dpoEmail': '',
+
+  /**
+   * Where the data physically sits, in words a guest can read.
+   *
+   * A setting rather than a constant because it is the one fact in the notice
+   * the code cannot check: the database region was chosen in the Supabase or
+   * Neon console, and moving the app between Vercel regions is a one-line
+   * change. Hard-coding it guarantees the notice is wrong the first time
+   * anything moves, and a privacy notice that has quietly drifted from the truth
+   * is the problem this whole area exists to fix.
+   */
+  'privacy.hostingLocations': 'Singapore',
 } as const;
 
 export type SettingKey = keyof typeof DEFAULT_SETTINGS;

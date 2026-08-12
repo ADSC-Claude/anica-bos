@@ -1,5 +1,17 @@
-# The spa's Vercel project builds from the repository root. `rental/` is a
-# separate application with its own Vercel project (Root Directory: rental), so
-# there is no reason to upload it here — and every reason not to let a build of
-# one business see the source of another.
-rental
+# Deliberately does NOT list `rental`, and must not.
+#
+# `rental/` is a second Vercel project whose Root Directory is `rental`. Vercel
+# applies this file from the repository root BEFORE descending into a project's
+# Root Directory, so an entry here for `rental` does not merely trim the spa's
+# upload — it deletes the rental app's own source out of the rental app's own
+# deployment, and the build dies with:
+#
+#   Error: Cannot find module '/vercel/path0/rental/scripts/build.mjs'
+#
+# It reads like a missing file. It is an over-eager ignore rule.
+#
+# The spa does not need the exclusion anyway: nothing in its build inputs
+# references `rental/`, and the thing that actually keeps the two apart is
+# `"exclude": ["node_modules", "rental"]` in the root tsconfig.json, which stops
+# the spa's typecheck from swallowing an app with its own `@/*` paths. Uploading
+# a few extra files costs seconds; deleting a project's source costs the deploy.

@@ -8,7 +8,6 @@ import { formatManila, formatStayDate, minutesToLabel, toDateKey } from '@/lib/d
 import { checkIn as doCheckIn, checkOut as doCheckOut, cancelReservation, updateReservationDates } from '@/lib/reservations';
 import { recordManualPayment, refund, settleDeposit } from '@/lib/payments';
 import { renderMessage, sendNow, DEFAULT_TEMPLATES } from '@/lib/messaging';
-import { accessCode } from '@/lib/codes';
 import { audit } from '@/lib/audit';
 import { absoluteUrl } from '@/lib/app-url';
 import { BackLink, Card, Notice, PageHeader, StatusPill, PaymentPill, Pill, Empty, Money } from '@/components/ui';
@@ -32,35 +31,14 @@ async function checkInAction(formData: FormData) {
   const id = String(formData.get('id'));
   const user = await guardReservation(id, 'reservations.checkin');
 
-  const r = await prisma.reservation.findUniqueOrThrow({
-    where: { id },
-    include: { property: { select: { accessNotes: true, wifiName: true } } },
-  });
-
+  // Issuing the access record is part of checking in, not part of this screen —
+  // it happens inside doCheckIn's transaction so it is true however check-in
+  // was reached.
   try {
     await doCheckIn(id, user);
   } catch (err) {
     if (err instanceof HttpError) back(id, err.message, 'error');
     throw err;
-  }
-
-  // Access details are issued at check-in, not before: a code sitting in an
-  // inbox for three days is a door standing open for three days.
-  const existing = await prisma.accessRecord.count({ where: { reservationId: id } });
-  if (!existing) {
-    const code = accessCode();
-    await prisma.accessRecord.create({
-      data: {
-        reservationId: id,
-        propertyId: r.propertyId,
-        method: 'KEYPAD_CODE',
-        code,
-        instructions: r.property.accessNotes || `Keypad code ${code}, then turn the handle.`,
-        activatesAt: new Date(),
-        expiresAt: r.checkOut,
-        issuedById: user.id,
-      },
-    });
   }
   back(id, 'Checked in. Access details released to the guest.');
 }

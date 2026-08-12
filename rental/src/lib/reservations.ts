@@ -3,7 +3,7 @@ import type { BookingSource, ReservationStatus } from '@prisma/client';
 import { prisma, type Tx } from './db';
 import { HttpError } from './errors';
 import { audit, diff, type AuditInput } from './audit';
-import { bookingReference, secretToken } from './codes';
+import { accessCode, bookingReference, secretToken } from './codes';
 import { getSettings } from './settings';
 import { quote, type Quote } from './pricing';
 import { upsertGuest, refreshGuestStats, type GuestInput } from './guests';
@@ -448,10 +448,15 @@ export async function updateReservationDates(args: {
 
 /** Arrival. Releases access details and stops the pre-arrival messages. */
 export async function checkIn(reservationId: string, user?: SessionUser | null): Promise<void> {
-  const r = await prisma.reservation.findUniqueOrThrow({ where: { id: reservationId } });
+  const r = await prisma.reservation.findUniqueOrThrow({
+    where: { id: reservationId },
+    include: { property: { select: { accessNotes: true } } },
+  });
   if (r.status !== 'CONFIRMED') {
     throw new HttpError(400, `A ${r.status.toLowerCase()} booking cannot be checked in.`);
   }
+
+  const existingAccess = await prisma.accessRecord.count({ where: { reservationId } });
 
   await prisma.$transaction(async (tx) => {
     await tx.reservation.update({
@@ -468,6 +473,29 @@ export async function checkIn(reservationId: string, user?: SessionUser | null):
       where: { reservationId, kind: 'ARRIVAL_PREP', status: { in: ['OPEN', 'IN_PROGRESS'] } },
       data: { status: 'DONE', completedAt: new Date() },
     });
+
+    // Access is issued here rather than by whichever screen called us. A code
+    // minted only when a particular button is pressed is a code that does not
+    // exist when check-in happens any other way — and the guest's own page
+    // reads this table, so the door would simply stay shut for them.
+    //
+    // It is issued AT check-in and not before: a code sitting in an inbox for
+    // three days is a door standing open for three days.
+    if (existingAccess === 0) {
+      const code = accessCode();
+      await tx.accessRecord.create({
+        data: {
+          reservationId,
+          propertyId: r.propertyId,
+          method: 'KEYPAD_CODE',
+          code,
+          instructions: r.property.accessNotes || `Keypad code ${code}, then turn the handle.`,
+          activatesAt: new Date(),
+          expiresAt: r.checkOut,
+          issuedById: user?.id ?? null,
+        },
+      });
+    }
   });
 
   await audit(user ?? null, {

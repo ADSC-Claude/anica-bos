@@ -188,7 +188,11 @@ export async function openTurnover(
 
   const template = await tx.checklistTemplate.findFirst({
     where: { active: true, OR: [{ propertyId: args.propertyId }, { propertyId: null }] },
-    orderBy: { propertyId: 'desc' }, // a property's own template wins over the default
+    // A property's own template wins over the default. `nulls: 'last'` is the
+    // whole of that sentence: Postgres sorts NULLs FIRST on DESC, so without it
+    // the default template — the one row with a null propertyId — comes back
+    // every time and a property's own checklist is silently never used.
+    orderBy: { propertyId: { sort: 'desc', nulls: 'last' } },
   });
 
   // One active cleaner in the whole business is the common case at this size,

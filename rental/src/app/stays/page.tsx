@@ -1,15 +1,17 @@
-import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
 import { fromPrice } from '@/lib/pricing';
-import { formatPesoShort } from '@/lib/money';
+import { addDays, manilaDateKey } from '@/lib/datetime';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
+import { PageHero, SearchBar, StayCard } from '@/components/site-ui';
 
-export const metadata = { title: 'All stays' };
+export const metadata = { title: 'Our stays' };
 export const dynamic = 'force-dynamic';
 
 export default async function StaysPage() {
   const settings = await getSettings();
+  const today = manilaDateKey();
+
   const properties = await prisma.property.findMany({
     where: { status: 'ACTIVE' },
     include: {
@@ -25,30 +27,45 @@ export default async function StaysPage() {
 
   return (
     <>
-      <SiteHeader settings={settings} />
-      <main className="mx-auto max-w-5xl px-5 py-10">
-        <h1 className="display mb-1 text-3xl font-bold">All our places</h1>
-        <p className="mb-8 text-sm text-[color:var(--color-ink-500)]">{settings['business.intro']}</p>
+      <SiteHeader settings={settings} active="stays" />
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {withPrices.map((p) => (
-            <Link key={p.id} href={`/stays/${p.slug}`} className="card overflow-hidden hover:shadow-md">
-              <div
-                className="h-44 bg-[color:var(--color-sand-200)] bg-cover bg-center"
-                style={p.photos[0] ? { backgroundImage: `url('${p.photos[0].url}')` } : undefined}
-              />
-              <div className="p-4">
-                <h2 className="font-semibold">{p.name}</h2>
-                <p className="text-xs text-[color:var(--color-ink-500)]">
-                  {p.city || p.branch.city} · sleeps {p.maxGuests}
-                </p>
-                <p className="mt-2 text-sm">{p.shortDescription}</p>
-                <p className="mt-3 font-bold">from {formatPesoShort(p.fromCents)} / night</p>
-              </div>
-            </Link>
-          ))}
+      <PageHero eyebrow="Where you'll stay" title="All our places" intro={settings['business.intro']} />
+
+      <main className="mx-auto max-w-6xl px-5 py-14 sm:py-20">
+        <div className="mb-12">
+          <SearchBar
+            today={today}
+            defaultCheckIn={addDays(today, 7)}
+            defaultCheckOut={addDays(today, 10)}
+          />
         </div>
+
+        {withPrices.length === 0 ? (
+          <p className="text-[color:var(--color-ink-500)]">
+            Nothing is listed just yet. Do check back, or drop us a line.
+          </p>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {withPrices.map((p) => (
+              <StayCard
+                key={p.id}
+                p={{
+                  slug: p.slug,
+                  name: p.name,
+                  shortDescription: p.shortDescription,
+                  city: p.city || p.branch.city,
+                  maxGuests: p.maxGuests,
+                  bedrooms: p.bedrooms,
+                  bathrooms: p.bathrooms,
+                  fromCents: p.fromCents,
+                  photoUrl: p.photos[0]?.url,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </main>
+
       <SiteFooter settings={settings} />
     </>
   );

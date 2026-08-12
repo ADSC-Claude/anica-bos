@@ -147,7 +147,7 @@ async function main() {
     { name: 'Body Scrub (60 min)', cat: catBody.id, minutes: 60, price: 800, rank: 11, desc: 'Gentle exfoliation that leaves skin polished and soft.', place: 'BED' },
     { name: 'Foot Spa (45 min)', cat: catBody.id, minutes: 45, price: 500, rank: 12, desc: 'Soak, scrub, and a soothing foot massage.', place: 'CHAIR' },
     { name: 'Sauna Session (30 min)', cat: catAdd.id, minutes: 30, price: 300, rank: 13, desc: 'Dry heat to loosen muscles before your treatment.', place: 'SAUNA' },
-    { name: 'Ear Candling (30 min)', cat: catBody.id, minutes: 30, price: 400, rank: 13, desc: 'Gentle ear coning, done lying down.', place: 'BED' },
+    { name: 'Ear Candling (30 min)', cat: catBody.id, minutes: 30, price: 350, rank: 13, desc: 'Gentle ear coning, done lying down.', place: 'BED' },
     { name: 'Hot Compress Add-on (15 min)', cat: catAdd.id, minutes: 15, price: 150, rank: 14, desc: 'Herbal hot compress for stubborn knots.', place: 'BED', addOn: true },
   ];
 

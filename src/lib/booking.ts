@@ -925,8 +925,21 @@ export async function refundDeposit(opts: {
   return { ok: true, amountCents, manual, gatewayRefundId, gatewayStatus };
 }
 
-/** Expires unpaid bookings past their window. Runs from the daily/periodic job. */
-export async function expireStaleBookings(): Promise<number> {
+const LAPSED_REASON = 'Reservation fee not received in time.';
+
+/**
+ * Expires unpaid bookings past their window.
+ *
+ * Safe to run twice at once, which it now is: the flip is a conditional write
+ * that only matches a row still PENDING, and the email goes out only to
+ * whichever caller actually changed it. Without that, two sweeps overlapping —
+ * the nightly job and a browsing guest, or two guests — would each read the
+ * same lapsed booking and each send her the same "did not go through" email.
+ *
+ * The batch is capped so a backlog cannot stall whoever triggered it; the next
+ * caller takes the next twenty.
+ */
+export async function expireStaleBookings(limit = 20): Promise<number> {
   const stale = await prisma.appointment.findMany({
     where: {
       status: 'PENDING',
@@ -934,20 +947,27 @@ export async function expireStaleBookings(): Promise<number> {
       expiresAt: { lt: new Date() },
     },
     include: { client: true, services: { include: { service: true } } },
+    take: limit,
   });
 
+  let expired = 0;
   for (const appt of stale) {
-    await prisma.appointment.update({
-      where: { id: appt.id },
-      data: { status: 'EXPIRED', cancelReason: 'Reservation fee not received in time.' },
+    const claimed = await prisma.appointment.updateMany({
+      where: { id: appt.id, status: 'PENDING' },
+      data: { status: 'EXPIRED', cancelReason: LAPSED_REASON },
     });
+    // Somebody else swept it between our read and our write. Theirs is the
+    // email; ours would be the second one she did not need.
+    if (claimed.count === 0) continue;
+    expired += 1;
+
     // The party's other rows carry no fee of their own, so nothing would ever
     // expire them — they would sit PENDING forever, holding beds for a booking
     // that lapsed.
     if (appt.partyRef) {
       await prisma.appointment.updateMany({
         where: { partyRef: appt.partyRef, id: { not: appt.id }, status: 'PENDING' },
-        data: { status: 'EXPIRED', cancelReason: 'Reservation fee not received in time.' },
+        data: { status: 'EXPIRED', cancelReason: LAPSED_REASON },
       });
     }
     await sendTemplateEmail({
@@ -962,7 +982,36 @@ export async function expireStaleBookings(): Promise<number> {
       },
     });
   }
-  return stale.length;
+  return expired;
+}
+
+/**
+ * The sweep, driven by whoever is browsing rather than by a clock.
+ *
+ * The nightly job is too slow to be the only trigger: at a fifteen-minute
+ * window a guest could be told her booking lapsed most of a day after it did.
+ * A spa's booking page is looked at all through opening hours, so letting those
+ * visits carry the sweep keeps it near real time without a scheduler — and
+ * costs one indexed query that almost always comes back empty.
+ *
+ * Throttled per running instance, because the point is to be timely, not to
+ * repeat the query for every guest tapping through dates. Instances not sharing
+ * the clock is fine: the worst case is a sweep running twice, and a sweep
+ * running twice is exactly what the conditional flip above makes harmless.
+ */
+let lastSweptAt = 0;
+const SWEEP_INTERVAL_MS = 60_000;
+
+export async function sweepLapsedBookings(): Promise<void> {
+  if (Date.now() - lastSweptAt < SWEEP_INTERVAL_MS) return;
+  lastSweptAt = Date.now();
+  try {
+    await expireStaleBookings();
+  } catch (err) {
+    // A guest looking at free times must never see an error because the
+    // tidying failed. The nightly job is still there to catch up.
+    console.error('lapsed-booking sweep failed', err);
+  }
 }
 
 /**

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "node scripts/build.mjs",
+  "regions": ["sin1"],
+  "crons": [
+    {
+      "path": "/api/jobs/minute",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/jobs/daily",
+      "schedule": "0 22 * * *"
+    }
+  ]
+}

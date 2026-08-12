@@ -1,0 +1,5 @@
+# The spa's Vercel project builds from the repository root. `rental/` is a
+# separate application with its own Vercel project (Root Directory: rental), so
+# there is no reason to upload it here — and every reason not to let a build of
+# one business see the source of another.
+rental

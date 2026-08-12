@@ -16,7 +16,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { PrismaClient } from '@prisma/client';
 import { availableResources } from '../src/lib/availability';
-import { confirmDeposit } from '../src/lib/booking';
+import { confirmDeposit, expireStaleBookings } from '../src/lib/booking';
 
 const prisma = new PrismaClient();
 const stamp = Date.now().toString(36);
@@ -213,4 +213,44 @@ test('the desk is told there is money to hand back', async () => {
   });
   assert.ok(notes.length >= 1, 'a late payment that lost its place cannot be left for someone to notice');
   assert.match(notes[0].body, /refund|move her/i);
+});
+
+// ------------------------------------------------------- the sweep on traffic
+
+test('two sweeps at once expire a booking once, not twice', async () => {
+  // Drain what the earlier tests left lying about — one of them deliberately
+  // leaves a lapsed booking unswept — so the race below is about this booking
+  // and not about who happened to reach a different one first.
+  await expireStaleBookings();
+
+  const appt = await hold({
+    day: 46, status: 'PENDING', depositStatus: 'AWAITING_PAYMENT', expiresAt: anHourAgo(),
+  });
+
+  // The nightly job and a guest browsing free times, landing together. Before
+  // the flip was conditional both would have claimed this booking and both
+  // would have emailed her.
+  const [a, b] = await Promise.all([expireStaleBookings(), expireStaleBookings()]);
+  assert.equal(a + b, 1, 'exactly one caller got to expire it');
+
+  const row = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } });
+  assert.equal(row.status, 'EXPIRED');
+});
+
+test('a sweep leaves alone what it should', async () => {
+  const live = await hold({
+    day: 47, status: 'PENDING', depositStatus: 'AWAITING_PAYMENT', expiresAt: inAnHour(),
+  });
+  const byHand = await hold({
+    day: 48, status: 'PENDING', depositStatus: 'AWAITING_VERIFICATION', expiresAt: anHourAgo(),
+  });
+  await expireStaleBookings();
+
+  for (const [appt, why] of [
+    [live, 'still inside her window'],
+    [byHand, 'paid by hand, waiting on us to check the proof'],
+  ] as const) {
+    const row = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } });
+    assert.equal(row.status, 'PENDING', why);
+  }
 });

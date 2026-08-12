@@ -106,8 +106,7 @@ can act on, and that no rolled-back attempt leaves a reservation behind.
 
 ## What is built, and what is not
 
-This is a large brief and the build is partial. What follows is the honest
-state; nothing below is aspirational.
+What follows is the honest state; nothing below is aspirational.
 
 ### Working end to end
 
@@ -122,32 +121,36 @@ state; nothing below is aspirational.
 | **Booking engine** | 4-step flow, server-side pricing, add-ons, promo codes, PayMongo checkout, deposit/balance, hold expiry |
 | **Payments** | Webhook-confirmed (signature-verified, replay-rejected, idempotent), refunds through the gateway, security deposits |
 | **Reservations** | Full lifecycle for every source, reschedule with rollback, cancel-and-release |
-| **Guest CRM** | Dedupe on booking, merge tool, tier and totals derived from stays |
-| **Messaging** | 8-message sequence, scheduled on confirmation, drained by cron, editable templates, per-reservation timeline |
-| **Turnover** | Checkout → cleaning task with the next arrival as its deadline → mobile checklist with required photos → inspection → READY gate |
+| **Guest CRM** | List with duplicate detection, profile with stays and notes, merge tool, consent, tier and totals derived from stays |
+| **Guest self-service** | `/manage/[reference]` — the stay, the balance with a live pay link, the digital pre-arrival form, and access details once check-in releases them |
+| **Messaging** | 8-message sequence, scheduled on confirmation, drained by cron, editable templates with a placeholder reference, per-reservation timeline |
+| **Turnover** | Checkout → cleaning task with the next arrival as its deadline → mobile checklist with required photos → inspection → READY gate, plus the manager's board over the top |
 | **Task board** | One board, one spine, phone layout for field roles |
+| **Maintenance** | Report, assign, progress, complete. An urgent ticket can take dates off sale through the same constraint as a booking; completing one with a cost writes the expense |
+| **Incidents** | Damage, complaints and safety, linked to the stay, the guest and the deposit |
+| **Inventory** | Stock as the running sum of its ledger, purchases that book the cost, recounts as adjustments, linen across six states |
 | **Airbnb iCal** | Import (polled, reconciled, conflict-reporting) and export (hand-written RFC 5545) |
-| **Money & insight** | ADR / occupancy / RevPAR with formulas on screen, P&L per property and consolidated, owner dashboard, notifications panel |
+| **Money & insight** | ADR / occupancy / RevPAR with formulas on screen, P&L per property and consolidated, expense entry with a receipt photo, owner dashboard, notifications panel |
+| **Reports** | Eleven reports over one builder, so the screen and the CSV are the same query; export is a second permission from viewing; print stylesheet for PDF |
+| **Reviews** | Submission at `/review/[token]`, the moderation screen, responses, recurring themes, and reviews recorded from other platforms |
+| **Marketing** | Promotions with audience and window rules, consent-gated audience counts, lapsed-guest detection |
+| **Documents** | Permits and contracts with expiry, private storage, and the reminder chain behind them |
+| **Administration** | Property editor with photos and per-date pricing, settings without a deploy, message templates, people and their scope |
 | **Jobs** | Two idempotent cron endpoints covering messages, holds, sync, alerts, document expiry, no-show and completion sweeps |
 | **Operational safety** | Append-only audit log, integrity verifier, portable backup and restore |
 
 ### Not built yet
 
-The libraries behind most of these exist and are tested; what is missing is the
-portal screen on top.
-
-- **Portal screens**: guests CRM, inventory and linen, maintenance list,
-  incidents, finance and expense entry, reports with CSV export, documents,
-  marketing and promotions, settings, property editor, user administration
-- **Guest self-service** (`/manage/[reference]`) and the digital pre-arrival
-  check-in form — the tables, tokens and access records are in place
-- **Review submission page** (`/review/[token]`) and the reviews module screen
-- **Campaign helper** and the retention workflow screen
-- **CSV export endpoints** — `lib/csv.ts` is written and unused
-- **PWA service worker** for offline-tolerant checklists
-- **`tests/live/rbac-live.ts`** — the over-HTTP role check. The matrix itself is
-  unit-tested in `tests/rbac.test.ts`; the scope gate is not yet proven over the
-  wire
+- **Campaign sending.** The audience, the consent gate and the `Campaign`
+  tables are in place and the marketing screen reports on them; composing and
+  sending a campaign is not wired up.
+- **Laundry batches.** Linen moves between states and the ledger records it, but
+  the batch-out / batch-back screen and its cost-to-expense step are not built.
+- **Amenity and FAQ editing.** Both are seeded and both render on the public
+  site; there is no screen to change them.
+- **PWA service worker** for offline-tolerant checklists. Saving per item
+  already limits the damage a bad signal does; surviving no signal at all does
+  not.
 
 Nothing from §12 of the brief (channel manager, smart locks, SMS, WhatsApp,
 accounting export, multiple owners, long-stay billing, dynamic pricing) is
@@ -377,6 +380,10 @@ you pass `--force`. Full procedure and RPO/RTO table:
 npm test          # needs DATABASE_URL; creates and cleans up its own fixtures
 npm run typecheck
 npm run verify
+
+# and, against a running instance on the seeded database:
+npm start &
+npm run test:live
 ```
 
 | File | Proves |
@@ -385,6 +392,11 @@ npm run verify
 | `metrics.test.ts` | centavo arithmetic, half-open nights, date round-trips, and ADR / occupancy / RevPAR / P&L hand-checked |
 | `ical.test.ts` | Airbnb feeds including folded lines, CRLF, datetime DTSTART, and malformed events dropped rather than guessed |
 | `rbac.test.ts` | the permission matrix in [docs/03](./docs/03-roles-and-permissions.md), cell by cell |
+| `live/rbac-live.ts` | the same matrix **over HTTP** — 127 checks that a forbidden page is refused by the server, not merely hidden by the UI |
+
+The last one is the distinction worth having a test for. `can()` returning
+`false` and the server actually refusing are two different claims, and only the
+second one keeps anybody out.
 
 ---
 

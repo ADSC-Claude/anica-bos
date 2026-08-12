@@ -232,10 +232,13 @@ export const MODULES = [
   { key: 'tasks', label: 'Tasks', href: '/portal/tasks', icon: '☑', permission: 'tasks.view' },
   { key: 'cleaning', label: 'Turnovers', href: '/portal/cleaning', icon: '❖', permission: 'cleaning.manage' },
   { key: 'maintenance', label: 'Maintenance', href: '/portal/maintenance', icon: '⚒', permission: 'maintenance.view' },
+  { key: 'incidents', label: 'Incidents', href: '/portal/incidents', icon: '⚠', permission: 'incidents.view' },
   { key: 'inventory', label: 'Inventory', href: '/portal/inventory', icon: '▤', permission: 'inventory.view' },
   { key: 'finance', label: 'Finance', href: '/portal/finance', icon: '₱', permission: 'finance.view' },
   { key: 'reports', label: 'Reports', href: '/portal/reports', icon: '◪', permission: 'reports.view' },
+  { key: 'reviews', label: 'Reviews', href: '/portal/reviews', icon: '★', permission: 'reviews.view' },
   { key: 'marketing', label: 'Marketing', href: '/portal/marketing', icon: '◑', permission: 'marketing.view' },
+  { key: 'documents', label: 'Documents', href: '/portal/documents', icon: '▣', permission: 'documents.view' },
   { key: 'properties', label: 'Properties', href: '/portal/properties', icon: '⌂', permission: 'properties.view' },
   { key: 'settings', label: 'Settings', href: '/portal/settings', icon: '⚙', permission: 'settings.view' },
 ] as const satisfies ReadonlyArray<{

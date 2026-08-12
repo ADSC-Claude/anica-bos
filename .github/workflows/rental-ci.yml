@@ -79,3 +79,15 @@ jobs:
         run: |
           npm run db:seed
           npm run verify
+
+      # `can()` returning false and the server actually refusing are two
+      # different claims. This one asks the running app for every page as every
+      # role and fails if a forbidden page renders.
+      - name: Prove the permission matrix over real HTTP
+        run: |
+          npm start &
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/login && break
+            sleep 1
+          done
+          npm run test:live

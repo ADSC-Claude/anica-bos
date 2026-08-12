@@ -418,7 +418,11 @@ export async function templateVars(
     emergencyContact: r.property.emergencyContact || base.businessPhone,
     keyReturnNote: 'where you found them',
     payLink: `${appUrl()}/book/pay/${r.reference}`,
-    checkInLink: `${appUrl()}/manage/${r.reference}`,
+    // The token is what makes this link safe to email: a booking reference is
+    // short enough to guess at, so it alone never opens a stay.
+    checkInLink: r.manageToken
+      ? `${appUrl()}/manage/${r.reference}?t=${r.manageToken}`
+      : `${appUrl()}/manage/${r.reference}`,
     reviewLink: r.reviewToken ? `${appUrl()}/review/${r.reviewToken}` : `${appUrl()}`,
     accessInstructions: releasesCredentials
       ? access?.instructions || r.property.accessNotes || 'We will meet you at the door.'

@@ -63,7 +63,7 @@ drains it) and Integrated (Resend carries it).
 | Reviews per platform + responses | Native | Direct, Airbnb, Google |
 | Review request | Automated + Integrated | 1 day after checkout; direct link or Airbnb nudge |
 | Retention, referrals, repeat-guest offers | Native + Automated | Lapsed-guest detection is a daily job |
-| Campaign helper (filter → export or send) | Native + Integrated | Consent and unsubscribe enforced in the query |
+| Campaign helper (filter → export or send) | Native + Integrated | Consent enforced in the query; the audience and its counts are built, the send is not |
 | SMS gateway | **Future Phase** | `channel` column exists, dispatcher does not |
 | WhatsApp automation | **Future Phase** | Same seam |
 | Guest mobile app | **Future Phase** | The site is responsive; a native app is not planned |
@@ -86,7 +86,7 @@ drains it) and Integrated (Resend carries it).
 | Inventory ledger and low-stock alerts | Native + Automated | Beginning + purchases − usage |
 | Suppliers and purchase history | Native | |
 | Linen tracking by state | Native | Six states, movement ledger |
-| Laundry batches and costs | Native + Automated | Batch cost becomes an expense |
+| Laundry batches and costs | Native + Automated | Modelled; the batch-out / batch-back screen is not built, so the cost-to-expense step has nothing to fire from yet |
 | Staff and vendor directory | Native | Contacts, rates, assignments, performance notes |
 | Offline-tolerant checklist | **Future Phase** | Saving per item already survives a slow connection; the service worker that survives a dead one is not built |
 | Smart-lock integration | **Future Phase** | `AccessRecord.method = SMART_LOCK` reserved |
@@ -144,8 +144,8 @@ Rows are counted once per class they carry, so the totals overlap by design.
 
 ## Where the build actually is
 
-This table classifies the brief. It is not a claim that every Native row has a
-screen yet — several have a tested library behind them and no portal page on
-top. The honest, current state is the built / not-built table in the
-[README](../README.md#what-is-built-and-what-is-not), and it is the one to
-trust when the two disagree.
+This table classifies the brief. Every Native and Integrated row above now has
+a screen behind it except four, which the
+[README](../README.md#what-is-built-and-what-is-not) names: campaign sending,
+laundry batches, amenity and FAQ editing, and the offline service worker. That
+table is the current state and it is the one to trust when the two disagree.

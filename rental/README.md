@@ -389,6 +389,7 @@ npm run test:live
 | File | Proves |
 |---|---|
 | `booking-race.test.ts` | 8 concurrent bookings → exactly 1 survives; same-day turnover allowed; cancelling releases dates immediately |
+| `turnover.test.ts` | the §8 chain on real rows — access issued at check-in, deadline derived from the next arrival, the photo gate, stock moving by itself, the READY gate opening and closing |
 | `metrics.test.ts` | centavo arithmetic, half-open nights, date round-trips, and ADR / occupancy / RevPAR / P&L hand-checked |
 | `ical.test.ts` | Airbnb feeds including folded lines, CRLF, datetime DTSTART, and malformed events dropped rather than guessed |
 | `rbac.test.ts` | the permission matrix in [docs/03](./docs/03-roles-and-permissions.md), cell by cell |

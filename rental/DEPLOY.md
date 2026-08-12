@@ -42,17 +42,40 @@ Project → **Connect**. You need both, and they are different:
 | Variable | Which string | Port |
 |---|---|---|
 | `DATABASE_URL` | **Transaction pooler** | 6543 |
-| `DIRECT_URL` | **Direct connection** (or session pooler) | 5432 |
+| `DIRECT_URL` | **Session pooler** | 5432 |
 
 Append `?pgbouncer=true&connection_limit=1` to `DATABASE_URL`. Serverless
 functions each open their own connection, and without this a busy morning
 exhausts the pool.
 
+Both are on the **same pooler host** — only the port differs. That is not a
+typo, and getting it wrong is the single most likely way to lose an evening.
+
 `DIRECT_URL` exists because **a transaction pooler cannot run migrations** — it
 multiplexes statements across connections, and `CREATE EXTENSION` and
-`ALTER TABLE … ADD CONSTRAINT` need a session that stays put. `scripts/build.mjs`
-refuses to build if `DATABASE_URL` points at port 6543 and `DIRECT_URL` is
-missing, rather than letting the migration fail halfway through a deploy.
+`ALTER TABLE … ADD CONSTRAINT` need a session that stays put. Session mode
+(port 5432 on the pooler) keeps the connection whole, so migrations work.
+
+**Do not use the "Direct connection" string here, even though it is also port
+5432 and looks like the obvious choice.** Supabase serves `db.<ref>.supabase.co`
+over **IPv6 only**, and Vercel's build environment is IPv4-only, so the migration
+cannot route to it at all:
+
+```
+Error: P1001: Can't reach database server at `db.<ref>.supabase.co:5432`
+```
+
+That error says nothing about IPv6 and reads like a wrong password or a paused
+project. It is neither — the address simply has no A record. The session pooler
+resolves to IPv4 and is the string to use.
+
+One detail not to hand-edit: the pooler username is `postgres.<project-ref>`,
+while the direct connection's is plain `postgres`. Copy the whole string from
+the Connect dialog and substitute only the password.
+
+`scripts/build.mjs` refuses to build if `DATABASE_URL` points at port 6543 and
+`DIRECT_URL` is missing, rather than letting the migration fail halfway through
+a deploy.
 
 ### Create the two storage buckets
 
@@ -109,7 +132,7 @@ a 500 on a live page:
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | pooled string, port 6543, with `?pgbouncer=true&connection_limit=1` |
-| `DIRECT_URL` | direct string, port 5432 |
+| `DIRECT_URL` | **session pooler** string, port 5432 — not the direct connection, see above |
 | `SESSION_SECRET` | `openssl rand -base64 48` |
 | `CRON_SECRET` | `openssl rand -base64 32` |
 | `NEXT_PUBLIC_APP_URL` | the production URL, no trailing slash |
@@ -278,7 +301,8 @@ you pass `--force`. Full procedure, and the RPO/RTO table, in
 | Symptom | Cause |
 |---|---|
 | Build fails naming a missing variable | It is missing. The build refuses rather than shipping a 500. |
-| Build fails on `migrate deploy` | `DIRECT_URL` is absent or points at the pooler. Migrations need port 5432. |
+| Build fails on `migrate deploy` with `P1001: Can't reach database server` | `DIRECT_URL` is the **direct** connection, which Supabase serves over IPv6 only and Vercel cannot reach. Use the session pooler: same pooler host, port 5432. |
+| Build fails on `migrate deploy` some other way | `DIRECT_URL` absent, or pointing at port 6543. Migrations need session mode. |
 | `prepared statement already exists` at runtime | `?pgbouncer=true` is missing from `DATABASE_URL`. |
 | Payments never confirm | Webhook URL wrong, or the secret is from the other environment. Check PayMongo's delivery log. |
 | Emails do not arrive | `RESEND_API_KEY` blank — they are being logged, not sent. Check the function logs. |

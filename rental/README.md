@@ -326,6 +326,10 @@ and a manual `curl` harmless. Vercel Cron drives them in production;
 
 ## Deployment
 
+**[DEPLOY.md](./DEPLOY.md) is the full runbook** — Supabase project and buckets,
+Vercel settings, first sign-in, PayMongo, Airbnb, cron and the failure table.
+The short version:
+
 Deploy as its **own Vercel project**, separate from the spa:
 
 1. New Project → this repository → **Root Directory: `rental`**

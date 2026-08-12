@@ -1,6 +1,6 @@
 import 'server-only';
 import { prisma } from './db';
-import { ratio } from './money';
+import { ratio, revenueSplit } from './money';
 import { dateKeyRange, monthBounds, toDateKey, toStayDate, type DateKey } from './datetime';
 
 /**
@@ -90,6 +90,7 @@ export async function kpis(args: Windowed): Promise<Kpis> {
       addOnsCents: true,
       extraGuestCents: true,
       discountCents: true,
+      totalCents: true,
     },
   });
 
@@ -106,10 +107,12 @@ export async function kpis(args: Windowed): Promise<Kpis> {
 
     nightsSold += inside;
     const share = inside / Math.max(1, r.nights);
-    accommodationCents += Math.round(r.accommodationCents * share);
-    otherRevenueCents += Math.round(
-      (r.cleaningFeeCents + r.addOnsCents + r.extraGuestCents - r.discountCents) * share,
-    );
+    // revenueSplit, not the raw column: a channel booking with a payout and no
+    // breakdown must not add nights to the denominator while adding nothing to
+    // the numerator. See money.ts.
+    const split = revenueSplit(r);
+    accommodationCents += Math.round(split.accommodationCents * share);
+    otherRevenueCents += Math.round(split.otherCents * share);
   }
 
   const bookings = reservations.length;

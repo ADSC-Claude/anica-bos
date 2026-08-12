@@ -546,7 +546,18 @@ async function main() {
       const payout = accommodation + plan.property.cleaningFeeCents - Math.round(accommodation * 0.15);
       await prisma.reservation.update({
         where: { id: reservation.id },
-        data: { totalCents: payout, paidCents: plan.status === 'COMPLETED' ? payout : 0, paymentStatus: plan.status === 'COMPLETED' ? 'PAID' : 'UNPAID' },
+        data: {
+          totalCents: payout,
+          // The payout is booked as accommodation as soon as it is known, not
+          // only once the stay completes. A confirmed channel booking with a
+          // total and no split counts its nights in occupancy, so leaving
+          // accommodation at zero until checkout drags ADR down for every
+          // forward-looking figure an owner reads.
+          accommodationCents: payout,
+          nightlyRateCents: Math.round(payout / nights),
+          paidCents: plan.status === 'COMPLETED' ? payout : 0,
+          paymentStatus: plan.status === 'COMPLETED' ? 'PAID' : 'UNPAID',
+        },
       });
       if (plan.status === 'COMPLETED') {
         await prisma.payment.create({
@@ -555,7 +566,6 @@ async function main() {
         await prisma.reservationLine.create({
           data: { reservationId: reservation.id, kind: 'ACCOMMODATION', label: `Airbnb payout, ${nights} night${nights === 1 ? '' : 's'}`, quantity: nights, unitCents: Math.round(payout / nights), amountCents: payout, sortOrder: 0 },
         });
-        await prisma.reservation.update({ where: { id: reservation.id }, data: { accommodationCents: payout } });
       }
     } else if (plan.status !== 'PENDING') {
       const deposit = Math.round(total * 0.3);

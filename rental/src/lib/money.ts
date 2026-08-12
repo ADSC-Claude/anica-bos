@@ -65,3 +65,61 @@ export function ratio(part: number, whole: number): number {
   if (!whole) return 0;
   return Math.round((part / whole) * 100);
 }
+
+export type RevenueParts = {
+  accommodationCents: number;
+  cleaningFeeCents: number;
+  addOnsCents: number;
+  extraGuestCents: number;
+  discountCents: number;
+  totalCents: number;
+};
+
+/**
+ * What a booking's money is *for*, defending against one that has a total and
+ * no breakdown.
+ *
+ * A channel booking arrives with a payout and nothing else — Airbnb tells us
+ * what it paid, never how it split it — and the figure is often typed in by
+ * hand later. Left alone, such a stay contributes its nights to occupancy and
+ * nothing to accommodation, so ADR and RevPAR are quietly dragged down every
+ * time one falls in the window, and the P&L shows a row with revenue and three
+ * empty columns beside it.
+ *
+ * So an unsplit total is treated as accommodation, which is what it is as far
+ * as anything here can know. Both `metrics.ts` and `finance.ts` read this, so
+ * the dashboard and the statement cannot disagree about the same booking.
+ */
+export type RevenueSplit = {
+  accommodationCents: number;
+  cleaningFeeCents: number;
+  /** Add-ons and extra-guest charges together — one line on every report. */
+  addOnsCents: number;
+  discountCents: number;
+  /** Everything that is not accommodation, net of the discount. */
+  otherCents: number;
+};
+
+export function revenueSplit(r: RevenueParts): RevenueSplit {
+  const itemised =
+    r.accommodationCents + r.cleaningFeeCents + r.addOnsCents + r.extraGuestCents;
+
+  if (itemised === 0 && r.totalCents !== 0) {
+    return {
+      accommodationCents: r.totalCents,
+      cleaningFeeCents: 0,
+      addOnsCents: 0,
+      discountCents: 0,
+      otherCents: 0,
+    };
+  }
+
+  const addOns = r.addOnsCents + r.extraGuestCents;
+  return {
+    accommodationCents: r.accommodationCents,
+    cleaningFeeCents: r.cleaningFeeCents,
+    addOnsCents: addOns,
+    discountCents: r.discountCents,
+    otherCents: r.cleaningFeeCents + addOns - r.discountCents,
+  };
+}

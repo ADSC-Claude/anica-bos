@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatPeso, toCents, discountAmount, ratio } from '../src/lib/money';
+import { formatPeso, toCents, discountAmount, ratio, revenueSplit } from '../src/lib/money';
 import { nightsBetween, nightKeys, isWeekendNight, addDays, toDateKey, toStayDate } from '../src/lib/datetime';
 
 /**
@@ -113,4 +113,82 @@ test('consolidated P&L carries unallocated expenses; property rows do not', () =
 
   // Each property's own net excludes the business-wide cost.
   assert.equal(rows[0].revenueCents - rows[0].expenseCents, 22910000);
+});
+
+/**
+ * A channel booking arrives with a payout and no breakdown: Airbnb says what it
+ * paid, never how it split it. Such a stay still occupies nights, so if its
+ * money is left out of accommodation it adds to the denominator of ADR and
+ * nothing to the numerator — and every Airbnb night in the window quietly
+ * drags the rate down.
+ *
+ * This was a real bug: the seed set accommodationCents only once a stay
+ * completed, so a confirmed Airbnb booking reported ADR as if it were free.
+ */
+test('a booking with a total and no breakdown counts as accommodation', () => {
+  const airbnb = revenueSplit({
+    accommodationCents: 0,
+    cleaningFeeCents: 0,
+    addOnsCents: 0,
+    extraGuestCents: 0,
+    discountCents: 0,
+    totalCents: 485000,
+  });
+  assert.equal(airbnb.accommodationCents, 485000, 'the payout is what the nights earned');
+  assert.equal(airbnb.otherCents, 0);
+  assert.equal(
+    airbnb.accommodationCents + airbnb.otherCents,
+    485000,
+    'and the split still accounts for the whole total',
+  );
+
+  // Two nights at ₱4,850 is an ADR of ₱2,425 — not ₱0.
+  assert.equal(Math.round(airbnb.accommodationCents / 2), 242500);
+});
+
+test('an itemised booking keeps its own split, untouched', () => {
+  const direct = revenueSplit({
+    accommodationCents: 1050000,
+    cleaningFeeCents: 80000,
+    addOnsCents: 25000,
+    extraGuestCents: 15000,
+    discountCents: 113000,
+    totalCents: 1057000,
+  });
+  assert.equal(direct.accommodationCents, 1050000);
+  assert.equal(direct.cleaningFeeCents, 80000);
+  assert.equal(direct.addOnsCents, 40000, 'add-ons and extra guests are one line');
+  assert.equal(direct.otherCents, 80000 + 40000 - 113000);
+  assert.equal(
+    direct.accommodationCents + direct.otherCents,
+    1057000,
+    'the split reconciles to the total the guest agreed to',
+  );
+});
+
+test('a fully discounted stay is not mistaken for an unsplit one', () => {
+  // Accommodation equal to the total is ordinary — no fees, no discount. The
+  // rule must key on "nothing is itemised", not on any coincidence of figures.
+  const noFees = revenueSplit({
+    accommodationCents: 600000,
+    cleaningFeeCents: 0,
+    addOnsCents: 0,
+    extraGuestCents: 0,
+    discountCents: 0,
+    totalCents: 600000,
+  });
+  assert.equal(noFees.accommodationCents, 600000);
+  assert.equal(noFees.otherCents, 0);
+
+  // And a zero-value row stays zero rather than inventing revenue.
+  const empty = revenueSplit({
+    accommodationCents: 0,
+    cleaningFeeCents: 0,
+    addOnsCents: 0,
+    extraGuestCents: 0,
+    discountCents: 0,
+    totalCents: 0,
+  });
+  assert.equal(empty.accommodationCents, 0);
+  assert.equal(empty.otherCents, 0);
 });

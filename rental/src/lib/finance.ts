@@ -1,5 +1,6 @@
 import 'server-only';
 import { prisma } from './db';
+import { revenueSplit } from './money';
 import { toStayDate, type DateKey } from './datetime';
 
 /**
@@ -120,9 +121,13 @@ export async function profitAndLoss(args: {
   for (const r of reservations) {
     const row = byProperty.get(r.propertyId);
     if (!row) continue;
-    row.accommodationCents += r.accommodationCents;
-    row.cleaningFeeCents += r.cleaningFeeCents;
-    row.addOnsCents += r.addOnsCents + r.extraGuestCents;
+    // Same rule as the dashboard: a booking with a total and no breakdown has
+    // its total read as accommodation, so the split columns account for the
+    // revenue column rather than sitting empty beside it.
+    const split = revenueSplit(r);
+    row.accommodationCents += split.accommodationCents;
+    row.cleaningFeeCents += split.cleaningFeeCents;
+    row.addOnsCents += split.addOnsCents;
     row.revenueCents += r.totalCents;
   }
 

@@ -212,14 +212,21 @@ export default async function AppointmentDetailPage({
 
       {/* A cancelled booking whose fee is still paid is the system's way of
           saying the money is owed back — see lib/booking-policy.ts. A late
-          cancellation forfeits instead, and never reaches this. */}
-      {appt.status === 'CANCELLED' && appt.depositStatus === 'PAID' && canEdit && (
+          cancellation forfeits instead, and never reaches this.
+
+          EXPIRED carries the same pairing for a different reason: the fee
+          arrived after the holding window shut, and the place had gone. She has
+          paid for something we cannot supply, so it is owed back — or she takes
+          another time and the money stays where it is. */}
+      {(appt.status === 'CANCELLED' || appt.status === 'EXPIRED') &&
+        appt.depositStatus === 'PAID' && canEdit && (
         <div className="mb-4 max-w-2xl">
           <RefundPanel
             appointmentId={appt.id}
             amountCents={appt.depositPaidCents || appt.depositAmountCents}
             cancelReason={appt.cancelReason}
             viaGateway={Boolean(appt.gatewayPaymentId || appt.gatewaySessionId)}
+            lapsed={appt.status === 'EXPIRED'}
           />
         </div>
       )}

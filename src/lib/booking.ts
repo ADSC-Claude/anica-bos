@@ -632,6 +632,61 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
 }
 
 /**
+ * Who, if anyone, has taken this booking's places since its window closed.
+ *
+ * Returns a name to put in front of the desk, or null when everything it asked
+ * for is still free. Each treatment is checked on its own window and its own
+ * place, because a visit is not one block: the sauna leg may have gone while
+ * the bed at half past two is still empty, and losing either one means the
+ * visit as booked cannot run.
+ *
+ * The booking excludes itself — it is still sitting in the table, and without
+ * that it would find its own hold and report a clash with itself.
+ */
+async function placeTakenSince(appointment: {
+  id: string;
+  branchId: string;
+  partyRef: string;
+  startAt: Date;
+  endAt: Date;
+  resourceId: string | null;
+  services: { resourceId: string | null; employeeId: string | null; startAt: Date | null; endAt: Date | null }[];
+}): Promise<string | null> {
+  const legs = appointment.services.length
+    ? appointment.services.map((s) => ({
+        startAt: s.startAt ?? appointment.startAt,
+        endAt: s.endAt ?? appointment.endAt,
+        resourceId: s.resourceId ?? appointment.resourceId,
+        employeeIds: s.employeeId ? [s.employeeId] : [],
+      }))
+    : [{
+        startAt: appointment.startAt,
+        endAt: appointment.endAt,
+        resourceId: appointment.resourceId,
+        employeeIds: [],
+      }];
+
+  for (const leg of legs) {
+    try {
+      await assertNoConflicts({
+        branchId: appointment.branchId,
+        startAt: leg.startAt,
+        endAt: leg.endAt,
+        employeeIds: leg.employeeIds,
+        resourceId: leg.resourceId,
+        excludeAppointmentId: appointment.id,
+        partyRef: appointment.partyRef || undefined,
+      });
+    } catch (err) {
+      // The message names the therapist or the place, which is exactly what the
+      // desk needs to see and what the guest will be told on the phone.
+      return err instanceof Error ? err.message.replace(/\.$/, '') : 'Someone else';
+    }
+  }
+  return null;
+}
+
+/**
  * Marks a deposit paid and confirms the appointment. Called by the verified
  * PayMongo webhook, by the simulated-gateway endpoint, and by the receptionist
  * when verifying a manual transfer.
@@ -654,6 +709,72 @@ export async function confirmDeposit(opts: {
   if (!appointment) return false;
   if (appointment.depositStatus === 'PAID') return true; // webhook replay — idempotent
   if (appointment.status === 'CANCELLED') return false;
+
+  /**
+   * The fee arrived after the holding window closed.
+   *
+   * The places went back on sale the moment the window shut, so this can no
+   * longer confirm on its own say-so: somebody else may be holding the bed. If
+   * it is still free the booking stands, which is the common case — a guest who
+   * paid a few minutes late on a quiet afternoon should not be turned away from
+   * an empty room. If it is gone the money is still recorded, because it really
+   * was taken, and the desk is told to either send it back or move her to
+   * another time.
+   */
+  const lapsed =
+    appointment.status === 'EXPIRED' ||
+    (appointment.expiresAt !== null && appointment.expiresAt.getTime() < Date.now());
+
+  if (lapsed) {
+    const takenBy = await placeTakenSince(appointment);
+    if (takenBy) {
+      await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          depositStatus: 'PAID',
+          depositPaidCents: opts.paidCents,
+          depositMethod: opts.method,
+          gatewayPaymentId: opts.gatewayPaymentId ?? '',
+          status: 'EXPIRED',
+          expiresAt: null,
+          cancelReason:
+            'Paid after the holding window closed, and the place had already gone. ' +
+            'Refund the reservation fee, or rebook her into a free time.',
+        },
+      });
+
+      await notify({
+        kind: 'DEPOSIT_TO_VERIFY',
+        title: `Late payment on a lapsed booking — ${appointment.reference}`,
+        body:
+          `${appointment.client.name} paid ${formatPeso(opts.paidCents)} after her window ` +
+          `closed and ${takenBy} is booked in her place. Refund her, or move her to a ` +
+          'time that is free.',
+        link: `/portal/appointments/${appointment.id}`,
+        dedupeKey: `late-deposit:${appointment.id}`,
+        branchId: appointment.branchId,
+        roles: ['RECEPTIONIST'],
+      });
+
+      await sendTemplateEmail({
+        to: appointment.client.email,
+        template: 'booking_rejected',
+        clientId: appointment.clientId,
+        vars: {
+          clientName: appointment.client.name,
+          reference: appointment.reference,
+          when: formatManila(appointment.startAt, { time: true, weekday: true }),
+          reason:
+            'Your reservation fee reached us after the holding window closed, and the ' +
+            'time had been taken. We will call you to move your booking or send the fee back.',
+        },
+      });
+
+      // True: the payment happened and has been recorded. What it could not do
+      // is buy back a place that is no longer there.
+      return true;
+    }
+  }
 
   await prisma.appointment.update({
     where: { id: appointment.id },

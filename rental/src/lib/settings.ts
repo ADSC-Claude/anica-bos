@@ -6,9 +6,32 @@ import { SETTINGS_DEFAULTS, type SettingKey, type SettingsShape } from './settin
  * Stored values layered over the defaults, so a key added in code works before
  * anyone opens the Settings screen and a key deleted from the database falls
  * back rather than becoming undefined halfway down a page render.
+ *
+ * An unreachable database falls back too, rather than throwing.
+ *
+ * That is not laziness about error handling — it is the difference between a
+ * degraded page and no page. `SETTINGS_DEFAULTS` is a complete, valid
+ * configuration; every caller can render perfectly well from it. The root
+ * layout reads settings to build its metadata, so without this a database that
+ * is briefly unreachable takes down not just the pages that need data but the
+ * 404 page, the error page, and the static build itself — a site that cannot
+ * even say "not found" because it cannot reach Postgres.
+ *
+ * The failure is logged loudly, because a business running on default copy
+ * still needs somebody to notice.
  */
 export async function getSettings(): Promise<SettingsShape> {
-  const rows = await prisma.setting.findMany();
+  let rows: { key: string; value: unknown }[] = [];
+  try {
+    rows = await prisma.setting.findMany();
+  } catch (err) {
+    console.error(
+      '[settings] could not be read; falling back to defaults. The site is up but showing built-in copy.',
+      err,
+    );
+    return { ...SETTINGS_DEFAULTS } as SettingsShape;
+  }
+
   const stored = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   const out = { ...SETTINGS_DEFAULTS } as SettingsShape;
   for (const key of Object.keys(out) as SettingKey[]) {

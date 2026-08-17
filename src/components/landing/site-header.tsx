@@ -20,10 +20,13 @@ export function SiteHeader({
   name,
   logoUrl,
   links,
+  cta,
 }: {
   name: string;
   logoUrl: string;
   links: NavLink[];
+  /** Booking, or a phone number when online booking is paused. */
+  cta: { href: string; label: string };
 }) {
   const [open, setOpen] = useState(false);
 
@@ -59,9 +62,9 @@ export function SiteHeader({
         <div className="flex items-center gap-1">
           {/* Hidden on a phone: the bar pinned to the bottom of the screen is
               already offering exactly this, and two of them is noise. */}
-          <Link href="/book" className="btn-primary btn-sm hidden rounded-full px-5 sm:inline-flex">
-            Book now
-          </Link>
+          <a href={cta.href} className="btn-primary btn-sm hidden rounded-full px-5 sm:inline-flex">
+            {cta.label}
+          </a>
           <button
             type="button"
             aria-label="Menu"

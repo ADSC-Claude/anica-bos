@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import type { ResourceType } from '@prisma/client';
 import { normaliseMapEmbed } from '@/lib/map-embed';
 import { normaliseAssetPath } from '@/lib/asset-url';
+import { normaliseSocialUrl } from '@/lib/social-url';
 import { parseLateBands } from '@/lib/late-bands';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
@@ -50,6 +51,10 @@ export async function saveSettingsAction(
       if ('error' in hero) return { error: `Landing page photo: ${hero.error}` };
       const about = normaliseAssetPath(str(formData, 'aboutImageUrl'));
       if ('error' in about) return { error: `About us photo: ${about.error}` };
+      const facebook = normaliseSocialUrl(str(formData, 'facebook'), 'facebook.com');
+      if ('error' in facebook) return { error: `Facebook: ${facebook.error}` };
+      const instagram = normaliseSocialUrl(str(formData, 'instagram'), 'instagram.com');
+      if ('error' in instagram) return { error: `Instagram: ${instagram.error}` };
       entries = {
         'business.name': str(formData, 'name'),
         'business.tagline': str(formData, 'tagline'),
@@ -57,7 +62,8 @@ export async function saveSettingsAction(
         'business.locality': str(formData, 'locality'),
         'business.contact': str(formData, 'contact'),
         'business.email': str(formData, 'email'),
-        'business.facebook': str(formData, 'facebook'),
+        'business.facebook': facebook.url,
+        'business.instagram': instagram.url,
         'business.googleUrl': str(formData, 'googleUrl'),
         'business.googleRating': str(formData, 'googleRating'),
         'business.googleReviewCount': Math.max(

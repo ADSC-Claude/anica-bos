@@ -34,6 +34,14 @@ export default async function SettingsPage() {
                 <span className="label">Address</span>
                 <input name="address" className="input" defaultValue={s['business.address']} />
               </label>
+              <label className="block">
+                <span className="label">City</span>
+                <input name="locality" className="input" defaultValue={s['business.locality']} />
+                <span className="muted mt-1 block text-xs">
+                  Used in sentences on the landing page — &ldquo;Most spas in{' '}
+                  {s['business.locality']} have locked up by the time you finish work.&rdquo;
+                </span>
+              </label>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
                   <span className="label">Contact number</span>

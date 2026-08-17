@@ -5,11 +5,20 @@ import { formatPesoMenu } from '@/lib/money';
 import { minutesToLabel } from '@/lib/datetime';
 import { buildServiceMenu } from '@/lib/service-menu';
 import { normaliseMapEmbed } from '@/lib/map-embed';
-import { BrandMark } from '@/components/brand-mark';
 import { assetUrl } from '@/lib/asset-url';
 import { publishableFeedback, shortName } from '@/lib/testimonials';
+import { SiteHeader } from '@/components/landing/site-header';
+import { PriceMenu } from '@/components/landing/price-menu';
 
 export const dynamic = 'force-dynamic';
+
+/** The four shelves the hero cards advertise, and the wash behind each. */
+const SHELVES = [
+  { name: 'Massage', art: 'ph-massage', blurb: 'Hilot, Swedish, Shiatsu and our own signature blend.' },
+  { name: 'Body Treatments', art: 'ph-body', blurb: 'Scrubs and rituals that polish, nourish and restore.' },
+  { name: 'Foot Spa & Reflexology', art: 'ph-foot', blurb: 'Soak, scrub and targeted pressure for tired feet.' },
+  { name: 'Add-ons & Sauna', art: 'ph-sauna', blurb: 'Dry heat, hot stone and ventosa to extend your visit.' },
+];
 
 export default async function LandingPage() {
   const settings = await getSettings();
@@ -42,33 +51,43 @@ export default async function LandingPage() {
       },
       orderBy: { endDate: 'asc' },
     }),
-    prisma.package.findMany({ where: { active: true, showOnLanding: true } }),
+    prisma.package.findMany({
+      where: { active: true, showOnLanding: true },
+      // Memberships lead, cheapest first, so the tiers read as a ladder rather
+      // than arriving in whatever order Postgres hands them back. Session
+      // bundles follow.
+      orderBy: [{ type: 'desc' }, { priceCents: 'asc' }],
+    }),
     publishableFeedback(prisma, 3),
   ]);
 
-  const menu = buildServiceMenu(categories);
+  const menu = buildServiceMenu(categories).map((cat) => ({
+    id: cat.id,
+    name: cat.name,
+    services: cat.services.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description ?? '',
+      durationMinutes: s.durationMinutes,
+      price: formatPesoMenu(s.priceCents),
+    })),
+  }));
 
   // Normalised on the way out as well as on the way in. Validating only on save
   // leaves whatever was stored before the validation existed rendering as-is —
   // and a pasted <iframe> tag resolves as a relative path, so the frame fills
   // with this site's own 404 rather than a map.
-  // Photo or video, decided by the file extension rather than a second
-  // setting — the Owner should not have to tell the system what they just
-  // uploaded.
-  // Versioned for the same reason as the logo: /hero.mp4 keeps its name when
-  // the owner uploads a different video.
-  const heroMedia = assetUrl(settings['business.heroImageUrl']);
-  const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
-
   const mapEmbed = normaliseMapEmbed(settings['business.mapEmbedUrl']);
   const mapUrl = 'url' in mapEmbed ? mapEmbed.url : '';
 
-  const hours = `${minutesToLabel(settings['business.openMinute'])} – ${minutesToLabel(
-    settings['business.closeMinute'],
-  )} daily`;
+  // Photo or video, decided by the file extension rather than a second setting
+  // — the Owner should not have to tell the system what they just uploaded.
+  const heroMedia = assetUrl(settings['business.heroImageUrl']);
+  const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
 
   const openLabel = minutesToLabel(settings['business.openMinute']);
   const closeLabel = minutesToLabel(settings['business.closeMinute']);
+  const hours = `${openLabel} – ${closeLabel} daily`;
 
   // The latest a booking can still start, derived from closing time so it
   // cannot drift out of date the way a hardcoded string would.
@@ -76,8 +95,7 @@ export default async function LandingPage() {
   // One hour, not the shortest thing on the menu: the booking engine refuses
   // any slot that would run past closing, so a 15-minute hot compress could
   // technically start at 11:45 — but "last booking 11:45 PM" would promise a
-  // massage that cannot be had. An hour is the honest headline, and it is what
-  // a full-length treatment actually needs.
+  // massage that cannot be had.
   const STANDARD_TREATMENT_MINUTES = 60;
   const lastBookingLabel = minutesToLabel(
     settings['business.closeMinute'] - STANDARD_TREATMENT_MINUTES,
@@ -91,260 +109,178 @@ export default async function LandingPage() {
   const taglineHead = splitAt > 0 ? tagline.slice(0, splitAt + 1) : tagline;
   const taglineTail = splitAt > 0 ? tagline.slice(splitAt + 1) : '';
 
+  // Built here, where it is known which sections actually rendered, so the nav
+  // never offers a link that scrolls nowhere.
+  const navLinks = [
+    { href: '#services', label: 'Services' },
+    { href: '#about', label: 'About' },
+    ...(packages.length > 0 ? [{ href: '#membership', label: 'Membership' }] : []),
+    ...(testimonials.length > 0 ? [{ href: '#guests', label: 'Guests' }] : []),
+    { href: '#visit', label: 'Visit us' },
+  ];
+
   return (
     <div className="min-h-dvh bg-sand-50">
-      {/* ---------------------------------------------------------- nav */}
-      <header className="sticky top-0 z-40 border-b border-sand-200 bg-sand-50/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="flex items-center gap-2">
-            <BrandMark logoUrl={settings['business.logoUrl']} size={36} />
-            <span className="wordmark">
-              {settings['business.name']}
-            </span>
-          </Link>
-          <nav className="flex items-center gap-1 text-sm">
-            <a href="#services" className="hidden px-3 py-2 text-cocoa-600 sm:block">
-              Services
-            </a>
-            <a href="#visit" className="hidden px-3 py-2 text-cocoa-600 sm:block">
-              Visit us
-            </a>
-            <Link href="/book" className="btn-primary btn-sm">
-              Book now
-            </Link>
-          </nav>
+      <SiteHeader
+        name={settings['business.name']}
+        logoUrl={settings['business.logoUrl']}
+        links={navLinks}
+      />
+
+      {/* ---------------------------------------------------------- hero */}
+      <section className="relative grid min-h-[min(84vh,720px)] items-center">
+        <div className="ph ph-room absolute inset-0">
+          {heroMedia && heroIsVideo ? (
+            // Muted and looping: a hero video is decoration, and anything with
+            // sound that starts on its own is a reason to leave. Muted is also
+            // what lets it autoplay at all on iOS.
+            <video
+              src={heroMedia}
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-label={`Inside ${settings['business.name']}`}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : heroMedia ? (
+            // Plain <img>: the source is whatever the Owner typed into
+            // Settings, and next/image would need every possible host declared
+            // in advance.
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={heroMedia}
+              alt={`Inside ${settings['business.name']}`}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : null}
         </div>
-      </header>
-
-      {/* -------------------------------------------------------- hero */}
-      <section className="relative overflow-hidden">
-        <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-          <div>
-            {/* "Open 12:00 PM – 12:00 MN daily" is a data field. "Open until
-                midnight" is a reason to come — same fact, read by a person
-                deciding at 9pm rather than by a form. */}
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cocoa-400">
-              Quezon City · Open until {closeLabel}, daily
-            </p>
-            <span aria-hidden className="mt-6 block h-px w-14 bg-gilt-500/70" />
-            <h1 className="mt-6 font-display text-[2.75rem] leading-[1.02] text-cocoa-800 sm:text-6xl">
-              {taglineHead}
-              {taglineTail && <em className="italic text-gilt-600">{taglineTail}</em>}
-            </h1>
-            <p className="mt-6 max-w-lg leading-relaxed text-cocoa-600">
-              Your wellness escape in Quezon City awaits. Enjoy massage, body scrubs, foot
-              spas, and sauna treatments, then book your preferred therapist, room, and time
-              in just a few clicks.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/book" className="btn-primary rounded-full px-7">
-                Book your slot
-              </Link>
-              <a href="#services" className="btn-secondary rounded-full px-7">
-                See services &amp; prices
-              </a>
-            </div>
-          </div>
-
-          {/* Photo placeholder — swap for a real image in /public.
-              The arch is deliberate: it reads as a spa rather than a dashboard. */}
-          {/* Capped on small screens: at full width the arch is taller than the
-              viewport and pushes the price list off the page. */}
-          <div className="relative mx-auto aspect-4/5 w-full max-w-xs overflow-hidden rounded-t-full rounded-b-3xl bg-gradient-to-br from-sand-100 via-sand-300 to-sand-400 ring-1 ring-inset ring-gilt-500/40 sm:max-w-sm lg:max-w-none">
-            {heroMedia && heroIsVideo ? (
-              // Muted and looping: a hero video is decoration, and anything
-              // with sound that starts on its own is a reason to leave. Muted
-              // is also what lets it autoplay at all on iOS.
-              <video
-                src={heroMedia}
-                autoPlay
-                muted
-                loop
-                playsInline
-                aria-label={`Inside ${settings['business.name']}`}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : heroMedia ? (
-              // Plain <img>: the source is whatever the Owner typed into
-              // Settings, and next/image would need every possible host declared
-              // in advance.
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={heroMedia}
-                alt={`Inside ${settings['business.name']}`}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-8 text-center text-cocoa-700">
-                <span className="font-display text-4xl">✿</span>
-                <p className="text-sm font-medium">Spa photo</p>
-                <p className="text-xs text-cocoa-600">
-                  Add one in Settings → Business → Photo or video on the landing page.
-                </p>
-              </div>
-            )}
-          </div>
+        {/* Scrim, heaviest where the words sit. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 z-10 bg-[linear-gradient(95deg,rgba(74,54,38,0.9)_0%,rgba(74,54,38,0.6)_45%,rgba(74,54,38,0.15)_78%)]"
+        />
+        <div className="relative z-20 mx-auto w-full max-w-6xl px-4 py-20 sm:py-24">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-sand-300">
+            {settings['business.locality']} · Open until {closeLabel}, daily
+          </p>
+          <h1 className="mt-6 font-display text-[2.75rem] leading-[1.02] text-white sm:text-6xl">
+            {taglineHead}
+            {taglineTail && <em className="block italic text-gilt-500">{taglineTail}</em>}
+          </h1>
+          <p className="mt-6 max-w-xl leading-relaxed text-sand-100">
+            Your wellness escape in {settings['business.locality']} awaits. Enjoy massage, body
+            scrubs, foot spas, and sauna treatments, then book your preferred therapist, room,
+            and time in just a few clicks.
+          </p>
+          <Link href="/book" className="btn-primary mt-9 rounded-full px-7">
+            Book your escape
+          </Link>
         </div>
       </section>
 
-      {/* ------------------------------------------------------ promos */}
+      {/* -------------------------------------------------------- promos */}
       {promos.length > 0 && (
-        <section className="mx-auto max-w-5xl px-4 pb-6">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
+        <section className="mx-auto max-w-6xl px-4 pt-14">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
             What&apos;s on right now
-          </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {promos.map((p) => (
-              <div key={p.id} className="card-pad border-cocoa-200 bg-cocoa-50">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-cocoa-800">{p.name}</p>
-                    <p className="muted mt-1">{p.description}</p>
-                  </div>
-                  <span className="badge shrink-0 whitespace-nowrap bg-cocoa-600 text-white">
-                    {p.type === 'PERCENT' ? `${p.value}% off` : `${formatPesoMenu(p.value)} off`}
-                  </span>
+              <div
+                key={p.id}
+                className="flex items-start justify-between gap-4 border border-sand-200
+                           border-l-[3px] border-l-gilt-600 bg-white p-5"
+              >
+                <div>
+                  <p className="font-semibold text-cocoa-800">{p.name}</p>
+                  <p className="muted mt-1">{p.description}</p>
+                  {p.code && (
+                    <p className="mt-3 text-xs text-cocoa-500">
+                      Mention code <strong className="tracking-wide">{p.code}</strong> when you
+                      book.
+                    </p>
+                  )}
                 </div>
-                {p.code && (
-                  <p className="mt-3 text-xs text-cocoa-500">
-                    Mention code <strong className="tracking-wide">{p.code}</strong> when you
-                    book.
-                  </p>
-                )}
+                <span className="badge shrink-0 whitespace-nowrap rounded-none bg-cocoa-800 px-2.5 py-1 text-white">
+                  {p.type === 'PERCENT' ? `${p.value}% off` : `${formatPesoMenu(p.value)} off`}
+                </span>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* ---------------------------------------------------- services */}
-      <section id="services" className="border-t border-sand-200 bg-sand-100">
-        <div className="mx-auto max-w-3xl px-4 py-16 sm:py-20">
-          <div className="text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
-              The menu
+      {/* ------------------------------------------------------ services */}
+      {/* The cards and the price list are one section, because "Services" in
+          the nav has to mean both. Splitting them is what made an earlier
+          draft need a "Packages" item that opened the prices. */}
+      <section id="services" className="scroll-mt-20 py-16 sm:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.85fr_2fr] lg:items-center">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
+              Our services
             </p>
-            <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
-              Services &amp; Price List
+            <h2 className="mt-3 font-display text-3xl leading-tight text-cocoa-800 sm:text-4xl">
+              Crafted for
+              <br />
+              your well-being
             </h2>
-            <div
-              aria-hidden
-              className="mt-5 flex items-center justify-center gap-4 text-cocoa-300"
-            >
-              <span className="h-px w-10 bg-sand-300" />
-              <span className="font-display text-lg">✿</span>
-              <span className="h-px w-10 bg-sand-300" />
-            </div>
+            <p className="mt-4 text-cocoa-600">
+              From therapeutic massage to full body rituals, every treatment is chosen to leave
+              you lighter than you arrived.
+            </p>
           </div>
-
-          {/* Leader dots, as on a printed spa menu — the one structural device
-              here that encodes something true about the content. */}
-          <div className="mt-12 space-y-11">
-            {menu.map((cat) => (
-                <div key={cat.id}>
-                  <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
-                    {cat.name}
-                  </h3>
-                  <ul className="mt-6 space-y-5">
-                    {cat.services.map((s) => (
-                      <li key={s.id}>
-                        <div className="flex items-baseline gap-3">
-                          <span className="font-medium text-cocoa-800">{s.name}</span>
-                          <span
-                            aria-hidden
-                            className="min-w-6 flex-1 -translate-y-1 border-b border-dotted border-sand-300"
-                          />
-                          <span className="num shrink-0 text-[15px] text-gilt-600">
-                            {formatPesoMenu(s.priceCents)}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-sm text-cocoa-500">
-                          {s.description}
-                          {/* Most catalogues already carry the length in the
-                              name — "Swedish Massage (60 min)" — so only add it
-                              when the name has not said it already. */}
-                          {!/\d\s*min/i.test(s.name) && (
-                            <>
-                              {s.description && ' · '}
-                              {s.durationMinutes} minutes
-                            </>
-                          )}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {SHELVES.map((s) => (
+              <div
+                key={s.name}
+                className={`ph ${s.art} flex aspect-4/5 flex-col justify-end p-4 text-white`}
+              >
+                <div
+                  aria-hidden
+                  className="absolute inset-0 bg-[linear-gradient(to_top,rgba(74,54,38,0.94)_8%,rgba(74,54,38,0.34)_55%,rgba(74,54,38,0.12)_100%)]"
+                />
+                <div className="relative">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-sand-100">{s.name}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-sand-200">{s.blurb}</p>
                 </div>
-              ))}
-          </div>
-
-          {packages.length > 0 && (
-            <div className="mt-14">
-              <h3 className="text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
-                Packages &amp; membership
-              </h3>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                {packages.map((p) => {
-                  // A membership is a list of perks, and the owner writes it as
-                  // one per line. HTML collapses those newlines, which ran the
-                  // perks together into a single unreadable sentence — so a
-                  // description that was written as lines is shown as lines.
-                  const perks = p.description
-                    .split('\n')
-                    .map((line) => line.replace(/^[-•*·]\s*/, '').trim())
-                    .filter(Boolean);
-
-                  return (
-                    <div key={p.id} className="card-pad">
-                      <div className="flex items-start justify-between gap-3">
-                        <p className="font-semibold text-cocoa-800">{p.name}</p>
-                        <p className="num shrink-0 text-[15px] text-gilt-600">
-                          {formatPesoMenu(p.priceCents)}
-                        </p>
-                      </div>
-                      {perks.length > 1 ? (
-                        <ul className="mt-2 space-y-1.5">
-                          {perks.map((perk) => (
-                            <li key={perk} className="flex gap-2.5">
-                              <span
-                                aria-hidden
-                                className="mt-[0.55rem] h-1 w-1 shrink-0 rotate-45 bg-gilt-600/70"
-                              />
-                              <span className="muted">{perk}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="muted mt-1">{p.description}</p>
-                      )}
-                      <p className="mt-2 text-xs text-cocoa-400">
-                        Valid for {Math.round(p.validityDays / 30)} months. Ask at reception to
-                        avail.
-                      </p>
-                    </div>
-                  );
-                })}
               </div>
-            </div>
-          )}
-
-          <div className="mt-14 text-center">
-            <Link href="/book" className="btn-primary rounded-full px-7">
-              Book now
-            </Link>
+            ))}
           </div>
         </div>
+
+        {menu.length > 0 && (
+          <div className="mt-20 border-t border-sand-200 bg-sand-100 py-16 sm:py-20">
+            <div className="mx-auto max-w-6xl px-4">
+              <div className="mb-10 text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
+                  The menu
+                </p>
+                <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
+                  Every treatment, every price
+                </h2>
+              </div>
+              <PriceMenu categories={menu} />
+              <div className="mt-14 text-center">
+                <Link href="/book" className="btn-primary rounded-full px-7">
+                  Book now
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ---------------------------------------------------- late hours */}
       {/* The one dark band on the page, and the only place gold is used at
           size. Gold measures 3.4:1 on sand-50 — a hairline of contrast — but
           reads properly on cocoa-800, so the accent finally does the job it
-          was picked for. It also breaks a page that is otherwise cream from
-          top to bottom. */}
+          was picked for. */}
       <section className="relative overflow-hidden border-t border-sand-200 bg-cocoa-800">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_78%_15%,rgba(168,130,60,0.20),transparent_68%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_90%_at_78%_15%,rgba(168,130,60,0.22),transparent_68%)]"
         />
         <div className="relative mx-auto max-w-3xl px-4 py-16 sm:py-20">
           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sand-300">
@@ -354,9 +290,9 @@ export default async function LandingPage() {
             The city closes at six. <em className="italic text-gilt-500">We don&apos;t.</em>
           </h2>
           <p className="mt-4 max-w-xl leading-relaxed text-sand-200">
-            Most spas in Quezon City have locked up by the time you finish work. We take our
-            last booking at {lastBookingLabel}, so a day that ran long can still end on a warm
-            bed with the lights low.
+            Most spas in {settings['business.locality']} have locked up by the time
+            you finish work. We take our last booking at {lastBookingLabel}, so a day that ran
+            long can still end on a warm bed with the lights low.
           </p>
           <dl className="mt-8 flex flex-wrap gap-x-10 gap-y-5 border-t border-sand-200/20 pt-6">
             <div>
@@ -379,32 +315,167 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* --------------------------------------------------------- about */}
+      <section id="about" className="scroll-mt-20 border-t border-sand-200 bg-white">
+        <div className="mx-auto grid max-w-6xl lg:grid-cols-2">
+          <div className="ph ph-lounge min-h-64 lg:min-h-[26rem]" />
+          <div className="px-4 py-14 sm:px-10 sm:py-16">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
+              About us
+            </p>
+            <h2 className="mt-3 font-display text-3xl leading-tight text-cocoa-800 sm:text-4xl">
+              A sanctuary
+              <br />
+              of tranquility
+            </h2>
+            <p className="mt-5 max-w-lg text-cocoa-600">
+              {settings['business.name']} is a neighbourhood wellness spa. We keep it simple:
+              skilled therapists, clean rooms, honest prices, and enough time to actually unwind.
+              Whether you need an hour between shifts or a long evening reset, there&apos;s a slot
+              for you — we&apos;re open until {closeLabel}, every day.
+            </p>
+            <dl className="mt-9 grid grid-cols-2 gap-5 sm:grid-cols-3">
+              {[
+                ['Professional therapists', 'M5 21c0-4 3-6 7-6s7 2 7 6'],
+                ['Hygienic & safe space', 'M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z'],
+                ['Personalized care', 'M6 4h3l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z'],
+              ].map(([label, path]) => (
+                <div key={label} className="flex gap-2.5">
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 24 24"
+                    className="mt-0.5 h-5 w-5 shrink-0 stroke-gilt-600"
+                    fill="none"
+                    strokeWidth={1.3}
+                  >
+                    <path d={path} />
+                  </svg>
+                  <dt className="text-[13px] leading-snug text-cocoa-700">{label}</dt>
+                </div>
+              ))}
+            </dl>
+            <a href="#visit" className="btn-secondary mt-9 rounded-full px-6">
+              Hours, address &amp; map
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------- membership */}
+      {/* Whatever the Owner has published, rendered as it stands. No tiers are
+          invented here: an empty list means the band does not appear. */}
+      {packages.length > 0 && (
+        <section
+          id="membership"
+          className="relative scroll-mt-20 overflow-hidden border-t border-sand-200 bg-cocoa-700"
+        >
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-[0.9fr_2fr] lg:items-center">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sand-300">
+                Exclusive for members
+              </p>
+              <h2 className="mt-3 font-display text-3xl leading-tight text-sand-50 sm:text-4xl">
+                More benefits,
+                <br />
+                more reasons to relax
+              </h2>
+              <p className="mt-4 text-sand-200">
+                Ask at reception to avail, or mention it when you book.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {packages.map((p) => {
+                // A membership is a list of perks, and the owner writes it as
+                // one per line. HTML collapses those newlines, which ran the
+                // perks together into a single unreadable sentence.
+                const perks = p.description
+                  .split('\n')
+                  .map((line) => line.replace(/^[-•*·]\s*/, '').trim())
+                  .filter(Boolean);
+
+                // A membership's headline is what it takes off every visit,
+                // not what it costs — that is the number someone joins for.
+                // It comes from the package's own memberDiscountPercent, so
+                // the tiers are whatever the Owner set up in Marketing →
+                // Packages and no percentage is ever typed in here.
+                const isMembership = p.type === 'MEMBERSHIP' && p.memberDiscountPercent > 0;
+
+                return (
+                  <div
+                    key={p.id}
+                    className="flex flex-col bg-cocoa-800/70 p-6 shadow-[inset_0_0_0_1px_rgba(214,194,162,0.22)]"
+                  >
+                    <p className="font-display text-2xl italic text-sand-50">{p.name}</p>
+                    {isMembership && (
+                      <p className="mt-3">
+                        <span className="num font-display text-3xl text-gilt-500">
+                          {p.memberDiscountPercent}%
+                        </span>{' '}
+                        <span className="text-xs uppercase tracking-[0.18em] text-sand-200">
+                          off every visit
+                        </span>
+                      </p>
+                    )}
+                    <p className="num mt-1 text-[15px] text-gilt-500">
+                      {formatPesoMenu(p.priceCents)}
+                    </p>
+                    {perks.length > 1 ? (
+                      <ul className="mt-4 space-y-1.5">
+                        {perks.map((perk) => (
+                          <li key={perk} className="flex gap-2.5">
+                            <span
+                              aria-hidden
+                              className="mt-[0.55rem] h-1 w-1 shrink-0 rotate-45 bg-gilt-500/80"
+                            />
+                            <span className="text-sm text-sand-200">{perk}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-4 text-sm text-sand-200">{p.description}</p>
+                    )}
+                    <p className="mt-4 text-xs text-sand-300">
+                      Valid for {Math.round(p.validityDays / 30)} months.
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* -------------------------------------------------- testimonials */}
       {/* Absent entirely when there is nothing released — an empty "what guests
           say" heading above three blank cards says something worse than
           silence. */}
       {testimonials.length > 0 && (
-        <section className="border-t border-sand-200 bg-sand-100">
-          <div className="mx-auto max-w-5xl px-4 py-16 sm:py-20">
-            <div className="text-center">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cocoa-400">
-                In their words
+        <section id="guests" className="scroll-mt-20 border-t border-sand-200 bg-sand-50 py-16 sm:py-20">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.8fr_2.4fr] lg:items-center">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
+                What our guests say
               </p>
-              <h2 className="mt-3 font-display text-3xl text-cocoa-800 sm:text-4xl">
-                What guests say
+              <h2 className="mt-3 font-display text-3xl leading-tight text-cocoa-800 sm:text-4xl">
+                Moments of peace,
+                <br />
+                remembered
               </h2>
             </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-8 sm:grid-cols-3">
               {testimonials.map((t) => (
-                <figure key={t.id} className="card-pad">
-                  <p aria-label={`${t.rating} out of 5`} className="tracking-[0.12em] text-gilt-500">
+                <figure key={t.id}>
+                  <p
+                    aria-label={`${t.rating} out of 5`}
+                    className="tracking-[0.12em] text-gilt-600"
+                  >
                     {'★'.repeat(t.rating)}
                     <span className="text-sand-300">{'★'.repeat(5 - t.rating)}</span>
                   </p>
-                  <blockquote className="mt-3 font-display text-[15px] italic leading-relaxed text-cocoa-700">
+                  <blockquote className="mt-3 text-[15px] leading-relaxed text-cocoa-700">
                     &ldquo;{t.comment}&rdquo;
                   </blockquote>
-                  <figcaption className="mt-3 text-xs text-cocoa-400">
+                  <figcaption className="mt-4 text-sm text-cocoa-500">
                     {shortName(t.client.name)}
                   </figcaption>
                 </figure>
@@ -414,62 +485,20 @@ export default async function LandingPage() {
         </section>
       )}
 
-      {/* --------------------------------------------------- about/visit */}
-      <section id="visit" className="border-t border-sand-200 bg-sand-50">
-        <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-2">
+      {/* ------------------------------------------------- visit / footer */}
+      {/* One closing block. An earlier draft said where we are twice: an
+          "About ANICA" section, and the footer directly beneath repeating the
+          same hours and address. */}
+      <footer id="visit" className="scroll-mt-20 border-t border-sand-200 bg-sand-100 pt-16">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.85fr_1.15fr]">
           <div>
-            <h2 className="font-display text-2xl text-cocoa-800 sm:text-3xl">About ANICA</h2>
-            <p className="mt-3 text-cocoa-600">
-              ANICA Wellness Spa is a neighbourhood wellness spa in Quezon City. We keep it
-              simple: skilled therapists, clean rooms, honest prices, and enough time to
-              actually unwind. Whether you need an hour between shifts or a long evening
-              reset, there&apos;s a slot for you — we&apos;re open until midnight, every day.
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
+              Find us
             </p>
-
-            <dl className="mt-6 space-y-3 text-sm">
-              <div>
-                <dt className="font-semibold text-cocoa-700">Opening hours</dt>
-                <dd className="text-cocoa-600">{hours}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-cocoa-700">Address</dt>
-                <dd className="text-cocoa-600">{settings['business.address']}</dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-cocoa-700">Contact</dt>
-                <dd className="text-cocoa-600">
-                  {settings['business.contact']}
-                  <br />
-                  <a
-                    className="underline underline-offset-4"
-                    href={`mailto:${settings['business.email']}`}
-                  >
-                    {settings['business.email']}
-                  </a>
-                </dd>
-              </div>
-              <div>
-                <dt className="font-semibold text-cocoa-700">Facebook</dt>
-                <dd>
-                  <a
-                    className="text-cocoa-600 underline underline-offset-4"
-                    href={settings['business.facebook']}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    facebook.com/ANICAWellnessSpa
-                  </a>
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <div>
-            <h2 className="font-display text-2xl text-cocoa-800 sm:text-3xl">Find us</h2>
-            <div className="mt-3 aspect-video overflow-hidden rounded-2xl border border-sand-200 bg-sand-100">
+            <div className="mt-5 aspect-4/3 overflow-hidden border border-sand-200 bg-sand-50">
               {mapUrl ? (
                 <iframe
-                  title="Map to ANICA Wellness Spa"
+                  title={`Map to ${settings['business.name']}`}
                   src={mapUrl}
                   className="h-full w-full"
                   loading="lazy"
@@ -477,25 +506,115 @@ export default async function LandingPage() {
                 />
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center text-sm text-cocoa-500">
-                  <span className="text-3xl">📍</span>
-                  <p className="font-medium">Map goes here</p>
+                  <span className="text-2xl text-gilt-600">●</span>
+                  <p className="font-medium text-cocoa-700">Map goes here</p>
                   <p className="text-xs">
-                    Settings → Business → Map for the landing page. In Google Maps: Share →
-                    Embed a map → Copy HTML.
+                    Settings → Business → Map for the landing page. In Google Maps: Share → Embed
+                    a map → Copy HTML.
                   </p>
                 </div>
               )}
             </div>
           </div>
+
+          <div className="grid gap-9">
+            <div>
+              <p className="font-display text-xl font-bold uppercase tracking-[0.22em] text-cocoa-800">
+                {settings['business.name']}
+              </p>
+              {/* The initials spell ANICA, so the line breaks carry meaning and
+                  must not be reflowed into a paragraph. */}
+              <p className="mt-4 font-display text-[15px] leading-[1.7] text-cocoa-700">
+                A quiet room.
+                <br />
+                Noon till midnight.
+                <br />
+                In careful hands.
+                <br />
+                Close to home.
+                <br />
+                Always here.
+              </p>
+            </div>
+
+            <div className="grid gap-8 sm:grid-cols-3">
+              <div>
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-800">
+                  Visit us
+                </h3>
+                <p className="mt-4 text-sm text-cocoa-500">{hours}</p>
+                <p className="mt-3 text-sm text-cocoa-500">{settings['business.address']}</p>
+              </div>
+              <div>
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-800">
+                  Contact
+                </h3>
+                <p className="mt-4 text-sm text-cocoa-500">{settings['business.contact']}</p>
+                <p className="mt-3 text-sm">
+                  <a
+                    className="text-cocoa-500 underline underline-offset-4 hover:text-gilt-600"
+                    href={`mailto:${settings['business.email']}`}
+                  >
+                    {settings['business.email']}
+                  </a>
+                </p>
+                <p className="mt-3 text-sm">
+                  <a
+                    className="text-cocoa-500 underline underline-offset-4 hover:text-gilt-600"
+                    href={settings['business.facebook']}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Facebook
+                  </a>
+                </p>
+              </div>
+              <div>
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-800">
+                  Quick links
+                </h3>
+                <ul className="mt-4 grid gap-2 text-sm text-cocoa-500">
+                  <li>
+                    <a className="hover:text-gilt-600" href="#services">
+                      Services &amp; prices
+                    </a>
+                  </li>
+                  <li>
+                    <a className="hover:text-gilt-600" href="#about">
+                      About us
+                    </a>
+                  </li>
+                  <li>
+                    <Link className="hover:text-gilt-600" href="/book">
+                      Book a slot
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
-      </section>
+
+        <div className="mx-auto mt-14 max-w-6xl px-4">
+          <div className="border-t border-sand-200 py-6 text-xs text-cocoa-500">
+            {/*
+              No staff door on the customer's page. Staff reach the system at
+              /login directly — bookmarked, or through the installed app. This
+              keeps the landing page for clients only; it does not make /login
+              secret, and is not a substitute for strong passwords.
+            */}
+            © {new Date().getFullYear()} {settings['business.name']} ·{' '}
+            {settings['business.address']}
+          </div>
+        </div>
+      </footer>
 
       {/* ------------------------------------------- sticky booking (mobile) */}
       {/* On a phone the header's "Book now" scrolls away within a screen and
           never returns, so the moment someone decides — halfway down the price
           list — there is nothing to tap. Desktop keeps the sticky header and
-          does not need this. The padding below keeps the bar from covering the
-          last line of the footer. */}
+          does not need this. The spacer below keeps the bar off the last line
+          of the footer. */}
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-sand-200 bg-sand-50/95 px-4 py-3 backdrop-blur lg:hidden">
         <div className="flex items-center gap-3">
           <p className="shrink-0 text-[11px] leading-tight text-cocoa-500">
@@ -509,21 +628,6 @@ export default async function LandingPage() {
         </div>
       </div>
       <div aria-hidden className="h-20 lg:hidden" />
-
-      {/* ------------------------------------------------------- footer */}
-      <footer className="border-t border-sand-200 bg-sand-100">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-cocoa-500">
-          <p>
-            © {new Date().getFullYear()} {settings['business.name']} · {settings['business.address']}
-          </p>
-          {/*
-            No staff door on the customer's page. Staff reach the system at /login
-            directly — bookmarked, or through the installed app. This keeps the
-            landing page for clients only; it does not make /login secret, and is
-            not a substitute for strong passwords.
-          */}
-        </div>
-      </footer>
     </div>
   );
 }

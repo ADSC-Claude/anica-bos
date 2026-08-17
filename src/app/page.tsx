@@ -8,7 +8,6 @@ import { normaliseMapEmbed } from '@/lib/map-embed';
 import { assetUrl } from '@/lib/asset-url';
 import { publishableFeedback, shortName } from '@/lib/testimonials';
 import { SiteHeader } from '@/components/landing/site-header';
-import { HeroRotator, type HeroSlide } from '@/components/landing/hero-rotator';
 import { PriceMenu } from '@/components/landing/price-menu';
 
 export const dynamic = 'force-dynamic';
@@ -52,7 +51,13 @@ export default async function LandingPage() {
       },
       orderBy: { endDate: 'asc' },
     }),
-    prisma.package.findMany({ where: { active: true, showOnLanding: true } }),
+    prisma.package.findMany({
+      where: { active: true, showOnLanding: true },
+      // Memberships lead, cheapest first, so the tiers read as a ladder rather
+      // than arriving in whatever order Postgres hands them back. Session
+      // bundles follow.
+      orderBy: [{ type: 'desc' }, { priceCents: 'asc' }],
+    }),
     publishableFeedback(prisma, 3),
   ]);
 
@@ -103,33 +108,6 @@ export default async function LandingPage() {
   const splitAt = tagline.trimEnd().lastIndexOf(' ');
   const taglineHead = splitAt > 0 ? tagline.slice(0, splitAt + 1) : tagline;
   const taglineTail = splitAt > 0 ? tagline.slice(splitAt + 1) : '';
-
-  const slides: HeroSlide[] = [
-    {
-      head: taglineHead,
-      tail: taglineTail,
-      body:
-        `Your wellness escape in ${settings['business.locality']} awaits. ` +
-        'Enjoy massage, body scrubs, foot spas, and sauna treatments, then book your ' +
-        'preferred therapist, room, and time in just a few clicks.',
-    },
-    {
-      head: `Open ${openLabel}`,
-      tail: `till ${closeLabel}.`,
-      body: 'Every day of the week, for the hours you are actually free.',
-    },
-  ];
-  // Only promised when it is true: with booking switched off there is no
-  // two-minute booking to advertise.
-  if (settings['booking.enabled']) {
-    slides.push({
-      head: 'Book it',
-      tail: 'in two minutes.',
-      body:
-        'Pick your treatment, pick your hour, and hold it with ' +
-        `${settings['booking.depositPercent']}% down.`,
-    });
-  }
 
   // Built here, where it is known which sections actually rendered, so the nav
   // never offers a link that scrolls nowhere.
@@ -186,9 +164,15 @@ export default async function LandingPage() {
           <p className="text-[11px] uppercase tracking-[0.2em] text-sand-300">
             {settings['business.locality']} · Open until {closeLabel}, daily
           </p>
-          <div className="mt-6">
-            <HeroRotator slides={slides} />
-          </div>
+          <h1 className="mt-6 font-display text-[2.75rem] leading-[1.02] text-white sm:text-6xl">
+            {taglineHead}
+            {taglineTail && <em className="block italic text-gilt-500">{taglineTail}</em>}
+          </h1>
+          <p className="mt-6 max-w-xl leading-relaxed text-sand-100">
+            Your wellness escape in {settings['business.locality']} awaits. Enjoy massage, body
+            scrubs, foot spas, and sauna treatments, then book your preferred therapist, room,
+            and time in just a few clicks.
+          </p>
           <Link href="/book" className="btn-primary mt-9 rounded-full px-7">
             Book your escape
           </Link>
@@ -409,12 +393,29 @@ export default async function LandingPage() {
                   .map((line) => line.replace(/^[-•*·]\s*/, '').trim())
                   .filter(Boolean);
 
+                // A membership's headline is what it takes off every visit,
+                // not what it costs — that is the number someone joins for.
+                // It comes from the package's own memberDiscountPercent, so
+                // the tiers are whatever the Owner set up in Marketing →
+                // Packages and no percentage is ever typed in here.
+                const isMembership = p.type === 'MEMBERSHIP' && p.memberDiscountPercent > 0;
+
                 return (
                   <div
                     key={p.id}
                     className="flex flex-col bg-cocoa-800/70 p-6 shadow-[inset_0_0_0_1px_rgba(214,194,162,0.22)]"
                   >
                     <p className="font-display text-2xl italic text-sand-50">{p.name}</p>
+                    {isMembership && (
+                      <p className="mt-3">
+                        <span className="num font-display text-3xl text-gilt-500">
+                          {p.memberDiscountPercent}%
+                        </span>{' '}
+                        <span className="text-xs uppercase tracking-[0.18em] text-sand-200">
+                          off every visit
+                        </span>
+                      </p>
+                    )}
                     <p className="num mt-1 text-[15px] text-gilt-500">
                       {formatPesoMenu(p.priceCents)}
                     </p>

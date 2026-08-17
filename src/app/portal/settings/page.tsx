@@ -108,7 +108,8 @@ export default async function SettingsPage() {
                   sidebar. It sits inside the brown tile, so the artwork needs to be{' '}
                   <strong>white or gold on a transparent background</strong> — a dark logo will
                   disappear. Square PNG or SVG, 256px or larger. Upload it to the
-                  repository&apos;s <code>public</code> folder and enter <code>/logo.png</code>.
+                  repository&apos;s <code>public</code> folder and enter the file name,{' '}
+                  <code>/logo.png</code> — the folder itself is not part of the address.
                   Leave blank for the ✿ mark.
                 </span>
               </label>
@@ -122,8 +123,9 @@ export default async function SettingsPage() {
                 />
                 <span className="mt-1 block text-[11px] text-cocoa-400">
                   Your reception or a treatment room. Upload the file to the
-                  repository&apos;s <code>public</code> folder and enter{' '}
-                  <code>/hero.jpg</code>, or paste a full https:// link. A{' '}
+                  repository&apos;s <code>public</code> folder and enter the file name,{' '}
+                  <code>/hero.jpg</code> — the folder itself is not part of the address, and
+                  the name must match its capitals. Or paste a full https:// link. A{' '}
                   <code>.mp4</code>, <code>.webm</code> or <code>.mov</code> plays as a
                   silent loop; anything else is shown as a photo. Portrait suits the frame —
                   it is a tall arch. Leave blank for the placeholder.

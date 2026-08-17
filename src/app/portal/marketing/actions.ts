@@ -9,6 +9,7 @@ import { sendRaw } from '@/lib/email';
 import { dateKeyToBusinessDate, isBirthdayMonth } from '@/lib/datetime';
 import { formatPeso } from '@/lib/money';
 import { retentionWatch } from '@/lib/retention';
+import { normaliseAssetPath } from '@/lib/asset-url';
 
 export type FormState = { error?: string; ok?: string };
 
@@ -142,12 +143,15 @@ export async function savePackageAction(_prev: FormState, formData: FormData): P
   const name = str(formData, 'name');
   if (!name) return { error: 'Give the package a name.' };
 
+  const photo = normaliseAssetPath(str(formData, 'imageUrl'));
+  if ('error' in photo) return { error: `Photo of the card: ${photo.error}` };
+
   const type = (str(formData, 'type') || 'SESSION_PACKAGE') as 'SESSION_PACKAGE' | 'MEMBERSHIP';
   const data = {
     name,
     type,
     description: str(formData, 'description'),
-    imageUrl: str(formData, 'imageUrl'),
+    imageUrl: photo.url,
     priceCents: cents(formData, 'price'),
     validityDays: Math.round(Number(formData.get('validityDays') ?? 365)),
     memberDiscountPercent: Math.round(Number(formData.get('memberDiscountPercent') ?? 0)),

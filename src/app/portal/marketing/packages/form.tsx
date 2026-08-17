@@ -64,8 +64,9 @@ export function PackageForm({
           <span className="mt-1 block text-[11px] text-cocoa-400">
             Shown on the landing page above this package. A photograph of the card itself sells
             a membership better than its perks list does. Upload to the repository&apos;s{' '}
-            <code>public</code> folder and enter <code>/gold-card.jpg</code>, or paste a full
-            https:// link. Landscape suits the frame.
+            <code>public</code> folder and enter the file name, <code>/gold-card.jpg</code> —
+            the folder itself is not part of the address, and the name must match its capitals.
+            Or paste a full https:// link. Landscape suits the frame.
           </span>
         </label>
         <div className="grid grid-cols-2 gap-2">

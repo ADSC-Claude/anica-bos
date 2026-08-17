@@ -47,10 +47,11 @@ export function ServiceCategoryEditor({ categories }: { categories: Category[] }
           <input name="imageUrl" className="input" defaultValue={current?.imageUrl ?? ''}
             placeholder="/massage.jpg" />
           <span className="mt-1 block text-[11px] text-cocoa-400">
-            Shown on the landing page&apos;s services cards — the first four categories get one
-            each. Upload to the repository&apos;s <code>public</code> folder and enter{' '}
-            <code>/massage.jpg</code>, or paste a full https:// link. Landscape or square.
-            Leave blank for the warm placeholder.
+            Shown on the landing page&apos;s services cards — the first four categories by
+            order number get one each. Upload to the repository&apos;s <code>public</code>{' '}
+            folder and enter the file name, <code>/massage.jpg</code> — the folder itself is
+            not part of the address, and the name must match its capitals. Or paste a full
+            https:// link. Landscape or square. Leave blank for the warm placeholder.
           </span>
         </label>
 

@@ -9,6 +9,7 @@ import { assetUrl } from '@/lib/asset-url';
 import { publishableFeedback, shortName } from '@/lib/testimonials';
 import { SiteHeader } from '@/components/landing/site-header';
 import { PriceMenu } from '@/components/landing/price-menu';
+import { Wordmark } from '@/components/landing/wordmark';
 
 export const dynamic = 'force-dynamic';
 
@@ -519,9 +520,7 @@ export default async function LandingPage() {
 
           <div className="grid gap-9">
             <div>
-              <p className="font-display text-xl font-bold uppercase tracking-[0.22em] text-cocoa-800">
-                {settings['business.name']}
-              </p>
+              <Wordmark name={settings['business.name']} size="lg" />
               {/* The initials spell ANICA, so the line breaks carry meaning and
                   must not be reflowed into a paragraph. */}
               <p className="mt-4 font-display text-[15px] leading-[1.7] text-cocoa-700">

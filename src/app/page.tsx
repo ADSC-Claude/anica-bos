@@ -110,13 +110,37 @@ export default async function LandingPage() {
   const taglineHead = splitAt > 0 ? tagline.slice(0, splitAt + 1) : tagline;
   const taglineTail = splitAt > 0 ? tagline.slice(splitAt + 1) : '';
 
+  // With online booking switched off in Settings, the page must stop offering
+  // it. The wizard already refuses politely, but sending someone through three
+  // taps to be told "call us" wastes their time and looks broken — so the call
+  // to action becomes the phone number itself.
+  const bookingOn = settings['booking.enabled'];
+  const telHref = `tel:${settings['business.contact'].replace(/[^\d+]/g, '')}`;
+  const cta = bookingOn
+    ? { href: '/book', label: 'Book now' }
+    : { href: telHref, label: 'Call to book' };
+
+  // Selected quotes above, the whole listing's score beneath. Shown only when
+  // every part is set: a rating without a link is a claim nobody can check.
+  const google =
+    settings['business.googleUrl'] &&
+    settings['business.googleRating'] &&
+    settings['business.googleReviewCount'] > 0
+      ? {
+          url: settings['business.googleUrl'],
+          rating: settings['business.googleRating'],
+          count: settings['business.googleReviewCount'],
+        }
+      : null;
+  const hasGuests = testimonials.length > 0 || google !== null;
+
   // Built here, where it is known which sections actually rendered, so the nav
   // never offers a link that scrolls nowhere.
   const navLinks = [
     { href: '#services', label: 'Services' },
     { href: '#about', label: 'About' },
     ...(packages.length > 0 ? [{ href: '#membership', label: 'Membership' }] : []),
-    ...(testimonials.length > 0 ? [{ href: '#guests', label: 'Guests' }] : []),
+    ...(hasGuests ? [{ href: '#guests', label: 'Guests' }] : []),
     { href: '#visit', label: 'Visit us' },
   ];
 
@@ -126,6 +150,7 @@ export default async function LandingPage() {
         name={settings['business.name']}
         logoUrl={settings['business.logoUrl']}
         links={navLinks}
+        cta={cta}
       />
 
       {/* ---------------------------------------------------------- hero */}
@@ -174,9 +199,20 @@ export default async function LandingPage() {
             scrubs, foot spas, and sauna treatments, then book your preferred therapist, room,
             and time in just a few clicks.
           </p>
-          <Link href="/book" className="btn-primary mt-9 rounded-full px-7">
-            Book your escape
-          </Link>
+          {bookingOn ? (
+            <Link href="/book" className="btn-primary mt-9 rounded-full px-7">
+              Book your escape
+            </Link>
+          ) : (
+            <div className="mt-9">
+              <a href={telHref} className="btn-primary rounded-full px-7">
+                Call to book
+              </a>
+              <p className="mt-3 text-sm text-sand-200">
+                Online booking is paused. Call us and we&apos;ll set your appointment.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -264,9 +300,9 @@ export default async function LandingPage() {
               </div>
               <PriceMenu categories={menu} />
               <div className="mt-14 text-center">
-                <Link href="/book" className="btn-primary rounded-full px-7">
-                  Book now
-                </Link>
+                <a href={cta.href} className="btn-primary rounded-full px-7">
+                  {cta.label}
+                </a>
               </div>
             </div>
           </div>
@@ -450,7 +486,7 @@ export default async function LandingPage() {
       {/* Absent entirely when there is nothing released — an empty "what guests
           say" heading above three blank cards says something worse than
           silence. */}
-      {testimonials.length > 0 && (
+      {hasGuests && (
         <section id="guests" className="scroll-mt-20 border-t border-sand-200 bg-sand-50 py-16 sm:py-20">
           <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.8fr_2.4fr] lg:items-center">
             <div>
@@ -462,6 +498,25 @@ export default async function LandingPage() {
                 <br />
                 remembered
               </h2>
+              {/* The quotes above are chosen; this is not. Putting the whole
+                  listing's average and count beside them — linked, so anyone
+                  can go and read the rest — is what keeps a curated selection
+                  honest. */}
+              {google && (
+                <a
+                  href={google.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="mt-6 inline-flex items-baseline gap-2 border-b border-sand-300 pb-1
+                             text-sm text-cocoa-600 transition hover:border-gilt-600 hover:text-gilt-600"
+                >
+                  <span className="text-gilt-600">★</span>
+                  <span className="num font-semibold text-cocoa-800">{google.rating}</span>
+                  <span>on Google</span>
+                  <span className="text-cocoa-400">·</span>
+                  <span className="num">{google.count.toLocaleString('en-PH')} reviews</span>
+                </a>
+              )}
             </div>
             <div className="grid gap-8 sm:grid-cols-3">
               {testimonials.map((t) => (
@@ -584,9 +639,9 @@ export default async function LandingPage() {
                     </a>
                   </li>
                   <li>
-                    <Link className="hover:text-gilt-600" href="/book">
-                      Book a slot
-                    </Link>
+                    <a className="hover:text-gilt-600" href={cta.href}>
+                      {cta.label}
+                    </a>
                   </li>
                 </ul>
               </div>
@@ -621,9 +676,12 @@ export default async function LandingPage() {
             <br />
             <span className="font-semibold text-cocoa-700">{closeLabel}</span>
           </p>
-          <Link href="/book" className="btn-primary flex-1 justify-center rounded-full text-center">
-            Book a slot
-          </Link>
+          <a
+            href={cta.href}
+            className="btn-primary flex-1 justify-center rounded-full text-center"
+          >
+            {bookingOn ? 'Book a slot' : 'Call to book'}
+          </a>
         </div>
       </div>
       <div aria-hidden className="h-20 lg:hidden" />

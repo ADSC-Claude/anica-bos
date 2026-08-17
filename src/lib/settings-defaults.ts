@@ -22,6 +22,26 @@ export const DEFAULT_SETTINGS = {
   'business.contact': '+63 900 000 0000',
   'business.email': 'hello@anicawellnessspa.ph',
   'business.facebook': 'https://www.facebook.com/ANICAWellnessSpa',
+  /**
+   * The Google listing, and the score it shows.
+   *
+   * Typed in rather than fetched. Reading reviews through Google's APIs means
+   * an approved Business Profile application, and it obliges the site to
+   * reproduce each review with Google's own attribution — which is a different
+   * feature from the quotes the spa curates itself.
+   *
+   * What this does instead is show the standing that the whole listing has, in
+   * one line, linked so anyone can go and read the reviews at source. Selected
+   * quotes above, the real overall score beneath: nothing is hidden by picking
+   * favourites, because the count and the average are right there.
+   *
+   * Empty means the line does not appear.
+   */
+  'business.googleUrl': '',
+  /** As Google shows it, e.g. "4.9". Blank hides the line. */
+  'business.googleRating': '',
+  /** How many reviews that average is over. 0 hides the line. */
+  'business.googleReviewCount': 0,
   'business.mapEmbedUrl': '',
   'business.logoUrl': '',
   /// Photo behind the hero arch. Either a file uploaded to /public ("/hero.jpg")

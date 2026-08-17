@@ -56,6 +56,39 @@ export default async function SettingsPage() {
                 <span className="label">Facebook page</span>
                 <input name="facebook" className="input" defaultValue={s['business.facebook']} />
               </label>
+              <fieldset className="rounded-xl border border-sand-200 p-3">
+                <legend className="label px-1">Google reviews</legend>
+                <p className="muted mb-3 text-xs">
+                  Typed in, not fetched. The landing page shows this score under the guest
+                  quotes and links to the listing, so the quotes you choose sit next to the
+                  average everybody can check. Leave blank to hide the line.
+                </p>
+                <label className="block">
+                  <span className="label">Listing link</span>
+                  <input name="googleUrl" className="input" defaultValue={s['business.googleUrl']} />
+                </label>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="label">Rating</span>
+                    <input
+                      name="googleRating"
+                      className="input"
+                      placeholder="4.9"
+                      defaultValue={s['business.googleRating']}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="label">Number of reviews</span>
+                    <input
+                      name="googleReviewCount"
+                      type="number"
+                      min={0}
+                      className="input"
+                      defaultValue={s['business.googleReviewCount']}
+                    />
+                  </label>
+                </div>
+              </fieldset>
               <label className="block">
                 <span className="label">Map for the landing page</span>
                 <input name="mapEmbedUrl" className="input" defaultValue={s['business.mapEmbedUrl']}

@@ -51,6 +51,12 @@ export async function saveSettingsAction(
         'business.contact': str(formData, 'contact'),
         'business.email': str(formData, 'email'),
         'business.facebook': str(formData, 'facebook'),
+        'business.googleUrl': str(formData, 'googleUrl'),
+        'business.googleRating': str(formData, 'googleRating'),
+        'business.googleReviewCount': Math.max(
+          0,
+          Math.round(Number(formData.get('googleReviewCount') ?? 0)) || 0,
+        ),
         'business.mapEmbedUrl': map.url,
         'business.logoUrl': str(formData, 'logoUrl'),
         'business.heroImageUrl': str(formData, 'heroImageUrl'),

@@ -120,6 +120,11 @@ export default async function LandingPage() {
   const heroMedia = assetUrl(settings['business.heroImageUrl']);
   const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
   const aboutImage = assetUrl(settings['business.aboutImageUrl']);
+
+  const socials = [
+    { label: 'Facebook', href: settings['business.facebook'] },
+    { label: 'Instagram', href: settings['business.instagram'] },
+  ].filter((s) => s.href);
   const shelves = SHELVES.map((s) => ({ ...s, image: assetUrl(s.photo) }));
 
   const openLabel = minutesToLabel(settings['business.openMinute']);
@@ -749,16 +754,25 @@ export default async function LandingPage() {
                     {settings['business.email']}
                   </a>
                 </p>
-                <p className="mt-3 text-sm">
-                  <a
-                    className="text-cocoa-500 underline underline-offset-4 hover:text-gilt-600"
-                    href={settings['business.facebook']}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                  >
-                    Facebook
-                  </a>
-                </p>
+                {/* Each social link appears only if there is one. An empty
+                    setting used to render "Facebook" pointing at nothing,
+                    which sends a guest to this site's own 404 — the worst
+                    possible answer to "are these people real?". */}
+                {socials.length > 0 && (
+                  <p className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                    {socials.map((s) => (
+                      <a
+                        key={s.label}
+                        className="text-cocoa-500 underline underline-offset-4 hover:text-gilt-600"
+                        href={s.href}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                      >
+                        {s.label}
+                      </a>
+                    ))}
+                  </p>
+                )}
               </div>
               <div>
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cocoa-800">

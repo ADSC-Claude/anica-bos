@@ -52,10 +52,24 @@ export default async function SettingsPage() {
                   <input name="email" type="email" className="input" defaultValue={s['business.email']} />
                 </label>
               </div>
-              <label className="block">
-                <span className="label">Facebook page</span>
-                <input name="facebook" className="input" defaultValue={s['business.facebook']} />
-              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="label">Facebook page</span>
+                  <input name="facebook" className="input" defaultValue={s['business.facebook']}
+                    placeholder="ANICAWellnessSpa" />
+                </label>
+                <label className="block">
+                  <span className="label">Instagram</span>
+                  <input name="instagram" className="input" defaultValue={s['business.instagram']}
+                    placeholder="@anicawellnessspa" />
+                </label>
+              </div>
+              <span className="-mt-1 block text-[11px] text-cocoa-400">
+                Paste the whole link, or just the username with or without its{' '}
+                <code>@</code> — either is turned into the full address. Leave one blank and
+                the website simply does not offer it, rather than showing a link that goes
+                nowhere.
+              </span>
               <fieldset className="rounded-xl border border-sand-200 p-3">
                 <legend className="label px-1">Google reviews</legend>
                 <p className="muted mb-3 text-xs">

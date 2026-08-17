@@ -23,6 +23,12 @@ export const DEFAULT_SETTINGS = {
   'business.email': 'hello@anicawellnessspa.ph',
   'business.facebook': 'https://www.facebook.com/ANICAWellnessSpa',
   /**
+   * The Instagram profile. Empty by default, and empty means the footer simply
+   * does not offer one — a social link that goes nowhere is worse for a spa
+   * than no social link at all.
+   */
+  'business.instagram': '',
+  /**
    * The Google listing, and the score it shows.
    *
    * Typed in rather than fetched. Reading reviews through Google's APIs means

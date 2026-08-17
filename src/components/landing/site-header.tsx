@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { BrandMark } from '@/components/brand-mark';
+import { Wordmark } from '@/components/landing/wordmark';
 
 /**
  * The landing page's own header: dark, so the hero photo runs under it, and
@@ -29,11 +30,9 @@ export function SiteHeader({
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-cocoa-800/90 backdrop-blur">
       <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
+        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
           <BrandMark logoUrl={logoUrl} size={34} />
-          <span className="font-display text-[15px] font-bold uppercase tracking-[0.22em] text-white">
-            {name}
-          </span>
+          <Wordmark name={name} tone="light" />
         </Link>
 
         <nav

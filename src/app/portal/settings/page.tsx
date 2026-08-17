@@ -132,6 +132,21 @@ export default async function SettingsPage() {
                 </span>
               </label>
               <label className="block">
+                <span className="label">Photo beside &ldquo;About us&rdquo;</span>
+                <input
+                  name="aboutImageUrl"
+                  className="input"
+                  defaultValue={s['business.aboutImageUrl']}
+                  placeholder="/about.jpg"
+                />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Fills the left half of &ldquo;A sanctuary of tranquility&rdquo;. Your reception,
+                  a lounge, a treatment room made up and waiting — the room the sentence beside
+                  it is describing. Same rules as above: the file name only, or a full https://
+                  link. Landscape or square. Leave blank for the warm panel.
+                </span>
+              </label>
+              <label className="block">
                 <span className="label">TIN (printed on receipts)</span>
                 <input name="tin" className="input" defaultValue={s['business.tin']} />
               </label>

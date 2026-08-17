@@ -48,14 +48,18 @@ export const DEFAULT_SETTINGS = {
   /// or a full https:// URL. Empty shows the placeholder.
   'business.heroImageUrl': '',
   /**
-   * One photograph beside "Crafted for your well-being".
+   * The photograph filling the left half of "A sanctuary of tranquility".
    *
-   * Deliberately a single image rather than one per category. The section is
-   * an invitation, not a catalogue — the catalogue is the price list directly
-   * beneath it — so one good photograph of a treatment in progress does the
-   * work, and the spa has to produce one image instead of seven.
+   * That panel shipped as a gradient with nothing behind it — a picture frame
+   * with no way to put a picture in it, which reads as a rendering fault
+   * rather than a choice. A setting rather than a fixed file name because it
+   * is the shot most likely to change: repaint the reception and the sentence
+   * beside it still holds, but the photograph does not.
+   *
+   * Empty keeps the warm panel, which is a great deal better than a broken
+   * frame while the spa is between photographs.
    */
-  'business.servicesImageUrl': '',
+  'business.aboutImageUrl': '',
   'business.tin': '000-000-000-00000',
   'business.currency': 'PHP',
   'business.timezone': 'Asia/Manila',

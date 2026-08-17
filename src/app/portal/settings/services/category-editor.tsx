@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react';
 import { saveServiceCategoryAction, type FormState } from '../actions';
 
-type Category = { id: string; name: string; sortRank: number; active: boolean; imageUrl: string };
+type Category = { id: string; name: string; sortRank: number; active: boolean };
 
 export function ServiceCategoryEditor({ categories }: { categories: Category[] }) {
   const [state, action] = useActionState<FormState, FormData>(saveServiceCategoryAction, {});
@@ -42,18 +42,10 @@ export function ServiceCategoryEditor({ categories }: { categories: Category[] }
           number fall back to alphabetical order.
         </span>
 
-        <label className="block">
-          <span className="label">Photo</span>
-          <input name="imageUrl" className="input" defaultValue={current?.imageUrl ?? ''}
-            placeholder="/massage.jpg" />
-          <span className="mt-1 block text-[11px] text-cocoa-400">
-            Shown on the landing page&apos;s services cards — the first four categories by
-            order number get one each. Upload to the repository&apos;s <code>public</code>{' '}
-            folder and enter the file name, <code>/massage.jpg</code> — the folder itself is
-            not part of the address, and the name must match its capitals. Or paste a full
-            https:// link. Landscape or square. Leave blank for the warm placeholder.
-          </span>
-        </label>
+        {/* No Photo field here any more. The landing page's four cards are
+            written into the page rather than generated from these headings —
+            a card can say "Foot Spa & Reflexology", which is two categories,
+            and the catalogue's order belongs to the price list. */}
 
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
           <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"

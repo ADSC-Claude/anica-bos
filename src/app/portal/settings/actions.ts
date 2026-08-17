@@ -48,6 +48,8 @@ export async function saveSettingsAction(
       if ('error' in logo) return { error: `Logo: ${logo.error}` };
       const hero = normaliseAssetPath(str(formData, 'heroImageUrl'));
       if ('error' in hero) return { error: `Landing page photo: ${hero.error}` };
+      const about = normaliseAssetPath(str(formData, 'aboutImageUrl'));
+      if ('error' in about) return { error: `About us photo: ${about.error}` };
       entries = {
         'business.name': str(formData, 'name'),
         'business.tagline': str(formData, 'tagline'),
@@ -65,6 +67,7 @@ export async function saveSettingsAction(
         'business.mapEmbedUrl': map.url,
         'business.logoUrl': logo.url,
         'business.heroImageUrl': hero.url,
+        'business.aboutImageUrl': about.url,
         'business.tin': str(formData, 'tin'),
         'business.openMinute': num(formData, 'openMinute'),
         'business.closeMinute': num(formData, 'closeMinute'),

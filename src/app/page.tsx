@@ -119,6 +119,7 @@ export default async function LandingPage() {
   // — the Owner should not have to tell the system what they just uploaded.
   const heroMedia = assetUrl(settings['business.heroImageUrl']);
   const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
+  const aboutImage = assetUrl(settings['business.aboutImageUrl']);
   const shelves = SHELVES.map((s) => ({ ...s, image: assetUrl(s.photo) }));
 
   const openLabel = minutesToLabel(settings['business.openMinute']);
@@ -422,7 +423,20 @@ export default async function LandingPage() {
       {/* --------------------------------------------------------- about */}
       <section id="about" className="scroll-mt-20 border-t border-sand-200 bg-white">
         <div className="mx-auto grid max-w-6xl lg:grid-cols-2">
-          <div className="ph ph-lounge min-h-64 lg:min-h-[26rem]" />
+          {/* The wash is the fallback, not the design. It shipped as this
+              panel's only state — a picture frame with no way to hang a
+              picture in it — which reads as something failing to load rather
+              than as a choice. */}
+          <div className="ph ph-lounge min-h-64 lg:min-h-[26rem]">
+            {aboutImage && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={aboutImage}
+                alt={`Inside ${settings['business.name']}`}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            )}
+          </div>
           <div className="px-4 py-14 sm:px-10 sm:py-16">
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
               About us
@@ -440,10 +454,27 @@ export default async function LandingPage() {
             </p>
             <dl className="mt-9 grid grid-cols-2 gap-5 sm:grid-cols-3">
               {[
-                ['Professional therapists', 'M5 21c0-4 3-6 7-6s7 2 7 6'],
-                ['Hygienic & safe space', 'M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z'],
-                ['Personalized care', 'M6 4h3l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z'],
-              ].map(([label, path]) => (
+                {
+                  label: 'Professional therapists',
+                  // Two strokes, because a person is a head and a pair of
+                  // shoulders. This carried the shoulders alone and drew a
+                  // headless arc — legible as a mistake from across the room.
+                  paths: [
+                    'M12 4.4a3.4 3.4 0 1 1 0 6.8 3.4 3.4 0 0 1 0-6.8Z',
+                    'M5 21c0-4 3-6 7-6s7 2 7 6',
+                  ],
+                },
+                {
+                  label: 'Hygienic & safe space',
+                  paths: ['M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6l7-3Z'],
+                },
+                {
+                  label: 'Personalized care',
+                  paths: [
+                    'M6 4h3l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 6a2 2 0 0 1 2-2Z',
+                  ],
+                },
+              ].map(({ label, paths }) => (
                 <div key={label} className="flex gap-2.5">
                   <svg
                     aria-hidden
@@ -452,7 +483,9 @@ export default async function LandingPage() {
                     fill="none"
                     strokeWidth={1.3}
                   >
-                    <path d={path} />
+                    {paths.map((d) => (
+                      <path key={d} d={d} />
+                    ))}
                   </svg>
                   <dt className="text-[13px] leading-snug text-cocoa-700">{label}</dt>
                 </div>

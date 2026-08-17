@@ -9,6 +9,16 @@ export const DEFAULT_SETTINGS = {
   'business.name': 'ANICA Wellness Spa',
   'business.tagline': 'Rest. Restore. Renew.',
   'business.address': 'Quezon City, Metro Manila, Philippines',
+  /**
+   * The city, said the way a guest would say it.
+   *
+   * Kept apart from the address because the landing page needs a place name
+   * inside a sentence — "Most spas in Quezon City have locked up by now" — and
+   * the address is a postal line. Slicing the city out of it only works when
+   * the address happens to start with one; an address that starts with a
+   * street produces "your wellness escape in 123 Kalayaan Avenue".
+   */
+  'business.locality': 'Quezon City',
   'business.contact': '+63 900 000 0000',
   'business.email': 'hello@anicawellnessspa.ph',
   'business.facebook': 'https://www.facebook.com/ANICAWellnessSpa',

@@ -47,6 +47,7 @@ export async function saveSettingsAction(
         'business.name': str(formData, 'name'),
         'business.tagline': str(formData, 'tagline'),
         'business.address': str(formData, 'address'),
+        'business.locality': str(formData, 'locality'),
         'business.contact': str(formData, 'contact'),
         'business.email': str(formData, 'email'),
         'business.facebook': str(formData, 'facebook'),

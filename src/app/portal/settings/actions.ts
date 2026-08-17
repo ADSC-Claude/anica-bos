@@ -282,6 +282,7 @@ export async function saveServiceCategoryAction(
     name,
     sortRank: num(formData, 'sortRank'),
     active: bool(formData, 'active'),
+    imageUrl: str(formData, 'imageUrl'),
   };
 
   const before = id ? await prisma.serviceCategory.findUnique({ where: { id } }) : null;

@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react';
 import { saveServiceCategoryAction, type FormState } from '../actions';
 
-type Category = { id: string; name: string; sortRank: number; active: boolean };
+type Category = { id: string; name: string; sortRank: number; active: boolean; imageUrl: string };
 
 export function ServiceCategoryEditor({ categories }: { categories: Category[] }) {
   const [state, action] = useActionState<FormState, FormData>(saveServiceCategoryAction, {});
@@ -41,6 +41,18 @@ export function ServiceCategoryEditor({ categories }: { categories: Category[] }
           Lowest order first, on the price list and the booking form alike. Categories sharing a
           number fall back to alphabetical order.
         </span>
+
+        <label className="block">
+          <span className="label">Photo</span>
+          <input name="imageUrl" className="input" defaultValue={current?.imageUrl ?? ''}
+            placeholder="/massage.jpg" />
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            Shown on the landing page&apos;s services cards — the first four categories get one
+            each. Upload to the repository&apos;s <code>public</code> folder and enter{' '}
+            <code>/massage.jpg</code>, or paste a full https:// link. Landscape or square.
+            Leave blank for the warm placeholder.
+          </span>
+        </label>
 
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
           <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"

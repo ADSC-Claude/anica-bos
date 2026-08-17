@@ -29,6 +29,11 @@ export async function savePromoAction(_prev: FormState, formData: FormData): Pro
     value: type === 'FIXED' ? cents(formData, 'value') : Math.round(Number(formData.get('value') ?? 0)),
     startDate: dateKeyToBusinessDate(str(formData, 'startDate')),
     endDate: dateKeyToBusinessDate(str(formData, 'endDate')),
+    // Blank means "the day it starts", which is what every promo did before
+    // this field existed.
+    showFromDate: str(formData, 'showFromDate')
+      ? dateKeyToBusinessDate(str(formData, 'showFromDate'))
+      : null,
     serviceIds: formData.getAll('serviceIds').map(String).filter(Boolean),
     code: str(formData, 'code').toUpperCase() || null,
     active: formData.get('active') === 'on',
@@ -36,6 +41,9 @@ export async function savePromoAction(_prev: FormState, formData: FormData): Pro
   };
   if (!str(formData, 'startDate') || !str(formData, 'endDate')) {
     return { error: 'Set the validity dates.' };
+  }
+  if (data.showFromDate && data.showFromDate > data.startDate) {
+    return { error: 'The website date has to be on or before the day the promo starts.' };
   }
 
   const promo = id
@@ -53,6 +61,81 @@ export async function savePromoAction(_prev: FormState, formData: FormData): Pro
   return { ok: 'Saved. Active promos appear on the landing page immediately.' };
 }
 
+/**
+ * Switching a promo or a package off, rather than deleting it.
+ *
+ * A promo that has already run is a record of what the spa offered and when —
+ * a discount taken at the till points back at nothing, so deleting the row
+ * would not corrupt a receipt, but it would quietly rewrite the history of
+ * what was advertised. Switching off does the job that is actually being
+ * asked: it leaves the landing page and the till at once, and next year it can
+ * be switched back on instead of retyped.
+ *
+ * The same applies to a package with more force: a guest may be holding
+ * sessions against it.
+ */
+export async function setPromoActiveAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requirePage('marketing.edit');
+  const id = str(formData, 'id');
+  const on = str(formData, 'on') === '1';
+  if (!id) return { error: 'Which promo?' };
+
+  const promo = await prisma.promo.update({
+    where: { id },
+    // Switching off takes it off the landing page too, because "it is still
+    // showing on the website" is the whole reason anyone reaches for this.
+    // Switching back on does not re-publish it: that is a separate decision,
+    // made in the form.
+    data: on ? { active: true } : { active: false, showOnLanding: false },
+  });
+
+  await audit(user, {
+    module: 'marketing',
+    action: on ? 'enable_promo' : 'disable_promo',
+    entityType: 'Promo',
+    entityId: promo.id,
+    summary: `${on ? 'Switched on' : 'Switched off'} promo "${promo.name}"`,
+    sensitive: true,
+  });
+  revalidatePath('/portal/marketing');
+  revalidatePath('/');
+  return { ok: on ? `"${promo.name}" is on again.` : `"${promo.name}" is off and off the website.` };
+}
+
+export async function setPackageActiveAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requirePage('marketing.edit');
+  const id = str(formData, 'id');
+  const on = str(formData, 'on') === '1';
+  if (!id) return { error: 'Which package?' };
+
+  const pkg = await prisma.package.update({
+    where: { id },
+    data: on ? { active: true } : { active: false, showOnLanding: false },
+  });
+
+  await audit(user, {
+    module: 'marketing',
+    action: on ? 'enable_package' : 'disable_package',
+    entityType: 'Package',
+    entityId: pkg.id,
+    summary: `${on ? 'Switched on' : 'Switched off'} package "${pkg.name}"`,
+    sensitive: true,
+  });
+  revalidatePath('/portal/marketing/packages');
+  revalidatePath('/');
+  return {
+    ok: on
+      ? `"${pkg.name}" is on sale again.`
+      : `"${pkg.name}" is off and off the website. Anyone already holding one keeps their sessions.`,
+  };
+}
+
 export async function savePackageAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requirePage('marketing.edit');
   const id = str(formData, 'id');
@@ -64,6 +147,7 @@ export async function savePackageAction(_prev: FormState, formData: FormData): P
     name,
     type,
     description: str(formData, 'description'),
+    imageUrl: str(formData, 'imageUrl'),
     priceCents: cents(formData, 'price'),
     validityDays: Math.round(Number(formData.get('validityDays') ?? 365)),
     memberDiscountPercent: Math.round(Number(formData.get('memberDiscountPercent') ?? 0)),

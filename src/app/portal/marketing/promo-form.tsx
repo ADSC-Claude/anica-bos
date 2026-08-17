@@ -6,7 +6,7 @@ import { savePromoAction, type FormState } from './actions';
 type Promo = {
   id: string; name: string; description: string;
   type: 'PERCENT' | 'FIXED'; value: number;
-  startDate: string; endDate: string; serviceIds: string[];
+  startDate: string; endDate: string; showFromDate?: string | null; serviceIds: string[];
   code: string; active: boolean; showOnLanding: boolean;
 };
 
@@ -65,6 +65,21 @@ export function PromoForm({
             <input name="endDate" type="date" className="input" defaultValue={current?.endDate} required />
           </label>
         </div>
+        <label className="block">
+          <span className="label">Announce on the website from</span>
+          <input
+            name="showFromDate"
+            type="date"
+            className="input"
+            defaultValue={current?.showFromDate ?? ''}
+          />
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            Leave blank and it appears the day it starts. Set it earlier — a week before, say
+            — and the website announces it in advance, marked{' '}
+            <strong>Starts {'{date}'}</strong> so nobody tries to claim it yet. It still cannot
+            be used at the till until the start date.
+          </span>
+        </label>
         <label className="block">
           <span className="label">Promo code (optional)</span>
           <input name="code" className="input" defaultValue={current?.code} placeholder="WEEKDAY15" />

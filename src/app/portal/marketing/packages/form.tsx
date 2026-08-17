@@ -8,6 +8,7 @@ type Pkg = {
   price: number; validityDays: number; memberDiscountPercent: number;
   birthdayPerkServiceId: string; active: boolean; showOnLanding: boolean;
   items: { serviceId: string; sessions: number }[];
+  imageUrl: string;
 };
 
 let seq = 0;
@@ -55,6 +56,17 @@ export function PackageForm({
         <label className="block">
           <span className="label">Name *</span>
           <input name="name" className="input" defaultValue={current?.name} required />
+        </label>
+        <label className="block">
+          <span className="label">Photo of the card</span>
+          <input name="imageUrl" className="input" defaultValue={current?.imageUrl ?? ''}
+            placeholder="/gold-card.jpg" />
+          <span className="mt-1 block text-[11px] text-cocoa-400">
+            Shown on the landing page above this package. A photograph of the card itself sells
+            a membership better than its perks list does. Upload to the repository&apos;s{' '}
+            <code>public</code> folder and enter <code>/gold-card.jpg</code>, or paste a full
+            https:// link. Landscape suits the frame.
+          </span>
         </label>
         <div className="grid grid-cols-2 gap-2">
           <label className="block">

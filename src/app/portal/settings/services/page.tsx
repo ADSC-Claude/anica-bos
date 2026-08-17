@@ -146,6 +146,7 @@ export default async function ServicesSettingsPage({
           <ServiceCategoryEditor
             categories={categories.map((c) => ({
               id: c.id, name: c.name, sortRank: c.sortRank, active: c.active,
+              imageUrl: c.imageUrl,
             }))}
           />
         </div>

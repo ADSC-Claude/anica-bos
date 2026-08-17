@@ -396,12 +396,18 @@ model ServiceCategory {
   name     String  @unique
   sortRank Int     @default(0)
   active   Boolean @default(true)
-  /// The photograph on the landing page's services cards.
+  /// No longer read, and no longer offered in Settings.
   ///
-  /// On the category rather than in Settings, because the cards are the
-  /// catalogue's own headings: rename a category, reorder it or hide it and
-  /// the card follows, instead of a numbered slot quietly showing a massage
-  /// photo above the word "Sauna".
+  /// Held the photograph when the landing page's four cards were generated
+  /// from the catalogue, one per category. That arrangement could not say
+  /// "Foot Spa & Reflexology" — two headings, one card — and the four it chose
+  /// were simply whichever sorted first, an order the price list and booking
+  /// form own for their own reasons. The cards are written into the page
+  /// instead, so this is now dead weight.
+  ///
+  /// Kept rather than dropped for the same reason as the flag below: removing
+  /// a column mid-deploy breaks the copies of the old code still serving
+  /// requests, and an unused string costs nothing.
   imageUrl String  @default("")
   /// Reserved, and deliberately unread.
   ///

@@ -283,14 +283,13 @@ export async function saveServiceCategoryAction(
   const clash = await prisma.serviceCategory.findUnique({ where: { name } });
   if (clash && clash.id !== id) return { error: `There is already a "${name}" category.` };
 
-  const photo = normaliseAssetPath(str(formData, 'imageUrl'));
-  if ('error' in photo) return { error: `Photo: ${photo.error}` };
-
+  // No photo here any more, and `imageUrl` is deliberately left out of the
+  // update rather than written as blank: the column is dead but the values in
+  // it are the owner's, and wiping them on an unrelated rename would be rude.
   const data = {
     name,
     sortRank: num(formData, 'sortRank'),
     active: bool(formData, 'active'),
-    imageUrl: photo.url,
   };
 
   const before = id ? await prisma.serviceCategory.findUnique({ where: { id } }) : null;

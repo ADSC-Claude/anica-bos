@@ -14,6 +14,51 @@ import { Wordmark } from '@/components/landing/wordmark';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * The four cards under "Crafted for your well-being" — shopfront, not index.
+ *
+ * These were briefly generated from the catalogue, one card per category. It
+ * seemed the more honest arrangement and it was the wrong one: the catalogue
+ * has seven headings kept in the order the price list and the booking form
+ * need, and the first four of those are whatever happens to sort first. It
+ * also cannot say "Foot Spa & Reflexology", because those are two headings and
+ * a card is one.
+ *
+ * So the cards are written here, on purpose. They are the window display —
+ * four photographs and the words a guest recognises. Nothing about them is a
+ * promise the catalogue has to keep, which is why they carry no counts and no
+ * prices; everything exact lives in the menu directly below.
+ *
+ * To change a photograph, upload a file of the same name to `public`. The
+ * address stays put and the deployment stamp makes browsers fetch it again.
+ */
+const SHELVES = [
+  {
+    name: 'Massage',
+    photo: '/massage.jpg',
+    art: 'ph-massage',
+    blurb: 'Hilot, Swedish, Shiatsu and our own signature blend.',
+  },
+  {
+    name: 'Body Treatments',
+    photo: '/body-treatment.jpg',
+    art: 'ph-body',
+    blurb: 'Scrubs and rituals that polish, nourish and restore.',
+  },
+  {
+    name: 'Foot Spa & Reflexology',
+    photo: '/foot-spa.jpg',
+    art: 'ph-foot',
+    blurb: 'Soak, scrub and targeted pressure for tired feet.',
+  },
+  {
+    name: 'Add-ons & Sauna',
+    photo: '/sauna.jpg',
+    art: 'ph-sauna',
+    blurb: 'Dry heat, hot stone and ventosa to extend your visit.',
+  },
+];
+
 export default async function LandingPage() {
   const settings = await getSettings();
   const now = new Date();
@@ -74,21 +119,7 @@ export default async function LandingPage() {
   // — the Owner should not have to tell the system what they just uploaded.
   const heroMedia = assetUrl(settings['business.heroImageUrl']);
   const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
-  // The cards are the catalogue's own headings, four of them, in the order the
-  // catalogue puts them. Categories with nothing to sell are skipped, since a
-  // card leading to an empty heading is worse than one card fewer. The wash
-  // behind each is only what shows until the category has a photograph.
-  const WASHES = ['ph-massage', 'ph-body', 'ph-foot', 'ph-sauna'];
-  const shelves = menu.slice(0, WASHES.length).map((cat, i) => {
-    const source = categories.find((c) => c.id === cat.id);
-    return {
-      id: cat.id,
-      name: cat.name,
-      count: cat.services.length,
-      image: assetUrl(source?.imageUrl ?? ''),
-      wash: WASHES[i],
-    };
-  });
+  const shelves = SHELVES.map((s) => ({ ...s, image: assetUrl(s.photo) }));
 
   const openLabel = minutesToLabel(settings['business.openMinute']);
   const closeLabel = minutesToLabel(settings['business.closeMinute']);
@@ -289,34 +320,34 @@ export default async function LandingPage() {
               you lighter than you arrived.
             </p>
           </div>
-          {/* One card per category, each with its own photograph. The names
-              come from the catalogue rather than a list written here, so a
-              category renamed, reordered or hidden takes its card with it —
-              an earlier draft hardcoded four shelves while the menu below
-              listed seven, and the two contradicted each other. */}
+          {/* The wash behind each card is what shows if a photograph is ever
+              missing — a warm panel rather than a broken frame. */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {shelves.map((s) => (
               <div
-                key={s.id}
-                className={`ph ${s.wash} flex aspect-4/5 flex-col justify-end p-4 text-white`}
+                key={s.name}
+                className={`ph ${s.art} flex aspect-4/5 flex-col justify-end p-4 text-white`}
               >
-                {s.image && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={s.image}
-                    alt={s.name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={s.image}
+                  alt={s.name}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                {/* Two devices rather than one. The label and its line of copy
+                    stand two thirds of the way up a narrow card, so a gradient
+                    dark enough on its own to carry them there buries the
+                    photograph it is sitting on — which is the whole point of
+                    having a photograph. A moderate wash plus a shadow on the
+                    type holds the words against a sunlit curtain and still
+                    leaves the picture visible. */}
                 <div
                   aria-hidden
-                  className="absolute inset-0 bg-[linear-gradient(to_top,rgba(74,54,38,0.94)_8%,rgba(74,54,38,0.34)_55%,rgba(74,54,38,0.12)_100%)]"
+                  className="absolute inset-0 bg-[linear-gradient(to_top,rgba(74,54,38,0.94)_0%,rgba(74,54,38,0.70)_52%,rgba(74,54,38,0.28)_78%,rgba(74,54,38,0.06)_100%)]"
                 />
-                <div className="relative">
+                <div className="relative [text-shadow:0_1px_4px_rgba(38,25,15,0.9)]">
                   <p className="text-[11px] uppercase tracking-[0.14em] text-sand-100">{s.name}</p>
-                  <p className="mt-1 text-xs text-sand-200">
-                    {s.count} {s.count === 1 ? 'treatment' : 'treatments'}
-                  </p>
+                  <p className="mt-1 text-xs leading-snug text-sand-200">{s.blurb}</p>
                 </div>
               </div>
             ))}

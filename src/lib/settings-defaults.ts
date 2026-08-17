@@ -47,6 +47,15 @@ export const DEFAULT_SETTINGS = {
   /// Photo behind the hero arch. Either a file uploaded to /public ("/hero.jpg")
   /// or a full https:// URL. Empty shows the placeholder.
   'business.heroImageUrl': '',
+  /**
+   * One photograph beside "Crafted for your well-being".
+   *
+   * Deliberately a single image rather than one per category. The section is
+   * an invitation, not a catalogue — the catalogue is the price list directly
+   * beneath it — so one good photograph of a treatment in progress does the
+   * work, and the spa has to produce one image instead of seven.
+   */
+  'business.servicesImageUrl': '',
   'business.tin': '000-000-000-00000',
   'business.currency': 'PHP',
   'business.timezone': 'Asia/Manila',

@@ -7,22 +7,16 @@ import { buildServiceMenu } from '@/lib/service-menu';
 import { normaliseMapEmbed } from '@/lib/map-embed';
 import { assetUrl } from '@/lib/asset-url';
 import { publishableFeedback, shortName } from '@/lib/testimonials';
+import { landingPromoWhere, isUpcoming } from '@/lib/promos';
 import { SiteHeader } from '@/components/landing/site-header';
 import { PriceMenu } from '@/components/landing/price-menu';
 import { Wordmark } from '@/components/landing/wordmark';
 
 export const dynamic = 'force-dynamic';
 
-/** The four shelves the hero cards advertise, and the wash behind each. */
-const SHELVES = [
-  { name: 'Massage', art: 'ph-massage', blurb: 'Hilot, Swedish, Shiatsu and our own signature blend.' },
-  { name: 'Body Treatments', art: 'ph-body', blurb: 'Scrubs and rituals that polish, nourish and restore.' },
-  { name: 'Foot Spa & Reflexology', art: 'ph-foot', blurb: 'Soak, scrub and targeted pressure for tired feet.' },
-  { name: 'Add-ons & Sauna', art: 'ph-sauna', blurb: 'Dry heat, hot stone and ventosa to extend your visit.' },
-];
-
 export default async function LandingPage() {
   const settings = await getSettings();
+  const now = new Date();
 
   const [categories, promos, packages, testimonials] = await Promise.all([
     prisma.serviceCategory.findMany({
@@ -44,13 +38,8 @@ export default async function LandingPage() {
       },
     }),
     prisma.promo.findMany({
-      where: {
-        active: true,
-        showOnLanding: true,
-        startDate: { lte: new Date() },
-        endDate: { gte: new Date() },
-      },
-      orderBy: { endDate: 'asc' },
+      where: landingPromoWhere(now),
+      orderBy: [{ startDate: 'asc' }, { endDate: 'asc' }],
     }),
     prisma.package.findMany({
       where: { active: true, showOnLanding: true },
@@ -85,6 +74,21 @@ export default async function LandingPage() {
   // — the Owner should not have to tell the system what they just uploaded.
   const heroMedia = assetUrl(settings['business.heroImageUrl']);
   const heroIsVideo = /\.(mp4|webm|mov)(\?|#|$)/i.test(heroMedia);
+  // The cards are the catalogue's own headings, four of them, in the order the
+  // catalogue puts them. Categories with nothing to sell are skipped, since a
+  // card leading to an empty heading is worse than one card fewer. The wash
+  // behind each is only what shows until the category has a photograph.
+  const WASHES = ['ph-massage', 'ph-body', 'ph-foot', 'ph-sauna'];
+  const shelves = menu.slice(0, WASHES.length).map((cat, i) => {
+    const source = categories.find((c) => c.id === cat.id);
+    return {
+      id: cat.id,
+      name: cat.name,
+      count: cat.services.length,
+      image: assetUrl(source?.imageUrl ?? ''),
+      wash: WASHES[i],
+    };
+  });
 
   const openLabel = minutesToLabel(settings['business.openMinute']);
   const closeLabel = minutesToLabel(settings['business.closeMinute']);
@@ -132,6 +136,11 @@ export default async function LandingPage() {
           count: settings['business.googleReviewCount'],
         }
       : null;
+  // Two different offers: a year of discount, and treatments bought in
+  // advance. They read as one muddle when mixed into a single grid.
+  const memberships = packages.filter((p) => p.type === 'MEMBERSHIP');
+  const bundles = packages.filter((p) => p.type !== 'MEMBERSHIP');
+
   const hasGuests = testimonials.length > 0 || google !== null;
 
   // Built here, where it is known which sections actually rendered, so the nav
@@ -231,6 +240,18 @@ export default async function LandingPage() {
               >
                 <div>
                   <p className="font-semibold text-cocoa-800">{p.name}</p>
+                  {/* Announced early, so it must say so — otherwise guests
+                      arrive expecting it and the desk has to refuse them. */}
+                  {isUpcoming(p, now) && (
+                    <p className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-gilt-600">
+                      Starts{' '}
+                      {p.startDate.toLocaleDateString('en-PH', {
+                        day: 'numeric',
+                        month: 'long',
+                        timeZone: 'Asia/Manila',
+                      })}
+                    </p>
+                  )}
                   <p className="muted mt-1">{p.description}</p>
                   {p.code && (
                     <p className="mt-3 text-xs text-cocoa-500">
@@ -253,7 +274,7 @@ export default async function LandingPage() {
           the nav has to mean both. Splitting them is what made an earlier
           draft need a "Packages" item that opened the prices. */}
       <section id="services" className="scroll-mt-20 py-16 sm:py-20">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-[0.85fr_2fr] lg:items-center">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 lg:grid-cols-2 lg:items-center">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-600">
               Our services
@@ -268,19 +289,34 @@ export default async function LandingPage() {
               you lighter than you arrived.
             </p>
           </div>
+          {/* One card per category, each with its own photograph. The names
+              come from the catalogue rather than a list written here, so a
+              category renamed, reordered or hidden takes its card with it —
+              an earlier draft hardcoded four shelves while the menu below
+              listed seven, and the two contradicted each other. */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {SHELVES.map((s) => (
+            {shelves.map((s) => (
               <div
-                key={s.name}
-                className={`ph ${s.art} flex aspect-4/5 flex-col justify-end p-4 text-white`}
+                key={s.id}
+                className={`ph ${s.wash} flex aspect-4/5 flex-col justify-end p-4 text-white`}
               >
+                {s.image && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={s.image}
+                    alt={s.name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                )}
                 <div
                   aria-hidden
                   className="absolute inset-0 bg-[linear-gradient(to_top,rgba(74,54,38,0.94)_8%,rgba(74,54,38,0.34)_55%,rgba(74,54,38,0.12)_100%)]"
                 />
                 <div className="relative">
                   <p className="text-[11px] uppercase tracking-[0.14em] text-sand-100">{s.name}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-sand-200">{s.blurb}</p>
+                  <p className="mt-1 text-xs text-sand-200">
+                    {s.count} {s.count === 1 ? 'treatment' : 'treatments'}
+                  </p>
                 </div>
               </div>
             ))}
@@ -400,14 +436,19 @@ export default async function LandingPage() {
 
       {/* ---------------------------------------------------- membership */}
       {/* Whatever the Owner has published, rendered as it stands. No tiers are
-          invented here: an empty list means the band does not appear. */}
+          invented here: an empty list means the band does not appear.
+
+          Memberships and session bundles are two different offers — one is a
+          year of discount, the other is treatments bought in advance — so they
+          get a row each rather than being mixed into one grid where the eye
+          has to sort them out. */}
       {packages.length > 0 && (
         <section
           id="membership"
           className="relative scroll-mt-20 overflow-hidden border-t border-sand-200 bg-cocoa-700"
         >
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-[0.9fr_2fr] lg:items-center">
-            <div>
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+            <div className="max-w-xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-sand-300">
                 Exclusive for members
               </p>
@@ -420,64 +461,96 @@ export default async function LandingPage() {
                 Ask at reception to avail, or mention it when you book.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {packages.map((p) => {
-                // A membership is a list of perks, and the owner writes it as
-                // one per line. HTML collapses those newlines, which ran the
-                // perks together into a single unreadable sentence.
-                const perks = p.description
-                  .split('\n')
-                  .map((line) => line.replace(/^[-•*·]\s*/, '').trim())
-                  .filter(Boolean);
 
-                // A membership's headline is what it takes off every visit,
-                // not what it costs — that is the number someone joins for.
-                // It comes from the package's own memberDiscountPercent, so
-                // the tiers are whatever the Owner set up in Marketing →
-                // Packages and no percentage is ever typed in here.
-                const isMembership = p.type === 'MEMBERSHIP' && p.memberDiscountPercent > 0;
+            {[
+              { key: 'MEMBERSHIP', heading: 'Memberships', rows: memberships },
+              { key: 'SESSION_PACKAGE', heading: 'Packages', rows: bundles },
+            ]
+              .filter((group) => group.rows.length > 0)
+              .map((group) => (
+                <div key={group.key} className="mt-12">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-gilt-500">
+                    {group.heading}
+                  </h3>
+                  <span aria-hidden className="mt-3 block h-px w-12 bg-sand-200/25" />
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {group.rows.map((p) => {
+                      // A membership is a list of perks, and the owner writes
+                      // it as one per line. HTML collapses those newlines,
+                      // which ran the perks together into one unreadable
+                      // sentence.
+                      const perks = p.description
+                        .split('\n')
+                        .map((line) => line.replace(/^[-•*·]\s*/, '').trim())
+                        .filter(Boolean);
 
-                return (
-                  <div
-                    key={p.id}
-                    className="flex flex-col bg-cocoa-800/70 p-6 shadow-[inset_0_0_0_1px_rgba(214,194,162,0.22)]"
-                  >
-                    <p className="font-display text-2xl italic text-sand-50">{p.name}</p>
-                    {isMembership && (
-                      <p className="mt-3">
-                        <span className="num font-display text-3xl text-gilt-500">
-                          {p.memberDiscountPercent}%
-                        </span>{' '}
-                        <span className="text-xs uppercase tracking-[0.18em] text-sand-200">
-                          off every visit
-                        </span>
-                      </p>
-                    )}
-                    <p className="num mt-1 text-[15px] text-gilt-500">
-                      {formatPesoMenu(p.priceCents)}
-                    </p>
-                    {perks.length > 1 ? (
-                      <ul className="mt-4 space-y-1.5">
-                        {perks.map((perk) => (
-                          <li key={perk} className="flex gap-2.5">
-                            <span
-                              aria-hidden
-                              className="mt-[0.55rem] h-1 w-1 shrink-0 rotate-45 bg-gilt-500/80"
+                      // A membership's headline is what it takes off every
+                      // visit, not what it costs — that is the number someone
+                      // joins for. It comes from the package's own
+                      // memberDiscountPercent, so the tiers are whatever the
+                      // Owner set up in Marketing → Packages and no percentage
+                      // is ever typed in here.
+                      const leadsWithDiscount =
+                        p.type === 'MEMBERSHIP' && p.memberDiscountPercent > 0;
+                      const card = assetUrl(p.imageUrl);
+
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex flex-col overflow-hidden bg-cocoa-800/70 shadow-[inset_0_0_0_1px_rgba(214,194,162,0.22)]"
+                        >
+                          {/* The card itself, where the spa has photographed
+                              one. A membership is a physical thing the guest is
+                              handed, and it sells the tier better than a list
+                              of perks does. */}
+                          {card && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={card}
+                              alt={`The ${p.name} card`}
+                              className="aspect-[16/10] w-full object-cover"
                             />
-                            <span className="text-sm text-sand-200">{perk}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="mt-4 text-sm text-sand-200">{p.description}</p>
-                    )}
-                    <p className="mt-4 text-xs text-sand-300">
-                      Valid for {Math.round(p.validityDays / 30)} months.
-                    </p>
+                          )}
+                          <div className="flex flex-1 flex-col p-6">
+                            <p className="font-display text-2xl italic text-sand-50">{p.name}</p>
+                            {leadsWithDiscount && (
+                              <p className="mt-3">
+                                <span className="num font-display text-3xl text-gilt-500">
+                                  {p.memberDiscountPercent}%
+                                </span>{' '}
+                                <span className="text-xs uppercase tracking-[0.18em] text-sand-200">
+                                  off every visit
+                                </span>
+                              </p>
+                            )}
+                            <p className="num mt-1 text-[15px] text-gilt-500">
+                              {formatPesoMenu(p.priceCents)}
+                            </p>
+                            {perks.length > 1 ? (
+                              <ul className="mt-4 space-y-1.5">
+                                {perks.map((perk) => (
+                                  <li key={perk} className="flex gap-2.5">
+                                    <span
+                                      aria-hidden
+                                      className="mt-[0.55rem] h-1 w-1 shrink-0 rotate-45 bg-gilt-500/80"
+                                    />
+                                    <span className="text-sm text-sand-200">{perk}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="mt-4 text-sm text-sand-200">{p.description}</p>
+                            )}
+                            <p className="mt-4 text-xs text-sand-300">
+                              Valid for {Math.round(p.validityDays / 30)} months.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              ))}
           </div>
         </section>
       )}

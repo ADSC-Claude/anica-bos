@@ -92,21 +92,54 @@ does not fall back to the public one.
 
 ### About Row Level Security
 
-Supabase will warn that RLS is disabled on every table. **This is correct for
-this app and should be left alone.**
+Supabase will warn that RLS is disabled on every table Prisma creates. **That
+warning is real and the migration `20260818230000_lock_down_postgrest_access`
+is what answers it.** It runs automatically; there is nothing to click.
 
-Nothing here uses Supabase Auth or the Supabase client libraries. Every database
-read goes through Prisma over a server-side connection string, and every one is
-gated twice in application code — a permission check and a property/assignee
-scope check, both in `src/lib/guard.ts`, both proven over real HTTP by
-`npm run test:live`. There is no anon key in a browser to defend against,
-because no browser ever holds one.
+The danger is not the one it sounds like. Nothing here uses Supabase Auth or
+the supabase-js client, so there is no browser holding an anon key — but that
+was never the threat. Supabase serves the `public` schema over a REST API at
+`https://<project-ref>.supabase.co/rest/v1/`, that endpoint is open to the
+internet, and **the anon key is designed to be public.** Out of the box the
+`anon` role is granted SELECT and INSERT on every table, so anyone who has the
+key can read `User` password hashes, `Guest` contact details, `AccessRecord`
+door codes and `Payment` rows — and insert rows of their own. Not through the
+app. Straight past it.
 
-What that means in practice: **the service-role key and the connection strings
-are the whole security boundary.** Treat them as such — they belong in Vercel's
-environment variables and nowhere else, never in the repository, never in a
-message. If you later add a client-side Supabase integration, RLS stops being
-optional and every table needs a policy before that ships.
+Since this app never calls that API, the migration closes it rather than
+policing it, in two layers:
+
+| Layer | Does |
+|---|---|
+| `ENABLE ROW LEVEL SECURITY` on all tables, no policies | PostgREST connects as `anon` and matches nothing |
+| `REVOKE` all grants from `anon` and `authenticated`, including default privileges for future tables | there is no privilege left behind the RLS, if RLS is ever switched off again |
+
+**Prisma is unaffected, and the reason matters:** it connects as `postgres`,
+which owns every table, and a table owner bypasses RLS unless
+`FORCE ROW LEVEL SECURITY` is set — which it deliberately is not. Do not set
+it. Doing so locks the application out of its own database.
+
+To check the door is shut:
+
+```sql
+SELECT count(*) FILTER (WHERE NOT c.relrowsecurity)                         AS no_rls,
+       count(*) FILTER (WHERE has_table_privilege('anon', c.oid, 'SELECT')) AS anon_readable
+FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r';
+```
+
+Both must be `0`. Run it after any restore — a restore can bring back the
+grants along with the data.
+
+Beyond that, **the service-role key and the connection strings are the whole
+security boundary.** They belong in Vercel's environment variables and nowhere
+else: never in the repository, never in a message. Every request that does
+reach the app is gated twice — a permission check and a property/assignee scope
+check, both in `src/lib/guard.ts`, both proven over real HTTP by
+`npm run test:live`.
+
+If you ever add a client-side Supabase integration, this migration is what you
+will need to unpick, and every table will need a real policy before that ships.
 
 ---
 

@@ -80,7 +80,7 @@ export default async function PropertyPage({
 
   return (
     <>
-      <SiteHeader settings={settings} />
+      <SiteHeader settings={settings} active="stays" />
       <main className="mx-auto max-w-5xl px-5 py-8">
         <Link href="/stays" className="text-sm text-[color:var(--color-clay-600)] hover:underline">
           ← All stays

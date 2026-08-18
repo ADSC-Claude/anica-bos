@@ -175,6 +175,7 @@ enum NotificationKind {
   SYNC_CONFLICT
   NEW_REVIEW
   RETENTION
+  ENQUIRY
 }
 
 enum Severity {

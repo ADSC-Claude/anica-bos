@@ -9,6 +9,9 @@ export const SETTINGS_DEFAULTS = {
   'business.tagline': 'Stay somewhere that feels like yours.',
   'business.intro':
     'Thoughtfully kept condos in Metro Manila and a quiet family house in Bulacan. Booked direct, so the best rate is the one you see.',
+  /** The About Us page. Newlines are kept, so it can be several paragraphs. */
+  'business.story':
+    'We started with one condo and a spare set of keys, and learned the hard way that the difference between a stay someone remembers and one they complain about is almost never the furniture. It is whether the aircon was serviced. Whether the last guest\'s hair was still in the drain. Whether anyone answered at nine on a Sunday night.\n\nSo we built the business around those things instead. Every turnover runs to a checklist with photographs attached. Nothing is offered to a guest until the clean and the inspection are both signed off. When something breaks, it becomes a ticket with a name against it, not a note in a group chat.\n\nWe are small on purpose. You will deal with people who have stood in the room you booked, and who will still be here the next time you come.',
   'business.email': 'stay@example.com',
   'business.phone': '+63 917 000 0000',
   'business.address': 'Metro Manila, Philippines',
@@ -76,6 +79,7 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
       'business.name',
       'business.tagline',
       'business.intro',
+      'business.story',
       'business.email',
       'business.phone',
       'business.address',
@@ -133,6 +137,7 @@ export const SETTING_LABELS: Partial<Record<SettingKey, string>> = {
   'business.name': 'Business name',
   'business.tagline': 'Tagline (hero)',
   'business.intro': 'Intro paragraph',
+  'business.story': 'About Us story',
   'business.email': 'Contact email',
   'business.phone': 'Contact number',
   'business.address': 'Address shown publicly',

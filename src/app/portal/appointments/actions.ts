@@ -22,6 +22,7 @@ import { formatManila } from '@/lib/datetime';
 import { effectiveWindow, planVisit, visitMinutes } from '@/lib/itinerary';
 import { getSettings } from '@/lib/settings';
 import { depositOutcome } from '@/lib/booking-policy';
+import { shouldRequestReview } from '@/lib/review-request';
 
 export type FormState = { error?: string; ok?: string };
 
@@ -285,6 +286,35 @@ export async function setAppointmentStatusAction(formData: FormData) {
     before: { status: before.status },
     after: { status },
   });
+
+  // The one message a guest never asked for, so it is fenced: only on the way
+  // into COMPLETED, only when the Owner has switched it on, only when there is
+  // a listing to send them to, and never twice for the same visit.
+  const settings = await getSettings(before.branchId);
+  const client = await prisma.client.findUnique({
+    where: { id: before.clientId },
+    select: { name: true, email: true },
+  });
+  if (
+    shouldRequestReview({
+      status,
+      previousStatus: before.status,
+      enabled: settings['business.reviewRequestEmail'],
+      googleUrl: settings['business.googleUrl'],
+      email: client?.email,
+    })
+  ) {
+    await sendTemplateEmail({
+      to: client!.email!,
+      template: 'visit_thank_you',
+      clientId: before.clientId,
+      vars: {
+        clientName: client!.name,
+        when: formatManila(before.startAt, { time: true, weekday: true }),
+        googleUrl: settings['business.googleUrl'],
+      },
+    });
+  }
 
   if (status !== 'PENDING') await resolveNotifications(`appointment:${id}`);
   revalidatePath('/portal/appointments');

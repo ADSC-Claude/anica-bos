@@ -44,6 +44,16 @@ export const DEFAULT_SETTINGS = {
    * Empty means the line does not appear.
    */
   'business.googleUrl': '',
+  /**
+   * Whether a guest is asked for a Google review after their visit.
+   *
+   * Off by default, and deliberately so: this is the only message the system
+   * sends that the guest did not ask for, and switching it on is a decision
+   * about how the spa talks to people rather than a setting to inherit. It
+   * also does nothing without a listing link — there would be nowhere to send
+   * them.
+   */
+  'business.reviewRequestEmail': false,
   /** As Google shows it, e.g. "4.9". Blank hides the line. */
   'business.googleRating': '',
   /** How many reviews that average is over. 0 hides the line. */

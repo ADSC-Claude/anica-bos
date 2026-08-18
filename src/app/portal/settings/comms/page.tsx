@@ -14,6 +14,7 @@ const TEMPLATES: { key: TemplateKey; label: string }[] = [
   { key: 'booking_rejected', label: 'Rejection or expiry notice' },
   { key: 'membership_expiring', label: 'Membership renewal reminder' },
   { key: 'birthday_greeting', label: 'Birthday greeting' },
+  { key: 'visit_thank_you', label: 'Thank you after a visit (asks for a Google review)' },
 ];
 
 export default async function CommsSettingsPage() {

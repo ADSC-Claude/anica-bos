@@ -17,6 +17,7 @@ export type TemplateKey =
   | 'booking_rejected'
   | 'membership_expiring'
   | 'birthday_greeting'
+  | 'visit_thank_you'
   | 'permit_expiry';
 
 export const DEFAULT_TEMPLATES: Record<TemplateKey, { subject: string; body: string }> = {
@@ -127,6 +128,24 @@ Everyone at {{businessName}} wishes you a wonderful year ahead.
 Book anytime at {{appUrl}} or call {{businessContact}}. We'd love to pamper you this month.
 
 {{businessName}}`,
+  },
+  // Sent once, after the guest has actually been. It asks for the review on
+  // Google rather than collecting one here, because a quote nobody can verify
+  // persuades nobody — and it says "if" rather than assuming they enjoyed it,
+  // which is the difference between an invitation and a presumption.
+  visit_thank_you: {
+    subject: 'Thank you for visiting {{businessName}}',
+    body: `Hi {{clientName}},
+
+Thank you for coming in on {{when}}. We hope you left lighter than you arrived.
+
+If you have a minute, a review on Google helps people nearby find us:
+{{googleUrl}}
+
+And if anything was not right, please tell us first — reply to this email or call {{businessContact}}, and we will put it right.
+
+See you next time,
+{{businessName}} • {{businessContact}}`,
   },
   permit_expiry: {
     subject: '[Action needed] {{permitName}} expires in {{daysLeft}} days',

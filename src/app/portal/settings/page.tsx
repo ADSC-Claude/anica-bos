@@ -81,6 +81,21 @@ export default async function SettingsPage() {
                   <span className="label">Listing link</span>
                   <input name="googleUrl" className="input" defaultValue={s['business.googleUrl']} />
                 </label>
+                <label className="mt-3 flex items-start gap-2 text-sm text-cocoa-700">
+                  <input type="checkbox" name="reviewRequestEmail"
+                    className="mt-0.5 h-5 w-5 accent-[#6b4e35]"
+                    defaultChecked={s['business.reviewRequestEmail']} />
+                  <span>
+                    Ask for a review after a visit
+                    <span className="mt-0.5 block text-[11px] text-cocoa-400">
+                      When an appointment is marked complete, the guest is emailed a thank-you
+                      with the link above — once per visit, and only if we hold an email address
+                      for them. It asks them to tell <em>us</em> first if anything was wrong,
+                      which is what keeps a bad day off a public listing. Needs the listing link;
+                      leave this off and nothing is sent. Wording is editable under Messaging.
+                    </span>
+                  </span>
+                </label>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label className="block">
                     <span className="label">Rating</span>

@@ -65,6 +65,7 @@ export async function saveSettingsAction(
         'business.facebook': facebook.url,
         'business.instagram': instagram.url,
         'business.googleUrl': str(formData, 'googleUrl'),
+        'business.reviewRequestEmail': bool(formData, 'reviewRequestEmail'),
         'business.googleRating': str(formData, 'googleRating'),
         'business.googleReviewCount': Math.max(
           0,

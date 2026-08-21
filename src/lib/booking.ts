@@ -21,6 +21,7 @@ import { formatManila } from './datetime';
 import { formatPeso } from './money';
 import { appUrl } from './app-url';
 import { transferAccountsSentence } from './transfer-accounts';
+import { namesMatch } from './returning-client';
 
 export class BookingError extends Error {}
 
@@ -125,11 +126,32 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   if (!MOBILE_RE.test(mobile)) {
     throw new BookingError('Enter a valid PH mobile number, e.g. 0917 123 4567.');
   }
+
+  /**
+   * A guest we already hold, established here rather than taken on trust.
+   *
+   * The form says it recognised her, but the form is a browser and a browser
+   * can claim anything. The number and the name are checked again on this side
+   * before a single field is allowed to arrive blank — otherwise "returning:
+   * true" would be a way to book without giving an email.
+   */
+  const onFile = await prisma.client.findUnique({
+    where: { branchId_mobile: { branchId: req.branchId, mobile } },
+  });
+  const returning = !!onFile && namesMatch(req.client.name, onFile.name);
+
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(req.client.email)) {
-    throw new BookingError('Enter a valid email address — we send your confirmation there.');
+    // A returning guest keeps the address we already send her receipts to.
+    if (!returning || !onFile!.email) {
+      throw new BookingError('Enter a valid email address — we send your confirmation there.');
+    }
   }
-  if (!req.client.birthday) throw new BookingError('Your birthday is required.');
-  if (!req.client.addressCity) throw new BookingError('Your city is required.');
+  if (!req.client.birthday && !(returning && onFile!.birthday)) {
+    throw new BookingError('Your birthday is required.');
+  }
+  if (!req.client.addressCity && !(returning && onFile!.addressCity)) {
+    throw new BookingError('Your city is required.');
+  }
 
   const branch = await prisma.branch.findUnique({ where: { id: req.branchId } });
   if (!branch || !branch.active) throw new BookingError('That branch is not accepting bookings.');
@@ -377,19 +399,21 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   const resourceId = seats[0].resourceId;
 
   // ------------------------------------------------------------- the client
-  const existing = await prisma.client.findUnique({
-    where: { branchId_mobile: { branchId: branch.id, mobile } },
-  });
-  const birthday = new Date(`${req.client.birthday}T00:00:00Z`);
+  const existing = onFile;
+  // Blank means "keep what you have" for a guest we recognised, and cannot
+  // happen otherwise — the checks above refuse a new booking without them.
+  const birthday = req.client.birthday
+    ? new Date(`${req.client.birthday}T00:00:00Z`)
+    : existing!.birthday!;
 
   const client = existing
     ? await prisma.client.update({
         where: { id: existing.id },
         data: {
           name: req.client.name.trim() || existing.name,
-          email: req.client.email.trim().toLowerCase(),
+          email: req.client.email.trim().toLowerCase() || existing.email,
           birthday,
-          addressCity: req.client.addressCity,
+          addressCity: req.client.addressCity || existing.addressCity,
           addressLine: req.client.addressLine ?? existing.addressLine,
           barangay: req.client.barangay ?? existing.barangay,
           incomplete: false,

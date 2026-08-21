@@ -16,7 +16,13 @@ import { formatPeso } from '@/lib/money';
 const FLOOR_REFRESH_MS = 15_000;
 
 export type ServiceOption = { id: string; name: string; durationMinutes: number; priceCents: number; categoryName: string };
-export type ClientOption = { id: string; name: string; mobile: string };
+export type ClientOption = {
+  id: string;
+  name: string;
+  mobile: string;
+  /** When the health answers were last taken. Null means never. */
+  medicalUpdatedAt?: Date | string | null;
+};
 export type SimpleOption = { id: string; name: string };
 
 function Save({ label }: { label: string }) {
@@ -175,6 +181,41 @@ export function AppointmentForm({
             </p>
           )}
         </div>
+
+        {/* A returning guest keeps her name, her number and her address. Her
+            health answers are the one thing that expires — a pregnancy, a new
+            medication, an injury since March — and the desk has no way to know
+            that from a row in a list. So the date is put in front of them. */}
+        {clientId && (() => {
+          const picked = clients.find((c) => c.id === clientId);
+          if (!picked) return null;
+          const when = picked.medicalUpdatedAt ? new Date(picked.medicalUpdatedAt) : null;
+          const days = when ? Math.floor((Date.now() - when.getTime()) / 86_400_000) : null;
+          const stale = days === null || days > 180;
+          return (
+            <p
+              className={`rounded-xl border px-3 py-2 text-xs ${
+                stale
+                  ? 'border-gilt-500 bg-sand-50 text-cocoa-700'
+                  : 'border-sand-200 text-cocoa-500'
+              }`}
+            >
+              Health answers{' '}
+              {when ? `last taken ${when.toLocaleDateString('en-PH', {
+                day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Manila',
+              })}` : 'have never been recorded'}
+              {stale && ' — please check them with the guest.'}{' '}
+              <a
+                href={`/portal/clients/${picked.id}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="underline underline-offset-4"
+              >
+                Open her record
+              </a>
+            </p>
+          );
+        })()}
       </div>
 
       <div className="card-pad space-y-3">

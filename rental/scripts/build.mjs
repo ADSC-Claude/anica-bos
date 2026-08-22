@@ -57,6 +57,8 @@ const OPTIONAL = [
   'EMAIL_FROM',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
+  'NEXT_PUBLIC_CONTACT_PHONE',
+  'NEXT_PUBLIC_CONTACT_EMAIL',
 ];
 const URLISH = new Set(['DATABASE_URL', 'DIRECT_URL']);
 
@@ -64,7 +66,12 @@ function report(name) {
   const value = process.env[name];
   if (!value) return `  ✗ ${name.padEnd(26)} not set`;
   if (URLISH.has(name)) return `  ✓ ${name.padEnd(26)} ${describeUrl(value)}`;
-  if (name === 'NEXT_PUBLIC_APP_URL' || name === 'SUPABASE_URL' || name === 'EMAIL_FROM') {
+  if (
+    name === 'NEXT_PUBLIC_APP_URL' ||
+    name === 'SUPABASE_URL' ||
+    name === 'EMAIL_FROM' ||
+    name.startsWith('NEXT_PUBLIC_CONTACT_')
+  ) {
     return `  ✓ ${name.padEnd(26)} ${value}`;
   }
   return `  ✓ ${name.padEnd(26)} set, ${value.length} characters`;

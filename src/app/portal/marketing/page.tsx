@@ -7,6 +7,8 @@ import { formatPeso } from '@/lib/money';
 import { formatManila, daysUntil } from '@/lib/datetime';
 import { PageHeader, StatCard, StatusBadge, EmptyState, Tabs, Alert } from '@/components/ui';
 import { PromoForm } from './promo-form';
+import { ToggleActiveButton } from '@/components/toggle-active-button';
+import { setPromoActiveAction } from './actions';
 import { MARKETING_TABS } from './tabs';
 
 export const dynamic = 'force-dynamic';
@@ -116,6 +118,7 @@ export default async function MarketingPage({
                     <th>Code</th>
                     <th>Landing page</th>
                     <th>Status</th>
+                    {canEdit && <th className="text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -143,6 +146,16 @@ export default async function MarketingPage({
                             label={isLive ? 'live' : p.endDate < now ? 'ended' : 'scheduled'}
                           />
                         </td>
+                        {canEdit && (
+                          <td className="text-right">
+                            <ToggleActiveButton
+                              action={setPromoActiveAction}
+                              id={p.id}
+                              label={p.name}
+                              on={p.active}
+                            />
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -162,6 +175,7 @@ export default async function MarketingPage({
               value: p.type === 'FIXED' ? p.value / 100 : p.value,
               startDate: p.startDate.toISOString().slice(0, 10),
               endDate: p.endDate.toISOString().slice(0, 10),
+              showFromDate: p.showFromDate ? p.showFromDate.toISOString().slice(0, 10) : '',
               serviceIds: p.serviceIds,
               code: p.code ?? '',
               active: p.active,

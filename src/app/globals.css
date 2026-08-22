@@ -160,6 +160,52 @@ body {
   .muted {
     @apply text-sm text-cocoa-500;
   }
+
+  /* Landing photo slots.
+     The layout is built around photography the spa has not uploaded yet, and
+     an empty grey box would misrepresent it. These are warm cocoa washes in
+     the brand's own shades — lit from where a lamp would be — so the page
+     reads as intended until real images land in Settings → Business. Each is
+     a `background`, so a real <img> placed inside simply covers it. */
+  .ph {
+    @apply relative isolate overflow-hidden bg-cocoa-700;
+  }
+  .ph::after {
+    content: '';
+    @apply pointer-events-none absolute inset-0 opacity-30 mix-blend-overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.32'/%3E%3C/svg%3E");
+  }
+  .ph-room {
+    background:
+      radial-gradient(120% 90% at 82% 8%, #f0d6a8 0%, rgba(240, 214, 168, 0) 42%),
+      radial-gradient(90% 70% at 20% 88%, #6b4a2e 0%, rgba(107, 74, 46, 0) 55%),
+      linear-gradient(160deg, #8a6b4a 0%, #543c28 48%, #4a3626 100%);
+  }
+  .ph-lounge {
+    background:
+      radial-gradient(70% 55% at 50% 22%, #f3dbb2 0%, rgba(243, 219, 178, 0) 55%),
+      linear-gradient(165deg, #c1a077 0%, #7a5e40 55%, #4a3626 100%);
+  }
+  .ph-massage {
+    background:
+      radial-gradient(80% 60% at 35% 30%, #e8c79e 0%, rgba(232, 199, 158, 0) 60%),
+      linear-gradient(150deg, #8a6b4a 0%, #6b4e35 60%, #4a3626 100%);
+  }
+  .ph-body {
+    background:
+      radial-gradient(70% 60% at 60% 40%, #d9b183 0%, rgba(217, 177, 131, 0) 62%),
+      linear-gradient(200deg, #8a6b4a 0%, #6b4e35 70%, #4a3626 100%);
+  }
+  .ph-foot {
+    background:
+      radial-gradient(75% 55% at 45% 55%, #ebd3b2 0%, rgba(235, 211, 178, 0) 60%),
+      linear-gradient(170deg, #c1a077 0%, #7a5e40 65%, #4a3626 100%);
+  }
+  .ph-sauna {
+    background:
+      radial-gradient(60% 70% at 70% 25%, #d9a45e 0%, rgba(217, 164, 94, 0) 55%),
+      linear-gradient(190deg, #8a6b4a 0%, #6b4e35 70%, #4a3626 100%);
+  }
 }
 
 /* Thermal receipt: 58mm/80mm friendly. */

@@ -5,6 +5,8 @@ import { formatPeso } from '@/lib/money';
 import { PageHeader, StatusBadge, EmptyState, Tabs } from '@/components/ui';
 import { MARKETING_TABS } from '../tabs';
 import { PackageForm } from './form';
+import { ToggleActiveButton } from '@/components/toggle-active-button';
+import { setPackageActiveAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Packages & membership' };
@@ -54,6 +56,19 @@ export default async function PackagesPage() {
                   <span className="flex items-center gap-2">
                     <span className="num font-semibold">{formatPeso(p.priceCents)}</span>
                     <StatusBadge status={p.active ? 'ACTIVE' : 'CANCELLED'} label={p.active ? 'active' : 'inactive'} />
+                    {canEdit && (
+                      <ToggleActiveButton
+                        action={setPackageActiveAction}
+                        id={p.id}
+                        label={p.name}
+                        on={p.active}
+                        offVerb="Stop selling"
+                        onVerb="Sell again"
+                        confirm={`Stop selling “${p.name}”? It leaves the website and the till. ${
+                          p.clientPackages.length
+                        } guest(s) already holding one keep their sessions.`}
+                      />
+                    )}
                   </span>
                 </div>
                 {p.description && (
@@ -85,6 +100,7 @@ export default async function PackagesPage() {
             packages={packages.map((p) => ({
               id: p.id,
               name: p.name,
+              imageUrl: p.imageUrl,
               type: p.type,
               description: p.description,
               price: p.priceCents / 100,

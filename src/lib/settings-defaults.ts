@@ -2,19 +2,80 @@
  * Setting defaults, kept free of `server-only` so the seed script and CLI
  * jobs can import them too.
  */
+import type { LateBand } from './late-bands';
+
 export const DEFAULT_SETTINGS = {
   // --- business profile ---
   'business.name': 'ANICA Wellness Spa',
   'business.tagline': 'Rest. Restore. Renew.',
   'business.address': 'Quezon City, Metro Manila, Philippines',
+  /**
+   * The city, said the way a guest would say it.
+   *
+   * Kept apart from the address because the landing page needs a place name
+   * inside a sentence — "Most spas in Quezon City have locked up by now" — and
+   * the address is a postal line. Slicing the city out of it only works when
+   * the address happens to start with one; an address that starts with a
+   * street produces "your wellness escape in 123 Kalayaan Avenue".
+   */
+  'business.locality': 'Quezon City',
   'business.contact': '+63 900 000 0000',
   'business.email': 'hello@anicawellnessspa.ph',
   'business.facebook': 'https://www.facebook.com/ANICAWellnessSpa',
+  /**
+   * The Instagram profile. Empty by default, and empty means the footer simply
+   * does not offer one — a social link that goes nowhere is worse for a spa
+   * than no social link at all.
+   */
+  'business.instagram': '',
+  /**
+   * The Google listing, and the score it shows.
+   *
+   * Typed in rather than fetched. Reading reviews through Google's APIs means
+   * an approved Business Profile application, and it obliges the site to
+   * reproduce each review with Google's own attribution — which is a different
+   * feature from the quotes the spa curates itself.
+   *
+   * What this does instead is show the standing that the whole listing has, in
+   * one line, linked so anyone can go and read the reviews at source. Selected
+   * quotes above, the real overall score beneath: nothing is hidden by picking
+   * favourites, because the count and the average are right there.
+   *
+   * Empty means the line does not appear.
+   */
+  'business.googleUrl': '',
+  /**
+   * Whether a guest is asked for a Google review after their visit.
+   *
+   * Off by default, and deliberately so: this is the only message the system
+   * sends that the guest did not ask for, and switching it on is a decision
+   * about how the spa talks to people rather than a setting to inherit. It
+   * also does nothing without a listing link — there would be nowhere to send
+   * them.
+   */
+  'business.reviewRequestEmail': false,
+  /** As Google shows it, e.g. "4.9". Blank hides the line. */
+  'business.googleRating': '',
+  /** How many reviews that average is over. 0 hides the line. */
+  'business.googleReviewCount': 0,
   'business.mapEmbedUrl': '',
   'business.logoUrl': '',
   /// Photo behind the hero arch. Either a file uploaded to /public ("/hero.jpg")
   /// or a full https:// URL. Empty shows the placeholder.
   'business.heroImageUrl': '',
+  /**
+   * The photograph filling the left half of "A sanctuary of tranquility".
+   *
+   * That panel shipped as a gradient with nothing behind it — a picture frame
+   * with no way to put a picture in it, which reads as a rendering fault
+   * rather than a choice. A setting rather than a fixed file name because it
+   * is the shot most likely to change: repaint the reception and the sentence
+   * beside it still holds, but the photograph does not.
+   *
+   * Empty keeps the warm panel, which is a great deal better than a broken
+   * frame while the spa is between photographs.
+   */
+  'business.aboutImageUrl': '',
   'business.tin': '000-000-000-00000',
   'business.currency': 'PHP',
   'business.timezone': 'Asia/Manila',
@@ -106,6 +167,15 @@ export const DEFAULT_SETTINGS = {
   'payroll.lateDeductionType': 'FIXED' as 'FIXED' | 'PERCENT',
   'payroll.lateDeductionValue': 5_000, // ₱50 per late
   'payroll.lateGraceMinutes': 15,
+  /**
+   * What a late arrival costs, banded by how far past grace it was.
+   *
+   * Empty means "use the flat charge above", so payroll does not change for
+   * anybody until the bands are actually filled in. Minutes are past grace,
+   * not past opening, and a rung is either a peso amount or a share of that
+   * employee's own daily allowance — see src/lib/late-bands.ts.
+   */
+  'payroll.lateBands': [] as LateBand[],
   'payroll.absenceDeductionType': 'PERCENT' as 'FIXED' | 'PERCENT',
   'payroll.absenceDeductionValue': 100, // 100% of the daily allowance
   'payroll.regularHolidayMultiplier': 200, // 2.00x, in whole percent

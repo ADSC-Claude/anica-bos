@@ -16,9 +16,16 @@ const schema = z.object({
   client: z.object({
     name: z.string().min(2, 'Please give your full name.'),
     mobile: z.string().min(7),
-    email: z.string().email(),
-    birthday: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the date picker for your birthday.'),
-    addressCity: z.string().min(2, 'Your city is required.'),
+    // Blank is allowed through the schema so a returning guest can leave the
+    // details she has already given. Whether she is actually returning is
+    // settled in createOnlineBooking against the record, not here against a
+    // claim the browser made.
+    email: z.union([z.string().email(), z.literal('')]),
+    birthday: z.union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the date picker for your birthday.'),
+      z.literal(''),
+    ]),
+    addressCity: z.string(),
     addressLine: z.string().optional(),
     barangay: z.string().optional(),
   }),

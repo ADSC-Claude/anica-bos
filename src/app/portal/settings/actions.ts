@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import type { ResourceType } from '@prisma/client';
 import { normaliseMapEmbed } from '@/lib/map-embed';
+import { normaliseAssetPath } from '@/lib/asset-url';
+import { normaliseSocialUrl } from '@/lib/social-url';
+import { parseLateBands } from '@/lib/late-bands';
 import { prisma } from '@/lib/db';
 import { requirePage, resolveBranchId } from '@/lib/guard';
 import { audit, diff } from '@/lib/audit';
@@ -42,16 +45,36 @@ export async function saveSettingsAction(
     case 'business': {
       const map = normaliseMapEmbed(str(formData, 'mapEmbedUrl'));
       if ('error' in map) return { error: map.error };
+      const logo = normaliseAssetPath(str(formData, 'logoUrl'));
+      if ('error' in logo) return { error: `Logo: ${logo.error}` };
+      const hero = normaliseAssetPath(str(formData, 'heroImageUrl'));
+      if ('error' in hero) return { error: `Landing page photo: ${hero.error}` };
+      const about = normaliseAssetPath(str(formData, 'aboutImageUrl'));
+      if ('error' in about) return { error: `About us photo: ${about.error}` };
+      const facebook = normaliseSocialUrl(str(formData, 'facebook'), 'facebook.com');
+      if ('error' in facebook) return { error: `Facebook: ${facebook.error}` };
+      const instagram = normaliseSocialUrl(str(formData, 'instagram'), 'instagram.com');
+      if ('error' in instagram) return { error: `Instagram: ${instagram.error}` };
       entries = {
         'business.name': str(formData, 'name'),
         'business.tagline': str(formData, 'tagline'),
         'business.address': str(formData, 'address'),
+        'business.locality': str(formData, 'locality'),
         'business.contact': str(formData, 'contact'),
         'business.email': str(formData, 'email'),
-        'business.facebook': str(formData, 'facebook'),
+        'business.facebook': facebook.url,
+        'business.instagram': instagram.url,
+        'business.googleUrl': str(formData, 'googleUrl'),
+        'business.reviewRequestEmail': bool(formData, 'reviewRequestEmail'),
+        'business.googleRating': str(formData, 'googleRating'),
+        'business.googleReviewCount': Math.max(
+          0,
+          Math.round(Number(formData.get('googleReviewCount') ?? 0)) || 0,
+        ),
         'business.mapEmbedUrl': map.url,
-        'business.logoUrl': str(formData, 'logoUrl'),
-        'business.heroImageUrl': str(formData, 'heroImageUrl'),
+        'business.logoUrl': logo.url,
+        'business.heroImageUrl': hero.url,
+        'business.aboutImageUrl': about.url,
         'business.tin': str(formData, 'tin'),
         'business.openMinute': num(formData, 'openMinute'),
         'business.closeMinute': num(formData, 'closeMinute'),
@@ -121,6 +144,9 @@ export async function saveSettingsAction(
             ? cents(formData, 'lateDeductionValue')
             : num(formData, 'lateDeductionValue'),
         'payroll.lateGraceMinutes': num(formData, 'lateGraceMinutes'),
+        // Re-parsed here rather than trusted: the browser composed this JSON,
+        // and it decides what comes off somebody's pay.
+        'payroll.lateBands': parseLateBands(safeJson(str(formData, 'lateBands'))),
         'payroll.absenceDeductionType': str(formData, 'absenceDeductionType'),
         'payroll.absenceDeductionValue':
           str(formData, 'absenceDeductionType') === 'FIXED'
@@ -248,6 +274,16 @@ export async function saveServiceAction(_prev: FormState, formData: FormData): P
   return { ok: 'Saved. The landing page updates immediately.' };
 }
 
+/** Parse JSON that arrived from a form field, treating rubbish as absent. */
+function safeJson(raw: string): unknown {
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
 export async function saveServiceCategoryAction(
   _prev: FormState,
   formData: FormData,
@@ -262,6 +298,9 @@ export async function saveServiceCategoryAction(
   const clash = await prisma.serviceCategory.findUnique({ where: { name } });
   if (clash && clash.id !== id) return { error: `There is already a "${name}" category.` };
 
+  // No photo here any more, and `imageUrl` is deliberately left out of the
+  // update rather than written as blank: the column is dead but the values in
+  // it are the owner's, and wiping them on an unrelated rename would be rude.
   const data = {
     name,
     sortRank: num(formData, 'sortRank'),

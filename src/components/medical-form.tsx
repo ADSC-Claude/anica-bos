@@ -1,9 +1,10 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { saveMedicalAction, type FormState } from '@/app/portal/clients/actions';
 import { WAIVER_STAFF } from '@/lib/consent';
+import { NOT_APPLICABLE, isNotApplicable } from '@/lib/intake';
 
 export type FieldDef = {
   id: string;
@@ -120,8 +121,79 @@ export function MedicalForm({
   );
 }
 
+/**
+ * A written health question, with "N/A" beside it.
+ *
+ * The same escape the guest gets on the public form, so the desk can record
+ * "asked, nothing to report" rather than leaving a box that reads identically
+ * to one nobody got to. Only the free-text questions: a dropdown already has a
+ * blank option, and "N/A" in a number box means nothing.
+ *
+ * Controlled, unlike everything else on this form, because ticking N/A has to
+ * empty the box on screen as well as in what gets saved — a greyed-out box
+ * still showing "almond oil" while it saves N/A is a lie the desk would have
+ * no reason to doubt.
+ */
+function WaivableField({ field, value }: { field: FieldDef; value: unknown }) {
+  const name = `field_${field.key}`;
+  const inputId = `medical-${field.key}`;
+  const [na, setNa] = useState(isNotApplicable(value));
+  const [text, setText] = useState(isNotApplicable(value) ? '' : String(value ?? ''));
+  const Box = field.type === 'TEXTAREA' ? 'textarea' : 'input';
+
+  return (
+    <div className="block">
+      <span className="flex items-baseline justify-between gap-3">
+        <label className="label" htmlFor={inputId}>{field.label}</label>
+        <label className="flex shrink-0 cursor-pointer items-center gap-1.5 pb-1 text-xs text-cocoa-500">
+          <input type="checkbox" className="h-4 w-4 accent-[#6b4e35]"
+            checked={na} onChange={(e) => setNa(e.target.checked)} />
+          N/A
+        </label>
+      </span>
+      {/* A disabled control submits nothing, so the sentinel travels in a
+          hidden field of the same name. */}
+      {na && <input type="hidden" name={name} value={NOT_APPLICABLE} />}
+      <Box
+        id={inputId}
+        name={na ? undefined : name}
+        className={field.type === 'TEXTAREA' ? 'textarea' : 'input'}
+        {...(field.type === 'TEXTAREA' ? { rows: 2 } : {})}
+        disabled={na}
+        value={na ? '' : text}
+        placeholder={na ? 'Nothing to report' : undefined}
+        onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+          setText(e.target.value)}
+      />
+      {field.helpText && (
+        <span className="mt-1 block text-[11px] text-cocoa-400">{field.helpText}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Free text in the health section, asked of everyone: the questions that can be
+ * waved off — the same two the guest can wave off on the public form.
+ *
+ * Not the follow-ups. This screen shows those whether or not their tick box is
+ * set, and "N/A" against a question that was never really asked is noise on the
+ * record rather than an answer; the tick box above it already says it does not
+ * apply.
+ */
+function isWaivable(f: FieldDef): boolean {
+  return (
+    f.section === 'MEDICAL' &&
+    (f.type === 'TEXT' || f.type === 'TEXTAREA') &&
+    !f.dependsOnKey &&
+    !f.isNoneOption
+  );
+}
+
 function FieldInput({ field, value }: { field: FieldDef; value: unknown }) {
   const name = `field_${field.key}`;
+
+  if (isWaivable(field)) return <WaivableField field={field} value={value} />;
 
   if (field.type === 'BOOLEAN') {
     return (

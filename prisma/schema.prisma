@@ -396,6 +396,19 @@ model ServiceCategory {
   name     String  @unique
   sortRank Int     @default(0)
   active   Boolean @default(true)
+  /// No longer read, and no longer offered in Settings.
+  ///
+  /// Held the photograph when the landing page's four cards were generated
+  /// from the catalogue, one per category. That arrangement could not say
+  /// "Foot Spa & Reflexology" — two headings, one card — and the four it chose
+  /// were simply whichever sorted first, an order the price list and booking
+  /// form own for their own reasons. The cards are written into the page
+  /// instead, so this is now dead weight.
+  ///
+  /// Kept rather than dropped for the same reason as the flag below: removing
+  /// a column mid-deploy breaks the copies of the old code still serving
+  /// requests, and an unused string costs nothing.
+  imageUrl String  @default("")
   /// Reserved, and deliberately unread.
   ///
   /// Added by work that was reverted: the owner's add-ons share a heading with
@@ -1362,6 +1375,10 @@ model Package {
   name                  String
   type                  PackageType @default(SESSION_PACKAGE)
   description           String      @default("")
+  /// The card, photographed. A membership is a physical thing the guest is
+  /// handed, and a picture of it sells the tier better than the perks list —
+  /// which is why the landing page shows one where there is one.
+  imageUrl              String      @default("")
   priceCents            Int
   validityDays          Int         @default(365)
   /// MEMBERSHIP: percent discount granted to the member.
@@ -1491,6 +1508,14 @@ model Promo {
   value         Int
   startDate     DateTime
   endDate       DateTime
+  /// When the landing page may start showing it, which is not always the day
+  /// it starts. A promo running from 1 September wants to be up a week early
+  /// so people can plan around it — but it must say "Starts 1 September" until
+  /// then, or the desk spends that week refusing it.
+  ///
+  /// Null means "the day it starts", so every promo written before this
+  /// existed behaves exactly as it did.
+  showFromDate  DateTime?
   serviceIds    String[]     @default([])
   code          String?
   active        Boolean      @default(true)

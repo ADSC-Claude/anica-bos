@@ -21,6 +21,7 @@ import { formatManila } from './datetime';
 import { formatPeso } from './money';
 import { appUrl } from './app-url';
 import { transferAccountsSentence } from './transfer-accounts';
+import { namesMatch } from './returning-client';
 
 export class BookingError extends Error {}
 
@@ -125,11 +126,32 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   if (!MOBILE_RE.test(mobile)) {
     throw new BookingError('Enter a valid PH mobile number, e.g. 0917 123 4567.');
   }
+
+  /**
+   * A guest we already hold, established here rather than taken on trust.
+   *
+   * The form says it recognised her, but the form is a browser and a browser
+   * can claim anything. The number and the name are checked again on this side
+   * before a single field is allowed to arrive blank — otherwise "returning:
+   * true" would be a way to book without giving an email.
+   */
+  const onFile = await prisma.client.findUnique({
+    where: { branchId_mobile: { branchId: req.branchId, mobile } },
+  });
+  const returning = !!onFile && namesMatch(req.client.name, onFile.name);
+
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(req.client.email)) {
-    throw new BookingError('Enter a valid email address — we send your confirmation there.');
+    // A returning guest keeps the address we already send her receipts to.
+    if (!returning || !onFile!.email) {
+      throw new BookingError('Enter a valid email address — we send your confirmation there.');
+    }
   }
-  if (!req.client.birthday) throw new BookingError('Your birthday is required.');
-  if (!req.client.addressCity) throw new BookingError('Your city is required.');
+  if (!req.client.birthday && !(returning && onFile!.birthday)) {
+    throw new BookingError('Your birthday is required.');
+  }
+  if (!req.client.addressCity && !(returning && onFile!.addressCity)) {
+    throw new BookingError('Your city is required.');
+  }
 
   const branch = await prisma.branch.findUnique({ where: { id: req.branchId } });
   if (!branch || !branch.active) throw new BookingError('That branch is not accepting bookings.');
@@ -377,19 +399,21 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
   const resourceId = seats[0].resourceId;
 
   // ------------------------------------------------------------- the client
-  const existing = await prisma.client.findUnique({
-    where: { branchId_mobile: { branchId: branch.id, mobile } },
-  });
-  const birthday = new Date(`${req.client.birthday}T00:00:00Z`);
+  const existing = onFile;
+  // Blank means "keep what you have" for a guest we recognised, and cannot
+  // happen otherwise — the checks above refuse a new booking without them.
+  const birthday = req.client.birthday
+    ? new Date(`${req.client.birthday}T00:00:00Z`)
+    : existing!.birthday!;
 
   const client = existing
     ? await prisma.client.update({
         where: { id: existing.id },
         data: {
           name: req.client.name.trim() || existing.name,
-          email: req.client.email.trim().toLowerCase(),
+          email: req.client.email.trim().toLowerCase() || existing.email,
           birthday,
-          addressCity: req.client.addressCity,
+          addressCity: req.client.addressCity || existing.addressCity,
           addressLine: req.client.addressLine ?? existing.addressLine,
           barangay: req.client.barangay ?? existing.barangay,
           incomplete: false,
@@ -632,6 +656,61 @@ export async function createOnlineBooking(req: BookingRequest): Promise<{
 }
 
 /**
+ * Who, if anyone, has taken this booking's places since its window closed.
+ *
+ * Returns a name to put in front of the desk, or null when everything it asked
+ * for is still free. Each treatment is checked on its own window and its own
+ * place, because a visit is not one block: the sauna leg may have gone while
+ * the bed at half past two is still empty, and losing either one means the
+ * visit as booked cannot run.
+ *
+ * The booking excludes itself — it is still sitting in the table, and without
+ * that it would find its own hold and report a clash with itself.
+ */
+async function placeTakenSince(appointment: {
+  id: string;
+  branchId: string;
+  partyRef: string;
+  startAt: Date;
+  endAt: Date;
+  resourceId: string | null;
+  services: { resourceId: string | null; employeeId: string | null; startAt: Date | null; endAt: Date | null }[];
+}): Promise<string | null> {
+  const legs = appointment.services.length
+    ? appointment.services.map((s) => ({
+        startAt: s.startAt ?? appointment.startAt,
+        endAt: s.endAt ?? appointment.endAt,
+        resourceId: s.resourceId ?? appointment.resourceId,
+        employeeIds: s.employeeId ? [s.employeeId] : [],
+      }))
+    : [{
+        startAt: appointment.startAt,
+        endAt: appointment.endAt,
+        resourceId: appointment.resourceId,
+        employeeIds: [],
+      }];
+
+  for (const leg of legs) {
+    try {
+      await assertNoConflicts({
+        branchId: appointment.branchId,
+        startAt: leg.startAt,
+        endAt: leg.endAt,
+        employeeIds: leg.employeeIds,
+        resourceId: leg.resourceId,
+        excludeAppointmentId: appointment.id,
+        partyRef: appointment.partyRef || undefined,
+      });
+    } catch (err) {
+      // The message names the therapist or the place, which is exactly what the
+      // desk needs to see and what the guest will be told on the phone.
+      return err instanceof Error ? err.message.replace(/\.$/, '') : 'Someone else';
+    }
+  }
+  return null;
+}
+
+/**
  * Marks a deposit paid and confirms the appointment. Called by the verified
  * PayMongo webhook, by the simulated-gateway endpoint, and by the receptionist
  * when verifying a manual transfer.
@@ -654,6 +733,72 @@ export async function confirmDeposit(opts: {
   if (!appointment) return false;
   if (appointment.depositStatus === 'PAID') return true; // webhook replay — idempotent
   if (appointment.status === 'CANCELLED') return false;
+
+  /**
+   * The fee arrived after the holding window closed.
+   *
+   * The places went back on sale the moment the window shut, so this can no
+   * longer confirm on its own say-so: somebody else may be holding the bed. If
+   * it is still free the booking stands, which is the common case — a guest who
+   * paid a few minutes late on a quiet afternoon should not be turned away from
+   * an empty room. If it is gone the money is still recorded, because it really
+   * was taken, and the desk is told to either send it back or move her to
+   * another time.
+   */
+  const lapsed =
+    appointment.status === 'EXPIRED' ||
+    (appointment.expiresAt !== null && appointment.expiresAt.getTime() < Date.now());
+
+  if (lapsed) {
+    const takenBy = await placeTakenSince(appointment);
+    if (takenBy) {
+      await prisma.appointment.update({
+        where: { id: appointment.id },
+        data: {
+          depositStatus: 'PAID',
+          depositPaidCents: opts.paidCents,
+          depositMethod: opts.method,
+          gatewayPaymentId: opts.gatewayPaymentId ?? '',
+          status: 'EXPIRED',
+          expiresAt: null,
+          cancelReason:
+            'Paid after the holding window closed, and the place had already gone. ' +
+            'Refund the reservation fee, or rebook her into a free time.',
+        },
+      });
+
+      await notify({
+        kind: 'DEPOSIT_TO_VERIFY',
+        title: `Late payment on a lapsed booking — ${appointment.reference}`,
+        body:
+          `${appointment.client.name} paid ${formatPeso(opts.paidCents)} after her window ` +
+          `closed and ${takenBy} is booked in her place. Refund her, or move her to a ` +
+          'time that is free.',
+        link: `/portal/appointments/${appointment.id}`,
+        dedupeKey: `late-deposit:${appointment.id}`,
+        branchId: appointment.branchId,
+        roles: ['RECEPTIONIST'],
+      });
+
+      await sendTemplateEmail({
+        to: appointment.client.email,
+        template: 'booking_rejected',
+        clientId: appointment.clientId,
+        vars: {
+          clientName: appointment.client.name,
+          reference: appointment.reference,
+          when: formatManila(appointment.startAt, { time: true, weekday: true }),
+          reason:
+            'Your reservation fee reached us after the holding window closed, and the ' +
+            'time had been taken. We will call you to move your booking or send the fee back.',
+        },
+      });
+
+      // True: the payment happened and has been recorded. What it could not do
+      // is buy back a place that is no longer there.
+      return true;
+    }
+  }
 
   await prisma.appointment.update({
     where: { id: appointment.id },
@@ -804,8 +949,21 @@ export async function refundDeposit(opts: {
   return { ok: true, amountCents, manual, gatewayRefundId, gatewayStatus };
 }
 
-/** Expires unpaid bookings past their window. Runs from the daily/periodic job. */
-export async function expireStaleBookings(): Promise<number> {
+const LAPSED_REASON = 'Reservation fee not received in time.';
+
+/**
+ * Expires unpaid bookings past their window.
+ *
+ * Safe to run twice at once, which it now is: the flip is a conditional write
+ * that only matches a row still PENDING, and the email goes out only to
+ * whichever caller actually changed it. Without that, two sweeps overlapping —
+ * the nightly job and a browsing guest, or two guests — would each read the
+ * same lapsed booking and each send her the same "did not go through" email.
+ *
+ * The batch is capped so a backlog cannot stall whoever triggered it; the next
+ * caller takes the next twenty.
+ */
+export async function expireStaleBookings(limit = 20): Promise<number> {
   const stale = await prisma.appointment.findMany({
     where: {
       status: 'PENDING',
@@ -813,20 +971,27 @@ export async function expireStaleBookings(): Promise<number> {
       expiresAt: { lt: new Date() },
     },
     include: { client: true, services: { include: { service: true } } },
+    take: limit,
   });
 
+  let expired = 0;
   for (const appt of stale) {
-    await prisma.appointment.update({
-      where: { id: appt.id },
-      data: { status: 'EXPIRED', cancelReason: 'Reservation fee not received in time.' },
+    const claimed = await prisma.appointment.updateMany({
+      where: { id: appt.id, status: 'PENDING' },
+      data: { status: 'EXPIRED', cancelReason: LAPSED_REASON },
     });
+    // Somebody else swept it between our read and our write. Theirs is the
+    // email; ours would be the second one she did not need.
+    if (claimed.count === 0) continue;
+    expired += 1;
+
     // The party's other rows carry no fee of their own, so nothing would ever
     // expire them — they would sit PENDING forever, holding beds for a booking
     // that lapsed.
     if (appt.partyRef) {
       await prisma.appointment.updateMany({
         where: { partyRef: appt.partyRef, id: { not: appt.id }, status: 'PENDING' },
-        data: { status: 'EXPIRED', cancelReason: 'Reservation fee not received in time.' },
+        data: { status: 'EXPIRED', cancelReason: LAPSED_REASON },
       });
     }
     await sendTemplateEmail({
@@ -841,7 +1006,36 @@ export async function expireStaleBookings(): Promise<number> {
       },
     });
   }
-  return stale.length;
+  return expired;
+}
+
+/**
+ * The sweep, driven by whoever is browsing rather than by a clock.
+ *
+ * The nightly job is too slow to be the only trigger: at a fifteen-minute
+ * window a guest could be told her booking lapsed most of a day after it did.
+ * A spa's booking page is looked at all through opening hours, so letting those
+ * visits carry the sweep keeps it near real time without a scheduler — and
+ * costs one indexed query that almost always comes back empty.
+ *
+ * Throttled per running instance, because the point is to be timely, not to
+ * repeat the query for every guest tapping through dates. Instances not sharing
+ * the clock is fine: the worst case is a sweep running twice, and a sweep
+ * running twice is exactly what the conditional flip above makes harmless.
+ */
+let lastSweptAt = 0;
+const SWEEP_INTERVAL_MS = 60_000;
+
+export async function sweepLapsedBookings(): Promise<void> {
+  if (Date.now() - lastSweptAt < SWEEP_INTERVAL_MS) return;
+  lastSweptAt = Date.now();
+  try {
+    await expireStaleBookings();
+  } catch (err) {
+    // A guest looking at free times must never see an error because the
+    // tidying failed. The nightly job is still there to catch up.
+    console.error('lapsed-booking sweep failed', err);
+  }
 }
 
 /**

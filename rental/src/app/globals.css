@@ -1,0 +1,333 @@
+@import 'tailwindcss';
+
+/*
+  Two skins on one stylesheet.
+
+  The public site is warm, unhurried, hospitality — forest green on cream with
+  a camel accent, a display serif for headings, generous space. The portal is
+  quick and legible on a phone held in one hand: bigger type, bigger targets,
+  status stated in a word as well as a colour, because a colour alone fails for
+  the colour-blind cleaner and in direct Manila sunlight.
+
+  The token *names* are deliberately unchanged from the previous palette. Thirty
+  or so files reference `--color-sand-200` for a border and `--color-ink-500`
+  for muted text; re-skinning by editing values here rather than renaming
+  tokens means the portal follows along without a single component edit, and
+  the next re-skin costs the same.
+
+  One value worth calling out: `--color-ink-500` is every piece of muted text in
+  the app — stay dates, fee breakdowns, cancellation terms. It sits at 4.86:1
+  on the page ground, just over the 4.5:1 that WCAG AA asks of body-sized text.
+  It is not a stylistic choice and should not be lightened.
+*/
+
+@theme {
+  /* Grounds and rules — cream, warm, low-chroma. */
+  --color-sand-50: #f6f1e8;  /* page ground */
+  --color-sand-100: #efe8da; /* hover fills, alternating rows */
+  --color-sand-200: #e2dbcc; /* hairlines and card borders */
+  --color-sand-300: #d3c9b4; /* input borders, stronger rules */
+
+  /* Brand. Named clay for continuity; forest green by value. */
+  --color-clay-500: #3b5c4a; /* lighter green — icons on cream, secondary marks */
+  --color-clay-600: #2f4a3c; /* brand: buttons, prices, footer  — 8.9:1 on sand-50 */
+  --color-clay-700: #243a30; /* pressed and hovered */
+
+  /* Ink. */
+  --color-ink-900: #26332c; /* headlines and running copy — 12:1 */
+  --color-ink-700: #4a5a50; /* labels, secondary copy */
+  --color-ink-500: #6b6a61; /* muted — 4.86:1, see above */
+
+  --font-display: var(--font-playfair), 'Hoefler Text', Baskerville, Georgia, serif;
+  --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root {
+  --ok: #2f7d4f;
+  --warn: #b26a00;
+  --bad: #b3261e;
+  --info: #2a5d8f;
+
+  /* Public-site surfaces. Cards are a hair warmer than white so they read as
+     paper on the cream rather than as holes cut out of it. */
+  --card-bg: #fffdf8;
+  --accent: #c89b6d;      /* camel — rules, small fills, never text (2.2:1) */
+  --accent-soft: #8c9a82; /* sage — dividers and decoration only (2.67:1) */
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-sand-50);
+  color: var(--color-ink-900);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+
+/* Touch targets, enforced in one place. Cleaners use this with wet hands. */
+button,
+[role='button'],
+a.btn,
+input[type='submit'] {
+  min-height: 44px;
+}
+
+input,
+select,
+textarea {
+  min-height: 44px;
+  font-size: 16px; /* under 16px, iOS zooms the whole page on focus */
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.125rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn-primary {
+  background: var(--color-clay-600);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--color-clay-700);
+}
+.btn-secondary {
+  background: var(--card-bg);
+  border-color: var(--color-sand-300);
+  color: var(--color-ink-900);
+}
+.btn-secondary:hover {
+  background: var(--color-sand-100);
+}
+.btn-danger {
+  background: var(--bad);
+  color: #fff;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-sand-300);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+}
+.field:focus {
+  outline: 2px solid var(--color-clay-600);
+  outline-offset: 1px;
+}
+
+/* Keyboard focus is visible everywhere, not just on inputs. */
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-clay-600);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 0.75rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink-700);
+  margin-bottom: 0.25rem;
+}
+
+/* ── public site ─────────────────────────────────────────────────────────
+   The portal never uses anything below this line. These classes carry the
+   hospitality skin: the wordmark, the hero, the search bar that floats over
+   it, and the row of things worth knowing before you scroll.
+   ------------------------------------------------------------------------ */
+
+/* Letterspaced uppercase, on buttons and eyebrows. The trailing text-indent
+   compensates for the space tracking adds after the final letter, which is
+   what makes centred letterspaced text look shifted left. */
+.tracked {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  text-indent: 0.15em;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.btn-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-clay-600);
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  padding: 0.95rem 1.75rem;
+  transition: background-color 140ms ease;
+}
+.btn-brand:hover {
+  background: var(--color-clay-700);
+}
+
+.wordmark {
+  line-height: 1;
+  display: inline-block;
+  text-decoration: none;
+}
+.wordmark b {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  display: block;
+}
+.wordmark em {
+  font-style: normal;
+  font-size: 0.5rem;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  display: block;
+  text-align: center;
+  margin-top: 0.25rem;
+  opacity: 0.72;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  text-indent: 0.28em;
+  font-size: 0.625rem;
+  color: var(--color-ink-500);
+}
+
+/* The hero scrim. Dark enough for white text at 4.5:1 over a bright photo,
+   light enough that the photograph is still the point. */
+.hero-scrim {
+  background-image: linear-gradient(rgba(28, 34, 30, 0.34), rgba(28, 34, 30, 0.58));
+}
+
+/* Search bar: one line of fields on desktop, a stacked card on a phone. The
+   dividers are drawn as pseudo-elements so the first field has none. */
+.sfield {
+  position: relative;
+}
+.sfield + .sfield::before {
+  content: '';
+  position: absolute;
+  background: var(--color-sand-200);
+  left: 0;
+  top: 0.75rem;
+  bottom: 0.75rem;
+  width: 1px;
+}
+@media (max-width: 767px) {
+  .sfield + .sfield::before {
+    left: 0.875rem;
+    right: 0.875rem;
+    top: 0;
+    bottom: auto;
+    width: auto;
+    height: 1px;
+  }
+}
+
+/* Feature row: same divider trick, and the dividers move with the wrap. */
+.feature + .feature::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-sand-200);
+}
+.feature:nth-child(2n + 1)::before {
+  display: none;
+}
+@media (min-width: 768px) {
+  .feature:nth-child(2n + 1)::before {
+    display: block;
+  }
+  .feature:nth-child(3n + 1)::before {
+    display: none;
+  }
+}
+@media (min-width: 1024px) {
+  .feature:nth-child(3n + 1)::before {
+    display: block;
+  }
+  .feature:nth-child(5n + 1)::before {
+    display: none;
+  }
+}
+
+/* Status pills. The word carries the meaning; the colour only reinforces it. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.pill-ok    { background: #e6f2ea; color: var(--ok); }
+.pill-warn  { background: #fdf0dd; color: var(--warn); }
+.pill-bad   { background: #fbe9e7; color: var(--bad); }
+.pill-info  { background: #e7eef6; color: var(--info); }
+.pill-muted { background: var(--color-sand-100); color: var(--color-ink-500); }
+
+/* Calendar cells */
+.cal-cell {
+  height: 2.25rem;
+  border: 1px solid var(--color-sand-200);
+  font-size: 0.6875rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.cal-AVAILABLE   { background: var(--card-bg); }
+.cal-RESERVED    { background: #cfe0ef; color: #17324b; }
+.cal-OCCUPIED    { background: #9fc3e0; color: #10283c; }
+.cal-CLEANING    { background: #fbe3bd; color: #6a4405; }
+.cal-MAINTENANCE { background: #f6c9c4; color: #6d1a13; }
+.cal-OWNER       { background: #ded4ea; color: #3f2d59; }
+.cal-UNAVAILABLE { background: #e2ded8; color: #4a4239; }
+.cal-EXTERNAL    { background: #d6e8dd; color: #1d4630; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { border-color: #ccc; }
+}

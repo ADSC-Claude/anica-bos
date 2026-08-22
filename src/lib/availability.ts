@@ -6,7 +6,7 @@
  * dates there is no attendance yet, so it falls back to the default weekly
  * schedule and day-off. Rotation order follows the time-in sequence.
  */
-import type { ResourceType } from '@prisma/client';
+import type { DepositStatus, ResourceType } from '@prisma/client';
 import { prisma } from './db';
 import { shownName } from './people';
 import { effectiveWindow, overlaps as windowsOverlap } from './itinerary';
@@ -18,6 +18,35 @@ import {
 } from './datetime';
 
 const BUSY_STATUSES = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'IN_SERVICE', 'COMPLETED'] as const;
+
+/** A reservation fee that never arrived — nothing was sent, or the card failed. */
+const UNPAID: DepositStatus[] = ['AWAITING_PAYMENT', 'FAILED'];
+
+/**
+ * The bookings that are actually holding a bed or a therapist right now.
+ *
+ * A booking sits PENDING from the moment it is made until its reservation fee
+ * arrives, and PENDING is busy — rightly so, or two guests would be sold the
+ * same bed while the first is still on the payment page. But that hold has a
+ * deadline. Once it passes with no fee the booking is finished, and the bed
+ * should go back on sale that instant rather than whenever the sweep next runs
+ * — which, on a once-a-day job, is most of a day of an empty bed nobody could
+ * book.
+ *
+ * Deliberately not AWAITING_VERIFICATION: that guest has paid by hand and is
+ * waiting on the desk to look at her proof of payment. The hold is still hers,
+ * and the clock is ours, not hers.
+ */
+function holdsAPlace() {
+  return {
+    status: { in: [...BUSY_STATUSES] },
+    NOT: {
+      status: 'PENDING' as const,
+      depositStatus: { in: UNPAID },
+      expiresAt: { lt: new Date() },
+    },
+  };
+}
 
 export type AvailableTherapist = {
   id: string;
@@ -88,7 +117,7 @@ export async function availableTherapists(opts: {
       employeeId: { in: onDuty.map((e) => e.id) },
       appointment: {
         branchId: opts.branchId,
-        status: { in: [...BUSY_STATUSES] },
+        ...holdsAPlace(),
         startAt: { lt: opts.endAt },
         endAt: { gt: opts.startAt },
         ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
@@ -131,7 +160,7 @@ export async function nextTherapistInRotation(opts: {
       employeeId: { in: candidates.map((c) => c.id) },
       appointment: {
         branchId: opts.branchId,
-        status: { in: [...BUSY_STATUSES] },
+        ...holdsAPlace(),
         startAt: { gte: manilaInstant(dateKey, 0), lt: manilaInstant(dateKey, 1440) },
       },
     },
@@ -187,7 +216,7 @@ async function placeHolds(opts: {
       ...(opts.excludeSegmentIds?.length ? { id: { notIn: opts.excludeSegmentIds } } : {}),
       appointment: {
         branchId: opts.branchId,
-        status: { in: [...BUSY_STATUSES] },
+        ...holdsAPlace(),
         ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),
       },
       OR: [
@@ -231,7 +260,7 @@ async function placeHolds(opts: {
     where: {
       branchId: opts.branchId,
       resourceId: { not: null },
-      status: { in: [...BUSY_STATUSES] },
+      ...holdsAPlace(),
       startAt: { lt: opts.endAt },
       endAt: { gt: opts.startAt },
       services: { none: {} },
@@ -583,7 +612,7 @@ export async function assertNoConflicts(opts: {
         employeeId: { in: opts.employeeIds },
         appointment: {
           branchId: opts.branchId,
-          status: { in: [...BUSY_STATUSES] },
+          ...holdsAPlace(),
           startAt: { lt: opts.endAt },
           endAt: { gt: opts.startAt },
           ...(opts.excludeAppointmentId ? { id: { not: opts.excludeAppointmentId } } : {}),

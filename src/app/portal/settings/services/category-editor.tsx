@@ -42,6 +42,11 @@ export function ServiceCategoryEditor({ categories }: { categories: Category[] }
           number fall back to alphabetical order.
         </span>
 
+        {/* No Photo field here any more. The landing page's four cards are
+            written into the page rather than generated from these headings —
+            a card can say "Foot Spa & Reflexology", which is two categories,
+            and the catalogue's order belongs to the price list. */}
+
         <label className="flex items-center gap-2 text-sm text-cocoa-700">
           <input type="checkbox" name="active" className="h-5 w-5 accent-[#6b4e35]"
             defaultChecked={current?.active ?? true} />

@@ -230,6 +230,18 @@ export function BookingWizard() {
     name: '', mobile: '', email: '', birthday: '',
     addressCity: 'Quezon City', addressLine: '', barangay: '',
   });
+  /**
+   * Whether this guest says she has been here before, and whether we agree.
+   *
+   * `claim` is what she pressed; `found` is what the server said when it was
+   * asked. They are separate because pressing "I'm a returning client" must
+   * not on its own skip anything — the details come off the form only once the
+   * number and the name have actually matched a record.
+   */
+  const [claim, setClaim] = useState<'new' | 'returning'>('new');
+  const [found, setFound] = useState<'unknown' | 'checking' | 'yes' | 'no'>('unknown');
+  const recognised = claim === 'returning' && found === 'yes';
+
   const [intake, setIntake] = useState<Record<string, unknown>>({});
   const [notes, setNotes] = useState('');
   const [promoCode, setPromoCode] = useState('');
@@ -463,8 +475,23 @@ export function BookingWizard() {
   const ticks = medicalFields.filter(
     (f) => f.type === 'BOOLEAN' && !f.dependsOnKey && !f.isNoneOption,
   );
+  /**
+   * The free-text questions — allergies, anything else — which get the N/A
+   * escape and so are the ones that have to be answered.
+   *
+   * Type-checked rather than "everything that is not a tick box": the Owner can
+   * add a dropdown to the health section from Settings, and a dropdown handed
+   * the N/A treatment would render as a plain text box and lose its options.
+   * It also has a blank of its own already, so it needs no waive-off.
+   */
   const written = medicalFields.filter(
-    (f) => f.type !== 'BOOLEAN' && !f.dependsOnKey && !f.isNoneOption,
+    (f) => (f.type === 'TEXT' || f.type === 'TEXTAREA') && !f.dependsOnKey && !f.isNoneOption,
+  );
+  /** Anything else the Owner has added — a dropdown, a number — as it comes. */
+  const otherAsked = medicalFields.filter(
+    (f) =>
+      f.type !== 'BOOLEAN' && f.type !== 'TEXT' && f.type !== 'TEXTAREA' &&
+      !f.dependsOnKey && !f.isNoneOption,
   );
 
   /**
@@ -607,9 +634,12 @@ export function BookingWizard() {
   const details: [boolean, string, string][] = [
     [client.name.trim().length > 1, 'We need your full name.', 'detail-name'],
     [client.mobile.replace(/\D/g, '').length > 6, 'We need a mobile number to reach you.', 'detail-mobile'],
-    [/\S+@\S+\.\S+/.test(client.email), 'We need an email for your confirmation.', 'detail-email'],
-    [Boolean(client.birthday), 'We need your birthday.', 'detail-birthday'],
-    [Boolean(client.addressCity), 'Choose your city.', 'detail-city'],
+    // A guest we recognised has already given these, and the fields are not on
+    // screen to fix — so requiring them would be an instruction she cannot
+    // follow. The server checks the same thing again before trusting it.
+    [recognised || /\S+@\S+\.\S+/.test(client.email), 'We need an email for your confirmation.', 'detail-email'],
+    [recognised || Boolean(client.birthday), 'We need your birthday.', 'detail-birthday'],
+    [recognised || Boolean(client.addressCity), 'Choose your city.', 'detail-city'],
     [consent, 'Please tick the consent box so we can keep your booking.', 'detail-consent'],
     [waiver, 'Please tick the treatment consent box before we reserve your slot.', 'detail-waiver'],
     [
@@ -1133,25 +1163,118 @@ export function BookingWizard() {
         <div className="space-y-4">
           <div className="card-pad space-y-3">
             <p className="section-title">Your details</p>
+
+            {/* Asked before the fields rather than after, because the answer
+                decides how many of them there are. */}
+            <div className="space-y-2">
+              <span className="label">Have you been to us before? *</span>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {([
+                  ['new', "I'm a new client"],
+                  ['returning', "I've been here before"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => { setClaim(value); setFound('unknown'); }}
+                    className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                      claim === value
+                        ? 'border-gilt-500 bg-sand-50 text-cocoa-800'
+                        : 'border-sand-200 text-cocoa-600 hover:border-sand-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <label className="block">
               <span className="label">Full name *</span>
               <input id="detail-name" className="input" value={client.name}
-                onChange={(e) => setClient({ ...client, name: e.target.value })} />
+                onChange={(e) => { setClient({ ...client, name: e.target.value }); setFound('unknown'); }} />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <span className="label">Mobile number *</span>
                 <input id="detail-mobile" className="input" inputMode="tel" placeholder="0917 123 4567"
                   value={client.mobile}
-                  onChange={(e) => setClient({ ...client, mobile: e.target.value })} />
+                  onChange={(e) => { setClient({ ...client, mobile: e.target.value }); setFound('unknown'); }} />
               </label>
-              <label className="block">
-                <span className="label">Email *</span>
-                <input id="detail-email" className="input" type="email" placeholder="you@email.com"
-                  value={client.email}
-                  onChange={(e) => setClient({ ...client, email: e.target.value })} />
-              </label>
+              {!recognised && (
+                <label className="block">
+                  <span className="label">Email *</span>
+                  <input id="detail-email" className="input" type="email" placeholder="you@email.com"
+                    value={client.email}
+                    onChange={(e) => setClient({ ...client, email: e.target.value })} />
+                </label>
+              )}
             </div>
+
+            {/* The lookup answers yes or no and nothing else — it never shows a
+                name back, because an unauthenticated endpoint that confirms
+                "0917… belongs to Maria S." is a directory of your clients. */}
+            {claim === 'returning' && !recognised && (
+              <div className="rounded-xl border border-sand-200 bg-sand-50 p-3">
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  disabled={
+                    found === 'checking' ||
+                    client.name.trim().length < 2 ||
+                    client.mobile.replace(/\D/g, '').length < 7
+                  }
+                  onClick={async () => {
+                    setFound('checking');
+                    try {
+                      const res = await fetch('/api/public/returning', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({
+                          branchId, name: client.name, mobile: client.mobile,
+                        }),
+                      });
+                      const data = await res.json().catch(() => ({ known: false }));
+                      setFound(data.known ? 'yes' : 'no');
+                    } catch {
+                      setFound('no');
+                    }
+                  }}
+                >
+                  {found === 'checking' ? 'Checking…' : 'Find my details'}
+                </button>
+                {found === 'no' && (
+                  <p className="mt-2 text-xs text-cocoa-600">
+                    We could not match that name and number. Check them, or just fill in the
+                    form below — either way your booking goes through.
+                  </p>
+                )}
+                {found === 'unknown' && (
+                  <p className="mt-2 text-xs text-cocoa-500">
+                    Enter the name and mobile number you booked with last time, and we will
+                    fill in the rest.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {recognised && (
+              <div className="rounded-xl border border-gilt-500 bg-sand-50 p-3">
+                <p className="text-sm font-medium text-cocoa-800">Welcome back.</p>
+                <p className="mt-1 text-xs text-cocoa-600">
+                  We have your contact details on file — just the health questions below, since
+                  those can change between visits.{' '}
+                  <button type="button" className="underline underline-offset-4"
+                    onClick={() => { setClaim('new'); setFound('unknown'); }}>
+                    Enter them again
+                  </button>
+                  .
+                </p>
+              </div>
+            )}
+
+            {!recognised && (
+            <>
             <div className="grid gap-3 sm:grid-cols-2">
               {/* A div, not a label: a label points at one control and this
                   is three. The id stays here so "Take me there" can still find
@@ -1185,6 +1308,8 @@ export function BookingWizard() {
                   onChange={(e) => setClient({ ...client, addressLine: e.target.value })} />
               </label>
             </div>
+            </>
+            )}
 
             {profileFields.map((f) => (
               <IntakeField key={f.key} field={f} value={intake[f.key]}
@@ -1229,6 +1354,11 @@ export function BookingWizard() {
                     setIntake({ ...intake, [f.key]: on ? NOT_APPLICABLE : '' })
                   } />
               </div>
+            ))}
+
+            {otherAsked.map((f) => (
+              <IntakeField key={f.key} field={f} value={intake[f.key]}
+                onChange={(v) => setIntake({ ...intake, [f.key]: v })} />
             ))}
           </div>
 

@@ -1,0 +1,49 @@
+{
+  "name": "anica-stays",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Short-term rental PMS + direct booking website",
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/build.mjs",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx --conditions=react-server prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force --skip-seed && npm run db:seed",
+    "backup": "tsx --conditions=react-server scripts/backup.ts",
+    "restore": "tsx --conditions=react-server scripts/restore.ts",
+    "jobs:minute": "tsx --conditions=react-server scripts/run-jobs.ts minute",
+    "jobs:daily": "tsx --conditions=react-server scripts/run-jobs.ts daily",
+    "verify": "tsx --conditions=react-server scripts/verify-integrity.ts",
+    "test": "tsx --conditions=react-server --test tests/*.test.ts",
+    "test:live": "tsx --conditions=react-server tests/live/rbac-live.ts",
+    "build:local": "prisma generate && next build"
+  },
+  "prisma": {
+    "seed": "tsx --conditions=react-server prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "3.0.2",
+    "jose": "6.2.5",
+    "next": "15.5.22",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "22.10.2",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "prisma": "6.19.3",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.23.1",
+    "typescript": "5.7.2"
+  }
+}

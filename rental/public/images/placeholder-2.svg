@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600" role="img" aria-label="Photograph placeholder">
+  <rect width="800" height="600" fill="#d4c3a8"/>
+  <path d="M0 430 L200 300 L340 400 L520 250 L800 460 L800 600 L0 600 Z" fill="#6f3e26" opacity=".22"/>
+  <circle cx="650" cy="140" r="52" fill="#6f3e26" opacity=".28"/>
+  <text x="400" y="316" font-family="Georgia,serif" font-size="26" fill="#6f3e26" text-anchor="middle" opacity=".7">Photograph goes here</text>
+</svg>

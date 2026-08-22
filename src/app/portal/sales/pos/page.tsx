@@ -43,7 +43,7 @@ export default async function PosPage({
       prisma.discountPreset.findMany({ where: { active: true }, orderBy: { sortRank: 'asc' } }),
       prisma.client.findMany({
         where: { branchId },
-        select: { id: true, name: true, mobile: true },
+        select: { id: true, name: true, mobile: true, medicalUpdatedAt: true },
         orderBy: { name: 'asc' },
         take: 800,
       }),

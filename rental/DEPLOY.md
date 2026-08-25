@@ -181,6 +181,7 @@ is set:
 | `EMAIL_FROM` | falls back to a placeholder; set it before sending anything real |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | uploads go to local disk, which on Vercel means they vanish at the end of the request. **Set these before anyone uploads a receipt.** |
 | `NEXT_PUBLIC_CONTACT_PHONE` + `NEXT_PUBLIC_CONTACT_EMAIL` | the error page offers no way to reach a person. These are read at build time, not from the database, precisely so they still work when the database is what broke. Worth setting. |
+| `VERCEL_ANALYTICS_TOKEN` + `VERCEL_ANALYTICS_PROJECT_ID` + `VERCEL_ANALYTICS_TEAM_ID` | Portal → Reports → Visitors shows setup instructions instead of numbers. See "Visitor statistics" below. |
 
 `NEXT_PUBLIC_APP_URL` is the one that is easy to forget and awkward to notice:
 it is what emails, PayMongo redirects and iCal feed URLs are built from. Wrong,
@@ -195,6 +196,29 @@ constraint. If that step fails, nothing else matters — read the log before
 retrying.
 
 ---
+
+### Visitor statistics
+
+Web Analytics itself is a Vercel dashboard toggle (project → Analytics →
+Enable, then one redeploy so the counting script starts being served). That
+alone gives you the numbers **in Vercel's dashboard**.
+
+To also see them inside the portal (Reports → Visitors), give the app read
+access to the counter:
+
+1. Create a token at vercel.com → Account settings → Tokens, scoped to the
+   team that owns this project. It is shown once — copy it then.
+2. Add three environment variables to the project and redeploy:
+
+| Variable | Value for this deployment |
+|---|---|
+| `VERCEL_ANALYTICS_TOKEN` | the token from step 1 (mark it Secret) |
+| `VERCEL_ANALYTICS_PROJECT_ID` | `prj_Xw0iXfZORW6H5WLe0Ycu2vOZAZYt` |
+| `VERCEL_ANALYTICS_TEAM_ID` | `team_VSie06rBuV9COf79igunAFEa` |
+
+The page refreshes its numbers every ten minutes, counts the public site
+only (never `/portal` or `/login`), and degrades to instructions — not an
+error — whenever any of the three is missing.
 
 ## 3 — First run
 

@@ -40,6 +40,7 @@ const PAGES: { path: string; permission: string }[] = [
   { path: '/portal/settings', permission: 'settings.view' },
   { path: '/portal/settings/users', permission: 'users.manage' },
   { path: '/portal/settings/audit', permission: 'audit.view' },
+  { path: '/portal/reports/visitors', permission: 'reports.view' },
 ];
 
 const ACCOUNTS: { email: string; role: Role }[] = [

@@ -169,13 +169,6 @@ export function SiteHeader({ settings, active }: { settings: SettingsShape; acti
               >
                 Manage my booking
               </Link>
-              <hr className="my-2 border-[color:var(--color-sand-200)]" />
-              <Link
-                href="/login"
-                className="block rounded px-3 py-2.5 text-xs text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]"
-              >
-                Staff sign-in
-              </Link>
             </div>
           </details>
         </div>
@@ -258,14 +251,14 @@ export function SiteFooter({ settings }: { settings: SettingsShape }) {
         </div>
       </div>
 
+      {/* No staff sign-in link anywhere public: staff go straight to /login,
+          which is noindex'd. Advertising the staff entrance on a booking site
+          invites password guessing and helps nobody who belongs there. */}
       <div className="border-t border-white/15">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-xs text-white/60">
           <p>
             © {new Date().getFullYear()} {settings['business.name']}. Built and run in Manila.
           </p>
-          <Link href="/login" className="hover:text-white hover:underline">
-            Staff sign-in
-          </Link>
         </div>
       </div>
     </footer>

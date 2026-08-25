@@ -5,7 +5,15 @@
  */
 export const SETTINGS_DEFAULTS = {
   // --- the business -------------------------------------------------------
-  'business.name': 'ANICA Stays',
+  'business.name': 'NAYRA Stays',
+  /**
+   * The brand mark, in two pieces because one file cannot serve both grounds:
+   * the arch mark rides beside the typed name in the header (bronze, made for
+   * the cream page), and the full lockup sits in the footer (cream monochrome,
+   * made for the green). Blank either one and the typed wordmark takes over.
+   */
+  'business.logoUrl': '/brand/nayra-arch.png',
+  'business.logoFooterUrl': '/brand/nayra-stays-cream.png',
   'business.tagline': 'Stay somewhere that feels like yours.',
   'business.intro':
     'Thoughtfully kept condos in Metro Manila and a quiet family house in Bulacan. Booked direct, so the best rate is the one you see.',
@@ -77,6 +85,8 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
     description: 'Name, contact details and the copy that appears on the public site.',
     keys: [
       'business.name',
+      'business.logoUrl',
+      'business.logoFooterUrl',
       'business.tagline',
       'business.intro',
       'business.story',
@@ -135,6 +145,8 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
 
 export const SETTING_LABELS: Partial<Record<SettingKey, string>> = {
   'business.name': 'Business name',
+  'business.logoUrl': 'Logo mark (header, on cream)',
+  'business.logoFooterUrl': 'Logo lockup (footer, on green)',
   'business.tagline': 'Tagline (hero)',
   'business.intro': 'Intro paragraph',
   'business.story': 'About Us story',

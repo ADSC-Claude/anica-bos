@@ -2,7 +2,7 @@
   "name": "anica-bos",
   "version": "1.0.0",
   "private": true,
-  "description": "ANICA Wellness Spa \u2014 Business Operating System",
+  "description": "ANICA Wellness Spa — Business Operating System",
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/build.mjs",
@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "3.0.2",
     "jose": "6.2.5",
     "next": "15.5.22",

@@ -180,6 +180,7 @@ is set:
 | `RESEND_API_KEY` | email is logged to the console and recorded as "logged", not sent |
 | `EMAIL_FROM` | falls back to a placeholder; set it before sending anything real |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | uploads go to local disk, which on Vercel means they vanish at the end of the request. **Set these before anyone uploads a receipt.** |
+| `NEXT_PUBLIC_CONTACT_PHONE` + `NEXT_PUBLIC_CONTACT_EMAIL` | the error page offers no way to reach a person. These are read at build time, not from the database, precisely so they still work when the database is what broke. Worth setting. |
 
 `NEXT_PUBLIC_APP_URL` is the one that is easy to forget and awkward to notice:
 it is what emails, PayMongo redirects and iCal feed URLs are built from. Wrong,
@@ -333,6 +334,7 @@ you pass `--force`. Full procedure, and the RPO/RTO table, in
 
 | Symptom | Cause |
 |---|---|
+| **Build succeeds, deployment says Ready, but every page 500s** | `DATABASE_URL` is the **direct** connection. Migrations ran because they use `DIRECT_URL`, so the build passed — but the running app cannot reach `db.<ref>.supabase.co` over IPv4, so every page that reads the database throws. Use the **transaction pooler**, port 6543, with `?pgbouncer=true&connection_limit=1`. This one is nasty because a green build and a Ready badge both suggest the deploy worked. |
 | Build fails naming a missing variable | It is missing. The build refuses rather than shipping a 500. |
 | Build fails on `migrate deploy` with `P1001: Can't reach database server` | `DIRECT_URL` is the **direct** connection, which Supabase serves over IPv6 only and Vercel cannot reach. Use the session pooler: same pooler host, port 5432. |
 | Build fails on `migrate deploy` some other way | `DIRECT_URL` absent, or pointing at port 6543. Migrations need session mode. |

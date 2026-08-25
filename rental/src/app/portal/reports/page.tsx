@@ -33,6 +33,9 @@ export default async function ReportsPage({
         subtitle={`${formatDateKey(fromKey)} → ${formatDateKey(toKey)}`}
         actions={
           <>
+            <Link className="btn btn-secondary" href="/portal/reports/visitors">
+              Visitors
+            </Link>
             {mayExport && (
               <a className="btn btn-secondary" href={`/api/reports/${key}.csv?from=${fromKey}&to=${toKey}`}>
                 Download CSV

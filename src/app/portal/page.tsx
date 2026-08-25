@@ -27,6 +27,7 @@ import { PageHeader, StatCard, StatusBadge, EmptyState, Alert } from '@/componen
 import { BranchSwitcher } from '@/components/branch-switcher';
 import { NotificationList } from '@/components/notification-list';
 import { shownName } from '@/lib/people';
+import { WebsiteVisitors } from '@/components/website-visitors';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Dashboard' };
@@ -269,6 +270,12 @@ async function OwnerView({
           </ul>
         </div>
       )}
+
+      {/* Last, and only for the Owner. It is the one panel here that depends
+          on somebody else's service, so it goes where a slow or missing
+          answer costs the least — under the numbers the spa actually runs on,
+          not above them. */}
+      <WebsiteVisitors branchIds={branchIds} />
     </>
   );
 }

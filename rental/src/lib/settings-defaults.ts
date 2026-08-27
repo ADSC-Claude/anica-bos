@@ -26,6 +26,13 @@ export const SETTINGS_DEFAULTS = {
   'business.facebook': '',
   'business.instagram': '',
   'business.heroImage': '/images/hero.svg',
+  /**
+   * While this is on, everyone who is not staff meets a "coming soon" page
+   * instead of the site. Guests holding a booking code keep their own pages.
+   * It starts on: a business that has not entered its properties yet is not
+   * ready to be found.
+   */
+  'site.comingSoon': true,
 
   // --- booking rules ------------------------------------------------------
   /** Percent of the total taken up front. 100 means full payment. */
@@ -96,6 +103,7 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
       'business.facebook',
       'business.instagram',
       'business.heroImage',
+      'site.comingSoon',
     ],
   },
   {
@@ -156,6 +164,7 @@ export const SETTING_LABELS: Partial<Record<SettingKey, string>> = {
   'business.facebook': 'Facebook URL',
   'business.instagram': 'Instagram URL',
   'business.heroImage': 'Hero image path',
+  'site.comingSoon': 'Hide the public site behind a "coming soon" page',
   'booking.depositPercent': 'Deposit taken at booking (%)',
   'booking.holdMinutes': 'Hold unpaid dates for (minutes)',
   'booking.balanceDueDays': 'Balance reminder, days before check-in',

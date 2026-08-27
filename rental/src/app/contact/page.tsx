@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { upsertGuest } from '@/lib/guests';
 import { notify } from '@/lib/notifications';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
@@ -29,6 +30,9 @@ export const dynamic = 'force-dynamic';
 
 async function submitEnquiry(formData: FormData) {
   'use server';
+  // The gate again, because a server action is a public endpoint in its own
+  // right: hiding the form that posts to it does not hide it.
+  await requirePublicSite();
 
   // Bots fill every field they find. This one is hidden from people and from
   // screen readers, so anything in it is not a person.
@@ -90,6 +94,7 @@ export default async function ContactPage({
 }: {
   searchParams: Promise<{ done?: string; error?: string }>;
 }) {
+  await requirePublicSite();
   const settings = await getSettings();
   const { done, error } = await searchParams;
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { PageHero, SectionHead, FeatureRow, Icon } from '@/components/site-ui';
 
@@ -16,6 +17,7 @@ export const dynamic = 'force-dynamic';
  * simply doesn't render.
  */
 export default async function AboutPage() {
+  await requirePublicSite();
   const settings = await getSettings();
 
   const [propertyCount, branches, ratings, completedStays] = await Promise.all([

@@ -110,6 +110,39 @@ export function fillDays(dayKeys: string[], rows: Slice[]): Slice[] {
   });
 }
 
+export type VisitorSummary = { visitors: number; pageviews: number; days: Slice[] };
+
+/**
+ * The small version, for the dashboard: a week's totals and a short day
+ * series to draw a sparkline from.
+ *
+ * It never throws and never rejects. The dashboard is the page every member
+ * of staff opens first in the morning, and an expired token or a slow
+ * analytics API is not a reason for nobody to be able to see today's
+ * arrivals. Null means "show nothing", and the Visitors page — which exists
+ * to explain itself — is where the reason belongs.
+ */
+export async function visitorSummary(dayCount = 14): Promise<VisitorSummary | null> {
+  const cfg = analyticsConfig();
+  if (!cfg) return null;
+
+  const now = new Date();
+  const until = now.toISOString();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sinceDays = new Date(now.getTime() - dayCount * 24 * 60 * 60 * 1000).toISOString();
+
+  try {
+    const [week, rows] = await Promise.all([
+      visitTotals(cfg, since, until),
+      visitsBy(cfg, 'day', sinceDays, until, 100),
+    ]);
+    return { ...week, days: fillDays(lastDayKeys(dayCount, now), rows) };
+  } catch (err) {
+    console.error('[analytics] dashboard summary unavailable; the card is hidden.', err);
+    return null;
+  }
+}
+
 /** The last `n` UTC day keys, oldest first, ending today. */
 export function lastDayKeys(n: number, now = new Date()): string[] {
   const out: string[] = [];

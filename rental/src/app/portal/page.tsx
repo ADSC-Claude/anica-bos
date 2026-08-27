@@ -6,6 +6,7 @@ import { kpis, kpisByProperty, sourceMix, todayBoard } from '@/lib/metrics';
 import { profitAndLoss, outstandingBalances } from '@/lib/finance';
 import { openNotifications } from '@/lib/notifications';
 import { prisma } from '@/lib/db';
+import { analyticsConfig, visitorSummary } from '@/lib/vercel-analytics';
 import { formatPeso, formatPesoShort, ratio } from '@/lib/money';
 import { manilaDateKey, manilaMonthKey, monthBounds, formatMonthKey, minutesToLabel, formatStayDate } from '@/lib/datetime';
 import { Card, Stat, Bar, Pill, ReadyPill, Empty, PageHeader, Money } from '@/components/ui';
@@ -44,6 +45,14 @@ export default async function Dashboard({
     sourceMix({ fromKey, toKey, propertyIds, branchId }),
     openNotifications(user.role, propertyIds),
   ]);
+
+  // Website traffic sits behind the same permission as the Visitors report it
+  // links to, so a cleaner opening the dashboard is not shown business figures.
+  const mayReports = can(user.role, 'reports.view');
+  const visitors = mayReports ? await visitorSummary() : null;
+  // Told apart from a failed fetch on purpose: only the person who can fix it
+  // is offered the setup link, and only when nothing is wired up at all.
+  const analyticsUnset = mayReports && !analyticsConfig() && can(user.role, 'settings.critical');
 
   const pl = showMoney ? await profitAndLoss({ fromKey, toKey, propertyIds, branchId }) : null;
   const balances = showMoney ? await outstandingBalances(propertyIds) : [];
@@ -240,6 +249,68 @@ export default async function Dashboard({
             )}
           </Card>
         </div>
+      )}
+
+      {visitors && (
+        <Card
+          title="Website visitors"
+          className="mb-5"
+          actions={
+            <Link className="text-xs hover:underline" href="/portal/reports/visitors">
+              See the detail
+            </Link>
+          }
+        >
+          <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-end">
+            <div className="flex gap-6">
+              <div>
+                <div className="text-2xl font-bold tabular-nums">{visitors.visitors}</div>
+                <div className="text-xs text-[color:var(--color-ink-500)]">visitors, 7 days</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tabular-nums">{visitors.pageviews}</div>
+                <div className="text-xs text-[color:var(--color-ink-500)]">pages viewed</div>
+              </div>
+            </div>
+
+            {/* A fortnight at a glance. Days with nothing keep their column so
+                the gaps read as quiet days rather than as missing data. */}
+            <div className="flex h-12 items-end justify-end gap-[3px]" aria-hidden="true">
+              {visitors.days.map((d) => {
+                const peak = Math.max(...visitors.days.map((x) => x.views), 1);
+                return (
+                  <div
+                    key={d.label}
+                    className="w-2 rounded-t bg-[color:var(--color-clay-600)]"
+                    style={{
+                      height: `${Math.max(3, Math.round((d.views / peak) * 100))}%`,
+                      opacity: d.views === 0 ? 0.15 : 1,
+                    }}
+                    title={`${d.label} — ${d.views} view${d.views === 1 ? '' : 's'}`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          {visitors.pageviews === 0 && (
+            <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">
+              Nothing counted this week — expected while the site is behind the coming soon page.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {analyticsUnset && (
+        <Card title="Website visitors" className="mb-5">
+          <p className="text-sm text-[color:var(--color-ink-500)]">
+            Visitor counting is running on the website, but this system cannot read the numbers
+            yet.{' '}
+            <Link className="font-medium text-[color:var(--color-clay-600)] underline" href="/portal/reports/visitors">
+              Three steps to connect it
+            </Link>
+            .
+          </p>
+        </Card>
       )}
 
       <Card title="Per property" className="mb-5">

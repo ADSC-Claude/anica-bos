@@ -3,6 +3,7 @@ import { handle, jsonBody, HttpError } from '@/lib/guard';
 import { createReservation } from '@/lib/reservations';
 import { startCheckout } from '@/lib/payments';
 import { getSettings } from '@/lib/settings';
+import { assertPublicSiteOpen } from '@/lib/public-site';
 import { prisma } from '@/lib/db';
 
 const body = z.object({
@@ -34,6 +35,7 @@ const body = z.object({
  * could not honour.
  */
 export const POST = handle(async (req) => {
+  await assertPublicSiteOpen();
   const input = await jsonBody(req, body);
   const settings = await getSettings();
 

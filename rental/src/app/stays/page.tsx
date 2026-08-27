@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { fromPrice } from '@/lib/pricing';
 import { addDays, manilaDateKey } from '@/lib/datetime';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
@@ -9,6 +10,7 @@ export const metadata = { title: 'Our stays' };
 export const dynamic = 'force-dynamic';
 
 export default async function StaysPage() {
+  await requirePublicSite();
   const settings = await getSettings();
   const today = manilaDateKey();
 

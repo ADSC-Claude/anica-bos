@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { addDays, manilaDateKey } from '@/lib/datetime';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { BookingWizard } from './wizard';
@@ -12,6 +13,7 @@ export default async function BookPage({
 }: {
   searchParams: Promise<{ checkIn?: string; checkOut?: string; adults?: string; property?: string }>;
 }) {
+  await requirePublicSite();
   const params = await searchParams;
   const settings = await getSettings();
   const today = manilaDateKey();

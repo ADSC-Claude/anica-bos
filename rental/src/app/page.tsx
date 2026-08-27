@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { fromPrice } from '@/lib/pricing';
 import { formatPesoShort } from '@/lib/money';
 import { addDays, manilaDateKey } from '@/lib/datetime';
@@ -22,6 +23,7 @@ export const dynamic = 'force-dynamic';
  * check-in, turnovers really are photographed before a unit is called ready.
  */
 export default async function Home() {
+  await requirePublicSite();
   const s = await getSettings();
   const today = manilaDateKey();
 

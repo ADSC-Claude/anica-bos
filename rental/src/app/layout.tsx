@@ -40,7 +40,9 @@ export async function generateMetadata(): Promise<Metadata> {
       description: s['business.intro'],
       locale: 'en_PH',
     },
-    robots: { index: true, follow: true },
+    // Nothing is worth indexing while the site is behind the holding page,
+    // and an indexed placeholder outlives the placeholder by weeks.
+    robots: s['site.comingSoon'] ? { index: false, follow: false } : { index: true, follow: true },
   };
 }
 

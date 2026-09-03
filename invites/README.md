@@ -251,6 +251,17 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    `DIRECT_URL`), sign in as the Owner, change the passwords, then replace the
    demo's placeholder photos and the sample testimonials on the landing page.
 
+### Sharing a Supabase project with another app
+
+The app does not need a Supabase project of its own. It runs happily in its
+own **schema** on a project another app already uses: append
+`?schema=invites` to both connection strings (before `&pgbouncer=true` on the
+pooled one) and Prisma creates and migrates that schema without touching
+`public`. Keep the schema out of the Data API's *exposed schemas* list so
+PostgREST cannot read it, and name the storage buckets `invites-public` and
+`invites-private` so they do not collide with the other app's. The Vercel
+project `anica-invites` is set up this way, on the `anica-bos-sg` project.
+
 ## Testing
 
 ```bash

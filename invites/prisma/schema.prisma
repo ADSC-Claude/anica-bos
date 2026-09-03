@@ -1,0 +1,657 @@
+// Digital invitation platform — Philippines.
+//
+// Conventions, applied without exception:
+//   • Money is an integer number of CENTAVOS. ₱1,999.00 === 199900.
+//   • One-time purchases only. There is no subscription anywhere in this schema.
+//   • Invitation content is JSON, shaped by src/lib/sections.ts. Every template
+//     renders the same shape, so switching templates never loses a field.
+//   • Guest links are tokenised. A guest's row is reachable only through a
+//     secret token, never through a guessable id.
+//   • Nothing that marks money as received is reachable from a browser: the
+//     PayMongo webhook and an admin's proof-of-payment review are the only two
+//     writers of PaymentStatus.PAID.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// People and access
+// ---------------------------------------------------------------------------
+
+/// Staff roles and the customer. A customer's authority is ownership, not a
+/// permission list: they may touch what they bought and nothing else.
+enum Role {
+  ADMIN
+  ENCODER
+  SUPPORT
+  CUSTOMER
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String
+  passwordHash       String
+  role               Role      @default(CUSTOMER)
+  phone              String    @default("")
+  /// Messenger handle or m.me link the customer prefers to be reached on.
+  messenger          String    @default("")
+  viber              String    @default("")
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  /// Any session token signed before this instant stops working.
+  sessionsRevoked    DateTime?
+  lastLoginAt        DateTime?
+  /// Staff-only notes about a customer (support history, preferences).
+  notes              String    @default("")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  orders           Order[]
+  invitations      Invitation[]
+  media            Media[]
+  assignedJobs     DfyJob[]         @relation("DfyAssignee")
+  reviewedPayments Payment[]        @relation("PaymentReviewer")
+  notifications    Notification[]
+  supportMessages  SupportMessage[]
+  dfyRevisions     DfyRevision[]
+  loginEvents      LoginEvent[]
+  auditLogs        AuditLog[]
+
+  @@index([role, active])
+}
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  email     String
+  userId    String?
+  success   Boolean
+  reason    String   @default("")
+  ip        String   @default("")
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, success, createdAt])
+}
+
+/// Business-wide configuration as JSON. Defaults live in settings-defaults.ts
+/// so a fresh install works before anyone opens Settings.
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue: what is for sale
+// ---------------------------------------------------------------------------
+
+enum Occasion {
+  WEDDING
+  DEBUT
+  CHRISTENING
+  KIDS_BIRTHDAY
+  MILESTONE_BIRTHDAY
+  BABY_SHOWER
+  ANNIVERSARY
+  ENGAGEMENT
+  GRADUATION
+  COMMUNION
+  CORPORATE
+  HOUSEWARMING
+  REUNION
+  MEMORIAL
+}
+
+enum Tier {
+  BASIC
+  STANDARD
+  COMPLETE
+}
+
+enum ServiceMode {
+  DIY
+  DFY
+  CONCIERGE
+}
+
+/// One row per occasion and tier. `occasion` null is the fallback for any
+/// occasion without its own row, so a new occasion sells on day one at the
+/// generic price and gets its own pricing when the owner decides.
+model Package {
+  id                String    @id @default(cuid())
+  code              String    @unique
+  occasion          Occasion?
+  tier              Tier
+  name              String
+  tagline           String    @default("")
+  priceCents        Int
+  /// Stacked on top of the package when the customer chooses Done-For-You.
+  dfyFeeCents       Int
+  /// Stacked on top when the customer chooses Full Concierge.
+  conciergeFeeCents Int
+  /// -1 means unlimited until the event.
+  editsAfterPublish Int
+  /// How long the link stays live after the event date.
+  linkValidityDays  Int
+  active            Boolean   @default(true)
+  sortOrder         Int       @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  orders Order[]
+
+  @@index([occasion, tier, active])
+}
+
+model AddOn {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String   @default("")
+  priceCents  Int
+  /// A ₱0 add-on that is "priced on request" (SMS credit packs) shows a dash.
+  quoted      Boolean  @default(true)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// A design. `layout` names the React renderer variant; `palette` and `fonts`
+/// are the CSS variables it is themed with; `sections` lists which section keys
+/// it lays out (everything else in the content is ignored, not lost).
+model Template {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  occasion     Occasion
+  /// The lowest tier that may use this design.
+  minTier      Tier     @default(BASIC)
+  /// Premium designs are Complete-only regardless of minTier.
+  premium      Boolean  @default(false)
+  description  String   @default("")
+  thumbnailUrl String   @default("")
+  layout       String   @default("classic")
+  palette      Json
+  fonts        Json
+  sections     String[]
+  featured     Boolean  @default(false)
+  published    Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  invitations Invitation[]
+
+  @@index([occasion, published, sortOrder])
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+model Coupon {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  type          DiscountType
+  /// Whole percent for PERCENT (10 === 10%); centavos for FIXED.
+  value         Int
+  minSpendCents Int          @default(0)
+  expiresAt     DateTime?
+  usageLimit    Int?
+  usedCount     Int          @default(0)
+  active        Boolean      @default(true)
+  note          String       @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  orders Order[]
+}
+
+// ---------------------------------------------------------------------------
+// Orders and money
+// ---------------------------------------------------------------------------
+
+/// PENDING_PAYMENT → PAID (money confirmed) → ACTIVE (invitation unlocked).
+/// PAID and ACTIVE are set in the same transaction today; they are separate
+/// states so a future manual review step has somewhere to sit.
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  ACTIVE
+  CANCELLED
+  REFUNDED
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  reference       String      @unique
+  userId          String
+  packageId       String
+  couponId        String?
+  invitationId    String?     @unique
+  occasion        Occasion
+  tier            Tier
+  serviceMode     ServiceMode
+  /// The package price alone.
+  subtotalCents   Int
+  addOnsCents     Int         @default(0)
+  serviceFeeCents Int         @default(0)
+  discountCents   Int         @default(0)
+  totalCents      Int
+  status          OrderStatus @default(PENDING_PAYMENT)
+  /// What the customer told us at checkout — event date, template wish, etc.
+  notes           String      @default("")
+  paidAt          DateTime?
+  activatedAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  package    Package     @relation(fields: [packageId], references: [id])
+  coupon     Coupon?     @relation(fields: [couponId], references: [id])
+  invitation Invitation? @relation(fields: [invitationId], references: [id])
+  items      OrderItem[]
+  payments   Payment[]
+  dfyJob     DfyJob?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  /// PACKAGE | ADDON | SERVICE | DISCOUNT
+  kind        String
+  code        String
+  name        String
+  amountCents Int
+  sortOrder   Int    @default(0)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+enum PaymentProvider {
+  PAYMONGO
+  MANUAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REJECTED
+  REFUNDED
+}
+
+model Payment {
+  id               String          @id @default(cuid())
+  reference        String          @unique
+  orderId          String
+  provider         PaymentProvider
+  status           PaymentStatus   @default(PENDING)
+  amountCents      Int
+  /// GCash, Maya, BPI, BDO, UnionBank, card… as reported by the gateway or
+  /// chosen by the customer on the manual form.
+  channel          String          @default("")
+  gatewaySessionId String?
+  gatewayPaymentId String?
+  /// Webhook idempotency: an event id is applied once.
+  gatewayEventId   String?         @unique
+  checkoutUrl      String          @default("")
+  /// Manual transfers: the screenshot, and what the customer typed beside it.
+  proofUrl         String          @default("")
+  proofStoragePath String          @default("")
+  payerName        String          @default("")
+  payerReference   String          @default("")
+  failureReason    String          @default("")
+  rejectReason     String          @default("")
+  reviewedById     String?
+  reviewedAt       DateTime?
+  paidAt           DateTime?
+  refundedCents    Int             @default(0)
+  refundId         String          @default("")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  order      Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("PaymentReviewer", fields: [reviewedById], references: [id])
+
+  @@index([orderId, status])
+  @@index([provider, status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// The product: an invitation
+// ---------------------------------------------------------------------------
+
+enum InvitationStatus {
+  DRAFT
+  PUBLISHED
+  EXPIRED
+  ARCHIVED
+}
+
+enum Privacy {
+  PUBLIC
+  UNLISTED
+  PASSWORD
+}
+
+model Invitation {
+  id           String           @id @default(cuid())
+  userId       String
+  templateId   String
+  occasion     Occasion
+  tier         Tier
+  /// "Juan & Maria" — used in the dashboard, page title and OG preview.
+  title        String
+  slug         String           @unique
+  status       InvitationStatus @default(DRAFT)
+  privacy      Privacy          @default(PUBLIC)
+  passwordHash String?
+  /// Section data keyed by section key. See src/lib/sections.ts.
+  content      Json
+  /// en | tl — which phrasing the guest page uses for its fixed labels.
+  language     String           @default("en")
+  eventAt      DateTime?
+  /// The link stops resolving after this. Set from the package on publish.
+  expiresAt    DateTime?
+  ogImageUrl   String           @default("")
+  editsUsed    Int              @default(0)
+  /// -1 means unlimited until the event.
+  editsAllowed Int              @default(3)
+  publishedAt  DateTime?
+  viewCount    Int              @default(0)
+  rsvpDeadline DateTime?
+  rsvpClosed   Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id])
+  template Template @relation(fields: [templateId], references: [id])
+  order    Order?
+
+  guests    Guest[]
+  rsvps     Rsvp[]
+  tables    SeatingTable[]
+  guestbook GuestbookEntry[]
+  media     Media[]
+  views     InvitationView[]
+  dfyJob    DfyJob?
+  messages  SupportMessage[]
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+/// A named invitee with a personal link. The token is the only public handle.
+model Guest {
+  id             String    @id @default(cuid())
+  invitationId   String
+  name           String
+  /// Free-text tag: "Bride's family", "Office", "Ninongs".
+  groupName      String    @default("")
+  seatsAllotted  Int       @default(1)
+  plusOneAllowed Boolean   @default(false)
+  token          String    @unique
+  tableId        String?
+  phone          String    @default("")
+  email          String    @default("")
+  notes          String    @default("")
+  /// Personal greeting override, e.g. "Mr. & Mrs. Dela Cruz".
+  salutation     String    @default("")
+  checkedInAt    DateTime?
+  checkedInBy    String    @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  invitation Invitation    @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  table      SeatingTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  rsvps      Rsvp[]
+
+  @@index([invitationId, groupName])
+}
+
+model SeatingTable {
+  id           String @id @default(cuid())
+  invitationId String
+  name         String
+  capacity     Int    @default(10)
+  sortOrder    Int    @default(0)
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guests     Guest[]
+
+  @@index([invitationId, sortOrder])
+}
+
+enum RsvpResponse {
+  ACCEPT
+  DECLINE
+}
+
+/// One response per guest link (updated in place) or one per open-form
+/// submission (no guest). Attendee names are stored so the couple can print a
+/// list, and so a "party of 4" is four names and not a number.
+model Rsvp {
+  id           String       @id @default(cuid())
+  invitationId String
+  guestId      String?
+  name         String
+  response     RsvpResponse
+  seats        Int          @default(1)
+  attendees    Json
+  mealChoice   String       @default("")
+  dietary      String       @default("")
+  message      String       @default("")
+  phone        String       @default("")
+  email        String       @default("")
+  ip           String       @default("")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?     @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([invitationId, response])
+  @@index([ip, createdAt])
+}
+
+model GuestbookEntry {
+  id           String   @id @default(cuid())
+  invitationId String
+  name         String
+  message      String
+  approved     Boolean  @default(false)
+  ip           String   @default("")
+  createdAt    DateTime @default(now())
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+
+  @@index([invitationId, approved, createdAt])
+  @@index([ip, createdAt])
+}
+
+enum MediaKind {
+  COVER
+  GALLERY
+  VENUE
+  QR
+  PROOF
+  INTAKE
+  GUEST_PHOTO
+  OTHER
+}
+
+model Media {
+  id           String    @id @default(cuid())
+  userId       String?
+  invitationId String?
+  kind         MediaKind @default(OTHER)
+  url          String
+  storagePath  String
+  contentType  String
+  caption      String    @default("")
+  /// Guest photo uploads wait here until the couple approves them.
+  approved     Boolean   @default(true)
+  sortOrder    Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  invitation Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+
+  @@index([invitationId, kind, sortOrder])
+}
+
+/// Page views per day. A counter, not analytics — enough for "how many people
+/// opened it" without a tracking script on the guest page.
+model InvitationView {
+  id           String   @id @default(cuid())
+  invitationId String
+  day          DateTime @db.Date
+  count        Int      @default(0)
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+
+  @@unique([invitationId, day])
+}
+
+// ---------------------------------------------------------------------------
+// Done-For-You
+// ---------------------------------------------------------------------------
+
+enum DfyStatus {
+  NEW
+  INTAKE_RECEIVED
+  ENCODING
+  PREVIEW_SENT
+  REVISION
+  APPROVED
+  PUBLISHED
+}
+
+model DfyJob {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  invitationId      String    @unique
+  status            DfyStatus @default(NEW)
+  assigneeId        String?
+  /// FORM | MESSENGER | EXCEL — how the customer said they would send details.
+  intakeMethod      String    @default("FORM")
+  intake            Json?
+  intakeSubmittedAt DateTime?
+  /// SLA: when the preview is due, from the service mode's turnaround.
+  dueAt             DateTime?
+  previewSentAt     DateTime?
+  approvedAt        DateTime?
+  publishedAt       DateTime?
+  revisionsAllowed  Int       @default(2)
+  revisionsUsed     Int       @default(0)
+  internalNotes     String    @default("")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  invitation Invitation   @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  assignee   User?        @relation("DfyAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  revisions  DfyRevision[]
+
+  @@index([status, dueAt])
+  @@index([assigneeId, status])
+}
+
+/// The conversation on a job: a customer's change requests, and the encoder's
+/// replies. `round` groups a request with the work done for it.
+model DfyRevision {
+  id         String   @id @default(cuid())
+  jobId      String
+  round      Int
+  authorId   String?
+  authorName String
+  byStaff    Boolean
+  body       String
+  createdAt  DateTime @default(now())
+
+  job    DfyJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  author User?  @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([jobId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Support, notifications, audit
+// ---------------------------------------------------------------------------
+
+model SupportMessage {
+  id           String    @id @default(cuid())
+  userId       String
+  invitationId String?
+  fromStaff    Boolean   @default(false)
+  body         String
+  /// app | messenger | viber | email — where the reply should go.
+  channel      String    @default("app")
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invitation Invitation? @relation(fields: [invitationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([fromStaff, readAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String    @default("")
+  href      String    @default("")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+/// Append-only. Nothing in the application updates or deletes a row.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userName   String
+  role       String
+  module     String
+  action     String
+  entityType String
+  entityId   String   @default("")
+  summary    String   @default("")
+  before     Json?
+  after      Json?
+  sensitive  Boolean  @default(false)
+  ip         String   @default("")
+  userAgent  String   @default("")
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

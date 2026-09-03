@@ -19,9 +19,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  // `rental/` and `invites/` are separate applications with their own tsconfig,
-  // their own Prisma client and their own `@/*`. Without this exclusion the glob above swallows it
-  // and resolves its imports against the spa's src/, which fails the spa's
-  // typecheck and its Vercel build — for changes that never touched the spa.
-  "exclude": ["node_modules", "rental", "invites"]
+  "exclude": ["node_modules"]
 }

@@ -76,9 +76,12 @@ reconciles with itself.
 
 ## What the seed creates
 
-- **Staff:** an Owner/Admin, an Encoder and a Support account. Their password
-  is printed by the seed and each is forced to change it on first sign-in.
-  Nothing is published here because this repository is public.
+- **Staff:** an Owner/Admin, an Encoder and a Support account. Against a local
+  database they share a password the seed prints; anywhere else the seed
+  refuses to run without `SEED_PASSWORD` and never prints what you gave it.
+  That is because its built-in password is written in `prisma/seed.ts` in a
+  public repository, on an account whose role is ADMIN — and being forced to
+  change it on first sign-in protects nothing if a stranger signs in first.
 - **Customers:** Maria (owns the demo, plus a christening order waiting for
   proof-of-payment review) and Sofia (a Done-For-You debut mid-encoding).
 - **Catalogue:** Basic / Standard / Complete packages for Wedding, Debut,
@@ -322,9 +325,16 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    Actions — because it needs both the connection string and a real Node
    runtime: the seed is several hundred sequential statements, which is fast on
    a local socket and slow enough over the network to outlive a serverless
-   timeout. It needs one repository secret, `INVITES_DIRECT_URL`, holding the
+   timeout. It needs two repository secrets: `INVITES_DIRECT_URL`, holding the
    Supabase **session pooler** string (port 5432; the seed uses prepared
-   statements, which a transaction pooler multiplexes away).
+   statements, which a transaction pooler multiplexes away), and
+   `INVITES_SEED_PASSWORD`, the password the seeded accounts get. A secret
+   rather than a workflow input, because inputs are kept and shown on the run's
+   own page while secrets are masked in the log.
+
+   Sign in to all three staff accounts and change their passwords before the
+   site is public. The forced-change flag decides what the first person to
+   arrive sees; it does not decide who arrives first.
 
    The workflow deletes every row in the target schema first, so it asks for a
    typed confirmation, shows which schema it is about to wipe, and refuses

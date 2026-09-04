@@ -35,12 +35,13 @@ function run(command, env = {}) {
  * deployment queues behind the wedged one. Both outcomes have to arrive at the
  * same clear failure, which means this has to give up on its own.
  */
-function attempt(command, seconds) {
+function attempt(command, seconds, env = {}) {
   try {
     execSync(command, {
       stdio: ['ignore', 'ignore', 'pipe'],
       timeout: seconds * 1000,
       killSignal: 'SIGKILL',
+      env: { ...process.env, ...env },
     });
     return { ok: true };
   } catch (error) {
@@ -231,14 +232,40 @@ run('node scripts/migrate.mjs');
 // which is a different host, and every page depends on it — so ask it a
 // question here, where one line of build log is the answer, rather than
 // discovering it as a 500 on the landing page.
+/**
+ * Asked through the generated client, because that is what the server uses.
+ *
+ * The obvious way to write this is `prisma db execute`, and it is wrong: that
+ * command goes through Prisma's migration engine, which cannot speak to a
+ * transaction pooler at all — it does not refuse, it waits. So the check hung
+ * for forty-five minutes against a pooler the running app talks to perfectly
+ * well, which is the worst kind of failing test: one that fails on healthy
+ * infrastructure. The query engine below is the same client src/lib/db.ts
+ * builds, given the same URL.
+ *
+ * The URL travels in the environment rather than on the command line: it
+ * carries the database password, and a command line is quoted by a shell and
+ * printed in error messages.
+ */
+const CHECK_SCRIPT = `
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient({ datasourceUrl: process.env.RUNTIME_CHECK_URL });
+try {
+  await prisma.$queryRaw\`SELECT 1\`;
+  await prisma.$disconnect();
+} catch (error) {
+  console.error(error?.message ?? String(error));
+  process.exit(1);
+}
+`;
+
 const CHECK_SECONDS = 60;
 console.info(`\n▸ checking the runtime connection (${CHECK_SECONDS}s limit)`);
-writeFileSync('.runtime-connection-check.sql', 'SELECT 1;');
-const check = attempt(
-  `prisma db execute --url "${bounded(DATABASE_URL)}" --file .runtime-connection-check.sql`,
-  CHECK_SECONDS,
-);
-rmSync('.runtime-connection-check.sql', { force: true });
+writeFileSync('.runtime-connection-check.mjs', CHECK_SCRIPT);
+const check = attempt('node .runtime-connection-check.mjs', CHECK_SECONDS, {
+  RUNTIME_CHECK_URL: bounded(DATABASE_URL),
+});
+rmSync('.runtime-connection-check.mjs', { force: true });
 if (!check.ok) {
   // Whatever Postgres said is worth more than anything guessed here, so print
   // it before the advice rather than swallowing it as the old check did.
@@ -250,9 +277,9 @@ if (!check.ok) {
       ? `DATABASE_URL accepted the connection but did not answer within ${CHECK_SECONDS}s: ${describeUrl(DATABASE_URL)}`
       : `DATABASE_URL is unreachable: ${describeUrl(DATABASE_URL)}`,
     check.timedOut
-      ? 'A pooler that answers nothing is usually out of server connections, or being dialled\n' +
-        '  without pgbouncer=true — which this build adds on port 6543, so if you are reading\n' +
-        '  this, look at the pooler itself in Supabase → Database → Connection pooling.'
+      ? 'This is the same client the server uses, so a silence here is a silence the site\n' +
+        '  would hit on every page. A pooler that accepts a connection and never answers is\n' +
+        '  usually out of server connections: Supabase → Database → Connection pooling.'
       : 'The migration connected over DIRECT_URL, so the database is up and this is DATABASE_URL\n' +
         '  itself — wrong host, wrong port, or a password that has since been rotated. Supabase\n' +
         '  publishes three connection strings and mixing the host of one with the port of another\n' +

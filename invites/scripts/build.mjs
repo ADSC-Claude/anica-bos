@@ -203,19 +203,11 @@ if (production && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   );
 }
 
-// Migrations go over the direct connection — DDL cannot run through a
-// transaction pooler — and `prisma migrate deploy` picks that connection
-// itself, from the schema's `directUrl = env("DIRECT_URL")`. It does that in
-// preference to DATABASE_URL, so DIRECT_URL is the variable that decides
-// which schema the tables are created in and BOTH have to be set here: the
-// first for `next build`, the second for the migration that precedes it.
-const migrateEnv = {
-  DATABASE_URL: withSchema(DIRECT_URL || DATABASE_URL),
-  DIRECT_URL: withSchema(DIRECT_URL || DATABASE_URL),
-};
-
 run('prisma generate');
-run('prisma migrate deploy', migrateEnv);
+// scripts/migrate.mjs, not `prisma migrate deploy`: it is the one place that
+// knows which schema the migration belongs in, and the seed workflow uses it
+// too. See the comment at the top of that file.
+run('node scripts/migrate.mjs');
 
 // The migration proves DIRECT_URL works. It proves nothing about DATABASE_URL,
 // which is a different host, and every page depends on it — so ask it a

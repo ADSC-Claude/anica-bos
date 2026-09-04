@@ -1,0 +1,117 @@
+#
+# Loads the demo dataset into the live invitations database, on demand.
+#
+# It DELETES EVERYTHING in the target schema first. The confirmation phrase is
+# the only thing between a curious click and a wiped catalogue, so it is
+# deliberately awkward to type.
+#
+# This runs on a runner rather than in a serverless function because the seed
+# is several hundred sequential statements — fast on a local socket, slow
+# enough over the network to outlive a function timeout.
+#
+# Setup, once: Settings → Secrets and variables → Actions → New repository secret
+#   INVITES_DIRECT_URL   Supabase → Connect → Session pooler (port 5432)
+#
+# The name is not DIRECT_URL. That secret belongs to the spa and points at a
+# different database; pointing this seed at it would truncate the spa. Session
+# mode, not the transaction pooler: the seed relies on prepared statements,
+# which a transaction pooler multiplexes away.
+#
+name: Seed the invitations database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ERASE AND SEED to confirm. Every existing row in the schema is deleted.'
+        required: true
+        type: string
+      schema:
+        description: 'Which schema to seed. Shown here so you can see what you are about to wipe.'
+        required: true
+        default: invites
+        type: string
+
+concurrency:
+  group: invites-seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Erase and seed
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: invites
+
+    env:
+      DATABASE_SCHEMA: ${{ inputs.schema }}
+      DATABASE_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.INVITES_DIRECT_URL }}
+
+    steps:
+      - name: Check the confirmation phrase
+        if: inputs.confirm != 'ERASE AND SEED'
+        run: |
+          echo "::error::Confirmation phrase did not match. Nothing was touched."
+          echo "Re-run and type exactly: ERASE AND SEED"
+          exit 1
+
+      # This repository's database is shared: `public` is the spa's, and the
+      # invitations app lives in a schema of its own. Seeding `public` would
+      # truncate somebody else's tables, so it is refused outright rather than
+      # confirmed.
+      - name: Refuse to seed a schema that is not ours
+        if: inputs.schema == 'public' || inputs.schema == ''
+        run: |
+          echo "::error::Refusing to seed '$DATABASE_SCHEMA'."
+          echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
+          exit 1
+
+      - name: Check the secret is present
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::The INVITES_DIRECT_URL repository secret is not set."
+            echo "Add it under Settings → Secrets and variables → Actions,"
+            echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: invites/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      # Through scripts/migrate.mjs, which knows about DATABASE_SCHEMA. The
+      # bare CLI does not, and would migrate into `public`.
+      - name: Apply migrations
+        run: npm run db:deploy
+
+      - name: Seed
+        run: npm run db:seed
+
+      - name: Check the seeded data reconciles with itself
+        run: npm run verify
+
+      - name: Say what landed
+        run: |
+          {
+            echo "### Seeded \`$DATABASE_SCHEMA\`"
+            echo
+            echo "The catalogue, the templates, the staff accounts and the Juan & Maria demo are in."
+            echo
+            echo "- Demo invitation: \`/i/juan-and-maria\`"
+            echo "- Staff sign-in: \`owner@invites.ph\`, \`encoder@invites.ph\`, \`support@invites.ph\`"
+            echo "- The seed prints the shared password in the log above. **Change it on first sign-in** —"
+            echo "  each staff account is flagged to force that, but the password is the same for all three"
+            echo "  until they do."
+          } >> "$GITHUB_STEP_SUMMARY"

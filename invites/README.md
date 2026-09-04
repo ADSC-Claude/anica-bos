@@ -286,9 +286,22 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
 4. **Email.** `RESEND_API_KEY` and a verified `EMAIL_FROM`.
 5. **Vercel.** Region `sin1`. Set `NEXT_PUBLIC_APP_URL` to the final domain —
    it is baked into every share link and QR code. Set `CRON_SECRET`.
-6. **Seed** the production database once (`npm run db:seed` against
-   `DIRECT_URL`), sign in as the Owner, change the passwords, then replace the
-   demo's placeholder photos and the sample testimonials on the landing page.
+6. **Seed** the production database once, then sign in as the Owner, change
+   the passwords, and replace the demo's placeholder photos and the sample
+   testimonials on the landing page.
+
+   Seeding runs from GitHub Actions — *Seed the invitations database*, under
+   Actions — because it needs both the connection string and a real Node
+   runtime: the seed is several hundred sequential statements, which is fast on
+   a local socket and slow enough over the network to outlive a serverless
+   timeout. It needs one repository secret, `INVITES_DIRECT_URL`, holding the
+   Supabase **session pooler** string (port 5432; the seed uses prepared
+   statements, which a transaction pooler multiplexes away).
+
+   The workflow deletes every row in the target schema first, so it asks for a
+   typed confirmation, shows which schema it is about to wipe, and refuses
+   `public` outright — on a shared database that schema belongs to somebody
+   else.
 
 ### Sharing a Supabase project with another app
 

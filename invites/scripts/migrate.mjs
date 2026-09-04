@@ -9,22 +9,14 @@
  * `public`, on top of whatever else lives there. Every caller goes through
  * here instead: the production build, and the seed workflow.
  *
- * Standalone by necessity. It runs before anything is compiled, so it cannot
- * import src/lib/db-url.ts; the rule below is that file's, repeated.
+ * It runs before anything is compiled, so it cannot import src/lib/db-url.ts.
+ * scripts/db-url.mjs is that file's rule in plain JavaScript, shared with the
+ * build rather than copied into it — a partial copy here once sent migrations
+ * into the wrong schema, and a partial copy in the build later hung a
+ * deployment for forty-five minutes.
  */
 import { execSync } from 'node:child_process';
-
-function withSchema(raw) {
-  const schema = process.env.DATABASE_SCHEMA;
-  if (!raw || !schema) return raw;
-  try {
-    const url = new URL(raw);
-    url.searchParams.set('schema', schema);
-    return url.toString();
-  } catch {
-    return raw;
-  }
-}
+import { resolveDatabaseUrl } from './db-url.mjs';
 
 const { DATABASE_URL, DIRECT_URL } = process.env;
 if (!DATABASE_URL && !DIRECT_URL) {
@@ -33,7 +25,7 @@ if (!DATABASE_URL && !DIRECT_URL) {
 }
 
 // DDL cannot run through a transaction pooler, so the direct connection wins.
-const url = withSchema(DIRECT_URL || DATABASE_URL);
+const url = resolveDatabaseUrl(DIRECT_URL || DATABASE_URL);
 
 execSync('prisma migrate deploy', {
   stdio: 'inherit',

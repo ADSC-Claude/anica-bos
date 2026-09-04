@@ -10,6 +10,7 @@
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { describeDatabaseUrl, resolveDatabaseUrl } from './db-url.mjs';
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -22,46 +23,62 @@ function run(command, env = {}) {
   execSync(command, { stdio: 'inherit', env: { ...process.env, ...env } });
 }
 
-/** Runs `command`, swallowing its output, and reports only whether it worked. */
-function succeeds(command) {
+/**
+ * Runs `command` with a deadline, keeping its stderr for the failure message.
+ *
+ * The deadline is the whole point. A database that refuses a connection comes
+ * back as an error in milliseconds, but one that accepts it and then never
+ * answers comes back as nothing at all, and a check with no deadline waits for
+ * it — so a step written to fail the build in a second instead holds the build
+ * until the platform kills it at forty-five minutes. On Vercel that is not one
+ * slow deployment: builds in a project are serialised, so every other
+ * deployment queues behind the wedged one. Both outcomes have to arrive at the
+ * same clear failure, which means this has to give up on its own.
+ */
+function attempt(command, seconds) {
   try {
-    execSync(command, { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
+    execSync(command, {
+      stdio: ['ignore', 'ignore', 'pipe'],
+      timeout: seconds * 1000,
+      killSignal: 'SIGKILL',
+    });
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      timedOut: error.signal === 'SIGKILL' || error.code === 'ETIMEDOUT',
+      stderr: String(error.stderr ?? '').trim(),
+    };
   }
 }
 
 /**
- * DATABASE_SCHEMA wins over any `schema=` in the connection string. This
- * repeats src/lib/db-url.ts, which this script cannot import: it runs before
- * `prisma generate`, when nothing is compiled yet. Change both together.
- *
- * The variable exists separately from the URL because the URL is a secret
- * pasted into a dashboard, and appending `?schema=…` to a string that already
- * carries a query string produces a second `?` — read as part of the previous
- * parameter's value, leaving the schema silently `public`.
+ * The connection string the app itself will use, and the same string with the
+ * credentials taken out. Both come from scripts/db-url.mjs so that this script
+ * checks what the server actually dials — an earlier local copy applied the
+ * `schema=` half of the rule and not the `pgbouncer=true` half, which is how
+ * the check below came to hang against a perfectly good pooler URL.
  */
-function withSchema(raw) {
-  const schema = process.env.DATABASE_SCHEMA;
-  if (!raw || !schema) return raw;
-  try {
-    const u = new URL(raw);
-    u.searchParams.set('schema', schema);
-    return u.toString();
-  } catch {
-    return raw;
-  }
+function describeUrl(raw) {
+  return describeDatabaseUrl(resolveDatabaseUrl(raw) ?? raw);
 }
 
-function describeUrl(raw) {
+/**
+ * A copy of the URL that cannot wait forever. `connect_timeout` bounds
+ * reaching the server, `socket_timeout` bounds the answer once reached; the
+ * process deadline in attempt() catches anything that hangs before either
+ * applies. These belong to the check alone — the running app must not have a
+ * twenty-second ceiling on its queries.
+ */
+function bounded(raw, connect = 10, socket = 20) {
+  const resolved = resolveDatabaseUrl(raw);
   try {
-    const u = new URL(withSchema(raw));
-    const port = u.port || '(default)';
-    const pooled = u.port === '6543' ? ' — transaction pooler' : u.port === '5432' ? ' — direct' : '';
-    return `${u.hostname}:${port}${u.pathname} schema=${u.searchParams.get('schema') ?? 'public'}${pooled}`;
+    const url = new URL(resolved);
+    url.searchParams.set('connect_timeout', String(connect));
+    url.searchParams.set('socket_timeout', String(socket));
+    return url.toString();
   } catch {
-    return '!! not a valid connection string';
+    return resolved;
   }
 }
 
@@ -214,19 +231,32 @@ run('node scripts/migrate.mjs');
 // which is a different host, and every page depends on it — so ask it a
 // question here, where one line of build log is the answer, rather than
 // discovering it as a 500 on the landing page.
-console.info('\n▸ checking the runtime connection');
+const CHECK_SECONDS = 60;
+console.info(`\n▸ checking the runtime connection (${CHECK_SECONDS}s limit)`);
 writeFileSync('.runtime-connection-check.sql', 'SELECT 1;');
-const reachable = succeeds(
-  `prisma db execute --url "${withSchema(DATABASE_URL)}" --file .runtime-connection-check.sql`,
+const check = attempt(
+  `prisma db execute --url "${bounded(DATABASE_URL)}" --file .runtime-connection-check.sql`,
+  CHECK_SECONDS,
 );
 rmSync('.runtime-connection-check.sql', { force: true });
-if (!reachable) {
+if (!check.ok) {
+  // Whatever Postgres said is worth more than anything guessed here, so print
+  // it before the advice rather than swallowing it as the old check did.
+  if (check.stderr) {
+    console.error(`\n${check.stderr.split('\n').slice(-10).join('\n')}`);
+  }
   fail(
-    `DATABASE_URL is unreachable: ${describeUrl(DATABASE_URL)}`,
-    'The migration connected over DIRECT_URL, so the database is up and this is DATABASE_URL\n' +
-      '  itself — wrong host, wrong port, or a password that has since been rotated. Supabase\n' +
-      '  publishes three connection strings and mixing the host of one with the port of another\n' +
-      '  produces an address that does not exist; copy the whole string from Supabase → Connect.',
+    check.timedOut
+      ? `DATABASE_URL accepted the connection but did not answer within ${CHECK_SECONDS}s: ${describeUrl(DATABASE_URL)}`
+      : `DATABASE_URL is unreachable: ${describeUrl(DATABASE_URL)}`,
+    check.timedOut
+      ? 'A pooler that answers nothing is usually out of server connections, or being dialled\n' +
+        '  without pgbouncer=true — which this build adds on port 6543, so if you are reading\n' +
+        '  this, look at the pooler itself in Supabase → Database → Connection pooling.'
+      : 'The migration connected over DIRECT_URL, so the database is up and this is DATABASE_URL\n' +
+        '  itself — wrong host, wrong port, or a password that has since been rotated. Supabase\n' +
+        '  publishes three connection strings and mixing the host of one with the port of another\n' +
+        '  produces an address that does not exist; copy the whole string from Supabase → Connect.',
   );
 }
 console.info(`  ✓ ${describeUrl(DATABASE_URL)}`);

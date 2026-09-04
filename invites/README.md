@@ -113,6 +113,34 @@ costs far more than a line of text, so uploads are capped at 12 per connection
 per hour and 500 per invitation, and the file type is decided by its magic
 bytes rather than the name the browser claimed.
 
+## What it costs to serve a photo
+
+Photos go out through Supabase's image transformation endpoint, not as the
+file the phone uploaded. A phone photo is three or four megabytes and four
+thousand pixels wide; the guest page shows it in a grid cell a couple of
+hundred pixels across, and a Complete-tier album holds up to five hundred of
+them. Served raw, one album opened by two hundred guests is hundreds of
+gigabytes of egress — on its own enough to exhaust a month's allowance for
+every app sharing the Supabase project.
+
+`src/lib/images.ts` holds the sizes, one named entry per place a photo appears,
+because transformations are billed per *origin* image rather than per
+transformation: asking for six sizes of one photo costs the same as asking for
+one. The endpoint negotiates WebP by itself, so the bytes fall again without
+anything in the code naming a format.
+
+Anything that is not a Supabase public object — the `public/uploads` fallback
+in development, a pasted URL, a data URL, a signed private link — is passed
+through untouched. The GCash QR is deliberately excluded too: a QR re-encoded
+as lossy WebP is a QR that might not scan, and that image is how the couple
+gets paid.
+
+Image transformation is a paid Supabase feature and can be switched off in the
+dashboard. `SUPABASE_IMAGE_TRANSFORM=off` matches that from this side, so a
+project that loses the feature serves originals instead of broken images. Call
+`imageUrl()` from server components only — that variable is not in the client
+bundle, so a client component would keep rewriting after the switch was thrown.
+
 ## RSVP reminders by text
 
 The guest list can text everyone who has not answered. Each guest gets their

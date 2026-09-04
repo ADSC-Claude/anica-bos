@@ -9,6 +9,7 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton } from './client';
+import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
  * The invitation, rendered on the server from its JSON. The template decides
@@ -133,7 +134,7 @@ function Hero({ occasion, content, lang }: { occasion: Occasion; content: Conten
   const monogram = str(cover, 'monogram');
   return (
     <header className="inv-hero" id="top">
-      {photo && <img src={photo} alt="" className="inv-hero-photo" />}
+      {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
         {monogram && <p className="inv-display mb-3 text-3xl opacity-90">{monogram}</p>}
@@ -221,7 +222,7 @@ function EventBlock({ id, title, data, lang, fallbackDate, calendarHref }: { id:
   return (
     <Section id={id} title={title}>
       <div className="inv-card text-center">
-        {photo && <img src={photo} alt="" className="inv-photo mb-4 aspect-[3/2]" loading="lazy" />}
+        {photo && <img src={imageUrl(photo, IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[3/2]" loading="lazy" />}
         <p className="inv-display text-2xl">{venue}</p>
         {str(data, 'address') && <p className="inv-muted mt-1">{str(data, 'address')}</p>}
         {(date || time) && (
@@ -403,6 +404,12 @@ function Gift({ data, lang, title }: { data: SectionData; lang: Lang; title: str
       {(qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
           <p className="inv-eyebrow">{t(lang, 'gift.gcash')}</p>
+          {/*
+            Deliberately not resized. Everything else on this page goes through
+            imageUrl(), but a QR code re-encoded as lossy WebP is a QR code that
+            might not scan, and this one is how the couple gets paid. It is a
+            single small image; the bytes are not worth the risk.
+          */}
           {qr && <img src={qr} alt="GCash QR" className="mx-auto mb-3 w-48 rounded-lg" loading="lazy" />}
           {str(data, 'gcashName') && <p className="font-semibold">{str(data, 'gcashName')}</p>}
           {str(data, 'gcashNumber') && <p className="tabular-nums">{str(data, 'gcashNumber')}</p>}
@@ -534,7 +541,7 @@ function Story({ data, lang, title }: { data: SectionData; lang: Lang; title: st
               {m.date && <p className="inv-muted text-xs uppercase tracking-widest">{m.date}</p>}
               <p className="inv-display text-xl">{m.title}</p>
               {m.text && <p className="mt-1 whitespace-pre-line text-sm">{m.text}</p>}
-              {m.photo && <img src={m.photo} alt="" className="inv-photo mt-2 max-w-xs" loading="lazy" />}
+              {m.photo && <img src={imageUrl(m.photo, IMAGE.story)} alt="" className="inv-photo mt-2 max-w-xs" loading="lazy" />}
             </li>
           ))}
         </ol>
@@ -555,7 +562,7 @@ function Gallery({ data, lang, tier }: { data: SectionData; lang: Lang; tier: Ti
         <div className="inv-gallery">
           {photos.map((p, i) => (
             <figure key={i}>
-              <img src={p.url} alt={p.caption || ''} loading="lazy" />
+              <img src={imageUrl(p.url, IMAGE.grid)} alt={p.caption || ''} loading="lazy" />
               {p.caption && <figcaption className="inv-muted mt-1 text-center text-xs">{p.caption}</figcaption>}
             </figure>
           ))}
@@ -689,7 +696,7 @@ function GuestPhotos({
         <div className="inv-gallery">
           {photos.map((m) => (
             <figure key={m.id}>
-              <img src={m.url} alt={m.caption || ''} loading="lazy" />
+              <img src={imageUrl(m.url, IMAGE.grid)} alt={m.caption || ''} loading="lazy" />
               {(m.caption || m.uploadedBy) && (
                 <figcaption className="inv-muted mt-1 text-center text-xs">
                   {m.caption}
@@ -748,7 +755,7 @@ function Guestbook({ inv, data, lang, hostsNoun, slug }: { inv: PublicInvitation
 function Closing({ data, lang, hashtag }: { data: SectionData; lang: Lang; hashtag: string }) {
   return (
     <Section id="closing" title={t(lang, 'closing.title')}>
-      {str(data, 'photo') && <img src={str(data, 'photo')} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
+      {str(data, 'photo') && <img src={imageUrl(str(data, 'photo'), IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
       {str(data, 'message') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'message')}</p>}
       {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }}>{str(data, 'signature')}</p>}
       {hashtag && <p className="inv-muted mt-2 text-center text-sm">{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
@@ -763,7 +770,7 @@ function Speakers({ data, lang }: { data: SectionData; lang: Lang }) {
       <div className="grid grid-cols-2 gap-3">
         {items.map((s, i) => (
           <div key={i} className="inv-card text-center">
-            {s.photo && <img src={s.photo} alt="" className="mx-auto mb-2 h-20 w-20 rounded-full object-cover" loading="lazy" />}
+            {s.photo && <img src={imageUrl(s.photo, IMAGE.avatar)} alt="" className="mx-auto mb-2 h-20 w-20 rounded-full object-cover" loading="lazy" />}
             <p className="font-semibold">{s.name}</p>
             {s.title && <p className="inv-muted text-xs">{s.title}</p>}
             {s.topic && <p className="mt-1 text-sm">{s.topic}</p>}

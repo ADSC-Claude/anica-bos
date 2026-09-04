@@ -77,6 +77,7 @@ const OPTIONAL = [
   'NEXT_PUBLIC_CONTACT_MESSENGER',
   'NEXT_PUBLIC_CONTACT_EMAIL',
   'DATABASE_SCHEMA',
+  'SUPABASE_IMAGE_TRANSFORM',
 ];
 const URLISH = new Set(['DATABASE_URL', 'DIRECT_URL']);
 
@@ -84,7 +85,7 @@ function report(name) {
   const value = process.env[name];
   if (!value) return `  ✗ ${name.padEnd(30)} not set`;
   if (URLISH.has(name)) return `  ✓ ${name.padEnd(30)} ${describeUrl(value)}`;
-  if (name.startsWith('NEXT_PUBLIC_') || name === 'SUPABASE_URL' || name === 'EMAIL_FROM' || name === 'DATABASE_SCHEMA') {
+  if (name.startsWith('NEXT_PUBLIC_') || name === 'SUPABASE_URL' || name === 'EMAIL_FROM' || name === 'DATABASE_SCHEMA' || name === 'SUPABASE_IMAGE_TRANSFORM') {
     return `  ✓ ${name.padEnd(30)} ${value}`;
   }
   return `  ✓ ${name.padEnd(30)} set, ${value.length} characters`;

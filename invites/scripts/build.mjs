@@ -9,7 +9,7 @@
  * deployment fails for boring reasons and the log is the only witness.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -20,6 +20,16 @@ function fail(message, hint) {
 function run(command, env = {}) {
   console.info(`\n▸ ${command}`);
   execSync(command, { stdio: 'inherit', env: { ...process.env, ...env } });
+}
+
+/** Runs `command`, swallowing its output, and reports only whether it worked. */
+function succeeds(command) {
+  try {
+    execSync(command, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -145,6 +155,21 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
   fail('SESSION_SECRET is missing or shorter than 32 characters.', 'Generate one with: openssl rand -base64 48');
 }
 
+// Supabase publishes three connection strings and it is easy to take the host
+// from one and the port from another. `db.<ref>.supabase.co` is the direct
+// database: it serves 5432, not 6543, and it resolves to an IPv6 address only,
+// which a Vercel function cannot reach at all. The poolers live on a different
+// host entirely.
+const supabaseDirectHost = /^db\..*\.supabase\.co$/.test(url.hostname);
+if (supabaseDirectHost && url.port !== '5432') {
+  console.warn(
+    `\n! DATABASE_URL is ${url.hostname}:${url.port}. That host is the direct database, which\n` +
+      '  serves 5432, not 6543, and resolves to an IPv6 address a Vercel function cannot reach.\n' +
+      '  The poolers are on a different host: aws-0-<region>.pooler.supabase.com, 6543 for the\n' +
+      '  transaction pooler and 5432 for the session pooler. The check below will say for certain.',
+  );
+}
+
 const pooled = url.port === '6543';
 if (pooled && !DIRECT_URL) {
   fail(
@@ -191,6 +216,28 @@ const migrateEnv = {
 
 run('prisma generate');
 run('prisma migrate deploy', migrateEnv);
+
+// The migration proves DIRECT_URL works. It proves nothing about DATABASE_URL,
+// which is a different host, and every page depends on it — so ask it a
+// question here, where one line of build log is the answer, rather than
+// discovering it as a 500 on the landing page.
+console.info('\n▸ checking the runtime connection');
+writeFileSync('.runtime-connection-check.sql', 'SELECT 1;');
+const reachable = succeeds(
+  `prisma db execute --url "${withSchema(DATABASE_URL)}" --file .runtime-connection-check.sql`,
+);
+rmSync('.runtime-connection-check.sql', { force: true });
+if (!reachable) {
+  fail(
+    `DATABASE_URL is unreachable: ${describeUrl(DATABASE_URL)}`,
+    'The migration connected over DIRECT_URL, so the database is up and this is DATABASE_URL\n' +
+      '  itself — wrong host, wrong port, or a password that has since been rotated. Supabase\n' +
+      '  publishes three connection strings and mixing the host of one with the port of another\n' +
+      '  produces an address that does not exist; copy the whole string from Supabase → Connect.',
+  );
+}
+console.info(`  ✓ ${describeUrl(DATABASE_URL)}`);
+
 run('next build');
 
 console.info('\n✓ Built.');

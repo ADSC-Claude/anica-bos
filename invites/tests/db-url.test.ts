@@ -5,8 +5,26 @@ import { resolveDatabaseUrl, describeDatabaseUrl } from '../src/lib/db-url';
 const DIRECT = 'postgresql://u:p@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres';
 const POOLED = 'postgresql://u:p@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres';
 
+// The schema argument defaults to process.env.DATABASE_SCHEMA, so passing
+// `undefined` reads the ambient environment rather than meaning "no schema".
+// These tests would otherwise pass or fail depending on the shell they run in.
+const NONE = '';
+
 test('no schema requested leaves the string alone', () => {
-  assert.equal(resolveDatabaseUrl(DIRECT, undefined), DIRECT);
+  assert.equal(resolveDatabaseUrl(DIRECT, NONE), DIRECT);
+});
+
+test('the schema defaults to DATABASE_SCHEMA when the caller passes nothing', () => {
+  const before = process.env.DATABASE_SCHEMA;
+  try {
+    process.env.DATABASE_SCHEMA = 'invites';
+    assert.equal(new URL(resolveDatabaseUrl(DIRECT)!).searchParams.get('schema'), 'invites');
+    delete process.env.DATABASE_SCHEMA;
+    assert.equal(resolveDatabaseUrl(DIRECT), DIRECT);
+  } finally {
+    if (before === undefined) delete process.env.DATABASE_SCHEMA;
+    else process.env.DATABASE_SCHEMA = before;
+  }
 });
 
 test('DATABASE_SCHEMA is applied to a string with no query parameters', () => {
@@ -34,7 +52,7 @@ test('a hand-appended second question mark is corrected, not inherited', () => {
 });
 
 test('a transaction pooler gets pgbouncer=true and a connection limit', () => {
-  const url = new URL(resolveDatabaseUrl(POOLED, undefined)!);
+  const url = new URL(resolveDatabaseUrl(POOLED, NONE)!);
   assert.equal(url.searchParams.get('pgbouncer'), 'true');
   assert.equal(url.searchParams.get('connection_limit'), '1');
 });
@@ -45,7 +63,7 @@ test('a direct connection is left unpooled', () => {
 });
 
 test('an explicit pgbouncer setting is not second-guessed', () => {
-  const url = new URL(resolveDatabaseUrl(`${POOLED}?pgbouncer=false`, undefined)!);
+  const url = new URL(resolveDatabaseUrl(`${POOLED}?pgbouncer=false`, NONE)!);
   assert.equal(url.searchParams.get('pgbouncer'), 'false');
 });
 

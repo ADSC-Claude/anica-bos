@@ -70,6 +70,7 @@ export type SectionKey =
   | 'social'
   | 'music'
   | 'guestbook'
+  | 'photos'
   | 'closing'
   | 'speakers'
   | 'family'
@@ -584,6 +585,18 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple' }), toggle('moderated', 'Approve messages before they show')],
   },
   {
+    key: 'photos',
+    label: 'Guest photos',
+    tl: 'Mga Larawan ng Bisita',
+    description: 'A shared album your guests add to from their phones. You approve each photo before it appears.',
+    minTier: 'COMPLETE',
+    fields: () => [
+      toggle('enabled', 'Let guests add photos'),
+      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day' }),
+      toggle('moderated', 'Approve photos before they show'),
+    ],
+  },
+  {
     key: 'closing',
     label: 'Closing',
     tl: 'Pagtatapos',
@@ -621,20 +634,20 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
-  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'social', 'music', 'guestbook', 'closing'],
-  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'closing'],
-  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'music', 'guestbook', 'closing'],
-  KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'closing'],
-  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'closing'],
-  BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'closing'],
-  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'closing'],
-  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'faq', 'closing'],
-  GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'closing'],
-  COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'closing'],
-  CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'closing'],
-  HOUSEWARMING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'rsvp', 'gift', 'faq', 'closing'],
-  REUNION: ['cover', 'countdown', 'parents', 'reception', 'program', 'rsvp', 'gallery', 'faq', 'contact', 'closing'],
-  MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'closing'],
+  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'social', 'music', 'guestbook', 'photos', 'closing'],
+  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'closing'],
+  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing'],
+  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
+  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
+  GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
+  COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
+  CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'photos', 'closing'],
+  HOUSEWARMING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'rsvp', 'gift', 'faq', 'photos', 'closing'],
+  REUNION: ['cover', 'countdown', 'parents', 'reception', 'program', 'rsvp', 'gallery', 'faq', 'contact', 'photos', 'closing'],
+  MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'photos', 'closing'],
 };
 
 export function sectionsFor(occasion: Occasion): SectionDef[] {

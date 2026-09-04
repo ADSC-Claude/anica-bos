@@ -95,6 +95,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: true, locked: !hasFeature(inv.tier, 'guests.manager') },
               { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: true, locked: !hasFeature(inv.tier, 'checkin') },
               { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: true, locked: !hasFeature(inv.tier, 'guestbook') },
+              { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: true, locked: !hasFeature(inv.tier, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },
               { href: `/account/invitations/${inv.id}/dfy`, label: 'Done-For-You', show: Boolean(dfy) },
             ].filter((l) => l.show).map((l) => (

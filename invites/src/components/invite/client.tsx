@@ -338,3 +338,125 @@ export function PrintButton({ label }: { label: string }) {
     </button>
   );
 }
+
+/**
+ * Adding a photo to the shared album. Phone-first: the file input opens the
+ * camera roll directly, the chosen photo is previewed from a local object URL
+ * so nothing has to travel before the guest can see what they picked, and the
+ * form stays on the page afterwards because guests arrive with several photos,
+ * not one.
+ */
+export function GuestPhotoForm({
+  slug,
+  token,
+  labels,
+}: {
+  slug: string;
+  token?: string;
+  labels: {
+    name: string;
+    choose: string;
+    caption: string;
+    submit: string;
+    sending: string;
+    pending: string;
+    thanks: string;
+    another: string;
+  };
+}) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<'pending' | 'posted' | null>(null);
+  const [error, setError] = useState('');
+  const [preview, setPreview] = useState('');
+
+  // An object URL is a document-lifetime resource; without this every photo a
+  // guest picks stays in memory until they leave the page.
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+
+  function choose(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0];
+    setPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return file ? URL.createObjectURL(file) : '';
+    });
+    setError('');
+  }
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const file = fd.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      setError(labels.choose);
+      return;
+    }
+    fd.set('slug', slug);
+    if (token) fd.set('token', token);
+
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/api/public/photos', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Something went wrong.');
+      setDone(json.pending ? 'pending' : 'posted');
+      form.reset();
+      setPreview((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return '';
+      });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="inv-card space-y-3 text-center">
+        <p>{done === 'pending' ? labels.pending : labels.thanks}</p>
+        <button type="button" className="inv-btn inv-btn-outline" onClick={() => setDone(null)}>
+          {labels.another}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form ref={formRef} onSubmit={submit} className="inv-card space-y-3">
+      <div>
+        <label className="inv-label" htmlFor="gp-name">{labels.name}</label>
+        <input id="gp-name" name="name" required className="inv-field" autoComplete="name" />
+      </div>
+      <div>
+        <label className="inv-label" htmlFor="gp-file">{labels.choose}</label>
+        <input
+          id="gp-file"
+          name="file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          required
+          onChange={choose}
+          className="inv-field"
+        />
+      </div>
+      {preview && (
+        <img src={preview} alt="" className="max-h-56 w-full rounded-xl object-cover" />
+      )}
+      <div>
+        <label className="inv-label" htmlFor="gp-caption">{labels.caption}</label>
+        <input id="gp-caption" name="caption" maxLength={280} className="inv-field" />
+      </div>
+      <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
+        <label>Website <input name="website" tabIndex={-1} autoComplete="off" /></label>
+      </div>
+      {error && <p role="alert" className="rounded-lg bg-[#fbe9e7] p-2 text-sm text-[#8f1d17]">{error}</p>}
+      <button type="submit" className="inv-btn w-full" disabled={busy}>
+        {busy ? labels.sending : labels.submit}
+      </button>
+    </form>
+  );
+}

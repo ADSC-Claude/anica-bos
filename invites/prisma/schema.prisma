@@ -510,15 +510,21 @@ model Media {
   storagePath  String
   contentType  String
   caption      String    @default("")
+  /// Who sent it, for a GUEST_PHOTO. A guest has no account to attribute it to.
+  uploadedBy   String    @default("")
   /// Guest photo uploads wait here until the couple approves them.
   approved     Boolean   @default(true)
   sortOrder    Int       @default(0)
+  /// Set for public uploads only, so an abusive connection can be rate limited.
+  ip           String    @default("")
   createdAt    DateTime  @default(now())
 
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   invitation Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
 
   @@index([invitationId, kind, sortOrder])
+  @@index([invitationId, kind, approved, createdAt])
+  @@index([ip, createdAt])
 }
 
 /// Page views per day. A counter, not analytics — enough for "how many people

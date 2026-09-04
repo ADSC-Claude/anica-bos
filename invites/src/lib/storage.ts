@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { HttpError } from './errors';
 
@@ -115,6 +115,36 @@ export async function storeFile(args: {
     storagePath: `${bucket}/${objectPath}`,
     contentType,
   };
+}
+
+/**
+ * Removes a stored object. Best effort by design: the caller has already
+ * deleted the row that pointed at it, and a file left behind in a bucket is a
+ * smaller problem than an error thrown at someone deleting a photo.
+ */
+export async function deleteFile(storagePath: string): Promise<void> {
+  if (!storageConfigured()) {
+    // The development fallback writes under public/uploads. `storagePath` is
+    // relative to that directory.
+    try {
+      await rm(path.join(process.cwd(), 'public', 'uploads', storagePath), { force: true });
+    } catch {
+      /* already gone */
+    }
+    return;
+  }
+
+  const [bucket, ...rest] = storagePath.split('/');
+  if (!bucket || !rest.length) return;
+  const base = process.env.SUPABASE_URL!.replace(/\/$/, '');
+  try {
+    await fetch(`${base}/storage/v1/object/${bucket}/${rest.join('/')}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+    });
+  } catch {
+    /* already gone, or a transient failure — not worth failing the delete for */
+  }
 }
 
 /** A one-hour link to a private object, minted per request rather than stored. */

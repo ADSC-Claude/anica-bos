@@ -11,6 +11,7 @@ import { addGuest, updateGuest, deleteGuest, importGuests, saveTable, deleteTabl
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
+import { setPhotoApproval, deleteGuestPhoto } from '@/lib/photos';
 import type { SectionKey } from '@/lib/sections';
 
 /**
@@ -192,6 +193,18 @@ export async function moderateGuestbookAction(invitationId: string, entryId: str
     await ownInvitation(user, invitationId);
     if (decision === 'approve') await prisma.guestbookEntry.updateMany({ where: { id: entryId, invitationId }, data: { approved: true } });
     else await prisma.guestbookEntry.deleteMany({ where: { id: entryId, invitationId } });
+    refresh(invitationId);
+  });
+}
+
+// --- guest photos -----------------------------------------------------------
+
+export async function moderatePhotoAction(invitationId: string, photoId: string, decision: 'approve' | 'hide' | 'delete') {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    if (decision === 'delete') await deleteGuestPhoto(invitationId, photoId);
+    else await setPhotoApproval(invitationId, photoId, decision === 'approve');
     refresh(invitationId);
   });
 }

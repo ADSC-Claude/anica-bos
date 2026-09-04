@@ -178,6 +178,7 @@ async function main() {
   Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', facebook: '', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
   Object.assign(content.music!, { url: '', title: 'Ikaw — Yeng Constantino', autoplay: true });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
+  Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });
   Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900) });
 
   const demo = await prisma.invitation.create({
@@ -210,6 +211,13 @@ async function main() {
     await prisma.rsvp.create({ data: { invitationId: demo.id, guestId: guests[gi].id, name: guests[gi].name, response, seats, attendees: [...attendees] as never, mealChoice: meal, message: response === 'ACCEPT' ? 'See you there! Congrats!' : 'So sorry, we will be abroad. Love you both!', createdAt: addDays(new Date(), -10 + gi) } });
   }
   await prisma.rsvp.create({ data: { invitationId: demo.id, name: 'Tita Baby Reyes', response: 'ACCEPT', seats: 3, attendees: ['Baby Reyes', 'Boy Reyes', 'Ate Jing'] as never, mealChoice: 'Beef', message: 'Excited na kami!', phone: '0918 111 2222' } });
+  await prisma.media.createMany({
+    data: [
+      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-1', 900, 900), storagePath: 'seed/guest-photo-1.jpg', contentType: 'image/jpeg', caption: 'Grabe ang ganda ng church!', uploadedBy: 'Tita Baby', approved: true, sortOrder: 0 },
+      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-2', 900, 900), storagePath: 'seed/guest-photo-2.jpg', contentType: 'image/jpeg', caption: 'First dance 🥹', uploadedBy: 'Camille', approved: true, sortOrder: 1 },
+      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-3', 900, 900), storagePath: 'seed/guest-photo-3.jpg', contentType: 'image/jpeg', caption: 'The whole barkada', uploadedBy: 'Paolo', approved: false, sortOrder: 2 },
+    ],
+  });
   await prisma.guestbookEntry.createMany({ data: [{ invitationId: demo.id, name: 'Tita Baby', message: 'Finally! Ang tagal naming hinintay ito. Congratulations, Juan and Maria!', approved: true }, { invitationId: demo.id, name: 'Camille', message: 'From taho to “I do” — so proud of you two. ❤️', approved: true }, { invitationId: demo.id, name: 'Anonymous', message: 'Best wishes from the office!', approved: false }] });
   await prisma.invitationView.createMany({ data: Array.from({ length: 14 }, (_, i) => ({ invitationId: demo.id, day: new Date(addDays(new Date(), -i).toISOString().slice(0, 10)), count: 10 + ((i * 7) % 40) })) });
 

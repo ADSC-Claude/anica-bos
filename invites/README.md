@@ -95,6 +95,24 @@ reconciles with itself.
   guests with personal links across four tables, RSVPs and two weeks of
   page views.
 
+## The shared album
+
+A Complete-tier invitation can collect photos from its guests. The couple
+switches it on in the builder under *Guest photos*, and the guest page grows a
+wall and an upload form beneath it. Guests need no account; the form takes a
+name, a photo and an optional caption.
+
+Nothing a guest sends is served until it is approved — `loadPublic` only ever
+loads approved rows, so a page cannot be defaced in the gap between an upload
+and the couple noticing. Moderation lives at *Guest photos* on the invitation,
+where each photo can be approved, hidden again, or deleted (which removes the
+stored file too, not just the row).
+
+The defences are the guestbook's, plus two the guestbook does not need: a photo
+costs far more than a line of text, so uploads are capped at 12 per connection
+per hour and 500 per invitation, and the file type is decided by its magic
+bytes rather than the name the browser claimed.
+
 ## How it works
 
 **DIY:** Landing → checkout (occasion → package → service mode → template →
@@ -312,7 +330,6 @@ invites/
 
 Phase 1 and most of Phase 2 from the build brief are here. Not yet built:
 Google / Facebook sign-in (email works everywhere including the Messenger
-browser), guest photo uploads from the guest page (the schema and renderer
-support them), SMS reminder blasts through Semaphore (the message template
-and per-guest SMS links exist), custom domains, and the Save-the-Date
-mini-invite as a separate page (it is currently a *card type* on the cover).
+browser), SMS reminder blasts through Semaphore (the message template and
+per-guest SMS links exist), custom domains, and the Save-the-Date mini-invite
+as a separate page (it is currently a *card type* on the cover).

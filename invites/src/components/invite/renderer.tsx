@@ -8,7 +8,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, PrintButton } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton } from './client';
 
 /**
  * The invitation, rendered on the server from its JSON. The template decides
@@ -661,6 +661,71 @@ function Social({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
+/**
+ * The shared album: what guests have already sent, and the form to add to it.
+ * The wall shows only approved photos — `loadPublic` never loads the others —
+ * so a page cannot be defaced between the upload and the couple seeing it.
+ */
+function GuestPhotos({
+  inv,
+  data,
+  lang,
+  slug,
+  token,
+  print,
+}: {
+  inv: PublicInvitation;
+  data: SectionData;
+  lang: Lang;
+  slug: string;
+  token?: string;
+  print?: boolean;
+}) {
+  const photos = inv.media;
+  if (!photos.length && print) return null;
+  return (
+    <Section id="guest-photos" title={t(lang, 'photos.title')}>
+      {photos.length > 0 ? (
+        <div className="inv-gallery">
+          {photos.map((m) => (
+            <figure key={m.id}>
+              <img src={m.url} alt={m.caption || ''} loading="lazy" />
+              {(m.caption || m.uploadedBy) && (
+                <figcaption className="inv-muted mt-1 text-center text-xs">
+                  {m.caption}
+                  {m.caption && m.uploadedBy ? ' — ' : ''}
+                  {m.uploadedBy}
+                </figcaption>
+              )}
+            </figure>
+          ))}
+        </div>
+      ) : (
+        <p className="inv-muted mb-4 text-center text-sm">{t(lang, 'photos.empty')}</p>
+      )}
+      {!print && (
+        <div className="mt-5">
+          <p className="mb-3 text-center">{str(data, 'prompt') || t(lang, 'photos.prompt')}</p>
+          <GuestPhotoForm
+            slug={slug}
+            token={token}
+            labels={{
+              name: t(lang, 'rsvp.name'),
+              choose: t(lang, 'photos.choose'),
+              caption: t(lang, 'photos.caption'),
+              submit: t(lang, 'photos.submit'),
+              sending: t(lang, 'photos.sending'),
+              pending: t(lang, 'photos.pending'),
+              thanks: t(lang, 'photos.thanks'),
+              another: t(lang, 'photos.another'),
+            }}
+          />
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function Guestbook({ inv, data, lang, hostsNoun, slug }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string }) {
   if (!bool(data, 'enabled')) return null;
   return (
@@ -822,6 +887,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return null;
       case 'guestbook':
         return <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} />;
+      case 'photos':
+        return hasFeature(inv.tier, 'photoSharing') ? (
+          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} />
+        ) : null;
       case 'closing':
         return <Closing key={key} data={data} lang={lang} hashtag={hashtag} />;
       case 'speakers':
@@ -833,8 +902,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     }
   });
 
-  const guestPhotos = hasFeature(inv.tier, 'photoSharing') ? inv.media : [];
-
   return (
     <div className="inv" data-layout={layout} style={style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
@@ -845,15 +912,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       )}
       <Shell envelope={!print && bool(content.cover, 'envelope')} monogram={str(content.cover, 'monogram')} hint={t(lang, 'envelope.open')} music={print ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
-        {guestPhotos.length > 0 && (
-          <Section id="guest-photos" title={lang === 'tl' ? 'Mga larawan mula sa mga bisita' : 'Photos from our guests'}>
-            <div className="inv-gallery">
-              {guestPhotos.map((m) => (
-                <figure key={m.id}><img src={m.url} alt={m.caption} loading="lazy" /></figure>
-              ))}
-            </div>
-          </Section>
-        )}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (
             <div className="no-print mb-4 flex flex-wrap justify-center gap-2">

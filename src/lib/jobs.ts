@@ -20,6 +20,8 @@ export type JobReport = {
   permitReminders: number;
   overdueCorporate: number;
   followUpFlags: number;
+  prunedLoginEvents: number;
+  prunedEmailLogs: number;
 };
 
 export async function runDailyJobs(): Promise<JobReport> {
@@ -31,6 +33,8 @@ export async function runDailyJobs(): Promise<JobReport> {
     permitReminders: 0,
     overdueCorporate: 0,
     followUpFlags: 0,
+    prunedLoginEvents: 0,
+    prunedEmailLogs: 0,
   };
 
   const settings = await getSettings();
@@ -270,11 +274,39 @@ export async function runDailyJobs(): Promise<JobReport> {
     }
   }
 
+  // 8 — let the two personal-data logs age out
+  //
+  // Neither is a business record. A sign-in attempt is kept to investigate a
+  // break-in and an email log to explain a message that never arrived, and both
+  // questions are asked about last month, not the year before last. Holding an
+  // IP address for the life of the spa serves nobody and is exactly what the
+  // Data Privacy Act means by keeping data longer than the purpose requires.
+  //
+  // The audit log is not pruned here and must not be: it is append-only by
+  // design, an examiner reads it, and BIR expects ten years. `medical_record`
+  // entries live there too, so the record of who read whose health file
+  // outlives the retention windows below on purpose.
+  const loginDays = settings['privacy.loginLogRetentionDays'];
+  if (loginDays > 0) {
+    const { count } = await prisma.loginEvent.deleteMany({
+      where: { createdAt: { lt: new Date(Date.now() - loginDays * 86_400_000) } },
+    });
+    report.prunedLoginEvents = count;
+  }
+
+  const emailDays = settings['privacy.emailLogRetentionDays'];
+  if (emailDays > 0) {
+    const { count } = await prisma.emailLog.deleteMany({
+      where: { createdAt: { lt: new Date(Date.now() - emailDays * 86_400_000) } },
+    });
+    report.prunedEmailLogs = count;
+  }
+
   await audit(null, {
     module: 'jobs',
     action: 'daily',
     entityType: 'Job',
-    summary: `Daily job: ${report.expiredBookings} expired bookings, ${report.birthdayGreetings} birthday emails, ${report.membershipReminders} renewal reminders, ${report.lowStockAlerts} low-stock alerts, ${report.permitReminders} permit reminders`,
+    summary: `Daily job: ${report.expiredBookings} expired bookings, ${report.birthdayGreetings} birthday emails, ${report.membershipReminders} renewal reminders, ${report.lowStockAlerts} low-stock alerts, ${report.permitReminders} permit reminders, ${report.prunedLoginEvents + report.prunedEmailLogs} expired log rows removed`,
     after: report as unknown as Record<string, number>,
   });
 

@@ -7,6 +7,7 @@ import { requirePage } from '@/lib/guard';
 import { audit, diff } from '@/lib/audit';
 import { sendTemplateEmail } from '@/lib/email';
 import { can } from '@/lib/rbac';
+import { eraseClientPersonalData } from '@/lib/erasure';
 
 export type FormState = { error?: string; ok?: string };
 
@@ -456,4 +457,51 @@ export async function linkClientToCorporateAction(formData: FormData) {
 export async function assertCanSeeMedical() {
   const user = await requirePage();
   return can(user.role, 'clients.medical');
+}
+
+/**
+ * Carry out an erasure request under RA 10173.
+ *
+ * Gated on the client typing ERASE rather than on a second click. The
+ * confirmation dialogs elsewhere in the portal guard against a mis-tap; this
+ * one guards against a decision, because nothing here can be undone and the
+ * person asking for it is usually standing at the desk waiting.
+ */
+export async function eraseClientAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requirePage('clients.erase');
+  const id = str(formData, 'id');
+  if (!id) return { error: 'No client given.' };
+
+  if (str(formData, 'confirm').toUpperCase() !== 'ERASE') {
+    return { error: 'Type ERASE to confirm.' };
+  }
+
+  let result;
+  try {
+    result = await eraseClientPersonalData(user, id);
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'The erasure did not complete.' };
+  }
+
+  revalidatePath('/portal/clients');
+  revalidatePath(`/portal/clients/${id}`);
+
+  const removed = [
+    result.fieldValues && `${result.fieldValues} health answer(s)`,
+    result.followUps && `${result.followUps} follow-up note(s)`,
+    result.feedback && `${result.feedback} feedback comment(s)`,
+    result.emailLogs && `${result.emailLogs} email record(s)`,
+    result.shiftNotes && `${result.shiftNotes} shift note(s)`,
+    result.proofImagesRemoved && `${result.proofImagesRemoved} deposit image(s)`,
+  ].filter(Boolean);
+
+  return {
+    ok:
+      `Erased. Removed contact details, address and consent` +
+      (removed.length ? `, plus ${removed.join(', ')}` : '') +
+      `. Sales, receipts and journals were kept for BIR.`,
+  };
 }

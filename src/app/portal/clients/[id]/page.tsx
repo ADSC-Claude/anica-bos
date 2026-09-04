@@ -5,10 +5,11 @@ import { prisma } from '@/lib/db';
 import { can } from '@/lib/rbac';
 import { formatPeso } from '@/lib/money';
 import { formatManila, daysUntil } from '@/lib/datetime';
-import { medicalAlertsFor } from '@/lib/medical';
+import { medicalAlertsFor, recordMedicalAccess } from '@/lib/medical';
 import { PageHeader, StatCard, StatusBadge, Alert, EmptyState } from '@/components/ui';
 import { ClientForm } from '@/components/client-form';
 import { MedicalForm } from '@/components/medical-form';
+import { EraseClient } from '@/components/erase-client';
 import { FeedbackForm } from './feedback-form';
 
 export const dynamic = 'force-dynamic';
@@ -75,7 +76,14 @@ export default async function ClientProfilePage({
   ]);
 
   const canMedical = can(user.role, 'clients.medical');
+  const canErase = can(user.role, 'clients.erase');
   const alerts = canMedical ? (await medicalAlertsFor([id])).get(id) ?? [] : [];
+  if (canMedical) {
+    // Opening the intake tab is someone reading the answers; the warnings on
+    // the overview are the same information arriving unbidden. Logged apart, so
+    // the trail can tell a look-up from a glance.
+    await recordMedicalAccess(user, id, tab === 'medical' ? 'record' : 'alerts');
+  }
   const valuesByKey = Object.fromEntries(fieldValues.map((v) => [v.definition.key, v.value]));
 
   const lifetimeCents = sales.reduce((a, s) => a + s.totalCents, 0);
@@ -119,6 +127,24 @@ export default async function ClientProfilePage({
           </>
         }
       />
+
+      {/* An emptied record explains itself. Without this the shell reads as a
+          botched import, and somebody sets about "fixing" it by asking the
+          guest for her details again — which is precisely what she asked the
+          spa to stop holding. */}
+      {client.erasedAt && (
+        <div className="mb-4">
+          <Alert tone="warn">
+            <p className="font-semibold">This record was erased on request</p>
+            <p className="mt-1">
+              Erased {formatManila(client.erasedAt)} under the Data Privacy Act. The personal
+              details and health answers are gone for good; the sales and receipts below are kept
+              because BIR requires them. Do not re-enter her details — book her as a new client if
+              she returns.
+            </p>
+          </Alert>
+        </div>
+      )}
 
       {/* At-a-glance answers the receptionist is asked at the counter. */}
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -386,6 +412,7 @@ export default async function ClientProfilePage({
         </div>
       )}
 
+
       {tab === 'edit' && (
         <div className="max-w-2xl">
           <ClientForm
@@ -406,6 +433,9 @@ export default async function ClientProfilePage({
               waiverGiven: client.waiverGiven,
             }}
           />
+          {canErase && !client.erasedAt && (
+            <EraseClient clientId={client.id} clientName={client.name} />
+          )}
         </div>
       )}
     </div>

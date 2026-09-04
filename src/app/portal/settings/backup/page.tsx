@@ -3,6 +3,7 @@ import { requirePage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { PageHeader, StatCard, Alert } from '@/components/ui';
 import { SettingsNav } from '@/components/settings-nav';
+import { BackupDownload } from '@/components/backup-download';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Backup & export' };
@@ -49,19 +50,19 @@ export default async function BackupPage() {
         <div className="card-pad">
           <h2 className="section-title mb-2">Full backup</h2>
           <p className="muted mb-3">
-            Every table as a single JSON file. This is the <strong>only</strong> export that
-            includes client health information, so store it securely.
+            Every table in one file. This is the <strong>only</strong> export that includes client
+            health information, so it is always encrypted — the consent your clients sign says
+            their health details leave the spa no other way.
           </p>
-          <Link href="/api/portal/backup" className="btn-primary">
-            ↓ Download full backup (JSON)
-          </Link>
+          <BackupDownload />
           <div className="mt-4">
             <Alert tone="info">
               <p className="font-semibold">Restoring</p>
               <p className="mt-1">
                 On a machine with the project checked out:
                 <code className="mt-1 block rounded bg-white/60 px-2 py-1">
-                  npm run restore -- ./anica-backup-YYYY-MM-DD.json
+                  BACKUP_PASSPHRASE=&quot;…&quot; npm run restore --
+                  ./anica-backup-YYYY-MM-DD.json.enc
                 </code>
                 It refuses to run against a database that already has data unless you pass{' '}
                 <code>--force</code>. Full steps are in the README.

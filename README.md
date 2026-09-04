@@ -19,6 +19,7 @@ than a rebuild.
 - [How the money works](#how-the-money-works)
 - [Roles and what each one can do](#roles-and-what-each-one-can-do)
 - [BIR CAS readiness](#bir-cas-readiness)
+- [Data privacy (RA 10173)](#data-privacy-ra-10173)
 - [Configuration](#configuration)
 - [Scheduled jobs](#scheduled-jobs)
 - [Deployment](#deployment)
@@ -219,6 +220,80 @@ depends on.
 
 ---
 
+## Data privacy (RA 10173)
+
+**The notice your clients read** lives at `/privacy`, linked from the landing-page
+footer and from the consent tick box in the booking wizard — a notice you can only
+reach after booking is written for the spa's benefit, not the client's. It is built
+from live settings in `src/lib/privacy-notice.ts`, so the retention periods it quotes
+are the ones the nightly job is actually enforcing. Name a contact for data requests
+under Settings → Operations; until you do, it tells clients to write to "the owner".
+
+**Where the data lives.** One PostgreSQL database, and nothing else. There is no
+second store, no analytics warehouse, no third-party CRM holding a copy. Payment
+proof screenshots are written into the appointment row as data URLs rather than to
+an object store, so the database really is the whole of it.
+
+**Which region.** The app runs in `sin1` (Singapore), set in `vercel.json`. Vercel
+has no Philippines region, and Singapore is the closest one to Manila — roughly
+2,400 km against Mumbai's 5,300, which is the difference between about 40 ms and
+about 120 ms on every request. Put your database in the same region (Supabase and
+Neon both offer `ap-southeast-1`): a Singapore app talking to a Mumbai database
+crosses the Indian Ocean on every query, and co-locating them matters far more than
+either choice alone. Processing still happens outside the Philippines, which RA 10173
+permits — you remain accountable for it, and the notice at `/privacy` says so. If you
+move either, update `privacy.hostingLocations` in Settings so the notice stays true.
+
+**Who else sees anything.** PayMongo (card and e-wallet payments — checkout is
+hosted on their side, so no card number ever reaches this system), Resend (email),
+Semaphore (SMS, optional), plus your database host and Vercel. That is the complete
+list, and the first three only receive what a booking needs.
+
+**What the spa holds.** Identity (name, mobile, email, birthday, address, PWD and
+Senior ID numbers), health answers from the intake form, two consent records with
+their timestamps, visit and sales history, and — staff-side — sign-in attempts with
+IP addresses and an append-only audit log.
+
+**Two consents, not one.** RA 10173 wants consent specific to a purpose, and a
+liability waiver is a different purpose from holding a health history. Each has its
+own tick and its own timestamp. The wording lives in `src/lib/consent.ts` so it
+cannot drift between the booking wizard and the desk.
+
+**Health information is walled off.** Every CSV export deliberately omits it. The
+only export that contains it is the Owner's full backup, which is always encrypted
+and always writes a `sensitive` audit entry naming who downloaded it.
+
+**Access is logged, not withheld.** Receptionists can see health records, because
+the person taking the booking is the one who has to know about the allergy. The
+protection is accountability instead: opening a health record writes an audit entry
+against the person who opened it, deduped to one per client per day. See
+`recordMedicalAccess` in `src/lib/medical.ts`.
+
+**Erasure without breaking the books.** A client can ask to be forgotten, and
+Settings → the client's *Edit details* tab → *Erase personal data* (Owner only)
+carries it out: health answers, contact details, address, notes, consent, staff
+notes about her and her deposit screenshots all go. Sales, receipts, journals and
+appointment times stay, because BIR requires ten years of them and a receipt whose
+customer row has vanished reads to an examiner as a concealed sale. The PWD or
+Senior ID printed on a receipt stays for the same reason; the copy on the client
+record is deleted. The erasure is audited **without naming her** — naming her would
+write her straight back into an append-only table. See `src/lib/erasure.ts`.
+
+**Logs age out.** Sign-in attempts (which carry IP addresses) and the email log are
+pruned nightly on the windows set by `privacy.loginLogRetentionDays` and
+`privacy.emailLogRetentionDays`. Set either to `0` to keep forever. The audit log is
+deliberately never pruned: it is append-only, an examiner reads it, and it is where
+the record of who opened whose health file lives.
+
+**Still on you.** Naming a Data Protection Officer, and checking whether the spa
+meets the National Privacy Commission's registration thresholds — broadly, sensitive
+personal information on 1,000+ individuals. The notice at `/privacy` is written to be
+accurate about this system, but it has not been reviewed by a lawyer and it cannot
+know your circumstances; read it once against how the spa actually operates before
+you rely on it.
+
+---
+
 ## Configuration
 
 Almost nothing is hard-coded. Settings has 16 sections; the ones people reach for:
@@ -388,19 +463,36 @@ path back from an accident.
 **2 — Nightly independent dumps.**
 
 ```bash
-npm run backup      # writes backups/anica-backup-<timestamp>.json
+BACKUP_PASSPHRASE="…" npm run backup   # backups/anica-backup-<timestamp>.json.enc
 ```
+
+Set `BACKUP_PASSPHRASE` (12 characters minimum) and the dump is encrypted with
+AES-256-GCM, the key stretched from the passphrase with scrypt. Leave it unset and
+you get plain JSON containing every client health record in readable form — the
+script warns loudly on every run rather than letting a nightly cron quietly pile up
+readable files on a spare disk.
+
+**Set it.** The consent your clients tick says their health details leave the spa
+only inside an encrypted backup, and a nightly plaintext dump makes that sentence
+untrue. The CLI still lets you run without one — refusing outright would turn a
+mistyped variable into a spa with no backups at all, which is worse — but an
+unencrypted dump is a deliberate choice you are making on your clients' behalf.
 
 Schedule it and copy the output somewhere off the server:
 
 ```bash
-0 2 * * *  cd /srv/anica && npm run backup && \
+0 2 * * *  cd /srv/anica && BACKUP_PASSPHRASE="…" npm run backup && \
            rclone copy backups remote:anica-backups
 ```
 
+**Keep the passphrase somewhere that is not the backup drive.** There is no
+recovery path: without it the file cannot be opened by anyone, including you.
+
 **3 — The Owner's on-demand full export.** Settings → Backup & export →
-*Download full backup*. This is the only export containing client health information,
-so store it securely.
+*Download encrypted backup*. This is the only export containing client health
+information, and it is always encrypted — it asks for a passphrase on the screen and
+there is no way from there to produce a readable file. The consent your clients sign
+says their health details leave the spa no other way.
 
 ### Restoring
 
@@ -411,13 +503,18 @@ npx prisma migrate deploy
 
 # 2. Restore. Refuses to run if the target already holds sales,
 #    unless you pass --force (which wipes it first).
-npm run restore -- ./backups/anica-backup-2026-07-30T02-00-00-000Z.json
+BACKUP_PASSPHRASE="…" npm run restore -- ./backups/anica-backup-2026-07-30T02-00-00-000Z.json.enc
 
 # 3. Verify the restored books reconcile.
 npm run verify
 ```
 
-Both the CLI dump and the Owner's browser download are accepted.
+Encrypted files are detected by their contents, not their extension, so a renamed
+file still restores. The passphrase can also be given as `--passphrase=…`. A wrong
+passphrase and an altered file both refuse — GCM authenticates as well as encrypts,
+so a backup somebody has edited will not load silently into the books.
+
+Both the CLI dump and the Owner's browser download are accepted, encrypted or not.
 
 **Practise the restore.** A backup you have never restored is a hope, not a backup.
 Restore into a scratch database once a quarter and confirm the row counts and the
@@ -486,6 +583,12 @@ src/lib/
   rbac.ts                   the permission matrix
   guard.ts                  page and API guards, branch scoping
   audit.ts                  the append-only activity log
+  consent.ts                the two things a client agrees to, in one place
+  privacy-notice.ts         the RA 10173 notice, built from live settings
+  medical.ts                therapist health alerts, and the access log behind them
+  erasure.ts                RA 10173 erasure that leaves the books standing
+  backup-crypto.ts          AES-256-GCM backup envelope (also used by scripts/)
+  passphrase.ts             the passphrase rule, shared with the browser
 
 src/app/
   page.tsx                  public landing page

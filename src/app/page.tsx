@@ -801,15 +801,23 @@ export default async function LandingPage() {
         </div>
 
         <div className="mx-auto mt-14 max-w-6xl px-4">
-          <div className="border-t border-sand-200 py-6 text-xs text-cocoa-500">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-sand-200 py-6 text-xs text-cocoa-500">
             {/*
               No staff door on the customer's page. Staff reach the system at
               /login directly — bookmarked, or through the installed app. This
               keeps the landing page for clients only; it does not make /login
               secret, and is not a substitute for strong passwords.
             */}
-            © {new Date().getFullYear()} {settings['business.name']} ·{' '}
-            {settings['business.address']}
+            <p>
+              © {new Date().getFullYear()} {settings['business.name']} ·{' '}
+              {settings['business.address']}
+            </p>
+            <Link
+              href="/privacy"
+              className="underline underline-offset-4 hover:text-gilt-600"
+            >
+              Privacy notice
+            </Link>
           </div>
         </div>
       </footer>

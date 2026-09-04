@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requirePage } from '@/lib/guard';
 import { getSettings } from '@/lib/settings';
 import { suggestBusinessThreshold } from '@/lib/retention';
@@ -98,6 +99,86 @@ export default async function OperationsSettingsPage() {
                 defaultChecked={s['inventory.autoDeductRecipes']} />
               Auto-deduct consumables from service recipes at checkout
             </label>
+          </div>
+
+          <div className="card-pad space-y-3">
+            <p className="section-title">How long the logs are kept</p>
+            <p className="muted">
+              Neither of these is a business record. Sign-in attempts store an IP address and the
+              email log stores a client address, and the Data Privacy Act asks that personal data
+              be kept no longer than its purpose needs. Set either to <strong>0</strong> to keep it
+              forever.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="label">Sign-in history (days)</span>
+                <input name="loginLogRetentionDays" type="number" min={0} className="input"
+                  defaultValue={s['privacy.loginLogRetentionDays']} />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Kept to investigate a break-in, which is a question asked about last month.
+                </span>
+              </label>
+              <label className="block">
+                <span className="label">Email history (days)</span>
+                <input name="emailLogRetentionDays" type="number" min={0} className="input"
+                  defaultValue={s['privacy.emailLogRetentionDays']} />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Kept to explain a message that never arrived.
+                </span>
+              </label>
+            </div>
+            <Alert tone="info">
+              The audit log is never pruned, whatever these say. It is append-only, it is what an
+              examiner reads, and it is where the record of who opened whose health file lives.
+            </Alert>
+          </div>
+
+          <div className="card-pad space-y-3">
+            <p className="section-title">What the privacy notice says</p>
+            <p className="muted">
+              These appear on the{' '}
+              <Link href="/privacy" className="underline underline-offset-2" target="_blank">
+                privacy notice
+              </Link>{' '}
+              your clients read. The retention periods above appear there too, so the page always
+              quotes what this system is actually doing rather than what it said a year ago.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="label">Who clients write to about their data</span>
+                <input name="dpoName" className="input" defaultValue={s['privacy.dpoName']}
+                  placeholder="e.g. Anica Bos, Owner" />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  A person, not a department — a request to see or erase a record has to land with
+                  someone who can act on it. Blank falls back to the business name.
+                </span>
+              </label>
+              <label className="block">
+                <span className="label">Email for those requests</span>
+                <input name="dpoEmail" type="email" className="input"
+                  defaultValue={s['privacy.dpoEmail']} placeholder={s['business.email']} />
+                <span className="mt-1 block text-[11px] text-cocoa-400">
+                  Blank falls back to {s['business.email']}.
+                </span>
+              </label>
+            </div>
+            <label className="block">
+              <span className="label">Where the data is hosted</span>
+              <input name="hostingLocations" className="input"
+                defaultValue={s['privacy.hostingLocations']} placeholder="Singapore" />
+              <span className="mt-1 block text-[11px] text-cocoa-400">
+                In words a guest can read. This is the one fact on the notice the system cannot
+                check for itself — the app runs in the Vercel region set in{' '}
+                <code>vercel.json</code>, and your database region was chosen in the Supabase or
+                Neon console. Update this if you move either.
+              </span>
+            </label>
+            {!s['privacy.dpoName'] && (
+              <Alert tone="warn">
+                No one is named yet, so the notice currently tells clients to write to
+                &ldquo;the owner&rdquo;. Naming a person is what the Data Privacy Act expects.
+              </Alert>
+            )}
           </div>
 
           <div className="card-pad space-y-3">

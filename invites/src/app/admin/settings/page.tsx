@@ -13,7 +13,7 @@ const CONTACT = ['contact.messenger', 'contact.viber', 'contact.whatsapp', 'cont
 const PAYMENTS = ['payments.manualEnabled', 'payments.gcashName', 'payments.gcashNumber', 'payments.gcashQrUrl', 'payments.mayaName', 'payments.mayaNumber', 'payments.bankAccounts', 'payments.manualNote', 'orders.unpaidExpiryDays'];
 const SERVICE = ['dfy.turnaroundDays', 'dfy.revisions', 'concierge.turnaroundDays', 'concierge.revisions', 'rush.turnaroundHours'];
 const POLICY = ['policy.refund', 'policy.privacy'];
-const TEMPLATES = ['email.orderReceived', 'email.orderActive', 'email.previewReady', 'email.rsvpReceived', 'sms.rsvpReminder'];
+const TEMPLATES = ['email.orderReceived', 'email.orderActive', 'email.previewReady', 'email.rsvpReceived', 'sms.rsvpReminder', 'sms.senderName'];
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<FlashParams> }) {
   const user = await requireStaffPage('settings.view');
@@ -86,7 +86,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <TextArea label="Email: payment confirmed" name="email.orderActive" defaultValue={s['email.orderActive']} rows={6} />
             <TextArea label="Email: DFY preview ready" name="email.previewReady" defaultValue={s['email.previewReady']} rows={6} />
             <TextArea label="Email: RSVP received" name="email.rsvpReceived" defaultValue={s['email.rsvpReceived']} rows={6} />
-            <TextArea label="SMS: RSVP reminder" name="sms.rsvpReminder" defaultValue={s['sms.rsvpReminder']} rows={3} />
+            <TextArea label="SMS: RSVP reminder" name="sms.rsvpReminder" defaultValue={s['sms.rsvpReminder']} rows={3} hint="Every character counts: one credit covers 160 plain characters, but a single emoji drops that to 70." />
+            <Field label="SMS sender name" name="sms.senderName" defaultValue={s['sms.senderName']} hint="Registered with Semaphore. Leave blank to use the account default." />
           </div>
           <Save keys={TEMPLATES} />
         </form>

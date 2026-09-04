@@ -397,6 +397,7 @@ model Invitation {
   views     InvitationView[]
   dfyJob    DfyJob?
   messages  SupportMessage[]
+  texts     SmsMessage[]
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
@@ -426,6 +427,7 @@ model Guest {
   invitation Invitation    @relation(fields: [invitationId], references: [id], onDelete: Cascade)
   table      SeatingTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
   rsvps      Rsvp[]
+  texts      SmsMessage[]
 
   @@index([invitationId, groupName])
 }
@@ -622,6 +624,32 @@ model SupportMessage {
 
   @@index([userId, createdAt])
   @@index([fromStaff, readAt])
+}
+
+/// One text message we sent, or tried to. Kept so the couple can see who was
+/// reached, and so a second blast does not re-text someone we just texted —
+/// every send costs a credit and irritates a guest.
+model SmsMessage {
+  id           String    @id @default(cuid())
+  invitationId String
+  guestId      String?
+  to           String
+  body         String
+  status       SmsStatus @default(LOGGED)
+  error        String    @default("")
+  createdAt    DateTime  @default(now())
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?     @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([invitationId, createdAt])
+  @@index([guestId, createdAt])
+}
+
+enum SmsStatus {
+  SENT
+  LOGGED
+  FAILED
 }
 
 model Notification {

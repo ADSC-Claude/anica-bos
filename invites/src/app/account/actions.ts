@@ -12,7 +12,9 @@ import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
 import { setPhotoApproval, deleteGuestPhoto } from '@/lib/photos';
+import { planReminders, sendReminders } from '@/lib/reminders';
 import type { SectionKey } from '@/lib/sections';
+import { hasFeature } from '@/lib/tiers';
 
 /**
  * Every customer action re-checks ownership through ownInvitation(); the id
@@ -194,6 +196,35 @@ export async function moderateGuestbookAction(invitationId: string, entryId: str
     if (decision === 'approve') await prisma.guestbookEntry.updateMany({ where: { id: entryId, invitationId }, data: { approved: true } });
     else await prisma.guestbookEntry.deleteMany({ where: { id: entryId, invitationId } });
     refresh(invitationId);
+  });
+}
+
+// --- SMS reminders ----------------------------------------------------------
+
+/** What a blast would do, without doing it — the confirmation step reads this. */
+export async function previewRemindersAction(invitationId: string, everyone: boolean) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    const plan = await planReminders(inv, { everyone });
+    return {
+      count: plan.send.length,
+      credits: plan.credits,
+      sample: plan.send[0]?.text ?? '',
+      skipped: plan.skipped,
+    };
+  });
+}
+
+export async function sendRemindersAction(invitationId: string, everyone: boolean) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    const outcome = await sendReminders(inv, { everyone });
+    refresh(invitationId);
+    return outcome;
   });
 }
 

@@ -113,6 +113,27 @@ costs far more than a line of text, so uploads are capped at 12 per connection
 per hour and 500 per invitation, and the file type is decided by its magic
 bytes rather than the name the browser claimed.
 
+## RSVP reminders by text
+
+The guest list can text everyone who has not answered. Each guest gets their
+own personal link, addressed with their salutation — *Ninong Fred & Ninang
+Mila*, not *Fred Bautista*.
+
+Sending is two steps, because a blast spends money on someone else's phone:
+the first works out who would be texted, what the message will say and what it
+costs, and only the second sends. Anyone texted in the last 24 hours is left
+out, and every message sent is recorded, so a second blast an hour later cannot
+double-charge for a reminder the guest has already read.
+
+Cost is computed, not estimated. A plain message is one credit up to 160
+characters; a single emoji forces the whole thing into UCS-2 and the allowance
+collapses to 70, tripling the price of a blast. `creditsFor()` knows the
+difference and the confirmation step shows it.
+
+Without `SEMAPHORE_API_KEY` the messages are written to the server log and
+recorded as `LOGGED`, so the whole chain can be exercised without an account
+or a single spent credit.
+
 ## How it works
 
 **DIY:** Landing → checkout (occasion → package → service mode → template →
@@ -330,6 +351,5 @@ invites/
 
 Phase 1 and most of Phase 2 from the build brief are here. Not yet built:
 Google / Facebook sign-in (email works everywhere including the Messenger
-browser), SMS reminder blasts through Semaphore (the message template and
-per-guest SMS links exist), custom domains, and the Save-the-Date mini-invite
-as a separate page (it is currently a *card type* on the cover).
+browser), custom domains, and the Save-the-Date mini-invite as a separate page
+(it is currently a *card type* on the cover).

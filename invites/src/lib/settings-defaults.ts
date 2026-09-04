@@ -67,6 +67,8 @@ export const DEFAULT_SETTINGS = {
     'Hi {{customerName}},\n\n{{guestName}} just responded to {{invitationTitle}}: {{response}} ({{seats}} seat(s)).\n\nSee all responses: {{appUrl}}/account/invitations/{{invitationId}}/rsvps\n\n— {{businessName}}',
   'sms.rsvpReminder':
     'Hi {{guestName}}! {{hosts}} would love to know if you can make it on {{eventDate}}. Please RSVP here: {{link}}',
+  /** Semaphore sender ID. Blank uses the account default. */
+  'sms.senderName': '',
 
   // --- the public site ---
   'site.comingSoon': false,

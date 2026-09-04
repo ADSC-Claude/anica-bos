@@ -13,6 +13,8 @@ import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
 import { setPhotoApproval, deleteGuestPhoto } from '@/lib/photos';
 import { planReminders, sendReminders } from '@/lib/reminders';
+import { eraseCustomer } from '@/lib/privacy';
+import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
 import { hasFeature } from '@/lib/tiers';
 
@@ -197,6 +199,23 @@ export async function moderateGuestbookAction(invitationId: string, entryId: str
     else await prisma.guestbookEntry.deleteMany({ where: { id: entryId, invitationId } });
     refresh(invitationId);
   });
+}
+
+// --- the Data Privacy Act ---------------------------------------------------
+
+const ERASE_PHRASE = 'DELETE MY ACCOUNT';
+
+export async function eraseMyAccountAction(confirmation: string) {
+  const user = await requireUser();
+  const result = await action(async () => {
+    if (confirmation !== ERASE_PHRASE) throw new HttpError(400, `Type ${ERASE_PHRASE} to confirm.`);
+    await eraseCustomer(user, user.id, 'Requested by the account holder from their dashboard');
+    await destroySession();
+  });
+  // The redirect has to happen outside action(), which catches everything —
+  // including the exception Next throws to perform a redirect.
+  if (result.ok) redirect('/?erased=1');
+  return result;
 }
 
 // --- SMS reminders ----------------------------------------------------------

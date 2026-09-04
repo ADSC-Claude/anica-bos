@@ -51,6 +51,10 @@ model User {
   lastLoginAt        DateTime?
   /// Staff-only notes about a customer (support history, preferences).
   notes              String    @default("")
+  /// Set when this person exercised their right to erasure. The row survives
+  /// because Order rows point at it and those are receipts the BIR requires
+  /// us to keep — but everything on it that identifies a person is gone.
+  erasedAt           DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 

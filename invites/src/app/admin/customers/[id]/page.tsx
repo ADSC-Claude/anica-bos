@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
 import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, BackLink, OrderPill, InvitationPill, Money } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
-import { customerNotesAction, customerActiveAction, supportReplyAction } from '../../actions';
+import { customerNotesAction, customerActiveAction, eraseCustomerAction, supportReplyAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +42,25 @@ export default async function CustomerPage({ params, searchParams }: { params: P
               <input type="hidden" name="active" value={c.active ? 'off' : 'on'} />
               <button className={`btn btn-sm ${c.active ? 'btn-danger' : 'btn-secondary'}`} type="submit">{c.active ? 'Disable account' : 'Enable account'}</button>
             </form>
+          )}
+          {editable && !c.erasedAt && (
+            <details className="mt-4 border-t border-[color:var(--color-sand-200)] pt-3">
+              <summary className="cursor-pointer text-sm text-[color:var(--bad)]">Erase on request (Data Privacy Act)</summary>
+              <form action={eraseCustomerAction.bind(null, c.id, back)} className="mt-2 space-y-2">
+                <p className="text-xs text-[color:var(--color-ink-500)]">
+                  Deletes every invitation, guest list, RSVP, message and photo. Orders and payments stay
+                  as receipts with the name stripped off. The account can never sign in again. There is no undo.
+                </p>
+                <input name="reason" className="field" placeholder="Where did the request come from? (email of 4 Sept, Messenger thread…)" required />
+                <input name="confirm" className="field" placeholder="Type ERASE to confirm" autoComplete="off" required />
+                <button className="btn btn-danger btn-sm" type="submit">Erase this customer</button>
+              </form>
+            </details>
+          )}
+          {c.erasedAt && (
+            <p className="mt-4 border-t border-[color:var(--color-sand-200)] pt-3 text-sm text-[color:var(--color-ink-500)]">
+              Erased on {formatDateTime(c.erasedAt)} at the account holder’s request. The orders below are kept as receipts.
+            </p>
           )}
         </section>
         <section className="card p-4">

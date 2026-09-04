@@ -316,12 +316,36 @@ cannot read it, and name the storage buckets `invites-public` and
 `invites-private` so they do not collide with the other app's. The Vercel
 project `anica-invites` is set up this way, on the `anica-bos-sg` project.
 
+## The Data Privacy Act
+
+The landing page and the privacy policy both promise a copy of your data on
+request and deletion on request, so both exist rather than being an email
+address to write to. *Your data*, in the customer dashboard, downloads
+everything held about the account in one JSON file — the account, its orders,
+every invitation, and the guest lists inside them — and deletes all of it after
+the account holder types the confirmation phrase. Staff can carry out the same
+erasure from a customer's page when the request arrives by email or Messenger,
+recording where it came from; that goes in the audit log, marked sensitive.
+
+Erasure is not `DELETE FROM "User"`. Invitations and everything hanging off
+them go immediately and permanently — that is where somebody else's personal
+data lives, a guest list being a hundred names and mobile numbers that were
+never ours. The order and its payments stay, because a business must keep
+records of what it sold for ten years, with every identifying field stripped
+from them and from the account, which can no longer be signed into.
+
+`npm run check:erasure` proves it against a real database: which rows survive a
+transaction is not something a unit test can answer. It builds its own
+throwaway customer, erases it, asserts on what is left, and cleans up after
+itself even when it fails.
+
 ## Testing
 
 ```bash
 npm run typecheck
 npm test          # pricing, RBAC, section cleaning and gating, copy, CSV, QR, ICS, theme, dates
 npm run verify    # the seeded data reconciles
+npm run check:erasure   # the Data Privacy Act promises hold against a real database
 ```
 
 CI (`.github/workflows/invites-ci.yml`) also builds, seeds, starts the server

@@ -2,7 +2,7 @@
   "name": "anica-invites",
   "version": "1.0.0",
   "private": true,
-  "description": "Digital invitation platform for the Philippines — DIY builder + Done-For-You encoding, per-guest RSVP links, one-time PHP pricing",
+  "description": "Digital invitation platform for the Philippines \u2014 DIY builder + Done-For-You encoding, per-guest RSVP links, one-time PHP pricing",
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/build.mjs",
@@ -16,7 +16,8 @@
     "jobs:daily": "tsx --conditions=react-server scripts/run-jobs.ts daily",
     "verify": "tsx --conditions=react-server scripts/verify-integrity.ts",
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
-    "build:local": "prisma generate && next build"
+    "build:local": "prisma generate && next build",
+    "check:erasure": "tsx --conditions=react-server scripts/check-erasure.ts"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"

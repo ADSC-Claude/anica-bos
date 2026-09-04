@@ -94,6 +94,11 @@ jobs:
           npm run db:seed
           npm run verify
 
+      # What an erasure removes and what it must keep is a property of the
+      # database, not of a function, so it is checked against a real one.
+      - name: Check the Data Privacy Act promises hold
+        run: npm run check:erasure
+
       # The pages that must never 500: the landing page, the demo invitation,
       # a personal guest link, the RSVP endpoint and the sign-in page.
       - name: Smoke-test the running app
@@ -111,6 +116,9 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:3000/i/juan-and-maria/card
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/i/does-not-exist)" = "404"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/admin)" = "307"
+          # Signed out, the privacy pages must redirect rather than serve.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/account/privacy)" = "307"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/account/privacy/export)" = "307"
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"slug":"juan-and-maria","name":"CI Bot","response":"ACCEPT","seats":1}' http://127.0.0.1:3000/api/public/rsvp)" = "200"
           # The shared album: a real PNG is accepted, and a file that only
           # claims to be one is not — the check is the magic bytes, not the name.

@@ -6,6 +6,7 @@ import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
 import { requireStaffSession, assertPermission, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { hashPassword, changePassword } from '@/lib/auth';
+import { eraseCustomer } from '@/lib/privacy';
 import { audit } from '@/lib/audit';
 import { reviewManualPayment, refundPayment } from '@/lib/payments';
 import { activateOrder, cancelOrder } from '@/lib/orders';
@@ -144,6 +145,21 @@ export async function customerActiveAction(userId: string, back: string, fd: For
     await prisma.user.update({ where: { id: userId }, data: { active, sessionsRevoked: active ? undefined : new Date() } });
     await audit(user, { module: 'customers', action: active ? 'enable' : 'disable', entityType: 'User', entityId: userId, sensitive: true });
     return active ? 'Account enabled.' : 'Account disabled and signed out.';
+  });
+}
+
+/**
+ * The Data Privacy Act's right to erasure, carried out on a written request.
+ * Deliberately not reversible and deliberately noisy in the audit log: the
+ * reason typed here is the only record of who asked and how.
+ */
+export async function eraseCustomerAction(userId: string, back: string, fd: FormData) {
+  return run('customers.edit', back, async (user) => {
+    const reason = s(fd, 'reason').trim();
+    if (reason.length < 10) throw new HttpError(400, 'Record where the request came from — at least a sentence.');
+    if (s(fd, 'confirm') !== 'ERASE') throw new HttpError(400, 'Type ERASE to confirm.');
+    const report = await eraseCustomer(user, userId, reason);
+    return `Erased. Removed ${report.invitations} invitation(s), ${report.guests} guest(s), ${report.rsvps} RSVP(s), ${report.photos} photo(s). Kept ${report.ordersKept} order(s) as receipts.`;
   });
 }
 

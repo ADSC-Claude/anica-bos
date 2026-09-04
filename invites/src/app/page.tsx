@@ -24,7 +24,7 @@ const FAQ = [
   { q: 'Can I change details after publishing?', a: 'Standard and Complete packages include unlimited edits until the event. Basic includes three. Guests always see the latest version at the same link.' },
   { q: 'How does Done-For-You work?', a: 'Pick a package, tick Done-For-You, pay. Then send us the details however is easiest — our intake form, Messenger, Viber or an Excel file. An encoder builds it in 2–3 working days, you review a preview, request changes (2 rounds included), approve, and we publish. You can still edit it yourself afterwards.' },
   { q: 'What is the refund policy?', a: 'Because each invitation is built to order, payments are non-refundable once published or once a Done-For-You build has started. If we cannot deliver, you get a full refund.' },
-  { q: 'Is my guest list safe?', a: 'Guest lists are personal data. We collect only what an invitation needs, never sell or share it, keep personal links unguessable, and delete everything on request — in line with the Data Privacy Act of 2012.' },
+  { q: 'Is my guest list safe?', a: 'Guest lists are personal data. We collect only what an invitation needs, never sell or share it, and keep personal links unguessable. Your dashboard has a Your data page that downloads everything we hold about you and deletes all of it on request — in line with the Data Privacy Act of 2012.' },
 ];
 
 const TESTIMONIALS = [

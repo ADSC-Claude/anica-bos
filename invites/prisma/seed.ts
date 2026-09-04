@@ -7,6 +7,7 @@
  * It DELETES EVERYTHING first.
  */
 import { PrismaClient, type Occasion, type Tier } from '@prisma/client';
+import { resolveDatabaseUrl } from '../src/lib/db-url';
 import bcrypt from 'bcryptjs';
 import { defaultContent, type Content } from '../src/lib/sections';
 import { PALETTE_PRESETS, FONT_PRESETS } from '../src/lib/theme';
@@ -14,7 +15,7 @@ import { guestToken, orderReference, paymentReference } from '../src/lib/codes';
 import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } from '../src/lib/copy';
 import { addDays } from '../src/lib/datetime';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
 const PASSWORD = 'ChangeMe2026!';
 
 async function wipe() {

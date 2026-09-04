@@ -39,8 +39,12 @@ jobs:
           --health-retries=20
 
     env:
+      # Deliberately still says `schema=public`: production runs in a schema of
+      # its own on a database another app owns, and DATABASE_SCHEMA is what has
+      # to override these. Leaving them wrong here is the regression test.
       DATABASE_URL: postgresql://invites:invites@localhost:5432/invites_test?schema=public
       DIRECT_URL: postgresql://invites:invites@localhost:5432/invites_test?schema=public
+      DATABASE_SCHEMA: invites
       # CI-only secret; never used outside the ephemeral runner.
       SESSION_SECRET: ci-session-secret-at-least-32-characters-long
       NEXT_PUBLIC_APP_URL: http://localhost:3000
@@ -61,17 +65,29 @@ jobs:
       - name: Generate the Prisma client
         run: npx prisma generate
 
-      - name: Apply migrations
-        run: npx prisma migrate deploy
-
       - name: Typecheck
         run: npm run typecheck
 
       - name: Test
         run: npm test
 
+      # The production build script, not `build:local` — it is the thing that
+      # applies the migrations, and it is the thing that broke in production.
       - name: Build
-        run: npm run build:local
+        run: npm run build
+
+      # Production shares a database with another app, so tables landing in
+      # `public` is a real failure, not a tidiness point.
+      - name: Check the tables went into their own schema
+        env:
+          PGURL: postgresql://invites:invites@localhost:5432/invites_test
+        run: |
+          tables() {
+            psql "$PGURL" -tAc "select count(*) from information_schema.tables where table_schema = '$1';"
+          }
+          echo "invites: $(tables invites) tables, public: $(tables public) tables"
+          test "$(tables invites)" -gt 20 || { echo '::error::the migration did not run in the invites schema'; exit 1; }
+          test "$(tables public)"  -eq 0  || { echo '::error::the migration leaked into public'; exit 1; }
 
       - name: Seed, then check the data reconciles with itself
         run: |

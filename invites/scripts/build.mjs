@@ -22,12 +22,34 @@ function run(command, env = {}) {
   execSync(command, { stdio: 'inherit', env: { ...process.env, ...env } });
 }
 
-function describeUrl(raw) {
+/**
+ * DATABASE_SCHEMA wins over any `schema=` in the connection string. This
+ * repeats src/lib/db-url.ts, which this script cannot import: it runs before
+ * `prisma generate`, when nothing is compiled yet. Change both together.
+ *
+ * The variable exists separately from the URL because the URL is a secret
+ * pasted into a dashboard, and appending `?schema=…` to a string that already
+ * carries a query string produces a second `?` — read as part of the previous
+ * parameter's value, leaving the schema silently `public`.
+ */
+function withSchema(raw) {
+  const schema = process.env.DATABASE_SCHEMA;
+  if (!raw || !schema) return raw;
   try {
     const u = new URL(raw);
+    u.searchParams.set('schema', schema);
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
+function describeUrl(raw) {
+  try {
+    const u = new URL(withSchema(raw));
     const port = u.port || '(default)';
     const pooled = u.port === '6543' ? ' — transaction pooler' : u.port === '5432' ? ' — direct' : '';
-    return `${u.hostname}:${port}${u.pathname}${pooled}`;
+    return `${u.hostname}:${port}${u.pathname} schema=${u.searchParams.get('schema') ?? 'public'}${pooled}`;
   } catch {
     return '!! not a valid connection string';
   }
@@ -44,6 +66,7 @@ const OPTIONAL = [
   'SEMAPHORE_API_KEY',
   'NEXT_PUBLIC_CONTACT_MESSENGER',
   'NEXT_PUBLIC_CONTACT_EMAIL',
+  'DATABASE_SCHEMA',
 ];
 const URLISH = new Set(['DATABASE_URL', 'DIRECT_URL']);
 
@@ -51,7 +74,7 @@ function report(name) {
   const value = process.env[name];
   if (!value) return `  ✗ ${name.padEnd(30)} not set`;
   if (URLISH.has(name)) return `  ✓ ${name.padEnd(30)} ${describeUrl(value)}`;
-  if (name.startsWith('NEXT_PUBLIC_') || name === 'SUPABASE_URL' || name === 'EMAIL_FROM') {
+  if (name.startsWith('NEXT_PUBLIC_') || name === 'SUPABASE_URL' || name === 'EMAIL_FROM' || name === 'DATABASE_SCHEMA') {
     return `  ✓ ${name.padEnd(30)} ${value}`;
   }
   return `  ✓ ${name.padEnd(30)} set, ${value.length} characters`;
@@ -155,8 +178,19 @@ if (production && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   );
 }
 
+// Migrations go over the direct connection — DDL cannot run through a
+// transaction pooler — and `prisma migrate deploy` picks that connection
+// itself, from the schema's `directUrl = env("DIRECT_URL")`. It does that in
+// preference to DATABASE_URL, so DIRECT_URL is the variable that decides
+// which schema the tables are created in and BOTH have to be set here: the
+// first for `next build`, the second for the migration that precedes it.
+const migrateEnv = {
+  DATABASE_URL: withSchema(DIRECT_URL || DATABASE_URL),
+  DIRECT_URL: withSchema(DIRECT_URL || DATABASE_URL),
+};
+
 run('prisma generate');
-run('prisma migrate deploy', { DATABASE_URL: DIRECT_URL || DATABASE_URL });
+run('prisma migrate deploy', migrateEnv);
 run('next build');
 
 console.info('\n✓ Built.');

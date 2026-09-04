@@ -254,11 +254,26 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
 ### Sharing a Supabase project with another app
 
 The app does not need a Supabase project of its own. It runs happily in its
-own **schema** on a project another app already uses: append
-`?schema=invites` to both connection strings (before `&pgbouncer=true` on the
-pooled one) and Prisma creates and migrates that schema without touching
-`public`. Keep the schema out of the Data API's *exposed schemas* list so
-PostgREST cannot read it, and name the storage buckets `invites-public` and
+own **schema** on a project another app already uses. Set
+
+```
+DATABASE_SCHEMA=invites
+```
+
+and leave both connection strings exactly as Supabase gives them to you.
+Prisma then creates and migrates that schema without touching `public`.
+
+Set the schema *here* rather than appending `?schema=invites` to the URLs.
+A connection string is a secret pasted into a dashboard, and Supabase's
+pooled string already ends in a query string: appending `?schema=…` to it
+produces a second `?`, which Postgres reads as part of the previous
+parameter's value. The schema stays `public`, the migration runs against the
+other app's tables, and the first you hear of it is `type "Role" already
+exists` in a build log. `DATABASE_SCHEMA` overrides whatever the URL says, so
+neither mistake can be made twice.
+
+Keep the schema out of the Data API's *exposed schemas* list so PostgREST
+cannot read it, and name the storage buckets `invites-public` and
 `invites-private` so they do not collide with the other app's. The Vercel
 project `anica-invites` is set up this way, on the `anica-bos-sg` project.
 

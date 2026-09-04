@@ -3,8 +3,9 @@
  * any time something looks off in production.
  */
 import { PrismaClient } from '@prisma/client';
+import { resolveDatabaseUrl } from '../src/lib/db-url';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
 let failures = 0;
 function check(name: string, ok: boolean, detail = '') {
   console.info(`  ${ok ? '✓' : '✗'} ${name}${detail ? ` — ${detail}` : ''}`);

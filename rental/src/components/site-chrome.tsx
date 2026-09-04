@@ -45,16 +45,27 @@ function Leaf({ className = '' }: { className?: string }) {
 
 /**
  * The wordmark splits the business name on its last word so a two-word name
- * gets the reference's stacked treatment — "ANICA" over "STAYS" — and a
+ * gets the reference's stacked treatment — "NAYRA" over "STAYS" — and a
  * one-word name simply renders without a second line rather than breaking.
+ *
+ * `plain` drops the leaf: when the real logo mark sits beside the text, two
+ * pictograms in one lockup is one too many.
  */
-function Wordmark({ name, className = '' }: { name: string; className?: string }) {
+function Wordmark({
+  name,
+  className = '',
+  plain = false,
+}: {
+  name: string;
+  className?: string;
+  plain?: boolean;
+}) {
   const words = name.trim().split(/\s+/);
   const tail = words.length > 1 ? words.pop()! : '';
   const head = words.join(' ');
   return (
     <span className={`wordmark ${className}`}>
-      <Leaf className="mx-auto mb-1 block opacity-80" />
+      {!plain && <Leaf className="mx-auto mb-1 block opacity-80" />}
       <b>{head.toUpperCase()}</b>
       {tail && <em>{tail.toUpperCase()}</em>}
     </span>
@@ -67,8 +78,21 @@ export function SiteHeader({ settings, active }: { settings: SettingsShape; acti
   return (
     <header className="border-b border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
-        <Link href="/" aria-label={`${settings['business.name']} — home`}>
-          <Wordmark name={settings['business.name']} />
+        <Link
+          href="/"
+          aria-label={`${settings['business.name']} — home`}
+          className="flex items-center gap-3"
+        >
+          {settings['business.logoUrl'] ? (
+            <>
+              {/* The link's aria-label already names the business, so the mark
+                  is decorative here. eslint-disable-next-line @next/next/no-img-element */}
+              <img src={settings['business.logoUrl']} alt="" className="h-11 w-auto" />
+              <Wordmark name={settings['business.name']} plain />
+            </>
+          ) : (
+            <Wordmark name={settings['business.name']} />
+          )}
         </Link>
 
         <nav aria-label="Main" className="hidden items-center gap-5 text-[0.8125rem] lg:flex">
@@ -145,13 +169,6 @@ export function SiteHeader({ settings, active }: { settings: SettingsShape; acti
               >
                 Manage my booking
               </Link>
-              <hr className="my-2 border-[color:var(--color-sand-200)]" />
-              <Link
-                href="/login"
-                className="block rounded px-3 py-2.5 text-xs text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]"
-              >
-                Staff sign-in
-              </Link>
             </div>
           </details>
         </div>
@@ -167,7 +184,16 @@ export function SiteFooter({ settings }: { settings: SettingsShape }) {
     <footer className="bg-[color:var(--color-clay-600)] text-white">
       <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <Wordmark name={settings['business.name']} className="text-white" />
+          {settings['business.logoFooterUrl'] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={settings['business.logoFooterUrl']}
+              alt={settings['business.name']}
+              className="h-36 w-auto"
+            />
+          ) : (
+            <Wordmark name={settings['business.name']} className="text-white" />
+          )}
           <p className="mt-4 text-white/70">{settings['business.address']}</p>
         </div>
 
@@ -225,14 +251,14 @@ export function SiteFooter({ settings }: { settings: SettingsShape }) {
         </div>
       </div>
 
+      {/* No staff sign-in link anywhere public: staff go straight to /login,
+          which is noindex'd. Advertising the staff entrance on a booking site
+          invites password guessing and helps nobody who belongs there. */}
       <div className="border-t border-white/15">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-xs text-white/60">
           <p>
             © {new Date().getFullYear()} {settings['business.name']}. Built and run in Manila.
           </p>
-          <Link href="/login" className="hover:text-white hover:underline">
-            Staff sign-in
-          </Link>
         </div>
       </div>
     </footer>

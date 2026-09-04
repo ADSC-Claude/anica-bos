@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { PageHero } from '@/components/site-ui';
 
@@ -23,6 +24,7 @@ export default async function GalleryPage({
 }: {
   searchParams: Promise<{ stay?: string }>;
 }) {
+  await requirePublicSite();
   const settings = await getSettings();
   const { stay } = await searchParams;
 

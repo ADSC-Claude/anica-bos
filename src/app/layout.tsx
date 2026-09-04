@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Lato } from 'next/font/google';
 import './globals.css';
 import { RegisterServiceWorker } from '@/components/register-sw';
+import { SiteAnalytics } from '@/components/site-analytics';
 import { appUrlObject } from '@/lib/app-url';
 
 export const metadata: Metadata = {
@@ -93,6 +94,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full antialiased">
         {children}
         <RegisterServiceWorker version={buildId} />
+        {/* Mounted once here rather than on each public page, so a page added
+            later is counted without anybody remembering to. What it skips —
+            the portal, and booking references — it skips inside. */}
+        <SiteAnalytics />
       </body>
     </html>
   );

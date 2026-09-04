@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { PageHero } from '@/components/site-ui';
 
@@ -20,6 +21,7 @@ export const dynamic = 'force-dynamic';
  * the ones every place has are marked as such.
  */
 export default async function AmenitiesPage() {
+  await requirePublicSite();
   const settings = await getSettings();
 
   const [amenities, activeCount] = await Promise.all([

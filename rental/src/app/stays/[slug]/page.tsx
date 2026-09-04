@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { fromPrice } from '@/lib/pricing';
 import { formatPeso, formatPesoShort } from '@/lib/money';
 import { calendarGrid } from '@/lib/calendar';
@@ -46,6 +47,7 @@ export default async function PropertyPage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ month?: string }>;
 }) {
+  await requirePublicSite();
   const { slug } = await params;
   const { month } = await searchParams;
   const settings = await getSettings();

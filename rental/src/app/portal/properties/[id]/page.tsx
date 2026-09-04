@@ -193,6 +193,57 @@ async function photoOpAction(formData: FormData) {
   back(id, 'Cover photo set.');
 }
 
+async function amenitiesAction(formData: FormData) {
+  'use server';
+  const id = String(formData.get('id'));
+  const user = await guard(id);
+
+  const chosen = formData.getAll('amenityIds').map(String).filter(Boolean);
+  const starred = new Set(formData.getAll('highlightIds').map(String));
+
+  // Validated against the catalogue, so a stale or hand-edited form cannot
+  // write rows for amenities that no longer exist.
+  const offered = await prisma.amenity.findMany({
+    where: { id: { in: chosen }, active: true },
+    select: { id: true, name: true },
+  });
+
+  const before = await prisma.propertyAmenity.findMany({
+    where: { propertyId: id },
+    include: { amenity: { select: { name: true } } },
+  });
+
+  await prisma.$transaction([
+    prisma.propertyAmenity.deleteMany({ where: { propertyId: id } }),
+    prisma.propertyAmenity.createMany({
+      data: offered.map((a) => ({
+        propertyId: id,
+        amenityId: a.id,
+        // A star only counts on an amenity the place actually offers.
+        highlight: starred.has(a.id),
+      })),
+    }),
+  ]);
+
+  await audit(user, {
+    module: 'properties',
+    action: 'amenities.set',
+    entityType: 'Property',
+    entityId: id,
+    propertyId: id,
+    summary: `Amenities set: ${offered.length} offered, ${offered.filter((a) => starred.has(a.id)).length} featured`,
+    before: {
+      offered: before.map((l) => l.amenity.name),
+      featured: before.filter((l) => l.highlight).map((l) => l.amenity.name),
+    },
+    after: {
+      offered: offered.map((a) => a.name),
+      featured: offered.filter((a) => starred.has(a.id)).map((a) => a.name),
+    },
+  });
+  back(id, 'Amenities saved.');
+}
+
 async function rateAction(formData: FormData) {
   'use server';
   const id = String(formData.get('id'));
@@ -277,6 +328,17 @@ export default async function PropertyPage({
 
   const mayEdit = can(user.role, 'properties.edit');
   const feedUrl = absoluteUrl(`/api/ical/${property.icalExportToken}`);
+
+  const amenityCatalogue = await prisma.amenity.findMany({
+    where: { active: true },
+    orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+  });
+  /** amenityId → highlighted, for the ticked state of both checkboxes. */
+  const amenityLinks = new Map(property.amenities.map((l) => [l.amenityId, l.highlight]));
+  const amenityGroups = new Map<string, typeof amenityCatalogue>();
+  for (const a of amenityCatalogue) {
+    amenityGroups.set(a.category, [...(amenityGroups.get(a.category) ?? []), a]);
+  }
 
   return (
     <>
@@ -469,6 +531,55 @@ export default async function PropertyPage({
                 </button>
               </form>
             )}
+          </Card>
+
+          <Card title="Amenities">
+            <p className="mb-3 text-sm text-[color:var(--color-ink-500)]">
+              Tick what this place offers — the public page groups them by category. The ★ features
+              an amenity on the homepage card, which shows up to four.
+            </p>
+            <form action={amenitiesAction}>
+              <input type="hidden" name="id" value={property.id} />
+              {[...amenityGroups].map(([category, items]) => (
+                <fieldset key={category} className="mb-3">
+                  <legend className="label">{category}</legend>
+                  <div className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {items.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 text-sm">
+                        <label className="flex min-w-0 items-center gap-2">
+                          <input
+                            type="checkbox"
+                            name="amenityIds"
+                            value={a.id}
+                            defaultChecked={amenityLinks.has(a.id)}
+                            disabled={!mayEdit}
+                          />
+                          <span className="truncate">{a.name}</span>
+                        </label>
+                        <label
+                          className="flex items-center gap-1 text-xs text-[color:var(--color-ink-500)]"
+                          title="Feature on the homepage card"
+                        >
+                          <input
+                            type="checkbox"
+                            name="highlightIds"
+                            value={a.id}
+                            defaultChecked={amenityLinks.get(a.id) === true}
+                            disabled={!mayEdit}
+                          />
+                          ★
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </fieldset>
+              ))}
+              {mayEdit && (
+                <button className="btn btn-primary" type="submit">
+                  Save amenities
+                </button>
+              )}
+            </form>
           </Card>
         </div>
 

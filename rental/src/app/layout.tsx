@@ -3,6 +3,7 @@ import { Playfair_Display, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { getSettings } from '@/lib/settings';
 import { appUrl } from '@/lib/app-url';
+import { SiteAnalytics } from '@/components/site-analytics';
 
 /**
  * Both faces are downloaded at build time and served from our own origin —
@@ -39,14 +40,19 @@ export async function generateMetadata(): Promise<Metadata> {
       description: s['business.intro'],
       locale: 'en_PH',
     },
-    robots: { index: true, follow: true },
+    // Nothing is worth indexing while the site is behind the holding page,
+    // and an indexed placeholder outlives the placeholder by weeks.
+    robots: s['site.comingSoon'] ? { index: false, follow: false } : { index: true, follow: true },
   };
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <SiteAnalytics />
+      </body>
     </html>
   );
 }

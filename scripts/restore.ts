@@ -14,10 +14,25 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { readFile } from 'node:fs/promises';
-import { TABLES } from './backup';
 import { decryptBackup, isEncryptedEnvelope } from '../src/lib/backup-crypto';
+import { JOIN_TABLES, TABLES, writeJoinTable } from '../src/lib/backup-tables';
 
 const prisma = new PrismaClient();
+
+/**
+ * The first line of a Prisma error that actually says something.
+ *
+ * `err.message.split('\n')[0]` returns the empty line Prisma opens with, so
+ * every skipped row printed its table name and then nothing at all. Nine
+ * hundred failures with no reason attached is not a log, it is a rumour.
+ */
+function reason(err: Error): string {
+  const line = err.message
+    .split('\n')
+    .map((l) => l.trim())
+    .find((l) => l.length > 0);
+  return line ?? err.message.trim() ?? 'unknown error';
+}
 
 async function main() {
   const file = process.argv.find((a) => a.endsWith('.json') || a.endsWith('.json.enc'));
@@ -68,6 +83,11 @@ async function main() {
 
   if (force) {
     console.log('› Wiping the target database…');
+    // Join rows first: they cascade from both ends, but deleting them up front
+    // means the wipe does not depend on which end happens to go first.
+    for (const join of JOIN_TABLES) {
+      await prisma.$executeRawUnsafe(`DELETE FROM "${join.table}"`).catch(() => undefined);
+    }
     for (const table of [...TABLES].reverse()) {
       const model = (prisma as unknown as Record<string, { deleteMany: () => Promise<unknown> }>)[table];
       await model.deleteMany().catch(() => undefined);
@@ -106,6 +126,7 @@ async function main() {
     directMessages: 'directMessage', shiftNotes: 'shiftNote',
     shiftNoteComments: 'shiftNoteComment', emailLogs: 'emailLog', holidays: 'holiday',
     kpiTargets: 'kpiTarget', permits: 'permit', auditLogs: 'auditLog', loginEvents: 'loginEvent',
+    employmentEvents: 'employmentEvent',
   };
 
   const normalised: Record<string, Record<string, unknown>[]> = {};
@@ -114,6 +135,7 @@ async function main() {
   }
 
   let total = 0;
+  let failed = 0;
   for (const table of TABLES) {
     const rows = normalised[table];
     if (!rows?.length) continue;
@@ -121,14 +143,45 @@ async function main() {
       string,
       { create: (args: { data: unknown }) => Promise<unknown> }
     >)[table];
+    let written = 0;
     for (const row of rows) {
       // Dates arrive as ISO strings from JSON; Prisma accepts them as-is.
-      await model.create({ data: row }).catch((err: Error) => {
-        console.warn(`  · skipped a ${table} row: ${err.message.split('\n')[0]}`);
-      });
-      total += 1;
+      await model
+        .create({ data: row })
+        .then(() => {
+          written += 1;
+        })
+        .catch((err: Error) => {
+          console.warn(`  · skipped a ${table} row: ${reason(err)}`);
+        });
     }
-    console.log(`  ✓ ${table}: ${rows.length}`);
+    total += written;
+    // Both numbers, always. Printing only the input count reported a clean
+    // restore for rows that never went in.
+    const lost = rows.length - written;
+    console.log(`  ${lost ? '✗' : '✓'} ${table}: ${written}/${rows.length}`);
+    if (lost) failed += lost;
+  }
+
+  // Last: both ends of every pair now exist.
+  for (const join of JOIN_TABLES) {
+    const rows = normalised[join.table];
+    if (!rows?.length) continue;
+    const written = await writeJoinTable(prisma, join, rows);
+    total += written;
+    const lost = rows.length - written;
+    console.log(`  ${lost ? '✗' : '✓'} ${join.table}: ${written}/${rows.length}`);
+    if (lost) failed += lost;
+  }
+
+  if (failed) {
+    // Exit non-zero. This used to count every attempted row as restored and
+    // finish with a tick, so a restore that dropped half the ledger looked
+    // exactly like one that worked.
+    console.error(
+      `\n✗ Restored ${total} rows, but ${failed} did not go in. The database is incomplete.`,
+    );
+    process.exit(1);
   }
 
   console.log(`\n✓ Restored ${total} rows. Verify with: npm run test`);

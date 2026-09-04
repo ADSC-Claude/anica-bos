@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { requirePublicSite } from '@/lib/public-site';
 import { SiteHeader, SiteFooter } from '@/components/site-chrome';
 import { PageHero, Icon } from '@/components/site-ui';
 
@@ -23,6 +24,7 @@ export const dynamic = 'force-dynamic';
  * good areas than three with one hollow.
  */
 export default async function ExperiencesPage() {
+  await requirePublicSite();
   const settings = await getSettings();
 
   const branches = await prisma.branch.findMany({

@@ -5,7 +5,15 @@
  */
 export const SETTINGS_DEFAULTS = {
   // --- the business -------------------------------------------------------
-  'business.name': 'ANICA Stays',
+  'business.name': 'NAYRA Stays',
+  /**
+   * The brand mark, in two pieces because one file cannot serve both grounds:
+   * the arch mark rides beside the typed name in the header (bronze, made for
+   * the cream page), and the full lockup sits in the footer (cream monochrome,
+   * made for the green). Blank either one and the typed wordmark takes over.
+   */
+  'business.logoUrl': '/brand/nayra-arch.png',
+  'business.logoFooterUrl': '/brand/nayra-stays-cream.png',
   'business.tagline': 'Stay somewhere that feels like yours.',
   'business.intro':
     'Thoughtfully kept condos in Metro Manila and a quiet family house in Bulacan. Booked direct, so the best rate is the one you see.',
@@ -18,6 +26,13 @@ export const SETTINGS_DEFAULTS = {
   'business.facebook': '',
   'business.instagram': '',
   'business.heroImage': '/images/hero.svg',
+  /**
+   * While this is on, everyone who is not staff meets a "coming soon" page
+   * instead of the site. Guests holding a booking code keep their own pages.
+   * It starts on: a business that has not entered its properties yet is not
+   * ready to be found.
+   */
+  'site.comingSoon': true,
 
   // --- booking rules ------------------------------------------------------
   /** Percent of the total taken up front. 100 means full payment. */
@@ -77,6 +92,8 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
     description: 'Name, contact details and the copy that appears on the public site.',
     keys: [
       'business.name',
+      'business.logoUrl',
+      'business.logoFooterUrl',
       'business.tagline',
       'business.intro',
       'business.story',
@@ -86,6 +103,7 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
       'business.facebook',
       'business.instagram',
       'business.heroImage',
+      'site.comingSoon',
     ],
   },
   {
@@ -135,6 +153,8 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
 
 export const SETTING_LABELS: Partial<Record<SettingKey, string>> = {
   'business.name': 'Business name',
+  'business.logoUrl': 'Logo mark (header, on cream)',
+  'business.logoFooterUrl': 'Logo lockup (footer, on green)',
   'business.tagline': 'Tagline (hero)',
   'business.intro': 'Intro paragraph',
   'business.story': 'About Us story',
@@ -144,6 +164,7 @@ export const SETTING_LABELS: Partial<Record<SettingKey, string>> = {
   'business.facebook': 'Facebook URL',
   'business.instagram': 'Instagram URL',
   'business.heroImage': 'Hero image path',
+  'site.comingSoon': 'Hide the public site behind a "coming soon" page',
   'booking.depositPercent': 'Deposit taken at booking (%)',
   'booking.holdMinutes': 'Hold unpaid dates for (minutes)',
   'booking.balanceDueDays': 'Balance reminder, days before check-in',

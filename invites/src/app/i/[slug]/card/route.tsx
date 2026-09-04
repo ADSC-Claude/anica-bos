@@ -4,6 +4,7 @@ import { eventInstant, str, displayTitle } from '@/lib/sections';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrDataUrl } from '@/lib/qr';
 import { absoluteUrl } from '@/lib/app-url';
+import { cardTitleSize, CARD_INTRO_MAX } from '@/lib/card';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,24 +29,37 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   const cover = str(content.cover, 'coverPhoto');
   const photo = cover.startsWith('http') ? cover : cover ? absoluteUrl(cover) : '';
   const intro = str(content.cover, 'intro');
+  const titleSize = cardTitleSize(title);
 
   return new ImageResponse(
     (
       <div style={{ width: 1080, height: 1350, display: 'flex', flexDirection: 'column', background: palette.bg, color: palette.ink, fontFamily: 'serif', padding: 72 }}>
+        {/*
+          Everything here carries flexShrink: 0. Satori lays this column out
+          with the same rules as a browser, which means a column whose content
+          is taller than the space available shrinks its items — and a shrunk
+          text box does not clip, it overlaps the one below it. That is how a
+          96px pair of names came to be printed through the sentence beneath
+          them on every card this app has ever made.
+
+          The photo is the one thing allowed to give: it is the only element
+          whose exact size nobody will miss, and the text budget below it is
+          sized so the two together fit 1350px.
+        */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, justifyContent: 'center', textAlign: 'center' }}>
-          {photo && <img src={photo} width={520} height={520} style={{ objectFit: 'cover', borderRadius: 260, marginBottom: 48, border: `8px solid ${palette.surface}` }} alt="" />}
-          <div style={{ fontSize: 96, color: palette.accent, lineHeight: 1.05, display: 'flex' }}>{title}</div>
-          {intro && <div style={{ fontSize: 30, marginTop: 28, maxWidth: 800, color: palette.muted, display: 'flex' }}>{intro.slice(0, 160)}</div>}
+          {photo && <img src={photo} width={400} height={400} style={{ objectFit: 'cover', borderRadius: 200, marginBottom: 40, border: `8px solid ${palette.surface}`, flexShrink: 1 }} alt="" />}
+          <div style={{ fontSize: titleSize, color: palette.accent, lineHeight: 1.2, display: 'block', flexShrink: 0 }}>{title}</div>
+          {intro && <div style={{ fontSize: 30, marginTop: 24, maxWidth: 800, color: palette.muted, lineHeight: 1.4, display: 'block', flexShrink: 0 }}>{intro.slice(0, CARD_INTRO_MAX)}</div>}
           {when && (
-            <div style={{ fontSize: 44, marginTop: 48, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span>{formatDate(when, 'weekday')}</span>
-              <span style={{ fontSize: 34, color: palette.muted }}>{formatTime(str(content.cover, 'time'))}</span>
+            <div style={{ fontSize: 44, marginTop: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ lineHeight: 1.3 }}>{formatDate(when, 'weekday')}</span>
+              <span style={{ fontSize: 34, color: palette.muted, lineHeight: 1.3 }}>{formatTime(str(content.cover, 'time'))}</span>
             </div>
           )}
           {venue && (
-            <div style={{ fontSize: 36, marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span>{venue}</span>
-              {address && <span style={{ fontSize: 26, color: palette.muted }}>{address}</span>}
+            <div style={{ fontSize: 36, marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <span style={{ lineHeight: 1.3 }}>{venue}</span>
+              {address && <span style={{ fontSize: 26, color: palette.muted, lineHeight: 1.3 }}>{address}</span>}
             </div>
           )}
         </div>

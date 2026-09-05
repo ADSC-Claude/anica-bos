@@ -154,6 +154,38 @@ jobs:
             echo "restrictions: an allowlist that permits Vercel will still refuse GitHub."
           fi
 
+      # Prisma answers P1001 — "can't reach database server" — for a refused
+      # password, a TLS mismatch and a pooler that hung up, as readily as for a
+      # host that is not there. Three runs said that while TCP was demonstrably
+      # fine, which is no diagnosis at all. psql prints what the server said.
+      #
+      # Both ports, because they fail differently and the difference is the
+      # answer: 5432 is the session pooler that migrations need, 6543 the
+      # transaction pooler the running app uses. If only 5432 refuses, the fault
+      # is that endpoint rather than the credentials.
+      - name: Ask Postgres what is actually wrong
+        working-directory: ${{ github.workspace }}
+        run: |
+          if ! command -v psql >/dev/null; then
+            echo "psql not on this runner; skipping"
+            exit 0
+          fi
+
+          probe() {
+            url=$1
+            if out=$(PGCONNECT_TIMEOUT=15 psql "$url" -tAc 'select current_user' 2>&1); then
+              echo "  connected as $out"
+            else
+              printf '  %s\n' "$out" | head -4
+            fi
+          }
+
+          echo "session pooler (5432) — the one migrations use:"
+          probe "$DIRECT_URL"
+
+          echo "transaction pooler (6543) — the one the running app uses:"
+          probe "$(printf '%s' "$DIRECT_URL" | sed 's/:5432/:6543/')"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4

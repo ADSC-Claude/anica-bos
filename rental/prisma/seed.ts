@@ -13,10 +13,21 @@ import { addDays, manilaDateKey, toStayDate, nightsBetween } from '../src/lib/da
 import { bookingReference, guestCode, paymentReference, secretToken, accessCode, ticketNumber } from '../src/lib/codes';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../src/lib/finance';
 import { DEFAULT_TEMPLATES } from '../src/lib/messaging';
+import { resolveSeedPassword } from './seed-password';
 
 const prisma = new PrismaClient();
 
-const PASSWORD = 'ChangeMe2026!';
+// Before anything else, and in particular before wipe() truncates the database:
+// the demo password may only land on a database nobody else can reach. See
+// ./seed-password.ts for why mustChangePassword is not enough on its own.
+const seedPassword = resolveSeedPassword(process.env.DATABASE_URL, process.env.SEED_PASSWORD);
+if (!seedPassword.ok) {
+  console.error(seedPassword.message);
+  process.exit(1);
+}
+const PASSWORD = seedPassword.password;
+/** Safe to echo: never the value of SEED_PASSWORD. */
+const PASSWORD_LABEL = seedPassword.printable;
 const TODAY = manilaDateKey();
 
 function d(offset: number) {
@@ -724,8 +735,11 @@ async function main() {
   console.info('\nSeeded.');
   console.info(`  ${properties.length} properties in 2 branches`);
   console.info(`  ${staff.length} accounts, ${guests.length} guests, ${created.length} reservations`);
-  console.info('\nSign in with any of these — every one is forced to set a new password first:');
-  for (const u of staff) console.info(`  ${u.email.padEnd(28)} ${u.role.padEnd(14)} ${PASSWORD}`);
+  console.info(`\nSign in with any of these. The password is ${PASSWORD_LABEL}:`);
+  for (const u of staff) console.info(`  ${u.email.padEnd(28)} ${u.role}`);
+  console.info('\nEvery account is flagged to change its password on first sign-in, but that flag is');
+  console.info('checked after sign-in — whoever gets there first chooses the new one. Change them');
+  console.info('all yourself before anyone else can reach this database.');
   console.info('\nThe public site is at /, the portal at /login.');
 }
 

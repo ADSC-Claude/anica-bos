@@ -58,8 +58,15 @@ jobs:
       SEED_PASSWORD: ${{ secrets.INVITES_SEED_PASSWORD }}
 
     steps:
+      # These three refuse before anything is fetched or installed, which means
+      # they run before actions/checkout — and `invites` does not exist yet.
+      # A step inheriting the job's working-directory cannot start at all there:
+      # the runner fails with "No such file or directory" before the shell sees
+      # the script, so the guard neither passes nor reports why. They run at the
+      # workspace root instead, which exists from the moment the job does.
       - name: Check the confirmation phrase
         if: inputs.confirm != 'ERASE AND SEED'
+        working-directory: ${{ github.workspace }}
         run: |
           echo "::error::Confirmation phrase did not match. Nothing was touched."
           echo "Re-run and type exactly: ERASE AND SEED"
@@ -71,12 +78,14 @@ jobs:
       # confirmed.
       - name: Refuse to seed a schema that is not ours
         if: inputs.schema == 'public' || inputs.schema == ''
+        working-directory: ${{ github.workspace }}
         run: |
           echo "::error::Refusing to seed '$DATABASE_SCHEMA'."
           echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
           exit 1
 
       - name: Check the secrets are present
+        working-directory: ${{ github.workspace }}
         run: |
           if [ -z "$DIRECT_URL" ]; then
             echo "::error::The INVITES_DIRECT_URL repository secret is not set."

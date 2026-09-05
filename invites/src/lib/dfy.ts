@@ -8,7 +8,7 @@ import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
 import { absoluteUrl } from './app-url';
 import { publish as publishInvitation } from './invitations';
-import { cleanSection, fieldsFor, sectionsFor, type Content } from './sections';
+import { cleanSection, fieldsFor, sectionsFor, sectionUnlocked, type Content } from './sections';
 import { addDays } from './datetime';
 import type { SessionUser } from './auth';
 
@@ -60,7 +60,20 @@ export async function saveIntake(
   const raw = (input.content && typeof input.content === 'object' ? input.content : {}) as Record<string, unknown>;
   const cleaned: Content = {};
   for (const def of sectionsFor(occasion)) {
-    if (raw[def.key] !== undefined) cleaned[def.key] = cleanSection(fieldsFor(def.key, occasion), raw[def.key]).data;
+    if (raw[def.key] === undefined) continue;
+    // A section the package does not include is dropped, not stored. The
+    // intake form shows those sections now — locked, as an upsell — so a
+    // stale or hand-made payload naming one is something to expect rather
+    // than a curiosity, and content that was never paid for must not reach
+    // the invitation this merges into on submit.
+    //
+    // Dropped rather than refused, unlike the builder's saveSection, which
+    // answers 403: that saves one section at a time, where refusing costs
+    // the customer nothing. This saves every section at once, and throwing
+    // the whole intake away over one key a client sent before it caught up
+    // with a tier change would lose somebody's typing.
+    if (!sectionUnlocked(def.key, occasion, job.invitation.tier)) continue;
+    cleaned[def.key] = cleanSection(fieldsFor(def.key, occasion), raw[def.key]).data;
   }
   const method = ['FORM', 'MESSENGER', 'EXCEL'].includes(input.method) ? input.method : 'FORM';
   const intake = { content: cleaned, notes: input.notes.trim().slice(0, 4000), method };

@@ -1,18 +1,25 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import type { Field, SectionData, SectionKey } from '@/lib/sections';
+import type { Tier } from '@prisma/client';
+import { TIER_LABELS } from '@/lib/tiers';
 import type { Lang } from '@/lib/copy';
 import { SectionFields } from '@/components/builder/fields';
 import { saveIntakeAction, requestRevisionAction, approveAction, commentAction } from '@/app/account/actions';
 
-type IntakeSection = { key: SectionKey; label: string; description: string; fields: Field[]; initial: SectionData };
+type IntakeSection = { key: SectionKey; label: string; description: string; fields: Field[]; initial: SectionData; unlocked: boolean; minTier: Tier };
 
 export function IntakeForm({ invitationId, lang, sections, method: initialMethod, notes: initialNotes, editable, messenger, viber }: { invitationId: string; lang: Lang; sections: IntakeSection[]; method: string; notes: string; editable: boolean; messenger: string; viber: string }) {
-  const [content, setContent] = useState<Record<string, SectionData>>(Object.fromEntries(sections.map((s) => [s.key, s.initial])));
+  // Locked sections are shown but never carry content: nothing about them
+  // enters the payload, so the request stays exactly what it was before they
+  // were rendered. saveIntake drops them server-side regardless.
+  const editable_ = sections.filter((s) => s.unlocked);
+  const [content, setContent] = useState<Record<string, SectionData>>(Object.fromEntries(editable_.map((s) => [s.key, s.initial])));
   const [method, setMethod] = useState(initialMethod);
   const [notes, setNotes] = useState(initialNotes);
-  const [open, setOpen] = useState<string>(sections[0]?.key ?? '');
+  const [open, setOpen] = useState<string>(editable_[0]?.key ?? '');
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -48,14 +55,26 @@ export function IntakeForm({ invitationId, lang, sections, method: initialMethod
 
       {(method === 'FORM' || method === 'EXCEL') && (
         <div className="space-y-2">
-          {sections.map((s) => (
-            <details key={s.key} open={open === s.key} onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && setOpen(s.key)} className="card p-4">
-              <summary className="cursor-pointer font-semibold">{s.label} <span className="ml-2 text-xs font-normal text-[color:var(--color-ink-500)]">{s.description}</span></summary>
-              <div className="mt-3">
-                <SectionFields fields={s.fields} value={content[s.key]} onChange={(v) => setContent((c) => ({ ...c, [s.key]: v }))} lang={lang} invitationId={invitationId} />
+          {sections.map((s) =>
+            s.unlocked ? (
+              <details key={s.key} open={open === s.key} onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && setOpen(s.key)} className="card p-4">
+                <summary className="cursor-pointer font-semibold">{s.label} <span className="ml-2 text-xs font-normal text-[color:var(--color-ink-500)]">{s.description}</span></summary>
+                <div className="mt-3">
+                  <SectionFields fields={s.fields} value={content[s.key]} onChange={(v) => setContent((c) => ({ ...c, [s.key]: v }))} lang={lang} invitationId={invitationId} />
+                </div>
+              </details>
+            ) : (
+              <div key={s.key} className="card flex flex-wrap items-center gap-2 p-4 text-[color:var(--color-ink-500)]">
+                <span aria-hidden>🔒</span>
+                <span className="font-semibold">{s.label}</span>
+                <span className="text-xs">{s.description}</span>
+                <Link href={`/account/invitations/${invitationId}/upgrade`} className="ml-auto flex items-center gap-2 text-sm text-[color:var(--color-plum-600)] hover:underline">
+                  Included from {TIER_LABELS[s.minTier]}
+                  <span className="pill pill-warn">Upgrade</span>
+                </Link>
               </div>
-            </details>
-          ))}
+            ),
+          )}
         </div>
       )}
 

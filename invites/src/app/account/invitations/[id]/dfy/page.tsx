@@ -5,7 +5,7 @@ import { HttpError } from '@/lib/errors';
 import { loadJobForCustomer, DFY_COLUMNS } from '@/lib/dfy';
 import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionUnlocked, fieldsFor, emptySection, type Content } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, emptySection, type Content } from '@/lib/sections';
 import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
@@ -23,12 +23,23 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
 
   const intake = (job.intake ?? {}) as { content?: Content; notes?: string; method?: string };
   const existing = contentOf(inv.content);
-  const sections = sectionsFor(inv.occasion)
-    .filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier))
-    .map((d) => {
-      const fields = fieldsFor(d.key, inv.occasion);
-      return { key: d.key, label: sectionLabel(d.key, inv.occasion), description: d.description, fields, initial: { ...emptySection(fields), ...(existing[d.key] ?? {}), ...(intake.content?.[d.key] ?? {}) } };
-    });
+  // Every section the occasion has, including the ones this package does not
+  // include. Those come through locked rather than missing, the way the
+  // builder's sidebar shows them: a customer who cannot see that a guest photo
+  // album exists cannot ask for one, and Done-For-You is where they would ask.
+  const sections = sectionsFor(inv.occasion).map((d) => {
+    const fields = fieldsFor(d.key, inv.occasion);
+    const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier);
+    return {
+      key: d.key,
+      label: sectionLabel(d.key, inv.occasion),
+      description: d.description,
+      fields,
+      unlocked,
+      minTier: sectionMinTier(d.key, inv.occasion),
+      initial: { ...emptySection(fields), ...(existing[d.key] ?? {}), ...(intake.content?.[d.key] ?? {}) },
+    };
+  });
 
   const stage = DFY_COLUMNS.findIndex((c) => c.key === job.status);
   const canEditIntake = ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status);

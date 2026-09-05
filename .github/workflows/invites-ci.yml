@@ -111,10 +111,20 @@ jobs:
           set -e
           curl -sf -o /dev/null http://127.0.0.1:3000/
           curl -sf -o /dev/null http://127.0.0.1:3000/templates
-          curl -sf -o /dev/null http://127.0.0.1:3000/i/juan-and-maria
-          curl -sf -o /dev/null http://127.0.0.1:3000/i/juan-and-maria/calendar.ics
-          curl -sf -o /dev/null http://127.0.0.1:3000/i/juan-and-maria/card
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/i/does-not-exist)" = "404"
+          # Invitations live at the root, so the domain and the slug read as one
+          # line: youreinvitedto.com/juan-and-maria.
+          curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria
+          curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria/calendar.ics
+          curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria/card
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/does-not-exist)" = "404"
+          # Anything shared under the old prefix keeps working.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/i/juan-and-maria)" = "308"
+          # A slug cannot swallow a real page: static routes win, which is what
+          # RESERVED_SLUGS keeps true. If these ever stop being their own pages,
+          # somebody's invitation has taken one over.
+          curl -sf -o /dev/null http://127.0.0.1:3000/terms
+          curl -sf -o /dev/null http://127.0.0.1:3000/privacy
+          curl -sf -o /dev/null http://127.0.0.1:3000/refund-policy
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/admin)" = "307"
           # Signed out, the privacy pages must redirect rather than serve.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/account/privacy)" = "307"

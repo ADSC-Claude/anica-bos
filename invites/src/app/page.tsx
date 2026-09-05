@@ -7,7 +7,7 @@ import { catalogue } from '@/lib/orders';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
 import { paletteFrom } from '@/lib/theme';
-import { appUrl } from '@/lib/app-url';
+import { appUrl, invitationPath } from '@/lib/app-url';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { PhoneDemo } from '@/components/landing/phone-demo';
 import { TemplateGallery } from '@/components/landing/gallery';
@@ -42,7 +42,7 @@ export default async function Landing() {
     catalogue(),
     prisma.template.findMany({ where: { published: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }] }),
   ]);
-  const demo = `/i/${s['site.demoSlug']}`;
+  const demo = invitationPath(s['site.demoSlug']);
   const weddingPackages = TIERS.map((t) => packages.find((p) => p.occasion === 'WEDDING' && p.tier === t) ?? packages.find((p) => p.occasion === null && p.tier === t)).filter((p): p is NonNullable<typeof p> => Boolean(p));
   const jsonLd = {
     '@context': 'https://schema.org',

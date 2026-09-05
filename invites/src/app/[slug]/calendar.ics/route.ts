@@ -1,7 +1,7 @@
 import { loadPublic, contentOf } from '@/lib/invitations';
 import { buildIcs } from '@/lib/ics';
 import { eventInstant, str } from '@/lib/sections';
-import { absoluteUrl } from '@/lib/app-url';
+import { absoluteUrl, invitationUrl } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
     start,
     location,
     description: str(content.cover, 'intro'),
-    url: absoluteUrl(`/i/${slug}`),
+    url: invitationUrl(slug),
   });
   return new Response(ics, {
     headers: {

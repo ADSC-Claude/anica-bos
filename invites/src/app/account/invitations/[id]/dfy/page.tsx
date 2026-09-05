@@ -9,6 +9,7 @@ import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, 
 import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
+import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,16 +58,16 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
       </ol>
 
       {job.status === 'NEW' && <div className="mb-4"><Notice tone="info">Paid and ready. Tell us the details below — or pick “I’ll send it over Messenger / Viber” and just submit. We start within a working day.</Notice></div>}
-      {job.status === 'PREVIEW_SENT' && <div className="mb-4"><Notice tone="warn">Your preview is ready. <a href={`/i/${inv.slug}?preview=1`} target="_blank" rel="noopener" className="underline">Open it on your phone</a>, then approve it below or tell us what to change. {left} revision round{left === 1 ? '' : 's'} left.</Notice></div>}
+      {job.status === 'PREVIEW_SENT' && <div className="mb-4"><Notice tone="warn">Your preview is ready. <a href={`${invitationPath(inv.slug)}?preview=1`} target="_blank" rel="noopener" className="underline">Open it on your phone</a>, then approve it below or tell us what to change. {left} revision round{left === 1 ? '' : 's'} left.</Notice></div>}
       {job.status === 'APPROVED' && <div className="mb-4"><Notice tone="ok">Approved — we are publishing it now. You will get the link on your dashboard and by email.</Notice></div>}
-      {job.status === 'PUBLISHED' && <div className="mb-4"><Notice tone="ok">Live! Your invitation is at <a href={`/i/${inv.slug}`} className="underline">/i/{inv.slug}</a>. You can still tweak it yourself in the <Link href={`/account/invitations/${inv.id}/builder`} className="underline">builder</Link>.</Notice></div>}
+      {job.status === 'PUBLISHED' && <div className="mb-4"><Notice tone="ok">Live! Your invitation is at <a href={invitationPath(inv.slug)} className="underline">{invitationPath(inv.slug)}</a>. You can still tweak it yourself in the <Link href={`/account/invitations/${inv.id}/builder`} className="underline">builder</Link>.</Notice></div>}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
         <div className="space-y-4">
           {(job.status === 'PREVIEW_SENT' || job.status === 'REVISION' || job.revisions.length > 0) && (
             <div className="card p-4">
               <h2 className="mb-2 font-semibold">Preview & revisions</h2>
-              <RevisionThread invitationId={inv.id} status={job.status} previewHref={`/i/${inv.slug}?preview=1`} revisionsLeft={left} revisions={job.revisions.map((r) => ({ id: r.id, round: r.round, author: r.authorName, byStaff: r.byStaff, body: r.body, at: formatDateTime(r.createdAt) }))} />
+              <RevisionThread invitationId={inv.id} status={job.status} previewHref={`${invitationPath(inv.slug)}?preview=1`} revisionsLeft={left} revisions={job.revisions.map((r) => ({ id: r.id, round: r.round, author: r.authorName, byStaff: r.byStaff, body: r.body, at: formatDateTime(r.createdAt) }))} />
             </div>
           )}
           <div className="card p-4">

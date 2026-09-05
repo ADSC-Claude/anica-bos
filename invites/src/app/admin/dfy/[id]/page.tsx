@@ -9,6 +9,7 @@ import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, DfyPill, BackLink } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
 import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExtendAction } from '../../actions';
+import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,7 @@ export default async function DfyJobPage({ params, searchParams }: { params: Pro
     <>
       <BackLink href="/admin/dfy">DFY queue</BackLink>
       <PageHeader title={job.invitation.title} subtitle={<><DfyPill status={job.status} /> · {job.order.reference} · {job.order.package.name} · {job.order.serviceMode} · {job.order.user.name} ({job.order.user.email}{job.order.user.phone && `, ${job.order.user.phone}`})</>}
-        actions={<><Link href={`/account/invitations/${job.invitationId}/builder`} className="btn btn-primary btn-sm">Open builder</Link><a href={`/i/${job.invitation.slug}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a></>} />
+        actions={<><Link href={`/account/invitations/${job.invitationId}/builder`} className="btn btn-primary btn-sm">Open builder</Link><a href={`${invitationPath(job.invitation.slug)}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a></>} />
       <Flash {...sp} />
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">

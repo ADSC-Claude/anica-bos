@@ -7,7 +7,7 @@ import { rsvpSummary } from '@/lib/guests';
 import { occasionLabel } from '@/lib/occasions';
 import { TIERS } from '@/lib/tiers';
 import { formatDate, formatDateTime } from '@/lib/datetime';
-import { invitationUrl } from '@/lib/app-url';
+import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PageHeader, BackLink, InvitationPill, Stat } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
 import { extendExpiryAction, setTierAction, archiveInvitationAction } from '../../actions';
@@ -27,7 +27,7 @@ export default async function AdminInvitation({ params, searchParams }: { params
     <>
       <BackLink href="/admin/invitations">Invitations</BackLink>
       <PageHeader title={inv.title} subtitle={<><InvitationPill status={inv.status} /> · {occasionLabel(inv.occasion)} · {inv.tier} · {inv.template.name} · <Link href={`/admin/customers/${inv.userId}`} className="underline">{inv.user.name}</Link></>}
-        actions={<><a href={`/i/${inv.slug}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a>{editable && <Link href={`/account/invitations/${inv.id}/builder`} className="btn btn-primary btn-sm">Edit for the customer</Link>}</>} />
+        actions={<><a href={`${invitationPath(inv.slug)}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a>{editable && <Link href={`/account/invitations/${inv.id}/builder`} className="btn btn-primary btn-sm">Edit for the customer</Link>}</>} />
       <Flash {...sp} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         <Stat label="Views" value={inv.viewCount} />

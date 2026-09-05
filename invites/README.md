@@ -12,7 +12,7 @@ Four surfaces, one backend:
 |---|---|---|
 | Public site | `/` | Landing page, template gallery, packages with a DIY / DFY toggle, comparison table, FAQ, live demo |
 | Customer dashboard | `/account` | Checkout, builder with live phone preview, publish & share (QR, Messenger, Viber, WhatsApp, SMS), guest list with per-guest links, RSVP dashboard, seating, QR check-in, guestbook, DFY intake and revisions |
-| Guest page | `/i/juan-and-maria` and `/i/juan-and-maria/<token>` | The invitation itself: no login, no app, works inside the Messenger and Viber browsers, one-tap RSVP, add-to-calendar, Maps & Waze, download as image, print / PDF |
+| Guest page | `/juan-and-maria` and `/juan-and-maria/<token>` | The invitation itself: no login, no app, works inside the Messenger and Viber browsers, one-tap RSVP, add-to-calendar, Maps & Waze, download as image, print / PDF |
 | Admin | `/admin` | Orders & payments (PayMongo webhook + manual proof review), DFY kanban, templates, customers, invitations, coupons, support inbox, reports, settings (pricing editor, payment accounts, copy, staff, audit trail) |
 
 Same toolchain as the ANICA spa and rental apps in this repository, and
@@ -61,7 +61,7 @@ npm run dev                 # http://localhost:3000
 You now have:
 
 - `http://localhost:3000` — the landing page
-- `http://localhost:3000/i/juan-and-maria` — the demo invitation
+- `http://localhost:3000/juan-and-maria` — the demo invitation
 - `http://localhost:3000/checkout` — buy → pay (simulated gateway) → build → publish, end to end
 - `http://localhost:3000/login` — sign in (the seed prints the accounts)
 - `http://localhost:3000/admin` — the staff dashboard
@@ -257,7 +257,7 @@ daily. Reports show average intake-to-preview and preview-to-publish hours.
 
 ## Guest data and privacy
 
-- A guest's personal link is `/i/<slug>/<token>` where the token is 18
+- A guest's personal link is `/<slug>/<token>` where the token is 18
   random bytes. It resolves to that guest's name, reserved seats and table,
   and to nobody else's. Personal links are `noindex`; the general link is
   indexable only when the customer chooses *Public*.
@@ -414,7 +414,7 @@ invites/
                     plus auth, guard, rbac, db, storage, paymongo, email
   src/components/   invite renderer + client pieces, builder form engine,
                     landing page pieces, site chrome, shared UI
-  src/app/          (public) /, /templates, /demo, /i/[slug], policies
+  src/app/          (public) /, /templates, /demo, /[slug], policies
                     /login, /signup, /checkout/*
                     /account/*  customer dashboard
                     /admin/*    staff dashboard

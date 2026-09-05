@@ -48,7 +48,7 @@ test('csv round-trips names with commas and ñ, and reads pasted tabs', () => {
 });
 
 test('qr, ics, theme and dates', () => {
-  const svg = qrSvg('https://example.com/i/juan-and-maria');
+  const svg = qrSvg('https://example.com/juan-and-maria');
   assert.match(svg, /^<svg/);
   assert.match(svg, /<path d="M/);
   const ics = buildIcs({ uid: 'x', title: 'Juan & Maria; wedding', start: new Date('2026-12-12T06:00:00Z'), location: 'Manila, PH' });

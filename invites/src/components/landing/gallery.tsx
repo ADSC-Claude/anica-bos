@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Occasion, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
+import { invitationPath } from '@/lib/app-url';
 
 export type GalleryTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; description: string; thumbnailUrl: string; layout: string; palette: { bg: string; accent: string; accent2: string; ink: string }; featured: boolean };
 
@@ -40,7 +41,7 @@ export function TemplateGallery({ templates, demoSlug, compact = false }: { temp
               )}
               <div className="absolute inset-x-0 bottom-0 flex translate-y-full gap-2 bg-black/60 p-2 transition group-hover:translate-y-0 group-focus-within:translate-y-0">
                 <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm flex-1">Try this template</Link>
-                {t.occasion === 'WEDDING' && <a href={`/i/${demoSlug}`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Demo</a>}
+                {t.occasion === 'WEDDING' && <a href={invitationPath(demoSlug)} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Demo</a>}
               </div>
             </div>
             <div className="p-3">

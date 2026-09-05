@@ -47,7 +47,7 @@ test('credits follow the GSM segment rule, so a long template is visibly expensi
 
 test('one emoji drops the whole message to the UCS-2 allowance', () => {
   // The cliff: the same text, one character longer, costs three times as much.
-  const plain = 'Hi Tita Baby! Juan & Maria would love to know if you can make it on 12 December 2026. Please RSVP here: https://example.com/i/juan-and-maria/abcdefgh';
+  const plain = 'Hi Tita Baby! Juan & Maria would love to know if you can make it on 12 December 2026. Please RSVP here: https://example.com/juan-and-maria/abcdefgh';
   assert.equal(creditsFor(plain), 1);
   assert.equal(creditsFor(`${plain} 🎉`), 3);
 

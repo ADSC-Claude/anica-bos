@@ -6,6 +6,7 @@ import { TIER_LABELS } from '@/lib/tiers';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader, InvitationPill, OrderPill, Empty, Money } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
+import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +65,7 @@ export default async function AccountHome() {
                 <div className="flex flex-wrap gap-2 border-t border-[color:var(--color-sand-100)] px-4 py-3 text-sm">
                   <Link href={`/account/invitations/${inv.id}`} className="btn btn-secondary btn-sm">Dashboard</Link>
                   {active && (dfy ? <Link href={`/account/invitations/${inv.id}/dfy`} className="btn btn-primary btn-sm">{inv.dfyJob?.status === 'NEW' ? 'Send details' : 'DFY status'}</Link> : <Link href={`/account/invitations/${inv.id}/builder`} className="btn btn-primary btn-sm">Edit</Link>)}
-                  {inv.status === 'PUBLISHED' && <a href={`/i/${inv.slug}`} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">View live</a>}
+                  {inv.status === 'PUBLISHED' && <a href={invitationPath(inv.slug)} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">View live</a>}
                 </div>
               </div>
             );

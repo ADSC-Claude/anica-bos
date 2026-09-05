@@ -25,6 +25,23 @@ export function displayHost(): string {
   }
 }
 
+/**
+ * Where a guest's invitation lives, relative to the site root.
+ *
+ * At the root, deliberately: the domain and the slug are meant to be read as
+ * one line — youreinvitedto.com/angelica-and-jeffrey — and a /i/ in the middle
+ * of that breaks the sentence the domain was chosen for. The cost is that
+ * slugs now share a namespace with every top-level page, which is what
+ * RESERVED_SLUGS in invitations.ts exists to keep straight; a test holds that
+ * list to the routes actually on disk.
+ *
+ * Everything that links to an invitation goes through here or through
+ * invitationUrl, so the shape is in one place if it ever moves again.
+ */
+export function invitationPath(slug: string, token?: string): string {
+  return token ? `/${slug}/${token}` : `/${slug}`;
+}
+
 export function invitationUrl(slug: string, token?: string): string {
-  return absoluteUrl(token ? `/i/${slug}/${token}` : `/i/${slug}`);
+  return absoluteUrl(invitationPath(slug, token));
 }

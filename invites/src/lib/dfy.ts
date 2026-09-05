@@ -6,7 +6,7 @@ import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
 import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
-import { absoluteUrl } from './app-url';
+import { absoluteUrl, invitationUrl } from './app-url';
 import { publish as publishInvitation } from './invitations';
 import { cleanSection, fieldsFor, sectionsFor, sectionUnlocked, type Content } from './sections';
 import { addDays } from './datetime';
@@ -196,7 +196,7 @@ export async function publishJob(staff: SessionUser, jobId: string) {
   const job = await prisma.dfyJob.findUniqueOrThrow({ where: { id: jobId }, include: { invitation: true } });
   const invitation = await publishInvitation(staff, job.invitationId);
   const updated = await prisma.dfyJob.update({ where: { id: jobId }, data: { status: 'PUBLISHED', publishedAt: new Date() } });
-  await notify(job.invitation.userId, 'Your invitation is live!', `Share it: ${absoluteUrl(`/i/${invitation.slug}`)}`, `/account/invitations/${job.invitationId}`);
+  await notify(job.invitation.userId, 'Your invitation is live!', `Share it: ${invitationUrl(invitation.slug)}`, `/account/invitations/${job.invitationId}`);
   await audit(staff, { module: 'dfy', action: 'publish', entityType: 'DfyJob', entityId: jobId });
   return updated;
 }

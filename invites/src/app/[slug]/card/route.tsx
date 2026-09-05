@@ -3,7 +3,7 @@ import { loadPublic, contentOf, resolveTheme } from '@/lib/invitations';
 import { eventInstant, str, displayTitle } from '@/lib/sections';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrDataUrl } from '@/lib/qr';
-import { absoluteUrl } from '@/lib/app-url';
+import { absoluteUrl, invitationUrl } from '@/lib/app-url';
 import { cardTitleSize, CARD_INTRO_MAX } from '@/lib/card';
 import { imageUrl, IMAGE } from '@/lib/images';
 
@@ -26,7 +26,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   const venue = str(main, 'venue');
   const address = str(main, 'address');
   const title = displayTitle(invitation.occasion, content);
-  const url = absoluteUrl(`/i/${slug}`);
+  const url = invitationUrl(slug);
   const cover = str(content.cover, 'coverPhoto');
   // Fetched by Satori while rendering, so the transformed version is both
   // fewer bytes over the wire and less work to decode into a 400px circle.

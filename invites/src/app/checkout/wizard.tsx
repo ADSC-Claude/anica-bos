@@ -7,6 +7,7 @@ import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
 import { SERVICE_MODES, quote, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
+import { invitationPath } from '@/lib/app-url';
 
 export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
@@ -157,7 +158,7 @@ export function CheckoutWizard(p: WizardProps) {
               ))}
             </div>
           )}
-          <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">You can switch designs later without losing anything you typed. See a full example: <a href={`/i/${p.demoSlug}`} target="_blank" rel="noopener" className="underline">the demo invitation</a>.</p>
+          <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">You can switch designs later without losing anything you typed. See a full example: <a href={invitationPath(p.demoSlug)} target="_blank" rel="noopener" className="underline">the demo invitation</a>.</p>
         </section>
 
         {/* 5 — add-ons */}

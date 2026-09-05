@@ -23,6 +23,7 @@ import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
+import { invitationPath } from './app-url';
 
 /**
  * The invitation's lifecycle: a draft is created at checkout, unlocked when
@@ -34,7 +35,28 @@ import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, ty
 export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string };
 export type StoredContent = Content & { theme?: ThemeOverride };
 
-const RESERVED_SLUGS = new Set(['admin', 'account', 'api', 'login', 'signup', 'checkout', 'templates', 'pricing', 'demo', 'i', 'g', 'new', 'edit', 'preview', 'print', 'card']);
+/**
+ * Slugs live at the site root, so this list is not a nicety: a slug equal to a
+ * top-level route is shadowed by that route and the invitation becomes
+ * unreachable — a couple called "Terms" would lose their page to the terms
+ * page. Every directory in src/app belongs here, plus the files that serve a
+ * path of their own, plus the old /i/ prefix that now only redirects.
+ *
+ * tests/reserved-slugs.test.ts reads src/app and fails if a route is missing
+ * from this list. Adding a page and forgetting this line is the whole failure
+ * mode, and it would show up as one customer's invitation quietly 404ing.
+ */
+export const RESERVED_SLUGS = new Set([
+  // Directories under src/app.
+  'account', 'admin', 'api', 'checkout', 'coming-soon', 'demo', 'login', 'logout',
+  'privacy', 'refund-policy', 'signup', 'templates', 'terms',
+  // Files under src/app that serve their own path.
+  'robots.txt', 'sitemap.xml', 'favicon.ico',
+  // The old guest prefix, which now redirects to the root.
+  'i',
+  // Never route these, whatever src/app happens to hold today.
+  'pricing', 'g', 'new', 'edit', 'preview', 'print', 'card', '_next', 'static',
+]);
 
 export function contentOf(raw: unknown): StoredContent {
   return (raw && typeof raw === 'object' ? raw : {}) as StoredContent;
@@ -244,7 +266,7 @@ export async function publish(user: SessionUser, invitationId: string) {
       editsAllowed: invitation.order?.package.editsAfterPublish ?? invitation.editsAllowed,
     },
   });
-  await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published /i/${updated.slug}` });
+  await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published ${invitationPath(updated.slug)}` });
   return updated;
 }
 

@@ -7,7 +7,7 @@ import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
-import { invitationUrl } from '@/lib/app-url';
+import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton } from './client';
 import { imageUrl, IMAGE } from '@/lib/images';
 
@@ -842,7 +842,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     (key === 'rsvp' || key === 'cover' || sectionFilled(key, occasion, content[key]));
 
   const eventAt = eventInstant(content);
-  const calendarHref = eventAt ? `/i/${inv.slug}/calendar.ics` : undefined;
+  const calendarHref = eventAt ? `${invitationPath(inv.slug)}/calendar.ics` : undefined;
   const musicUrl = visible('music') ? str(content.music, 'url') : '';
   const hashtag = str(content.social, 'hashtag');
   const rsvpVisible = visible('rsvp');
@@ -922,7 +922,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (
             <div className="no-print mb-4 flex flex-wrap justify-center gap-2">
-              <a href={`/i/${inv.slug}/card`} className="inv-btn inv-btn-outline" download={`${inv.slug}.png`}>{t(lang, 'share.download')}</a>
+              <a href={`${invitationPath(inv.slug)}/card`} className="inv-btn inv-btn-outline" download={`${inv.slug}.png`}>{t(lang, 'share.download')}</a>
               <PrintButton label={t(lang, 'share.print')} />
             </div>
           )}

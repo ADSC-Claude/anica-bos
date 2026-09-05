@@ -6,13 +6,13 @@ import { guestByToken } from '@/lib/guests';
 import { hasGuestAccess } from '@/lib/guest-access';
 import { isStaff } from '@/lib/rbac';
 import { getSettings } from '@/lib/settings';
-import { absoluteUrl } from '@/lib/app-url';
+import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
 import { str, eventInstant } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
 import { Invitation, type GuestForPage } from '@/components/invite/renderer';
 
 /**
- * Shared by /i/[slug], /i/[slug]/[token] and the print view: who may see
+ * Shared by /[slug], /[slug]/[token] and the print view: who may see
  * what. A published invitation is public (or unlisted, or behind a password).
  * A draft is visible only to its owner and to staff, as a preview.
  */
@@ -53,8 +53,8 @@ export async function invitationMetadata(slug: string): Promise<Metadata> {
       title: invitation.title,
       description,
       type: 'website',
-      url: absoluteUrl(`/i/${slug}`),
-      images: absImage ? [{ url: absImage, width: 1200, height: 1500, alt: invitation.title }] : [{ url: absoluteUrl(`/i/${slug}/card`), width: 1080, height: 1350, alt: invitation.title }],
+      url: invitationUrl(slug),
+      images: absImage ? [{ url: absImage, width: 1200, height: 1500, alt: invitation.title }] : [{ url: absoluteUrl(`${invitationPath(slug)}/card`), width: 1080, height: 1350, alt: invitation.title }],
     },
     twitter: { card: 'summary_large_image', title: invitation.title, description },
     robots: indexable ? { index: true, follow: false } : { index: false, follow: false },
@@ -66,7 +66,7 @@ export function PasswordGate({ slug, token, error }: { slug: string; token?: str
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-16 text-center">
       <p className="eyebrow mb-3">Private invitation</p>
       <h1 className="display text-2xl">Enter the password to open this invitation</h1>
-      <form method="POST" action={`/i/${slug}/unlock`} className="mt-6 space-y-3">
+      <form method="POST" action={`${invitationPath(slug)}/unlock`} className="mt-6 space-y-3">
         {token && <input type="hidden" name="token" value={token} />}
         <input name="password" type="password" required autoFocus className="field text-center" placeholder="Password" />
         {error && <p role="alert" className="text-sm text-[color:var(--bad)]">That password is not right.</p>}

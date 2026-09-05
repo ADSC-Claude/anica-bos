@@ -28,7 +28,7 @@ export function SettingsForm(p: { invitationId: string; host: string; slug: stri
       <div>
         <label className="label" htmlFor="slug">Link</label>
         <div className="flex items-center gap-1 text-sm">
-          <span className="text-[color:var(--color-ink-500)]">{p.host}/i/</span>
+          <span className="text-[color:var(--color-ink-500)]">{p.host}/</span>
           <input id="slug" name="slug" className="field" defaultValue={p.slug} disabled={!p.canCustomSlug} pattern="[a-z0-9-]{3,60}" />
         </div>
         <p className="hint">{p.canCustomSlug ? 'Lowercase letters, numbers and dashes.' : 'Custom links are included from the Standard tier.'}</p>

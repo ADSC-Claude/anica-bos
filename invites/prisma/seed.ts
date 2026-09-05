@@ -323,8 +323,8 @@ Seeded.
     maria@example.com     owns the demo "Juan & Maria" (Complete) and a pending christening order
     sofia@example.com     Done-For-You debut in progress
 
-  Demo invitation:  /i/juan-and-maria
-  Personal guest link example:  /i/juan-and-maria/${guests[0].token}
+  Demo invitation:  /juan-and-maria
+  Personal guest link example:  /juan-and-maria/${guests[0].token}
 `);
 }
 

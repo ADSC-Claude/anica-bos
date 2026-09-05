@@ -9,6 +9,7 @@ import type { Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
 import { SectionFields } from './fields';
 import { saveSectionAction } from '@/app/account/actions';
+import { invitationPath } from '@/lib/app-url';
 
 export type BuilderSection = { key: SectionKey; label: string; description: string; unlocked: boolean; filled: boolean; minTier: Tier };
 
@@ -123,14 +124,14 @@ export function Builder({
         </div>
         {device === 'phone' ? (
           <div className="phone mx-auto">
-            <iframe key={previewKey} src={`/i/${slug}?preview=1`} title="Preview" />
+            <iframe key={previewKey} src={`${invitationPath(slug)}?preview=1`} title="Preview" />
           </div>
         ) : (
           <div className="aspect-[4/5] w-full overflow-hidden rounded-xl border border-[color:var(--color-sand-200)] bg-white">
-            <iframe key={previewKey} src={`/i/${slug}?preview=1`} title="Preview" className="h-full w-full border-0" />
+            <iframe key={previewKey} src={`${invitationPath(slug)}?preview=1`} title="Preview" className="h-full w-full border-0" />
           </div>
         )}
-        <p className="mt-2 text-center text-xs text-[color:var(--color-ink-500)]"><a href={`/i/${slug}?preview=1`} target="_blank" rel="noopener" className="underline">Open preview in a new tab</a></p>
+        <p className="mt-2 text-center text-xs text-[color:var(--color-ink-500)]"><a href={`${invitationPath(slug)}?preview=1`} target="_blank" rel="noopener" className="underline">Open preview in a new tab</a></p>
       </aside>
     </div>
   );

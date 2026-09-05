@@ -7,7 +7,7 @@ import { rsvpSummary } from '@/lib/guests';
 import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS, hasFeature, nextTier } from '@/lib/tiers';
 import { formatDate, formatDateTime } from '@/lib/datetime';
-import { invitationUrl } from '@/lib/app-url';
+import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
 import { contentOf } from '@/lib/invitations';
 import { publishProblems } from '@/lib/sections';
@@ -42,7 +42,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
           <>
             {active && !dfy && <Link href={`/account/invitations/${inv.id}/builder`} className="btn btn-primary">Edit invitation</Link>}
             {active && dfy && <Link href={`/account/invitations/${inv.id}/dfy`} className="btn btn-primary">Done-For-You</Link>}
-            <a href={`/i/${inv.slug}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary">Preview</a>
+            <a href={`${invitationPath(inv.slug)}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary">Preview</a>
           </>
         }
       />
@@ -58,7 +58,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             {inv.status === 'PUBLISHED' ? (
               <>
                 <p className="text-sm">Your invitation is live at <a href={url} target="_blank" rel="noopener" className="font-mono underline">{url}</a>{inv.expiresAt && <span className="text-[color:var(--color-ink-500)]"> · link valid until {formatDate(inv.expiresAt)}</span>}</p>
-                <ShareBox url={url} title={inv.title} qr={qrSvg(url, { size: 160 })} cardHref={`/i/${inv.slug}/card`} printHref={`/i/${inv.slug}/print`} />
+                <ShareBox url={url} title={inv.title} qr={qrSvg(url, { size: 160 })} cardHref={`${invitationPath(inv.slug)}/card`} printHref={`${invitationPath(inv.slug)}/print`} />
               </>
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{dfy ? 'Our team publishes this once you approve the preview.' : 'When the details look right in the preview, publish to get your shareable link and QR.'}</p>

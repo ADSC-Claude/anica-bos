@@ -101,6 +101,108 @@ jobs:
             exit 1
           fi
 
+      # P1001 from Prisma says "can't reach the database server", which reads as
+      # a network fault and usually is not one. aws-0-<region>.pooler.supabase.com
+      # is shared by every project in the region, so the hostname being right
+      # proves nothing about which database is on the other end: the pooler picks
+      # the tenant from the username, which must be postgres.<project-ref>. Give
+      # it a username it cannot resolve to a tenant and it accepts the TCP
+      # connection and then closes it — indistinguishable, to the client, from a
+      # server that is not there.
+      #
+      # So separate the two before running anything. A TCP connect that succeeds
+      # while Prisma reports P1001 means the credentials are for the wrong tenant,
+      # not that the runner is blocked. The username is printed because it is not
+      # a secret — the project ref is in the app's public Supabase URL — and the
+      # password is never touched.
+      - name: Say what the connection string points at
+        working-directory: ${{ github.workspace }}
+        run: |
+          rest=${DIRECT_URL#*://}
+          creds=${rest%@*}
+          hostpart=${rest##*@}
+          user=${creds%%:*}
+          hostport=${hostpart%%/*}
+          host=${hostport%%:*}
+          port=${hostport##*:}
+          [ "$port" = "$host" ] && port=5432
+
+          echo "host      $host"
+          echo "port      $port"
+          echo "username  $user"
+
+          case "$user" in
+            postgres.*)
+              echo "ref       ${user#postgres.}"
+              ;;
+            *)
+              echo "::error::The username is '$user', not 'postgres.<project-ref>'."
+              echo "The shared pooler works out which database you mean from the username."
+              echo "Without the ref it cannot, so it hangs up and Prisma reports P1001 —"
+              echo "'can't reach database server' — which looks like a network fault."
+              echo "Copy the URI from Supabase → Connect → Session pooler for this project."
+              exit 1
+              ;;
+          esac
+
+          if timeout 15 bash -c "cat < /dev/null > /dev/tcp/$host/$port" 2>/dev/null; then
+            echo "tcp       reachable"
+          else
+            echo "tcp       NOT reachable from this runner"
+            echo "::warning::TCP to $host:$port failed, so this is a network problem rather"
+            echo "than a credentials one. Check Supabase → Settings → Database → Network"
+            echo "restrictions: an allowlist that permits Vercel will still refuse GitHub."
+          fi
+
+      # Prisma answers P1001 — "can't reach database server" — for a refused
+      # password, a TLS mismatch and a pooler that hung up, as readily as for a
+      # host that is not there. Three runs said that while TCP was demonstrably
+      # fine, which is no diagnosis at all. psql prints what the server said.
+      #
+      # Both ports, because they fail differently and the difference is the
+      # answer: 5432 is the session pooler that migrations need, 6543 the
+      # transaction pooler the running app uses. If only 5432 refuses, the fault
+      # is that endpoint rather than the credentials.
+      - name: Ask Postgres what is actually wrong
+        working-directory: ${{ github.workspace }}
+        run: |
+          if ! command -v psql >/dev/null; then
+            echo "psql not on this runner; skipping"
+            exit 0
+          fi
+
+          first=
+          probe() {
+            url=$1
+            if out=$(PGCONNECT_TIMEOUT=15 psql "$url" -tAc 'select current_user' 2>&1); then
+              echo "  connected as $out"
+            else
+              printf '  %s\n' "$out" | head -4
+            fi
+            [ -n "$first" ] || first=$out
+          }
+
+          echo "session pooler (5432) — the one migrations use:"
+          probe "$DIRECT_URL"
+
+          echo "transaction pooler (6543) — the one the running app uses:"
+          probe "$(printf '%s' "$DIRECT_URL" | sed 's/:5432/:6543/')"
+
+          # Stop here rather than letting Prisma restate it as P1001. The pooler
+          # reports the tenant-stripped name, so "user postgres" here is the
+          # password being refused, not the ref being wrong — the ref was already
+          # checked above.
+          if printf '%s' "$first" | grep -q 'password authentication failed'; then
+            echo "::error::The password in INVITES_DIRECT_URL is wrong."
+            echo "The host, port and project ref are all correct — the pooler found"
+            echo "the right database and refused the password. Supabase → Settings →"
+            echo "Database → Reset database password, then paste the whole Session"
+            echo "pooler URI into the INVITES_DIRECT_URL secret. Note the Connect"
+            echo "dialog hands you the URI with [YOUR-PASSWORD] still in it; that"
+            echo "placeholder has to be replaced with the real password."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4

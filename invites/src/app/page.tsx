@@ -13,6 +13,7 @@ import { PhoneDemo } from '@/components/landing/phone-demo';
 import { TemplateGallery } from '@/components/landing/gallery';
 import { Packages } from '@/components/landing/packages';
 import { ContactButtons } from '@/components/ui';
+import { imageUrl, IMAGE } from '@/lib/images';
 
 export const dynamic = 'force-dynamic';
 
@@ -170,7 +171,7 @@ export default async function Landing() {
             {TESTIMONIALS.map((t) => (
               <figure key={t.name} className="card p-5">
                 <blockquote className="text-sm">“{t.quote}”</blockquote>
-                <figcaption className="mt-4 flex items-center gap-3"><img src={t.photo} alt="" className="h-10 w-10 rounded-full object-cover" loading="lazy" /><span><span className="block text-sm font-semibold">{t.name}</span><span className="block text-xs text-[color:var(--color-ink-500)]">{t.event}</span></span></figcaption>
+                <figcaption className="mt-4 flex items-center gap-3"><img src={imageUrl(t.photo, IMAGE.avatar)} alt="" className="h-10 w-10 rounded-full object-cover" loading="lazy" /><span><span className="block text-sm font-semibold">{t.name}</span><span className="block text-xs text-[color:var(--color-ink-500)]">{t.event}</span></span></figcaption>
               </figure>
             ))}
           </div>

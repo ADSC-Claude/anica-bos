@@ -8,6 +8,7 @@ import { contentOf } from '@/lib/invitations';
 import { bool } from '@/lib/sections';
 import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, Empty } from '@/components/ui';
+import { imageUrl, IMAGE } from '@/lib/images';
 import { PhotoButtons } from './buttons';
 
 export const dynamic = 'force-dynamic';
@@ -54,7 +55,7 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
           {media.map((m) => (
             <li key={m.id} className="card overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={m.url} alt={m.caption || `Photo from ${m.uploadedBy}`} className="aspect-square w-full object-cover" />
+              <img src={imageUrl(m.url, IMAGE.thumb)} alt={m.caption || `Photo from ${m.uploadedBy}`} className="aspect-square w-full object-cover" />
               <div className="space-y-2 p-3">
                 {m.caption && <p className="text-sm">{m.caption}</p>}
                 <p className="text-xs text-[color:var(--color-ink-500)]">

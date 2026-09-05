@@ -5,6 +5,7 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrDataUrl } from '@/lib/qr';
 import { absoluteUrl } from '@/lib/app-url';
 import { cardTitleSize, CARD_INTRO_MAX } from '@/lib/card';
+import { imageUrl, IMAGE } from '@/lib/images';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   const title = displayTitle(invitation.occasion, content);
   const url = absoluteUrl(`/i/${slug}`);
   const cover = str(content.cover, 'coverPhoto');
-  const photo = cover.startsWith('http') ? cover : cover ? absoluteUrl(cover) : '';
+  // Fetched by Satori while rendering, so the transformed version is both
+  // fewer bytes over the wire and less work to decode into a 400px circle.
+  const photo = imageUrl(cover.startsWith('http') ? cover : cover ? absoluteUrl(cover) : '', IMAGE.card);
   const intro = str(content.cover, 'intro');
   const titleSize = cardTitleSize(title);
 

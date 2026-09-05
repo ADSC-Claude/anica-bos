@@ -10,12 +10,19 @@
 # enough over the network to outlive a function timeout.
 #
 # Setup, once: Settings → Secrets and variables → Actions → New repository secret
-#   INVITES_DIRECT_URL   Supabase → Connect → Session pooler (port 5432)
+#   INVITES_DIRECT_URL     Supabase → Connect → Session pooler (port 5432)
+#   INVITES_SEED_PASSWORD  The password the seeded accounts get. Pick one.
 #
-# The name is not DIRECT_URL. That secret belongs to the spa and points at a
-# different database; pointing this seed at it would truncate the spa. Session
-# mode, not the transaction pooler: the seed relies on prepared statements,
-# which a transaction pooler multiplexes away.
+# The first name is not DIRECT_URL. That secret belongs to the spa and points
+# at a different database; pointing this seed at it would truncate the spa.
+# Session mode, not the transaction pooler: the seed relies on prepared
+# statements, which a transaction pooler multiplexes away.
+#
+# The second exists because the seed's built-in password is written in a file
+# in a public repository, on an account whose role is ADMIN. Being forced to
+# change it on first sign-in is no protection when a stranger can be the one
+# who signs in first. A secret, not an input: inputs are recorded in the run
+# and shown on its page, and secrets are masked in the log.
 #
 name: Seed the invitations database
 
@@ -48,10 +55,18 @@ jobs:
       DATABASE_SCHEMA: ${{ inputs.schema }}
       DATABASE_URL: ${{ secrets.INVITES_DIRECT_URL }}
       DIRECT_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      SEED_PASSWORD: ${{ secrets.INVITES_SEED_PASSWORD }}
 
     steps:
+      # These three refuse before anything is fetched or installed, which means
+      # they run before actions/checkout — and `invites` does not exist yet.
+      # A step inheriting the job's working-directory cannot start at all there:
+      # the runner fails with "No such file or directory" before the shell sees
+      # the script, so the guard neither passes nor reports why. They run at the
+      # workspace root instead, which exists from the moment the job does.
       - name: Check the confirmation phrase
         if: inputs.confirm != 'ERASE AND SEED'
+        working-directory: ${{ github.workspace }}
         run: |
           echo "::error::Confirmation phrase did not match. Nothing was touched."
           echo "Re-run and type exactly: ERASE AND SEED"
@@ -63,17 +78,26 @@ jobs:
       # confirmed.
       - name: Refuse to seed a schema that is not ours
         if: inputs.schema == 'public' || inputs.schema == ''
+        working-directory: ${{ github.workspace }}
         run: |
           echo "::error::Refusing to seed '$DATABASE_SCHEMA'."
           echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
           exit 1
 
-      - name: Check the secret is present
+      - name: Check the secrets are present
+        working-directory: ${{ github.workspace }}
         run: |
           if [ -z "$DIRECT_URL" ]; then
             echo "::error::The INVITES_DIRECT_URL repository secret is not set."
             echo "Add it under Settings → Secrets and variables → Actions,"
             echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+          if [ -z "$SEED_PASSWORD" ]; then
+            echo "::error::The INVITES_SEED_PASSWORD repository secret is not set."
+            echo "The seed refuses to put its built-in demo password on a live admin account:"
+            echo "it is written in a public repository, and being forced to change it on first"
+            echo "sign-in does not help if a stranger signs in first. Add the secret and re-run."
             exit 1
           fi
 
@@ -111,7 +135,8 @@ jobs:
             echo
             echo "- Demo invitation: \`/i/juan-and-maria\`"
             echo "- Staff sign-in: \`owner@invites.ph\`, \`encoder@invites.ph\`, \`support@invites.ph\`"
-            echo "- The seed prints the shared password in the log above. **Change it on first sign-in** —"
-            echo "  each staff account is flagged to force that, but the password is the same for all three"
-            echo "  until they do."
+            echo "- All five accounts share the password from the INVITES_SEED_PASSWORD secret. It is not"
+            echo "  printed anywhere. Each staff account is flagged to change it on first sign-in, so sign"
+            echo "  in to all three yourself before the site is public — the flag stops nobody from being"
+            echo "  first, it only decides what they see when they are."
           } >> "$GITHUB_STEP_SUMMARY"

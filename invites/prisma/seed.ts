@@ -16,7 +16,56 @@ import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } fro
 import { addDays } from '../src/lib/datetime';
 
 const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
-const PASSWORD = 'ChangeMe2026!';
+
+/**
+ * The demo password, and why it is not allowed off this machine.
+ *
+ * Seeding a database that is not local creates real accounts on a real site,
+ * and this repository is public — so a password written in this file is a
+ * password everybody already has, on an account whose e-mail is written two
+ * screens down and whose role is ADMIN.
+ *
+ * `mustChangePassword` does not rescue it. That flag stops the account
+ * reaching the admin pages, but whoever signs in has already signed in, and
+ * the page it forces them to is the one that sets the new password. First
+ * arrival keeps the account. So this password is for localhost, and any other
+ * target has to supply its own through SEED_PASSWORD.
+ */
+const LOCAL_ONLY_PASSWORD = 'ChangeMe2026!';
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'postgres', 'db']);
+
+function isLocalDatabase(raw: string | undefined): boolean {
+  if (!raw) return false;
+  try {
+    return LOCAL_HOSTS.has(new URL(raw).hostname);
+  } catch {
+    return false;
+  }
+}
+
+function seedPassword(): { password: string; supplied: boolean } {
+  const supplied = process.env.SEED_PASSWORD;
+  if (supplied) {
+    if (supplied.length < 12) {
+      console.error('\n✗ SEED_PASSWORD is shorter than 12 characters.\n  These are the credentials for the live admin account; pick a real one.');
+      process.exit(1);
+    }
+    return { password: supplied, supplied: true };
+  }
+  if (isLocalDatabase(process.env.DATABASE_URL)) {
+    return { password: LOCAL_ONLY_PASSWORD, supplied: false };
+  }
+  console.error(
+    '\n✗ Refusing to seed a remote database with the built-in demo password.\n' +
+      '  It is written in this file, in a public repository, on an ADMIN account —\n' +
+      '  and mustChangePassword does not help, because whoever signs in first is the\n' +
+      '  one who gets to choose the new password.\n\n' +
+      '  Set SEED_PASSWORD to something of your own and run this again.',
+  );
+  process.exit(1);
+}
+
+const { password: PASSWORD, supplied: PASSWORD_SUPPLIED } = seedPassword();
 
 async function wipe() {
   const tables = ['DfyRevision', 'DfyJob', 'Rsvp', 'GuestbookEntry', 'Guest', 'SeatingTable', 'Media', 'InvitationView', 'Payment', 'OrderItem', 'Order', 'Invitation', 'SupportMessage', 'Notification', 'AuditLog', 'LoginEvent', 'Coupon', 'Template', 'AddOn', 'Package', 'Setting', 'User'];
@@ -265,12 +314,12 @@ async function main() {
   console.info(`
 Seeded.
 
-  Staff (all with password "${PASSWORD}", forced to change on first sign-in):
+  Staff (password ${PASSWORD_SUPPLIED ? 'as supplied in SEED_PASSWORD' : `"${PASSWORD}"`}, forced to change on first sign-in):
     owner@invites.ph      Owner / Admin
     encoder@invites.ph    Encoder / Designer
     support@invites.ph    Support / Finance
 
-  Customers (password "${PASSWORD}"):
+  Customers (${PASSWORD_SUPPLIED ? 'same password' : `password "${PASSWORD}"`}):
     maria@example.com     owns the demo "Juan & Maria" (Complete) and a pending christening order
     sofia@example.com     Done-For-You debut in progress
 

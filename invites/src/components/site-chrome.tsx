@@ -4,6 +4,13 @@ import type { Settings } from '@/lib/settings-defaults';
 /**
  * The public site's header, footer and the two floating contact buttons.
  * Server-rendered, no client JavaScript: the mobile menu is a <details>.
+ *
+ * There is no "Sign in" anywhere on the public chrome, deliberately. A visitor
+ * who has not bought anything has nothing to sign in to, and the only accounts
+ * that exist are staff ones — an invitation to sign in is an invitation to try.
+ * /login still serves; it is reached by typing it, and by the links in the
+ * emails that send a customer back to their own invitation. Somebody who IS
+ * signed in still gets a way back to theirs, which is what this link is now.
  */
 const NAV = [
   { href: '/#templates', label: 'Templates' },
@@ -23,14 +30,14 @@ export function SiteHeader({ s, signedIn }: { s: Settings; signedIn: boolean }) 
         <nav aria-label="Main" className="hidden items-center gap-5 text-sm md:flex">
           {NAV.map((n) => <Link key={n.href} href={n.href} className="hover:text-[color:var(--color-plum-600)]">{n.label}</Link>)}
           {s['contact.messenger'] && <a href={s['contact.messenger']} target="_blank" rel="noopener" className="flex items-center gap-1 hover:text-[color:var(--color-plum-600)]" aria-label="Messenger"><span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#0084ff]" />Messenger</a>}
-          <Link href={signedIn ? '/account' : '/login'} className="hover:text-[color:var(--color-plum-600)]">{signedIn ? 'My invitations' : 'Sign in'}</Link>
+          {signedIn && <Link href="/account" className="hover:text-[color:var(--color-plum-600)]">My invitations</Link>}
           <Link href="/checkout" className="btn btn-primary btn-sm">Create invitation</Link>
         </nav>
         <details className="relative md:hidden">
           <summary className="btn btn-secondary btn-sm cursor-pointer list-none">Menu</summary>
           <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[color:var(--color-sand-200)] bg-white p-2 shadow-lg">
             {NAV.map((n) => <Link key={n.href} href={n.href} className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">{n.label}</Link>)}
-            <Link href={signedIn ? '/account' : '/login'} className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">{signedIn ? 'My invitations' : 'Sign in'}</Link>
+            {signedIn && <Link href="/account" className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">My invitations</Link>}
             <Link href="/checkout" className="btn btn-primary btn-sm mt-1 w-full">Create invitation</Link>
           </div>
         </details>
@@ -55,7 +62,6 @@ export function SiteFooter({ s }: { s: Settings }) {
             <li><Link href="/#packages" className="hover:underline">Packages & pricing</Link></li>
             <li><Link href="/demo" className="hover:underline">Live demo</Link></li>
             <li><Link href="/checkout?mode=DFY" className="hover:underline">Done-For-You</Link></li>
-            <li><Link href="/login" className="hover:underline">Sign in</Link></li>
           </ul>
         </div>
         <div className="text-sm">

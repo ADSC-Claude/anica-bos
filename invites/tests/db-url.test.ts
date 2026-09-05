@@ -78,3 +78,50 @@ test('the description names the schema and never the password', () => {
   assert.ok(described.includes(':6543'), described);
   assert.ok(!described.includes('p@'), 'credentials must not appear in a log line');
 });
+
+// The build and the migration run before anything is compiled, so they carry
+// their own copy of the rule in scripts/db-url.mjs. A copy that drifts is not
+// a style problem: the copy in the build script once applied `schema=` without
+// `pgbouncer=true`, so the build's own connection check dialled the
+// transaction pooler in the one configuration this rule exists to prevent,
+// and hung there until the platform killed it — taking every other deployment
+// queued behind it. These two must agree, and this is where that is enforced.
+test('the script copy of the rule agrees with this one', async () => {
+  const script = await import('../scripts/db-url.mjs');
+
+  const cases: [string | undefined, string | undefined][] = [
+    [POOLED, 'invites'],
+    [POOLED, NONE],
+    [DIRECT, 'invites'],
+    [DIRECT, NONE],
+    [`${POOLED}?pgbouncer=false`, 'invites'],
+    [`${POOLED}?connection_limit=5`, 'invites'],
+    [`${DIRECT}?schema=public`, 'invites'],
+    ['postgresql://u:p@localhost/postgres', 'invites'],
+    ['not a url', 'invites'],
+    [undefined, 'invites'],
+  ];
+
+  for (const [raw, schema] of cases) {
+    assert.equal(
+      script.resolveDatabaseUrl(raw, schema),
+      resolveDatabaseUrl(raw, schema),
+      `resolveDatabaseUrl disagrees for ${raw} / schema=${schema}`,
+    );
+  }
+
+  for (const [raw] of cases) {
+    if (typeof raw !== 'string') continue;
+    assert.equal(script.describeDatabaseUrl(raw), describeDatabaseUrl(raw), `describeDatabaseUrl disagrees for ${raw}`);
+  }
+});
+
+// The specific regression: on a transaction pooler the build must connect the
+// way the running server does, or it is not checking the thing it claims to.
+test('the script rule adds pgbouncer=true on the transaction pooler', async () => {
+  const { resolveDatabaseUrl: fromScript } = await import('../scripts/db-url.mjs');
+  const url = new URL(fromScript(POOLED, 'invites')!);
+  assert.equal(url.searchParams.get('pgbouncer'), 'true');
+  assert.equal(url.searchParams.get('connection_limit'), '1');
+  assert.equal(url.searchParams.get('schema'), 'invites');
+});

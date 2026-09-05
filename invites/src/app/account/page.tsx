@@ -5,6 +5,7 @@ import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS } from '@/lib/tiers';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader, InvitationPill, OrderPill, Empty, Money } from '@/components/ui';
+import { imageUrl, IMAGE } from '@/lib/images';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,7 @@ export default async function AccountHome() {
               <div key={inv.id} className="card overflow-hidden">
                 <div className="flex gap-4 p-4">
                   <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-[color:var(--color-sand-100)]">
-                    {inv.ogImageUrl && <img src={inv.ogImageUrl} alt="" className="h-full w-full object-cover" />}
+                    {inv.ogImageUrl && <img src={imageUrl(inv.ogImageUrl, IMAGE.thumb)} alt="" className="h-full w-full object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

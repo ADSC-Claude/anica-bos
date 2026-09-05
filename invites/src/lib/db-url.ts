@@ -21,8 +21,11 @@
  *     about it is `type "Role" already exists`. So when DATABASE_SCHEMA is
  *     set it wins over whatever the string says.
  *
- * scripts/build.mjs repeats the schema rule in plain JavaScript — it runs
- * before `prisma generate`, so it cannot import this file. Change both.
+ * scripts/db-url.mjs is this rule again in plain JavaScript, for the build and
+ * the migration: they run before `prisma generate`, so they cannot import this
+ * file. Change both together — tests/db-url.test.ts fails if they disagree,
+ * because the last time they did, the build's copy dialled the pooler without
+ * `pgbouncer=true` and hung until Vercel killed it.
  */
 
 export function resolveDatabaseUrl(

@@ -316,7 +316,12 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    different secrets.
 4. **Email.** `RESEND_API_KEY` and a verified `EMAIL_FROM`.
 5. **Vercel.** Region `sin1`. Set `NEXT_PUBLIC_APP_URL` to the final domain —
-   it is baked into every share link and QR code. Set `CRON_SECRET`.
+   it is baked into every share link and QR code, so a QR printed on a hundred
+   cards carries whatever this said at *build* time. It is a `NEXT_PUBLIC_`
+   variable, which means changing it in the dashboard does nothing until the
+   next build: redeploy after editing it. Production is
+   `https://youreinvitedto.com`, with `www.` redirecting to the apex.
+   Set `CRON_SECRET`.
 6. **Seed** the production database once, then sign in as the Owner, change
    the passwords, and replace the demo's placeholder photos and the sample
    testimonials on the landing page.

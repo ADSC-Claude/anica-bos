@@ -133,8 +133,9 @@ jobs:
             echo
             echo "The catalogue, the templates, the staff accounts and the Juan & Maria demo are in."
             echo
-            echo "- Demo invitation: \`/i/juan-and-maria\`"
-            echo "- Staff sign-in: \`owner@invites.ph\`, \`encoder@invites.ph\`, \`support@invites.ph\`"
+            echo "- Demo invitation: \`/juan-and-maria\`"
+            echo "- Staff sign-in: \`owner@youreinvitedto.com\`, \`encoder@youreinvitedto.com\`,"
+            echo "  \`support@youreinvitedto.com\`"
             echo "- All five accounts share the password from the INVITES_SEED_PASSWORD secret. It is not"
             echo "  printed anywhere. Each staff account is flagged to change it on first sign-in, so sign"
             echo "  in to all three yourself before the site is public — the flag stops nobody from being"

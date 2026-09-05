@@ -16,7 +16,7 @@ export function absoluteUrl(path: string): string {
   return `${appUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-/** The host as a guest would read it aloud: "invites.ph", not "https://…/". */
+/** The host as a guest would read it aloud: "youreinvitedto.com", not "https://…/". */
 export function displayHost(): string {
   try {
     return new URL(appUrl()).host;

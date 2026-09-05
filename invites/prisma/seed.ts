@@ -83,9 +83,9 @@ async function main() {
 
   // --- people --------------------------------------------------------------
   const [admin, encoder, support, maria, sofia] = await Promise.all([
-    prisma.user.create({ data: { email: 'owner@invites.ph', name: 'Anica Reyes', role: 'ADMIN', passwordHash: hash, mustChangePassword: true } }),
-    prisma.user.create({ data: { email: 'encoder@invites.ph', name: 'Paolo Mendoza', role: 'ENCODER', passwordHash: hash, mustChangePassword: true } }),
-    prisma.user.create({ data: { email: 'support@invites.ph', name: 'Kim Dela Cruz', role: 'SUPPORT', passwordHash: hash, mustChangePassword: true } }),
+    prisma.user.create({ data: { email: 'owner@youreinvitedto.com', name: 'Anica Reyes', role: 'ADMIN', passwordHash: hash, mustChangePassword: true } }),
+    prisma.user.create({ data: { email: 'encoder@youreinvitedto.com', name: 'Paolo Mendoza', role: 'ENCODER', passwordHash: hash, mustChangePassword: true } }),
+    prisma.user.create({ data: { email: 'support@youreinvitedto.com', name: 'Kim Dela Cruz', role: 'SUPPORT', passwordHash: hash, mustChangePassword: true } }),
     prisma.user.create({ data: { email: 'maria@example.com', name: 'Maria Santos', role: 'CUSTOMER', phone: '0917 123 4567', passwordHash: hash } }),
     prisma.user.create({ data: { email: 'sofia@example.com', name: 'Sofia Villanueva', role: 'CUSTOMER', phone: '0918 555 0101', passwordHash: hash } }),
   ]);
@@ -315,13 +315,13 @@ async function main() {
 Seeded.
 
   Staff (password ${PASSWORD_SUPPLIED ? 'as supplied in SEED_PASSWORD' : `"${PASSWORD}"`}, forced to change on first sign-in):
-    owner@invites.ph      Owner / Admin
-    encoder@invites.ph    Encoder / Designer
-    support@invites.ph    Support / Finance
+    owner@youreinvitedto.com      Owner / Admin
+    encoder@youreinvitedto.com    Encoder / Designer
+    support@youreinvitedto.com    Support / Finance
 
   Customers (${PASSWORD_SUPPLIED ? 'same password' : `password "${PASSWORD}"`}):
-    maria@example.com     owns the demo "Juan & Maria" (Complete) and a pending christening order
-    sofia@example.com     Done-For-You debut in progress
+    maria@example.com             owns the demo "Juan & Maria" (Complete) and a pending christening order
+    sofia@example.com             Done-For-You debut in progress
 
   Demo invitation:  /juan-and-maria
   Personal guest link example:  /juan-and-maria/${guests[0].token}

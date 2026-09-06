@@ -83,9 +83,9 @@ async function main() {
 
   // --- people --------------------------------------------------------------
   const [admin, encoder, support, maria, sofia] = await Promise.all([
-    prisma.user.create({ data: { email: 'owner@youreinvitedto.com', name: 'Anica Reyes', role: 'ADMIN', passwordHash: hash, mustChangePassword: true } }),
-    prisma.user.create({ data: { email: 'encoder@youreinvitedto.com', name: 'Paolo Mendoza', role: 'ENCODER', passwordHash: hash, mustChangePassword: true } }),
-    prisma.user.create({ data: { email: 'support@youreinvitedto.com', name: 'Kim Dela Cruz', role: 'SUPPORT', passwordHash: hash, mustChangePassword: true } }),
+    prisma.user.create({ data: { email: 'owner@youreinvitedto.com', name: 'Angelica Corporal', role: 'ADMIN', passwordHash: hash, mustChangePassword: true } }),
+    prisma.user.create({ data: { email: 'encoder@youreinvitedto.com', name: 'Encoder', role: 'ENCODER', passwordHash: hash, mustChangePassword: true } }),
+    prisma.user.create({ data: { email: 'support@youreinvitedto.com', name: 'Support', role: 'SUPPORT', passwordHash: hash, mustChangePassword: true } }),
     prisma.user.create({ data: { email: 'maria@example.com', name: 'Maria Santos', role: 'CUSTOMER', phone: '0917 123 4567', passwordHash: hash } }),
     prisma.user.create({ data: { email: 'sofia@example.com', name: 'Sofia Villanueva', role: 'CUSTOMER', phone: '0918 555 0101', passwordHash: hash } }),
   ]);

@@ -181,7 +181,11 @@ exercised continuously rather than written once and trusted.
 ## Pre-launch checklist
 
 - [ ] `SESSION_SECRET` rotated to 48 random bytes; not the seeded value
-- [ ] Every seeded password changed; `mustChangePassword` honoured
+- [ ] Every seeded password changed by hand. `mustChangePassword` is checked
+      *after* sign-in, so it only decides where an authenticated session lands —
+      it does not stop anyone who already knows the password from being first
+- [ ] The seed was run with `SEED_PASSWORD`, not its built-in demo password (it
+      refuses to use that one against anything but a local database)
 - [ ] PayMongo switched to live keys and a live webhook secret; a real ₱20
       payment taken and refunded end to end
 - [ ] Resend domain verified with SPF, DKIM and DMARC

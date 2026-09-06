@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { formatDateTime } from '@/lib/datetime';
@@ -12,7 +13,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <BackLink href="/admin/settings">Settings</BackLink>
-      <PageHeader title="Audit trail" subtitle="Append-only. Every payment approval, refund, price change and permission change." />
+      <PageHeader title="Audit trail" subtitle="Append-only. Every payment approval, refund, price change and permission change." actions={<Link href="/admin/settings/signins" className="btn btn-secondary btn-sm">Sign-ins</Link>} />
       <form className="mb-4 flex gap-2"><input name="q" defaultValue={q} placeholder="Search" className="field max-w-xs" /><label className="flex items-center gap-1 text-sm"><input type="checkbox" name="sensitive" value="1" defaultChecked={Boolean(sensitive)} /> Sensitive only</label><button className="btn btn-secondary" type="submit">Filter</button></form>
       <div className="card overflow-x-auto"><table className="data">
         <thead><tr><th>When</th><th>Who</th><th>Module</th><th>Action</th><th>Entity</th><th>Summary</th></tr></thead>

@@ -23,7 +23,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const Save = ({ keys }: { keys: string[] }) => (ro ? null : <button className="btn btn-primary btn-sm" type="submit" formAction={saveSettingsAction.bind(null, keys, '/admin/settings')}>Save</button>);
   return (
     <>
-      <PageHeader title="Settings" subtitle="Business details, payment accounts, service levels, policies and message templates." actions={<><Link href="/admin/settings/pricing" className="btn btn-secondary btn-sm">Packages & add-ons</Link>{can(user.role, 'users.manage') && <Link href="/admin/settings/users" className="btn btn-secondary btn-sm">Staff accounts</Link>}{can(user.role, 'audit.view') && <Link href="/admin/settings/audit" className="btn btn-secondary btn-sm">Audit trail</Link>}</>} />
+      <PageHeader title="Settings" subtitle="Business details, payment accounts, service levels, policies and message templates." actions={<><Link href="/admin/settings/pricing" className="btn btn-secondary btn-sm">Packages & add-ons</Link>{can(user.role, 'users.manage') && <Link href="/admin/settings/users" className="btn btn-secondary btn-sm">Staff accounts</Link>}{can(user.role, 'audit.view') && <Link href="/admin/settings/audit" className="btn btn-secondary btn-sm">Audit trail</Link>}{can(user.role, 'audit.view') && <Link href="/admin/settings/signins" className="btn btn-secondary btn-sm">Sign-ins</Link>}</>} />
       <Flash {...sp} />
       <div className="grid gap-4 lg:grid-cols-2">
         <form className="card space-y-3 p-4">

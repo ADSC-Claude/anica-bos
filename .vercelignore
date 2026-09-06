@@ -1,6 +1,7 @@
-# Deliberately does NOT list `rental`, and must not.
+# Deliberately does NOT list `rental` or `invites`, and must not.
 #
-# `rental/` is a second Vercel project whose Root Directory is `rental`. Vercel
+# `rental/` and `invites/` are separate Vercel projects whose Root Directory is
+# `rental` / `invites`. Vercel
 # applies this file from the repository root BEFORE descending into a project's
 # Root Directory, so an entry here for `rental` does not merely trim the spa's
 # upload — it deletes the rental app's own source out of the rental app's own

@@ -125,6 +125,11 @@ export async function saveSettingsAction(
         'membership.validityDays': num(formData, 'membershipValidityDays'),
         'membership.expiryAlertDays': num(formData, 'membershipExpiryAlertDays'),
         'membership.birthdayPerkEnabled': bool(formData, 'birthdayPerkEnabled'),
+        'privacy.loginLogRetentionDays': num(formData, 'loginLogRetentionDays'),
+        'privacy.emailLogRetentionDays': num(formData, 'emailLogRetentionDays'),
+        'privacy.dpoName': str(formData, 'dpoName'),
+        'privacy.dpoEmail': str(formData, 'dpoEmail'),
+        'privacy.hostingLocations': str(formData, 'hostingLocations'),
       };
       break;
 

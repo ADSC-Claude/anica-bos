@@ -125,6 +125,7 @@ model LoginEvent {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([email, createdAt])
+  @@index([createdAt])
 }
 
 /// Append-only. Nothing in the application updates or deletes a row here.
@@ -152,6 +153,7 @@ model AuditLog {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@index([module, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Setting {
@@ -175,6 +177,7 @@ enum NotificationKind {
   SYNC_CONFLICT
   NEW_REVIEW
   RETENTION
+  ENQUIRY
 }
 
 enum Severity {

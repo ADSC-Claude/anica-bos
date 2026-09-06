@@ -132,6 +132,11 @@ export default async function SettingsPage({
                 People
               </Link>
             )}
+            {can(user.role, 'audit.view') && (
+              <Link className="btn btn-secondary" href="/portal/settings/audit">
+                Activity
+              </Link>
+            )}
           </>
         }
       />

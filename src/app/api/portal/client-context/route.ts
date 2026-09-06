@@ -1,6 +1,6 @@
 import { handle, requireApi } from '@/lib/guard';
 import { prisma } from '@/lib/db';
-import { medicalAlertsFor } from '@/lib/medical';
+import { medicalAlertsFor, recordMedicalAccess } from '@/lib/medical';
 import { isBirthdayMonth } from '@/lib/datetime';
 
 export const dynamic = 'force-dynamic';
@@ -28,6 +28,7 @@ export const GET = handle(async (req) => {
   if (!client) return { client: null };
 
   const alerts = (await medicalAlertsFor([clientId])).get(clientId) ?? [];
+  if (alerts.length) await recordMedicalAccess(user, clientId, 'alerts');
   const membership = client.packages.find((p) => p.package.type === 'MEMBERSHIP');
   const year = new Date().getUTCFullYear();
 

@@ -1,0 +1,245 @@
+#
+# Loads the demo dataset into the live invitations database, on demand.
+#
+# It DELETES EVERYTHING in the target schema first. The confirmation phrase is
+# the only thing between a curious click and a wiped catalogue, so it is
+# deliberately awkward to type.
+#
+# This runs on a runner rather than in a serverless function because the seed
+# is several hundred sequential statements — fast on a local socket, slow
+# enough over the network to outlive a function timeout.
+#
+# Setup, once: Settings → Secrets and variables → Actions → New repository secret
+#   INVITES_DIRECT_URL     Supabase → Connect → Session pooler (port 5432)
+#   INVITES_SEED_PASSWORD  The password the seeded accounts get. Pick one.
+#
+# The first name is not DIRECT_URL. That secret belongs to the spa and points
+# at a different database; pointing this seed at it would truncate the spa.
+# Session mode, not the transaction pooler: the seed relies on prepared
+# statements, which a transaction pooler multiplexes away.
+#
+# The second exists because the seed's built-in password is written in a file
+# in a public repository, on an account whose role is ADMIN. Being forced to
+# change it on first sign-in is no protection when a stranger can be the one
+# who signs in first. A secret, not an input: inputs are recorded in the run
+# and shown on its page, and secrets are masked in the log.
+#
+name: Seed the invitations database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ERASE AND SEED to confirm. Every existing row in the schema is deleted.'
+        required: true
+        type: string
+      schema:
+        description: 'Which schema to seed. Shown here so you can see what you are about to wipe.'
+        required: true
+        default: invites
+        type: string
+
+concurrency:
+  group: invites-seed
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Erase and seed
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: invites
+
+    env:
+      DATABASE_SCHEMA: ${{ inputs.schema }}
+      DATABASE_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      SEED_PASSWORD: ${{ secrets.INVITES_SEED_PASSWORD }}
+
+    steps:
+      # These three refuse before anything is fetched or installed, which means
+      # they run before actions/checkout — and `invites` does not exist yet.
+      # A step inheriting the job's working-directory cannot start at all there:
+      # the runner fails with "No such file or directory" before the shell sees
+      # the script, so the guard neither passes nor reports why. They run at the
+      # workspace root instead, which exists from the moment the job does.
+      - name: Check the confirmation phrase
+        if: inputs.confirm != 'ERASE AND SEED'
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "::error::Confirmation phrase did not match. Nothing was touched."
+          echo "Re-run and type exactly: ERASE AND SEED"
+          exit 1
+
+      # This repository's database is shared: `public` is the spa's, and the
+      # invitations app lives in a schema of its own. Seeding `public` would
+      # truncate somebody else's tables, so it is refused outright rather than
+      # confirmed.
+      - name: Refuse to seed a schema that is not ours
+        if: inputs.schema == 'public' || inputs.schema == ''
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "::error::Refusing to seed '$DATABASE_SCHEMA'."
+          echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
+          exit 1
+
+      - name: Check the secrets are present
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::The INVITES_DIRECT_URL repository secret is not set."
+            echo "Add it under Settings → Secrets and variables → Actions,"
+            echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+          if [ -z "$SEED_PASSWORD" ]; then
+            echo "::error::The INVITES_SEED_PASSWORD repository secret is not set."
+            echo "The seed refuses to put its built-in demo password on a live admin account:"
+            echo "it is written in a public repository, and being forced to change it on first"
+            echo "sign-in does not help if a stranger signs in first. Add the secret and re-run."
+            exit 1
+          fi
+
+      # P1001 from Prisma says "can't reach the database server", which reads as
+      # a network fault and usually is not one. aws-0-<region>.pooler.supabase.com
+      # is shared by every project in the region, so the hostname being right
+      # proves nothing about which database is on the other end: the pooler picks
+      # the tenant from the username, which must be postgres.<project-ref>. Give
+      # it a username it cannot resolve to a tenant and it accepts the TCP
+      # connection and then closes it — indistinguishable, to the client, from a
+      # server that is not there.
+      #
+      # So separate the two before running anything. A TCP connect that succeeds
+      # while Prisma reports P1001 means the credentials are for the wrong tenant,
+      # not that the runner is blocked. The username is printed because it is not
+      # a secret — the project ref is in the app's public Supabase URL — and the
+      # password is never touched.
+      - name: Say what the connection string points at
+        working-directory: ${{ github.workspace }}
+        run: |
+          rest=${DIRECT_URL#*://}
+          creds=${rest%@*}
+          hostpart=${rest##*@}
+          user=${creds%%:*}
+          hostport=${hostpart%%/*}
+          host=${hostport%%:*}
+          port=${hostport##*:}
+          [ "$port" = "$host" ] && port=5432
+
+          echo "host      $host"
+          echo "port      $port"
+          echo "username  $user"
+
+          case "$user" in
+            postgres.*)
+              echo "ref       ${user#postgres.}"
+              ;;
+            *)
+              echo "::error::The username is '$user', not 'postgres.<project-ref>'."
+              echo "The shared pooler works out which database you mean from the username."
+              echo "Without the ref it cannot, so it hangs up and Prisma reports P1001 —"
+              echo "'can't reach database server' — which looks like a network fault."
+              echo "Copy the URI from Supabase → Connect → Session pooler for this project."
+              exit 1
+              ;;
+          esac
+
+          if timeout 15 bash -c "cat < /dev/null > /dev/tcp/$host/$port" 2>/dev/null; then
+            echo "tcp       reachable"
+          else
+            echo "tcp       NOT reachable from this runner"
+            echo "::warning::TCP to $host:$port failed, so this is a network problem rather"
+            echo "than a credentials one. Check Supabase → Settings → Database → Network"
+            echo "restrictions: an allowlist that permits Vercel will still refuse GitHub."
+          fi
+
+      # Prisma answers P1001 — "can't reach database server" — for a refused
+      # password, a TLS mismatch and a pooler that hung up, as readily as for a
+      # host that is not there. Three runs said that while TCP was demonstrably
+      # fine, which is no diagnosis at all. psql prints what the server said.
+      #
+      # Both ports, because they fail differently and the difference is the
+      # answer: 5432 is the session pooler that migrations need, 6543 the
+      # transaction pooler the running app uses. If only 5432 refuses, the fault
+      # is that endpoint rather than the credentials.
+      - name: Ask Postgres what is actually wrong
+        working-directory: ${{ github.workspace }}
+        run: |
+          if ! command -v psql >/dev/null; then
+            echo "psql not on this runner; skipping"
+            exit 0
+          fi
+
+          first=
+          probe() {
+            url=$1
+            if out=$(PGCONNECT_TIMEOUT=15 psql "$url" -tAc 'select current_user' 2>&1); then
+              echo "  connected as $out"
+            else
+              printf '  %s\n' "$out" | head -4
+            fi
+            [ -n "$first" ] || first=$out
+          }
+
+          echo "session pooler (5432) — the one migrations use:"
+          probe "$DIRECT_URL"
+
+          echo "transaction pooler (6543) — the one the running app uses:"
+          probe "$(printf '%s' "$DIRECT_URL" | sed 's/:5432/:6543/')"
+
+          # Stop here rather than letting Prisma restate it as P1001. The pooler
+          # reports the tenant-stripped name, so "user postgres" here is the
+          # password being refused, not the ref being wrong — the ref was already
+          # checked above.
+          if printf '%s' "$first" | grep -q 'password authentication failed'; then
+            echo "::error::The password in INVITES_DIRECT_URL is wrong."
+            echo "The host, port and project ref are all correct — the pooler found"
+            echo "the right database and refused the password. Supabase → Settings →"
+            echo "Database → Reset database password, then paste the whole Session"
+            echo "pooler URI into the INVITES_DIRECT_URL secret. Note the Connect"
+            echo "dialog hands you the URI with [YOUR-PASSWORD] still in it; that"
+            echo "placeholder has to be replaced with the real password."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: invites/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      # Through scripts/migrate.mjs, which knows about DATABASE_SCHEMA. The
+      # bare CLI does not, and would migrate into `public`.
+      - name: Apply migrations
+        run: npm run db:deploy
+
+      - name: Seed
+        run: npm run db:seed
+
+      - name: Check the seeded data reconciles with itself
+        run: npm run verify
+
+      - name: Say what landed
+        run: |
+          {
+            echo "### Seeded \`$DATABASE_SCHEMA\`"
+            echo
+            echo "The catalogue, the templates, the staff accounts and the Juan & Maria demo are in."
+            echo
+            echo "- Demo invitation: \`/juan-and-maria\`"
+            echo "- Staff sign-in: \`owner@youreinvitedto.com\`, \`encoder@youreinvitedto.com\`,"
+            echo "  \`support@youreinvitedto.com\`"
+            echo "- All five accounts share the password from the INVITES_SEED_PASSWORD secret. It is not"
+            echo "  printed anywhere. Each staff account is flagged to change it on first sign-in, so sign"
+            echo "  in to all three yourself before the site is public — the flag stops nobody from being"
+            echo "  first, it only decides what they see when they are."
+          } >> "$GITHUB_STEP_SUMMARY"

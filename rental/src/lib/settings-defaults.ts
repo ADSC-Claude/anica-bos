@@ -5,16 +5,34 @@
  */
 export const SETTINGS_DEFAULTS = {
   // --- the business -------------------------------------------------------
-  'business.name': 'ANICA Stays',
+  'business.name': 'NAYRA Stays',
+  /**
+   * The brand mark, in two pieces because one file cannot serve both grounds:
+   * the arch mark rides beside the typed name in the header (bronze, made for
+   * the cream page), and the full lockup sits in the footer (cream monochrome,
+   * made for the green). Blank either one and the typed wordmark takes over.
+   */
+  'business.logoUrl': '/brand/nayra-arch.png',
+  'business.logoFooterUrl': '/brand/nayra-stays-cream.png',
   'business.tagline': 'Stay somewhere that feels like yours.',
   'business.intro':
     'Thoughtfully kept condos in Metro Manila and a quiet family house in Bulacan. Booked direct, so the best rate is the one you see.',
+  /** The About Us page. Newlines are kept, so it can be several paragraphs. */
+  'business.story':
+    'We started with one condo and a spare set of keys, and learned the hard way that the difference between a stay someone remembers and one they complain about is almost never the furniture. It is whether the aircon was serviced. Whether the last guest\'s hair was still in the drain. Whether anyone answered at nine on a Sunday night.\n\nSo we built the business around those things instead. Every turnover runs to a checklist with photographs attached. Nothing is offered to a guest until the clean and the inspection are both signed off. When something breaks, it becomes a ticket with a name against it, not a note in a group chat.\n\nWe are small on purpose. You will deal with people who have stood in the room you booked, and who will still be here the next time you come.',
   'business.email': 'stay@example.com',
   'business.phone': '+63 917 000 0000',
   'business.address': 'Metro Manila, Philippines',
   'business.facebook': '',
   'business.instagram': '',
   'business.heroImage': '/images/hero.svg',
+  /**
+   * While this is on, everyone who is not staff meets a "coming soon" page
+   * instead of the site. Guests holding a booking code keep their own pages.
+   * It starts on: a business that has not entered its properties yet is not
+   * ready to be found.
+   */
+  'site.comingSoon': true,
 
   // --- booking rules ------------------------------------------------------
   /** Percent of the total taken up front. 100 means full payment. */
@@ -74,14 +92,18 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
     description: 'Name, contact details and the copy that appears on the public site.',
     keys: [
       'business.name',
+      'business.logoUrl',
+      'business.logoFooterUrl',
       'business.tagline',
       'business.intro',
+      'business.story',
       'business.email',
       'business.phone',
       'business.address',
       'business.facebook',
       'business.instagram',
       'business.heroImage',
+      'site.comingSoon',
     ],
   },
   {
@@ -131,14 +153,18 @@ export const SETTINGS_GROUPS: { title: string; description: string; keys: Settin
 
 export const SETTING_LABELS: Partial<Record<SettingKey, string>> = {
   'business.name': 'Business name',
+  'business.logoUrl': 'Logo mark (header, on cream)',
+  'business.logoFooterUrl': 'Logo lockup (footer, on green)',
   'business.tagline': 'Tagline (hero)',
   'business.intro': 'Intro paragraph',
+  'business.story': 'About Us story',
   'business.email': 'Contact email',
   'business.phone': 'Contact number',
   'business.address': 'Address shown publicly',
   'business.facebook': 'Facebook URL',
   'business.instagram': 'Instagram URL',
   'business.heroImage': 'Hero image path',
+  'site.comingSoon': 'Hide the public site behind a "coming soon" page',
   'booking.depositPercent': 'Deposit taken at booking (%)',
   'booking.holdMinutes': 'Hold unpaid dates for (minutes)',
   'booking.balanceDueDays': 'Balance reminder, days before check-in',

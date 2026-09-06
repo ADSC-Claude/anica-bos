@@ -94,6 +94,10 @@ async function main() {
   await prisma.setting.createMany({
     data: [
       { key: 'business.name', value: 'Invited' },
+      // Forwarded to the owner's inbox by ImprovMX. It is the reply-to on every
+      // email and is printed in the footer, the privacy policy and the terms, so
+      // it has to be an address the business owns rather than a personal one.
+      { key: 'business.email', value: 'hello@youreinvitedto.com' },
       { key: 'business.invitesCreatedLabel', value: '1,200+' },
       { key: 'business.rsvpsCollectedLabel', value: '85,000+' },
       { key: 'contact.messenger', value: 'https://m.me/invitedph' },

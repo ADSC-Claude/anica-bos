@@ -815,6 +815,11 @@ table.data tr:hover td {
    builder like everything else. The artwork is the frame around them, not a
    finished screen they have to fit into — so the copy is laid over it and the
    scrim below keeps it readable whatever the illustration does. */
+/* The artwork owns the middle of the frame — a seal, a knot, whatever the
+   clip is built around — so the line sits above it rather than across it. */
+.inv-open[data-style='cinematic'] .inv-open-copy {
+  translate: 0 min(-13rem, -30vh);
+}
 .inv-open[data-style='cinematic'] .inv-open-copy,
 .inv-open[data-style='cinematic'] .inv-open-hint {
   color: #fff;

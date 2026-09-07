@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening } from '../src/lib/openings';
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
-import { TEMPLATES } from '../prisma/templates';
+import { TEMPLATES, templateData } from '../prisma/templates';
 import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS } from '../src/lib/sections';
 import { tierAtLeast } from '../src/lib/tiers';
 import { PALETTE_PRESETS } from '../src/lib/theme';
@@ -241,4 +241,28 @@ test('a design cannot name the cinematic opening into existence', () => {
   assert.equal(resolveOpening({ ...base, chosen: '', templateDefault: 'cinematic', legacyEnvelope: true }), 'envelope');
   // Only the artwork flag reaches it.
   assert.equal(resolveOpening({ ...base, chosen: '', templateDefault: '', cinematic: true }), 'cinematic');
+});
+
+test('Capiz ships a cinematic clip, and every clip in the catalogue has its poster', () => {
+  const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
+  assert.equal(capiz.openingVideoUrl, '/openings/capiz.mp4');
+  assert.equal(capiz.openingPosterUrl, '/openings/capiz-poster.jpg');
+  // A clip with no poster leaves the guest on a blank screen while it buffers,
+  // so templateData drops the clip rather than shipping it half-configured.
+  for (const t of TEMPLATES) {
+    if (t.openingVideoUrl) assert.ok(t.openingPosterUrl, `${t.slug} has a poster for its clip`);
+  }
+  const orphan = templateData({ ...capiz, openingPosterUrl: '' }, 0);
+  assert.equal(orphan.openingVideoUrl, '', 'a clip without a poster is not shipped');
+});
+
+test('the cinematic cover says only that an invitation is here', () => {
+  const def = OPENING_BY_KEY.cinematic;
+  assert.equal(def.lineOnly, true, 'no names, no date on the closed screen');
+  assert.equal(def.line.en, 'You are invited');
+  assert.ok(def.line.tl, 'and in Tagalog too');
+  // The drawn openings are title pages and do carry the names.
+  for (const k of ['drape', 'seal', 'curtain', 'line', 'photo'] as const) {
+    assert.ok(!OPENING_BY_KEY[k].lineOnly, `${k} still shows the names`);
+  }
 });

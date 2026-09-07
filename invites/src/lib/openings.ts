@@ -33,6 +33,12 @@ export type OpeningDef = {
   /** Set in small caps and letterspaced rather than in the script face. */
   caps?: boolean;
   /**
+   * The closed screen carries the line and nothing else — no names, no date.
+   * Some openings are a door rather than a title page: they say only that an
+   * invitation is here, and who it is from waits until it opens.
+   */
+  lineOnly?: boolean;
+  /**
    * Encoded by staff, not chosen in the builder. A customer cannot pick this
    * one: it exists only once somebody has made the artwork for it, so
    * offering it in a dropdown would promise what the invitation has not got.
@@ -115,7 +121,9 @@ export const OPENINGS: OpeningDef[] = [
     description: 'Embroidered panels tied with a silk bow. The bow unties, the panels draw back, and the invitation is behind them. Made by our designers, and part of Done-For-You.',
     minTier: 'COMPLETE',
     photos: 0,
-    line: { en: '', tl: '' },
+    line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
+    caps: true,
+    lineOnly: true,
     staffOnly: true,
   },
 ];

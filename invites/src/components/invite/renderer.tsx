@@ -870,10 +870,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     return {
       style,
       monogram: str(content.cover, 'monogram'),
-      names: displayTitle(occasion, content),
+      // A door, not a title page: this opening says only that an invitation is
+      // here, and who it is from waits until it opens.
+      names: def.lineOnly ? '' : displayTitle(occasion, content),
       // "08 · 24 · 26" — month, day, year, the way a date is set on a
       // card rather than written into a sentence.
-      date: openingDate(coverDate),
+      date: def.lineOnly ? '' : openingDate(coverDate),
       line: str(content.cover, 'openingLine') || def.line[lang],
       line2: str(content.cover, 'openingLine2'),
       caps: Boolean(def.caps),

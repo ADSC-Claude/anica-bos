@@ -25,6 +25,13 @@ export type TemplateSeed = {
   collection?: string;
   /** src/lib/openings.ts. Blank means the design opens with nothing. */
   opening?: string;
+  /**
+   * A cinematic opening's shared clip and its poster. Both or neither: the
+   * poster is the whole closed screen until the guest taps, so a clip without
+   * one leaves them on a blank screen while it buffers.
+   */
+  openingVideoUrl?: string;
+  openingPosterUrl?: string;
   palette: ReturnType<typeof pal>;
   fonts: ReturnType<typeof fonts>;
   featured: boolean;
@@ -35,7 +42,7 @@ export type TemplateSeed = {
 export const TEMPLATES: TemplateSeed[] = [
   // The Filipiniana Collection. Capiz is the flagship: shell, bronze wax and
   // the seal opening, for a wedding that looks like home.
-  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: true, layout: 'capiz', collection: 'filipiniana', opening: 'seal', palette: pal('capiz'), fonts: fonts('serif'), featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: pic('capiz') },
+  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: true, layout: 'capiz', collection: 'filipiniana', opening: 'seal', openingVideoUrl: '/openings/capiz.mp4', openingPosterUrl: '/openings/capiz-poster.jpg', palette: pal('capiz'), fonts: fonts('serif'), featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: pic('capiz') },
   { slug: 'classic-ivory', name: 'Classic Ivory', occasion: 'WEDDING', minTier: 'BASIC', layout: 'classic', collection: '', opening: 'envelope', palette: pal('ivory'), fonts: fonts('serif'), featured: true, description: 'Full-bleed photo, serif names, sage and gold.', thumb: pic('classic-ivory') },
   { slug: 'garden-botanical', name: 'Garden Botanical', occasion: 'WEDDING', minTier: 'BASIC', layout: 'garden', collection: 'garden', opening: 'envelope', palette: pal('emerald'), fonts: fonts('serif'), featured: true, description: 'Arched photo, emerald and ivory. Tagaytay energy.', thumb: pic('garden-botanical') },
   { slug: 'modern-minimal', name: 'Modern Minimal', occasion: 'WEDDING', minTier: 'STANDARD', layout: 'modern', collection: '', opening: 'line', palette: pal('mono'), fonts: fonts('modern'), featured: false, description: 'Uppercase sans, black and white, lots of air.', thumb: pic('modern-minimal') },
@@ -62,6 +69,8 @@ export function templateData(t: TemplateSeed, sortOrder: number) {
     layout: t.layout,
     collection: t.collection ?? '',
     opening: t.opening ?? '',
+    openingVideoUrl: t.openingPosterUrl ? t.openingVideoUrl ?? '' : '',
+    openingPosterUrl: t.openingPosterUrl ?? '',
     palette: t.palette as never,
     fonts: t.fonts as never,
     sections: [] as string[],

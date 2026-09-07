@@ -687,7 +687,8 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
             accept: t(lang, 'rsvp.accept'),
             decline: t(lang, 'rsvp.decline'),
             seats: t(lang, 'rsvp.seats'),
-            attendees: t(lang, 'rsvp.attendees'),
+            companions: t(lang, 'rsvp.companions'),
+            companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),
             dietary: t(lang, 'rsvp.dietary'),
             message: t(lang, 'rsvp.message', { hosts: hostsNoun }),
@@ -1403,15 +1404,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             format={format ? { role: 'ceremony', intro: str(content.cover, 'intro'), sub: heroCopy(occasion, content.cover, lang).sub, attire: ATTIRE[str(content.dressCode, 'attire')], sameVenue, mapHere: !hasReception, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
           />
         );
-        const after = format && str(data, 'venue') ? str(content.cover, 'interlude1') || line('interlude1') : '';
-        return after ? (
-          <Fragment key={key}>
-            {block}
-            <Interlude id="interlude-1" text={after} />
-          </Fragment>
-        ) : (
-          <Fragment key={key}>{block}</Fragment>
-        );
+        return <Fragment key={key}>{block}</Fragment>;
       }
       case 'reception': {
         const block = (

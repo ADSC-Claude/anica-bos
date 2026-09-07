@@ -342,13 +342,18 @@ export type RsvpFormProps = {
   askDepartment: boolean;
   mealChoices: string[];
   existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: string[]; mealChoice: string; dietary: string; message: string } | null;
-  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'attendees' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department', string>;
+  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department', string>;
 };
 
 export function RsvpForm(p: RsvpFormProps) {
   const [response, setResponse] = useState<'ACCEPT' | 'DECLINE'>(p.existing?.response ?? 'ACCEPT');
   const [seats, setSeats] = useState(p.existing?.seats || Math.min(p.maxSeats, 1));
-  const [attendees, setAttendees] = useState<string[]>(p.existing?.attendees ?? []);
+  // The people the guest is bringing. What is saved is the whole party, the
+  // guest first, so an earlier answer is read back without their own name.
+  const [companions, setCompanions] = useState<string[]>(() => {
+    const saved = p.existing?.attendees ?? [];
+    return saved[0] && saved[0] === p.defaultName ? saved.slice(1) : saved;
+  });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -374,7 +379,7 @@ export function RsvpForm(p: RsvpFormProps) {
       name: String(fd.get('name') ?? ''),
       response,
       seats: response === 'ACCEPT' ? seats : 0,
-      attendees: attendees.slice(0, seats),
+      attendees: response === 'ACCEPT' && seats > 1 ? [String(fd.get('name') ?? ''), ...companions.slice(0, seats - 1)] : [],
       mealChoice: String(fd.get('mealChoice') ?? ''),
       dietary: String(fd.get('dietary') ?? ''),
       message: String(fd.get('message') ?? ''),
@@ -424,10 +429,10 @@ export function RsvpForm(p: RsvpFormProps) {
 
       {response === 'ACCEPT' && p.collectAttendees && seats > 1 && (
         <div>
-          <span className="inv-label">{p.labels.attendees}</span>
+          <span className="inv-label">{p.labels.companions}</span>
           <div className="space-y-2">
-            {Array.from({ length: seats }, (_, i) => (
-              <input key={i} className="inv-field" placeholder={`${i + 1}.`} value={attendees[i] ?? ''} onChange={(e) => setAttendees((a) => { const n = [...a]; n[i] = e.target.value; return n; })} />
+            {Array.from({ length: seats - 1 }, (_, i) => (
+              <input key={i} className="inv-field" placeholder={p.labels.companion.replace('{n}', String(i + 1))} value={companions[i] ?? ''} autoComplete="off" onChange={(e) => setCompanions((a) => { const n = [...a]; n[i] = e.target.value; return n; })} />
             ))}
           </div>
         </div>

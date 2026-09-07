@@ -152,7 +152,6 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
   textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: 'Shown after the cover, on designs that carry one.' }),
   text('verseRef', 'Its source', { placeholder: 'Colossians 3:14' }),
-  text('interlude1', 'Script line after the invitation', { placeholder: 'A day of love, a lifetime together.', hint: 'Leave blank and the design writes its own. Use a line break for two lines.' }),
   text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.' }),
   ...(occasion === 'MEMORIAL'
     ? []
@@ -511,7 +510,7 @@ const SECTION_DEFS: SectionDef[] = [
     fields: (occasion) => [
       date('deadline', 'RSVP deadline', { hint: 'The form closes after this date on the Complete tier.' }),
       toggle('showSeats', 'Ask how many are coming'),
-      toggle('collectAttendees', 'Ask for the names of those attending'),
+      toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
       list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true })], { addLabel: 'Add a choice', max: 6 }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),

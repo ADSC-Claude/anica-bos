@@ -548,12 +548,13 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   background-size: 100% auto;
   background-repeat: no-repeat;
 }
-.inv-page[data-kind='connector'] { min-height: 0; }
-/* the rows: the page's own padding makes room for the one at its top */
-.inv-page[data-row='a'] { background-image: url(/capiz/garland-a.jpg); padding-top: min(44vw, 15rem); }
-.inv-page[data-row='b'] { background-image: url(/capiz/garland-b.jpg); padding-top: min(40vw, 13.5rem); }
-.inv-page[data-row='s1'] { background-image: url(/capiz/strand-a.jpg); padding-top: min(24vw, 8rem); }
-.inv-page[data-row='s2'] { background-image: url(/capiz/strand-b.jpg); padding-top: min(23vw, 7.6rem); }
+.inv-page[data-kind='connector'] { min-height: 0; padding-bottom: 2rem; }
+/* the rows: the page's own padding makes room for the one at its top. The deep
+   rows hang from the page's top edge; the strands float a little below it. */
+.inv-page[data-row='a'] { background-image: url(/capiz/garland-a.jpg); padding-top: min(35vw, 11.4rem); }
+.inv-page[data-row='b'] { background-image: url(/capiz/garland-b.jpg); padding-top: min(38vw, 12.3rem); }
+.inv-page[data-row='s1'] { background-image: url(/capiz/strand-a.jpg); padding-top: min(21vw, 7rem); }
+.inv-page[data-row='s2'] { background-image: url(/capiz/strand-b.jpg); padding-top: min(20vw, 6.6rem); }
 /* the cover: the whole frame, top and foot; the closing: the foot */
 .inv-page[data-page='cover'] {
   padding: 3rem 0;
@@ -754,8 +755,6 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv[data-layout='capiz'] .inv-timeline > li::before { display: none; }
 
 /* --- gallery collage --- */
-.inv[data-layout='capiz'] .inv-gallery { gap: 0.6rem; }
-.inv[data-layout='capiz'] .inv-gallery img { border-radius: 0.6rem; box-shadow: 0 10px 30px -16px rgba(74,59,47,0.5); }
 
 /* --- countdown, bare --- */
 .inv[data-layout='capiz'] .inv-count { max-width: 22rem; gap: 0; }
@@ -809,11 +808,16 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv[data-layout='capiz'] #social .inv-display { display: block; font-size: 1.35rem; letter-spacing: 0.04em; margin-top: 0.3rem; }
 .inv[data-layout='capiz'] #social .inv-eyebrow { display: block; }
 
-/* --- the gallery as a strip of three, the middle one a little taller --- */
-.inv[data-layout='capiz'] .inv-gallery { grid-template-columns: 1fr 1.08fr 1fr; gap: 0.5rem; align-items: center; }
+/* --- the gallery as a mosaic: a large tile, two small beside it, then the
+   mirror of that below, so six photographs interlock instead of lining up --- */
+.inv[data-layout='capiz'] .inv-gallery { grid-template-columns: repeat(3, 1fr); grid-auto-rows: min(34vw, 10.4rem); grid-auto-flow: dense; gap: 0.45rem; align-items: stretch; }
+.inv[data-layout='capiz'] .inv-gallery figure { position: relative; overflow: hidden; margin: 0; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); background: #e3d6ca; }
 .inv[data-layout='capiz'] .inv-gallery figure:first-child { grid-column: auto; }
-.inv[data-layout='capiz'] .inv-gallery img { aspect-ratio: 3 / 4; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); }
-.inv[data-layout='capiz'] .inv-gallery figure:nth-child(2) img { aspect-ratio: 3 / 4.4; }
+.inv[data-layout='capiz'] .inv-gallery figure:nth-child(6n + 1),
+.inv[data-layout='capiz'] .inv-gallery figure:nth-child(6n + 5) { grid-column: span 2; grid-row: span 2; }
+.inv[data-layout='capiz'] .inv-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; border-radius: 0; }
+.inv[data-layout='capiz'] .inv-gallery figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 1.4rem 0.5rem 0.4rem; color: #fff; background: linear-gradient(transparent, rgba(60, 45, 35, 0.55)); }
+.looks-phone .inv[data-layout='capiz'] .inv-gallery { grid-auto-rows: 8.2rem; }
 
 /* --- dress code figures --- */
 .inv-dress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; align-items: end; margin: 0.8rem 0.2rem 0; }
@@ -854,8 +858,9 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-scroll { margin-top: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 0.32em; text-indent: 0.32em; font-size: 0.58rem; color: var(--inv-muted); }
 .inv-scroll::after { content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.45rem auto 0; background: var(--inv-accent2); }
 .inv-verse { text-align: center; }
-.inv-verse-text { text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.95rem; line-height: 2; color: var(--inv-ink); }
-.inv-verse-ref { margin-top: 1.4rem; }
+.inv-page > .inv-verse { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.inv-verse-text { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.88rem; line-height: 1.8; color: var(--inv-ink); max-width: 22rem; margin: 0 auto; }
+.inv-verse-ref { margin-top: 0.9rem; }
 .inv-rule { display: block; width: 2.6rem; height: 1px; margin: 1.6rem auto 0; background: var(--inv-accent2); }
 .inv-story-sign { text-align: center; margin-top: 2.4rem; }
 .inv-getting-block + .inv-getting-block { margin-top: 1.4rem; }

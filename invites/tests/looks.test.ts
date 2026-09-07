@@ -5,7 +5,7 @@ import { googleFontsUrl } from '../src/lib/theme';
 import { resolveTheme } from '../src/lib/invitations';
 import { TEMPLATES } from '../prisma/templates';
 
-const LINE_KEYS: LineKey[] = ['cover', 'story', 'invitation', 'interlude1', 'entourage', 'gallery', 'venue', 'interlude2', 'dressCode', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closing'];
+const LINE_KEYS: LineKey[] = ['cover', 'story', 'invitation', 'entourage', 'gallery', 'venue', 'interlude2', 'dressCode', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closing'];
 
 test('there are at least four looks, each complete in both languages', () => {
   assert.ok(LOOKS.length >= 4);

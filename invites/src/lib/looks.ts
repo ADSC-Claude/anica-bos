@@ -23,7 +23,6 @@ export type LineKey =
   | 'cover' // above the names
   | 'story'
   | 'invitation'
-  | 'interlude1' // the script lines after the invitation block
   | 'entourage'
   | 'gallery'
   | 'venue'
@@ -87,7 +86,6 @@ export const LOOKS: Look[] = [
       cover: { en: "You're invited", tl: 'Inaanyayahan ka' },
       story: { en: '', tl: '' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
-      interlude1: { en: 'A day of love,\nA lifetime together.', tl: 'Isang araw ng pag-ibig,\nisang buhay na magkasama.' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       gallery: { en: "Moments we'll always cherish", tl: 'Mga sandaling laging iingatan' },
       venue: { en: 'A place close to our hearts.', tl: 'Isang lugar na malapit sa aming puso.' },
@@ -139,7 +137,6 @@ export const LOOKS: Look[] = [
       cover: { en: 'Together with their families', tl: 'Kasama ang kanilang mga pamilya' },
       story: { en: 'Every love story is beautiful, but ours is our favorite.', tl: 'Maganda ang bawat kuwento ng pag-ibig, pero ang amin ang paborito namin.' },
       invitation: { en: 'Come celebrate with us', tl: 'Halina at makipagdiwang' },
-      interlude1: { en: 'Two hearts,\none home.', tl: 'Dalawang puso,\nisang tahanan.' },
       entourage: { en: 'The people we love most', tl: 'Ang mga taong pinakamamahal namin' },
       gallery: { en: 'A few of our favorite frames', tl: 'Ilan sa aming mga paboritong kuha' },
       venue: { en: "Where we'll say yes", tl: 'Kung saan kami magsasabi ng oo' },
@@ -192,7 +189,6 @@ export const LOOKS: Look[] = [
       cover: { en: 'The wedding of', tl: 'Ang kasal nina' },
       story: { en: '', tl: '' },
       invitation: { en: "You're invited", tl: 'Inaanyayahan ka' },
-      interlude1: { en: "Here's to forever.", tl: 'Para sa habambuhay.' },
       entourage: { en: 'Standing with us', tl: 'Kasama namin' },
       gallery: { en: 'Before the big day', tl: 'Bago ang malaking araw' },
       venue: { en: 'Where it happens', tl: 'Kung saan mangyayari' },
@@ -244,7 +240,6 @@ export const LOOKS: Look[] = [
       cover: { en: 'The honour of your presence is requested at the marriage of', tl: 'Hinihiling ang karangalan ng inyong presensya sa kasal nina' },
       story: { en: 'Every chapter, ours.', tl: 'Bawat kabanata, amin.' },
       invitation: { en: 'Requesting the pleasure of your company', tl: 'Hinihiling ang inyong pagdalo' },
-      interlude1: { en: 'A day of love,\na lifetime together.', tl: 'Isang araw ng pag-ibig,\nisang buhay na magkasama.' },
       entourage: { en: 'Those who stand beside us', tl: 'Ang mga nasa tabi namin' },
       gallery: { en: 'Us, as we are', tl: 'Kami, kung ano kami' },
       venue: { en: 'A room we chose for you', tl: 'Isang lugar na pinili namin para sa inyo' },
@@ -296,7 +291,6 @@ export const LOOKS: Look[] = [
       cover: { en: 'Together with their families', tl: 'Kasama ang kanilang mga pamilya' },
       story: { en: 'A love written in the stars', tl: 'Pag-ibig na nakasulat sa mga bituin' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
-      interlude1: { en: 'Forever\nbegins today.', tl: 'Ngayon nagsisimula\nang habambuhay.' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       gallery: { en: 'Moments to keep', tl: 'Mga sandaling iingatan' },
       venue: { en: 'The celebration continues', tl: 'Nagpapatuloy ang pagdiriwang' },

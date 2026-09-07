@@ -150,7 +150,7 @@ function FieldInput({
     case 'swatches':
       return <SwatchesInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
     case 'checks':
-      return <ChecksInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
+      return <ChecksInput field={field} value={Array.isArray(value) ? (value as string[]) : typeof value === 'string' && value ? [value] : []} onChange={onChange} sibling={sibling} />;
     case 'person':
       return <PersonInput field={field} value={(value ?? { title: '', name: '', deceased: false }) as Person} onChange={onChange} />;
     case 'list':
@@ -305,27 +305,49 @@ function SwatchesInput({ field, value, onChange }: { field: Field; value: string
   );
 }
 
-/** A row of pills to tick. The value keeps the options' order, whatever order they were ticked in. */
-function ChecksInput({ field, value, onChange }: { field: Field; value: string[]; onChange: (v: string[]) => void }) {
-  const options = field.options ?? [];
+/**
+ * A row of pills to tick. The value keeps the options' order, whatever order
+ * they were ticked in. A field that follows a sibling — the clothes follow the
+ * dress code — offers only the options marked for what the sibling holds
+ * (all of them when fewer than three would be left), plus anything already
+ * ticked, so a tick never vanishes unseen. A minimum and a maximum show as a
+ * count; at the maximum the rest grey out.
+ */
+function ChecksInput({ field, value, onChange, sibling }: { field: Field; value: string[]; onChange: (v: string[]) => void; sibling?: SectionData }) {
+  const all = field.options ?? [];
+  const picked = field.dependsOn ? (Array.isArray(sibling?.[field.dependsOn]) ? (sibling![field.dependsOn] as string[]) : typeof sibling?.[field.dependsOn] === 'string' ? [sibling![field.dependsOn] as string] : []) : [];
+  const fit = picked.length ? all.filter((o) => !o.when || o.when.some((w) => picked.includes(w))) : all;
+  const offered = fit.length >= 3 ? fit : all;
+  const options = all.filter((o) => offered.includes(o) || value.includes(o.value));
+  const max = field.max ?? Infinity;
+  const min = field.min ?? 0;
   const toggle = (v: string) => {
+    if (!value.includes(v) && value.length >= max) return;
     const next = value.includes(v) ? value.filter((x) => x !== v) : [...value, v];
-    onChange(options.map((o) => o.value).filter((x) => next.includes(x)));
+    onChange(all.map((o) => o.value).filter((x) => next.includes(x)));
   };
+  const short = min > 0 && value.length > 0 && value.length < min;
   return (
     <div>
       <Label field={field} />
       <div className="flex flex-wrap gap-1.5">
         {options.map((o) => {
           const on = value.includes(o.value);
+          const full = !on && value.length >= max;
           return (
-            <label key={o.value} className={`btn btn-sm cursor-pointer select-none ${on ? 'btn-primary' : 'btn-secondary'}`}>
-              <input type="checkbox" className="sr-only" checked={on} onChange={() => toggle(o.value)} />
+            <label key={o.value} className={`btn btn-sm select-none ${on ? 'btn-primary' : 'btn-secondary'} ${full ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}>
+              <input type="checkbox" className="sr-only" checked={on} disabled={full} onChange={() => toggle(o.value)} />
               {on ? '✓ ' : ''}{o.label}
             </label>
           );
         })}
       </div>
+      {(min > 0 || max < Infinity) && (
+        <p className={`mt-1 text-xs ${short ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
+          {value.length} of {min > 0 && max < Infinity ? `${min}–${max}` : max < Infinity ? `up to ${max}` : `at least ${min}`}{short ? ` · pick at least ${min}` : value.length >= max ? ' · full' : ''}
+          {field.dependsOn && picked.length > 0 && fit.length >= 3 ? ' · showing what suits your dress code' : ''}
+        </p>
+      )}
       <Hint text={field.hint} />
     </div>
   );

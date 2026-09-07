@@ -74,8 +74,41 @@ test('a checklist keeps only its own options, in their order, and each occasion 
   const kids = fieldsFor('dressCode', 'KIDS_BIRTHDAY').find((f) => f.key === 'gentsItems')!;
   assert.ok(kids.options!.some((o) => o.value === 'themed') && !kids.options!.some((o) => o.value === 'suit'));
   const fresh = defaultContent('WEDDING').dressCode!;
-  assert.equal(fresh.attire, 'formal');
+  assert.deepEqual(fresh.attire, ['formal']);
   assert.ok((fresh.gentsItems as string[]).includes('suit') && (fresh.avoid as string[]).includes('white'));
+  assert.ok((fresh.gentsItems as string[]).length <= 3 && (fresh.ladiesItems as string[]).length <= 3, 'a fresh invitation starts with two or three pieces');
+});
+
+test('the dress code is one or two attires and the clothes follow it: two or three each, only what suits', async () => {
+  const { itemsFor, gentsItems, ladiesItems, attireKeys } = await import('../src/lib/attire');
+  const wedding = fieldsFor('dressCode', 'WEDDING');
+  const attire = wedding.find((f) => f.key === 'attire')!;
+  assert.equal(attire.type, 'checks');
+  assert.equal(attire.min, 1);
+  assert.equal(attire.max, 2);
+  const gents = wedding.find((f) => f.key === 'gentsItems')!;
+  assert.equal(gents.dependsOn, 'attire');
+  assert.equal(gents.min, 2);
+  assert.equal(gents.max, 3);
+  assert.ok(gents.options!.find((o) => o.value === 'suit')!.when!.includes('formal'));
+  // the old single word still reads as one attire; three attires are cut to two; four pieces to three
+  const { data } = cleanSection(wedding, { attire: 'formal', gentsItems: ['suit', 'coat', 'longSleeves', 'dressShoes'] });
+  assert.deepEqual(data.attire, ['formal']);
+  assert.deepEqual(data.gentsItems, ['suit', 'coat', 'longSleeves']);
+  assert.deepEqual(cleanSection(wedding, { attire: ['casual', 'formal', 'cocktail'] }).data.attire, ['formal', 'cocktail']);
+  assert.deepEqual(attireKeys('formal'), ['formal']);
+  assert.deepEqual(attireKeys(['formal', 'cocktail']), ['formal', 'cocktail']);
+  assert.deepEqual(attireKeys(undefined), []);
+  // casual at a wedding offers no suit; formal offers no polo; a code nothing suits falls back to the whole list
+  const casual = itemsFor(gentsItems('WEDDING'), ['casual']).map((i) => i.value);
+  assert.ok(!casual.includes('suit') || casual.length === gentsItems('WEDDING').length);
+  const formal = itemsFor(ladiesItems('WEDDING'), ['formal']).map((i) => i.value);
+  assert.ok(formal.includes('longGown') && formal.includes('cocktail'));
+  assert.equal(itemsFor(gentsItems('WEDDING'), ['themed']).length, gentsItems('WEDDING').length, 'nothing on the wedding list is themed, so the whole list is offered');
+  // one piece ticked is a started list, and a publish problem
+  const cover = { brideFirst: 'Maria', groomFirst: 'Juan', date: '2026-11-21' };
+  const one = publishProblems('WEDDING', { cover, dressCode: { attire: ['formal'], gentsItems: ['suit'], ladiesItems: ['longGown', 'cocktail'] } });
+  assert.ok(one.some((p) => /at least 2 choices for for gentlemen/.test(p)), one.join(' | '));
 });
 
 test('publishing needs the cover essentials', () => {

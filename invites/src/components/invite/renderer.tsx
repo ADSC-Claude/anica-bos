@@ -14,7 +14,7 @@ import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
-import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
+import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
 import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -514,8 +514,6 @@ function Eighteen({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', business: 'Business', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
-const ATTIRE_TL: Record<string, string> = { ...ATTIRE, filipiniana: 'Filipiniana at Barong' };
 /** The suits and gowns when the couple picked no colours for them and has no motif: black, tan, olive, cream; champagne, sage, blush, chocolate, ivory. */
 const SUIT_COLORS = ['soft-black', 'camel', 'olive', 'sand'].map(swatchHex);
 const GOWN_COLORS = ['champagne-gold', 'sage', 'dusty-rose', 'chocolate', 'mauve'].map(swatchHex);
@@ -529,10 +527,12 @@ const GOWN_COLORS = ['champagne-gold', 'sage', 'dusty-rose', 'chocolate', 'mauve
  */
 function DressCode({ data, lang, occasion, tagline, title, format, note }: { data: SectionData; lang: Lang; occasion: Occasion; tagline?: string; title?: string; format?: boolean; note?: string }) {
   const motif = rows<string>(data, 'colors');
-  const attireKey = str(data, 'attire');
-  const attire = (lang === 'tl' ? ATTIRE_TL : ATTIRE)[attireKey] ?? '';
+  // one dress code, or two that go together: "Formal & Cocktail Attire"
+  const attires = attireKeys(data.attire).map((k) => attireName(k, lang)).filter(Boolean);
+  const attire = attires.join(lang === 'tl' ? ' at ' : ' & ');
   const heading = attire ? t(lang, 'dressCode.attireOf', { attire }) : title ?? t(lang, 'dressCode.title');
-  const intro = str(data, 'attireText') || (attire ? t(lang, 'dressCode.intro', { attire: attireKey === 'filipiniana' ? attire : `${attire.toLowerCase()} attire` }) : '');
+  const plain = attireKeys(data.attire).length === 1 && attireKeys(data.attire)[0] === 'filipiniana';
+  const intro = str(data, 'attireText') || (attire ? t(lang, 'dressCode.intro', { attire: plain ? attire : `${attire.toLowerCase()} attire` }) : '');
   const chosen = (key: string, n: number, fallback: string[]) => {
     const own = rows<string>(data, key);
     if (own.length) return own.slice(0, n);
@@ -1544,7 +1544,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             lang={lang}
             fallbackDate={coverDate}
             calendarHref={calendarHref}
-            format={format ? { role: 'ceremony', intro: str(content.cover, 'intro'), sub: heroCopy(occasion, content.cover, lang).sub, attire: ATTIRE[str(content.dressCode, 'attire')], sameVenue, mapHere: !hasReception } : undefined}
+            format={format ? { role: 'ceremony', intro: str(content.cover, 'intro'), sub: heroCopy(occasion, content.cover, lang).sub, attire: attireKeys(content.dressCode?.attire).map((k) => attireName(k, lang)).filter(Boolean).join(lang === 'tl' ? ' at ' : ' & '), sameVenue, mapHere: !hasReception } : undefined}
           />
         );
         return <Fragment key={key}>{block}</Fragment>;

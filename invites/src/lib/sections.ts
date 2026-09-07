@@ -1,5 +1,5 @@
 import { MOTIF_MIN, MOTIF_MAX } from './palette';
-import { attireDefaults, gentsItems, ladiesItems, avoidItems, type AttireItem } from './attire';
+import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
@@ -19,6 +19,8 @@ import { BACKDROPS } from './backdrops';
 export type Option = {
   value: string;
   label: string;
+  /** checks: offered only when the field it depends on holds one of these values */
+  when?: string[];
   /** Shown but not selectable below this tier. The renderer gates it again. */
   lockedTier?: Tier;
 };
@@ -60,6 +62,8 @@ export type Field = {
   min?: number;
   /** swatches: offer the palette's presets — four colours that go together, in one tap */
   sets?: boolean;
+  /** checks: the sibling field whose values decide which options (by their 'when') are offered */
+  dependsOn?: string;
   /** Render full-width in a two-column form. */
   wide?: boolean;
 };
@@ -127,7 +131,7 @@ const select = (key: string, label: string, options: Option[], extra: Partial<Fi
 const list = (key: string, label: string, item: Field[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'list', item, wide: true, ...extra });
 /** A row of things to tick; stored as the ticked values, in the options' order. */
 const checks = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'checks', options, wide: true, ...extra });
-const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en }));
+const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en, ...(i.for ? { when: i.for } : {}) }));
 const names = (key: string, label: string, extra: Partial<Field> = {}): Field => list(key, label, [text('name', 'Name', { required: true })], { addLabel: 'Add a name', ...extra });
 
 const MAPS_HINT = 'Paste the "Share" link from Google Maps. Guests get a one-tap button.';
@@ -479,22 +483,13 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'BASIC',
     labelFor: { KIDS_BIRTHDAY: 'Theme & attire' },
     fields: (occasion) => [
-      select('attire', 'Guest attire', [
-        { value: 'formal', label: 'Formal' },
-        { value: 'semiFormal', label: 'Semi-formal' },
-        { value: 'smartCasual', label: 'Smart casual' },
-        { value: 'business', label: 'Business attire' },
-        { value: 'filipiniana', label: 'Filipiniana & Barong' },
-        { value: 'cocktail', label: 'Cocktail' },
-        { value: 'themed', label: 'Themed (describe below)' },
-        { value: 'casual', label: 'Casual' },
-      ]),
+      checks('attire', 'Dress code', ATTIRES.map((a) => ({ value: a.value, label: a.en })), { min: 1, max: 2, hint: 'One, or two that go together — formal with cocktail, say. The clothes below follow what you pick.' }),
       text('attireText', 'Line under the heading', { placeholder: 'e.g. We kindly encourage our guests to wear elegant formal attire.', hint: 'Blank writes one from the attire you picked.' }),
       { key: 'gentsColors', label: 'Suit colours for the gentlemen', type: 'swatches', max: 4, hint: 'Up to four, from the palette. The suits drawn on the page take these colours; blank uses the motif.' },
-      checks('gentsItems', 'For gentlemen', attireOptions(gentsItems(occasion)), { hint: 'Tick what fits. Guests read them as one line.' }),
+      checks('gentsItems', 'For gentlemen', attireOptions(gentsItems(occasion)), { dependsOn: 'attire', min: 2, max: 3, hint: 'Two or three. Only what suits your dress code is offered; guests read them as one line.' }),
       text('gentsNote', 'Note for gentlemen', { placeholder: 'e.g. Tie is optional.' }),
       { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'swatches', max: 5, hint: 'Up to five, from the palette. The gowns drawn on the page take these colours; blank uses the motif. A pale pick is deepened on the page — no guest wears white.' },
-      checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion))),
+      checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion)), { dependsOn: 'attire', min: 2, max: 3, hint: 'Two or three, the same way.' }),
       text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.' }),
       { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
       text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.' }),
@@ -952,9 +947,10 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
         .slice(0, field.max ?? 5);
     }
     case 'checks': {
-      // the ticked options only, kept in the options' order
-      const arr = Array.isArray(raw) ? raw.map((v) => cleanString(v, 40)) : [];
-      return (field.options ?? []).map((o) => o.value).filter((v) => arr.includes(v));
+      // the ticked options only, kept in the options' order; a single word (how the attire was stored once) counts as one tick
+      const arr = Array.isArray(raw) ? raw.map((v) => cleanString(v, 40)) : typeof raw === 'string' && raw ? [cleanString(raw, 40)] : [];
+      const ticked = (field.options ?? []).map((o) => o.value).filter((v) => arr.includes(v));
+      return field.max ? ticked.slice(0, field.max) : ticked;
     }
     case 'person': {
       const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<Person>;
@@ -1009,9 +1005,9 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
   const dress = content.dressCode;
   if (dress && sectionOffered('dressCode')) {
     for (const f of fieldsFor('dressCode', occasion)) {
-      if (f.type !== 'swatches' || !f.min) continue;
+      if ((f.type !== 'swatches' && f.type !== 'checks') || !f.min) continue;
       const n = Array.isArray(dress[f.key]) ? (dress[f.key] as unknown[]).length : 0;
-      if (n > 0 && n < f.min) problems.push(`Dress code: pick at least ${f.min} colours for the ${f.label.toLowerCase()} (${n} chosen).`);
+      if (n > 0 && n < f.min) problems.push(`Dress code: pick at least ${f.min} ${f.type === 'swatches' ? 'colours' : 'choices'} for ${f.label.toLowerCase()} (${n} chosen).`);
     }
   }
   return problems;

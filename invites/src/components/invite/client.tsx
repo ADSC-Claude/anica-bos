@@ -167,6 +167,8 @@ export function Shell({
   const clip = useRef<HTMLVideoElement | null>(null);
   // The words on the card, once the clip has opened onto it.
   const [card, setCard] = useState(false);
+  // The tap has landed: the hint goes, whatever the clip is still doing.
+  const [tapped, setTapped] = useState(false);
 
   const play = useCallback(async () => {
     if (!audio.current) return;
@@ -210,6 +212,7 @@ export function Shell({
    * video or audio without a user gesture is blocked, and this is the gesture.
    */
   const reveal = () => {
+    setTapped(true);
     if (music && autoplay) void play();
     const video = clip.current;
     if (opening.style !== 'cinematic' || !video) {
@@ -256,6 +259,7 @@ export function Shell({
             data-style={opening.style}
             data-clip={opening.clip || undefined}
             data-open={open}
+            data-tapped={tapped}
             role="button"
             tabIndex={open ? -1 : 0}
             aria-label={opening.hint}

@@ -85,6 +85,8 @@ const PHRASES = {
   'dressCode.intro': { en: 'We kindly encourage our guests to come in {attire}.', tl: 'Hinihiling po namin sa aming mga bisita na dumalo nang naka-{attire}.' },
   'dressCode.gents': { en: 'For gentlemen', tl: 'Para sa mga ginoo' },
   'dressCode.ladies': { en: 'For ladies', tl: 'Para sa mga binibini' },
+  'dressCode.boys': { en: 'For the boys', tl: 'Para sa mga batang lalaki' },
+  'dressCode.girls': { en: 'For the girls', tl: 'Para sa mga batang babae' },
   'dressCode.palette': { en: 'Suggested palette', tl: 'Mungkahing kulay' },
   'dressCode.paletteNote': { en: 'You may choose from this palette or similar shades.', tl: 'Maaari pong pumili mula sa mga kulay na ito o katulad na tono.' },
   'dressCode.avoid': { en: 'Kindly avoid', tl: 'Iwasan po' },

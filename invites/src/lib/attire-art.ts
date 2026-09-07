@@ -1,59 +1,57 @@
 /**
- * The drawn figures on the dress code page — the designer's fashion plates,
- * cut into two layers each: the garment, as its shading alone, recoloured on
- * the page to whatever the couple picked; and the rest — face, hair, shirt,
- * tie, shoes, bag — as it was drawn. Both live in `public/attire/`.
+ * The wardrobe on the dress code page — the designer's garments, drawn flat,
+ * cut into two layers each: the cloth, as its shading alone, recoloured on the
+ * page to whatever the couple picked; and the parts that keep their colour —
+ * a shirt and tie inside a coat, trousers under a shirt, a leg in a slit — as
+ * drawn. Both live in `public/attire/`; `wardrobe.json` lists them, written
+ * by the cutting script with each one's size, group and kind.
  *
- * Drawings are kept by the kind of garment they show. The page asks for the
- * kinds the couple ticked (a suit, a barong, a long gown, a cocktail dress…)
- * and gets the drawings that exist for them, falling back to the nearest kind
- * that does — a barong falls back to the open-collared suit until a barong is
- * drawn — so a new drawing is one file pair and one line here.
+ * Garments are filed by the kind they are. The page asks for the kinds the
+ * couple ticked (a suit, a barong, a long gown, a cocktail dress…) and takes
+ * one garment per colour, going round the kinds in turn, so a suit and a
+ * barong ticked with four colours give suit, barong, suit, barong. A kind
+ * with no garment yet falls back to the nearest that has one, so nothing is
+ * ever blank; a new garment is one file pair and one row in the JSON.
  */
-export type Drawing = { id: string; w: number; h: number };
+import wardrobe from './wardrobe.json';
 
-const d = (id: string, w: number, h = 940): Drawing => ({ id, w, h });
+export type Drawing = { id: string; group: 'gents' | 'ladies' | 'girls' | 'boys'; kind: string; w: number; h: number };
+export const WARDROBE = wardrobe as Drawing[];
 
-/** Gentlemen, by kind: `tie` a suit with a tie, `open` a suit worn open at the collar. */
-export const GENTS_ART: Record<string, Drawing[]> = {
-  tie: [d('suit-1', 276), d('suit-2', 276), d('suit-3', 272)],
-  open: [d('suit-4', 288)],
-};
-
-/** Ladies, by kind: `long` a long gown, in five silhouettes. */
-export const LADIES_ART: Record<string, Drawing[]> = {
-  long: [d('gown-1', 256), d('gown-2', 228), d('gown-3', 224), d('gown-4', 236), d('gown-5', 270)],
-};
-
-/** The kinds each attire item calls for, best first; the first with drawings is used. */
+/** The kinds each attire item calls for, best first. Items that are not an outfit (a tie, shoes) call for none. */
 const GENTS_KINDS: Record<string, string[]> = {
-  suit: ['tie'], tuxedo: ['tie'], businessSuit: ['tie'], coat: ['tie'], tie: ['tie'], bowTie: ['tie'],
-  blazer: ['open'], barong: ['barong', 'open'], longSleeves: ['open'], polo: ['polo', 'open'], buttonDown: ['open'],
-  chinos: ['polo', 'open'], darkJeans: ['polo', 'open'], themed: ['open'], muted: ['tie'],
+  suit: ['suit'], tuxedo: ['tuxedo', 'suit'], businessSuit: ['suit'], coat: ['suit'], blazer: ['suit'], bowTie: ['tuxedo'],
+  barong: ['barong', 'barongShort'], longSleeves: ['linen', 'shirt'], polo: ['barongShort', 'shirt'], buttonDown: ['shirt', 'linen'],
+  chinos: ['shirt', 'casual'], darkJeans: ['casual', 'shirt'], sneakers: ['casual'], themed: ['casual'], muted: ['suit'],
 };
 const LADIES_KINDS: Record<string, string[]> = {
-  longGown: ['long'], cocktail: ['cocktail', 'long'], separates: ['separates', 'long'], filipiniana: ['filipiniana', 'long'],
-  midi: ['midi', 'long'], sundayDress: ['midi', 'long'], jumpsuit: ['jumpsuit', 'long'], blouseSkirt: ['separates', 'long'],
-  blouseTrousers: ['separates', 'long'], partyDress: ['cocktail', 'long'], businessDress: ['midi', 'long'], blazer: ['separates', 'long'],
-  themed: ['long'], muted: ['long'],
+  longGown: ['long'], cocktail: ['cocktail'], separates: ['blouseSkirt', 'blouseTrousers'], filipiniana: ['terno'],
+  midi: ['midi'], sundayDress: ['midi', 'cocktail'], jumpsuit: ['jumpsuit'], blouseSkirt: ['blouseSkirt'], blouseTrousers: ['blouseTrousers'],
+  partyDress: ['cocktail', 'midi'], businessDress: ['ladySuit', 'midi'], blazer: ['ladySuit'], themed: ['cocktail'], muted: ['midi', 'long'],
 };
+/** At a children's party the rows are the boys and the girls. */
+const BOYS_KINDS: Record<string, string[]> = {
+  suit: ['boyFormal'], tuxedo: ['boyFormal'], coat: ['boyFormal'], barong: ['boyBarong'], longSleeves: ['boySmart'],
+  polo: ['boyCasual', 'boySmart'], buttonDown: ['boySmart'], chinos: ['boySmart'], darkJeans: ['boyCasual'], sneakers: ['boyCasual'], themed: ['boyCasual'],
+};
+const GIRLS_KINDS: Record<string, string[]> = { partyDress: ['girl'], sundayDress: ['girl'], jumpsuit: ['girl'], blouseSkirt: ['girl'], themed: ['girl'], longGown: ['girl'], cocktail: ['girl'], midi: ['girl'] };
 
-/**
- * `count` drawings for the items ticked: the pool is every drawing of every
- * kind asked for, in the order asked, cycled — so four colours on "suit" and
- * "long sleeves" give the three tied suits and the open one, and four colours
- * on "suit" alone give the three and the first again, in its fourth colour.
- */
-export function pickDrawings(group: 'gents' | 'ladies', ticked: string[], count: number): Drawing[] {
-  const art = group === 'gents' ? GENTS_ART : LADIES_ART;
-  const kindsOf = group === 'gents' ? GENTS_KINDS : LADIES_KINDS;
-  const fallback = group === 'gents' ? 'tie' : 'long';
+const FALLBACK: Record<Drawing['group'], string> = { gents: 'suit', ladies: 'long', boys: 'boySmart', girls: 'girl' };
+
+export function pickDrawings(group: 'gents' | 'ladies', ticked: string[], count: number, kids = false): Drawing[] {
+  const g: Drawing['group'] = kids ? (group === 'gents' ? 'boys' : 'girls') : group;
+  const kindsOf = g === 'gents' ? GENTS_KINDS : g === 'ladies' ? LADIES_KINDS : g === 'boys' ? BOYS_KINDS : GIRLS_KINDS;
+  const art = WARDROBE.filter((d) => d.group === g);
+  const ofKind = (k: string) => art.filter((d) => d.kind === k);
   const kinds: string[] = [];
   for (const item of ticked) {
-    const kind = (kindsOf[item] ?? []).find((k) => art[k]?.length);
+    const kind = (kindsOf[item] ?? []).find((k) => ofKind(k).length);
     if (kind && !kinds.includes(kind)) kinds.push(kind);
   }
-  if (!kinds.length) kinds.push(fallback);
-  const pool = kinds.flatMap((k) => art[k]);
-  return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+  if (!kinds.length) kinds.push(ofKind(FALLBACK[g]).length ? FALLBACK[g] : art[0]?.kind ?? FALLBACK[g]);
+  // round the kinds: the i-th garment is of the i-th kind, the next of that kind each time round
+  return Array.from({ length: count }, (_, i) => {
+    const list = ofKind(kinds[i % kinds.length]);
+    return list[Math.floor(i / kinds.length) % list.length];
+  }).filter(Boolean);
 }

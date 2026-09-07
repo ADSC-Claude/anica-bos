@@ -1,0 +1,352 @@
+[
+ {
+  "id": "tuxedo",
+  "group": "gents",
+  "kind": "tuxedo",
+  "w": 234,
+  "h": 476
+ },
+ {
+  "id": "suit-black",
+  "group": "gents",
+  "kind": "suit",
+  "w": 222,
+  "h": 472
+ },
+ {
+  "id": "suit-navy",
+  "group": "gents",
+  "kind": "suit",
+  "w": 224,
+  "h": 472
+ },
+ {
+  "id": "suit-cream",
+  "group": "gents",
+  "kind": "suit",
+  "w": 226,
+  "h": 474
+ },
+ {
+  "id": "suit-olive",
+  "group": "gents",
+  "kind": "suit",
+  "w": 216,
+  "h": 472
+ },
+ {
+  "id": "suit-brown",
+  "group": "gents",
+  "kind": "suit",
+  "w": 206,
+  "h": 472
+ },
+ {
+  "id": "suit-grey",
+  "group": "gents",
+  "kind": "suit",
+  "w": 216,
+  "h": 472
+ },
+ {
+  "id": "barong-1",
+  "group": "gents",
+  "kind": "barong",
+  "w": 244,
+  "h": 460
+ },
+ {
+  "id": "barong-2",
+  "group": "gents",
+  "kind": "barong",
+  "w": 258,
+  "h": 464
+ },
+ {
+  "id": "barong-short",
+  "group": "gents",
+  "kind": "barongShort",
+  "w": 258,
+  "h": 456
+ },
+ {
+  "id": "linen-shirt",
+  "group": "gents",
+  "kind": "linen",
+  "w": 230,
+  "h": 456
+ },
+ {
+  "id": "white-shirt",
+  "group": "gents",
+  "kind": "shirt",
+  "w": 188,
+  "h": 456
+ },
+ {
+  "id": "casual-shirt",
+  "group": "gents",
+  "kind": "casual",
+  "w": 198,
+  "h": 456
+ },
+ {
+  "id": "gown-satin",
+  "group": "ladies",
+  "kind": "long",
+  "w": 276,
+  "h": 650
+ },
+ {
+  "id": "gown-draped-shoulder",
+  "group": "ladies",
+  "kind": "long",
+  "w": 226,
+  "h": 650
+ },
+ {
+  "id": "gown-lace",
+  "group": "ladies",
+  "kind": "long",
+  "w": 262,
+  "h": 650
+ },
+ {
+  "id": "gown-slit",
+  "group": "ladies",
+  "kind": "long",
+  "w": 246,
+  "h": 650
+ },
+ {
+  "id": "gown-halter",
+  "group": "ladies",
+  "kind": "long",
+  "w": 196,
+  "h": 650
+ },
+ {
+  "id": "gown-chiffon",
+  "group": "ladies",
+  "kind": "long",
+  "w": 238,
+  "h": 650
+ },
+ {
+  "id": "gown-ruffles",
+  "group": "ladies",
+  "kind": "long",
+  "w": 284,
+  "h": 650
+ },
+ {
+  "id": "gown-tiers",
+  "group": "ladies",
+  "kind": "long",
+  "w": 236,
+  "h": 650
+ },
+ {
+  "id": "gown-floral-1",
+  "group": "ladies",
+  "kind": "longPrint",
+  "w": 280,
+  "h": 650
+ },
+ {
+  "id": "gown-floral-2",
+  "group": "ladies",
+  "kind": "longPrint",
+  "w": 420,
+  "h": 650
+ },
+ {
+  "id": "terno-ivory",
+  "group": "ladies",
+  "kind": "terno",
+  "w": 274,
+  "h": 614
+ },
+ {
+  "id": "terno-olive",
+  "group": "ladies",
+  "kind": "terno",
+  "w": 246,
+  "h": 614
+ },
+ {
+  "id": "midi-wrap",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 148,
+  "h": 436
+ },
+ {
+  "id": "cocktail-flare",
+  "group": "ladies",
+  "kind": "cocktail",
+  "w": 268,
+  "h": 454
+ },
+ {
+  "id": "cocktail-cowl",
+  "group": "ladies",
+  "kind": "cocktail",
+  "w": 208,
+  "h": 468
+ },
+ {
+  "id": "midi-flutter",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 212,
+  "h": 458
+ },
+ {
+  "id": "cocktail-pleated",
+  "group": "ladies",
+  "kind": "cocktail",
+  "w": 222,
+  "h": 474
+ },
+ {
+  "id": "jumpsuit-wrap",
+  "group": "ladies",
+  "kind": "jumpsuit",
+  "w": 206,
+  "h": 482
+ },
+ {
+  "id": "blazer-suit",
+  "group": "ladies",
+  "kind": "ladySuit",
+  "w": 222,
+  "h": 508
+ },
+ {
+  "id": "jumpsuit-belted",
+  "group": "ladies",
+  "kind": "jumpsuit",
+  "w": 166,
+  "h": 488
+ },
+ {
+  "id": "blouse-trousers",
+  "group": "ladies",
+  "kind": "blouseTrousers",
+  "w": 246,
+  "h": 510
+ },
+ {
+  "id": "blouse-skirt",
+  "group": "ladies",
+  "kind": "blouseSkirt",
+  "w": 220,
+  "h": 490
+ },
+ {
+  "id": "jumpsuit-cami",
+  "group": "ladies",
+  "kind": "jumpsuit",
+  "w": 226,
+  "h": 492
+ },
+ {
+  "id": "midi-belted",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 234,
+  "h": 498
+ },
+ {
+  "id": "girl-1",
+  "group": "girls",
+  "kind": "girl",
+  "w": 272,
+  "h": 310
+ },
+ {
+  "id": "girl-2",
+  "group": "girls",
+  "kind": "girl",
+  "w": 246,
+  "h": 310
+ },
+ {
+  "id": "girl-3",
+  "group": "girls",
+  "kind": "girl",
+  "w": 230,
+  "h": 310
+ },
+ {
+  "id": "girl-4",
+  "group": "girls",
+  "kind": "girl",
+  "w": 214,
+  "h": 310
+ },
+ {
+  "id": "girl-5",
+  "group": "girls",
+  "kind": "girl",
+  "w": 230,
+  "h": 310
+ },
+ {
+  "id": "girl-6",
+  "group": "girls",
+  "kind": "girl",
+  "w": 232,
+  "h": 310
+ },
+ {
+  "id": "girl-7",
+  "group": "girls",
+  "kind": "girl",
+  "w": 246,
+  "h": 310
+ },
+ {
+  "id": "boy-tuxedo",
+  "group": "boys",
+  "kind": "boyFormal",
+  "w": 182,
+  "h": 298
+ },
+ {
+  "id": "boy-barong",
+  "group": "boys",
+  "kind": "boyBarong",
+  "w": 172,
+  "h": 306
+ },
+ {
+  "id": "boy-vest",
+  "group": "boys",
+  "kind": "boyFormal",
+  "w": 164,
+  "h": 306
+ },
+ {
+  "id": "boy-suspenders",
+  "group": "boys",
+  "kind": "boySmart",
+  "w": 164,
+  "h": 310
+ },
+ {
+  "id": "boy-shirt",
+  "group": "boys",
+  "kind": "boySmart",
+  "w": 186,
+  "h": 312
+ },
+ {
+  "id": "boy-polo",
+  "group": "boys",
+  "kind": "boyCasual",
+  "w": 194,
+  "h": 308
+ }
+]

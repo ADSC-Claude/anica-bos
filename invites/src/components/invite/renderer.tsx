@@ -543,9 +543,10 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
   const ladiesTicked = rows<string>(data, 'ladiesItems');
   const gents = attireWords(gentsItems(occasion), gentsTicked, lang);
   const ladies = attireWords(ladiesItems(occasion), ladiesTicked, lang);
-  // one drawing per colour, of the kinds of garment ticked
-  const suitArt = pickDrawings('gents', gentsTicked, suits.length);
-  const gownArt = pickDrawings('ladies', ladiesTicked, gowns.length);
+  // one garment per colour, of the kinds ticked; at a children's party, the boys' and the girls'
+  const kids = occasion === 'KIDS_BIRTHDAY';
+  const suitArt = pickDrawings('gents', gentsTicked, suits.length, kids);
+  const gownArt = pickDrawings('ladies', ladiesTicked, gowns.length, kids);
   // an invitation saved before the list existed asked only about white
   const avoidKeys = rows<string>(data, 'avoid');
   const avoid = avoidTicked(occasion, avoidKeys.length || !bool(data, 'avoidWhite') ? avoidKeys : ['white'], lang);
@@ -569,17 +570,17 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
       <Section id="dress-code" title={heading} tagline={attire ? undefined : tagline} className="inv-dresscode">
         {intro && <p className="inv-wear-intro">{intro}</p>}
         <div className="inv-wear">
-          <p className="inv-eyebrow inv-wear-head">{t(lang, 'dressCode.gents')}</p>
+          <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.boys' : 'dressCode.gents')}</p>
           <div className="inv-dress">
-            {suits.map((c, i) => <Drawn key={i} drawing={suitArt[i]} color={c} id={`dress-gent-${i}`} />)}
+            {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} id={`dress-gent-${i}`} />)}
           </div>
           {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
           {str(data, 'gentsNote') && <p className="inv-wear-note">{str(data, 'gentsNote')}</p>}
         </div>
         <div className="inv-wear">
-          <p className="inv-eyebrow inv-wear-head">{t(lang, 'dressCode.ladies')}</p>
+          <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.girls' : 'dressCode.ladies')}</p>
           <div className="inv-dress">
-            {gowns.map((c, i) => <Drawn key={i} drawing={gownArt[i]} color={c} id={`dress-lady-${i}`} />)}
+            {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} id={`dress-lady-${i}`} />)}
           </div>
           {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
           {str(data, 'ladiesNote') && <p className="inv-wear-note">{str(data, 'ladiesNote')}</p>}

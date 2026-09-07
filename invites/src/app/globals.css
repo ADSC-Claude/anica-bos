@@ -532,71 +532,56 @@ table.data tr:hover td {
 .inv[data-layout='capiz']::before,
 .inv[data-layout='capiz']::after { display: none; }
 
-/* --- capiz, photographed: pieces cut from the couple's own frame images and
-   placed as layers over the ground — corner clusters at the page's corners
-   and in the gaps between blocks, hanging strands down the edges in long
-   alternating runs, and the arch behind the names --- */
+/* --- capiz, photographed: the couple's own portrait frame fixed behind the
+   page, their name plate behind the hero, and a strung garland across the
+   page where one chapter ends and the next begins. All of it their pixels,
+   none of it drawn. --- */
 .inv[data-layout='capiz'] { position: relative; overflow: hidden; }
-/* The frame: the design's portrait image, fixed behind the page so every
-   screen carries the drapes and the corner clusters while the content scrolls
-   over it. A fixed element rather than background-attachment, which iOS
-   Safari does not honour. */
-.inv-frame { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: url(/capiz/portrait-frame.jpg) center / cover no-repeat; }
-.inv-corner {
-  position: absolute; z-index: 0; pointer-events: none;
-  width: 18rem; height: 18rem;
-  background-size: cover; background-position: center;
-}
-.inv-corner[data-img='tl'] { background-image: url(/capiz/corner-tl.jpg); left: -1.5rem;
-  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 0% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
-          mask-image: radial-gradient(ellipse 95% 95% at 0% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
-.inv-corner[data-img='tr'] { background-image: url(/capiz/corner-tr.jpg); right: -1.5rem;
-  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 100% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
-          mask-image: radial-gradient(ellipse 95% 95% at 100% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
-.inv-corner[data-img='bl'] { background-image: url(/capiz/corner-bl.jpg); left: -1.5rem;
-  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 0% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
-          mask-image: radial-gradient(ellipse 95% 95% at 0% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
-.inv-corner[data-img='br'] { background-image: url(/capiz/corner-br.jpg); right: -1.5rem;
-  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 100% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
-          mask-image: radial-gradient(ellipse 95% 95% at 100% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
-.inv-corner[data-size='lg'] { width: 23rem; height: 23rem; }
-.inv-corner[data-size='sm'] { width: 15rem; height: 15rem; }
-
-.inv-edge {
-  position: absolute; z-index: 0; pointer-events: none;
-  width: 6.4rem;
-  background-repeat: repeat-y; background-size: 100% auto;
-  /* fades at both ends of the run, and on the side that meets the page, so the
-     strip's own cream never shows as a band against the ground */
-  -webkit-mask-composite: source-in; mask-composite: intersect;
-}
-.inv-edge[data-side='l'] { left: -1.2rem; background-image: url(/capiz/edge-l.jpg);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to right, #000 58%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to right, #000 58%, transparent 100%); }
-.inv-edge[data-side='r'] { right: -1.2rem; background-image: url(/capiz/edge-r.jpg);
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to left, #000 58%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to left, #000 58%, transparent 100%); }
-
-/* a cluster sitting mid-page rather than in a page corner fades top and bottom too */
-.inv-corner[data-mid][data-img='tl'], .inv-corner[data-mid][data-img='bl'] {
-  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
-          mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
-.inv-corner[data-mid][data-img='tr'], .inv-corner[data-mid][data-img='br'] {
-  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
-          mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
-
+/* The frame: fixed behind the page, so every screen carries the drapes and
+   the corner clusters while the content scrolls over it. A fixed element
+   rather than background-attachment, which iOS Safari does not honour. The
+   portrait image on a phone; the landscape original when the screen is wider
+   than it is tall, so the clusters stay in the corners either way. */
+.inv-frame { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: #f1e5dc url(/capiz/portrait-frame.jpg) center / cover no-repeat; }
+@media (orientation: landscape) { .inv-frame { background-image: url(/capiz/frame.webp); } }
 .inv[data-layout='capiz'] > .inv-hero,
-.inv[data-layout='capiz'] > .inv-section { position: relative; z-index: 1; }
+.inv[data-layout='capiz'] > .inv-section,
+.inv[data-layout='capiz'] > .inv-garland { position: relative; z-index: 1; }
 
-/* the arch, behind the names */
-.inv[data-layout='capiz'] .inv-hero::before {
-  content: ''; position: absolute; z-index: 0; pointer-events: none;
-  left: 50%; top: 0.5rem; width: 21rem; height: 20.6rem; transform: translateX(-50%);
-  background: url(/capiz/arch.jpg) center / cover no-repeat;
-  -webkit-mask-image: radial-gradient(ellipse 60% 62% at 50% 44%, #000 58%, rgba(0,0,0,.5) 74%, transparent 90%);
-          mask-image: radial-gradient(ellipse 60% 62% at 50% 44%, #000 58%, rgba(0,0,0,.5) 74%, transparent 90%);
+/* The plate: two strands of shell with the names set between them. Sized by
+   the page's width and hung from the top of the hero, so the strands land at
+   known heights — 0.32 and 0.97 of the width down — and the names group is
+   given exactly that band. What comes after the names starts under the lower
+   strand. Feathered at its edges so it and the frame read as one panel. On a
+   screen wider than it is tall the plate would be a sliver, so the frame's
+   own clusters do the work there. */
+@media (orientation: portrait) {
+  .inv[data-layout='capiz'] .inv-hero::before {
+    content: ''; position: absolute; left: 0; right: 0; top: -46vw; height: 233.15vw; z-index: 0; pointer-events: none;
+    background: url(/capiz/plate.jpg) center top / 100% auto no-repeat;
+    -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
+            mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
+  }
+  .inv[data-layout='capiz'] .inv-hero { display: block; padding: 0 1.6rem 3rem; }
+  .inv[data-layout='capiz'] .inv-hero-names { display: flex; flex-direction: column; justify-content: center; margin-top: 39vw; height: 58vw; }
+  .inv[data-layout='capiz'] .inv-hero-details { margin-top: 6vw; }
+  /* sized to sit inside the band with air on both sides of it */
+  .inv[data-layout='capiz'] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
+  .inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
+  .inv[data-layout='capiz'] .inv-names { font-size: clamp(1.9rem, 8.6vw, 2.6rem); }
 }
 .inv[data-layout='capiz'] .inv-hero > * { position: relative; z-index: 1; }
+
+/* a garland: one strung row cut from the couple's band image, across the
+   page between chapters, feathered top and bottom into the ground */
+.inv-garland {
+  display: block; width: 100%; max-width: 44rem; margin: -0.5rem auto -1.25rem; pointer-events: none;
+  background-size: 100% auto; background-position: center; background-repeat: no-repeat;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+          mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+}
+.inv-garland[data-g='a'] { aspect-ratio: 720 / 269; background-image: url(/capiz/garland-a.jpg); }
+.inv-garland[data-g='b'] { aspect-ratio: 720 / 282; background-image: url(/capiz/garland-b.jpg); }
 
 /* --- sections --- */
 .inv[data-layout='capiz'] .inv-section {
@@ -653,10 +638,10 @@ table.data tr:hover td {
 .inv[data-layout='capiz'] .inv-btn {
   font-family: var(--inv-display);
   font-weight: 600;
-  font-size: 0.72rem;
-  letter-spacing: 0.22em;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding: 0.85rem 1.7rem;
+  padding: 0.8rem 1.3rem;
   min-height: 0;
   background: var(--inv-accent);
   border-color: var(--inv-accent);
@@ -697,12 +682,15 @@ table.data tr:hover td {
 
 /* --- hero --- */
 .inv[data-layout='capiz'] .inv-hero {
-  min-height: 0;
-  padding: 5.6rem 1.6rem 2.5rem;
+  min-height: 100svh;
+  padding: 4rem 1.6rem 3rem;
   align-items: center;
+  justify-content: center;
   flex-direction: column;
 }
-.inv[data-layout='capiz'] .inv-hero-scrim { display: none; }
+.inv[data-layout='capiz'] .inv-hero-body { margin: 0 auto; }
+.inv[data-layout='capiz'] .inv-hero-scrim,
+.inv[data-layout='capiz'] .inv-hero-photo { display: none; }
 .inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; }
 .inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 1.6rem; }
 .inv[data-layout='capiz'] .inv-names {
@@ -825,6 +813,10 @@ table.data tr:hover td {
 .inv-strip img { aspect-ratio: 3/4; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74,59,47,0.55); }
 .inv-strip figure:nth-child(2) img { aspect-ratio: 3/4.4; }
 
+/* the hashtag, sized for the column */
+.inv[data-layout='capiz'] #social .inv-display { display: block; font-size: 1.35rem; letter-spacing: 0.04em; margin-top: 0.3rem; }
+.inv[data-layout='capiz'] #social .inv-eyebrow { display: block; }
+
 /* --- the gallery as a strip of three, the middle one a little taller --- */
 .inv[data-layout='capiz'] .inv-gallery { grid-template-columns: 1fr 1.08fr 1fr; gap: 0.5rem; align-items: center; }
 .inv[data-layout='capiz'] .inv-gallery figure:first-child { grid-column: auto; }
@@ -835,18 +827,9 @@ table.data tr:hover td {
 .inv-dress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; align-items: end; margin: 0.8rem 0.2rem 0; }
 .inv-dress svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 6px rgba(74,59,47,0.12)); }
 .inv-swatches { display: flex; justify-content: center; gap: 0.6rem; margin-top: 1.5rem; }
+.inv[data-layout='capiz'] .inv-attire { gap: 1rem; }
+.inv[data-layout='capiz'] .inv-attire .inv-eyebrow { margin-bottom: 0.2rem; }
 
-/* a cluster in the gap after every block, alternating sides */
-.inv[data-layout='capiz'] .inv-section::after {
-  content: ''; position: absolute; z-index: 0; pointer-events: none;
-  bottom: -7.5rem; width: 15rem; height: 15rem; background-size: cover; background-position: center;
-}
-.inv[data-layout='capiz'] .inv-section:nth-of-type(odd)::after { left: -1.5rem; background-image: url(/capiz/corner-tl.jpg);
-  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
-          mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
-.inv[data-layout='capiz'] .inv-section:nth-of-type(even)::after { right: -1.5rem; background-image: url(/capiz/corner-tr.jpg);
-  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
-          mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
 .inv[data-layout='capiz'] .inv-section > * { position: relative; z-index: 1; }
 
 /* the hero, from the app's own markup */
@@ -871,10 +854,9 @@ table.data tr:hover td {
 
 /* the strip is decoration: none of it prints */
 @media print {
-  .inv-frame, .inv-corner, .inv-edge,
-  .inv[data-layout='capiz'] .inv-hero::before,
-  .inv[data-layout='capiz'] .inv-section::after { display: none !important; }
-  .inv[data-layout='capiz'] { background-image: none; }
+  .inv-frame, .inv-garland,
+  .inv[data-layout='capiz'] .inv-hero::before { display: none !important; }
+  .inv[data-layout='capiz'] .inv-hero { min-height: 0; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -1135,6 +1117,36 @@ table.data tr:hover td {
   opacity: 0;
   transition: opacity 400ms ease;
 }
+/* The Capiz clip. Its sealed face already says an invitation is here, and the
+   card it opens onto is blank on purpose: the couple's own words are set on
+   it here, so a name changed in the builder shows on the next reload and the
+   clip is never re-rendered. The artwork is light, so no scrim and no white
+   line over it. */
+.inv-open[data-clip='capiz']::before,
+.inv-open[data-clip='capiz']::after,
+.inv-open[data-clip='capiz'] .inv-open-copy { display: none; }
+.inv-open[data-clip='capiz'] .inv-open-hint { color: #6b5744; text-shadow: none; }
+/* The card's box: the clip is object-fit cover, so this is the same box the
+   clip is drawn in — as wide as the screen or as tall as it, whichever the
+   9:16 frame needs — and the words are placed in it by fractions of the frame. */
+.inv-open-plate {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: max(100%, calc(100dvh * 9 / 16)); aspect-ratio: 9 / 16;
+  container-type: size; pointer-events: none;
+  opacity: 0; transition: opacity 900ms ease;
+}
+.inv-open-plate[data-show='true'] { opacity: 1; }
+.inv-open-plate > div {
+  position: absolute; left: 22%; width: 56%; top: 17%; bottom: 10%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #5b4a3b; text-align: center;
+}
+.inv-plate-mono { font-family: var(--inv-names, var(--inv-display)); font-size: 7cqw; letter-spacing: 0.16em; text-indent: 0.16em; }
+.inv-plate-eyebrow { font-family: var(--inv-body); font-size: 2.5cqw; letter-spacing: 0.34em; text-indent: 0.34em; text-transform: uppercase; margin-top: 3.5cqh; line-height: 1.7; }
+.inv-plate-names { font-family: var(--inv-script, var(--inv-display)); font-size: 13.5cqw; line-height: 1.1; margin-top: 2.5cqh; }
+.inv-plate-and { display: block; font-size: 6cqw; line-height: 1.25; opacity: 0.85; }
+.inv-plate-date { font-family: var(--inv-body); font-size: 3.4cqw; letter-spacing: 0.34em; text-indent: 0.34em; margin-top: 4.5cqh; }
+.inv-plate-line2 { font-family: var(--inv-body); font-size: 2.2cqw; letter-spacing: 0.24em; text-transform: uppercase; margin-top: 3cqh; opacity: 0.85; }
 
 /* The Drape: hanging silk with the names on it, lifted away. */
 .inv-open-drape {

@@ -38,6 +38,8 @@ export type OpeningProps = {
   /** "cinematic" only: the clip, and the still shown until it plays. */
   video: string;
   poster: string;
+  /** Which clip, when the words belong on its card rather than over its face — "capiz". */
+  clip: string;
   /** "Tap to open". */
   hint: string;
 };
@@ -108,6 +110,36 @@ function Stage({ style, monogram, photos, video, poster, videoRef }: {
 }
 
 /**
+ * The couple's words on the card a clip opens onto: monogram, the line,
+ * the names, the date. Set in a box the size of the clip's own frame, so they
+ * land on the card whatever the screen's shape. "Juan & Maria" is set as two
+ * names with an "and" between, the way a card is lettered.
+ */
+function CardWords({ opening, show }: { opening: OpeningProps; show: boolean }) {
+  const names = opening.names.split(/\s+&\s+/);
+  return (
+    <div className="inv-open-plate" data-show={show} aria-hidden>
+      <div>
+        {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
+        {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
+        {opening.names && (
+          <p className="inv-plate-names">
+            {names.map((n, i) => (
+              <span key={i}>
+                {i > 0 && <span className="inv-plate-and">and</span>}
+                {n}
+              </span>
+            ))}
+          </p>
+        )}
+        {opening.date && <p className="inv-plate-date">{opening.date}</p>}
+        {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Hides the overlay outright when scripts do not run — otherwise a guest with
  * JavaScript off would be left tapping a screen that never opens.
  */
@@ -133,6 +165,8 @@ export function Shell({
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const clip = useRef<HTMLVideoElement | null>(null);
+  // The words on the card, once the clip has opened onto it.
+  const [card, setCard] = useState(false);
 
   const play = useCallback(async () => {
     if (!audio.current) return;
@@ -188,8 +222,23 @@ export function Shell({
       setOpen(true);
       return;
     }
+    // A clip whose card carries the words holds on its last frame long enough
+    // for them to be read before the page comes up behind it.
     const finish = () => setOpen(true);
-    video.addEventListener('ended', finish, { once: true });
+    const ended = () => (opening.clip ? setTimeout(finish, 1500) : finish());
+    video.addEventListener('ended', ended, { once: true });
+    if (opening.clip) {
+      // The card is clear of the panels from about here; the words fade in on it.
+      const at = 2.7;
+      const onTime = () => {
+        if (video.currentTime >= at) {
+          setCard(true);
+          video.removeEventListener('timeupdate', onTime);
+        }
+      };
+      video.addEventListener('timeupdate', onTime);
+      setTimeout(() => setCard(true), (at + 0.35) * 1000);
+    }
     // A clip that will not play — an unsupported codec, a file that 404s, a
     // browser that refuses — must not strand the guest on a screen that never
     // opens, so the reveal happens anyway.
@@ -205,6 +254,7 @@ export function Shell({
           <div
             className="inv-open"
             data-style={opening.style}
+            data-clip={opening.clip || undefined}
             data-open={open}
             role="button"
             tabIndex={open ? -1 : 0}
@@ -215,6 +265,7 @@ export function Shell({
           >
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
+              {opening.clip && <CardWords opening={opening} show={card} />}
             </div>
             <div className="inv-open-copy">
               {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}

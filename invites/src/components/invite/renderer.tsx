@@ -1,5 +1,5 @@
 import type { Occasion, Tier } from '@prisma/client';
-import type { CSSProperties, ReactNode } from 'react';
+import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { t, tagline as taglineOf, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
@@ -141,24 +141,30 @@ function Hero({ occasion, content, lang, layout }: { occasion: Occasion; content
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
-        {monogram && <p className="inv-display mb-3 text-3xl opacity-90">{monogram}</p>}
-        {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }}>{eyebrow}</p>}
-        <h1 className="inv-names">
-          {copy.names.map((n, i) => (
-            <span key={i}>
-              {i > 0 && <span className="inv-amp">&amp;</span>}
-              {n}
-            </span>
-          ))}
-        </h1>
-        {copy.sub && <p className="mt-3 text-sm opacity-90">{copy.sub}</p>}
-        {copy.intro && <p className="mx-auto mt-5 max-w-md text-base leading-relaxed opacity-95">{copy.intro}</p>}
-        {date && (
-          <p className="mt-6 text-lg">
-            <span className="inv-display block text-2xl">{formatDate(date, 'weekday')}</span>
-            {time && <span className="mt-1 block text-sm opacity-90">{formatTime(time)}</span>}
-          </p>
-        )}
+        {/* Two groups, so a design can set the names apart from the rest —
+            Capiz holds them between the two strands of its plate. */}
+        <div className="inv-hero-names">
+          {monogram && <p className="inv-display mb-3 text-3xl opacity-90">{monogram}</p>}
+          {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }}>{eyebrow}</p>}
+          <h1 className="inv-names">
+            {copy.names.map((n, i) => (
+              <span key={i}>
+                {i > 0 && <span className="inv-amp">&amp;</span>}
+                {n}
+              </span>
+            ))}
+          </h1>
+        </div>
+        <div className="inv-hero-details">
+          {copy.sub && <p className="mt-3 text-sm opacity-90">{copy.sub}</p>}
+          {copy.intro && <p className="mx-auto mt-5 max-w-md text-base leading-relaxed opacity-95">{copy.intro}</p>}
+          {date && (
+            <p className="mt-6 text-lg">
+              <span className="inv-display block text-2xl">{formatDate(date, 'weekday')}</span>
+              {time && <span className="mt-1 block text-sm opacity-90">{formatTime(time)}</span>}
+            </p>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -389,9 +395,9 @@ function DressCode({ data, lang, tagline, layout }: { data: SectionData; lang: L
         )}
         {bool(data, 'avoidWhite') && <p className="inv-muted mt-3 text-sm">{t(lang, 'dressCode.avoidWhite')}</p>}
         {(str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) && (
-          <div className="inv-two mt-4 text-sm">
-            {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
-            {str(data, 'entourageAttire') && <p><span className="inv-eyebrow">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
+          <div className="inv-two inv-attire mt-4 text-sm">
+            {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
+            {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
           </div>
         )}
         {str(data, 'note') && <p className="mt-3 whitespace-pre-line text-sm">{str(data, 'note')}</p>}
@@ -789,7 +795,7 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline }: { inv: PublicI
 
 function Closing({ data, lang, hashtag, tagline, names, date }: { data: SectionData; lang: Lang; hashtag: string; tagline?: string; names?: string; date?: string }) {
   return (
-    <Section id="closing" title={t(lang, 'closing.title')} tagline={tagline}>
+    <Section id="closing" title={tagline ? undefined : t(lang, 'closing.title')} tagline={tagline}>
       {str(data, 'photo') && <img src={imageUrl(str(data, 'photo'), IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
       {str(data, 'message') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'message')}</p>}
       {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }}>{str(data, 'signature')}</p>}
@@ -854,26 +860,20 @@ function Contact({ data, lang, tagline }: { data: SectionData; lang: Lang; tagli
 // ---------------------------------------------------------------------------
 
 /**
- * The frame fixed behind the page, the four page corners, and the hanging
- * strands down the edges in long alternating runs. The clusters in the gaps
- * between blocks are CSS, on the sections themselves. Positions are
- * fractions of the page, so the runs stay spread whatever its length.
+ * The couple's frame, fixed behind the page: every screen carries its drapes
+ * and corner clusters while the content scrolls over it. The plate behind the
+ * names and the garlands between chapters are CSS on the hero and on the
+ * dividers below, so a print carries none of it.
  */
 function CapizDecor() {
-  const runs: [side: 'l' | 'r', top: number, bottom: number][] = [['l', 0.05, 0.32], ['r', 0.2, 0.52], ['l', 0.44, 0.74], ['r', 0.64, 0.92]];
-  return (
-    <>
-      <div className="inv-frame" aria-hidden />
-      <span className="inv-corner" data-img="tl" data-size="lg" style={{ top: '-1rem' }} aria-hidden />
-      <span className="inv-corner" data-img="tr" style={{ top: '-1rem' }} aria-hidden />
-      <span className="inv-corner" data-img="bl" data-size="lg" style={{ bottom: '-1rem' }} aria-hidden />
-      <span className="inv-corner" data-img="br" style={{ bottom: '-1rem' }} aria-hidden />
-      {runs.map(([side, top, bottom], i) => (
-        <span key={i} className="inv-edge" data-side={side} style={{ top: `${top * 100}%`, height: `${(bottom - top) * 100}%` }} aria-hidden />
-      ))}
-    </>
-  );
+  return <div className="inv-frame" aria-hidden />;
 }
+
+/**
+ * Where a garland is strung across the page: before the chapter it opens.
+ * Two rows cut from the band image, alternating so neighbours differ.
+ */
+const GARLANDS: Partial<Record<SectionKey, 'a' | 'b'>> = { story: 'a', ceremony: 'b', rsvp: 'a' };
 
 /** Which line icon a program entry gets, from the words in its title. */
 function programIcon(title: string): string {
@@ -1020,15 +1020,20 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const def = OPENING_BY_KEY[style];
     const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);
     const photos = [coverImage(content), ...gallery].filter(Boolean).slice(0, def.photos);
+    // The Capiz clip opens onto a blank card, and the words go on the card as
+    // it opens rather than over the closed face.
+    const clip = style === 'cinematic' && layout === 'capiz' ? 'capiz' : '';
+    const wordsOnCard = Boolean(clip);
     return {
       style,
+      clip,
       monogram: str(content.cover, 'monogram'),
       // A door, not a title page: this opening says only that an invitation is
       // here, and who it is from waits until it opens.
-      names: def.lineOnly ? '' : displayTitle(occasion, content),
+      names: def.lineOnly && !wordsOnCard ? '' : displayTitle(occasion, content),
       // "08 · 24 · 26" — month, day, year, the way a date is set on a
       // card rather than written into a sentence.
-      date: def.lineOnly ? '' : openingDate(coverDate),
+      date: def.lineOnly && !wordsOnCard ? '' : openingDate(coverDate),
       line: str(content.cover, 'openingLine') || def.line[lang],
       line2: str(content.cover, 'openingLine2'),
       caps: Boolean(def.caps),
@@ -1044,6 +1049,16 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // The line in script under each heading — a Capiz trait; other designs show none.
   const tag = (key: string) => (layout === 'capiz' ? taglineOf(lang, key) : undefined);
   const body = order.map((key) => {
+    const block = section(key);
+    const garland = layout === 'capiz' && block ? GARLANDS[key] : undefined;
+    return garland ? (
+      <Fragment key={key}>
+        <div className="inv-garland" data-g={garland} aria-hidden />
+        {block}
+      </Fragment>
+    ) : block;
+  });
+  function section(key: SectionKey) {
     if (!visible(key)) return null;
     const data = content[key] ?? {};
     switch (key) {
@@ -1104,7 +1119,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'contact':
         return <Contact key={key} data={data} lang={lang} tagline={tag('contact')} />;
     }
-  });
+  }
 
   return (
     <div className="inv" data-layout={layout} style={style} lang={lang}>

@@ -111,16 +111,29 @@ export function buildRefundPolicy(s: Settings): PolicySection[] {
     },
     {
       heading: 'Treatments you have already had',
+      /**
+       * An open door, deliberately not a menu.
+       *
+       * The spa does put things right when a treatment goes wrong — a redo, or
+       * money back where that is fairer — and the manager has room to be
+       * generous. But that is decided in the room, on the facts, by somebody
+       * who was there. Publishing it as an entitlement changes what it is: a
+       * written promise of "a refund in part or in full" is read as an offer
+       * and argued with, by exactly the people it was not written for.
+       *
+       * So the wording invites the complaint and commits to hearing it, names
+       * the likely remedy without promising it, and stops there. The goodwill
+       * stays where goodwill works, which is unadvertised.
+       *
+       * "Arranged with the spa directly" is also literally true of the
+       * mechanism: a completed treatment is settled at the counter, so putting
+       * it right is the spa's own affair and does not run back through the
+       * payment gateway the way a reservation fee does.
+       */
       body: [
-        `A completed treatment is not automatically refundable — the therapist's time and the room were ` +
-          `used, and cannot be recovered. But if you were genuinely unhappy with what you received, say so ` +
-          `and it will be looked at properly.`,
-        `Raise it with the branch manager before you leave if you can, or by email within seven days of ` +
-          `your visit. The manager decides each case on its facts, and may offer a repeat treatment, a ` +
-          `credit toward your next visit, or a refund in part or in full. You will have an answer within ` +
-          `${REFUND_DAYS} days of asking, whichever way it goes.`,
-        'Telling us early matters more than telling us forcefully. Most of what goes wrong in a treatment ' +
-          'can be put right the same day if somebody knows about it.',
+        `A treatment that has been given is not refunded automatically — the therapist's hour and the room were used, and that part cannot be undone. But it is not the end of the conversation either.`,
+        `If you were unhappy with your treatment, tell us: the branch manager before you leave if you can, or by email within seven days. We will go through it with you and agree what to do, and more often than not that means putting the treatment right rather than money changing hands.`,
+        `Anything settled this way is arranged with the spa directly.`,
       ],
     },
     {

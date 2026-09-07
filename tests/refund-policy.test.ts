@@ -66,6 +66,31 @@ test('the spa cancelling always refunds, whatever the house policy says', () => 
   }
 });
 
+test('a treatment already given invites a complaint without promising money back', () => {
+  // Two things have to stay true of this section at once, and it is easy for a
+  // later edit to lose either. It must not promise a refund — a written offer
+  // on a completed treatment is read as an entitlement and argued with, by
+  // exactly the people it was not written for. And it must not slam the door
+  // either: the spa does put things right, and a guest who reads a flat "no"
+  // stops reading and stops coming.
+  const section = buildRefundPolicy(base).find(
+    (s) => s.heading === 'Treatments you have already had',
+  );
+  assert.ok(section, 'the completed-treatment rule must still be stated');
+  const text = [...section.body, ...(section.bullets ?? [])].join(' ');
+
+  // States the rule, but as "not automatic" rather than "never".
+  assert.match(text, /not refunded automatically/);
+  // Invites the complaint and says where it goes.
+  assert.match(text, /tell us/i);
+  assert.match(text, /branch manager/);
+  // Never promises the outcome.
+  assert.doesNotMatch(
+    text,
+    /refund in part or in full|credit toward|will be refunded|at (?:the )?manager'?s? discretion/i,
+  );
+});
+
 test('the contact details are the ones a guest would actually reach', () => {
   const text = flatten(settings({
     'business.email': 'hello@example.test',

@@ -1132,24 +1132,32 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * the reference does. A "page" fills the screen; a "connector" is the short
  * panel between two pages, strung between the two strands.
  */
-type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[] };
+/**
+ * `row` is the strung row of shell that opens the page — the join with the
+ * page before it. The deep rows from the band image ("a" with its drape,
+ * "b") open the big chapters; the thin strands from the two-strand image
+ * ("s1" with its cluster at the left, "s2" mirrored) join the rest. The
+ * cover has none: it carries the whole frame instead.
+ */
+type Row = 'a' | 'b' | 's1' | 's2';
+type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[]; row?: Row };
 const CAPIZ_PAGES: PageDef[] = [
   { key: 'cover', kind: 'page', sections: ['cover'] },
-  { key: 'verse', kind: 'connector', sections: ['verse'] },
-  { key: 'moment', kind: 'page', sections: ['moment'] },
-  { key: 'story', kind: 'page', sections: ['story'] },
-  { key: 'invitation', kind: 'page', sections: ['ceremony'] },
-  { key: 'entourage', kind: 'page', sections: ['entourage'] },
-  { key: 'prenup', kind: 'connector', sections: ['gallery'] },
-  { key: 'venue', kind: 'page', sections: ['reception'] },
-  { key: 'dress-code', kind: 'page', sections: ['dressCode'] },
-  { key: 'gift', kind: 'page', sections: ['gift'] },
-  { key: 'program', kind: 'page', sections: ['program', 'social'] },
-  { key: 'guestbook', kind: 'page', sections: ['guestbook'] },
-  { key: 'photos', kind: 'page', sections: ['photos'] },
-  { key: 'rsvp', kind: 'page', sections: ['rsvp'] },
-  { key: 'countdown', kind: 'connector', sections: ['countdown'] },
-  { key: 'closing', kind: 'page', sections: ['contact', 'closing'] },
+  { key: 'verse', kind: 'connector', sections: ['verse'], row: 's1' },
+  { key: 'moment', kind: 'page', sections: ['moment'], row: 's2' },
+  { key: 'story', kind: 'page', sections: ['story'], row: 'a' },
+  { key: 'invitation', kind: 'page', sections: ['ceremony'], row: 's2' },
+  { key: 'entourage', kind: 'page', sections: ['entourage'], row: 's1' },
+  { key: 'prenup', kind: 'connector', sections: ['gallery'], row: 's2' },
+  { key: 'venue', kind: 'page', sections: ['reception'], row: 'b' },
+  { key: 'dress-code', kind: 'page', sections: ['dressCode'], row: 's1' },
+  { key: 'gift', kind: 'page', sections: ['gift'], row: 's2' },
+  { key: 'program', kind: 'page', sections: ['program', 'social'], row: 's1' },
+  { key: 'guestbook', kind: 'page', sections: ['guestbook'], row: 's2' },
+  { key: 'photos', kind: 'page', sections: ['photos'], row: 's1' },
+  { key: 'rsvp', kind: 'page', sections: ['rsvp'], row: 'a' },
+  { key: 'countdown', kind: 'connector', sections: ['countdown'], row: 's2' },
+  { key: 'closing', kind: 'page', sections: ['contact', 'closing'], row: 's1' },
 ];
 
 /** Which line icon a program entry gets, from the words in its title. */
@@ -1356,16 +1364,16 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[]) => (
-      <div key={key} className="inv-page" data-page={key} data-kind={kind}>{parts}</div>
+    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], row?: Row) => (
+      <div key={key} className="inv-page" data-page={key} data-kind={kind} data-row={row}>{parts}</div>
     );
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
       def.sections.forEach((k) => placed.add(k));
-      if (parts.length) out.push(page(def.key, def.kind, parts));
+      if (parts.length) out.push(page(def.key, def.kind, parts, def.row));
     }
     // a section the map does not name gets a page of its own, in its place
-    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)]));
+    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)], 's1'));
     return out;
   }
   function section(key: SectionKey) {

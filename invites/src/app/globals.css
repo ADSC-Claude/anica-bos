@@ -530,33 +530,45 @@ table.data tr:hover td {
 .inv[data-layout='capiz']::before,
 .inv[data-layout='capiz']::after { display: none; }
 
-/* --- capiz, photographed: a stack of pages, each carrying the couple's own
-   frame as its background — the top of the frame at the top of the page, the
-   bottom at the bottom, solid ground between — so the shell and the drapes
-   scroll with the words they belong to, and one page ends where the next
-   begins. A connector is the short panel between two pages, strung between
-   the two strands cut from the two-strand image. --- */
+/* --- capiz, photographed: one solid ground the whole way down, cut into
+   pages. The cover carries the couple's whole frame; every page after it
+   opens with a strung row of shell — the join with the page before — and the
+   last closes on the frame's foot. The rows are cut from the couple's own
+   images, their edges faded into the ground so they float on it, and they
+   scroll with the words they belong to. A connector is a short page. --- */
 .inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
 body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-page {
   position: relative;
   min-height: 100svh;
   display: flex; flex-direction: column; justify-content: center;
-  padding: 5rem 0;
+  padding: 4rem 0;
   background-color: #f1e5dc;
+  background-position: center top;
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+}
+.inv-page[data-kind='connector'] { min-height: 0; }
+/* the rows: the page's own padding makes room for the one at its top */
+.inv-page[data-row='a'] { background-image: url(/capiz/garland-a.jpg); padding-top: min(44vw, 15rem); }
+.inv-page[data-row='b'] { background-image: url(/capiz/garland-b.jpg); padding-top: min(40vw, 13.5rem); }
+.inv-page[data-row='s1'] { background-image: url(/capiz/strand-a.jpg); padding-top: min(24vw, 8rem); }
+.inv-page[data-row='s2'] { background-image: url(/capiz/strand-b.jpg); padding-top: min(23vw, 7.6rem); }
+/* the cover: the whole frame, top and foot; the closing: the foot */
+.inv-page[data-page='cover'] {
+  padding: 3rem 0;
   background-image: url(/capiz/frame-top.jpg), url(/capiz/frame-bottom.jpg);
   background-position: center top, center bottom;
   background-size: 100% auto, 100% auto;
-  background-repeat: no-repeat;
 }
-.inv-page[data-kind='connector'] {
-  min-height: 0;
-  padding: 5.5rem 0;
-  background-image: url(/capiz/strand-a.jpg), url(/capiz/strand-b.jpg);
+.inv-page[data-page='closing'] {
+  background-image: url(/capiz/strand-a.jpg), url(/capiz/frame-bottom.jpg);
+  background-position: center top, center bottom;
+  background-size: 100% auto, 100% auto;
+  padding-bottom: min(60vw, 20rem);
 }
 .inv-page > .inv-section { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 .inv-page > .inv-section + .inv-section { padding-top: 2.5rem; }
-.inv-page[data-page='cover'] { padding: 3rem 0; }
 
 /* --- sections --- */
 .inv[data-layout='capiz'] .inv-section {

@@ -541,28 +541,38 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 /* The ground. Every page stands on one of the designer's numbered backgrounds,
    each drawn for its page: the cover and the verse share 1, the story 2, the
    invitation 3, the entourage 4, then 5, 6 and 7, with 5 and 6 taking turns for
-   the pages after, and 8 at the foot of the closing. Under them all runs the
-   filler — a quiet band cut from the designer's earlier pieces — which shows
-   where a page runs longer than its background and under the connectors.
-   A background's top is faded and starts a little above its page, so it blends
-   onto whatever ended the page before; the images are 766 wide by 2054 tall. */
-.inv[data-layout='capiz'] { background: #f1e5dc url(/capiz/bg-fill.webp) center top / 100% auto repeat-y; }
+   the pages after, and 8 at the foot of the closing. The backgrounds are about
+   2.645 times as tall as they are wide. A page is at least one background tall;
+   a longer page continues on the same background turned over, so nothing ends
+   mid-page. Each ground runs a fifth of a background past its page's foot, and
+   the next page's ground fades in over that, so one page dissolves into the
+   next. The words keep to the clear middle: the shells and sprays live in the
+   corners and along the edges. */
+.inv[data-layout='capiz'] { background: #f0dccb; }
 .inv-page {
   position: relative; z-index: 1;
-  min-height: min(260vw, 83.2rem);
+  min-height: min(264.5vw, 84.6rem);
   display: flex; flex-direction: column; justify-content: center;
-  padding: 4rem 0;
+  padding: min(40vw, 12.8rem) min(5vw, 1.6rem) min(34vw, 10.9rem);
 }
-.inv-page-bg { position: absolute; left: 0; right: 0; top: 0; z-index: -1; width: 100%; height: auto; margin-top: -21.45%; pointer-events: none; }
-.inv-page-bg-last { top: auto; bottom: 0; margin-top: 0; }
-.inv-page[data-kind='connector'] { min-height: 0; padding: 2rem 0; }
+.inv-page-bg-col { position: absolute; left: 0; right: 0; top: 0; bottom: calc(-1 * min(52.9vw, 16.9rem)); z-index: -1; overflow: hidden; display: flex; flex-direction: column; pointer-events: none; }
+.inv-page-bg-col img { display: block; width: 100%; height: auto; flex: none; }
+.inv-page-bg-m { transform: scaleY(-1); }
+.inv-page:not([data-bg='1']) > .inv-page-bg-col {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 min(52.9vw, 16.9rem));
+  mask-image: linear-gradient(to bottom, transparent, #000 min(52.9vw, 16.9rem));
+}
+.inv-page-bg-col-last { bottom: 0; justify-content: flex-end; }
+.inv-page[data-kind='connector'] { min-height: 0; padding-top: 2rem; padding-bottom: 2rem; }
 /* the cover and the verse are one page on background 1: the names in its
-   upper part, the verse at its foot */
-.inv-page[data-page='cover'] { justify-content: flex-start; padding: 3rem 0 2.6rem; }
+   upper part, the verse toward its foot, above the shells there */
+.inv-page[data-page='cover'] { justify-content: flex-start; padding-top: min(30vw, 9.6rem); padding-bottom: min(27vw, 8.6rem); }
 .inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; }
 .inv-page[data-page='cover'] > .inv-verse { margin-top: auto; }
-/* the closing keeps clear of the shells at the foot of the last background */
-.inv-page[data-page='closing'] { padding-bottom: min(48vw, 15.5rem); }
+/* the story starts high, so the timeline clears the shells at the foot of 2 */
+.inv-page[data-page='story'] { justify-content: flex-start; padding-top: min(30vw, 9.6rem); }
+/* the closing keeps clear of the shells at the foot of 8 */
+.inv-page[data-page='closing'] { padding-bottom: min(46vw, 14.7rem); }
 .inv-page > .inv-section { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 .inv-page > .inv-section + .inv-section { padding-top: 2.5rem; }
 
@@ -907,13 +917,16 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .looks-col { flex: none; width: 390px; scroll-snap-align: start; }
 .looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
 .looks-phone .inv { min-height: 100%; }
-.looks-phone .inv-page { min-height: 1014px; }
+.looks-phone .inv-page { min-height: 1031px; }
+.looks-phone .inv-page-bg-col { bottom: -206px; }
+.looks-phone .inv-page:not([data-bg='1']) > .inv-page-bg-col { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 206px); mask-image: linear-gradient(to bottom, transparent, #000 206px); }
+.looks-phone .inv-page-bg-col-last { bottom: 0; }
 .looks-phone .inv-page[data-kind='connector'] { min-height: 0; }
 
 /* the strip is decoration: none of it prints */
 @media print {
   .inv-page { background-image: none; min-height: 0; padding: 1rem 0; }
-  .inv-page-bg { display: none; }
+  .inv-page-bg-col { display: none; }
   .inv[data-layout='capiz'] { max-width: none; }
 }
 
@@ -1647,7 +1660,6 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-arches img { display: block; width: 100%; aspect-ratio: 3 / 4.6; object-fit: cover; border-radius: 999px 999px 0.3rem 0.3rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); }
 .inv-arches figure:nth-child(odd) img { filter: grayscale(1) contrast(1.03); }
 .inv-arches figcaption { margin-top: 0.7rem; text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.54rem; line-height: 1.75; color: var(--inv-muted); }
-.inv-prenup-more { margin-top: 0.6rem; }
 .inv-video-facade, .inv-video-frame { display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 1.8rem; border: 0; border-radius: 0.4rem; overflow: hidden; }
 .inv-video-facade { position: relative; padding: 0; background: #3a3129; cursor: pointer; box-shadow: 0 16px 34px -18px rgba(74, 59, 47, 0.6); text-align: right; }
 .inv-video-facade img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }

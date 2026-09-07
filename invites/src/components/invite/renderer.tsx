@@ -824,10 +824,10 @@ function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionDa
  * title written over it, and a last word. The side notes are the Moment's lines.
  */
 function Prenup({ photos, video, embed, lang, title, tagline, format }: { photos: { url: string; caption: string }[]; video: string; embed: { src: string; poster?: string } | null; lang: Lang; title: string; tagline?: string; format: PrenupFormat }) {
+  // The first photograph, then three under arches; the page shows no more than that.
   const [hero, ...rest] = photos;
   const arches = rest.slice(0, 3);
-  const more = rest.slice(3);
-  const still = rest[rest.length - 1] ?? hero;
+  const still = arches[arches.length - 1] ?? hero;
   const fallback = still ? imageUrl(still.url, IMAGE.feature) : '';
   return (
     <section id="gallery" className="inv-section inv-prenup">
@@ -850,16 +850,6 @@ function Prenup({ photos, video, embed, lang, title, tagline, format }: { photos
       {arches.length > 0 && (
         <div className="inv-arches" data-count={arches.length}>
           {arches.map((p, i) => (
-            <figure key={i}>
-              <img src={imageUrl(p.url, IMAGE.grid)} alt={p.caption || ''} loading="lazy" />
-              {p.caption && <figcaption>{p.caption}</figcaption>}
-            </figure>
-          ))}
-        </div>
-      )}
-      {more.length > 0 && (
-        <div className="inv-gallery inv-prenup-more">
-          {more.map((p, i) => (
             <figure key={i}>
               <img src={imageUrl(p.url, IMAGE.grid)} alt={p.caption || ''} loading="lazy" />
               {p.caption && <figcaption>{p.caption}</figcaption>}
@@ -1438,23 +1428,24 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    // The page's own background reaches a little above the page, its top faded,
-    // so it blends onto whatever ended the page before; 'last' stands at the foot.
-    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], bg?: number | 'last') => (
-      <div key={key} className="inv-page" data-page={key} data-kind={kind} data-bg={bg}>
-        {bg && (
-          <img
-            className={bg === 'last' ? 'inv-page-bg inv-page-bg-last' : 'inv-page-bg'}
-            src={`/capiz/bg-${bg === 'last' ? 8 : bg}.webp`}
-            alt=""
-            aria-hidden="true"
-            loading={bg === 1 ? 'eager' : 'lazy'}
-            decoding="async"
-          />
-        )}
-        {parts}
-      </div>
-    );
+    // The page's ground: its background, and below it the same background turned
+    // over, so a page longer than one background continues without a seam. The
+    // column runs a little past the page's foot, under the next page, whose own
+    // ground fades in over it. 'last' is set to the page's foot, its mirror above.
+    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], bg?: number | 'last') => {
+      const src = bg ? `/capiz/bg-${bg === 'last' ? 8 : bg}.webp` : '';
+      const img = (mirror: boolean) => <img key={mirror ? 'm' : 'o'} className={mirror ? 'inv-page-bg-m' : undefined} src={src} alt="" loading={bg === 1 ? 'eager' : 'lazy'} decoding="async" />;
+      return (
+        <div key={key} className="inv-page" data-page={key} data-kind={kind} data-bg={bg}>
+          {bg && (
+            <div className={bg === 'last' ? 'inv-page-bg-col inv-page-bg-col-last' : 'inv-page-bg-col'} aria-hidden="true">
+              {bg === 'last' ? [img(true), img(false)] : [img(false), img(true)]}
+            </div>
+          )}
+          {parts}
+        </div>
+      );
+    };
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
       def.sections.forEach((k) => placed.add(k));

@@ -535,46 +535,39 @@ table.data tr:hover td {
    opens with a strung row of shell — the join with the page before — and the
    last closes on the frame's foot. The rows are cut from the couple's own
    images, their edges faded into the ground so they float on it, and they
-   scroll with the words they belong to. A connector is a short page. --- */
+   scroll with the words they belong to. --- */
 .inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
 body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
-/* The ground. Every page stands on one of the designer's numbered backgrounds,
-   each drawn for its page: the cover and the verse share 1, the story 2, the
-   invitation 3, the entourage 4, then 5, 6 and 7, with 5 and 6 taking turns for
-   the pages after, and 8 at the foot of the closing. The backgrounds are about
-   2.645 times as tall as they are wide. A page is at least one background tall;
-   a longer page continues on the same background turned over, so nothing ends
-   mid-page. Each ground runs a fifth of a background past its page's foot, and
-   the next page's ground fades in over that, so one page dissolves into the
-   next. The words keep to the clear middle: the shells and sprays live in the
-   corners and along the edges. */
-.inv[data-layout='capiz'] { background: #f0dccb; }
+/* The ground: the designer's numbered backgrounds laid edge to edge down the
+   whole invitation, in order — 1 to 7, then 5 and 6 over and over, 8 last. They
+   are 2.645 times as tall as they are wide. Every page is a whole number of
+   backgrounds tall (PageSnap measures and rounds each one up), so a page begins
+   where a background begins and the words sit on the background drawn for them;
+   the cover holds the verse at its foot, the closing opens with the countdown.
+   The shells and sprays live in the corners and along the edges, so the words
+   keep to the middle, set close, the way an invitation is. */
+.inv[data-layout='capiz'] { background: #f0dccb; --inv-bg: min(264.5vw, 84.6rem); }
+.inv-ground { position: absolute; inset: 0; z-index: 0; display: flex; flex-direction: column; overflow: hidden; pointer-events: none; }
+.inv-ground img { display: block; width: 100%; height: auto; flex: none; }
 .inv-page {
   position: relative; z-index: 1;
-  min-height: min(264.5vw, 84.6rem);
+  min-height: var(--inv-bg);
   display: flex; flex-direction: column; justify-content: center;
-  padding: min(40vw, 12.8rem) min(5vw, 1.6rem) min(34vw, 10.9rem);
+  padding: min(9vw, 2.9rem) min(5vw, 1.6rem);
 }
-.inv-page-bg-col { position: absolute; left: 0; right: 0; top: 0; bottom: calc(-1 * min(52.9vw, 16.9rem)); z-index: -1; overflow: hidden; display: flex; flex-direction: column; pointer-events: none; }
-.inv-page-bg-col img { display: block; width: 100%; height: auto; flex: none; }
-.inv-page-bg-m { transform: scaleY(-1); }
-.inv-page:not([data-bg='1']) > .inv-page-bg-col {
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 min(52.9vw, 16.9rem));
-  mask-image: linear-gradient(to bottom, transparent, #000 min(52.9vw, 16.9rem));
-}
-.inv-page-bg-col-last { bottom: 0; justify-content: flex-end; }
-.inv-page[data-kind='connector'] { min-height: 0; padding-top: 2rem; padding-bottom: 2rem; }
-/* the cover and the verse are one page on background 1: the names in its
-   upper part, the verse toward its foot, above the shells there */
-.inv-page[data-page='cover'] { justify-content: flex-start; padding-top: min(30vw, 9.6rem); padding-bottom: min(27vw, 8.6rem); }
+/* a page that takes two backgrounds spreads its parts over both */
+.inv-page[data-span='2'] { justify-content: space-evenly; }
+/* the cover and the verse are one background: the names in its upper part,
+   the verse toward its foot, above the shells there */
+.inv-page[data-page='cover'] { justify-content: flex-start; padding-top: min(26vw, 8.3rem); padding-bottom: min(25vw, 8rem); }
 .inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; }
 .inv-page[data-page='cover'] > .inv-verse { margin-top: auto; }
-/* the story starts high, so the timeline clears the shells at the foot of 2 */
-.inv-page[data-page='story'] { justify-content: flex-start; padding-top: min(30vw, 9.6rem); }
 /* the closing keeps clear of the shells at the foot of 8 */
-.inv-page[data-page='closing'] { padding-bottom: min(46vw, 14.7rem); }
-.inv-page > .inv-section { padding-top: 1.5rem; padding-bottom: 1.5rem; }
-.inv-page > .inv-section + .inv-section { padding-top: 2.5rem; }
+.inv-page[data-page='closing'] { padding-top: 1.6rem; padding-bottom: min(18vw, 5.8rem); }
+.inv-page[data-page='prenup'] { padding-top: 1.2rem; padding-bottom: 1.2rem; }
+.inv-page[data-page='story'] { padding-top: 2rem; padding-bottom: 2rem; }
+.inv-page > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.inv-page > .inv-section + .inv-section { padding-top: 1rem; }
 
 /* --- sections --- */
 .inv[data-layout='capiz'] .inv-section {
@@ -763,9 +756,9 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 
 /* --- countdown, bare --- */
 .inv[data-layout='capiz'] .inv-count { max-width: 22rem; gap: 0; }
-.inv[data-layout='capiz'] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.4rem 0; }
+.inv[data-layout='capiz'] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.1rem 0; }
 .inv[data-layout='capiz'] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
-.inv[data-layout='capiz'] .inv-count b { font-size: 2.4rem; font-weight: 400; color: var(--inv-ink); }
+.inv[data-layout='capiz'] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
 .inv[data-layout='capiz'] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
 
 /* --- social brand row --- */
@@ -785,8 +778,8 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv[data-layout='capiz'] .inv-hero-body > p + p { margin-top: 0; }
 
 /* --- our story: a timeline with the photos scattered beside it --- */
-.inv-story { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0 1.1rem; margin-top: 0.4rem; }
-.inv-story-photos { display: grid; gap: 1.1rem; align-content: start; padding-top: 0.6rem; }
+.inv-story { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0 1.1rem; margin-top: 0; }
+.inv-story-photos { display: grid; gap: 0.8rem; align-content: start; padding-top: 0.4rem; }
 .inv-story-photos figure { margin: 0; }
 .inv-story-photos img { box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
 .inv-story-photos [data-frame='arch'] img { border-radius: 999px 999px 0.4rem 0.4rem; aspect-ratio: 3/4.6; }
@@ -797,7 +790,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-story-photos [data-frame='plain'] img { border-radius: 0.3rem; aspect-ratio: 4/3; }
 .inv-story-line { position: relative; padding-left: 1.6rem; }
 .inv-story-line::before { content: ''; position: absolute; left: 0.28rem; top: 0.6rem; bottom: 0.6rem; width: 1px; background: color-mix(in srgb, var(--inv-accent) 70%, transparent); }
-.inv-story-line li { position: relative; list-style: none; margin: 0 0 1.7rem; }
+.inv-story-line li { position: relative; list-style: none; margin: 0 0 0.8rem; }
 .inv-story-line li::before { content: ''; position: absolute; left: -1.6rem; top: 0.55rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--inv-bg); border: 1.5px solid var(--inv-accent); }
 .inv-story-line .y { font-family: var(--inv-display); font-size: 1.6rem; line-height: 1; color: var(--inv-ink); }
 .inv-story-line .t { font-family: var(--inv-display); font-style: italic; font-size: 1.15rem; color: var(--inv-ink); margin-top: 0.1rem; }
@@ -867,10 +860,10 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-verse-text { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.88rem; line-height: 1.8; color: var(--inv-ink); max-width: 22rem; margin: 0 auto; }
 .inv-verse-ref { margin-top: 0.9rem; }
 .inv-rule { display: block; width: 2.6rem; height: 1px; margin: 1.6rem auto 0; background: var(--inv-accent2); }
-.inv-story-sign { text-align: center; margin-top: 2.4rem; }
+.inv-story-sign { text-align: center; margin-top: 1.2rem; }
 .inv-getting-block + .inv-getting-block { margin-top: 1.4rem; }
 .inv-venues { display: grid; gap: 1.4rem; margin-top: 0.4rem; }
-.inv-story-sign .inv-eyebrow { margin-bottom: 0.15rem; margin-top: 1.2rem; color: var(--inv-ink); opacity: 0.85; }
+.inv-story-sign .inv-eyebrow { margin-bottom: 0.15rem; margin-top: 0.6rem; color: var(--inv-ink); opacity: 0.85; }
 .inv-story-sign .inv-eyebrow-date { margin-top: 0; letter-spacing: 0.42em; text-indent: 0.42em; }
 .inv-interlude { text-align: center; padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .inv-interlude .inv-tagline { font-size: 2.1rem; line-height: 1.2; margin: 0; white-space: pre-line; }
@@ -894,7 +887,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-social-icons .inv-ico { width: 1.6rem; height: 1.6rem; stroke: var(--inv-ink); stroke-width: 1.5; }
 .inv-contact-head { display: flex; gap: 1rem; align-items: center; justify-content: center; text-align: left; }
 .inv-contact-head .inv-eyebrow { text-align: left; text-indent: 0; margin-bottom: 0.2rem; color: var(--inv-ink); }
-.inv-contact-cols { margin-top: 1.5rem; }
+.inv-contact-cols { margin-top: 1rem; }
 .inv-contact-cols .inv-eyebrow { margin-bottom: 0.2rem; }
 .inv-dress-notes { text-align: center; margin-top: 0.4rem; }
 .inv-dress-notes > * + * { margin-top: 0.9rem; }
@@ -917,16 +910,12 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .looks-col { flex: none; width: 390px; scroll-snap-align: start; }
 .looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
 .looks-phone .inv { min-height: 100%; }
-.looks-phone .inv-page { min-height: 1031px; }
-.looks-phone .inv-page-bg-col { bottom: -206px; }
-.looks-phone .inv-page:not([data-bg='1']) > .inv-page-bg-col { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 206px); mask-image: linear-gradient(to bottom, transparent, #000 206px); }
-.looks-phone .inv-page-bg-col-last { bottom: 0; }
-.looks-phone .inv-page[data-kind='connector'] { min-height: 0; }
+.looks-phone .inv[data-layout='capiz'] { --inv-bg: 1031px; }
 
 /* the strip is decoration: none of it prints */
 @media print {
   .inv-page { background-image: none; min-height: 0; padding: 1rem 0; }
-  .inv-page-bg-col { display: none; }
+  .inv-ground { display: none; }
   .inv[data-layout='capiz'] { max-width: none; }
 }
 
@@ -1645,22 +1634,22 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-prenup-side-l { left: 0; top: 6.4rem; text-align: left; font-style: italic; font-family: var(--inv-display); font-size: 0.7rem; letter-spacing: 0.06em; }
 .inv-prenup-side-r { right: 0; top: 2.6rem; text-align: right; text-transform: uppercase; letter-spacing: 0.26em; }
 .inv-prenup-side-r::after { margin-left: auto; }
-.inv-prenup-hero { margin: 1.6rem -1.25rem 0; }
+.inv-prenup-hero { margin: 0.8rem -1.25rem 0; }
 .inv-prenup-hero img {
-  display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover;
+  display: block; width: 100%; aspect-ratio: 1 / 1.02; object-fit: cover;
   -webkit-mask-image: radial-gradient(ellipse 72% 66% at 50% 46%, #000 48%, transparent 100%);
   mask-image: radial-gradient(ellipse 72% 66% at 50% 46%, #000 48%, transparent 100%);
 }
-.inv-prenup-strand { position: relative; height: 0; padding-bottom: 25.3%; margin: -14% -1.25rem 0; background: url(/capiz/strand-b.webp) center top / 100% auto no-repeat; }
-.inv-prenup-note { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 2; max-width: 17rem; margin: 0 auto; }
-.inv-arches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 1.8rem; }
+.inv-prenup-strand { position: relative; height: 0; padding-bottom: 25.3%; margin: -17% -1.25rem 0; background: url(/capiz/strand-b.webp) center top / 100% auto no-repeat; }
+.inv-prenup-note { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 1.8; max-width: 17rem; margin: 0 auto; }
+.inv-arches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 1.1rem; }
 .inv-arches[data-count='2'] { grid-template-columns: repeat(2, 1fr); padding: 0 12%; }
 .inv-arches[data-count='1'] { grid-template-columns: 1fr; padding: 0 26%; }
 .inv-arches figure { margin: 0; text-align: center; }
-.inv-arches img { display: block; width: 100%; aspect-ratio: 3 / 4.6; object-fit: cover; border-radius: 999px 999px 0.3rem 0.3rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); }
+.inv-arches img { display: block; width: 100%; aspect-ratio: 3 / 3.9; object-fit: cover; border-radius: 999px 999px 0.3rem 0.3rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); }
 .inv-arches figure:nth-child(odd) img { filter: grayscale(1) contrast(1.03); }
 .inv-arches figcaption { margin-top: 0.7rem; text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.54rem; line-height: 1.75; color: var(--inv-muted); }
-.inv-video-facade, .inv-video-frame { display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 1.8rem; border: 0; border-radius: 0.4rem; overflow: hidden; }
+.inv-video-facade, .inv-video-frame { display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 1.1rem; border: 0; border-radius: 0.4rem; overflow: hidden; }
 .inv-video-facade { position: relative; padding: 0; background: #3a3129; cursor: pointer; box-shadow: 0 16px 34px -18px rgba(74, 59, 47, 0.6); text-align: right; }
 .inv-video-facade img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .inv-video-facade::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(40, 30, 22, 0.18), rgba(40, 30, 22, 0) 40%, rgba(40, 30, 22, 0.25)); }
@@ -1668,4 +1657,12 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-video-play::after { content: ''; position: absolute; left: 55%; top: 50%; translate: -50% -50%; border-style: solid; border-width: 0.5rem 0 0.5rem 0.85rem; border-color: transparent transparent transparent #fff; }
 .inv-video-title { position: absolute; right: 1rem; top: 0.9rem; z-index: 1; font-family: var(--inv-script, var(--inv-display)); font-style: var(--inv-script-style, normal); font-size: 1.7rem; line-height: 1.05; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35); max-width: 48%; }
 .inv-video-cta { position: absolute; right: 1rem; bottom: 0.9rem; z-index: 1; text-transform: uppercase; letter-spacing: 0.26em; font-size: 0.52rem; line-height: 1.7; color: #fff; max-width: 40%; }
-.inv-prenup-close { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 2; margin: 2.2rem auto 0; max-width: 17rem; }
+.inv-prenup-close { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 1.8; margin: 1.2rem auto 0; max-width: 17rem; }
+
+/* set close, the way an invitation is: the cards, the fields and the form's
+   gaps a little tighter on this format, the closing photograph a little shorter */
+.inv[data-layout='capiz'] .inv-card { padding: 1rem; }
+.inv[data-layout='capiz'] .inv-field { padding: 0.5rem 0.8rem; }
+.inv[data-layout='capiz'] #rsvp-form > :not(:last-child) { margin-block-end: 0.6rem; }
+.inv[data-layout='capiz'] #closing .inv-photo { aspect-ratio: 16 / 9; margin-bottom: 0.6rem; }
+.inv-getting-section .inv-title { margin-bottom: 0.8rem; }

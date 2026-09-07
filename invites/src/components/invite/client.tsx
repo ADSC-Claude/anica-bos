@@ -702,3 +702,63 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
     </button>
   );
 }
+
+/**
+ * Every Capiz page is a whole number of backgrounds tall, so a page begins where
+ * a background begins and the words sit on the background drawn for them. The
+ * backgrounds' height follows the column's width, so this is measured, not
+ * styled: each page's own height is rounded up to the next whole background,
+ * then the strip is cut to the invitation's length with the last background
+ * set as its final piece. Runs again whenever the column changes width.
+ */
+export function PageSnap({ ratio, last }: { ratio: number; last: number }) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    const inv = ref.current?.closest<HTMLElement>('.inv');
+    if (!inv) return;
+    const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
+    const strip = Array.from(inv.querySelectorAll<HTMLImageElement>('.inv-ground img'));
+    let frame = 0;
+    const snap = () => {
+      const bg = inv.clientWidth * ratio;
+      if (!bg) return;
+      for (const p of pages) { p.style.minHeight = '0'; p.style.paddingTop = ''; p.style.paddingBottom = ''; }
+      for (const p of pages) {
+        // A page that spills only a little past a whole background gives up some
+        // of its own top and bottom room rather than taking another background.
+        const raw = p.scrollHeight;
+        let n = Math.max(1, Math.ceil((raw - 1) / bg));
+        const over = raw - (n - 1) * bg;
+        if (n > 1 && over > 0) {
+          const cs = getComputedStyle(p);
+          const pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0;
+          const room = pt + pb - 16;
+          if (over <= room) {
+            const k = (pt + pb - over) / (pt + pb);
+            p.style.paddingTop = `${pt * k}px`;
+            p.style.paddingBottom = `${pb * k}px`;
+            n -= 1;
+          }
+        }
+        p.style.minHeight = `${Math.round(n * bg)}px`;
+        p.dataset.span = String(n);
+      }
+      const total = pages.reduce((sum, p) => sum + p.getBoundingClientRect().height, 0);
+      const count = Math.max(1, Math.round(total / bg));
+      strip.forEach((img, i) => {
+        img.hidden = i >= count;
+        const want = i === count - 1 ? last : Number(img.dataset.n);
+        const src = `/capiz/bg-${want}.webp`;
+        if (!img.getAttribute('src')?.endsWith(src)) img.setAttribute('src', src);
+        if (i === count - 1) img.loading = 'eager';
+      });
+    };
+    const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(snap); };
+    queue();
+    const ro = new ResizeObserver(queue);
+    ro.observe(inv);
+    window.addEventListener('load', queue);
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); window.removeEventListener('load', queue); };
+  }, [ratio, last]);
+  return <span ref={ref} hidden />;
+}

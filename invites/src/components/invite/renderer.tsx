@@ -11,7 +11,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageSnap } from './client';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -298,7 +298,6 @@ type EventFormat = {
   sameVenue: boolean;
   /** No venue block follows, so the invitation block carries the map itself. */
   mapHere: boolean;
-  gettingTitle: string;
 };
 
 function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref, format }: { id: string; title: string; tagline?: string; data: SectionData; lang: Lang; fallbackDate: string; calendarHref?: string; format?: EventFormat }) {
@@ -362,26 +361,6 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
         </div>
         {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm">{str(data, 'parkingNote')}</p>}
         {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
-        <h3 className="inv-title inv-title-sub">{format.gettingTitle}</h3>
-        {places.map((p, i) => {
-          const m = mapsHref(p.data);
-          const w = wazeHref(p.data);
-          return (
-            <div key={i} className="inv-getting-block">
-              <div className="inv-card inv-getting">
-                <Ico name="pin" />
-                <div>
-                  <b>{str(p.data, 'venue')}</b>
-                  {str(p.data, 'address') && <span>{str(p.data, 'address')}</span>}
-                </div>
-              </div>
-              <div className="no-print">
-                {m && <a href={m} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
-                {w && <a href={w} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
-              </div>
-            </div>
-          );
-        })}
       </Section>
     );
   }
@@ -873,6 +852,38 @@ function Prenup({ photos, video, embed, lang, title, tagline, format }: { photos
   );
 }
 
+
+/** The way to each place: a card with the pin, and the buttons for Google Maps and Waze. Its own section, so it can stand on its own background. */
+function GettingThere({ data, ceremony, sameVenue, lang, title }: { data: SectionData; ceremony?: SectionData; sameVenue: boolean; lang: Lang; title: string }) {
+  const cerVenue = ceremony ? str(ceremony, 'venue') : '';
+  const places = sameVenue || !cerVenue ? [data] : [ceremony as SectionData, data];
+  if (!places.some((p) => mapsHref(p) || wazeHref(p))) return null;
+  return (
+    <section id="getting" className="inv-section inv-getting-section">
+      <h2 className="inv-title">{title}</h2>
+      {places.map((p, i) => {
+        const m = mapsHref(p);
+        const w = wazeHref(p);
+        return (
+          <div key={i} className="inv-getting-block">
+            <div className="inv-card inv-getting">
+              <Ico name="pin" />
+              <div>
+                <b>{str(p, 'venue')}</b>
+                {str(p, 'address') && <span>{str(p, 'address')}</span>}
+              </div>
+            </div>
+            <div className="no-print">
+              {m && <a href={m} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
+              {w && <a href={w} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 function Program({ data, title, tagline }: { data: SectionData; title: string; tagline?: string }) {
   const items = rows<{ time: string; title: string; note: string }>(data, 'items');
   const activities = str(data, 'activities');
@@ -1200,28 +1211,33 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * cover has none: it carries the whole frame instead.
  */
 /**
- * A page stands on one of the designer's numbered backgrounds (1 to 8, drawn
- * for this format in this order); 'last' is 8, set to the page's foot. A page
- * with none, and the part of a long page below its background, stands on the
- * filler — a quiet band cut from the designer's earlier pieces.
+ * The Capiz ground is the designer's numbered backgrounds laid edge to edge, in
+ * order — 1 to 7, then 5 and 6 over and over, 8 last — and every page is a whole
+ * number of backgrounds tall (PageSnap measures and rounds each one up), so a
+ * page always begins where a background begins and the words sit on the
+ * background drawn for them.
  */
-type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[]; bg?: number | 'last' };
+type PageDef = { key: string; sections: (SectionKey | 'verse')[] };
+/** The backgrounds' height as a multiple of their width. */
+export const CAPIZ_BG_RATIO = 2.645;
+/** The strip, long enough for any invitation; PageSnap trims it and sets 8 last. */
+const STRIP_ORDER = [1, 2, 3, 4, 5, 6, 7, ...Array.from({ length: 24 }, (_, i) => (i % 2 ? 6 : 5))];
+
 const CAPIZ_PAGES: PageDef[] = [
-  { key: 'cover', kind: 'page', sections: ['cover', 'verse'], bg: 1 },
-  { key: 'moment', kind: 'page', sections: ['moment'] },
-  { key: 'story', kind: 'page', sections: ['story'], bg: 2 },
-  { key: 'invitation', kind: 'page', sections: ['ceremony'], bg: 3 },
-  { key: 'entourage', kind: 'page', sections: ['entourage'], bg: 4 },
-  { key: 'prenup', kind: 'page', sections: ['gallery'], bg: 5 },
-  { key: 'venue', kind: 'page', sections: ['reception'], bg: 6 },
-  { key: 'dress-code', kind: 'page', sections: ['dressCode'], bg: 7 },
-  { key: 'gift', kind: 'page', sections: ['gift'], bg: 5 },
-  { key: 'program', kind: 'page', sections: ['program', 'social'], bg: 6 },
-  { key: 'guestbook', kind: 'page', sections: ['guestbook'], bg: 5 },
-  { key: 'photos', kind: 'page', sections: ['photos'], bg: 6 },
-  { key: 'rsvp', kind: 'page', sections: ['rsvp'], bg: 5 },
-  { key: 'countdown', kind: 'connector', sections: ['countdown'] },
-  { key: 'closing', kind: 'page', sections: ['contact', 'closing'], bg: 'last' },
+  { key: 'cover', sections: ['cover', 'verse'] },
+  { key: 'moment', sections: ['moment'] },
+  { key: 'story', sections: ['story'] },
+  { key: 'invitation', sections: ['ceremony'] },
+  { key: 'entourage', sections: ['entourage'] },
+  { key: 'prenup', sections: ['gallery'] },
+  { key: 'venue', sections: ['reception'] },
+  { key: 'dress-code', sections: ['dressCode'] },
+  { key: 'gift', sections: ['gift'] },
+  { key: 'program', sections: ['program', 'social'] },
+  { key: 'guestbook', sections: ['guestbook'] },
+  { key: 'photos', sections: ['photos'] },
+  { key: 'rsvp', sections: ['rsvp'] },
+  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
 ];
 
 /** Which line icon a program entry gets, from the words in its title. */
@@ -1428,32 +1444,25 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    // The page's ground: its background, and below it the same background turned
-    // over, so a page longer than one background continues without a seam. The
-    // column runs a little past the page's foot, under the next page, whose own
-    // ground fades in over it. 'last' is set to the page's foot, its mirror above.
-    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], bg?: number | 'last') => {
-      const src = bg ? `/capiz/bg-${bg === 'last' ? 8 : bg}.webp` : '';
-      const img = (mirror: boolean) => <img key={mirror ? 'm' : 'o'} className={mirror ? 'inv-page-bg-m' : undefined} src={src} alt="" loading={bg === 1 ? 'eager' : 'lazy'} decoding="async" />;
-      return (
-        <div key={key} className="inv-page" data-page={key} data-kind={kind} data-bg={bg}>
-          {bg && (
-            <div className={bg === 'last' ? 'inv-page-bg-col inv-page-bg-col-last' : 'inv-page-bg-col'} aria-hidden="true">
-              {bg === 'last' ? [img(true), img(false)] : [img(false), img(true)]}
-            </div>
-          )}
-          {parts}
-        </div>
-      );
-    };
+    const page = (key: string, parts: ReactNode[]) => (
+      <div key={key} className="inv-page" data-page={key}>{parts}</div>
+    );
+    // The ground, behind every page: the strip of backgrounds, edge to edge.
+    out.push(
+      <div key="ground" className="inv-ground" aria-hidden="true">
+        {STRIP_ORDER.map((n, i) => (
+          <img key={i} src={`/capiz/bg-${n}.webp`} data-n={n} alt="" loading={i < 2 ? 'eager' : 'lazy'} decoding="async" />
+        ))}
+      </div>,
+      <PageSnap key="snap" ratio={CAPIZ_BG_RATIO} last={8} />,
+    );
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
       def.sections.forEach((k) => placed.add(k));
-      if (parts.length) out.push(page(def.key, def.kind, parts, def.bg));
+      if (parts.length) out.push(page(def.key, parts));
     }
-    // a section the map does not name gets a page of its own, in its place, on 5 and 6 in turn
-    let spare = 0;
-    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)], spare++ % 2 ? 6 : 5));
+    // a section the map does not name gets a page of its own, in its place
+    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)]));
     return out;
   }
   function section(key: SectionKey) {
@@ -1480,7 +1489,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             lang={lang}
             fallbackDate={coverDate}
             calendarHref={calendarHref}
-            format={format ? { role: 'ceremony', intro: str(content.cover, 'intro'), sub: heroCopy(occasion, content.cover, lang).sub, attire: ATTIRE[str(content.dressCode, 'attire')], sameVenue, mapHere: !hasReception, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
+            format={format ? { role: 'ceremony', intro: str(content.cover, 'intro'), sub: heroCopy(occasion, content.cover, lang).sub, attire: ATTIRE[str(content.dressCode, 'attire')], sameVenue, mapHere: !hasReception } : undefined}
           />
         );
         return <Fragment key={key}>{block}</Fragment>;
@@ -1495,17 +1504,16 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             lang={lang}
             fallbackDate={str(content.ceremony, 'venue') ? '' : coverDate}
             calendarHref={str(content.ceremony, 'venue') ? undefined : calendarHref}
-            format={format ? { role: 'reception', ceremony: content.ceremony, sameVenue, mapHere: true, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
+            format={format ? { role: 'reception', ceremony: content.ceremony, sameVenue, mapHere: true } : undefined}
           />
         );
         const after = format && str(data, 'venue') ? str(content.cover, 'interlude2') || line('interlude2') : '';
-        return after ? (
+        return (
           <Fragment key={key}>
             {block}
-            <Interlude id="interlude-2" text={after} />
+            {format && <GettingThere data={data} ceremony={content.ceremony} sameVenue={sameVenue} lang={lang} title={named('getting', t(lang, 'venue.getting'))} />}
+            {after && <Interlude id="interlude-2" text={after} />}
           </Fragment>
-        ) : (
-          <Fragment key={key}>{block}</Fragment>
         );
       }
       case 'entourage':

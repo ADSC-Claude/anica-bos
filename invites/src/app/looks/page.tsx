@@ -14,9 +14,12 @@ export const dynamic = 'force-dynamic';
  * under the headings change. This is how a look is chosen for a theme: by
  * scrolling five phones next to each other, not by reading font names.
  */
-export default async function LooksPage() {
+export default async function LooksPage({ searchParams }: { searchParams: Promise<{ slug?: string }> }) {
   const s = await getSettings();
-  const invitation = await loadPublic(s['site.demoSlug']);
+  // Any published invitation can sit for the showcase — ?slug=capiz-demo — so
+  // a design can be judged on its own demo; the site's demo otherwise.
+  const { slug } = await searchParams;
+  const invitation = await loadPublic(slug && /^[a-z0-9-]{1,80}$/.test(slug) ? slug : s['site.demoSlug']);
   if (!invitation) notFound();
   return (
     <main className="mx-auto max-w-[1900px] px-4 py-8 sm:px-6">

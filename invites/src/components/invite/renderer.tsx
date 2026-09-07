@@ -285,8 +285,10 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
 }
 
 type EventFormat = {
-  /** "ceremony": the invitation block with its rows; "reception": the venue and the way there. */
+  /** "ceremony": the invitation block with its rows; "reception": the venue page — both venues and the way to each. */
   role: 'ceremony' | 'reception';
+  /** The ceremony's own data, for the venue page. */
+  ceremony?: SectionData;
   /** The sentence that does the inviting, and the full names over it. */
   intro?: string;
   sub?: string;
@@ -322,10 +324,10 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
         </ul>
         {str(data, 'seatedBy') && <p className="inv-muted mt-4 text-center text-sm">{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
         {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
-        {(format.mapHere || !format.sameVenue || calendarHref) && (
+        {(format.mapHere || calendarHref) && (
           <div className="no-print mt-5 flex flex-wrap justify-center gap-2">
-            {(format.mapHere || !format.sameVenue) && maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
-            {(format.mapHere || !format.sameVenue) && waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.waze')}</a>}
+            {format.mapHere && maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
+            {format.mapHere && waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.waze')}</a>}
             {calendarHref && <a href={calendarHref} className="inv-btn inv-btn-outline">{t(lang, 'calendar.add')}</a>}
           </div>
         )}
@@ -333,30 +335,53 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     );
   }
   if (format?.role === 'reception') {
+    // One page for where it all happens: the ceremony's venue and the
+    // reception's when they differ, one heading when they are the same, and
+    // the way to each.
+    const cer = format.ceremony;
+    const cerVenue = cer ? str(cer, 'venue') : '';
+    const places = format.sameVenue || !cerVenue
+      ? [{ label: format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception'), data, time: format.sameVenue ? '' : time }]
+      : [
+          { label: t(lang, 'invitation.ceremony'), data: cer as SectionData, time: str(cer, 'time') },
+          { label: t(lang, 'venue.reception'), data, time },
+        ];
+    const photoUrl = photo || (cer ? str(cer, 'photo') : '');
     return (
       <Section id={id} title={title} tagline={tagline}>
-        {photo && <img src={imageUrl(photo, IMAGE.feature)} alt="" className="inv-photo inv-venue-photo aspect-[4/3]" loading="lazy" />}
-        <p className="inv-eyebrow">{format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception')}</p>
-        <p className="inv-venue-name">{venue}</p>
-        {address && <p className="inv-venue-addr">{address}</p>}
-        {time && !format.sameVenue && <p className="mt-2 text-center">{formatTime(time)}</p>}
+        {photoUrl && <img src={imageUrl(photoUrl, IMAGE.feature)} alt="" className="inv-photo inv-venue-photo aspect-[4/3]" loading="lazy" />}
+        <div className="inv-venues">
+          {places.map((p, i) => (
+            <div key={i}>
+              <p className="inv-eyebrow">{p.label}</p>
+              <p className="inv-venue-name">{str(p.data, 'venue')}</p>
+              {str(p.data, 'address') && <p className="inv-venue-addr">{str(p.data, 'address')}</p>}
+              {p.time && <p className="mt-1 text-center">{formatTime(p.time)}</p>}
+            </div>
+          ))}
+        </div>
         {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm">{str(data, 'parkingNote')}</p>}
         {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
-        <div className="inv-getting-block">
-          <span className="inv-bracket" data-side="r" aria-hidden />
-          <h3 className="inv-title inv-title-sub">{format.gettingTitle}</h3>
-          <div className="inv-card inv-getting">
-            <Ico name="pin" />
-            <div>
-              <b>{venue}</b>
-              {address && <span>{address}</span>}
+        <h3 className="inv-title inv-title-sub">{format.gettingTitle}</h3>
+        {places.map((p, i) => {
+          const m = mapsHref(p.data);
+          const w = wazeHref(p.data);
+          return (
+            <div key={i} className="inv-getting-block">
+              <div className="inv-card inv-getting">
+                <Ico name="pin" />
+                <div>
+                  <b>{str(p.data, 'venue')}</b>
+                  {str(p.data, 'address') && <span>{str(p.data, 'address')}</span>}
+                </div>
+              </div>
+              <div className="no-print">
+                {m && <a href={m} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
+                {w && <a href={w} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
+              </div>
             </div>
-          </div>
-          <div className="no-print">
-            {maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
-            {waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
-          </div>
-        </div>
+          );
+        })}
       </Section>
     );
   }
@@ -736,7 +761,6 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
       )}
       {signoff && (
         <div className="inv-story-sign">
-          <span className="inv-bracket" data-side="r" aria-hidden />
           <span className="inv-rule" aria-hidden />
           <p className="inv-eyebrow">{signoff.names}</p>
           {signoff.date && <p className="inv-eyebrow inv-eyebrow-date">{signoff.date}</p>}
@@ -1101,22 +1125,32 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
 // ---------------------------------------------------------------------------
 
 /**
- * The couple's frame, fixed behind the page: every screen carries its drapes
- * and corner clusters while the content scrolls over it. The plate behind the
- * names and the garlands between chapters are CSS on the hero and on the
- * dividers below, so a print carries none of it.
+ * The Capiz format is a stack of pages. Each carries the couple's frame as
+ * its own background — the top of it at the top of the page, the bottom at
+ * the bottom, solid ground between — so the shell and the drapes scroll with
+ * the words they belong to, and one page ends where the next begins the way
+ * the reference does. A "page" fills the screen; a "connector" is the short
+ * panel between two pages, strung between the two strands.
  */
-function CapizDecor() {
-  return <div className="inv-frame" aria-hidden />;
-}
-
-/**
- * Where a garland is strung across the page: before the chapter it opens.
- * The deep rows from the band image open the big chapters; the thin strands
- * from the two-strand image, a cluster at one end then the other, connect
- * the rest.
- */
-const GARLANDS: Partial<Record<SectionKey, 'a' | 'b' | 's1' | 's2'>> = { story: 'a', ceremony: 'b', entourage: 's1', gift: 's2', rsvp: 'a', contact: 's1' };
+type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[] };
+const CAPIZ_PAGES: PageDef[] = [
+  { key: 'cover', kind: 'page', sections: ['cover'] },
+  { key: 'verse', kind: 'connector', sections: ['verse'] },
+  { key: 'moment', kind: 'page', sections: ['moment'] },
+  { key: 'story', kind: 'page', sections: ['story'] },
+  { key: 'invitation', kind: 'page', sections: ['ceremony'] },
+  { key: 'entourage', kind: 'page', sections: ['entourage'] },
+  { key: 'prenup', kind: 'connector', sections: ['gallery'] },
+  { key: 'venue', kind: 'page', sections: ['reception'] },
+  { key: 'dress-code', kind: 'page', sections: ['dressCode'] },
+  { key: 'gift', kind: 'page', sections: ['gift'] },
+  { key: 'program', kind: 'page', sections: ['program', 'social'] },
+  { key: 'guestbook', kind: 'page', sections: ['guestbook'] },
+  { key: 'photos', kind: 'page', sections: ['photos'] },
+  { key: 'rsvp', kind: 'page', sections: ['rsvp'] },
+  { key: 'countdown', kind: 'connector', sections: ['countdown'] },
+  { key: 'closing', kind: 'page', sections: ['contact', 'closing'] },
+];
 
 /** Which line icon a program entry gets, from the words in its title. */
 function programIcon(title: string): string {
@@ -1311,27 +1345,35 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const sameVenue = Boolean(str(content.ceremony, 'venue')) && str(content.ceremony, 'venue').trim().toLowerCase() === str(content.reception, 'venue').trim().toLowerCase();
   const hasReception = visible('reception') && Boolean(str(content.reception, 'venue'));
   const names = displayTitle(occasion, content);
-  const body = order.map((key) => {
-    const block = section(key);
-    const garland = layout === 'capiz' && block ? GARLANDS[key] : undefined;
-    return garland ? (
-      <Fragment key={key}>
-        <div className="inv-garland" data-g={garland} aria-hidden />
-        {block}
-      </Fragment>
-    ) : block;
-  });
+  const verse = format && str(content.cover, 'verse') ? <Verse key="verse" text={str(content.cover, 'verse')} source={str(content.cover, 'verseRef')} /> : null;
+  const body = format ? pages() : order.map((key) => section(key));
+  function pages() {
+    const drawn = new Map<string, ReactNode>();
+    for (const key of order) {
+      const el = section(key);
+      if (el) drawn.set(key, el);
+    }
+    if (verse) drawn.set('verse', verse);
+    const placed = new Set<string>();
+    const out: ReactNode[] = [];
+    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[]) => (
+      <div key={key} className="inv-page" data-page={key} data-kind={kind}>{parts}</div>
+    );
+    for (const def of CAPIZ_PAGES) {
+      const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
+      def.sections.forEach((k) => placed.add(k));
+      if (parts.length) out.push(page(def.key, def.kind, parts));
+    }
+    // a section the map does not name gets a page of its own, in its place
+    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)]));
+    return out;
+  }
   function section(key: SectionKey) {
     if (!visible(key)) return null;
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return (
-          <Fragment key={key}>
-            <Hero occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} eyebrow={look ? line('cover') : undefined} />
-            {format && str(data, 'verse') && <Verse text={str(data, 'verse')} source={str(data, 'verseRef')} />}
-          </Fragment>
-        );
+        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} eyebrow={look ? line('cover') : undefined} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
           <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>
@@ -1373,7 +1415,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             lang={lang}
             fallbackDate={str(content.ceremony, 'venue') ? '' : coverDate}
             calendarHref={str(content.ceremony, 'venue') ? undefined : calendarHref}
-            format={format ? { role: 'reception', sameVenue, mapHere: true, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
+            format={format ? { role: 'reception', ceremony: content.ceremony, sameVenue, mapHere: true, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
           />
         );
         const after = format && str(data, 'venue') ? str(content.cover, 'interlude2') || line('interlude2') : '';
@@ -1401,13 +1443,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'story':
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery':
-        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} />;
+        return rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl') ? <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} /> : null;
       case 'program':
         return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : named('program', t(lang, 'program.title'))} tagline={line('program')} />;
       case 'faq':
         return <Faq key={key} data={data} lang={lang} />;
       case 'moment':
-        return <Moment key={key} data={data} format={format} />;
+        // on the format the three lines are on the cover, so without a photograph there is no page
+        return format && !str(data, 'backdrop') ? null : <Moment key={key} data={data} format={format} />;
       case 'travel':
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':
@@ -1415,7 +1458,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'music':
         return null;
       case 'guestbook':
-        return <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
+        return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
         return hasFeature(inv.tier, 'photoSharing') ? (
           <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} />
@@ -1440,7 +1483,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         </div>
       )}
       <Shell opening={opening} music={print || bare ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
-        {layout === 'capiz' && <CapizDecor />}
         {body}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (

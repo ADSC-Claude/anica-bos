@@ -530,52 +530,33 @@ table.data tr:hover td {
 .inv[data-layout='capiz']::before,
 .inv[data-layout='capiz']::after { display: none; }
 
-/* --- capiz, photographed: the couple's own portrait frame fixed behind the
-   page, their name plate behind the hero, and a strung garland across the
-   page where one chapter ends and the next begins. All of it their pixels,
-   none of it drawn. --- */
-.inv[data-layout='capiz'] { position: relative; overflow: hidden; }
-/* The frame: fixed behind the page, so every screen carries the drapes and
-   the corner clusters while the content scrolls over it. A fixed element
-   rather than background-attachment, which iOS Safari does not honour. The
-   portrait image on a phone; the landscape original when the screen is wider
-   than it is tall, so the clusters stay in the corners either way. */
-.inv-frame { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: #f1e5dc url(/capiz/portrait-frame.jpg) center / cover no-repeat; }
-@media (orientation: landscape) { .inv-frame { background-image: url(/capiz/frame.webp); } }
-.inv[data-layout='capiz'] > .inv-hero,
-.inv[data-layout='capiz'] > .inv-section,
-.inv[data-layout='capiz'] > .inv-garland { position: relative; z-index: 1; }
-.inv[data-layout='capiz'] .inv-hero > * { position: relative; z-index: 1; }
-
-/* a garland: one strung row cut from the couple's images, across the page
-   between chapters, feathered top and bottom into the ground — the deep rows
-   from the band image, the thin strands with a cluster at one end from the
-   two-strand image */
-.inv-garland {
-  display: block; width: 100%; max-width: 44rem; margin: -0.5rem auto -1.25rem; pointer-events: none;
-  background-size: 100% auto; background-position: center; background-repeat: no-repeat;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
-          mask-image: linear-gradient(to bottom, transparent, #000 24%, #000 76%, transparent);
+/* --- capiz, photographed: a stack of pages, each carrying the couple's own
+   frame as its background — the top of the frame at the top of the page, the
+   bottom at the bottom, solid ground between — so the shell and the drapes
+   scroll with the words they belong to, and one page ends where the next
+   begins. A connector is the short panel between two pages, strung between
+   the two strands cut from the two-strand image. --- */
+.inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
+body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
+.inv-page {
+  position: relative;
+  min-height: 100svh;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 5rem 0;
+  background-color: #f1e5dc;
+  background-image: url(/capiz/frame-top.jpg), url(/capiz/frame-bottom.jpg);
+  background-position: center top, center bottom;
+  background-size: 100% auto, 100% auto;
+  background-repeat: no-repeat;
 }
-.inv-garland[data-g='a'] { aspect-ratio: 720 / 269; background-image: url(/capiz/garland-a.jpg); }
-.inv-garland[data-g='b'] { aspect-ratio: 720 / 282; background-image: url(/capiz/garland-b.jpg); }
-.inv-garland[data-g='s1'] { aspect-ratio: 549 / 104; background-image: url(/capiz/strand-a.jpg); margin: 0.5rem auto -0.5rem; }
-.inv-garland[data-g='s2'] { aspect-ratio: 549 / 96; background-image: url(/capiz/strand-b.jpg); margin: 0.5rem auto -0.5rem; }
-.inv-garland[data-g='s1'], .inv-garland[data-g='s2'] {
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
-          mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+.inv-page[data-kind='connector'] {
+  min-height: 0;
+  padding: 5.5rem 0;
+  background-image: url(/capiz/strand-a.jpg), url(/capiz/strand-b.jpg);
 }
-/* the cluster at the page's edge beside a block, from the same image */
-.inv-bracket {
-  position: absolute; z-index: 0; pointer-events: none; top: 50%; translate: 0 -50%;
-  width: 7.2rem; aspect-ratio: 200 / 468; background: url(/capiz/bracket-r.jpg) center / cover no-repeat;
-}
-.inv-bracket[data-side='r'] { right: -1.6rem;
-  -webkit-mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%);
-          mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%); }
-.inv-bracket[data-side='l'] { left: -1.6rem; transform: scaleX(-1);
-  -webkit-mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%);
-          mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%); }
+.inv-page > .inv-section { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+.inv-page > .inv-section + .inv-section { padding-top: 2.5rem; }
+.inv-page[data-page='cover'] { padding: 3rem 0; }
 
 /* --- sections --- */
 .inv[data-layout='capiz'] .inv-section {
@@ -678,8 +659,8 @@ table.data tr:hover td {
 /* --- hero: the names centred in the frame, measured by its own width (a
    container) so a phone and a showcase column the width of a phone agree --- */
 .inv[data-layout='capiz'] .inv-hero {
-  min-height: 100svh;
-  padding: 4rem 0 3rem;
+  min-height: 0;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -864,10 +845,9 @@ table.data tr:hover td {
 .inv-verse-text { text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.95rem; line-height: 2; color: var(--inv-ink); }
 .inv-verse-ref { margin-top: 1.4rem; }
 .inv-rule { display: block; width: 2.6rem; height: 1px; margin: 1.6rem auto 0; background: var(--inv-accent2); }
-.inv-story-sign { position: relative; text-align: center; margin-top: 2.4rem; }
-.inv-getting-block { position: relative; }
-/* the text above the cluster, the cluster behind it */
-.inv-getting-block > :not(.inv-bracket), .inv-story-sign > :not(.inv-bracket) { position: relative; z-index: 1; }
+.inv-story-sign { text-align: center; margin-top: 2.4rem; }
+.inv-getting-block + .inv-getting-block { margin-top: 1.4rem; }
+.inv-venues { display: grid; gap: 1.4rem; margin-top: 0.4rem; }
 .inv-story-sign .inv-eyebrow { margin-bottom: 0.15rem; margin-top: 1.2rem; color: var(--inv-ink); opacity: 0.85; }
 .inv-story-sign .inv-eyebrow-date { margin-top: 0; letter-spacing: 0.42em; text-indent: 0.42em; }
 .inv-interlude { text-align: center; padding-top: 0.6rem; padding-bottom: 0.6rem; }
@@ -915,12 +895,13 @@ table.data tr:hover td {
 .looks-col { flex: none; width: 390px; scroll-snap-align: start; }
 .looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
 .looks-phone .inv { min-height: 100%; }
-.looks-phone .inv-hero { min-height: 784px; }
+.looks-phone .inv-page { min-height: 784px; }
+.looks-phone .inv-page[data-kind='connector'] { min-height: 0; }
 
 /* the strip is decoration: none of it prints */
 @media print {
-  .inv-frame, .inv-garland, .inv-bracket { display: none !important; }
-  .inv[data-layout='capiz'] .inv-hero { min-height: 0; }
+  .inv-page { background-image: none; min-height: 0; padding: 1rem 0; }
+  .inv[data-layout='capiz'] { max-width: none; }
 }
 
 /* ---------------------------------------------------------------------------

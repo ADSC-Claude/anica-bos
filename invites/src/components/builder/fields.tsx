@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
+import { PALETTE, MOTIF_MAX, swatchByHex, swatchStyle } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
 
@@ -27,7 +28,7 @@ export function SectionFields({ fields, value, onChange, lang, invitationId, lis
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
-        <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'checks' ? 'sm:col-span-2' : ''}>
+        <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' ? 'sm:col-span-2' : ''}>
           <FieldInput field={f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
         </div>
       ))}
@@ -146,6 +147,8 @@ function FieldInput({
       return <ImageInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
     case 'colors':
       return <ColorsInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
+    case 'swatches':
+      return <SwatchesInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
     case 'checks':
       return <ChecksInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
     case 'person':
@@ -213,6 +216,69 @@ function ColorsInput({ field, value, onChange }: { field: Field; value: string[]
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange([...value, '#c9a86a'])}>+ Add colour</button>
         )}
       </div>
+      <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/**
+ * Colours picked from the named palette, in the order picked: the chosen ones
+ * as chips across the top (each with its name and a remove), the palette below
+ * as the designer laid it out — a row per family, a circle with its name under
+ * it — tap to pick, tap again to drop. Full is full: the rest grey out. The
+ * palette folds away behind a button once the field has what it needs, so
+ * three colour fields do not stack three palettes down the section.
+ */
+function SwatchesInput({ field, value, onChange }: { field: Field; value: string[]; onChange: (v: string[]) => void }) {
+  const max = field.max ?? MOTIF_MAX;
+  const min = field.min ?? 0;
+  const chosen = value.map((hex) => hex.toLowerCase());
+  const toggle = (hex: string) => {
+    if (chosen.includes(hex)) onChange(value.filter((x) => x.toLowerCase() !== hex));
+    else if (value.length < max) onChange([...value, hex]);
+  };
+  const short = min > 0 && value.length < min;
+  const [open, setOpen] = useState(short);
+  return (
+    <div>
+      <Label field={field} />
+      <div className="mb-2 flex min-h-9 flex-wrap items-center gap-2">
+        {value.map((hex, i) => {
+          const s = swatchByHex(hex);
+          return (
+            <span key={`${hex}-${i}`} className="flex items-center gap-1.5 rounded-full border border-[color:var(--color-sand-200)] bg-white py-1 pl-1 pr-2 text-xs">
+              <span className="h-6 w-6 rounded-full border border-black/10" style={{ background: swatchStyle(hex, s?.metallic) }} />
+              {s?.name ?? hex}
+              <button type="button" className="text-[color:var(--color-ink-500)]" onClick={() => onChange(value.filter((_, j) => j !== i))} aria-label={`Remove ${s?.name ?? hex}`}>✕</button>
+            </span>
+          );
+        })}
+        <span className={`text-xs ${short ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
+          {value.length} of {min ? `${min}–${max}` : `up to ${max}`}{short ? ` · pick at least ${min}` : value.length >= max ? ' · full' : ''}
+        </span>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          {open ? 'Hide the palette' : value.length ? 'Change colours' : 'Pick from the palette'}
+        </button>
+      </div>
+      {open && <div className="rounded-xl border border-[color:var(--color-sand-200)] bg-white px-3 py-1">
+        {PALETTE.map((g) => (
+          <div key={g.key} className="flex items-start gap-2 border-t border-[color:var(--color-sand-100)] py-1.5 first:border-t-0">
+            <span className="w-[5.5rem] shrink-0 pt-2 text-[10px] uppercase leading-tight tracking-[0.14em] text-[color:var(--color-ink-500)]">{g.label}</span>
+            <div className="flex flex-wrap">
+              {g.swatches.map((s) => {
+                const on = chosen.includes(s.hex);
+                const full = !on && value.length >= max;
+                return (
+                  <button key={s.key} type="button" onClick={() => toggle(s.hex)} disabled={full} aria-pressed={on} title={`${s.name} ${s.hex}`} className={`flex w-[3.6rem] flex-col items-center gap-1 rounded-lg px-0.5 py-1 text-center ${on ? 'bg-[color:var(--color-sand-100)]' : full ? 'opacity-40' : 'hover:bg-[color:var(--color-sand-50)]'}`}>
+                    <span className={`h-7 w-7 rounded-full border border-black/10 ${on ? 'ring-2 ring-[color:var(--color-plum-600)] ring-offset-1' : ''}`} style={{ background: swatchStyle(s.hex, s.metallic) }} />
+                    <span className="text-[9px] leading-tight text-[color:var(--color-ink-700)]">{s.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>}
       <Hint text={field.hint} />
     </div>
   );

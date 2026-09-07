@@ -843,7 +843,10 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-rule-head { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin: 0 auto 0.9rem; max-width: 20rem; }
 .inv-rule-head::before, .inv-rule-head::after { content: ''; flex: 1 1 0; min-width: 1.1rem; height: 1px; background: color-mix(in srgb, var(--inv-ink) 32%, transparent); }
 .inv-rule-head > span { flex: 0 1 auto; }
-.inv-swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.55rem; margin: 0 auto; max-width: 19rem; }
+.inv-swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.7rem 0.55rem; margin: 0 auto; max-width: 19rem; }
+/* a swatch and its name: four to a row, the name in the small caps of the page */
+.inv-swatch-item { display: flex; flex-direction: column; align-items: center; gap: 0.32rem; width: 4.2rem; }
+.inv-swatch-name { font-family: var(--inv-body); font-size: 0.5rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.3; text-align: center; color: var(--inv-ink); opacity: 0.85; }
 .inv-avoid { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem 0.4rem; max-width: 19rem; }
 .inv-avoid li { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
 .inv-avoid-ico { position: relative; width: 3.3rem; height: 3.3rem; border-radius: 50%; border: 1.5px solid #a8433d; display: grid; place-items: center; overflow: hidden; }

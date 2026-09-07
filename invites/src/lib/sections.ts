@@ -1,3 +1,4 @@
+import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
@@ -33,6 +34,8 @@ export type FieldType =
   | 'image'
   | 'select'
   | 'colors'
+  /** colours picked from the named palette (src/lib/palette.ts); stored as hex like 'colors' */
+  | 'swatches'
   | 'checks'
   | 'person'
   | 'list';
@@ -53,6 +56,8 @@ export type Field = {
   item?: Field[];
   addLabel?: string;
   max?: number;
+  /** swatches: how many at least, asked at publish */
+  min?: number;
   /** Render full-width in a two-column form. */
   wide?: boolean;
 };
@@ -483,13 +488,13 @@ const SECTION_DEFS: SectionDef[] = [
         { value: 'casual', label: 'Casual' },
       ]),
       text('attireText', 'Line under the heading', { placeholder: 'e.g. We kindly encourage our guests to wear elegant formal attire.', hint: 'Blank writes one from the attire you picked.' }),
-      { key: 'gentsColors', label: 'Suit colours for the gentlemen', type: 'colors', max: 4, hint: 'Up to four. The suits drawn on the page take these colours; blank uses the motif.' },
+      { key: 'gentsColors', label: 'Suit colours for the gentlemen', type: 'swatches', max: 4, hint: 'Up to four, from the palette. The suits drawn on the page take these colours; blank uses the motif.' },
       checks('gentsItems', 'For gentlemen', attireOptions(gentsItems(occasion)), { hint: 'Tick what fits. Guests read them as one line.' }),
       text('gentsNote', 'Note for gentlemen', { placeholder: 'e.g. Tie is optional.' }),
-      { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'colors', max: 5, hint: 'Up to five. The gowns drawn on the page take these colours; blank uses the motif.' },
+      { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'swatches', max: 5, hint: 'Up to five, from the palette. The gowns drawn on the page take these colours; blank uses the motif. A pale pick is deepened on the page — no guest wears white.' },
       checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion))),
       text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.' }),
-      { key: 'colors', label: 'Colour motif', type: 'colors', max: 9, wide: true, hint: 'Up to nine colours. Guests see them as the suggested palette.' },
+      { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, wide: true, hint: 'Four to eight colours from the palette. Guests see them as the suggested palette, each with its name.' },
       text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.' }),
       checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { hint: 'Each one is drawn crossed out.' }),
       text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
@@ -794,6 +799,7 @@ function emptyValue(field: Field): unknown {
     case 'number':
       return null;
     case 'colors':
+    case 'swatches':
     case 'checks':
     case 'list':
       return [];
@@ -935,7 +941,8 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
       }
       return s;
     }
-    case 'colors': {
+    case 'colors':
+    case 'swatches': {
       const arr = Array.isArray(raw) ? raw : [];
       return arr
         .map((c) => cleanString(c, 7))
@@ -994,6 +1001,16 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
   const cover = content.cover ?? {};
   for (const f of fieldsFor('cover', occasion)) {
     if (f.required && !String(cover[f.key] ?? '').trim()) problems.push(`Cover: ${f.label} is required.`);
+  }
+  // a motif is a set: four to eight colours. One started with fewer is not done;
+  // none at all is a couple who chose not to show a palette, and that is allowed.
+  const dress = content.dressCode;
+  if (dress && sectionOffered('dressCode')) {
+    for (const f of fieldsFor('dressCode', occasion)) {
+      if (f.type !== 'swatches' || !f.min) continue;
+      const n = Array.isArray(dress[f.key]) ? (dress[f.key] as unknown[]).length : 0;
+      if (n > 0 && n < f.min) problems.push(`Dress code: pick at least ${f.min} colours for the ${f.label.toLowerCase()} (${n} chosen).`);
+    }
   }
   return problems;
 }

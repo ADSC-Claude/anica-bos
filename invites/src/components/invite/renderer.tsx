@@ -16,6 +16,7 @@ import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
+import { swatchByHex, swatchStyle } from '@/lib/palette';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -516,8 +517,8 @@ function Eighteen({ data, lang }: { data: SectionData; lang: Lang }) {
 const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', business: 'Business', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
 const ATTIRE_TL: Record<string, string> = { ...ATTIRE, filipiniana: 'Filipiniana at Barong' };
 /** The suits and gowns when the couple picked no colours for them and has no motif: black, tan, olive, cream; champagne, sage, blush, chocolate, ivory. */
-const SUIT_COLORS = ['#2a2726', '#c8b596', '#59604a', '#e8dfcf'];
-const GOWN_COLORS = ['#c9ad86', '#9daa8f', '#d9a9a9', '#8a5a3c', '#a67c6d'];
+const SUIT_COLORS = ['#1a1a1a', '#c9a07a', '#838963', '#d4c2ae']; // soft black, camel, olive, sand
+const GOWN_COLORS = ['#e6d3bb', '#bccdb8', '#daa8a6', '#3f2b22', '#b991a3']; // champagne gold, sage, dusty rose, chocolate, mauve
 
 /**
  * What to wear, the way a printed dress code card says it: the attire as the
@@ -563,7 +564,16 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
       <span className="inv-wear-word">{w}</span>{' '}
     </span>
   ));
-  const swatches = motif.map((c) => <span key={c} className="inv-swatch" style={{ background: c }} title={c} />);
+  // each swatch with its name under it, when the colour is one of the palette's; a metallic drawn with its sheen
+  const swatches = motif.map((c, i) => {
+    const s = swatchByHex(c);
+    return (
+      <span key={`${c}-${i}`} className="inv-swatch-item">
+        <span className="inv-swatch" style={{ background: swatchStyle(c, s?.metallic) }} title={s?.name ?? c} />
+        {s && <span className="inv-swatch-name">{s.name}</span>}
+      </span>
+    );
+  });
   const sponsors = (str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) ? (
     <div className="inv-two inv-attire text-sm">
       {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}

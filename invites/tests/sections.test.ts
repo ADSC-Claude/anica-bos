@@ -54,13 +54,13 @@ test('a person keeps title, name and the late marker', () => {
   assert.deepEqual(data.brideFather, { title: '', name: '', deceased: false });
 });
 
-test('colours must be hex and at most the field allows: nine for the motif, four for the suits', () => {
+test('colours must be hex and at most the field allows: eight for the motif, four for the suits', () => {
   const fields = fieldsFor('dressCode', 'WEDDING');
   const { data } = cleanSection(fields, {
     colors: ['#5b6b4e', 'red', '#C9B48A', '#1', '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777'],
     gentsColors: ['#000000', '#111111', '#222222', '#333333', '#444444'],
   });
-  assert.deepEqual(data.colors, ['#5b6b4e', '#C9B48A', '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666']);
+  assert.deepEqual(data.colors, ['#5b6b4e', '#C9B48A', '#000000', '#111111', '#222222', '#333333', '#444444', '#555555']);
   assert.deepEqual(data.gentsColors, ['#000000', '#111111', '#222222', '#333333']);
 });
 

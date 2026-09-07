@@ -152,7 +152,9 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
         select(
           'opening',
           'Opening',
-          OPENINGS.map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
+          // Staff-only openings are left out: the cinematic one is artwork
+          // somebody has to make, so it is attached to an order, never picked.
+          OPENINGS.filter((o) => !o.staffOnly).map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
           { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
         ),
         text('openingLine', 'Words on the opening', { placeholder: 'and so it begins', hint: 'Leave blank and each opening uses its own line.' }),

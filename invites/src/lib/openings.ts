@@ -14,7 +14,7 @@ import { tierAtLeast } from './tiers';
  * are what differ.
  */
 /** In catalogue order — cheapest first, so the builder's dropdown reads as a ladder. */
-export const OPENING_KEYS = ['none', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo'] as const;
+export const OPENING_KEYS = ['none', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo', 'cinematic'] as const;
 export type OpeningKey = (typeof OPENING_KEYS)[number];
 
 export type OpeningDef = {
@@ -32,6 +32,12 @@ export type OpeningDef = {
   line: { en: string; tl: string };
   /** Set in small caps and letterspaced rather than in the script face. */
   caps?: boolean;
+  /**
+   * Encoded by staff, not chosen in the builder. A customer cannot pick this
+   * one: it exists only once somebody has made the artwork for it, so
+   * offering it in a dropdown would promise what the invitation has not got.
+   */
+  staffOnly?: boolean;
 };
 
 export const OPENINGS: OpeningDef[] = [
@@ -102,8 +108,29 @@ export const OPENINGS: OpeningDef[] = [
     photos: 3,
     line: { en: 'Same people, new adventures', tl: 'Parehong tao, bagong yugto' },
   },
+  {
+    key: 'cinematic',
+    name: 'Cinematic opening',
+    tagline: 'An invitation that opens like a gift.',
+    description: 'Embroidered panels tied with a silk bow. The bow unties, the panels draw back, and the invitation is behind them. Made by our designers, and part of Done-For-You.',
+    minTier: 'COMPLETE',
+    photos: 0,
+    line: { en: '', tl: '' },
+    staffOnly: true,
+  },
 ];
 
+/**
+ * The cinematic opening is the illustrated one — a bow untying, panels drawing
+ * back — and the only opening that loads a file. It is deliberately outside
+ * the self-serve set: the clip is artwork somebody made, so it arrives with a
+ * Done-For-You or Concierge order rather than from a dropdown.
+ *
+ * It is still one shared clip per design, not a render per couple. The names,
+ * date and countdown stay live text over the top, so a nickname changed at
+ * 11pm reads correctly on the next reload. Only Concierge, where the artwork
+ * itself is drawn for one couple, replaces the shared clip.
+ */
 export const OPENING_BY_KEY: Record<OpeningKey, OpeningDef> = Object.fromEntries(
   OPENINGS.map((o) => [o.key, o]),
 ) as Record<OpeningKey, OpeningDef>;
@@ -132,7 +159,15 @@ export function resolveOpening(args: {
   templateDefault: string;
   legacyEnvelope: boolean;
   tier: Tier;
+  /** True once a cinematic clip has been encoded for this invitation or its design. */
+  cinematic?: boolean;
 }): OpeningKey {
+  // A customer who turned the opening off keeps it off, whatever staff have
+  // since attached — "none" is a decision, not a gap waiting to be filled.
+  if (args.chosen === 'none') return 'none';
+  // Otherwise the artwork wins: if a clip was made for this invitation, that
+  // is what the guest should get.
+  if (args.cinematic && tierAtLeast(args.tier, 'COMPLETE')) return 'cinematic';
   const wanted = isOpening(args.chosen) && args.chosen !== 'none'
     ? args.chosen
     : args.chosen === 'none'
@@ -146,7 +181,21 @@ export function resolveOpening(args: {
   return tierAtLeast(args.tier, OPENING_BY_KEY[wanted].minTier) ? wanted : 'envelope';
 }
 
-/** The openings a customer on this tier may pick, for the builder's dropdown. */
+/**
+ * The openings a customer on this tier may pick, for the builder's dropdown.
+ * Staff-only openings never appear: there is nothing to choose until the
+ * artwork exists.
+ */
 export function openingsFor(tier: Tier): OpeningDef[] {
-  return OPENINGS.filter((o) => tierAtLeast(tier, o.minTier));
+  return OPENINGS.filter((o) => !o.staffOnly && tierAtLeast(tier, o.minTier));
+}
+
+/** The clip and its poster, preferring the pair made for this couple. */
+export function openingAssets(
+  invitation: { openingVideoUrl: string; openingPosterUrl: string },
+  template: { openingVideoUrl: string; openingPosterUrl: string },
+): { video: string; poster: string } {
+  return invitation.openingVideoUrl
+    ? { video: invitation.openingVideoUrl, poster: invitation.openingPosterUrl }
+    : { video: template.openingVideoUrl, poster: template.openingPosterUrl };
 }

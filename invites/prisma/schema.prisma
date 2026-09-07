@@ -192,6 +192,11 @@ model Template {
   collection   String   @default("")
   /// The opening this design ships with. The customer may override it. See src/lib/openings.ts.
   opening      String   @default("")
+  /// A cinematic opening's shared assets: the clip that plays on tap and the
+  /// still shown in its place until it does. One pair per design, served to
+  /// every customer on it — never rendered per couple.
+  openingVideoUrl  String @default("")
+  openingPosterUrl String @default("")
   palette      Json
   fonts        Json
   sections     String[]
@@ -384,6 +389,11 @@ model Invitation {
   /// The link stops resolving after this. Set from the package on publish.
   expiresAt    DateTime?
   ogImageUrl   String           @default("")
+  /// A cinematic opening encoded for this couple alone, overriding the
+  /// design's shared one. Staff set these on a Done-For-You or Concierge
+  /// order; they are not customer content and never pass through the builder.
+  openingVideoUrl  String          @default("")
+  openingPosterUrl String          @default("")
   editsUsed    Int              @default(0)
   /// -1 means unlimited until the event.
   editsAllowed Int              @default(3)

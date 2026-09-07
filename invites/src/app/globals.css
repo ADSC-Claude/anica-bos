@@ -688,6 +688,59 @@ table.data tr:hover td {
   translate: 0 min(6.5rem, 18vh);
 }
 
+/* The Cinematic opening: the one opening that is a file. The clip fills the
+   screen and the copy sits over it; the overlay leaves when the clip ends
+   rather than on a timer, so the reveal and the exit are the same moment. */
+.inv-open-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The tap belongs to the overlay, not to the video: without this the guest
+     can land on the element itself and the browser treats it as a media
+     click rather than as opening the invitation. */
+  pointer-events: none;
+}
+/* Chromium paints an overlay play button and a control bar on a paused video
+   even with no `controls` attribute. On an invitation that is somebody's
+   artwork with a media player sitting on top of it. */
+.inv-open-clip::-webkit-media-controls,
+.inv-open-clip::-webkit-media-controls-enclosure,
+.inv-open-clip::-webkit-media-controls-panel,
+.inv-open-clip::-webkit-media-controls-start-playback-button,
+.inv-open-clip::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* The cue has to stay readable over artwork nobody has seen yet, so the foot
+   of the frame is darkened rather than trusting the illustration to be dark
+   in the one place the words land. */
+.inv-open[data-style='cinematic']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 22%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
+}
+/* The artwork carries the whole closed screen, so the names and date stay on
+   the invitation underneath rather than being printed over an illustration
+   that was composed without them. Only the tap cue sits on top. */
+.inv-open[data-style='cinematic'] .inv-open-copy {
+  display: none;
+}
+.inv-open[data-style='cinematic'] .inv-open-hint {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+.inv-open[data-open='true'][data-style='cinematic'] .inv-open-clip {
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
 /* The Drape: hanging silk with the names on it, lifted away. */
 .inv-open-drape {
   position: absolute;
@@ -978,6 +1031,7 @@ table.data tr:hover td {
   .inv-open {
     transition: opacity 300ms ease, visibility 0s linear 300ms;
   }
+
   html {
     scroll-behavior: auto;
   }

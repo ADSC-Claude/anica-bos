@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, resolveOpening } from '../src/lib/openings';
+import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening } from '../src/lib/openings';
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { TEMPLATES } from '../prisma/templates';
 import { fieldsFor, cleanSection, defaultContent } from '../src/lib/sections';
@@ -15,9 +15,12 @@ test('the opening catalogue is complete and every key is declared', () => {
     assert.equal(def.key, key);
     assert.ok(def.name, `${key} has a name`);
     assert.ok(isOpening(key));
-    if (key !== 'none') {
+    if (key !== 'none') assert.ok(def.tagline, `${key} has a tagline`);
+    // The drawn openings put a line of the couple's words on the closed
+    // screen. "none" has no screen, and the cinematic one's screen is
+    // artwork that was composed without room for type.
+    if (key !== 'none' && !def.staffOnly) {
       assert.ok(def.line.en && def.line.tl, `${key} has a line in both languages`);
-      assert.ok(def.tagline, `${key} has a tagline`);
     }
   }
   assert.equal(isOpening('sparkles'), false);
@@ -30,7 +33,12 @@ test('a tier only offers the openings it has paid for', () => {
   assert.deepEqual(keys('BASIC'), ['none', 'envelope']);
   assert.ok(keys('STANDARD').includes('curtain'));
   assert.ok(!keys('STANDARD').includes('seal'));
-  assert.deepEqual(keys('COMPLETE'), [...OPENING_KEYS]);
+  // Everything except the cinematic one, which no tier can pick: it is
+  // artwork attached to an order, not an option.
+  assert.deepEqual(keys('COMPLETE'), OPENING_KEYS.filter((k) => k !== 'cinematic'));
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
+    assert.ok(!keys(tier).includes('cinematic'), `${tier} is not offered the cinematic opening`);
+  }
 });
 
 test('the customer choice wins, then the design, then nothing', () => {
@@ -64,7 +72,7 @@ test('the cover offers every opening, and locks the ones the tier cannot have', 
   const opening = (tier?: 'BASIC' | 'STANDARD' | 'COMPLETE') => fieldsFor('cover', 'WEDDING', tier).find((f) => f.key === 'opening')!;
   // Every key is offered whatever the tier, so a saved value is never rejected
   // by cleanSection just because the customer downgraded.
-  assert.deepEqual(opening().options?.map((o) => o.value), [...OPENING_KEYS]);
+  assert.deepEqual(opening().options?.map((o) => o.value), OPENING_KEYS.filter((k) => k !== 'cinematic'));
   const basic = opening('BASIC').options!;
   assert.equal(basic.find((o) => o.value === 'envelope')?.lockedTier, undefined);
   assert.equal(basic.find((o) => o.value === 'seal')?.lockedTier, 'COMPLETE');
@@ -130,4 +138,31 @@ test('the White Collection is a full wedding family, one design per opening', ()
   for (const key of ['drape', 'seal', 'curtain', 'line', 'photo']) {
     assert.ok(openings.includes(key), `the White Collection covers ${key}`);
   }
+});
+
+test('artwork supplies the cinematic opening; it is never chosen', () => {
+  const base = { chosen: '', templateDefault: 'drape', legacyEnvelope: false, tier: 'COMPLETE' as const };
+  // A clip beats the design's own opening — someone made it for this couple.
+  assert.equal(resolveOpening({ ...base, cinematic: true }), 'cinematic');
+  assert.equal(resolveOpening({ ...base, cinematic: false }), 'drape');
+  // It beats an explicit choice too, for the same reason.
+  assert.equal(resolveOpening({ ...base, chosen: 'seal', cinematic: true }), 'cinematic');
+  // But not an explicit "none": turning the opening off is a decision, and a
+  // clip attached afterwards must not quietly undo it.
+  assert.equal(resolveOpening({ ...base, chosen: 'none', cinematic: true }), 'none');
+  // Below Complete the clip is not served at all: the design's own opening
+  // carries on, itself downgraded to the envelope here because The Drape is
+  // Complete-only too. Either way the guest gets an opening, never a blank.
+  assert.equal(resolveOpening({ ...base, tier: 'STANDARD', cinematic: true }), 'envelope');
+  assert.equal(resolveOpening({ ...base, tier: 'BASIC', cinematic: true }), 'envelope');
+  assert.equal(resolveOpening({ ...base, templateDefault: 'curtain', tier: 'STANDARD', cinematic: true }), 'curtain');
+});
+
+test('a clip made for one couple beats the one their design ships with', () => {
+  const design = { openingVideoUrl: 'https://cdn/shared.webm', openingPosterUrl: 'https://cdn/shared.webp' };
+  const bespoke = { openingVideoUrl: 'https://cdn/theirs.webm', openingPosterUrl: 'https://cdn/theirs.webp' };
+  const none = { openingVideoUrl: '', openingPosterUrl: '' };
+  assert.deepEqual(openingAssets(bespoke, design), { video: 'https://cdn/theirs.webm', poster: 'https://cdn/theirs.webp' });
+  assert.deepEqual(openingAssets(none, design), { video: 'https://cdn/shared.webm', poster: 'https://cdn/shared.webp' });
+  assert.deepEqual(openingAssets(none, none), { video: '', poster: '' });
 });

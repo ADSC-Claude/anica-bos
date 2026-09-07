@@ -39,6 +39,8 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Checkbox label="Premium (Complete tier only)" name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
           <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="Portrait image shown in the gallery. Leave blank to show the palette." />
+          <Field label="Cinematic clip URL" name="openingVideoUrl" defaultValue={t?.openingVideoUrl} hint="Portrait MP4 or WebM, muted, a few seconds. Shown to every Complete customer on this design; it overrides the opening chosen above." />
+          <Field label="Cinematic poster URL" name="openingPosterUrl" defaultValue={t?.openingPosterUrl} hint="The clip's first frame. It is the whole closed screen until the guest taps, so this one must always be set alongside the clip." />
           <div className="grid grid-cols-3 gap-2">
             <Field label="Sort order" name="sortOrder" type="number" defaultValue={t?.sortOrder ?? 0} />
             <div className="pt-6"><Checkbox label="Featured" name="featured" defaultChecked={t?.featured} /></div>

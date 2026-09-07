@@ -33,12 +33,38 @@ export type OpeningProps = {
   caps: boolean;
   /** Up to three, in the order the stage wants them. */
   photos: string[];
+  /** "cinematic" only: the clip, and the still shown until it plays. */
+  video: string;
+  poster: string;
   /** "Tap to open". */
   hint: string;
 };
 
-function Stage({ style, monogram, photos }: { style: string; monogram: string; photos: string[] }) {
+function Stage({ style, monogram, photos, video, poster, videoRef }: {
+  style: string;
+  monogram: string;
+  photos: string[];
+  video: string;
+  poster: string;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}) {
   switch (style) {
+    case 'cinematic':
+      // The poster carries the whole closed screen, so the guest sees the
+      // artwork immediately and the clip is only fetched when they tap —
+      // preload="none" is what keeps the first paint free of it.
+      return (
+        <video
+          ref={videoRef}
+          className="inv-open-clip"
+          src={video}
+          poster={poster}
+          muted
+          playsInline
+          preload="none"
+          aria-hidden
+        />
+      );
     case 'envelope':
     case 'seal':
       return (
@@ -104,6 +130,7 @@ export function Shell({
   const [open, setOpen] = useState(!closed);
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const clip = useRef<HTMLVideoElement | null>(null);
 
   const play = useCallback(async () => {
     if (!audio.current) return;
@@ -138,9 +165,34 @@ export function Shell({
     };
   }, [open]);
 
+  /**
+   * The tap. For every drawn opening the CSS exit runs and the overlay is gone
+   * on a timer; the cinematic one instead plays its clip and leaves when the
+   * clip ends, because the reveal *is* the clip.
+   *
+   * The tap is also what makes both of these work at all on a phone: playing
+   * video or audio without a user gesture is blocked, and this is the gesture.
+   */
   const reveal = () => {
-    setOpen(true);
     if (music && autoplay) void play();
+    const video = clip.current;
+    if (opening.style !== 'cinematic' || !video) {
+      setOpen(true);
+      return;
+    }
+    // A guest who asked for less motion gets the poster — the same artwork,
+    // standing still — and a plain fade when they tap. The clip never plays.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setOpen(true);
+      return;
+    }
+    const finish = () => setOpen(true);
+    video.addEventListener('ended', finish, { once: true });
+    // A clip that will not play — an unsupported codec, a file that 404s, a
+    // browser that refuses — must not strand the guest on a screen that never
+    // opens, so the reveal happens anyway.
+    video.addEventListener('error', finish, { once: true });
+    void video.play().catch(finish);
   };
 
   return (
@@ -160,7 +212,7 @@ export function Shell({
             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && reveal()}
           >
             <div className="inv-open-stage">
-              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} />
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
             </div>
             <div className="inv-open-copy">
               {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}

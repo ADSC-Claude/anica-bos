@@ -250,6 +250,7 @@ catalogue:
 | The Drape | Complete | Hanging silk with the names on it, lifted away. |
 | The Seal | Complete | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
 | Photo Story | Complete | Three photos fanned like prints, sliding apart. |
+| Cinematic | Complete + Done-For-You | Embroidered panels tied with a silk bow. The bow unties, the panels draw back. |
 
 **None of these is a video.** Every one is drawn by the browser from the
 couple's own palette, words and photos — a `<div>`, a CSS transition and, for
@@ -266,9 +267,29 @@ The Line, one SVG path. That is not a stylistic preference:
   rest, so an opening works on all twelve palettes without a second asset.
 - Nothing goes through storage, so nothing is charged for egress.
 
-Generated video still has a place — a hero loop on the marketing pages, one
-asset serving every visitor, made once. It is the *per-couple* opening that
-must not be a file.
+That holds for the six drawn openings. **The cinematic one is the exception,
+and it is deliberate.** Photoreal cloth — a silk bow untying, beadwork with
+raised shadow — cannot be drawn in CSS or in Lottie, which is vector. It is
+artwork somebody makes, so it is a file.
+
+What makes it affordable is that the file is still shared. One clip per
+design, not per couple: the names never appear inside it, so the same few
+hundred kilobytes serve every customer on that design and the CDN caches it
+after the first guest. `preload="none"` means it is not fetched at all until
+the tap, so it costs a guest who never opens the invitation nothing, and the
+tap is a user gesture, which is what lets it play on iOS at all.
+
+Because it is artwork rather than a setting, it is never offered in the
+builder (`staffOnly`) and never chosen by a customer. It arrives with a
+Done-For-You or Concierge order: staff attach the clip and its poster to the
+design (`Template.openingVideoUrl`) or, for Concierge, to the one invitation
+it was drawn for (`Invitation.openingVideoUrl`), from the DFY job page. The
+poster is required alongside the clip, because that still *is* the closed
+screen until the guest taps.
+
+Generated video also has a place on the marketing pages — a hero loop, one
+asset made once. What must not be a file is a *render per couple*: that is the
+thing that cannot carry live text and cannot be made at self-serve prices.
 
 Which opening a guest gets is `resolveOpening()`: the customer's choice
 (`content.cover.opening`), else the design's default (`Template.opening`),
@@ -285,6 +306,15 @@ Three things every opening must do, and the tests and the CSS enforce:
   slides, sways or draws. The overlay simply fades.
 - **Disappear from print.** `/[slug]/print` and Save as PDF render the
   invitation only.
+
+The cinematic one adds two of its own, both tested: a clip that 404s or will
+not decode reveals the invitation anyway rather than stranding the guest on a
+screen that never opens, and under `prefers-reduced-motion` the poster stands
+in — the same artwork, held still — and the clip never plays.
+
+An invitation below Complete is not served the clip at all: the `<video>` is
+never rendered, so there are no bytes to decline. Its design's own drawn
+opening carries on instead.
 
 ### Shipping a design
 

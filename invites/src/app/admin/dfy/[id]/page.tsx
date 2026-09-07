@@ -8,7 +8,7 @@ import { sectionsFor, sectionLabel, fieldsFor, type Content, type Field } from '
 import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, DfyPill, BackLink } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
-import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExtendAction } from '../../actions';
+import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExtendAction, dfyOpeningAction } from '../../actions';
 import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
@@ -108,6 +108,19 @@ export default async function DfyJobPage({ params, searchParams }: { params: Pro
               </form>
             ) : <p>{job.assignee?.name ?? 'Unassigned'}</p>}
           </section>
+          {canEdit && (
+            <section className="card p-4 text-sm">
+              <h2 className="mb-2 font-semibold">Cinematic opening</h2>
+              <p className="mb-2 text-xs text-[color:var(--color-ink-500)]">
+                Made for this couple, and it replaces whatever the design opens with. Complete tier only — this order is {job.invitation.tier}.
+              </p>
+              <form action={dfyOpeningAction.bind(null, job.id, back)} className="space-y-2">
+                <input name="openingVideoUrl" defaultValue={job.invitation.openingVideoUrl} className="field" placeholder="Clip URL (portrait MP4 or WebM, muted)" />
+                <input name="openingPosterUrl" defaultValue={job.invitation.openingPosterUrl} className="field" placeholder="Poster URL (the clip's first frame)" />
+                <button className="btn btn-secondary btn-sm" type="submit">Save opening</button>
+              </form>
+            </section>
+          )}
           {canEdit && (
             <section className="card p-4 text-sm">
               <h2 className="mb-2 font-semibold">Internal notes</h2>

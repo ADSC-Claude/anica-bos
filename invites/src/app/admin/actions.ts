@@ -96,6 +96,30 @@ export async function dfyReplyAction(jobId: string, back: string, fd: FormData) 
 export async function dfyNotesAction(jobId: string, back: string, fd: FormData) {
   return run('dfy.edit', back, async (user) => { await updateJobNotes(user, jobId, s(fd, 'notes')); });
 }
+/**
+ * Attach a cinematic opening made for this couple. Concierge work: the clip is
+ * drawn for one invitation and overrides whatever its design ships with.
+ *
+ * The pair is stored together or not at all — a clip with no poster leaves the
+ * guest on a blank screen while it buffers, which is worse than no opening.
+ */
+export async function dfyOpeningAction(jobId: string, back: string, fd: FormData) {
+  return run('dfy.edit', back, async (user) => {
+    const job = await prisma.dfyJob.findUniqueOrThrow({ where: { id: jobId }, include: { invitation: { select: { id: true, tier: true, title: true } } } });
+    const video = s(fd, 'openingVideoUrl');
+    const poster = s(fd, 'openingPosterUrl');
+    if (video && !poster) throw new HttpError(400, 'A clip needs its poster too — that still is the closed screen until the guest taps.');
+    if (video && job.invitation.tier !== 'COMPLETE') {
+      throw new HttpError(400, `The cinematic opening is a Complete feature and this invitation is ${job.invitation.tier}. Upgrade the order first, or the guest would never see it.`);
+    }
+    await prisma.invitation.update({ where: { id: job.invitationId }, data: { openingVideoUrl: video, openingPosterUrl: video ? poster : '' } });
+    await audit(user, {
+      module: 'dfy', action: video ? 'opening.set' : 'opening.cleared', entityType: 'Invitation', entityId: job.invitationId,
+      summary: video ? `Cinematic opening attached to ${job.invitation.title}.` : `Cinematic opening removed from ${job.invitation.title}.`,
+    });
+    return video ? 'Cinematic opening attached.' : 'Cinematic opening removed.';
+  });
+}
 export async function dfyExtendAction(jobId: string, back: string, fd: FormData) {
   return run('dfy.edit', back, async (user) => { await extendDue(user, jobId, n(fd, 'days', 1)); return 'Deadline moved.'; });
 }
@@ -122,6 +146,10 @@ export async function saveTemplateAction(templateId: string | null, back: string
       thumbnailUrl: s(fd, 'thumbnailUrl'),
       layout,
       collection: isCollection(s(fd, 'collection')) ? s(fd, 'collection') : '',
+      // A clip with no poster would leave the guest on a blank screen until it
+      // buffered, so the pair only takes effect together.
+      openingVideoUrl: s(fd, 'openingPosterUrl') ? s(fd, 'openingVideoUrl') : '',
+      openingPosterUrl: s(fd, 'openingPosterUrl'),
       opening: isOpening(s(fd, 'opening')) && s(fd, 'opening') !== 'none' ? s(fd, 'opening') : '',
       palette: (palettePreset && !s(fd, 'bg') ? palettePreset.palette : palette) as never,
       fonts: fonts as never,

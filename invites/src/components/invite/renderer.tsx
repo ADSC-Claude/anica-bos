@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
-import { OPENING_BY_KEY, resolveOpening } from '@/lib/openings';
+import { OPENING_BY_KEY, resolveOpening, openingAssets } from '@/lib/openings';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
@@ -853,6 +853,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    * ships with none — a Save the Date wants to be read, not unwrapped.
    */
   function openingProps() {
+    const assets = openingAssets(inv, inv.template);
     const style = print
       ? 'none'
       : resolveOpening({
@@ -860,6 +861,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           templateDefault: inv.template.opening,
           legacyEnvelope: bool(content.cover, 'envelope'),
           tier: inv.tier,
+          cinematic: Boolean(assets.video),
         });
     const def = OPENING_BY_KEY[style];
     const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);
@@ -874,6 +876,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       line: str(content.cover, 'openingLine') || def.line[lang],
       caps: Boolean(def.caps),
       photos,
+      video: style === 'cinematic' ? assets.video : '',
+      poster: style === 'cinematic' ? assets.poster : '',
       hint: t(lang, 'envelope.open'),
     };
   }

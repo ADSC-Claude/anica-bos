@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
-import { PALETTE, MOTIF_MAX, swatchByHex, swatchStyle } from '@/lib/palette';
+import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
 
@@ -227,7 +227,9 @@ function ColorsInput({ field, value, onChange }: { field: Field; value: string[]
  * as the designer laid it out — a row per family, a circle with its name under
  * it — tap to pick, tap again to drop. Full is full: the rest grey out. The
  * palette folds away behind a button once the field has what it needs, so
- * three colour fields do not stack three palettes down the section.
+ * three colour fields do not stack three palettes down the section. The motif
+ * also offers the sheet's presets — four colours that go together — one tap
+ * sets them, and the palette adds to them.
  */
 function SwatchesInput({ field, value, onChange }: { field: Field; value: string[]; onChange: (v: string[]) => void }) {
   const max = field.max ?? MOTIF_MAX;
@@ -260,6 +262,25 @@ function SwatchesInput({ field, value, onChange }: { field: Field; value: string
           {open ? 'Hide the palette' : value.length ? 'Change colours' : 'Pick from the palette'}
         </button>
       </div>
+      {open && field.sets && (
+        <div className="mb-2 rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] p-2">
+          <p className="mb-1.5 px-1 text-[10px] uppercase tracking-[0.14em] text-[color:var(--color-ink-500)]">Sets that go together — tap one to start from it</p>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map((set) => {
+              const hexes = presetColours(set);
+              const on = hexes.length === value.length && hexes.every((h) => chosen.includes(h));
+              return (
+                <button key={set.key} type="button" onClick={() => onChange(hexes.slice(0, max))} aria-pressed={on} title={set.colours.map((k) => swatchByHex(hexes[set.colours.indexOf(k)])?.name).join(', ')} className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-1.5 ${on ? 'border-[color:var(--color-plum-600)] bg-white' : 'border-transparent bg-white/70 hover:bg-white'}`}>
+                  <span className="grid grid-cols-2 gap-0.5">
+                    {hexes.map((h, i) => <span key={i} className="h-3.5 w-3.5 rounded-full border border-black/10" style={{ background: swatchStyle(h, swatchByHex(h)?.metallic) }} />)}
+                  </span>
+                  <span className="text-[9px] leading-tight text-[color:var(--color-ink-700)]">{set.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {open && <div className="rounded-xl border border-[color:var(--color-sand-200)] bg-white px-3 py-1">
         {PALETTE.map((g) => (
           <div key={g.key} className="flex items-start gap-2 border-t border-[color:var(--color-sand-100)] py-1.5 first:border-t-0">

@@ -7,6 +7,7 @@
  * It DELETES EVERYTHING first.
  */
 import { PrismaClient, type Occasion, type Tier } from '@prisma/client';
+import { swatchHex } from '../src/lib/palette';
 import { resolveDatabaseUrl } from '../src/lib/db-url';
 import bcrypt from 'bcryptjs';
 import { defaultContent, type Content } from '../src/lib/sections';
@@ -204,7 +205,7 @@ async function main() {
     littleGroom: 'Nathan Cruz', littleBride: 'Isabella Reyes', ringBearer: 'Gabriel Santos', coinBearer: 'Matteo Dela Cruz', bibleBearer: 'Elijah Ramos',
     flowerGirls: [{ name: 'Althea Santos' }, { name: 'Zoey Lim' }, { name: 'Mia Garcia' }],
   });
-  Object.assign(content.dressCode!, { attire: 'formal', attireText: 'We kindly encourage our guests to wear elegant formal attire.', gentsColors: ['#1a1a1a', '#c9a07a', '#838963', '#d4c2ae'], gentsItems: ['suit', 'coat', 'longSleeves', 'dressShoes'], gentsNote: 'Tie is optional.', ladiesColors: ['#e6d3bb', '#bccdb8', '#daa8a6', '#b17c5e', '#927362'], ladiesItems: ['longGown', 'cocktail', 'separates'], ladiesNote: 'We encourage earthy, neutral and muted tones.', colors: ['#eddec3', '#cebdaf', '#daa8a6', '#bccdb8', '#838963', '#927362', '#b17c5e', '#3f2b22'], paletteNote: 'You may choose from this palette or similar shades.', avoid: ['white', 'bright', 'casual', 'sports', 'slippers', 'prints'], sponsorsAttire: 'Champagne gown / Barong Tagalog', entourageAttire: 'Sage green', note: '' });
+  Object.assign(content.dressCode!, { attire: 'formal', attireText: 'We kindly encourage our guests to wear elegant formal attire.', gentsColors: ['soft-black', 'camel', 'olive', 'sand'].map(swatchHex), gentsItems: ['suit', 'coat', 'longSleeves', 'dressShoes'], gentsNote: 'Tie is optional.', ladiesColors: ['champagne-gold', 'sage', 'dusty-rose', 'caramel', 'mocha'].map(swatchHex), ladiesItems: ['longGown', 'cocktail', 'separates'], ladiesNote: 'We encourage earthy, neutral and muted tones.', colors: ['champagne', 'taupe', 'dusty-rose', 'sage', 'olive', 'mocha', 'caramel', 'chocolate'].map(swatchHex), paletteNote: 'You may choose from this palette or similar shades.', avoid: ['white', 'bright', 'casual', 'sports', 'slippers', 'prints'], sponsorsAttire: 'Champagne gown / Barong Tagalog', entourageAttire: 'Sage green', note: '' });
   Object.assign(content.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Maria S.', gcashNumber: '0917 123 4567', gcashQr: pic('gcash-qr', 400, 400), bankDetails: 'BPI · Juan Carlos Dela Cruz · 1234 5678 90', registry: [] });
   Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
   Object.assign(content.story!, {

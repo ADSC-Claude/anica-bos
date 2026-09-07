@@ -16,7 +16,7 @@ import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
-import { swatchByHex, swatchStyle } from '@/lib/palette';
+import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -517,8 +517,8 @@ function Eighteen({ data, lang }: { data: SectionData; lang: Lang }) {
 const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', business: 'Business', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
 const ATTIRE_TL: Record<string, string> = { ...ATTIRE, filipiniana: 'Filipiniana at Barong' };
 /** The suits and gowns when the couple picked no colours for them and has no motif: black, tan, olive, cream; champagne, sage, blush, chocolate, ivory. */
-const SUIT_COLORS = ['#1a1a1a', '#c9a07a', '#838963', '#d4c2ae']; // soft black, camel, olive, sand
-const GOWN_COLORS = ['#e6d3bb', '#bccdb8', '#daa8a6', '#3f2b22', '#b991a3']; // champagne gold, sage, dusty rose, chocolate, mauve
+const SUIT_COLORS = ['soft-black', 'camel', 'olive', 'sand'].map(swatchHex);
+const GOWN_COLORS = ['champagne-gold', 'sage', 'dusty-rose', 'chocolate', 'mauve'].map(swatchHex);
 
 /**
  * What to wear, the way a printed dress code card says it: the attire as the

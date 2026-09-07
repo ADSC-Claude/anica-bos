@@ -58,6 +58,8 @@ export type Field = {
   max?: number;
   /** swatches: how many at least, asked at publish */
   min?: number;
+  /** swatches: offer the palette's presets — four colours that go together, in one tap */
+  sets?: boolean;
   /** Render full-width in a two-column form. */
   wide?: boolean;
 };
@@ -494,7 +496,7 @@ const SECTION_DEFS: SectionDef[] = [
       { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'swatches', max: 5, hint: 'Up to five, from the palette. The gowns drawn on the page take these colours; blank uses the motif. A pale pick is deepened on the page — no guest wears white.' },
       checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion))),
       text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.' }),
-      { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, wide: true, hint: 'Four to eight colours from the palette. Guests see them as the suggested palette, each with its name.' },
+      { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
       text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.' }),
       checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { hint: 'Each one is drawn crossed out.' }),
       text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),

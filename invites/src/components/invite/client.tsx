@@ -704,61 +704,77 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
 }
 
 /**
- * Every Capiz page is a whole number of backgrounds tall, so a page begins where
- * a background begins and the words sit on the background drawn for them. The
- * backgrounds' height follows the column's width, so this is measured, not
- * styled: each page's own height is rounded up to the next whole background,
- * then the strip is cut to the invitation's length with the last background
- * set as its final piece. Runs again whenever the column changes width.
+ * The Capiz ground, laid to the pages: behind each page its background, in
+ * order, trimmed to the page's own height — a page longer than one background
+ * carries on into the next. Where a background begins it dissolves in over the
+ * foot of the one before (a quarter of the width, half above the join and half
+ * below), so no edge shows; the last is anchored at its foot, so the invitation
+ * ends on the bottom of the background drawn last. The backgrounds' height
+ * follows the column's width, so this is measured, not styled, and runs again
+ * whenever the column or a page changes size.
  */
-export function PageSnap({ ratio, last }: { ratio: number; last: number }) {
+export function PageGround({ ratio, order, last }: { ratio: number; order: number[]; last: number }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');
-    if (!inv) return;
+    const ground = inv?.querySelector<HTMLElement>('.inv-ground');
+    if (!inv || !ground) return;
     const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
-    const strip = Array.from(inv.querySelectorAll<HTMLImageElement>('.inv-ground img'));
     let frame = 0;
-    const snap = () => {
-      const bg = inv.clientWidth * ratio;
-      if (!bg) return;
-      for (const p of pages) { p.style.minHeight = '0'; p.style.paddingTop = ''; p.style.paddingBottom = ''; }
-      for (const p of pages) {
-        // A page that spills only a little past a whole background gives up some
-        // of its own top and bottom room rather than taking another background.
-        const raw = p.scrollHeight;
-        let n = Math.max(1, Math.ceil((raw - 1) / bg));
-        const over = raw - (n - 1) * bg;
-        if (n > 1 && over > 0) {
-          const cs = getComputedStyle(p);
-          const pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0;
-          const room = pt + pb - 16;
-          if (over <= room) {
-            const k = (pt + pb - over) / (pt + pb);
-            p.style.paddingTop = `${pt * k}px`;
-            p.style.paddingBottom = `${pb * k}px`;
-            n -= 1;
-          }
+    const lay = () => {
+      const width = inv.clientWidth;
+      const bg = width * ratio;
+      if (!bg || !pages.length) return;
+      const seam = Math.round(width * 0.24);
+      const half = Math.round(seam / 2);
+      const invTop = inv.getBoundingClientRect().top;
+      const segs: { n: number; top: number; height: number; foot: boolean }[] = [];
+      let k = 0;
+      pages.forEach((p, i) => {
+        const r = p.getBoundingClientRect();
+        const top = r.top - invTop;
+        const lastPage = i === pages.length - 1;
+        // A page up to a tenth taller than one background (with the seam it
+        // reaches into) stays on one, drawn a little larger; a longer page is
+        // split evenly over as many as it needs, each trimmed to its share.
+        const count = Math.max(1, Math.ceil((r.height + seam) / (bg * 1.1)));
+        const share = r.height / count;
+        for (let j = 0; j < count; j++) {
+          const foot = lastPage && j === count - 1;
+          segs.push({ n: foot ? last : order[Math.min(k++, order.length - 1)], top: top + j * share, height: share, foot });
         }
-        p.style.minHeight = `${Math.round(n * bg)}px`;
-        p.dataset.span = String(n);
-      }
-      const total = pages.reduce((sum, p) => sum + p.getBoundingClientRect().height, 0);
-      const count = Math.max(1, Math.round(total / bg));
-      strip.forEach((img, i) => {
-        img.hidden = i >= count;
-        const want = i === count - 1 ? last : Number(img.dataset.n);
-        const src = `/capiz/bg-${want}.webp`;
-        if (!img.getAttribute('src')?.endsWith(src)) img.setAttribute('src', src);
-        if (i === count - 1) img.loading = 'eager';
+      });
+      while (ground.children.length > segs.length) ground.lastElementChild?.remove();
+      segs.forEach((s, i) => {
+        let el = ground.children[i] as HTMLElement | undefined;
+        if (!el) {
+          el = document.createElement('div');
+          ground.appendChild(el);
+        }
+        const first = i === 0;
+        const final = i === segs.length - 1;
+        // reaches half a seam up into the page before and half a seam down under the next
+        const top = first ? s.top : s.top - half;
+        const bottom = final ? inv.scrollHeight : s.top + s.height + half;
+        const box = bottom - top;
+        el.className = `inv-paper${first ? ' is-first' : ''}${s.foot ? ' is-foot' : ''}`;
+        el.style.top = `${Math.round(top)}px`;
+        el.style.height = `${Math.round(box)}px`;
+        // taller than its background: drawn to the box's height, the sides trimmed
+        el.style.backgroundSize = box > bg ? 'auto 100%' : '100% auto';
+        el.style.setProperty('--seam', `${seam}px`);
+        const src = `url(/capiz/bg-${s.n}.webp)`;
+        if (el.style.backgroundImage !== src) el.style.backgroundImage = src;
       });
     };
-    const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(snap); };
+    const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(lay); };
     queue();
     const ro = new ResizeObserver(queue);
     ro.observe(inv);
+    for (const p of pages) ro.observe(p);
     window.addEventListener('load', queue);
+    document.fonts?.ready.then(queue).catch(() => {});
     return () => { cancelAnimationFrame(frame); ro.disconnect(); window.removeEventListener('load', queue); };
-  }, [ratio, last]);
+  }, [ratio, order, last]);
   return <span ref={ref} hidden />;
 }

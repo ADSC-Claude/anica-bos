@@ -538,34 +538,38 @@ table.data tr:hover td {
    scroll with the words they belong to. --- */
 .inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
 body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
-/* The ground: the designer's numbered backgrounds laid edge to edge down the
-   whole invitation, in order — 1 to 7, then 5 and 6 over and over, 8 last. They
-   are 2.645 times as tall as they are wide. Every page is a whole number of
-   backgrounds tall (PageSnap measures and rounds each one up), so a page begins
-   where a background begins and the words sit on the background drawn for them;
-   the cover holds the verse at its foot, the closing opens with the countdown.
-   The shells and sprays live in the corners and along the edges, so the words
-   keep to the middle, set close, the way an invitation is. */
-.inv[data-layout='capiz'] { background: #f0dccb; --inv-bg: min(264.5vw, 84.6rem); }
-.inv-ground { position: absolute; inset: 0; z-index: 0; display: flex; flex-direction: column; overflow: hidden; pointer-events: none; }
-.inv-ground img { display: block; width: 100%; height: auto; flex: none; }
+/* The ground: the designer's numbered backgrounds, in order — 1 to 7, then 5
+   and 6 over and over, 8 last — one behind each page and trimmed to the page's
+   own height, so no page runs longer than its words. They are 2.645 times as
+   tall as they are wide. Where one ends the next dissolves in over a quarter of
+   the width, half above the join and half below, so no edge shows; PageGround
+   measures the pages and lays the papers. The shells and sprays live in the
+   corners and along the edges, so the words keep to the middle, set close, the
+   way an invitation is; the cover alone is a whole background, the names in
+   its upper part and the verse at its foot. */
+.inv[data-layout='capiz'] { background: #f0dccb; --capiz-bg: min(264.5vw, 84.6rem); }
+.inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.inv-paper {
+  position: absolute; left: 0; right: 0;
+  background-repeat: no-repeat; background-size: 100% auto; background-position: center top;
+}
+.inv-paper:not(.is-first) {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--seam, 6rem));
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--seam, 6rem));
+}
+.inv-paper.is-foot { background-position: center bottom; }
 .inv-page {
   position: relative; z-index: 1;
-  min-height: var(--inv-bg);
   display: flex; flex-direction: column; justify-content: center;
-  padding: min(9vw, 2.9rem) min(5vw, 1.6rem);
+  padding: min(11vw, 3.5rem) min(5vw, 1.6rem);
 }
-/* a page that takes two backgrounds spreads its parts over both */
-.inv-page[data-span='2'] { justify-content: space-evenly; }
-/* the cover and the verse are one background: the names in its upper part,
-   the verse toward its foot, above the shells there */
-.inv-page[data-page='cover'] { justify-content: flex-start; padding-top: min(26vw, 8.3rem); padding-bottom: min(25vw, 8rem); }
+/* the cover is one whole background: the names in its upper part, the verse
+   toward its foot, above the shells there */
+.inv-page[data-page='cover'] { min-height: var(--capiz-bg); justify-content: flex-start; padding-top: min(26vw, 8.3rem); padding-bottom: min(25vw, 8rem); }
 .inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; }
 .inv-page[data-page='cover'] > .inv-verse { margin-top: auto; }
 /* the closing keeps clear of the shells at the foot of 8 */
-.inv-page[data-page='closing'] { padding-top: 1.6rem; padding-bottom: min(18vw, 5.8rem); }
-.inv-page[data-page='prenup'] { padding-top: 1.2rem; padding-bottom: 1.2rem; }
-.inv-page[data-page='story'] { padding-top: 2rem; padding-bottom: 2rem; }
+.inv-page[data-page='closing'] { padding-bottom: min(20vw, 6.4rem); }
 .inv-page > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .inv-page > .inv-section + .inv-section { padding-top: 1rem; }
 
@@ -910,11 +914,11 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .looks-col { flex: none; width: 390px; scroll-snap-align: start; }
 .looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
 .looks-phone .inv { min-height: 100%; }
-.looks-phone .inv[data-layout='capiz'] { --inv-bg: 1031px; }
+.looks-phone .inv[data-layout='capiz'] { --capiz-bg: 1031px; }
 
-/* the strip is decoration: none of it prints */
+/* the ground is decoration: none of it prints */
 @media print {
-  .inv-page { background-image: none; min-height: 0; padding: 1rem 0; }
+  .inv-page { min-height: 0; padding: 1rem 0; }
   .inv-ground { display: none; }
   .inv[data-layout='capiz'] { max-width: none; }
 }

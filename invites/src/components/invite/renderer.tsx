@@ -11,7 +11,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageSnap } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround } from './client';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -1211,16 +1211,17 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * cover has none: it carries the whole frame instead.
  */
 /**
- * The Capiz ground is the designer's numbered backgrounds laid edge to edge, in
- * order — 1 to 7, then 5 and 6 over and over, 8 last — and every page is a whole
- * number of backgrounds tall (PageSnap measures and rounds each one up), so a
- * page always begins where a background begins and the words sit on the
- * background drawn for them.
+ * The Capiz ground is the designer's numbered backgrounds, in order — 1 to 7,
+ * then 5 and 6 over and over, 8 last — one behind each page and trimmed to the
+ * page's own height, so no page is longer than its words. Where one background
+ * ends and the next begins, the next dissolves in over the last quarter-width
+ * of the one before, and a spray of shell cut from the designs lies across the
+ * join (PageGround measures the pages and lays all of it).
  */
 type PageDef = { key: string; sections: (SectionKey | 'verse')[] };
 /** The backgrounds' height as a multiple of their width. */
 export const CAPIZ_BG_RATIO = 2.645;
-/** The strip, long enough for any invitation; PageSnap trims it and sets 8 last. */
+/** The order of the backgrounds down the invitation, long enough for any; 8 is set last. */
 const STRIP_ORDER = [1, 2, 3, 4, 5, 6, 7, ...Array.from({ length: 24 }, (_, i) => (i % 2 ? 6 : 5))];
 
 const CAPIZ_PAGES: PageDef[] = [
@@ -1447,14 +1448,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const page = (key: string, parts: ReactNode[]) => (
       <div key={key} className="inv-page" data-page={key}>{parts}</div>
     );
-    // The ground, behind every page: the strip of backgrounds, edge to edge.
+    // The ground behind every page: the backgrounds in order, each trimmed to
+    // its page, dissolved into one another at the joins. PageGround lays them.
     out.push(
-      <div key="ground" className="inv-ground" aria-hidden="true">
-        {STRIP_ORDER.map((n, i) => (
-          <img key={i} src={`/capiz/bg-${n}.webp`} data-n={n} alt="" loading={i < 2 ? 'eager' : 'lazy'} decoding="async" />
-        ))}
-      </div>,
-      <PageSnap key="snap" ratio={CAPIZ_BG_RATIO} last={8} />,
+      <div key="ground" className="inv-ground" aria-hidden="true" />,
+      <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} />,
     );
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];

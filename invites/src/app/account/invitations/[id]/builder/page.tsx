@@ -28,7 +28,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
     minTier: sectionMinTier(d.key, inv.occasion),
   }));
   const current = (sections.find((s) => s.key === section && s.unlocked)?.key ?? sections.find((s) => s.unlocked)!.key) as SectionKey;
-  const fields = fieldsFor(current, inv.occasion);
+  const fields = fieldsFor(current, inv.occasion, inv.tier);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);

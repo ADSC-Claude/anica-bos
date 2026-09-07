@@ -48,7 +48,7 @@ export type StoredContent = Content & { theme?: ThemeOverride };
  */
 export const RESERVED_SLUGS = new Set([
   // Directories under src/app.
-  'account', 'admin', 'api', 'checkout', 'coming-soon', 'demo', 'login', 'logout',
+  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout',
   'privacy', 'refund-policy', 'signup', 'templates', 'terms',
   // Files under src/app that serve their own path.
   'robots.txt', 'sitemap.xml', 'favicon.ico',

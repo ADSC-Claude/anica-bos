@@ -28,6 +28,7 @@ project, no shared code or rows.
 - [How it works](#how-it-works)
 - [Packages, tiers and gating](#packages-tiers-and-gating)
 - [Occasions and sections](#occasions-and-sections)
+- [Collections and openings](#collections-and-openings)
 - [Money and payments](#money-and-payments)
 - [Done-For-You](#done-for-you)
 - [Guest data and privacy](#guest-data-and-privacy)
@@ -225,6 +226,79 @@ everyday Tagalog ("Mga Magulang", "Paki-confirm po ang inyong pagdalo bago
 ang…"), switched per invitation. The default copy blocks (intro lines, gift
 notes, adults-only, unplugged ceremony, RSVP note) have Tagalog variants too.
 
+## Collections and openings
+
+A **collection** is a colour family that cuts across occasions — the way a
+couple actually shops ("show me the white ones") rather than the way the
+database is organised. `src/lib/collections.ts` declares them; a template
+carries at most one in `Template.collection`. A collection with no published
+design of its own is never shown and has no page, so the list can be written
+ahead of the designs.
+
+The White Collection is the flagship: six wedding designs in ivory, cream and
+warm white, at `/collections/white`.
+
+An **opening** is the short moving scene before the invitation. The guest taps
+once, it plays, and the invitation is underneath. `src/lib/openings.ts` is the
+catalogue:
+
+| Opening | Tier | What the guest sees |
+| --- | --- | --- |
+| The Envelope | Basic | A closed envelope, the monogram on the seal, the flap opening. |
+| The Line | Standard | A gold curve drawing itself across warm white. |
+| The Curtain | Standard | Two sheer curtains over the couple's photo, parting to the sides. |
+| The Drape | Complete | Hanging silk with the names on it, lifted away. |
+| The Seal | Complete | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
+| Photo Story | Complete | Three photos fanned like prints, sliding apart. |
+
+**None of these is a video.** Every one is drawn by the browser from the
+couple's own palette, words and photos — a `<div>`, a CSS transition and, for
+The Line, one SVG path. That is not a stylistic preference:
+
+- The names, date and line are live text, so a couple can change a nickname at
+  11pm and the opening says the new one on the next reload. A rendered clip
+  would have to be re-made per couple, per edit, by hand.
+- It weighs nothing. A 4-second 1080p clip is 2–6 MB before it plays; this is
+  a few kilobytes of markup already in the page. The product is a link opened
+  on mobile data in a Messenger in-app browser, and the first screen is the
+  one that decides whether the guest waits.
+- It re-skins itself. The stage reads `--inv-accent`, `--inv-surface` and the
+  rest, so an opening works on all twelve palettes without a second asset.
+- Nothing goes through storage, so nothing is charged for egress.
+
+Generated video still has a place — a hero loop on the marketing pages, one
+asset serving every visitor, made once. It is the *per-couple* opening that
+must not be a file.
+
+Which opening a guest gets is `resolveOpening()`: the customer's choice
+(`content.cover.opening`), else the design's default (`Template.opening`),
+else none. An opening above the invitation's tier falls back to The Envelope
+rather than to nothing, so a downgrade never leaves a guest looking at a blank
+first screen where there used to be one.
+
+Three things every opening must do, and the tests and the CSS enforce:
+
+- **Work without JavaScript.** The overlay is server-rendered, so a `<noscript>`
+  rule hides it outright — otherwise a guest with scripts off would tap a
+  screen that never opens.
+- **Respect `prefers-reduced-motion`.** The tap-to-open moment stays; nothing
+  slides, sways or draws. The overlay simply fades.
+- **Disappear from print.** `/[slug]/print` and Save as PDF render the
+  invitation only.
+
+### Shipping a design
+
+`prisma/templates.ts` is the catalogue, as data. The seed creates it on an
+empty database; `npm run db:templates` upserts it into one that already has
+customers — matching on slug, so a design keeps its id and every invitation
+built on it keeps rendering. `-- --dry` lists the changes without writing
+them. `published` is deliberately not synced: a design staff unpublished in
+the admin stays unpublished.
+
+In production, run the **Sync the invitation designs** workflow. It deletes
+nothing, which is why it needs no confirmation phrase — unlike the seed, which
+truncates the schema.
+
 ## Money and payments
 
 All money is an integer number of **centavos**. `₱1,999.00 === 199900`.
@@ -412,14 +486,15 @@ image, a 404, the admin redirect and the RSVP endpoint.
 
 ```
 invites/
-  prisma/           schema, migrations, seed
-  scripts/          build guard, integrity check, jobs runner
+  prisma/           schema, migrations, seed, the design catalogue
+  scripts/          build guard, integrity check, jobs runner, design sync
   src/lib/          the domain: sections, tiers, pricing, copy, invitations,
                     orders, payments, guests, rsvp, dfy, reports, jobs,
                     plus auth, guard, rbac, db, storage, paymongo, email
   src/components/   invite renderer + client pieces, builder form engine,
                     landing page pieces, site chrome, shared UI
-  src/app/          (public) /, /templates, /demo, /[slug], policies
+  src/app/          (public) /, /templates, /collections/*, /demo, /[slug],
+                    policies
                     /login, /signup, /checkout/*
                     /account/*  customer dashboard
                     /admin/*    staff dashboard
@@ -433,3 +508,8 @@ Phase 1 and most of Phase 2 from the build brief are here. Not yet built:
 Google / Facebook sign-in (email works everywhere including the Messenger
 browser), custom domains, and the Save-the-Date mini-invite as a separate page
 (it is currently a *card type* on the cover).
+
+The other four collections — Blush, Garden, Midnight, Filipiniana — have one
+design each, carried over from the existing catalogue. Filling them out is a
+row per design in `prisma/templates.ts` and a run of the sync workflow; a
+collection with no published design disappears from the site on its own.

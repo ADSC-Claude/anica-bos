@@ -29,7 +29,7 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   // builder's sidebar shows them: a customer who cannot see that a guest photo
   // album exists cannot ask for one, and Done-For-You is where they would ask.
   const sections = sectionsFor(inv.occasion).map((d) => {
-    const fields = fieldsFor(d.key, inv.occasion);
+    const fields = fieldsFor(d.key, inv.occasion, inv.tier);
     const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier);
     return {
       key: d.key,

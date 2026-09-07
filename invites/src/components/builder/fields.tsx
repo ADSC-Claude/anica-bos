@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
 import { TITLES, type Lang } from '@/lib/copy';
+import { TIER_LABELS } from '@/lib/tiers';
 
 /**
  * The form engine. One component renders any section from its field spec,
@@ -130,7 +131,12 @@ function FieldInput({
           >
             {!field.options?.some((o) => o.value === '') && <option value="">—</option>}
             {field.options?.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+              // A locked option still renders, so the customer can see what
+              // the next package would give them rather than wondering why
+              // the list is short.
+              <option key={o.value} value={o.value} disabled={Boolean(o.lockedTier)}>
+                {o.label}{o.lockedTier ? ` — ${TIER_LABELS[o.lockedTier]} only` : ''}
+              </option>
             ))}
           </select>
           <Hint text={field.hint} />

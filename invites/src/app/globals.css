@@ -506,8 +506,15 @@ table.data tr:hover td {
   border-style: dashed;
 }
 
-/* The envelope. */
-.inv-envelope {
+/* ---------------------------------------------------------------------------
+   The opening: the moving scene a guest sees before the invitation.
+
+   One overlay, six stages. Everything is drawn by the browser from the
+   couple's palette, words and photos — there is no video to download and
+   nothing to re-render when a name changes. The overlay dismisses itself
+   500ms after the stage has finished moving, so the guest never waits.
+   --------------------------------------------------------------------------- */
+.inv-open {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -515,62 +522,310 @@ table.data tr:hover td {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  padding: 2rem 1.5rem;
+  text-align: center;
   background: var(--inv-bg);
   color: var(--inv-ink);
   cursor: pointer;
-  transition: opacity 500ms ease, visibility 500ms ease;
+  transition: opacity 500ms ease 550ms, visibility 0s linear 1050ms;
 }
-.inv-envelope[data-open='true'] {
+.inv-open[data-open='true'] {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
-.inv-envelope-flap {
-  width: 16rem;
-  height: 10rem;
-  background: var(--inv-surface);
-  border: 1px solid var(--inv-accent2);
-  border-radius: 0.5rem;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
-}
-.inv-envelope-flap::before {
-  content: '';
+.inv-open-stage {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
-    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
-  background-size: 50% 100%;
-  background-repeat: no-repeat;
-  background-position: left top, right top;
-  opacity: 0.6;
+  display: grid;
+  place-items: center;
 }
-.inv-envelope-seal {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
-  background: var(--inv-accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.inv-open-copy {
+  position: relative;
+  z-index: 2;
+  /* Positioned with `translate` rather than `transform`, so the entrance
+     animation below can own `transform` without cancelling the offset. */
+  animation: inv-rise 900ms ease both 250ms;
+}
+.inv-open-line {
   font-family: var(--inv-display);
-  font-size: 1rem;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--inv-accent);
+}
+.inv-open-line[data-caps='true'] {
+  font-family: var(--inv-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+}
+.inv-open-names {
+  margin-top: 0.85rem;
+  font-family: var(--inv-display);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+.inv-open-date {
+  margin-top: 0.6rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
+  color: var(--inv-muted);
+}
+.inv-open-hint {
+  position: absolute;
+  bottom: 2.25rem;
+  z-index: 3;
+  animation: inv-pulse 1.6s ease-in-out infinite;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 0.7rem;
+}
+.inv-open[data-open='true'] .inv-open-hint {
+  animation: none;
+  opacity: 0;
+  transition: opacity 250ms ease;
 }
 @keyframes inv-pulse {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
 }
-.inv-envelope-hint {
-  margin-top: 1.5rem;
-  animation: inv-pulse 1.6s ease-in-out infinite;
-  text-transform: uppercase;
-  letter-spacing: 0.24em;
-  font-size: 0.7rem;
+@keyframes inv-rise {
+  from { opacity: 0; transform: translateY(0.75rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* The Envelope and The Seal share a stage: a card inside a folded face with a
+   wax seal. The seal lifts the card further and cracks the wax. */
+.inv-open-env {
+  position: relative;
+  width: min(17rem, 76vw);
+  aspect-ratio: 8 / 5;
+  perspective: 900px;
+}
+.inv-open-card {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 8%;
+  bottom: 8%;
+  border-radius: 0.2rem;
+  background: var(--inv-surface);
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
+  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms, opacity 500ms ease 550ms;
+}
+.inv-open-flap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: var(--inv-surface);
+  border: 1px solid var(--inv-accent2);
+  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
+  transform-origin: top center;
+  transition: transform 750ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease 500ms;
+}
+.inv-open-flap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  background:
+    linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
+    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  background-position: left top, right top;
+}
+.inv-open-wax {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 999px;
+  background: var(--inv-accent);
+  color: #fff;
+  font-family: var(--inv-display);
+  font-size: 1rem;
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+  transition: transform 450ms ease, opacity 350ms ease 150ms;
+}
+.inv-open[data-style='seal'] .inv-open-wax::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in srgb, var(--inv-accent) 45%, transparent);
+}
+.inv-open[data-open='true'] .inv-open-flap {
+  transform: rotateX(-160deg);
+  opacity: 0;
+}
+.inv-open[data-open='true'] .inv-open-wax {
+  transform: translate(-50%, -50%) scale(1.4) rotate(12deg);
+  opacity: 0;
+}
+.inv-open[data-open='true'] .inv-open-card {
+  transform: translateY(-1rem);
+  opacity: 0;
+}
+.inv-open[data-open='true'][data-style='seal'] .inv-open-card {
+  transform: translateY(-3rem);
+}
+.inv-open[data-style='envelope'] .inv-open-env,
+.inv-open[data-style='seal'] .inv-open-env {
+  translate: 0 min(-6rem, -16vh);
+}
+.inv-open[data-style='envelope'] .inv-open-copy,
+.inv-open[data-style='seal'] .inv-open-copy {
+  translate: 0 min(6.5rem, 18vh);
+}
+
+/* The Drape: hanging silk with the names on it, lifted away. */
+.inv-open-drape {
+  position: absolute;
+  inset: 0;
+  transform-origin: top center;
+  background:
+    repeating-linear-gradient(97deg, rgba(255, 255, 255, 0.5) 0 2px, transparent 2px 28px),
+    linear-gradient(
+      101deg,
+      color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-surface)) 0%,
+      var(--inv-surface) 20%,
+      color-mix(in srgb, var(--inv-accent2) 38%, var(--inv-surface)) 42%,
+      var(--inv-surface) 63%,
+      color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-surface)) 84%,
+      var(--inv-surface) 100%
+    );
+  transition: transform 1150ms cubic-bezier(0.7, 0, 0.3, 1);
+}
+.inv-open-drape::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 18%;
+  background: linear-gradient(to top, color-mix(in srgb, var(--inv-accent2) 45%, transparent), transparent);
+}
+.inv-open[data-open='true'] .inv-open-drape {
+  transform: translateY(-102%);
+}
+
+/* The Curtain: two sheer panels over the couple's photo, parting sideways. */
+.inv-open-scene {
+  position: absolute;
+  inset: 0;
+  /* Behind the photo: a photo that has not arrived yet — or never will — must
+     read as the couple's colours, not as a hole in the design. */
+  background: linear-gradient(160deg, var(--inv-surface), color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-surface)));
+}
+.inv-open-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.inv-open-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.12) 45%, rgba(0, 0, 0, 0.42));
+}
+.inv-open-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 56%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.44) 0 3px, rgba(255, 255, 255, 0.24) 3px 22px);
+  animation: inv-breathe 8s ease-in-out infinite;
+  transition: transform 1200ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.inv-open-panel[data-side='l'] { left: 0; }
+.inv-open-panel[data-side='r'] { right: 0; animation-delay: -4s; }
+@keyframes inv-breathe {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+.inv-open[data-open='true'] .inv-open-panel[data-side='l'] { transform: translateX(-102%); }
+.inv-open[data-open='true'] .inv-open-panel[data-side='r'] { transform: translateX(102%); }
+.inv-open[data-style='curtain'] .inv-open-copy,
+.inv-open[data-style='curtain'] .inv-open-hint {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+}
+.inv-open[data-style='curtain'] .inv-open-line,
+.inv-open[data-style='curtain'] .inv-open-date {
+  color: inherit;
+}
+
+/* Photo Story: three prints fanned on a table, sliding apart. */
+.inv-open-fan {
+  position: relative;
+  width: min(21rem, 84vw);
+  aspect-ratio: 1;
+  transform: translateY(min(-4.5rem, -12vh));
+}
+.inv-open-shot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56%;
+  aspect-ratio: 3 / 4;
+  margin: -37.3% 0 0 -28%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 0.4rem solid var(--inv-surface);
+  background: color-mix(in srgb, var(--inv-accent2) 35%, var(--inv-surface));
+  box-shadow: 0 18px 30px -18px rgba(0, 0, 0, 0.5);
+  transition: transform 1000ms cubic-bezier(0.5, 0, 0.2, 1), opacity 600ms ease 250ms;
+}
+.inv-open-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.05);
+}
+.inv-open-shot[data-i='0'] { transform: translate(-42%, 2%) rotate(-9deg); }
+.inv-open-shot[data-i='1'] { transform: rotate(2deg); z-index: 1; }
+.inv-open-shot[data-i='2'] { transform: translate(42%, 2%) rotate(9deg); }
+.inv-open[data-open='true'] .inv-open-shot[data-i='0'] { transform: translate(-135%, 8%) rotate(-18deg); opacity: 0; }
+.inv-open[data-open='true'] .inv-open-shot[data-i='1'] { transform: translateY(-22%) rotate(0deg); opacity: 0; }
+.inv-open[data-open='true'] .inv-open-shot[data-i='2'] { transform: translate(135%, 8%) rotate(18deg); opacity: 0; }
+.inv-open[data-style='photo'] .inv-open-copy {
+  translate: 0 min(9rem, 26vh);
+}
+
+/* The Line: one gold curve drawing itself, then drifting away. */
+.inv-open-curve {
+  width: min(20rem, 76vw);
+  height: auto;
+  transform: translateY(min(-5rem, -13vh));
+  transition: opacity 600ms ease, transform 900ms ease;
+}
+.inv-open-curve path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: inv-draw 1900ms ease forwards 250ms;
+}
+@keyframes inv-draw {
+  to { stroke-dashoffset: 0; }
+}
+.inv-open[data-open='true'] .inv-open-curve {
+  opacity: 0;
+  transform: translateY(min(-6.5rem, -17vh));
+}
+.inv-open[data-style='line'] .inv-open-copy {
+  translate: 0 1.5rem;
 }
 
 /* Sticky RSVP button and music toggle. */
@@ -668,7 +923,7 @@ table.data tr:hover td {
 }
 
 @media print {
-  .inv-envelope,
+  .inv-open,
   .inv-sticky,
   .inv-music,
   .no-print {
@@ -701,8 +956,27 @@ table.data tr:hover td {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inv-envelope-hint {
+  /* The opening still happens — a guest who asked for less motion should not
+     lose the tap-to-open moment — but nothing slides, sways or draws: the
+     overlay simply fades out. */
+  .inv-open-hint,
+  .inv-open-copy,
+  .inv-open-panel,
+  .inv-open-curve path {
     animation: none;
+  }
+  .inv-open-drape,
+  .inv-open-panel,
+  .inv-open-shot,
+  .inv-open-flap,
+  .inv-open-card,
+  .inv-open-wax,
+  .inv-open-curve {
+    transition: opacity 300ms ease;
+    transform: none !important;
+  }
+  .inv-open {
+    transition: opacity 300ms ease, visibility 0s linear 300ms;
   }
   html {
     scroll-behavior: auto;

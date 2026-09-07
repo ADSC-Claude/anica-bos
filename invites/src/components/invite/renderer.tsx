@@ -2,7 +2,8 @@ import type { Occasion, Tier } from '@prisma/client';
 import type { CSSProperties, ReactNode } from 'react';
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
-import { OCCASION_SECTIONS, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { OPENING_BY_KEY, resolveOpening } from '@/lib/openings';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
@@ -847,6 +848,37 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const hashtag = str(content.social, 'hashtag');
   const rsvpVisible = visible('rsvp');
 
+  /**
+   * What the opening shows. Printing skips it, and so does a design that
+   * ships with none — a Save the Date wants to be read, not unwrapped.
+   */
+  function openingProps() {
+    const style = print
+      ? 'none'
+      : resolveOpening({
+          chosen: str(content.cover, 'opening'),
+          templateDefault: inv.template.opening,
+          legacyEnvelope: bool(content.cover, 'envelope'),
+          tier: inv.tier,
+        });
+    const def = OPENING_BY_KEY[style];
+    const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);
+    const photos = [coverImage(content), ...gallery].filter(Boolean).slice(0, def.photos);
+    return {
+      style,
+      monogram: str(content.cover, 'monogram'),
+      names: displayTitle(occasion, content),
+      // "08 · 24 · 26" — month, day, year, the way a date is set on a
+      // card rather than written into a sentence.
+      date: openingDate(coverDate),
+      line: str(content.cover, 'openingLine') || def.line[lang],
+      caps: Boolean(def.caps),
+      photos,
+      hint: t(lang, 'envelope.open'),
+    };
+  }
+  const opening = openingProps();
+
   const order = OCCASION_SECTIONS[occasion];
   const body = order.map((key) => {
     if (!visible(key)) return null;
@@ -917,7 +949,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
       )}
-      <Shell envelope={!print && bool(content.cover, 'envelope')} monogram={str(content.cover, 'monogram')} hint={t(lang, 'envelope.open')} music={print ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+      <Shell opening={opening} music={print ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (
@@ -934,6 +966,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       </Shell>
     </div>
   );
+}
+
+/** "2026-08-24" -> "08 · 24 · 26". Blank for anything else. */
+function openingDate(dateKey: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  return m ? `${m[2]} · ${m[3]} · ${m[1].slice(2)}` : '';
 }
 
 function sectionTitle(key: 'ceremony' | 'reception', occasion: Occasion, lang: Lang): string {

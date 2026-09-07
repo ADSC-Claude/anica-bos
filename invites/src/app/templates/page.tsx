@@ -1,15 +1,18 @@
 import { getSettings } from '@/lib/settings';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { paletteFrom } from '@/lib/theme';
+import Link from 'next/link';
+import { collectionsPresent } from '@/lib/collections';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { TemplateGallery } from '@/components/landing/gallery';
+import { toGalleryTemplate } from '@/lib/gallery';
 
 export const metadata = { title: 'Templates', description: 'Digital invitation templates for weddings, debuts, christenings and birthdays in the Philippines.' };
 export const dynamic = 'force-dynamic';
 
 export default async function TemplatesPage() {
   const [s, session, templates] = await Promise.all([getSettings(), getSession(), prisma.template.findMany({ where: { published: true }, orderBy: [{ occasion: 'asc' }, { featured: 'desc' }, { sortOrder: 'asc' }] })]);
+  const collections = collectionsPresent(templates.map((t) => t.collection));
   return (
     <>
       <SiteHeader s={s} signedIn={Boolean(session)} />
@@ -17,8 +20,26 @@ export default async function TemplatesPage() {
         <p className="eyebrow">Templates</p>
         <h1 className="display mt-1 text-4xl">All designs</h1>
         <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Every template renders the same sections, so you can switch designs any time without retyping a name. Basic includes the Basic set; Standard unlocks every design; Complete adds premium designs and custom colours.</p>
+        {collections.length > 0 && (
+          <section className="mt-8">
+            <h2 className="display text-2xl">Browse by collection</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {collections.map((c) => (
+                <Link key={c.key} href={`/collections/${c.key}`} className="card flex items-center gap-3 p-4 transition hover:shadow-md">
+                  <span className="flex shrink-0 gap-1">
+                    {c.swatch.map((hex) => <span key={hex} className="h-6 w-6 rounded-full border border-black/10" style={{ background: hex }} />)}
+                  </span>
+                  <span>
+                    <span className="block font-semibold">{c.label}</span>
+                    <span className="block text-xs text-[color:var(--color-ink-500)]">{c.tagline}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
         <div className="mt-8">
-          <TemplateGallery demoSlug={s['site.demoSlug']} templates={templates.map((t) => { const p = paletteFrom(t.palette); return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, minTier: t.minTier, premium: t.premium, description: t.description, thumbnailUrl: t.thumbnailUrl, layout: t.layout, palette: { bg: p.bg, accent: p.accent, accent2: p.accent2, ink: p.ink }, featured: t.featured }; })} />
+          <TemplateGallery demoSlug={s['site.demoSlug']} templates={templates.map(toGalleryTemplate)} />
         </div>
       </main>
       <SiteFooter s={s} />

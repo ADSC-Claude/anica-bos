@@ -94,6 +94,7 @@ export const COMPARISON: ComparisonRow[] = [
   { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + premium designs' } },
   { label: 'Colour & font customization', cells: { BASIC: false, STANDARD: 'Palette presets', COMPLETE: 'Full custom palette + fonts' } },
   { label: 'Cover: names, monogram, date, cover photo', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
+  { label: 'Opening animation before the invitation', cells: { BASIC: 'The Envelope', STANDARD: '+ The Line, The Curtain', COMPLETE: '+ The Drape, The Seal, Photo Story' } },
   { label: 'Countdown timer', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Ceremony & reception + Google Maps & Waze buttons', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },

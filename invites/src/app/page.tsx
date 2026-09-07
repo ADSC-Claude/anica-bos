@@ -6,11 +6,11 @@ import { prisma } from '@/lib/db';
 import { catalogue } from '@/lib/orders';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
-import { paletteFrom } from '@/lib/theme';
 import { appUrl, invitationPath } from '@/lib/app-url';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { PhoneDemo } from '@/components/landing/phone-demo';
 import { TemplateGallery } from '@/components/landing/gallery';
+import { toGalleryTemplate } from '@/lib/gallery';
 import { Packages } from '@/components/landing/packages';
 import { ContactButtons } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -107,7 +107,7 @@ export default async function Landing() {
             <h2 className="display mt-2 text-center text-3xl">Designs for every Filipino celebration</h2>
             <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">{OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label).join(', ')} at launch — with {OCCASIONS.filter((o) => o.phase > 1).length} more occasions from milestone birthdays to memorials.</p>
             <div className="mt-8">
-              <TemplateGallery compact demoSlug={s['site.demoSlug']} templates={templates.map((t) => { const p = paletteFrom(t.palette); return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, minTier: t.minTier, premium: t.premium, description: t.description, thumbnailUrl: t.thumbnailUrl, layout: t.layout, palette: { bg: p.bg, accent: p.accent, accent2: p.accent2, ink: p.ink }, featured: t.featured }; })} />
+              <TemplateGallery compact demoSlug={s['site.demoSlug']} templates={templates.map(toGalleryTemplate)} />
             </div>
           </div>
         </section>

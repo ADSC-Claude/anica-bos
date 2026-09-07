@@ -4,37 +4,104 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
- * server. Each of these degrades: without JavaScript the envelope is simply
- * not shown, the countdown shows the date, and the forms post nowhere — so
- * the forms below are the only thing a guest cannot do without it, which is
- * why the RSVP-by-text number is printed beside them.
+ * server. Each of these degrades: without JavaScript the opening removes
+ * itself (see the noscript rule below), the countdown shows the date, and the
+ * forms post nowhere — so the forms below are the only thing a guest cannot
+ * do without it, which is why the RSVP-by-text number is printed beside them.
  */
 
 // ---------------------------------------------------------------------------
-// Envelope + music. One component, because the tap that opens the envelope
-// is the user gesture that lets audio play on a phone.
+// The opening + music. One component, because the tap that opens the
+// invitation is the user gesture that lets audio play on a phone.
+//
+// Every opening is the same overlay with a different stage inside it and a
+// different exit in CSS. Nothing here downloads a video: the couple's own
+// words and photos are what move, which is why a name change needs no
+// re-rendering and a guest on mobile data waits for nothing.
 // ---------------------------------------------------------------------------
 
+export type OpeningProps = {
+  /** An OpeningKey. "none" renders nothing at all. */
+  style: string;
+  monogram: string;
+  names: string;
+  /** "08 · 24 · 26" — already formatted by the server. */
+  date: string;
+  /** The one line on the closed screen. */
+  line: string;
+  /** Letterspaced caps instead of the script face. */
+  caps: boolean;
+  /** Up to three, in the order the stage wants them. */
+  photos: string[];
+  /** "Tap to open". */
+  hint: string;
+};
+
+function Stage({ style, monogram, photos }: { style: string; monogram: string; photos: string[] }) {
+  switch (style) {
+    case 'envelope':
+    case 'seal':
+      return (
+        <span className="inv-open-env" aria-hidden>
+          <span className="inv-open-card" />
+          <span className="inv-open-flap" />
+          <span className="inv-open-wax">{monogram || '♥'}</span>
+        </span>
+      );
+    case 'drape':
+      return <span className="inv-open-drape" aria-hidden />;
+    case 'curtain':
+      return (
+        <span className="inv-open-scene" aria-hidden>
+          {photos[0] && <img className="inv-open-back" src={photos[0]} alt="" />}
+          <span className="inv-open-panel" data-side="l" />
+          <span className="inv-open-panel" data-side="r" />
+        </span>
+      );
+    case 'photo':
+      return (
+        <span className="inv-open-fan" aria-hidden>
+          {photos.slice(0, 3).map((src, i) => (
+            <span key={src + i} className="inv-open-shot" data-i={i}>
+              <img src={src} alt="" />
+            </span>
+          ))}
+        </span>
+      );
+    case 'line':
+      return (
+        <svg className="inv-open-curve" viewBox="0 0 320 110" fill="none" aria-hidden>
+          <path d="M8 88 C 84 12, 236 12, 312 88" stroke="var(--inv-accent2)" strokeWidth="1.5" strokeLinecap="round" pathLength={1} />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * Hides the overlay outright when scripts do not run — otherwise a guest with
+ * JavaScript off would be left tapping a screen that never opens.
+ */
+const NO_JS = '.inv-open{display:none !important}';
+
 export function Shell({
-  envelope,
-  monogram,
-  hint,
+  opening,
   music,
   autoplay,
   playLabel,
   pauseLabel,
   children,
 }: {
-  envelope: boolean;
-  monogram: string;
-  hint: string;
+  opening: OpeningProps;
   music: string;
   autoplay: boolean;
   playLabel: string;
   pauseLabel: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(!envelope);
+  const closed = opening.style !== 'none';
+  const [open, setOpen] = useState(!closed);
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
 
@@ -57,23 +124,52 @@ export function Shell({
   }, [playing, play]);
 
   useEffect(() => {
-    if (!envelope && music && autoplay) void play();
-  }, [envelope, music, autoplay, play]);
+    if (!closed && music && autoplay) void play();
+  }, [closed, music, autoplay, play]);
 
-  const openEnvelope = () => {
+  // The page behind must not scroll under the overlay — on a phone a stray
+  // swipe would otherwise scroll the invitation past the opening unseen.
+  useEffect(() => {
+    if (open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  const reveal = () => {
     setOpen(true);
     if (music && autoplay) void play();
   };
 
   return (
     <>
-      {envelope && (
-        <div className="inv-envelope" data-open={open} role="button" tabIndex={open ? -1 : 0} aria-hidden={open} onClick={openEnvelope} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openEnvelope()}>
-          <div className="inv-envelope-flap">
-            <div className="inv-envelope-seal">{monogram || '♥'}</div>
+      {closed && (
+        <>
+          <noscript><style>{NO_JS}</style></noscript>
+          <div
+            className="inv-open"
+            data-style={opening.style}
+            data-open={open}
+            role="button"
+            tabIndex={open ? -1 : 0}
+            aria-label={opening.hint}
+            aria-hidden={open}
+            onClick={reveal}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && reveal()}
+          >
+            <div className="inv-open-stage">
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} />
+            </div>
+            <div className="inv-open-copy">
+              {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}
+              {opening.names && <p className="inv-open-names">{opening.names}</p>}
+              {opening.date && <p className="inv-open-date">{opening.date}</p>}
+            </div>
+            <p className="inv-open-hint">{opening.hint}</p>
           </div>
-          <p className="inv-envelope-hint">{hint}</p>
-        </div>
+        </>
       )}
       {music && (
         <>

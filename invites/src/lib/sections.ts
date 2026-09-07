@@ -1,6 +1,7 @@
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
+import { OPENINGS } from './openings';
 
 /**
  * The shape of an invitation, section by section.
@@ -12,7 +13,12 @@ import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGG
  * so switching designs never loses data.
  */
 
-export type Option = { value: string; label: string };
+export type Option = {
+  value: string;
+  label: string;
+  /** Shown but not selectable below this tier. The renderer gates it again. */
+  lockedTier?: Tier;
+};
 
 export type FieldType =
   | 'text'
@@ -140,7 +146,17 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   }),
   textarea('intro', 'Intro wording', { placeholder: 'Together with their families…' }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
-  ...(occasion === 'MEMORIAL' ? [] : [toggle('envelope', 'Animated envelope opening', { hint: 'Guests tap to open. Adds a little ceremony to the link.' })]),
+  ...(occasion === 'MEMORIAL'
+    ? []
+    : [
+        select(
+          'opening',
+          'Opening',
+          OPENINGS.map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
+          { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
+        ),
+        text('openingLine', 'Words on the opening', { placeholder: 'and so it begins', hint: 'Leave blank and each opening uses its own line.' }),
+      ]),
 ];
 
 const SECTION_DEFS: SectionDef[] = [
@@ -668,8 +684,20 @@ export function sectionUnlocked(key: SectionKey, occasion: Occasion, tier: Tier)
   return tierAtLeast(tier, sectionMinTier(key, occasion));
 }
 
-export function fieldsFor(key: SectionKey, occasion: Occasion): Field[] {
-  return SECTION_BY_KEY[key].fields(occasion);
+/**
+ * The fields for one section. Pass the invitation's tier and any option the
+ * tier cannot have comes back marked `lockedTier`, so the form can show it
+ * greyed out with the package name instead of hiding it. Without a tier
+ * nothing is locked — validation and the renderer gate it anyway.
+ */
+export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier): Field[] {
+  const fields = SECTION_BY_KEY[key].fields(occasion);
+  if (!tier) return fields;
+  return fields.map((f) =>
+    f.options?.some((o) => o.lockedTier)
+      ? { ...f, options: f.options.map((o) => (o.lockedTier && tierAtLeast(tier, o.lockedTier) ? { value: o.value, label: o.label } : o)) }
+      : f,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -708,7 +736,7 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
       case 'cover':
         data.introPreset = 'families';
         data.intro = '';
-        data.envelope = true;
+        data.opening = 'envelope';
         if (occasion === 'WEDDING') data.kind = 'wedding';
         break;
       case 'countdown':

@@ -5,6 +5,8 @@ import { OCCASIONS } from '@/lib/occasions';
 import { TIERS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
 import { OCCASION_SECTIONS, SECTION_BY_KEY } from '@/lib/sections';
+import { COLLECTIONS } from '@/lib/collections';
+import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
 import { saveTemplateAction } from '../../actions';
@@ -32,6 +34,8 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Field label="Slug" name="slug" defaultValue={t?.slug} hint="Lowercase, dashes. Used in URLs and the gallery." />
           <Select label="Occasion" name="occasion" defaultValue={occasion} options={OCCASIONS.map((o) => ({ value: o.key, label: o.label }))} hint="Changing the occasion changes which sections apply — save, then tick sections again." />
           <Select label="Lowest tier" name="minTier" defaultValue={t?.minTier ?? 'BASIC'} options={TIERS.map((x) => ({ value: x, label: x }))} />
+          <Select label="Collection" name="collection" defaultValue={t?.collection ?? ''} options={[{ value: '', label: '— none —' }, ...COLLECTIONS.map((c) => ({ value: c.key, label: c.label }))]} hint="The colour family this design is shown under in the gallery." />
+          <Select label="Opening" name="opening" defaultValue={t?.opening ?? ''} options={[{ value: '', label: '— none —' }, ...OPENINGS.filter((o) => o.key !== 'none').map((o) => ({ value: o.key, label: `${o.name} — ${o.tagline}` }))]} hint="What this design opens with when the customer has not picked one. Their choice always wins." />
           <Checkbox label="Premium (Complete tier only)" name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
           <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="Portrait image shown in the gallery. Leave blank to show the palette." />

@@ -18,6 +18,9 @@ function renderValue(field: Field, v: unknown): string {
   if (field.type === 'toggle') return v ? 'Yes' : 'No';
   if (field.type === 'person') { const p = v as { title: string; name: string; deceased: boolean }; return p.name ? `${p.title} ${p.name}${p.deceased ? ' †' : ''}`.trim() : ''; }
   if (field.type === 'colors') return (v as string[]).join(', ');
+  // Show what the customer picked, not the key we store it under — an encoder
+  // reading an intake should see "The Seal", not "seal".
+  if (field.type === 'select') return field.options?.find((o) => o.value === v)?.label ?? String(v);
   if (field.type === 'list') return (v as Record<string, unknown>[]).map((row) => (field.item ?? []).map((f) => renderValue(f, row[f.key])).filter(Boolean).join(' · ')).join('\n');
   return String(v);
 }

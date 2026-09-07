@@ -14,6 +14,8 @@ import { assignJob, moveJob, staffReply, updateJobNotes, extendDue } from '@/lib
 import { setSettings } from '@/lib/settings';
 import { notify } from '@/lib/notifications';
 import { isOccasion } from '@/lib/occasions';
+import { isCollection } from '@/lib/collections';
+import { isOpening } from '@/lib/openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
@@ -119,6 +121,8 @@ export async function saveTemplateAction(templateId: string | null, back: string
       description: s(fd, 'description'),
       thumbnailUrl: s(fd, 'thumbnailUrl'),
       layout,
+      collection: isCollection(s(fd, 'collection')) ? s(fd, 'collection') : '',
+      opening: isOpening(s(fd, 'opening')) && s(fd, 'opening') !== 'none' ? s(fd, 'opening') : '',
       palette: (palettePreset && !s(fd, 'bg') ? palettePreset.palette : palette) as never,
       fonts: fonts as never,
       sections,

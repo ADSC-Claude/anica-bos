@@ -188,6 +188,10 @@ model Template {
   description  String   @default("")
   thumbnailUrl String   @default("")
   layout       String   @default("classic")
+  /// Colour family shown as a strip in the gallery. See src/lib/collections.ts. "" means it belongs to none.
+  collection   String   @default("")
+  /// The opening this design ships with. The customer may override it. See src/lib/openings.ts.
+  opening      String   @default("")
   palette      Json
   fonts        Json
   sections     String[]
@@ -200,6 +204,7 @@ model Template {
   invitations Invitation[]
 
   @@index([occasion, published, sortOrder])
+  @@index([collection, published, sortOrder])
 }
 
 enum DiscountType {

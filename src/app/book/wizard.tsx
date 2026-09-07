@@ -1454,6 +1454,17 @@ export function BookingWizard() {
               <p className="mt-1 text-xs leading-relaxed text-cocoa-600">
                 {catalog.cancellationPolicy}
               </p>
+              {/* A new tab, deliberately. Navigating away from a half-filled
+                  booking to read a policy and coming back to an empty form is
+                  a good way to lose the booking and the guest. */}
+              <a
+                href="/refunds"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs underline underline-offset-4 hover:text-gilt-600"
+              >
+                Full refund policy
+              </a>
             </div>
           )}
 

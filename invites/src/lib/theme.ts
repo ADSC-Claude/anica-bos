@@ -32,6 +32,7 @@ export const PALETTE_PRESETS: { key: string; label: string; palette: Palette; mu
   { key: 'white', label: 'Warm White & Taupe', palette: { bg: '#fdfbf7', surface: '#ffffff', ink: '#2c2825', muted: '#7b736a', accent: '#8a7a66', accent2: '#d8cdbb' } },
   { key: 'champagne', label: 'White & Champagne', palette: { bg: '#fbf8f3', surface: '#ffffff', ink: '#2e2a24', muted: '#7a7167', accent: '#b39456', accent2: '#e4d7bd' } },
   { key: 'linen', label: 'Linen & Ash', palette: { bg: '#f7f5f1', surface: '#ffffff', ink: '#2a2a28', muted: '#75746f', accent: '#5f5d57', accent2: '#cfcabd' } },
+  { key: 'capiz', label: 'Capiz & Bronze', palette: { bg: '#f6f1e8', surface: '#fffdf8', ink: '#4a3b2c', muted: '#8b7a64', accent: '#a8763f', accent2: '#d8c6a0' } },
   { key: 'blush', label: 'Blush & Gold', palette: { bg: '#fbf4f2', surface: '#ffffff', ink: '#3a2e2e', muted: '#7a6a6a', accent: '#a6555e', accent2: '#d3b06c' } },
   { key: 'navy', label: 'Navy & Champagne', palette: { bg: '#f6f4ef', surface: '#ffffff', ink: '#1f2a3d', muted: '#5d6675', accent: '#1f2a3d', accent2: '#c8ad7f' } },
   { key: 'terracotta', label: 'Terracotta & Cream', palette: { bg: '#fbf6ef', surface: '#ffffff', ink: '#3b2a22', muted: '#7d6a5f', accent: '#b8603d', accent2: '#e0b98a' } },
@@ -53,7 +54,7 @@ export const FONT_PRESETS: { key: string; label: string; fonts: Fonts }[] = [
   { key: 'playful', label: 'Playful', fonts: { display: "'Fredoka', 'Segoe UI', system-ui, sans-serif", body: "'Nunito', system-ui, sans-serif", load: ['Fredoka', 'Nunito'] } },
 ];
 
-export const LAYOUTS = ['classic', 'editorial', 'garden', 'modern', 'festive', 'quiet'] as const;
+export const LAYOUTS = ['classic', 'editorial', 'garden', 'modern', 'festive', 'quiet', 'capiz'] as const;
 export type Layout = (typeof LAYOUTS)[number];
 
 export function isLayout(v: string): v is Layout {

@@ -235,8 +235,11 @@ carries at most one in `Template.collection`. A collection with no published
 design of its own is never shown and has no page, so the list can be written
 ahead of the designs.
 
-The White Collection is the flagship: six wedding designs in ivory, cream and
-warm white, at `/collections/white`.
+**Capiz** is the flagship, in the Filipiniana Collection at
+`/collections/filipiniana`: capiz shell and bronze wax, opening with the seal.
+It has its own `capiz` layout, whose shell border is drawn from the palette
+rather than supplied as artwork, so the design recolours with the customer's
+own accent instead of framing the page in a colour that no longer matches it.
 
 An **opening** is the short moving scene before the invitation. The guest taps
 once, it plays, and the invitation is underneath. `src/lib/openings.ts` is the
@@ -578,7 +581,9 @@ Google / Facebook sign-in (email works everywhere including the Messenger
 browser), custom domains, and the Save-the-Date mini-invite as a separate page
 (it is currently a *card type* on the cover).
 
-The other four collections — Blush, Garden, Midnight, Filipiniana — have one
-design each, carried over from the existing catalogue. Filling them out is a
-row per design in `prisma/templates.ts` and a run of the sync workflow; a
-collection with no published design disappears from the site on its own.
+Blush, Garden and Midnight have one design each, carried over from the
+existing catalogue; Filipiniana has two. White is declared but has no designs,
+so it does not appear anywhere and `/collections/white` is a 404 — which is
+the intended behaviour of a collection written ahead of its designs, and what
+happened when an earlier set was withdrawn. Filling one out is a row per
+design in `prisma/templates.ts` and a run of the sync workflow.

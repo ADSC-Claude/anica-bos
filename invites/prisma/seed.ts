@@ -166,7 +166,7 @@ async function main() {
   // By slug, not by position — inserting a design at the top of the list above
   // must not silently repoint the demo invitations at a different template.
   const bySlug = (slug: string) => templates.find((t) => t.slug === slug)!;
-  const seal = bySlug('the-seal');
+  const capiz = bySlug('capiz');
   const blush = bySlug('enchanted-blush');
 
   // --- the demo: Juan & Maria ---------------------------------------------
@@ -220,7 +220,7 @@ async function main() {
 
   const demo = await prisma.invitation.create({
     data: {
-      userId: maria.id, templateId: seal.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
+      userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
       content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: -1, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
     },
   });

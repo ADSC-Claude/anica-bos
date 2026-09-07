@@ -130,15 +130,31 @@ test('every design points at a real collection, opening and palette', () => {
   }
 });
 
-test('the White Collection is a full wedding family, one design per opening', () => {
-  const white = TEMPLATES.filter((t) => t.collection === 'white');
-  assert.ok(white.length >= 5, 'at least five white designs');
-  for (const t of white) assert.equal(t.occasion, 'WEDDING');
-  const openings = white.map((t) => t.opening);
-  assert.equal(new Set(openings).size, openings.length, 'no two white designs share an opening');
-  for (const key of ['drape', 'seal', 'curtain', 'line', 'photo']) {
-    assert.ok(openings.includes(key), `the White Collection covers ${key}`);
+test('Capiz is the Filipiniana flagship and its opening is one it can reach', () => {
+  const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
+  assert.ok(capiz, 'the Capiz design is in the catalogue');
+  assert.equal(capiz.collection, 'filipiniana');
+  assert.equal(capiz.occasion, 'WEDDING');
+  assert.equal(capiz.layout, 'capiz');
+  // It opens with the wax seal, which is Complete-only — so the design has to
+  // be Complete-reachable or a customer would pick it and get the envelope.
+  assert.equal(capiz.opening, 'seal');
+  assert.equal(capiz.premium, true);
+  const filipiniana = TEMPLATES.filter((t) => t.collection === 'filipiniana');
+  assert.ok(filipiniana.length >= 1);
+  for (const t of filipiniana) assert.equal(t.occasion, 'WEDDING');
+});
+
+test('the designs from the cancelled decks are gone, and nothing points at them', () => {
+  const slugs = TEMPLATES.map((t) => t.slug);
+  for (const dropped of ['the-drape', 'the-seal', 'the-curtain', 'the-line', 'photo-story']) {
+    assert.ok(!slugs.includes(dropped), `${dropped} was withdrawn from the catalogue`);
   }
+  // The drawn openings themselves stay: they are the self-serve set, and
+  // other designs still ship with them.
+  assert.ok(TEMPLATES.some((t) => t.opening === 'seal'));
+  assert.ok(TEMPLATES.some((t) => t.opening === 'line'));
+  assert.ok(TEMPLATES.some((t) => t.opening === 'curtain'));
 });
 
 test('artwork supplies the cinematic opening; it is never chosen', () => {

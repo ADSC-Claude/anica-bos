@@ -506,6 +506,91 @@ table.data tr:hover td {
   border-style: dashed;
 }
 
+/* Capiz: a border of overlapping shell discs down both edges, drawn from the
+   palette rather than supplied as artwork — so the same design recolours, and
+   a customer who changes the accent gets shell in their own colour instead of
+   a border that no longer matches the page it frames.
+
+   Absolute rather than fixed: a fixed strip would stay put while the page
+   scrolls under it, and would not print. */
+.inv[data-layout='capiz'] {
+  position: relative;
+  padding-left: 2.6rem;
+  padding-right: 2.6rem;
+}
+.inv[data-layout='capiz']::before,
+.inv[data-layout='capiz']::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2.6rem;
+  z-index: 3;
+  pointer-events: none;
+  /* One shell: a pearly disc lit from the upper left, its edge thickening to
+     a gold rim. Each disc is wider than the tile it sits in, so three offset
+     layers overlap the way capiz is actually strung — a disc that fits inside
+     its tile leaves gaps and reads as polka dots. */
+  --shell: radial-gradient(
+    circle at 40% 34%,
+    #fffdf9 0 14%,
+    color-mix(in srgb, #fff 88%, var(--inv-accent2)) 34%,
+    color-mix(in srgb, var(--inv-accent2) 45%, #fff) 56%,
+    color-mix(in srgb, var(--inv-accent2) 90%, transparent) 62% 65%,
+    transparent 67%
+  );
+  background-image: var(--shell), var(--shell), var(--shell);
+  background-size: 1.75rem 1.75rem;
+  background-position: 0.42rem 0, -0.5rem 0.92rem, 1.15rem 0.5rem;
+  opacity: 0.95;
+}
+.inv[data-layout='capiz']::before {
+  left: 0;
+}
+.inv[data-layout='capiz']::after {
+  right: 0;
+  transform: scaleX(-1);
+}
+/* A hairline where the shell meets the page, so the border reads as an edge
+   rather than as texture that ran out. */
+.inv[data-layout='capiz'] .inv-section {
+  position: relative;
+}
+.inv[data-layout='capiz'] .inv-hero {
+  min-height: 0;
+  align-items: center;
+  flex-direction: column;
+  padding-top: 4rem;
+}
+.inv[data-layout='capiz'] .inv-hero-photo {
+  position: static;
+  width: min(100%, 20rem);
+  aspect-ratio: 3 / 4;
+  margin: 1.5rem auto 0;
+  object-fit: cover;
+  /* The same arch as the Moment, so the design reads as one hand. */
+  border-radius: 50% 50% 0.25rem 0.25rem / 32% 32% 0.25rem 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 80%, transparent);
+}
+.inv[data-layout='capiz'] .inv-hero-scrim {
+  display: none;
+}
+.inv[data-layout='capiz'] .inv-names {
+  font-family: var(--inv-display);
+}
+/* The shell border is the page's frame, not the invitation's content — a
+   printed copy has its own margins. */
+@media print {
+  .inv[data-layout='capiz']::before,
+  .inv[data-layout='capiz']::after {
+    display: none;
+  }
+  .inv[data-layout='capiz'] {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    The opening: the moving scene a guest sees before the invitation.
 

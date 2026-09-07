@@ -538,52 +538,24 @@ table.data tr:hover td {
    scroll with the words they belong to. A connector is a short page. --- */
 .inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
 body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
-/* Every page stands on the same ground, and the ground has light in it: the
-   shade is the soft shadow of a drape down the sides, repeating down the page
-   without a seam, lightest in the middle where the words are. */
+/* The ground is the designer's own numbered backgrounds, laid edge to edge
+   down the whole invitation behind the pages (the strip); the pages are clear
+   and simply hold the words. Should a background be missing, the ground colour
+   stands in. */
+.inv[data-layout='capiz'] { background: #f1e5dc; }
+.inv-ground { position: absolute; inset: 0; z-index: 0; display: flex; flex-direction: column; pointer-events: none; }
+.inv-ground img { display: block; width: 100%; height: auto; flex: none; }
+.inv-ground-last { position: absolute; left: 0; right: 0; bottom: 0; }
 .inv-page {
-  position: relative;
+  position: relative; z-index: 1;
   min-height: 100svh;
   display: flex; flex-direction: column; justify-content: center;
   padding: 4rem 0;
-  background-color: #f1e5dc;
-  background-image: url(/capiz/shade.jpg);
-  background-position: center top;
-  background-size: 100% auto;
-  background-repeat: repeat-y;
 }
 .inv-page[data-kind='connector'] { min-height: 0; padding-bottom: 2rem; }
-/* the rows: cut on nothing, so the page's light shows round them, each with the
-   shadow it throws down the page. The page's own padding makes room for the row
-   at its top; the shadow may run under the heading. The deep rows hang from the
-   page's top edge; the strands float a little below it. */
-.inv-page[data-row] { background-repeat: no-repeat, repeat-y; background-position: center top, center top; background-size: 100% auto, 100% auto; }
-.inv-page[data-row='a'] { background-image: url(/capiz/garland-a.webp), url(/capiz/shade.jpg); padding-top: min(35vw, 11.4rem); }
-.inv-page[data-row='b'] { background-image: url(/capiz/garland-b.webp), url(/capiz/shade.jpg); padding-top: min(38vw, 12.3rem); }
-.inv-page[data-row='s1'] { background-image: url(/capiz/strand-a.webp), url(/capiz/shade.jpg); padding-top: min(21vw, 7rem); }
-.inv-page[data-row='s2'] { background-image: url(/capiz/strand-b.webp), url(/capiz/shade.jpg); padding-top: min(20vw, 6.6rem); }
-/* two pages stand on the designer's own full-page pieces, top and foot, the
-   inner edges fading into the shade so any height fits between them */
-.inv-page[data-art] { background-repeat: no-repeat, no-repeat, repeat-y; background-position: center top, center bottom, center top; background-size: 100% auto, 100% auto, 100% auto; padding-top: 5rem; padding-bottom: 5.5rem; }
-.inv-page[data-art='story'] { background-image: url(/capiz/story-top.webp), url(/capiz/story-bottom.webp), url(/capiz/shade.jpg); }
-.inv-page[data-art='cluster'] { background-image: url(/capiz/cluster-top.webp), url(/capiz/cluster-bottom.webp), url(/capiz/shade.jpg); }
-/* the story's shells run down its left: the words keep to the right of them */
-.inv-page[data-art='story'] > .inv-section { padding-left: max(15%, 1.25rem); padding-right: max(11%, 1.25rem); }
-/* the cover: the whole frame, top and foot; the closing: the foot */
-.inv-page[data-page='cover'] {
-  padding: 3rem 0;
-  background-image: url(/capiz/frame-top.webp), url(/capiz/frame-bottom.webp), url(/capiz/shade.jpg);
-  background-position: center top, center bottom, center top;
-  background-size: 100% auto, 100% auto, 100% auto;
-  background-repeat: no-repeat, no-repeat, repeat-y;
-}
-.inv-page[data-page='closing'] {
-  background-image: url(/capiz/strand-a.webp), url(/capiz/frame-bottom.webp), url(/capiz/shade.jpg);
-  background-position: center top, center bottom, center top;
-  background-size: 100% auto, 100% auto, 100% auto;
-  background-repeat: no-repeat, no-repeat, repeat-y;
-  padding-bottom: min(60vw, 20rem);
-}
+.inv-page[data-page='cover'] { padding: 3rem 0; }
+/* the closing keeps clear of the shells at the foot of the last background */
+.inv-page[data-page='closing'] { padding-bottom: min(48vw, 15.5rem); }
 .inv-page > .inv-section { padding-top: 1.5rem; padding-bottom: 1.5rem; }
 .inv-page > .inv-section + .inv-section { padding-top: 2.5rem; }
 
@@ -934,6 +906,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 /* the strip is decoration: none of it prints */
 @media print {
   .inv-page { background-image: none; min-height: 0; padding: 1rem 0; }
+  .inv-ground { display: none; }
   .inv[data-layout='capiz'] { max-width: none; }
 }
 

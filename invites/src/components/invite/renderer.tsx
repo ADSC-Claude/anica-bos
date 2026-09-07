@@ -1209,27 +1209,27 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * ("s1" with its cluster at the left, "s2" mirrored) join the rest. The
  * cover has none: it carries the whole frame instead.
  */
-type Row = 'a' | 'b' | 's1' | 's2';
-/** A page's ground can be one of the designer's two full-page pieces, top and foot. */
-type Art = 'story' | 'cluster';
-type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[]; row?: Row; art?: Art };
+type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[] };
+/** The strip's order: 1 to 7, then 5 and 6 over and over; 8 is pinned to the foot. */
+const STRIP_ORDER = [1, 2, 3, 4, 5, 6, 7, ...Array.from({ length: 9 }, (_, i) => (i % 2 ? 6 : 5))];
+
 const CAPIZ_PAGES: PageDef[] = [
   { key: 'cover', kind: 'page', sections: ['cover'] },
-  { key: 'verse', kind: 'connector', sections: ['verse'], row: 's1' },
-  { key: 'moment', kind: 'page', sections: ['moment'], row: 's2' },
-  { key: 'story', kind: 'page', sections: ['story'], art: 'story' },
-  { key: 'invitation', kind: 'page', sections: ['ceremony'], row: 's2' },
-  { key: 'entourage', kind: 'page', sections: ['entourage'], row: 's1' },
-  { key: 'prenup', kind: 'page', sections: ['gallery'], art: 'cluster' },
-  { key: 'venue', kind: 'page', sections: ['reception'], row: 'b' },
-  { key: 'dress-code', kind: 'page', sections: ['dressCode'], row: 's1' },
-  { key: 'gift', kind: 'page', sections: ['gift'], row: 's2' },
-  { key: 'program', kind: 'page', sections: ['program', 'social'], row: 's1' },
-  { key: 'guestbook', kind: 'page', sections: ['guestbook'], row: 's2' },
-  { key: 'photos', kind: 'page', sections: ['photos'], row: 's1' },
-  { key: 'rsvp', kind: 'page', sections: ['rsvp'], row: 'a' },
-  { key: 'countdown', kind: 'connector', sections: ['countdown'], row: 's2' },
-  { key: 'closing', kind: 'page', sections: ['contact', 'closing'], row: 's1' },
+  { key: 'verse', kind: 'connector', sections: ['verse'] },
+  { key: 'moment', kind: 'page', sections: ['moment'] },
+  { key: 'story', kind: 'page', sections: ['story'] },
+  { key: 'invitation', kind: 'page', sections: ['ceremony'] },
+  { key: 'entourage', kind: 'page', sections: ['entourage'] },
+  { key: 'prenup', kind: 'page', sections: ['gallery'] },
+  { key: 'venue', kind: 'page', sections: ['reception'] },
+  { key: 'dress-code', kind: 'page', sections: ['dressCode'] },
+  { key: 'gift', kind: 'page', sections: ['gift'] },
+  { key: 'program', kind: 'page', sections: ['program', 'social'] },
+  { key: 'guestbook', kind: 'page', sections: ['guestbook'] },
+  { key: 'photos', kind: 'page', sections: ['photos'] },
+  { key: 'rsvp', kind: 'page', sections: ['rsvp'] },
+  { key: 'countdown', kind: 'connector', sections: ['countdown'] },
+  { key: 'closing', kind: 'page', sections: ['contact', 'closing'] },
 ];
 
 /** Which line icon a program entry gets, from the words in its title. */
@@ -1436,16 +1436,27 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], row?: Row, art?: Art) => (
-      <div key={key} className="inv-page" data-page={key} data-kind={kind} data-row={row} data-art={art}>{parts}</div>
+    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[]) => (
+      <div key={key} className="inv-page" data-page={key} data-kind={kind}>{parts}</div>
+    );
+    // The ground: the designer's numbered backgrounds, top to bottom in order,
+    // 5 and 6 repeating to fill whatever length the pages need, 8 always last.
+    // They meet edge to edge, so the scroll is one continuous piece.
+    out.push(
+      <div key="strip" className="inv-ground" aria-hidden="true">
+        {STRIP_ORDER.map((n, i) => (
+          <img key={i} src={`/capiz/bg-${n}.webp`} alt="" loading={i < 2 ? 'eager' : 'lazy'} decoding="async" />
+        ))}
+        <img className="inv-ground-last" src="/capiz/bg-8.webp" alt="" loading="lazy" decoding="async" />
+      </div>,
     );
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
       def.sections.forEach((k) => placed.add(k));
-      if (parts.length) out.push(page(def.key, def.kind, parts, def.row, def.art));
+      if (parts.length) out.push(page(def.key, def.kind, parts));
     }
     // a section the map does not name gets a page of its own, in its place
-    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)], 's1'));
+    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)]));
     return out;
   }
   function section(key: SectionKey) {

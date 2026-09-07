@@ -812,12 +812,20 @@ export default async function LandingPage() {
               © {new Date().getFullYear()} {settings['business.name']} ·{' '}
               {settings['business.address']}
             </p>
-            <Link
-              href="/privacy"
-              className="underline underline-offset-4 hover:text-gilt-600"
-            >
-              Privacy notice
-            </Link>
+            <span className="flex gap-4">
+              <Link
+                href="/refunds"
+                className="underline underline-offset-4 hover:text-gilt-600"
+              >
+                Refund policy
+              </Link>
+              <Link
+                href="/privacy"
+                className="underline underline-offset-4 hover:text-gilt-600"
+              >
+                Privacy notice
+              </Link>
+            </span>
           </div>
         </div>
       </footer>

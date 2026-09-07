@@ -33,7 +33,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
         </div>
         <div className="card p-5">
           <h2 className="mb-3 font-semibold">Colours & fonts</h2>
-          <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} fonts={FONT_PRESETS.map((f) => ({ key: f.key, label: f.label }))} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, fontsKey: content.theme?.fontsKey ?? '', lookKey: content.theme?.lookKey ?? '' }} canPresets={hasFeature(inv.tier, 'palette.presets')} canCustom={hasFeature(inv.tier, 'palette.custom')} />
+          <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} fonts={FONT_PRESETS.map((f) => ({ key: f.key, label: f.label }))} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, fontsKey: content.theme?.fontsKey ?? '', lookKey: content.theme?.lookKey ?? '', mode: content.theme?.mode ?? 'day' }} canPresets={hasFeature(inv.tier, 'palette.presets')} canCustom={hasFeature(inv.tier, 'palette.custom')} />
         </div>
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold">Template</h2>

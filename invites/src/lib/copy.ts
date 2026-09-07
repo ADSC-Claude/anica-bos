@@ -91,6 +91,8 @@ const PHRASES = {
   'dressCode.paletteNote': { en: 'You may choose from this palette or similar shades.', tl: 'Maaari pong pumili mula sa mga kulay na ito o katulad na tono.' },
   'dressCode.avoid': { en: 'Kindly avoid', tl: 'Iwasan po' },
   'dressCode.thanks': { en: 'Thank you!', tl: 'Maraming salamat!' },
+  'mode.day': { en: 'Switch to day', tl: 'Sa araw' },
+  'mode.night': { en: 'Switch to night', tl: 'Sa gabi' },
   'gift.title': { en: 'Gift Note', tl: 'Tungkol sa Regalo' },
   'gift.gcash': { en: 'Send a gift via GCash', tl: 'Magpadala ng regalo sa GCash' },
   'gift.bank': { en: 'Bank details', tl: 'Bank details' },

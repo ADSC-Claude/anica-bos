@@ -1201,9 +1201,16 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   text-transform: uppercase;
   opacity: 0.85;
 }
+/* The cinematic overlay leaves with its clip: the page is told to come up
+   0.6s before the last frame (client.tsx) and the fade runs over exactly that,
+   so the invitation is fully there as the clip ends — no wait on the blank
+   card the clip opens onto, and no words set on it. */
+.inv-open[data-style='cinematic'] {
+  transition: opacity 600ms ease 0s, visibility 0s linear 600ms;
+}
 .inv-open[data-open='true'][data-style='cinematic'] .inv-open-clip {
   opacity: 0;
-  transition: opacity 400ms ease;
+  transition: opacity 600ms ease;
 }
 /* The Capiz clip. Its sealed face already says an invitation is here, and the
    card it opens onto is blank on purpose: the couple's own words are set on
@@ -1667,7 +1674,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   -webkit-mask-image: radial-gradient(ellipse 72% 66% at 50% 46%, #000 48%, transparent 100%);
   mask-image: radial-gradient(ellipse 72% 66% at 50% 46%, #000 48%, transparent 100%);
 }
-.inv-prenup-strand { position: relative; height: 0; padding-bottom: 25.3%; margin: -17% -1.25rem 0; background: url(/capiz/strand-b.webp) center top / 100% auto no-repeat; }
+.inv-prenup-strand { position: relative; height: 0; padding-bottom: 25.3%; margin: -17% -1.25rem 0; background: center top / 100% auto no-repeat; }
 .inv-prenup-note { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 1.8; max-width: 17rem; margin: 0 auto; }
 .inv-arches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 1.1rem; }
 .inv-arches[data-count='2'] { grid-template-columns: repeat(2, 1fr); padding: 0 12%; }
@@ -1693,3 +1700,28 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv[data-layout='capiz'] #rsvp-form > :not(:last-child) { margin-block-end: 0.6rem; }
 .inv[data-layout='capiz'] #closing .inv-photo { aspect-ratio: 16 / 9; margin-bottom: 0.6rem; }
 .inv-getting-section .inv-title { margin-bottom: 0.8rem; }
+
+/* ---------------------------------------------------------------------------
+   Night. The guest switches with the sun-and-moon button (top right); the
+   couple sets the default in Settings, or leaves it to the guest's clock.
+   Capiz by night: its papers darkened and tinted toward a deep blue, unless
+   the design has its own night backgrounds (data-night-art, drawn as is), the
+   ink lifted to ivory, the cards and fields on dark glass. */
+.inv-mode { position: fixed; right: 1rem; top: 1rem; z-index: 40; width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent); background: color-mix(in srgb, var(--inv-surface) 88%, transparent); color: var(--inv-ink); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); cursor: pointer; backdrop-filter: blur(6px); }
+.inv-mode:hover { transform: translateY(-1px); }
+.inv[data-layout='capiz'][data-mode='night'] { background: #1a1b26; }
+/* The palette's variables are set inline on .inv by the theme, so the night
+   ones are set one level down, on everything in the page but the opening. */
+.inv[data-layout='capiz'][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
+body:has(.inv[data-layout='capiz'][data-mode='night']) { background: #12131c; }
+.inv[data-mode='night'] .inv-ground:not([data-night-art]) .inv-paper { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
+.inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
+.inv[data-layout='capiz'][data-mode='night'] .inv-card,
+.inv[data-layout='capiz'][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-field::placeholder { color: var(--inv-muted); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-swatch { border-color: rgba(255, 255, 255, 0.55); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-avoid-ico { border-color: #d98a84; }
+.inv[data-layout='capiz'][data-mode='night'] .inv-avoid-ico::after { background: #d98a84; }
+.inv[data-layout='capiz'][data-mode='night'] .inv-figure { filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-open[data-clip='capiz'] .inv-open-hint { color: #f1e9dd; }
+@media print { .inv-mode { display: none; } }

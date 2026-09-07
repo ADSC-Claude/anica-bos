@@ -53,6 +53,16 @@ export async function settingsAction(invitationId: string, formData: FormData) {
   return result;
 }
 
+/** The language the guest page speaks, switched from the builder. */
+export async function languageAction(invitationId: string, language: 'en' | 'tl') {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    await updateSettings(user, invitationId, { language: language === 'tl' ? 'tl' : 'en' });
+    refresh(invitationId);
+  });
+}
+
 export async function themeAction(invitationId: string, theme: ThemeOverride) {
   const user = await requireUser();
   return action(async () => {

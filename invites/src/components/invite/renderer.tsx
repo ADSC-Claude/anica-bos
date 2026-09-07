@@ -11,7 +11,8 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle } from './client';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
 import { pickDrawings } from '@/lib/attire-art';
@@ -840,7 +841,7 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
   );
 }
 
-type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[] };
+type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[]; strand: string };
 
 function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat }) {
   const limit = galleryLimit(tier);
@@ -900,7 +901,7 @@ function Prenup({ photos, video, embed, lang, title, tagline, format }: { photos
           <figure className="inv-prenup-hero">
             <img src={imageUrl(hero.url, IMAGE.hero)} alt={hero.caption || ''} loading="lazy" />
           </figure>
-          <div className="inv-prenup-strand" aria-hidden="true" />
+          <div className="inv-prenup-strand" aria-hidden="true" style={{ backgroundImage: `url(${format.strand})` }} />
         </>
       )}
       {format.note && <p className="inv-prenup-note">{format.note}</p>}
@@ -1391,8 +1392,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const occasion = inv.occasion;
   const theme = resolveTheme(inv.template, content);
   const { palette } = theme;
-  const look = lookOverride ?? theme.look;
+  // The design's own words written over the look's, and its own pictures
+  // where the encoder set them; a blank slot keeps the layout's own.
+  const look = lookOverride ?? withWords(theme.look, wordsOf(inv.template.words));
   const fonts = lookOverride ? lookOverride.fonts : theme.fonts;
+  const own = artOf(inv.template.art);
+  const art = {
+    backgrounds: CAPIZ_DEFAULT_ART.backgrounds.map((url, i) => own.backgrounds?.[i] || url),
+    night: own.night?.length ? CAPIZ_DEFAULT_ART.backgrounds.map((_, i) => own.night?.[i] || own.backgrounds?.[i] || CAPIZ_DEFAULT_ART.backgrounds[i]) : undefined,
+    strand: own.strand || CAPIZ_DEFAULT_ART.strand,
+  };
+  const mode = content.theme?.mode ?? 'day';
   const layout = isLayout(inv.template.layout) ? inv.template.layout : 'classic';
   const style = cssVars(palette, fonts) as CSSProperties;
   // The format: the page structure the reference sets — the cover with its
@@ -1485,7 +1495,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // its page, dissolved into one another at the joins. PageGround lays them.
     out.push(
       <div key="ground" className="inv-ground" aria-hidden="true" />,
-      <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} />,
+      <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} />,
     );
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
@@ -1564,7 +1574,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'gallery': {
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
         const sides = format ? ['line1', 'line2', 'line3'].map((k) => str(content.moment, k)).filter(Boolean) : [];
-        const prenup = format ? { note: line('galleryNote') ?? '', video: line('galleryVideo') ?? '', close: line('galleryClose') ?? '', watch: t(lang, 'gallery.watchPrenup'), sides } : undefined;
+        const prenup = format ? { note: line('galleryNote') ?? '', video: line('galleryVideo') ?? '', close: line('galleryClose') ?? '', watch: t(lang, 'gallery.watchPrenup'), sides, strand: art.strand } : undefined;
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
       }
       case 'program':
@@ -1598,8 +1608,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   }
 
   return (
-    <div className="inv" data-layout={layout} data-look={look?.key} data-shape={shape} style={style} lang={lang}>
+    <div className="inv" data-layout={layout} data-look={look?.key} data-shape={shape} data-mode={mode} style={style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
+      {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {preview && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}

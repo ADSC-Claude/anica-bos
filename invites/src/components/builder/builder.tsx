@@ -8,7 +8,7 @@ import type { Field, SectionData, SectionKey } from '@/lib/sections';
 import type { Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
 import { SectionFields } from './fields';
-import { saveSectionAction } from '@/app/account/actions';
+import { saveSectionAction, languageAction, themeAction } from '@/app/account/actions';
 import { invitationPath } from '@/lib/app-url';
 
 export type BuilderSection = { key: SectionKey; label: string; description: string; unlocked: boolean; filled: boolean; minTier: Tier };
@@ -24,10 +24,15 @@ export function Builder({
   lang,
   listLimits,
   editsLeft,
+  lookKey,
+  looks,
 }: {
   invitationId: string;
   slug: string;
   status: string;
+  /** The look the page is set in ('' for the design's own) and the looks to choose from. */
+  lookKey: string;
+  looks: { key: string; name: string; tagline: string }[];
   sections: BuilderSection[];
   current: SectionKey;
   fields: Field[];
@@ -97,6 +102,7 @@ export function Builder({
       </nav>
 
       <section>
+        <QuickChoices invitationId={invitationId} lang={lang} lookKey={lookKey} looks={looks} onChanged={() => setPreviewKey((k) => k + 1)} />
         <header className="mb-4">
           <h2 className="display text-2xl">{section?.label}</h2>
           <p className="text-sm text-[color:var(--color-ink-500)]">{section?.description}</p>
@@ -133,6 +139,48 @@ export function Builder({
         )}
         <p className="mt-2 text-center text-xs text-[color:var(--color-ink-500)]"><a href={`${invitationPath(slug)}?preview=1`} target="_blank" rel="noopener" className="underline">Open preview in a new tab</a></p>
       </aside>
+    </div>
+  );
+}
+
+
+/**
+ * Two choices that belong to the whole invitation rather than one section, so
+ * they sit above every section: the language the guest page speaks, and the
+ * look — the fonts and the lines under the headings — it is set in. Every
+ * package may pick either. The design's own look is the blank choice.
+ */
+function QuickChoices({ invitationId, lang, lookKey, looks, onChanged }: { invitationId: string; lang: 'en' | 'tl'; lookKey: string; looks: { key: string; name: string; tagline: string }[]; onChanged: () => void }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [note, setNote] = useState('');
+  const run = (fn: () => Promise<{ ok: boolean; error?: string }>, done: string) =>
+    start(async () => {
+      const res = await fn();
+      setNote(res.ok ? done : res.error ?? 'Something went wrong.');
+      if (res.ok) {
+        onChanged();
+        router.refresh();
+      }
+    });
+  return (
+    <div className="mb-5 grid gap-3 rounded-xl border border-[color:var(--color-sand-200)] bg-white p-3 sm:grid-cols-2">
+      <div>
+        <label className="label" htmlFor="quick-lang">Guest page language</label>
+        <select id="quick-lang" className="field" value={lang} disabled={pending} onChange={(e) => run(() => languageAction(invitationId, e.target.value as 'en' | 'tl'), e.target.value === 'tl' ? 'Tagalog it is.' : 'English it is.')}>
+          <option value="en">English</option>
+          <option value="tl">Tagalog / Taglish</option>
+        </select>
+        <p className="hint">The fixed words on the page — buttons, labels, the lines under the headings. Your own words stay as you typed them.</p>
+      </div>
+      <div>
+        <label className="label" htmlFor="quick-look">Fonts &amp; voice</label>
+        <select id="quick-look" className="field" value={lookKey} disabled={pending} onChange={(e) => run(() => themeAction(invitationId, { lookKey: e.target.value }), e.target.value ? 'Look applied.' : 'Back to the design’s own look.')}>
+          <option value="">The design’s own</option>
+          {looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
+        </select>
+        <p className="hint">{note || 'A look is a set of faces and the lines written under each heading.'}</p>
+      </div>
     </div>
   );
 }

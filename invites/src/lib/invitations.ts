@@ -33,7 +33,8 @@ import { invitationPath } from './app-url';
  * is the only writer of it.
  */
 
-export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string; lookKey?: string };
+export type ThemeMode = 'day' | 'night' | 'auto';
+export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string; lookKey?: string; mode?: ThemeMode };
 export type StoredContent = Content & { theme?: ThemeOverride };
 
 /**
@@ -169,11 +170,10 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
     if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Font choice is included in the Complete tier.');
     clean.fontsKey = theme.fontsKey;
   }
-  // A look is chosen the way fonts are: it is the fonts, and the lines with them.
-  if (theme.lookKey !== undefined) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Looks are included in the Complete tier.');
-    clean.lookKey = isLook(theme.lookKey) ? theme.lookKey : '';
-  }
+  // A look is the faces and the lines under the headings; every package may choose one.
+  if (theme.lookKey !== undefined) clean.lookKey = isLook(theme.lookKey) ? theme.lookKey : '';
+  // Day, night, or by the guest's clock; the guest can still switch on the page.
+  if (theme.mode !== undefined) clean.mode = theme.mode === 'night' || theme.mode === 'auto' ? theme.mode : 'day';
   const content = contentOf(invitation.content);
   content.theme = { ...(content.theme ?? {}), ...clean };
   return prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });

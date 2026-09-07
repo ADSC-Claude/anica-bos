@@ -110,36 +110,6 @@ function Stage({ style, monogram, photos, video, poster, videoRef }: {
 }
 
 /**
- * The couple's words on the card a clip opens onto: monogram, the line,
- * the names, the date. Set in a box the size of the clip's own frame, so they
- * land on the card whatever the screen's shape. "Juan & Maria" is set as two
- * names with an "and" between, the way a card is lettered.
- */
-function CardWords({ opening, show }: { opening: OpeningProps; show: boolean }) {
-  const names = opening.names.split(/\s+&\s+/);
-  return (
-    <div className="inv-open-plate" data-show={show} aria-hidden>
-      <div>
-        {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
-        {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
-        {opening.names && (
-          <p className="inv-plate-names">
-            {names.map((n, i) => (
-              <span key={i}>
-                {i > 0 && <span className="inv-plate-and">and</span>}
-                {n}
-              </span>
-            ))}
-          </p>
-        )}
-        {opening.date && <p className="inv-plate-date">{opening.date}</p>}
-        {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}
-      </div>
-    </div>
-  );
-}
-
-/**
  * Hides the overlay outright when scripts do not run — otherwise a guest with
  * JavaScript off would be left tapping a screen that never opens.
  */
@@ -165,8 +135,6 @@ export function Shell({
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const clip = useRef<HTMLVideoElement | null>(null);
-  // The words on the card, once the clip has opened onto it.
-  const [card, setCard] = useState(false);
   // The tap has landed: the hint goes, whatever the clip is still doing.
   const [tapped, setTapped] = useState(false);
 
@@ -225,23 +193,23 @@ export function Shell({
       setOpen(true);
       return;
     }
-    // A clip whose card carries the words holds on its last frame long enough
-    // for them to be read before the page comes up behind it.
-    const finish = () => setOpen(true);
-    const ended = () => (opening.clip ? setTimeout(finish, 1500) : finish());
-    video.addEventListener('ended', ended, { once: true });
-    if (opening.clip) {
-      // The card is clear of the panels from about here; the words fade in on it.
-      const at = 2.7;
-      const onTime = () => {
-        if (video.currentTime >= at) {
-          setCard(true);
-          video.removeEventListener('timeupdate', onTime);
-        }
-      };
-      video.addEventListener('timeupdate', onTime);
-      setTimeout(() => setCard(true), (at + 0.35) * 1000);
-    }
+    // The card the clip opens onto stays blank — the invitation under it says
+    // the names — so the page comes up as the clip reaches its last moments,
+    // with no hold on an empty card; `ended` is the fallback if timing misses.
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      setOpen(true);
+    };
+    const onTime = () => {
+      if (video.duration && video.duration - video.currentTime <= 0.6) {
+        video.removeEventListener('timeupdate', onTime);
+        finish();
+      }
+    };
+    video.addEventListener('timeupdate', onTime);
+    video.addEventListener('ended', finish, { once: true });
     // A clip that will not play — an unsupported codec, a file that 404s, a
     // browser that refuses — must not strand the guest on a screen that never
     // opens, so the reveal happens anyway.
@@ -269,7 +237,6 @@ export function Shell({
           >
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
-              {opening.clip && <CardWords opening={opening} show={card} />}
             </div>
             <div className="inv-open-copy">
               {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}
@@ -713,7 +680,7 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * follows the column's width, so this is measured, not styled, and runs again
  * whenever the column or a page changes size.
  */
-export function PageGround({ ratio, order, last }: { ratio: number; order: number[]; last: number }) {
+export function PageGround({ ratio, order, last, backgrounds, night }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[] }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');
@@ -763,18 +730,72 @@ export function PageGround({ ratio, order, last }: { ratio: number; order: numbe
         // taller than its background: drawn to the box's height, the sides trimmed
         el.style.backgroundSize = box > bg ? 'auto 100%' : '100% auto';
         el.style.setProperty('--seam', `${seam}px`);
-        const src = `url(/capiz/bg-${s.n}.webp)`;
+        // the background by number — by night, the night one where the design has it
+        const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
+        const url = (dark ? night?.[(s.n - 1) % backgrounds.length] : '') || backgrounds[(s.n - 1) % backgrounds.length];
+        const src = `url("${url}")`;
         if (el.style.backgroundImage !== src) el.style.backgroundImage = src;
       });
+      ground.toggleAttribute('data-night-art', inv.dataset.mode === 'night' && Boolean(night?.length));
     };
     const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(lay); };
     queue();
     const ro = new ResizeObserver(queue);
     ro.observe(inv);
     for (const p of pages) ro.observe(p);
+    // day to night and back: the papers change
+    const mo = new MutationObserver(queue);
+    mo.observe(inv, { attributes: true, attributeFilter: ['data-mode'] });
     window.addEventListener('load', queue);
     document.fonts?.ready.then(queue).catch(() => {});
-    return () => { cancelAnimationFrame(frame); ro.disconnect(); window.removeEventListener('load', queue); };
-  }, [ratio, order, last]);
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); mo.disconnect(); window.removeEventListener('load', queue); };
+  }, [ratio, order, last, backgrounds, night]);
   return <span ref={ref} hidden />;
+}
+
+/**
+ * Day and night. The couple sets how the page opens — day, night, or by the
+ * guest's clock (night from six in the evening to six in the morning) — and
+ * the guest may switch with this button; their choice is kept on their phone
+ * for this invitation. The mode is an attribute on the page, which the CSS
+ * and the ground both read.
+ */
+export function ModeToggle({ mode, slug, dayLabel, nightLabel }: { mode: string; slug: string; dayLabel: string; nightLabel: string }) {
+  const ref = useRef<HTMLButtonElement | null>(null);
+  const [night, setNight] = useState(mode === 'night');
+  const key = `inv-mode:${slug}`;
+  useEffect(() => {
+    const inv = ref.current?.closest<HTMLElement>('.inv');
+    if (!inv) return;
+    let want = mode === 'night';
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved === 'day' || saved === 'night') want = saved === 'night';
+      else if (mode === 'auto') {
+        const h = new Date().getHours();
+        want = h >= 18 || h < 6;
+      }
+    } catch {
+      // storage refused: the couple's setting stands
+    }
+    inv.dataset.mode = want ? 'night' : 'day';
+    setNight(want);
+  }, [mode, key]);
+  const flip = () => {
+    const inv = ref.current?.closest<HTMLElement>('.inv');
+    if (!inv) return;
+    const next = !night;
+    inv.dataset.mode = next ? 'night' : 'day';
+    setNight(next);
+    try {
+      localStorage.setItem(key, next ? 'night' : 'day');
+    } catch {
+      // storage refused: the switch still holds for this visit
+    }
+  };
+  return (
+    <button ref={ref} type="button" className="inv-mode no-print" onClick={flip} aria-label={night ? dayLabel : nightLabel} title={night ? dayLabel : nightLabel}>
+      {night ? '☀' : '☾'}
+    </button>
+  );
 }

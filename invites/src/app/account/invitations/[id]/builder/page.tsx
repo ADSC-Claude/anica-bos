@@ -6,6 +6,7 @@ import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, emptySection, type SectionKey } from '@/lib/sections';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
+import { LOOKS } from '@/lib/looks';
 import { InvitationPill } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} />
+      <Builder invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} />
     </>
   );
 }

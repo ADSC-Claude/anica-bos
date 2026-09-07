@@ -4,7 +4,9 @@ import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { LOOKS } from '@/lib/looks';
+import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS } from '@/lib/design';
+import { UploadField } from './upload-field';
 import { OCCASION_SECTIONS, SECTION_BY_KEY } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
@@ -24,6 +26,15 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   const pal = paletteFrom(t?.palette);
   const occasion = t?.occasion ?? 'WEDDING';
   const fontsKey = FONT_PRESETS.find((f) => JSON.stringify(f.fonts) === JSON.stringify(t?.fonts))?.key ?? 'serif';
+  // the design's own words and pictures, and the look whose wording they replace
+  const words = wordsOf(t?.words);
+  const art = artOf(t?.art);
+  const look = t?.look && isLook(t.look) ? LOOK_BY_KEY[t.look] : undefined;
+  const wordRows: { key: LineKey | TitleKey; label: string; en: string; tl: string }[] = [
+    ...TITLE_KEYS.map((k) => ({ key: k, label: `Heading — ${TITLE_LABELS[k]}`, en: lookTitle(look, 'en', k) ?? '', tl: lookTitle(look, 'tl', k) ?? '' })),
+    ...LINE_KEYS.map((k) => ({ key: k, label: LINE_LABELS[k], en: lookLine(look, 'en', k) ?? '', tl: lookLine(look, 'tl', k) ?? '' })),
+  ];
+  const tid = t?.id ?? 'new';
   return (
     <>
       <BackLink href="/admin/templates">Templates</BackLink>
@@ -68,6 +79,32 @@ export default async function TemplateEditor({ params, searchParams }: { params:
             <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept.</p>
           </div>
         </div>
+        <details className="card p-4 lg:col-span-2">
+          <summary className="cursor-pointer font-semibold">Words on the page</summary>
+          <p className="hint mt-1">Every heading and every line under one, as this design says it — in English and in Tagalog. Blank keeps the look’s own wording, shown greyed. The couple’s own words always win where the builder collects them.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {wordRows.map((w) => (
+              <div key={w.key} className="rounded-lg border border-[color:var(--color-sand-200)] p-2">
+                <p className="text-xs font-semibold">{w.label}</p>
+                <input name={`words_en_${w.key}`} defaultValue={words.en?.[w.key] ?? ''} placeholder={w.en || 'English'} className="field mt-1 text-sm" aria-label={`${w.label}, English`} />
+                <input name={`words_tl_${w.key}`} defaultValue={words.tl?.[w.key] ?? ''} placeholder={w.tl || 'Tagalog'} className="field mt-1 text-sm" aria-label={`${w.label}, Tagalog`} />
+              </div>
+            ))}
+          </div>
+        </details>
+        <details className="card p-4 lg:col-span-2">
+          <summary className="cursor-pointer font-semibold">Pictures</summary>
+          <p className="hint mt-1">The design’s own pictures, by URL — upload a file and its URL lands in the field, or paste one. Blank keeps the picture shipped with the layout. Backgrounds run down the page in this order, 1 to 7 then 5 and 6 over and over, and 8 is set last.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 8 }, (_, i) => (
+              <UploadField key={`bg${i}`} name={`art_bg_${i + 1}`} label={`Background ${i + 1}${i === 7 ? ' — set last' : ''}`} defaultValue={art.backgrounds?.[i] ?? ''} placeholder={t?.layout === 'capiz' ? `/capiz/bg-${i + 1}.webp` : ''} templateId={tid} />
+            ))}
+            {Array.from({ length: 8 }, (_, i) => (
+              <UploadField key={`night${i}`} name={`art_night_${i + 1}`} label={`Night background ${i + 1}`} defaultValue={art.night?.[i] ?? ''} templateId={tid} hint={i === 0 ? 'Shown in night mode. With none set, night darkens the day backgrounds instead.' : undefined} />
+            ))}
+            <UploadField name="art_strand" label="Strand under the prenup photograph" defaultValue={art.strand ?? ''} placeholder={t?.layout === 'capiz' ? '/capiz/strand-b.webp' : ''} templateId={tid} hint="A wide picture with a transparent background." />
+          </div>
+        </details>
         <div className="lg:col-span-2"><button className="btn btn-primary" type="submit">{isNew ? 'Create template' : 'Save template'}</button></div>
       </form>
     </>

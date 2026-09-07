@@ -525,7 +525,7 @@ const SECTION_DEFS: SectionDef[] = [
       toggle('showSeats', 'Ask how many are coming'),
       toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
-      list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true })], { addLabel: 'Add a choice', max: 6 }),
+      list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
       textarea('policyText', 'Policy wording'),
       select('notePreset', 'RSVP note', RSVP_NOTE_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: RSVP_NOTE_PRESETS, presetTarget: 'note' }),

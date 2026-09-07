@@ -143,7 +143,7 @@ async function main() {
       // Priced on request until the turnaround is known: it is design time,
       // not a switch, so quoting a flat number before the first one is made
       // would be a guess printed on a public page.
-      { code: 'CINEMATIC', name: 'Cinematic opening (Done-For-You)', description: 'Embroidered panels tied with a silk bow that unties as your guest taps. Drawn by our designers for your motif, on Complete with Done-For-You or Concierge.', priceCents: 0, sortOrder: 4 },
+      { code: 'CINEMATIC', name: 'Cinematic opening (Done-For-You)', description: 'A filmed cover that opens as your guest taps — a seal breaking, panels drawing back, drawn by our designers for your motif. On Complete with Done-For-You or Concierge.', priceCents: 0, sortOrder: 4 },
       { code: 'ENVELOPE', name: 'Animated opening', description: 'The Drape, The Seal, The Curtain, Photo Story or The Line — a short moving scene before the invitation. Guests tap to open. Included free on the demo so you can see it.', priceCents: 19900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout for the lolas.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing (Basic tier).', priceCents: 19900, sortOrder: 4 },

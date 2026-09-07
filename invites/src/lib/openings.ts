@@ -118,7 +118,7 @@ export const OPENINGS: OpeningDef[] = [
     key: 'cinematic',
     name: 'Cinematic opening',
     tagline: 'An invitation that opens like a gift.',
-    description: 'Embroidered panels tied with a silk bow. The bow unties, the panels draw back, and the invitation is behind them. Made by our designers, and part of Done-For-You.',
+    description: 'A filmed cover that opens on the tap — a seal breaking, panels drawing back, whatever the design calls for. Drawn by our designers for one design at a time, and part of Done-For-You.',
     minTier: 'COMPLETE',
     photos: 0,
     line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },

@@ -547,8 +547,10 @@ table.data tr:hover td {
 .inv[data-layout='capiz'] > .inv-garland { position: relative; z-index: 1; }
 .inv[data-layout='capiz'] .inv-hero > * { position: relative; z-index: 1; }
 
-/* a garland: one strung row cut from the couple's band image, across the
-   page between chapters, feathered top and bottom into the ground */
+/* a garland: one strung row cut from the couple's images, across the page
+   between chapters, feathered top and bottom into the ground — the deep rows
+   from the band image, the thin strands with a cluster at one end from the
+   two-strand image */
 .inv-garland {
   display: block; width: 100%; max-width: 44rem; margin: -0.5rem auto -1.25rem; pointer-events: none;
   background-size: 100% auto; background-position: center; background-repeat: no-repeat;
@@ -557,6 +559,23 @@ table.data tr:hover td {
 }
 .inv-garland[data-g='a'] { aspect-ratio: 720 / 269; background-image: url(/capiz/garland-a.jpg); }
 .inv-garland[data-g='b'] { aspect-ratio: 720 / 282; background-image: url(/capiz/garland-b.jpg); }
+.inv-garland[data-g='s1'] { aspect-ratio: 549 / 104; background-image: url(/capiz/strand-a.jpg); margin: 0.5rem auto -0.5rem; }
+.inv-garland[data-g='s2'] { aspect-ratio: 549 / 96; background-image: url(/capiz/strand-b.jpg); margin: 0.5rem auto -0.5rem; }
+.inv-garland[data-g='s1'], .inv-garland[data-g='s2'] {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+          mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+}
+/* the cluster at the page's edge beside a block, from the same image */
+.inv-bracket {
+  position: absolute; z-index: 0; pointer-events: none; top: 50%; translate: 0 -50%;
+  width: 7.2rem; aspect-ratio: 200 / 468; background: url(/capiz/bracket-r.jpg) center / cover no-repeat;
+}
+.inv-bracket[data-side='r'] { right: -1.6rem;
+  -webkit-mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%);
+          mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%); }
+.inv-bracket[data-side='l'] { left: -1.6rem; transform: scaleX(-1);
+  -webkit-mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%);
+          mask-image: radial-gradient(ellipse 100% 60% at 100% 50%, #000 40%, rgba(0,0,0,.6) 66%, transparent 92%); }
 
 /* --- sections --- */
 .inv[data-layout='capiz'] .inv-section {
@@ -656,15 +675,18 @@ table.data tr:hover td {
   box-shadow: 0 2px 8px -3px rgba(74,59,47,0.5);
 }
 
-/* --- hero: measured by its own width (a container), so a phone and a
-   showcase column the width of a phone lay out the same --- */
+/* --- hero: the names centred in the frame, measured by its own width (a
+   container) so a phone and a showcase column the width of a phone agree --- */
 .inv[data-layout='capiz'] .inv-hero {
   min-height: 100svh;
-  padding: 0;
-  display: block;
+  padding: 4rem 0 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
   container-type: inline-size;
 }
-.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; margin: 0 auto; padding: 0 1.6rem 3rem; }
+.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; margin: 0 auto; padding: 0 1.6rem; }
 .inv[data-layout='capiz'] .inv-hero-scrim,
 .inv[data-layout='capiz'] .inv-hero-photo { display: none; }
 .inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
@@ -678,26 +700,8 @@ table.data tr:hover td {
   color: var(--inv-ink);
   line-height: 1.05;
 }
-/* The plate: hung from the top of the hero and sized by its width, so the
-   strands land at 0.36 and 1.01 of the width down and the names get exactly
-   the band between them; what follows starts under the lower strand. */
-.inv[data-layout='capiz'] .inv-hero::before {
-  content: ''; position: absolute; left: 0; right: 0; top: -46cqw; height: 233.15cqw; z-index: 0; pointer-events: none;
-  background: url(/capiz/plate.jpg) center top / 100% auto no-repeat;
-  -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
-          mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
-}
-.inv[data-layout='capiz'] .inv-hero-names { display: flex; flex-direction: column; justify-content: center; margin-top: 39cqw; height: 58cqw; }
-.inv[data-layout='capiz'] .inv-hero-details { margin-top: 10cqw; }
 .inv[data-layout='capiz'] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
-/* On a screen wider than it is tall the plate would be a sliver, so the
-   frame's own clusters do the work — unless the page is told it is a phone. */
-@media (orientation: landscape) {
-  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 4rem 0 3rem; }
-  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero::before { display: none; }
-  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero-names { margin-top: 0; height: auto; }
-  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero-details { margin-top: 0; }
-}
+.inv[data-layout='capiz'] .inv-hero-details { margin-top: 1.6rem; }
 .inv[data-layout='capiz'] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;
@@ -860,7 +864,10 @@ table.data tr:hover td {
 .inv-verse-text { text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.95rem; line-height: 2; color: var(--inv-ink); }
 .inv-verse-ref { margin-top: 1.4rem; }
 .inv-rule { display: block; width: 2.6rem; height: 1px; margin: 1.6rem auto 0; background: var(--inv-accent2); }
-.inv-story-sign { text-align: center; margin-top: 2.4rem; }
+.inv-story-sign { position: relative; text-align: center; margin-top: 2.4rem; }
+.inv-getting-block { position: relative; }
+/* the text above the cluster, the cluster behind it */
+.inv-getting-block > :not(.inv-bracket), .inv-story-sign > :not(.inv-bracket) { position: relative; z-index: 1; }
 .inv-story-sign .inv-eyebrow { margin-bottom: 0.15rem; margin-top: 1.2rem; color: var(--inv-ink); opacity: 0.85; }
 .inv-story-sign .inv-eyebrow-date { margin-top: 0; letter-spacing: 0.42em; text-indent: 0.42em; }
 .inv-interlude { text-align: center; padding-top: 0.6rem; padding-bottom: 0.6rem; }
@@ -912,8 +919,7 @@ table.data tr:hover td {
 
 /* the strip is decoration: none of it prints */
 @media print {
-  .inv-frame, .inv-garland,
-  .inv[data-layout='capiz'] .inv-hero::before { display: none !important; }
+  .inv-frame, .inv-garland, .inv-bracket { display: none !important; }
   .inv[data-layout='capiz'] .inv-hero { min-height: 0; }
 }
 

@@ -342,17 +342,20 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
         {time && !format.sameVenue && <p className="mt-2 text-center">{formatTime(time)}</p>}
         {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm">{str(data, 'parkingNote')}</p>}
         {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
-        <h3 className="inv-title inv-title-sub">{format.gettingTitle}</h3>
-        <div className="inv-card inv-getting">
-          <Ico name="pin" />
-          <div>
-            <b>{venue}</b>
-            {address && <span>{address}</span>}
+        <div className="inv-getting-block">
+          <span className="inv-bracket" data-side="r" aria-hidden />
+          <h3 className="inv-title inv-title-sub">{format.gettingTitle}</h3>
+          <div className="inv-card inv-getting">
+            <Ico name="pin" />
+            <div>
+              <b>{venue}</b>
+              {address && <span>{address}</span>}
+            </div>
           </div>
-        </div>
-        <div className="no-print">
-          {maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
-          {waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
+          <div className="no-print">
+            {maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
+            {waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
+          </div>
         </div>
       </Section>
     );
@@ -733,6 +736,7 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
       )}
       {signoff && (
         <div className="inv-story-sign">
+          <span className="inv-bracket" data-side="r" aria-hidden />
           <span className="inv-rule" aria-hidden />
           <p className="inv-eyebrow">{signoff.names}</p>
           {signoff.date && <p className="inv-eyebrow inv-eyebrow-date">{signoff.date}</p>}
@@ -1108,9 +1112,11 @@ function CapizDecor() {
 
 /**
  * Where a garland is strung across the page: before the chapter it opens.
- * Two rows cut from the band image, alternating so neighbours differ.
+ * The deep rows from the band image open the big chapters; the thin strands
+ * from the two-strand image, a cluster at one end then the other, connect
+ * the rest.
  */
-const GARLANDS: Partial<Record<SectionKey, 'a' | 'b'>> = { story: 'a', ceremony: 'b', rsvp: 'a' };
+const GARLANDS: Partial<Record<SectionKey, 'a' | 'b' | 's1' | 's2'>> = { story: 'a', ceremony: 'b', entourage: 's1', gift: 's2', rsvp: 'a', contact: 's1' };
 
 /** Which line icon a program entry gets, from the words in its title. */
 function programIcon(title: string): string {

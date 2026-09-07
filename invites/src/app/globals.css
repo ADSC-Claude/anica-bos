@@ -506,17 +506,38 @@ table.data tr:hover td {
   border-style: dashed;
 }
 
-/* Capiz: a border of overlapping shell discs down both edges, drawn from the
-   palette rather than supplied as artwork — so the same design recolours, and
-   a customer who changes the accent gets shell in their own colour instead of
-   a border that no longer matches the page it frames.
+/* Capiz: a strung border of shell discs down both edges, drawn from the palette
+   rather than supplied as artwork — so the same design recolours, and a customer
+   who changes the accent gets shell in their own colour instead of a border that
+   no longer matches the page it frames.
+
+   Real capiz is strung in overlapping columns, like scales: each disc is large,
+   ringed in thin brass, and sits half over the one above it. Two columns of
+   big discs read as capiz; a field of small ones reads as polka dots.
+
+   The pattern is four background layers because a repeating tile clips whatever
+   spills outside it — so a disc taller than its pitch cannot overlap its own
+   neighbour. Each column is therefore two layers on a double-height tile, one
+   phase-shifted past the other, and the second column is shifted half a step
+   again so the two interlock.
 
    Absolute rather than fixed: a fixed strip would stay put while the page
    scrolls under it, and would not print. */
 .inv[data-layout='capiz'] {
   position: relative;
-  padding-left: 2.6rem;
-  padding-right: 2.6rem;
+  /* Disc, vertical step, and the strip. The disc is as wide as the strip, so
+     the inner column shows whole and the outer one runs off the page edge —
+     which is what gives the border its scalloped inside and its cropped
+     outside, the way a strung panel meets its frame. */
+  /* Shell is nacre — light in every palette, so it is mostly white with a
+     little of the card's own white mixed in rather than the card colour
+     itself, which on a dark palette would give black shell. */
+  --shell-pearl: color-mix(in srgb, var(--inv-surface) 32%, #fff);
+  --shell-d: 2.95rem;
+  --shell-step: 2.05rem;
+  --shell-w: 2.95rem;
+  padding-left: var(--shell-w);
+  padding-right: var(--shell-w);
 }
 .inv[data-layout='capiz']::before,
 .inv[data-layout='capiz']::after {
@@ -524,32 +545,49 @@ table.data tr:hover td {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2.6rem;
+  width: var(--shell-w);
   z-index: 3;
   pointer-events: none;
-  /* One shell: a pearly disc lit from the upper left, its edge thickening to
-     a gold rim. Each disc is wider than the tile it sits in, so three offset
-     layers overlap the way capiz is actually strung — a disc that fits inside
-     its tile leaves gaps and reads as polka dots. */
+  /* One shell: nacre at the crown, warming out to a thin brass rim. Opaque,
+     so the strip reads as a continuous pearly band the way a strung panel does
+     — a translucent disc lets the page through and the border turns to beads. */
   --shell: radial-gradient(
-    circle at 40% 34%,
-    #fffdf9 0 14%,
-    color-mix(in srgb, #fff 88%, var(--inv-accent2)) 34%,
-    color-mix(in srgb, var(--inv-accent2) 45%, #fff) 56%,
-    color-mix(in srgb, var(--inv-accent2) 90%, transparent) 62% 65%,
-    transparent 67%
+    circle calc(var(--shell-d) / 2) at 50% 50%,
+    var(--shell-pearl) 0 18%,
+    color-mix(in srgb, var(--shell-pearl) 88%, var(--inv-accent2)) 46%,
+    color-mix(in srgb, var(--shell-pearl) 64%, var(--inv-accent2)) 74%,
+    color-mix(in srgb, var(--shell-pearl) 42%, var(--inv-accent2)) 88%,
+    color-mix(in srgb, var(--inv-accent) 80%, var(--shell-pearl)) 91% 96%,
+    color-mix(in srgb, var(--inv-accent) 24%, transparent) 97% 98%,
+    transparent 99%
   );
-  background-image: var(--shell), var(--shell), var(--shell);
-  background-size: 1.75rem 1.75rem;
-  background-position: 0.42rem 0, -0.5rem 0.92rem, 1.15rem 0.5rem;
-  opacity: 0.95;
+  background-image: var(--shell), var(--shell), var(--shell), var(--shell);
+  background-size: var(--shell-d) calc(var(--shell-step) * 2);
+  /* Four places: the inner column on the half-step, the outer column — cropped
+     by the edge of the page — on the whole one. First in the list paints on
+     top, so the column against the page keeps its scallop clean. */
+  background-position:
+    0 calc(var(--shell-step) / 2),
+    0 calc(var(--shell-step) * 1.5),
+    calc(var(--shell-d) / -2) 0,
+    calc(var(--shell-d) / -2) var(--shell-step);
 }
 .inv[data-layout='capiz']::before {
   left: 0;
 }
 .inv[data-layout='capiz']::after {
   right: 0;
+  /* Mirrored, so the whole discs face the page from both sides and the cropped
+     column is the one against the paper edge. */
   transform: scaleX(-1);
+}
+/* A narrow phone cannot spare 5rem of margin between two strips of decoration. */
+@media (max-width: 26rem) {
+  .inv[data-layout='capiz'] {
+    --shell-d: 2.3rem;
+    --shell-step: 1.6rem;
+    --shell-w: 2.3rem;
+  }
 }
 /* A hairline where the shell meets the page, so the border reads as an edge
    rather than as texture that ran out. */

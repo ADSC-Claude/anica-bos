@@ -12,8 +12,9 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround } from './client';
-import { SuitFigure, GownFigure } from './figures';
+import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
+import { pickDrawings } from '@/lib/attire-art';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -538,8 +539,13 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
   };
   const suits = chosen('gentsColors', 4, SUIT_COLORS);
   const gowns = chosen('ladiesColors', 5, GOWN_COLORS);
-  const gents = attireWords(gentsItems(occasion), rows<string>(data, 'gentsItems'), lang);
-  const ladies = attireWords(ladiesItems(occasion), rows<string>(data, 'ladiesItems'), lang);
+  const gentsTicked = rows<string>(data, 'gentsItems');
+  const ladiesTicked = rows<string>(data, 'ladiesItems');
+  const gents = attireWords(gentsItems(occasion), gentsTicked, lang);
+  const ladies = attireWords(ladiesItems(occasion), ladiesTicked, lang);
+  // one drawing per colour, of the kinds of garment ticked
+  const suitArt = pickDrawings('gents', gentsTicked, suits.length);
+  const gownArt = pickDrawings('ladies', ladiesTicked, gowns.length);
   // an invitation saved before the list existed asked only about white
   const avoidKeys = rows<string>(data, 'avoid');
   const avoid = avoidTicked(occasion, avoidKeys.length || !bool(data, 'avoidWhite') ? avoidKeys : ['white'], lang);
@@ -565,7 +571,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, 'dressCode.gents')}</p>
           <div className="inv-dress">
-            {suits.map((c, i) => <SuitFigure key={i} color={c} tie={suits.length === 1 || i < suits.length - 1} id={`suit-${i}`} />)}
+            {suits.map((c, i) => <Drawn key={i} drawing={suitArt[i]} color={c} id={`dress-gent-${i}`} />)}
           </div>
           {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
           {str(data, 'gentsNote') && <p className="inv-wear-note">{str(data, 'gentsNote')}</p>}
@@ -573,7 +579,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, 'dressCode.ladies')}</p>
           <div className="inv-dress">
-            {gowns.map((c, i) => <GownFigure key={i} color={c} style={i} id={`gown-${i}`} />)}
+            {gowns.map((c, i) => <Drawn key={i} drawing={gownArt[i]} color={c} id={`dress-lady-${i}`} />)}
           </div>
           {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
           {str(data, 'ladiesNote') && <p className="inv-wear-note">{str(data, 'ladiesNote')}</p>}

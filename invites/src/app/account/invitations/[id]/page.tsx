@@ -5,7 +5,7 @@ import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { rsvpSummary } from '@/lib/guests';
 import { occasionLabel } from '@/lib/occasions';
-import { TIER_LABELS, hasFeature, nextTier } from '@/lib/tiers';
+import { TIER_LABELS, hasFeature, featureOffered, nextTier } from '@/lib/tiers';
 import { formatDate, formatDateTime } from '@/lib/datetime';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
@@ -92,8 +92,8 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             {[
               { href: `/account/invitations/${inv.id}/builder`, label: 'Builder', show: !dfy || inv.status === 'PUBLISHED' || job?.status === 'PUBLISHED' },
               { href: `/account/invitations/${inv.id}/rsvps`, label: 'RSVP responses', show: true },
-              { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: true, locked: !hasFeature(inv.tier, 'guests.manager') },
-              { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: true, locked: !hasFeature(inv.tier, 'checkin') },
+              { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: featureOffered('guests.manager'), locked: !hasFeature(inv.tier, 'guests.manager') },
+              { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: featureOffered('checkin'), locked: !hasFeature(inv.tier, 'checkin') },
               { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: true, locked: !hasFeature(inv.tier, 'guestbook') },
               { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: true, locked: !hasFeature(inv.tier, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },
@@ -107,7 +107,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
           {upgrade && (
             <div className="card p-4 text-sm">
               <p className="font-semibold">Need more?</p>
-              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, FAQ, music and unlimited edits' : 'per-guest links, seating, QR check-in, guestbook and more'}. Pay only the difference.</p>
+              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and unlimited edits' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
               <Link href={`/account/invitations/${inv.id}/upgrade`} className="btn btn-secondary btn-sm mt-2">See upgrade</Link>
             </div>
           )}

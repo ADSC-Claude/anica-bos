@@ -2,7 +2,7 @@ import type { Occasion, Tier } from '@prisma/client';
 import type { CSSProperties, ReactNode } from 'react';
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
-import { OCCASION_SECTIONS, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets } from '@/lib/openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
@@ -839,6 +839,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
 
   const visible = (key: SectionKey) =>
     OCCASION_SECTIONS[occasion].includes(key) &&
+    sectionOffered(key) &&
     (templateSections.size === 0 || templateSections.has(key)) &&
     sectionUnlocked(key, occasion, inv.tier) &&
     (key === 'rsvp' || key === 'cover' || sectionFilled(key, occasion, content[key]));

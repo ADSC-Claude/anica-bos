@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OCCASION_SECTIONS, sectionsFor, fieldsFor, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
+import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
 import { OCCASION_KEYS } from '../src/lib/occasions';
 
 test('every occasion has a cover, an RSVP and a closing, and every section it lists is defined', () => {
@@ -9,7 +9,7 @@ test('every occasion has a cover, an RSVP and a closing, and every section it li
     assert.ok(keys.includes('cover'), o);
     assert.ok(keys.includes('rsvp'), o);
     assert.ok(keys.includes('closing'), o);
-    assert.equal(sectionsFor(o).length, keys.length);
+    assert.equal(sectionsFor(o).length, keys.filter((k) => sectionOffered(k)).length);
     for (const k of keys) assert.ok(fieldsFor(k, o).length > 0, `${o}.${k} has fields`);
   }
 });

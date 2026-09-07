@@ -96,6 +96,8 @@ export type SectionDef = {
   /** Occasions where the lowest tier is different from `minTier`. */
   tierOverride?: Partial<Record<Occasion, Tier>>;
   labelFor?: Partial<Record<Occasion, string>>;
+  /** Built, but not offered yet: not in the builder, not on the page. */
+  hidden?: true;
   fields: (occasion: Occasion) => Field[];
 };
 
@@ -299,6 +301,7 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'parents',
+    hidden: true,
     label: 'Parents',
     tl: 'Mga Magulang',
     description: 'With titles, and a † marker for those who have passed.',
@@ -553,6 +556,7 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'faq',
+    hidden: true,
     label: 'FAQ',
     tl: 'Mga Paalala',
     description: 'Parking, kids, rain plan, shuttle, hashtag reminders.',
@@ -582,6 +586,7 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'travel',
+    hidden: true,
     label: 'Accommodation & travel',
     tl: 'Tuluyan at Biyahe',
     description: 'Hotels, booking codes, directions from Manila.',
@@ -692,8 +697,14 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
   MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'photos', 'closing'],
 };
 
+/** The sections a customer can fill for this occasion — the hidden ones left out. */
 export function sectionsFor(occasion: Occasion): SectionDef[] {
-  return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]);
+  return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
+}
+
+/** Whether a section is part of what is offered today. */
+export function sectionOffered(key: SectionKey): boolean {
+  return !SECTION_BY_KEY[key].hidden;
 }
 
 export function sectionLabel(key: SectionKey, occasion: Occasion): string {
@@ -756,7 +767,10 @@ export function emptySection(fields: Field[]): SectionData {
 /** A fresh invitation's content: every section present, sensible toggles on. */
 export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
   const content: Content = {};
-  for (const def of sectionsFor(occasion)) {
+  // Every section the occasion lists, hidden ones included: what is stored
+  // must not depend on what is offered this month, or un-hiding a section
+  // later would find invitations with no slot for it.
+  for (const def of OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k])) {
     const data = emptySection(def.fields(occasion));
     switch (def.key) {
       case 'cover':

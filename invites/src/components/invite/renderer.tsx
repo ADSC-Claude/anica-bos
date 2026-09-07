@@ -15,7 +15,7 @@ import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton,
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
-import { pickDrawings } from '@/lib/attire-art';
+import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -517,7 +517,7 @@ const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-for
 const ATTIRE_TL: Record<string, string> = { ...ATTIRE, filipiniana: 'Filipiniana at Barong' };
 /** The suits and gowns when the couple picked no colours for them and has no motif: black, tan, olive, cream; champagne, sage, blush, chocolate, ivory. */
 const SUIT_COLORS = ['#2a2726', '#c8b596', '#59604a', '#e8dfcf'];
-const GOWN_COLORS = ['#d9c3a5', '#9daa8f', '#d9a9a9', '#8a5a3c', '#e9dcc3'];
+const GOWN_COLORS = ['#c9ad86', '#9daa8f', '#d9a9a9', '#8a5a3c', '#a67c6d'];
 
 /**
  * What to wear, the way a printed dress code card says it: the attire as the
@@ -539,7 +539,8 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
     return fallback;
   };
   const suits = chosen('gentsColors', 4, SUIT_COLORS);
-  const gowns = chosen('ladiesColors', 5, GOWN_COLORS);
+  // a guest's gown is never white: a pale pick is deepened until it reads as its colour
+  const gowns = chosen('ladiesColors', 5, GOWN_COLORS).map(wearable);
   const gentsTicked = rows<string>(data, 'gentsItems');
   const ladiesTicked = rows<string>(data, 'ladiesItems');
   const gents = attireWords(gentsItems(occasion), gentsTicked, lang);
@@ -548,6 +549,9 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
   const kids = occasion === 'KIDS_BIRTHDAY';
   const suitArt = pickDrawings('gents', gentsTicked, suits.length, kids);
   const gownArt = pickDrawings('ladies', ladiesTicked, gowns.length, kids);
+  // every figure in both rows the same height; the row is at most 36.8rem wide (the column plus its overhang)
+  const figH = figureHeight(suitArt, gownArt);
+  const widthOf = (d: Drawing) => { const pct = (figH * d.w) / d.h; return `min(${pct.toFixed(2)}%, ${((36.8 * pct) / 100).toFixed(2)}rem)`; };
   // an invitation saved before the list existed asked only about white
   const avoidKeys = rows<string>(data, 'avoid');
   const avoid = avoidTicked(occasion, avoidKeys.length || !bool(data, 'avoidWhite') ? avoidKeys : ['white'], lang);
@@ -573,7 +577,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.boys' : 'dressCode.gents')}</p>
           <div className="inv-dress">
-            {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} id={`dress-gent-${i}`} />)}
+            {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} id={`dress-gent-${i}`} width={widthOf(d)} />)}
           </div>
           {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
           {str(data, 'gentsNote') && <p className="inv-wear-note">{str(data, 'gentsNote')}</p>}
@@ -581,7 +585,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.girls' : 'dressCode.ladies')}</p>
           <div className="inv-dress">
-            {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} id={`dress-lady-${i}`} />)}
+            {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} id={`dress-lady-${i}`} width={widthOf(d)} />)}
           </div>
           {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
           {str(data, 'ladiesNote') && <p className="inv-wear-note">{str(data, 'ladiesNote')}</p>}

@@ -19,11 +19,11 @@ function channels(hex: string): [number, number, number] {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-export function Drawn({ drawing, color, id }: { drawing: Drawing; color: string; id: string }) {
+export function Drawn({ drawing, color, id, width }: { drawing: Drawing; color: string; id: string; /** the figure's width, a CSS length; the height follows the drawing's shape */ width?: string }) {
   const [r, g, b] = channels(color);
   const table = (c: number) => `0 ${c.toFixed(4)} 1`;
   return (
-    <span className="inv-figure" style={{ aspectRatio: `${drawing.w} / ${drawing.h}` }}>
+    <span className="inv-figure" style={{ aspectRatio: `${drawing.w} / ${drawing.h}`, width }}>
       <svg width="0" height="0" aria-hidden focusable="false" style={{ position: 'absolute' }}>
         <filter id={id} colorInterpolationFilters="sRGB">
           <feComponentTransfer>

@@ -117,3 +117,19 @@ test('a section counts as filled once something meaningful is typed', () => {
   assert.equal(sectionFilled(key, 'WEDDING', { items: [{ q: 'Parking?', a: 'Yes' }] }), true);
   assert.equal(sectionFilled('countdown', 'WEDDING', { enabled: true, label: '' }), false);
 });
+
+test('a lady\'s garment is never white: pale colours are deepened, colours are kept', async () => {
+  const { wearable, figureHeight } = await import('../src/lib/attire-art');
+  const light = (hex: string) => { const n = parseInt(hex.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255); return (Math.max(...c) + Math.min(...c)) / 2; };
+  for (const pale of ['#ffffff', '#e9dcc3', '#efe6dc', '#d9c3a5']) assert.ok(light(wearable(pale)) <= 0.67, `${pale} -> ${wearable(pale)}`);
+  assert.equal(wearable('#8a5a3c'), '#8a5a3c');
+  assert.equal(wearable('#9daa8f'), '#9daa8f');
+  const blush = wearable('#d9a9a9');
+  assert.ok(light(blush) <= 0.67 && blush.slice(1, 3) > blush.slice(3, 5) && blush.slice(3, 5) === blush.slice(5, 7), `blush deepens but stays pink: ${blush}`);
+  assert.equal(wearable('not a colour'), 'not a colour');
+  // the rows share one height: the smaller of what either affords, capped
+  const gown = { id: 'g', group: 'ladies' as const, kind: 'long', w: 40, h: 100 };
+  const wide = { id: 'w', group: 'girls' as const, kind: 'girl', w: 100, h: 100 };
+  assert.equal(figureHeight([gown, gown, gown, gown], [gown, gown]), 38);
+  assert.ok(Math.abs(figureHeight([wide, wide, wide, wide, wide], [gown]) - (100 - 8) / 5) < 1e-9);
+});

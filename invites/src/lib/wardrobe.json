@@ -348,5 +348,427 @@
   "kind": "boyCasual",
   "w": 194,
   "h": 308
+ },
+ {
+  "id": "tuxedo-2",
+  "group": "gents",
+  "kind": "tuxedo",
+  "w": 198,
+  "h": 428
+ },
+ {
+  "id": "suit-navy-2",
+  "group": "gents",
+  "kind": "suit",
+  "w": 196,
+  "h": 430
+ },
+ {
+  "id": "suit-cream-2",
+  "group": "gents",
+  "kind": "suit",
+  "w": 196,
+  "h": 430
+ },
+ {
+  "id": "suit-olive-2",
+  "group": "gents",
+  "kind": "suit",
+  "w": 192,
+  "h": 426
+ },
+ {
+  "id": "suit-grey-2",
+  "group": "gents",
+  "kind": "suit",
+  "w": 190,
+  "h": 426
+ },
+ {
+  "id": "suit-brown-2",
+  "group": "gents",
+  "kind": "suit",
+  "w": 192,
+  "h": 428
+ },
+ {
+  "id": "barong-3",
+  "group": "gents",
+  "kind": "barong",
+  "w": 184,
+  "h": 432
+ },
+ {
+  "id": "shirt-blue",
+  "group": "gents",
+  "kind": "shirt",
+  "w": 192,
+  "h": 434
+ },
+ {
+  "id": "shirt-olive",
+  "group": "gents",
+  "kind": "shirt",
+  "w": 188,
+  "h": 418
+ },
+ {
+  "id": "shirt-white-2",
+  "group": "gents",
+  "kind": "shirt",
+  "w": 198,
+  "h": 422
+ },
+ {
+  "id": "shirt-cream",
+  "group": "gents",
+  "kind": "shirt",
+  "w": 200,
+  "h": 420
+ },
+ {
+  "id": "shirt-short-sage",
+  "group": "gents",
+  "kind": "shirtShort",
+  "w": 200,
+  "h": 422
+ },
+ {
+  "id": "shirt-short-cream",
+  "group": "gents",
+  "kind": "shirtShort",
+  "w": 196,
+  "h": 424
+ },
+ {
+  "id": "shirt-tucked",
+  "group": "gents",
+  "kind": "shirt",
+  "w": 194,
+  "h": 424
+ },
+ {
+  "id": "shirt-tropical",
+  "group": "gents",
+  "kind": "casual",
+  "w": 202,
+  "h": 424,
+  "print": true
+ },
+ {
+  "id": "gown-one-shoulder",
+  "group": "ladies",
+  "kind": "long",
+  "w": 172,
+  "h": 520
+ },
+ {
+  "id": "gown-ball",
+  "group": "ladies",
+  "kind": "long",
+  "w": 236,
+  "h": 520
+ },
+ {
+  "id": "gown-ruffle",
+  "group": "ladies",
+  "kind": "long",
+  "w": 184,
+  "h": 520
+ },
+ {
+  "id": "gown-draped-2",
+  "group": "ladies",
+  "kind": "long",
+  "w": 180,
+  "h": 538
+ },
+ {
+  "id": "gown-slip-slit",
+  "group": "ladies",
+  "kind": "long",
+  "w": 186,
+  "h": 538
+ },
+ {
+  "id": "gown-halter-2",
+  "group": "ladies",
+  "kind": "long",
+  "w": 194,
+  "h": 538
+ },
+ {
+  "id": "gown-wrap-ruffle",
+  "group": "ladies",
+  "kind": "long",
+  "w": 186,
+  "h": 538
+ },
+ {
+  "id": "gown-aline",
+  "group": "ladies",
+  "kind": "long",
+  "w": 210,
+  "h": 538
+ },
+ {
+  "id": "gown-flutter-tiers",
+  "group": "ladies",
+  "kind": "long",
+  "w": 164,
+  "h": 512
+ },
+ {
+  "id": "gown-wrap",
+  "group": "ladies",
+  "kind": "long",
+  "w": 170,
+  "h": 512
+ },
+ {
+  "id": "gown-tiers-floral",
+  "group": "ladies",
+  "kind": "long",
+  "w": 200,
+  "h": 512,
+  "print": true
+ },
+ {
+  "id": "terno-white",
+  "group": "ladies",
+  "kind": "terno",
+  "w": 214,
+  "h": 512
+ },
+ {
+  "id": "terno-floral-1",
+  "group": "ladies",
+  "kind": "terno",
+  "w": 200,
+  "h": 512,
+  "print": true
+ },
+ {
+  "id": "terno-floral-2",
+  "group": "ladies",
+  "kind": "terno",
+  "w": 168,
+  "h": 512,
+  "print": true
+ },
+ {
+  "id": "midi-wrap-flutter-2",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 178,
+  "h": 512
+ },
+ {
+  "id": "gown-slit-2",
+  "group": "ladies",
+  "kind": "long",
+  "w": 178,
+  "h": 480
+ },
+ {
+  "id": "midi-puff-floral",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 212,
+  "h": 470,
+  "print": true
+ },
+ {
+  "id": "maxi-tiers-yellow",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 188,
+  "h": 490
+ },
+ {
+  "id": "maxi-tiers-sage",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 232,
+  "h": 490
+ },
+ {
+  "id": "maxi-tie-print",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 200,
+  "h": 490,
+  "print": true
+ },
+ {
+  "id": "maxi-halter-blue",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 204,
+  "h": 490
+ },
+ {
+  "id": "midi-ruffle-wrap",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 230,
+  "h": 490
+ },
+ {
+  "id": "midi-shirtdress",
+  "group": "ladies",
+  "kind": "midi",
+  "w": 200,
+  "h": 482
+ },
+ {
+  "id": "jumpsuit-wrap-2",
+  "group": "ladies",
+  "kind": "jumpsuit",
+  "w": 198,
+  "h": 484
+ },
+ {
+  "id": "jumpsuit-wrap-3",
+  "group": "ladies",
+  "kind": "jumpsuit",
+  "w": 212,
+  "h": 490
+ },
+ {
+  "id": "jumpsuit-bow",
+  "group": "ladies",
+  "kind": "jumpsuit",
+  "w": 214,
+  "h": 456
+ },
+ {
+  "id": "maxi-tie-floral",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 240,
+  "h": 480,
+  "print": true
+ },
+ {
+  "id": "maxi-halter-yellow",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 200,
+  "h": 502
+ },
+ {
+  "id": "maxi-halter-print",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 190,
+  "h": 502,
+  "print": true
+ },
+ {
+  "id": "maxi-tiers-blue",
+  "group": "ladies",
+  "kind": "maxi",
+  "w": 234,
+  "h": 502
+ },
+ {
+  "id": "boy-suit-navy",
+  "group": "boys",
+  "kind": "boyFormal",
+  "w": 156,
+  "h": 288
+ },
+ {
+  "id": "boy-suit-cream",
+  "group": "boys",
+  "kind": "boyFormal",
+  "w": 152,
+  "h": 290
+ },
+ {
+  "id": "boy-vest-blue",
+  "group": "boys",
+  "kind": "boyFormal",
+  "w": 152,
+  "h": 290
+ },
+ {
+  "id": "boy-suspenders-2",
+  "group": "boys",
+  "kind": "boySmart",
+  "w": 156,
+  "h": 290
+ },
+ {
+  "id": "boy-shirt-blue",
+  "group": "boys",
+  "kind": "boySmart",
+  "w": 178,
+  "h": 264
+ },
+ {
+  "id": "boy-shirt-white",
+  "group": "boys",
+  "kind": "boySmart",
+  "w": 174,
+  "h": 248
+ },
+ {
+  "id": "boy-barong-2",
+  "group": "boys",
+  "kind": "boyBarong",
+  "w": 174,
+  "h": 244
+ },
+ {
+  "id": "boy-polo-2",
+  "group": "boys",
+  "kind": "boyCasual",
+  "w": 176,
+  "h": 248
+ },
+ {
+  "id": "girl-8",
+  "group": "girls",
+  "kind": "girl",
+  "w": 236,
+  "h": 242
+ },
+ {
+  "id": "girl-9",
+  "group": "girls",
+  "kind": "girl",
+  "w": 244,
+  "h": 242
+ },
+ {
+  "id": "girl-10",
+  "group": "girls",
+  "kind": "girl",
+  "w": 210,
+  "h": 244,
+  "print": true
+ },
+ {
+  "id": "girl-11",
+  "group": "girls",
+  "kind": "girl",
+  "w": 252,
+  "h": 244
+ },
+ {
+  "id": "girl-12",
+  "group": "girls",
+  "kind": "girl",
+  "w": 258,
+  "h": 248
+ },
+ {
+  "id": "girl-13",
+  "group": "girls",
+  "kind": "girl",
+  "w": 242,
+  "h": 252
  }
 ]

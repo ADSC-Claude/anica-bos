@@ -15,19 +15,19 @@
  */
 import wardrobe from './wardrobe.json';
 
-export type Drawing = { id: string; group: 'gents' | 'ladies' | 'girls' | 'boys'; kind: string; w: number; h: number };
+export type Drawing = { id: string; group: 'gents' | 'ladies' | 'girls' | 'boys'; kind: string; w: number; h: number; /** a print: offered after the plain ones of its kind */ print?: boolean };
 export const WARDROBE = wardrobe as Drawing[];
 
 /** The kinds each attire item calls for, best first. Items that are not an outfit (a tie, shoes) call for none. */
 const GENTS_KINDS: Record<string, string[]> = {
   suit: ['suit'], tuxedo: ['tuxedo', 'suit'], businessSuit: ['suit'], coat: ['suit'], blazer: ['suit'], bowTie: ['tuxedo'],
-  barong: ['barong', 'barongShort'], longSleeves: ['linen', 'shirt'], polo: ['barongShort', 'shirt'], buttonDown: ['shirt', 'linen'],
-  chinos: ['shirt', 'casual'], darkJeans: ['casual', 'shirt'], sneakers: ['casual'], themed: ['casual'], muted: ['suit'],
+  barong: ['barong', 'barongShort'], longSleeves: ['shirt', 'linen'], polo: ['shirtShort', 'barongShort', 'shirt'], buttonDown: ['shirt', 'linen'],
+  chinos: ['shirt', 'shirtShort', 'casual'], darkJeans: ['casual', 'shirt'], sneakers: ['casual', 'shirtShort'], themed: ['casual'], muted: ['suit'],
 };
 const LADIES_KINDS: Record<string, string[]> = {
   longGown: ['long'], cocktail: ['cocktail'], separates: ['blouseSkirt', 'blouseTrousers'], filipiniana: ['terno'],
-  midi: ['midi'], sundayDress: ['midi', 'cocktail'], jumpsuit: ['jumpsuit'], blouseSkirt: ['blouseSkirt'], blouseTrousers: ['blouseTrousers'],
-  partyDress: ['cocktail', 'midi'], businessDress: ['ladySuit', 'midi'], blazer: ['ladySuit'], themed: ['cocktail'], muted: ['midi', 'long'],
+  midi: ['midi'], sundayDress: ['midi', 'maxi', 'cocktail'], jumpsuit: ['jumpsuit'], blouseSkirt: ['blouseSkirt'], blouseTrousers: ['blouseTrousers'],
+  partyDress: ['cocktail', 'maxi', 'midi'], businessDress: ['ladySuit', 'midi'], blazer: ['ladySuit'], themed: ['maxi', 'cocktail'], muted: ['midi', 'long'],
 };
 /** At a children's party the rows are the boys and the girls. */
 const BOYS_KINDS: Record<string, string[]> = {
@@ -42,7 +42,8 @@ export function pickDrawings(group: 'gents' | 'ladies', ticked: string[], count:
   const g: Drawing['group'] = kids ? (group === 'gents' ? 'boys' : 'girls') : group;
   const kindsOf = g === 'gents' ? GENTS_KINDS : g === 'ladies' ? LADIES_KINDS : g === 'boys' ? BOYS_KINDS : GIRLS_KINDS;
   const art = WARDROBE.filter((d) => d.group === g);
-  const ofKind = (k: string) => art.filter((d) => d.kind === k);
+  // plain garments first, prints after them, so a print appears only past the plain ones
+  const ofKind = (k: string) => art.filter((d) => d.kind === k).sort((a, b) => Number(Boolean(a.print)) - Number(Boolean(b.print)));
   const kinds: string[] = [];
   for (const item of ticked) {
     const kind = (kindsOf[item] ?? []).find((k) => ofKind(k).length);

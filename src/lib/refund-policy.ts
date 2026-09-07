@@ -22,6 +22,21 @@ import { cancellationPolicyText } from './booking-policy';
  * acquirer, requires a refund policy to be publicly readable before it will
  * process payments — and because a guest about to hand over a deposit deserves
  * to know what happens to it without having to ask.
+ *
+ * SCOPE, deliberately: this page covers the reservation fee and nothing else —
+ * the money that actually moves through the payment gateway.
+ *
+ * A treatment that has already been given is out of scope on the owner's
+ * decision, and the omission is the point rather than an oversight. Anything
+ * published about a finished treatment becomes a term to be argued with,
+ * whether it reads as an offer ("a refund in part or in full") or as a refusal
+ * ("not refunded") — and the cost of that argument lands on the spa. So a guest
+ * with a complaint about a treatment talks to the branch manager, who settles
+ * it at the counter on the facts, and the website says nothing on the subject.
+ *
+ * Do not add a section about completed treatments back. If a future change
+ * needs one, that is a conversation with the owner first. A test in
+ * tests/refund-policy.test.ts fails if the wording creeps back in.
  */
 
 export type PolicySection = {
@@ -107,33 +122,6 @@ export function buildRefundPolicy(s: Settings): PolicySection[] {
           `the booking failed on our side, so the money comes back.`,
         'We will also offer you the first slot that suits you, but taking it is your choice and not a ' +
           'condition of the refund.',
-      ],
-    },
-    {
-      heading: 'Treatments you have already had',
-      /**
-       * An open door, deliberately not a menu.
-       *
-       * The spa does put things right when a treatment goes wrong — a redo, or
-       * money back where that is fairer — and the manager has room to be
-       * generous. But that is decided in the room, on the facts, by somebody
-       * who was there. Publishing it as an entitlement changes what it is: a
-       * written promise of "a refund in part or in full" is read as an offer
-       * and argued with, by exactly the people it was not written for.
-       *
-       * So the wording invites the complaint and commits to hearing it, names
-       * the likely remedy without promising it, and stops there. The goodwill
-       * stays where goodwill works, which is unadvertised.
-       *
-       * "Arranged with the spa directly" is also literally true of the
-       * mechanism: a completed treatment is settled at the counter, so putting
-       * it right is the spa's own affair and does not run back through the
-       * payment gateway the way a reservation fee does.
-       */
-      body: [
-        `A treatment that has been given is not refunded automatically — the therapist's hour and the room were used, and that part cannot be undone. But it is not the end of the conversation either.`,
-        `If you were unhappy with your treatment, tell us: the branch manager before you leave if you can, or by email within seven days. We will go through it with you and agree what to do, and more often than not that means putting the treatment right rather than money changing hands.`,
-        `Anything settled this way is arranged with the spa directly.`,
       ],
     },
     {

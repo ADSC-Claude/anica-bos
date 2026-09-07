@@ -11,7 +11,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade } from './client';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -64,9 +64,9 @@ function wazeHref(data: SectionData | undefined): string {
   return q ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : '';
 }
 
-function videoEmbed(url: string): { src: string } | null {
+function videoEmbed(url: string): { src: string; poster?: string } | null {
   const yt = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/.exec(url);
-  if (yt) return { src: `https://www.youtube-nocookie.com/embed/${yt[1]}` };
+  if (yt) return { src: `https://www.youtube-nocookie.com/embed/${yt[1]}`, poster: `https://i.ytimg.com/vi/${yt[1]}/maxresdefault.jpg` };
   const vimeo = /vimeo\.com\/(?:video\/)?(\d+)/.exec(url);
   if (vimeo) return { src: `https://player.vimeo.com/video/${vimeo[1]}` };
   return null;
@@ -783,12 +783,15 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
   );
 }
 
-function Gallery({ data, lang, tier, tagline, title }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string }) {
+type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[] };
+
+function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat }) {
   const limit = galleryLimit(tier);
   const photos = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
   const video = hasFeature(tier, 'video') ? str(data, 'videoUrl') : '';
   if (!photos.length && !video) return null;
   const embed = video ? videoEmbed(video) : null;
+  if (format) return <Prenup photos={photos} video={video} embed={embed} lang={lang} title={title ?? t(lang, 'gallery.title')} tagline={tagline} format={format} />;
   return (
     <Section id="gallery" title={title ?? t(lang, 'gallery.title')} tagline={tagline}>
       {photos.length > 0 && (
@@ -811,6 +814,72 @@ function Gallery({ data, lang, tier, tagline, title }: { data: SectionData; lang
         </div>
       )}
     </Section>
+  );
+}
+
+/**
+ * The prenup page of the Capiz format. One large photograph feathered into the
+ * page, a strand of shell beneath it, a line, the next three photographs under
+ * arches with their captions, whatever is left as the mosaic, the film with its
+ * title written over it, and a last word. The side notes are the Moment's lines.
+ */
+function Prenup({ photos, video, embed, lang, title, tagline, format }: { photos: { url: string; caption: string }[]; video: string; embed: { src: string; poster?: string } | null; lang: Lang; title: string; tagline?: string; format: PrenupFormat }) {
+  const [hero, ...rest] = photos;
+  const arches = rest.slice(0, 3);
+  const more = rest.slice(3);
+  const still = rest[rest.length - 1] ?? hero;
+  const fallback = still ? imageUrl(still.url, IMAGE.feature) : '';
+  return (
+    <section id="gallery" className="inv-section inv-prenup">
+      <header className="inv-prenup-head">
+        <p className="inv-eyebrow">{title}</p>
+        <span className="inv-rule-sm" aria-hidden="true" />
+        {tagline && <h2 className="inv-prenup-title">{tagline}</h2>}
+        {format.sides[0] && <p className="inv-prenup-side inv-prenup-side-l">{format.sides[0]}</p>}
+        {format.sides[1] && <p className="inv-prenup-side inv-prenup-side-r">{format.sides.slice(1).join(' ')}</p>}
+      </header>
+      {hero && (
+        <>
+          <figure className="inv-prenup-hero">
+            <img src={imageUrl(hero.url, IMAGE.hero)} alt={hero.caption || ''} loading="lazy" />
+          </figure>
+          <div className="inv-prenup-strand" aria-hidden="true" />
+        </>
+      )}
+      {format.note && <p className="inv-prenup-note">{format.note}</p>}
+      {arches.length > 0 && (
+        <div className="inv-arches" data-count={arches.length}>
+          {arches.map((p, i) => (
+            <figure key={i}>
+              <img src={imageUrl(p.url, IMAGE.grid)} alt={p.caption || ''} loading="lazy" />
+              {p.caption && <figcaption>{p.caption}</figcaption>}
+            </figure>
+          ))}
+        </div>
+      )}
+      {more.length > 0 && (
+        <div className="inv-gallery inv-prenup-more">
+          {more.map((p, i) => (
+            <figure key={i}>
+              <img src={imageUrl(p.url, IMAGE.grid)} alt={p.caption || ''} loading="lazy" />
+              {p.caption && <figcaption>{p.caption}</figcaption>}
+            </figure>
+          ))}
+        </div>
+      )}
+      {video &&
+        (embed ? (
+          <VideoFacade src={embed.src} poster={embed.poster ?? fallback} fallback={fallback} title={format.video} cta={format.watch} label={t(lang, 'gallery.video')} />
+        ) : (
+          <p className="mt-5 text-center"><a href={video} target="_blank" rel="noopener" className="inv-btn">{t(lang, 'gallery.video')}</a></p>
+        ))}
+      {format.close && (
+        <>
+          <p className="inv-prenup-close">{format.close}</p>
+          <span className="inv-rule-sm" aria-hidden="true" />
+        </>
+      )}
+    </section>
   );
 }
 
@@ -1141,15 +1210,17 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * cover has none: it carries the whole frame instead.
  */
 type Row = 'a' | 'b' | 's1' | 's2';
-type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[]; row?: Row };
+/** A page's ground can be one of the designer's two full-page pieces, top and foot. */
+type Art = 'story' | 'cluster';
+type PageDef = { key: string; kind: 'page' | 'connector'; sections: (SectionKey | 'verse')[]; row?: Row; art?: Art };
 const CAPIZ_PAGES: PageDef[] = [
   { key: 'cover', kind: 'page', sections: ['cover'] },
   { key: 'verse', kind: 'connector', sections: ['verse'], row: 's1' },
   { key: 'moment', kind: 'page', sections: ['moment'], row: 's2' },
-  { key: 'story', kind: 'page', sections: ['story'], row: 'a' },
+  { key: 'story', kind: 'page', sections: ['story'], art: 'story' },
   { key: 'invitation', kind: 'page', sections: ['ceremony'], row: 's2' },
   { key: 'entourage', kind: 'page', sections: ['entourage'], row: 's1' },
-  { key: 'prenup', kind: 'connector', sections: ['gallery'], row: 's2' },
+  { key: 'prenup', kind: 'page', sections: ['gallery'], art: 'cluster' },
   { key: 'venue', kind: 'page', sections: ['reception'], row: 'b' },
   { key: 'dress-code', kind: 'page', sections: ['dressCode'], row: 's1' },
   { key: 'gift', kind: 'page', sections: ['gift'], row: 's2' },
@@ -1365,13 +1436,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], row?: Row) => (
-      <div key={key} className="inv-page" data-page={key} data-kind={kind} data-row={row}>{parts}</div>
+    const page = (key: string, kind: PageDef['kind'], parts: ReactNode[], row?: Row, art?: Art) => (
+      <div key={key} className="inv-page" data-page={key} data-kind={kind} data-row={row} data-art={art}>{parts}</div>
     );
     for (const def of CAPIZ_PAGES) {
       const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
       def.sections.forEach((k) => placed.add(k));
-      if (parts.length) out.push(page(def.key, def.kind, parts, def.row));
+      if (parts.length) out.push(page(def.key, def.kind, parts, def.row, def.art));
     }
     // a section the map does not name gets a page of its own, in its place
     for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, 'page', [drawn.get(key)], 's1'));
@@ -1443,8 +1514,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} />;
       case 'story':
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
-      case 'gallery':
-        return rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl') ? <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} /> : null;
+      case 'gallery': {
+        if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
+        const sides = format ? ['line1', 'line2', 'line3'].map((k) => str(content.moment, k)).filter(Boolean) : [];
+        const prenup = format ? { note: line('galleryNote') ?? '', video: line('galleryVideo') ?? '', close: line('galleryClose') ?? '', watch: t(lang, 'gallery.watchPrenup'), sides } : undefined;
+        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
+      }
       case 'program':
         return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : named('program', t(lang, 'program.title'))} tagline={line('program')} />;
       case 'faq':

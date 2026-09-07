@@ -671,3 +671,34 @@ export function GuestPhotoForm({
     </form>
   );
 }
+
+/**
+ * The film, shown as its poster with the title written over it until the guest
+ * taps; then the player takes its place and starts. The poster is the video's
+ * own still when the host offers one, else one of the couple's photographs.
+ */
+export function VideoFacade({ src, poster, fallback, title, cta, label }: { src: string; poster: string; fallback: string; title: string; cta: string; label: string }) {
+  const [on, setOn] = useState(false);
+  if (on) {
+    const url = `${src}${src.includes('?') ? '&' : '?'}autoplay=1`;
+    return <iframe src={url} title={label} className="inv-video-frame" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />;
+  }
+  return (
+    <button type="button" className="inv-video-facade" onClick={() => setOn(true)} aria-label={label}>
+      {poster && (
+        <img
+          src={poster}
+          alt=""
+          loading="lazy"
+          onError={(e) => {
+            if (fallback && e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+            else e.currentTarget.hidden = true;
+          }}
+        />
+      )}
+      <span className="inv-video-play" aria-hidden="true" />
+      {title && <span className="inv-video-title">{title}</span>}
+      {cta && <span className="inv-video-cta">{cta}</span>}
+    </button>
+  );
+}

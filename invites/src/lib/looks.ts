@@ -25,6 +25,9 @@ export type LineKey =
   | 'invitation'
   | 'entourage'
   | 'gallery'
+  | 'galleryNote' // between the large photograph and the arches
+  | 'galleryVideo' // written over the film
+  | 'galleryClose' // under it all
   | 'venue'
   | 'interlude2' // the script lines after the way there
   | 'dressCode' // when no attire is set
@@ -88,6 +91,9 @@ export const LOOKS: Look[] = [
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       gallery: { en: "Moments we'll always cherish", tl: 'Mga sandaling laging iingatan' },
+      galleryNote: { en: 'These are the moments that reminded us — it has always been you.', tl: 'Ito ang mga sandaling nagpaalala sa amin — ikaw, at ikaw pa rin.' },
+      galleryVideo: { en: 'Our story in motion', tl: 'Ang aming kuwento, gumagalaw' },
+      galleryClose: { en: 'Some love stories deserve to be seen.', tl: 'May mga kuwento ng pag-ibig na dapat makita.' },
       venue: { en: 'A place close to our hearts.', tl: 'Isang lugar na malapit sa aming puso.' },
       interlude2: { en: 'Where our story\ncontinues.', tl: 'Kung saan nagpapatuloy\nang aming kuwento.' },
       dressCode: { en: 'Dress the part', tl: 'Sa kasuotang nararapat' },
@@ -139,6 +145,9 @@ export const LOOKS: Look[] = [
       invitation: { en: 'Come celebrate with us', tl: 'Halina at makipagdiwang' },
       entourage: { en: 'The people we love most', tl: 'Ang mga taong pinakamamahal namin' },
       gallery: { en: 'A few of our favorite frames', tl: 'Ilan sa aming mga paboritong kuha' },
+      galleryNote: { en: 'Every picture, the same answer: you.', tl: 'Sa bawat larawan, iisa ang sagot: ikaw.' },
+      galleryVideo: { en: 'Watch us fall', tl: 'Panoorin kaming umibig' },
+      galleryClose: { en: 'And this is only the beginning.', tl: 'At simula pa lamang ito.' },
       venue: { en: "Where we'll say yes", tl: 'Kung saan kami magsasabi ng oo' },
       interlude2: { en: 'Love grows\nhere.', tl: 'Dito lumalago\nang pag-ibig.' },
       dressCode: { en: 'Dress for a celebration', tl: 'Magbihis para sa pagdiriwang' },
@@ -191,6 +200,9 @@ export const LOOKS: Look[] = [
       invitation: { en: "You're invited", tl: 'Inaanyayahan ka' },
       entourage: { en: 'Standing with us', tl: 'Kasama namin' },
       gallery: { en: 'Before the big day', tl: 'Bago ang malaking araw' },
+      galleryNote: { en: 'Moments, kept.', tl: 'Mga sandali, iningatan.' },
+      galleryVideo: { en: 'In motion', tl: 'Gumagalaw' },
+      galleryClose: { en: 'More to come.', tl: 'Marami pang darating.' },
       venue: { en: 'Where it happens', tl: 'Kung saan mangyayari' },
       interlude2: { en: 'Good food, good people,\ngood times.', tl: 'Masarap na pagkain, mabubuting tao,\nmasayang sandali.' },
       dressCode: { en: 'Come as you are, dressed up', tl: 'Halika nang nakabihis nang maayos' },
@@ -242,6 +254,9 @@ export const LOOKS: Look[] = [
       invitation: { en: 'Requesting the pleasure of your company', tl: 'Hinihiling ang inyong pagdalo' },
       entourage: { en: 'Those who stand beside us', tl: 'Ang mga nasa tabi namin' },
       gallery: { en: 'Us, as we are', tl: 'Kami, kung ano kami' },
+      galleryNote: { en: 'A few frames from the way here.', tl: 'Ilang kuha mula sa daan patungo rito.' },
+      galleryVideo: { en: 'The film', tl: 'Ang pelikula' },
+      galleryClose: { en: 'To be continued.', tl: 'Itutuloy.' },
       venue: { en: 'A room we chose for you', tl: 'Isang lugar na pinili namin para sa inyo' },
       interlude2: { en: 'Everything,\nand then some.', tl: 'Lahat,\nat higit pa.' },
       dressCode: { en: 'Dress with occasion', tl: 'Magbihis nang naaayon' },
@@ -293,6 +308,9 @@ export const LOOKS: Look[] = [
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       gallery: { en: 'Moments to keep', tl: 'Mga sandaling iingatan' },
+      galleryNote: { en: 'The days that led us here.', tl: 'Ang mga araw na naghatid sa amin dito.' },
+      galleryVideo: { en: 'Our story, in motion', tl: 'Ang aming kuwento, gumagalaw' },
+      galleryClose: { en: 'The best is yet to come.', tl: 'Ang pinakamaganda ay paparating pa lamang.' },
       venue: { en: 'The celebration continues', tl: 'Nagpapatuloy ang pagdiriwang' },
       interlude2: { en: 'To love,\nlaughter and\nhappily ever after.', tl: 'Sa pag-ibig,\nsa tawanan at\nsa masayang habambuhay.' },
       dressCode: { en: 'Dress the part', tl: 'Sa kasuotang nararapat' },

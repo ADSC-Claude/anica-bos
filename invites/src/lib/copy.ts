@@ -111,6 +111,7 @@ const PHRASES = {
   'story.proposal': { en: 'The proposal', tl: 'Ang pag-propose' },
   'gallery.title': { en: 'Gallery', tl: 'Mga Larawan' },
   'gallery.video': { en: 'Watch our video', tl: 'Panoorin ang video' },
+  'gallery.watchPrenup': { en: 'Watch our prenup video', tl: 'Panoorin ang aming prenup video' },
   'program.title': { en: 'Program', tl: 'Programa' },
   'program.agenda': { en: 'Agenda', tl: 'Agenda' },
   'faq.title': { en: 'Good to know', tl: 'Mga Paalala' },

@@ -54,10 +54,28 @@ test('a person keeps title, name and the late marker', () => {
   assert.deepEqual(data.brideFather, { title: '', name: '', deceased: false });
 });
 
-test('colours must be hex and at most five', () => {
+test('colours must be hex and at most the field allows: nine for the motif, four for the suits', () => {
   const fields = fieldsFor('dressCode', 'WEDDING');
-  const { data } = cleanSection(fields, { colors: ['#5b6b4e', 'red', '#C9B48A', '#1', '#000000', '#111111', '#222222', '#333333'] });
-  assert.deepEqual(data.colors, ['#5b6b4e', '#C9B48A', '#000000', '#111111', '#222222']);
+  const { data } = cleanSection(fields, {
+    colors: ['#5b6b4e', 'red', '#C9B48A', '#1', '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777'],
+    gentsColors: ['#000000', '#111111', '#222222', '#333333', '#444444'],
+  });
+  assert.deepEqual(data.colors, ['#5b6b4e', '#C9B48A', '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666']);
+  assert.deepEqual(data.gentsColors, ['#000000', '#111111', '#222222', '#333333']);
+});
+
+test('a checklist keeps only its own options, in their order, and each occasion offers its own', () => {
+  const wedding = fieldsFor('dressCode', 'WEDDING');
+  const { data } = cleanSection(wedding, { gentsItems: ['dressShoes', 'tuxedo', 'suit', 'suit', 'nonsense'], avoid: ['prints', 'white'] });
+  assert.deepEqual(data.gentsItems, ['suit', 'dressShoes'], 'the tuxedo is not on the wedding list; the order is the list\'s');
+  assert.deepEqual(data.avoid, ['white', 'prints']);
+  const avoid = wedding.find((f) => f.key === 'avoid')!;
+  assert.ok(avoid.options!.some((o) => o.value === 'white' && /bride/.test(o.label)), 'white is asked for the bride at a wedding');
+  const kids = fieldsFor('dressCode', 'KIDS_BIRTHDAY').find((f) => f.key === 'gentsItems')!;
+  assert.ok(kids.options!.some((o) => o.value === 'themed') && !kids.options!.some((o) => o.value === 'suit'));
+  const fresh = defaultContent('WEDDING').dressCode!;
+  assert.equal(fresh.attire, 'formal');
+  assert.ok((fresh.gentsItems as string[]).includes('suit') && (fresh.avoid as string[]).includes('white'));
 });
 
 test('publishing needs the cover essentials', () => {

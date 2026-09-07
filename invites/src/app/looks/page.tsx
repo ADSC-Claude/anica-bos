@@ -4,6 +4,7 @@ import { loadPublic } from '@/lib/invitations';
 import { getSettings } from '@/lib/settings';
 import { LOOKS } from '@/lib/looks';
 import { Invitation } from '@/components/invite/renderer';
+import { requireStaffPage } from '@/lib/guard';
 
 export const metadata: Metadata = { title: 'Looks', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -15,6 +16,9 @@ export const dynamic = 'force-dynamic';
  * scrolling five phones next to each other, not by reading font names.
  */
 export default async function LooksPage({ searchParams }: { searchParams: Promise<{ slug?: string }> }) {
+  // Staff only: five whole invitations side by side is the design itself,
+  // and the public sees a design by its opening alone.
+  await requireStaffPage();
   const s = await getSettings();
   // Any published invitation can sit for the showcase — ?slug=capiz-demo — so
   // a design can be judged on its own demo; the site's demo otherwise.

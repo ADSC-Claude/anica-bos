@@ -8,11 +8,10 @@ import type { GalleryTemplate } from '@/lib/gallery';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
 import { openingName } from '@/lib/openings';
-import { invitationPath } from '@/lib/app-url';
 
 export type { GalleryTemplate };
 
-export function TemplateGallery({ templates, demoSlug, compact = false, collection: fixedCollection }: { templates: GalleryTemplate[]; demoSlug: string; compact?: boolean; collection?: string }) {
+export function TemplateGallery({ templates, compact = false, collection: fixedCollection }: { templates: GalleryTemplate[]; compact?: boolean; collection?: string }) {
   const [occasion, setOccasion] = useState<string>('');
   const [tier, setTier] = useState<string>('');
   // A gallery already scoped to one collection (the collection page) hides the
@@ -54,29 +53,59 @@ export function TemplateGallery({ templates, demoSlug, compact = false, collecti
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {shown.map((t) => (
           <article key={t.id} className="card group overflow-hidden">
-            <div className="relative aspect-[4/5] overflow-hidden" style={{ background: t.thumbnailUrl ? `center/cover url(${t.thumbnailUrl})` : `linear-gradient(160deg, ${t.palette.bg} 0%, ${t.palette.accent2} 100%)` }}>
-              {!t.thumbnailUrl && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                  <span className="text-[10px] uppercase tracking-[0.3em]" style={{ color: t.palette.ink }}>{OCCASIONS.find((o) => o.key === t.occasion)?.label}</span>
-                  <span className="display mt-2 text-2xl" style={{ color: t.palette.accent }}>{t.name}</span>
-                  <span className="mt-2 flex gap-1">{[t.palette.bg, t.palette.accent, t.palette.accent2].map((c) => <span key={c} className="h-3 w-3 rounded-full border border-black/10" style={{ background: c }} />)}</span>
-                </div>
-              )}
-              <div className="absolute inset-x-0 bottom-0 flex translate-y-full gap-2 bg-black/60 p-2 transition group-hover:translate-y-0 group-focus-within:translate-y-0">
-                <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm flex-1">Try this template</Link>
-                {t.occasion === 'WEDDING' && <a href={invitationPath(demoSlug)} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Demo</a>}
-              </div>
-            </div>
+            <OpeningCard t={t} />
             <div className="p-3">
               <p className="text-sm font-semibold">{t.name} {t.featured && <span className="pill pill-info">Popular</span>}</p>
               <p className="text-xs text-[color:var(--color-ink-500)]">{OCCASIONS.find((o) => o.key === t.occasion)?.label} · {t.premium ? 'Premium · Complete' : t.minTier === 'BASIC' ? 'Basic & up' : `${TIER_LABELS[t.minTier]} & up`}</p>
               <TemplateNote collection={t.collection} opening={t.opening} name={t.name} />
+              <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm mt-3 w-full">Choose this design</Link>
             </div>
           </article>
         ))}
         {shown.length === 0 && <p className="col-span-full text-sm text-[color:var(--color-ink-500)]">No designs yet for that filter — message us and we will build one.</p>}
       </div>
       {compact && visible.length > 8 && <p className="mt-4 text-center"><Link href="/templates" className="btn btn-secondary">See all {visible.length} designs</Link></p>}
+    </div>
+  );
+}
+
+/**
+ * What the public sees of a design: its opening, and only its opening. The
+ * card is the clip's own still with a play button; a tap plays the clip in
+ * place, sound and all, since the tap is the gesture that allows it. A design
+ * with no clip yet shows its name on its palette. The invitation itself is
+ * never on the card — it is unveiled for the customer after they choose.
+ */
+function OpeningCard({ t }: { t: GalleryTemplate }) {
+  const [playing, setPlaying] = useState(false);
+  const clip = Boolean(t.openingVideoUrl && t.openingPosterUrl);
+  if (!clip) {
+    return (
+      <div className="relative aspect-[9/16] overflow-hidden" style={{ background: `linear-gradient(160deg, ${t.palette.bg} 0%, ${t.palette.accent2} 100%)` }}>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+          <span className="text-[10px] uppercase tracking-[0.3em]" style={{ color: t.palette.ink }}>{OCCASIONS.find((o) => o.key === t.occasion)?.label}</span>
+          <span className="display mt-2 text-2xl" style={{ color: t.palette.accent }}>{t.name}</span>
+          <span className="mt-2 flex gap-1">{[t.palette.bg, t.palette.accent, t.palette.accent2].map((c) => <span key={c} className="h-3 w-3 rounded-full border border-black/10" style={{ background: c }} />)}</span>
+          <span className="mt-4 text-[10px] uppercase tracking-[0.2em]" style={{ color: t.palette.ink }}>Opening coming soon</span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="relative aspect-[9/16] overflow-hidden bg-black">
+      {playing ? (
+        <video src={t.openingVideoUrl} poster={t.openingPosterUrl} className="absolute inset-0 h-full w-full object-cover" autoPlay playsInline controls onEnded={() => setPlaying(false)} />
+      ) : (
+        <button type="button" onClick={() => setPlaying(true)} className="group/play absolute inset-0 block h-full w-full" aria-label={`Watch the opening of ${t.name}`}>
+          <img src={t.openingPosterUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/15 text-white transition group-hover/play:bg-black/30">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
+              <svg viewBox="0 0 24 24" className="ml-1 h-6 w-6" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.3em] drop-shadow">Watch the opening</span>
+          </span>
+        </button>
+      )}
     </div>
   );
 }

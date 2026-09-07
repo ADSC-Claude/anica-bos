@@ -88,7 +88,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
         <section className="mt-12">
           <h2 className="display text-2xl">The designs</h2>
           <div className="mt-5">
-            <TemplateGallery collection={key} demoSlug={s['site.demoSlug']} templates={templates.map(toGalleryTemplate)} />
+            <TemplateGallery collection={key} templates={templates.map(toGalleryTemplate)} />
           </div>
           <ul className="mt-6 grid gap-2 sm:grid-cols-2">
             {templates.map((t) => (

@@ -27,7 +27,7 @@ export function SectionFields({ fields, value, onChange, lang, invitationId, lis
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
-        <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' ? 'sm:col-span-2' : ''}>
+        <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'checks' ? 'sm:col-span-2' : ''}>
           <FieldInput field={f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
         </div>
       ))}
@@ -146,6 +146,8 @@ function FieldInput({
       return <ImageInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
     case 'colors':
       return <ColorsInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
+    case 'checks':
+      return <ChecksInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
     case 'person':
       return <PersonInput field={field} value={(value ?? { title: '', name: '', deceased: false }) as Person} onChange={onChange} />;
     case 'list':
@@ -210,6 +212,32 @@ function ColorsInput({ field, value, onChange }: { field: Field; value: string[]
         {value.length < max && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange([...value, '#c9a86a'])}>+ Add colour</button>
         )}
+      </div>
+      <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/** A row of pills to tick. The value keeps the options' order, whatever order they were ticked in. */
+function ChecksInput({ field, value, onChange }: { field: Field; value: string[]; onChange: (v: string[]) => void }) {
+  const options = field.options ?? [];
+  const toggle = (v: string) => {
+    const next = value.includes(v) ? value.filter((x) => x !== v) : [...value, v];
+    onChange(options.map((o) => o.value).filter((x) => next.includes(x)));
+  };
+  return (
+    <div>
+      <Label field={field} />
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => {
+          const on = value.includes(o.value);
+          return (
+            <label key={o.value} className={`btn btn-sm cursor-pointer select-none ${on ? 'btn-primary' : 'btn-secondary'}`}>
+              <input type="checkbox" className="sr-only" checked={on} onChange={() => toggle(o.value)} />
+              {on ? '✓ ' : ''}{o.label}
+            </label>
+          );
+        })}
       </div>
       <Hint text={field.hint} />
     </div>

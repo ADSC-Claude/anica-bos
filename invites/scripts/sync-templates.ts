@@ -11,7 +11,9 @@
  *
  * Designs in the database that are NOT in the catalogue are left alone and
  * listed at the end — one may have been created by hand in the admin, and
- * deleting a design would break the invitations pointing at it.
+ * deleting a design would break the invitations pointing at it. A design the
+ * catalogue marks `retired` is unpublished here — that is the catalogue's
+ * decision, not staff's — and never deleted, for the same reason.
  *
  *   npm run db:templates            # apply
  *   npm run db:templates -- --dry   # show what would change
@@ -33,11 +35,13 @@ async function main() {
     const data = templateData(t, i);
     const found = bySlug.get(t.slug);
     if (found) {
-      // `published` is deliberately not in the payload: if staff unpublished a
-      // design in the admin, a sync must not put it back on the shop floor.
-      if (!dry) await prisma.template.update({ where: { slug: t.slug }, data });
+      // `published` is only in the payload for a retired design: if staff
+      // unpublished a live design in the admin, a sync must not put it back
+      // on the shop floor; a retired one comes off it.
+      const { published, ...rest } = data;
+      if (!dry) await prisma.template.update({ where: { slug: t.slug }, data: t.retired ? { ...rest, published } : rest });
       updated++;
-      console.info(`  updated  ${t.slug.padEnd(20)} ${t.name}`);
+      console.info(`  ${t.retired ? 'retired ' : 'updated '} ${t.slug.padEnd(20)} ${t.name}`);
     } else {
       if (!dry) await prisma.template.create({ data });
       created++;

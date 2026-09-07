@@ -21,6 +21,9 @@ export type GalleryTemplate = {
   featured: boolean;
   collection: string;
   opening: string;
+  /** The cinematic opening's clip and still — what the public sees of the design. */
+  openingVideoUrl: string;
+  openingPosterUrl: string;
 };
 
 export function toGalleryTemplate(t: Template): GalleryTemplate {
@@ -39,5 +42,7 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     featured: t.featured,
     collection: t.collection,
     opening: t.opening,
+    openingVideoUrl: t.openingVideoUrl,
+    openingPosterUrl: t.openingPosterUrl,
   };
 }

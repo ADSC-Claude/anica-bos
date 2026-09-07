@@ -822,9 +822,30 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .looks-phone .inv[data-layout='capiz'] .inv-gallery { grid-auto-rows: 8.2rem; }
 
 /* --- dress code figures --- */
-.inv-dress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; align-items: end; margin: 0.8rem 0.2rem 0; }
-.inv-dress svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 6px rgba(74,59,47,0.12)); }
-.inv-swatches { display: flex; justify-content: center; gap: 0.6rem; margin-top: 1.5rem; }
+/* The dress code, the way a printed card says it: the gentlemen in their
+   suits and the ladies in their gowns in the couple's colours, the pieces
+   asked for as one line with bars between, the palette, the things kindly
+   asked against as crossed icons, and a thank-you between two rules. */
+.inv-wear { text-align: center; margin-top: 1.5rem; }
+.inv-wear-intro { text-align: center; text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.58rem; line-height: 1.9; color: var(--inv-muted); max-width: 19rem; margin: -0.1rem auto 0; }
+.inv-wear-head { margin-bottom: 0.7rem; }
+.inv-dress { display: flex; justify-content: center; align-items: flex-end; gap: 0.45rem; margin: 0 auto; max-width: 21rem; }
+.inv-dress svg { flex: 1 1 0; width: 100%; max-width: 4.9rem; height: auto; display: block; filter: drop-shadow(0 7px 7px rgba(74,59,47,0.16)); }
+.inv-wear-line { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.6rem; line-height: 1.9; margin: 0.8rem auto 0; max-width: 20rem; color: var(--inv-ink); }
+.inv-wear-word { white-space: nowrap; }
+.inv-wear-sep { margin: 0 0.55rem; opacity: 0.45; }
+.inv-wear-note { font-style: italic; font-size: 0.82rem; line-height: 1.6; color: var(--inv-muted); margin: 0.35rem auto 0; max-width: 20rem; }
+.inv-rule-head { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin: 0 auto 0.9rem; max-width: 20rem; }
+.inv-rule-head::before, .inv-rule-head::after { content: ''; flex: 1 1 0; min-width: 1.1rem; height: 1px; background: color-mix(in srgb, var(--inv-ink) 32%, transparent); }
+.inv-rule-head > span { flex: 0 1 auto; }
+.inv-swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.55rem; margin: 0 auto; max-width: 19rem; }
+.inv-avoid { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem 0.4rem; max-width: 19rem; }
+.inv-avoid li { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
+.inv-avoid-ico { position: relative; width: 3.3rem; height: 3.3rem; border-radius: 50%; border: 1.5px solid #a8433d; display: grid; place-items: center; overflow: hidden; }
+.inv-avoid-ico .inv-ico { width: 1.7rem; height: 1.7rem; stroke: var(--inv-ink); stroke-width: 1.4; }
+.inv-avoid-ico::after { content: ''; position: absolute; left: 50%; top: -0.4rem; bottom: -0.4rem; width: 1.5px; margin-left: -0.75px; background: #a8433d; transform: rotate(45deg); }
+.inv-avoid-label { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.52rem; line-height: 1.55; color: var(--inv-ink); }
+.inv-wear-thanks { margin-top: 1.7rem; margin-bottom: 0; }
 .inv[data-layout='capiz'] .inv-attire { gap: 1rem; }
 .inv[data-layout='capiz'] .inv-attire .inv-eyebrow { margin-bottom: 0.2rem; }
 
@@ -893,9 +914,6 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-contact-head .inv-eyebrow { text-align: left; text-indent: 0; margin-bottom: 0.2rem; color: var(--inv-ink); }
 .inv-contact-cols { margin-top: 1rem; }
 .inv-contact-cols .inv-eyebrow { margin-bottom: 0.2rem; }
-.inv-dress-notes { text-align: center; margin-top: 0.4rem; }
-.inv-dress-notes > * + * { margin-top: 0.9rem; }
-.inv-dress-note { font-size: 0.62rem; line-height: 1.8; }
 .inv-gift-thanks { margin-top: 1.6rem; margin-bottom: 0; }
 .inv-amp[data-word] { font-family: var(--inv-display); font-style: italic; font-size: 0.5em; letter-spacing: 0; text-indent: 0; text-transform: none; }
 

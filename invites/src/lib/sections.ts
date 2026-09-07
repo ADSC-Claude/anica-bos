@@ -1,3 +1,4 @@
+import { attireDefaults, gentsItems, ladiesItems, avoidItems, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
@@ -32,6 +33,7 @@ export type FieldType =
   | 'image'
   | 'select'
   | 'colors'
+  | 'checks'
   | 'person'
   | 'list';
 
@@ -42,7 +44,7 @@ export type Field = {
   hint?: string;
   placeholder?: string;
   required?: boolean;
-  /** select */
+  /** select, checks */
   options?: Option[];
   /** select: picking an option copies its text into this sibling field */
   presets?: Preset[];
@@ -116,6 +118,9 @@ const number = (key: string, label: string, extra: Partial<Field> = {}): Field =
 const person = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'person', ...extra });
 const select = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'select', options, ...extra });
 const list = (key: string, label: string, item: Field[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'list', item, wide: true, ...extra });
+/** A row of things to tick; stored as the ticked values, in the options' order. */
+const checks = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'checks', options, wide: true, ...extra });
+const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en }));
 const names = (key: string, label: string, extra: Partial<Field> = {}): Field => list(key, label, [text('name', 'Name', { required: true })], { addLabel: 'Add a name', ...extra });
 
 const MAPS_HINT = 'Paste the "Share" link from Google Maps. Guests get a one-tap button.';
@@ -463,22 +468,30 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'dressCode',
     label: 'Dress code',
     tl: 'Kasuotan',
-    description: 'Attire and up to five motif colours shown as swatches.',
+    description: 'What to wear, in colours and lists: the suits and gowns drawn on the page take the colours you pick.',
     minTier: 'BASIC',
     labelFor: { KIDS_BIRTHDAY: 'Theme & attire' },
-    fields: () => [
+    fields: (occasion) => [
       select('attire', 'Guest attire', [
         { value: 'formal', label: 'Formal' },
         { value: 'semiFormal', label: 'Semi-formal' },
         { value: 'smartCasual', label: 'Smart casual' },
+        { value: 'business', label: 'Business attire' },
         { value: 'filipiniana', label: 'Filipiniana & Barong' },
         { value: 'cocktail', label: 'Cocktail' },
         { value: 'themed', label: 'Themed (describe below)' },
         { value: 'casual', label: 'Casual' },
       ]),
-      text('attireText', 'Attire details', { placeholder: 'e.g. Long gown for ladies, suit for gentlemen' }),
-      { key: 'colors', label: 'Colour motif', type: 'colors', max: 5, wide: true, hint: 'Up to five colours. Guests see them as swatches.' },
-      toggle('avoidWhite', 'Ask guests to avoid white / off-white'),
+      text('attireText', 'Line under the heading', { placeholder: 'e.g. We kindly encourage our guests to wear elegant formal attire.', hint: 'Blank writes one from the attire you picked.' }),
+      { key: 'gentsColors', label: 'Suit colours for the gentlemen', type: 'colors', max: 4, hint: 'Up to four. The suits drawn on the page take these colours; blank uses the motif.' },
+      checks('gentsItems', 'For gentlemen', attireOptions(gentsItems(occasion)), { hint: 'Tick what fits. Guests read them as one line.' }),
+      text('gentsNote', 'Note for gentlemen', { placeholder: 'e.g. Tie is optional.' }),
+      { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'colors', max: 5, hint: 'Up to five. The gowns drawn on the page take these colours; blank uses the motif.' },
+      checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion))),
+      text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.' }),
+      { key: 'colors', label: 'Colour motif', type: 'colors', max: 9, wide: true, hint: 'Up to nine colours. Guests see them as the suggested palette.' },
+      text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.' }),
+      checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { hint: 'Each one is drawn crossed out.' }),
       text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
       text('entourageAttire', 'Entourage', { placeholder: 'e.g. Sage green' }),
       textarea('note', 'Note'),
@@ -781,7 +794,7 @@ function emptyValue(field: Field): unknown {
     case 'number':
       return null;
     case 'colors':
-      return [];
+    case 'checks':
     case 'list':
       return [];
     case 'person':
@@ -821,6 +834,14 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
       case 'parents':
         if (occasion === 'WEDDING') data.phrasing = 'together';
         break;
+      case 'dressCode': {
+        const d = attireDefaults(occasion);
+        data.attire = d.attire;
+        data.gentsItems = d.gents;
+        data.ladiesItems = d.ladies;
+        data.avoid = d.avoid;
+        break;
+      }
       case 'gift':
         data.preset = 'presence';
         data.text = lang === 'tl' ? GIFT_PRESETS[0].tl : GIFT_PRESETS[0].en;
@@ -920,6 +941,11 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
         .map((c) => cleanString(c, 7))
         .filter((c) => HEX.test(c))
         .slice(0, field.max ?? 5);
+    }
+    case 'checks': {
+      // the ticked options only, kept in the options' order
+      const arr = Array.isArray(raw) ? raw.map((v) => cleanString(v, 40)) : [];
+      return (field.options ?? []).map((o) => o.value).filter((v) => arr.includes(v));
     }
     case 'person': {
       const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<Person>;

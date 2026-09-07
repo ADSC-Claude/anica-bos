@@ -12,6 +12,8 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround } from './client';
+import { SuitFigure, GownFigure } from './figures';
+import { gentsItems, ladiesItems, attireWords, avoidTicked } from '@/lib/attire';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -509,63 +511,132 @@ function Eighteen({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
+const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', business: 'Business', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
+const ATTIRE_TL: Record<string, string> = { ...ATTIRE, filipiniana: 'Filipiniana at Barong' };
+/** The suits and gowns when the couple picked no colours for them and has no motif: black, tan, olive, cream; champagne, sage, blush, chocolate, ivory. */
+const SUIT_COLORS = ['#2a2726', '#c8b596', '#59604a', '#e8dfcf'];
+const GOWN_COLORS = ['#d9c3a5', '#9daa8f', '#d9a9a9', '#8a5a3c', '#e9dcc3'];
 
-function DressCode({ data, lang, tagline, layout, title, format, note }: { data: SectionData; lang: Lang; tagline?: string; layout?: string; title?: string; format?: boolean; note?: string }) {
-  const colors = rows<string>(data, 'colors');
-  const attire = ATTIRE[str(data, 'attire')] ?? '';
-  const line = format ? attire || tagline : tagline || (layout === 'capiz' ? attire || undefined : undefined);
+/**
+ * What to wear, the way a printed dress code card says it: the attire as the
+ * heading, a line under it, the gentlemen drawn in their suits and the ladies
+ * in their gowns in the colours the couple chose (their own, else the motif,
+ * else a classic set), the pieces asked for as one line each, the suggested
+ * palette, the things kindly asked against as crossed icons, and a thank-you.
+ */
+function DressCode({ data, lang, occasion, tagline, title, format, note }: { data: SectionData; lang: Lang; occasion: Occasion; tagline?: string; title?: string; format?: boolean; note?: string }) {
+  const motif = rows<string>(data, 'colors');
+  const attireKey = str(data, 'attire');
+  const attire = (lang === 'tl' ? ATTIRE_TL : ATTIRE)[attireKey] ?? '';
+  const heading = attire ? t(lang, 'dressCode.attireOf', { attire }) : title ?? t(lang, 'dressCode.title');
+  const intro = str(data, 'attireText') || (attire ? t(lang, 'dressCode.intro', { attire: attireKey === 'filipiniana' ? attire : `${attire.toLowerCase()} attire` }) : '');
+  const chosen = (key: string, n: number, fallback: string[]) => {
+    const own = rows<string>(data, key);
+    if (own.length) return own.slice(0, n);
+    if (motif.length) return motif.slice(0, n);
+    return fallback;
+  };
+  const suits = chosen('gentsColors', 4, SUIT_COLORS);
+  const gowns = chosen('ladiesColors', 5, GOWN_COLORS);
+  const gents = attireWords(gentsItems(occasion), rows<string>(data, 'gentsItems'), lang);
+  const ladies = attireWords(ladiesItems(occasion), rows<string>(data, 'ladiesItems'), lang);
+  // an invitation saved before the list existed asked only about white
+  const avoidKeys = rows<string>(data, 'avoid');
+  const avoid = avoidTicked(occasion, avoidKeys.length || !bool(data, 'avoidWhite') ? avoidKeys : ['white'], lang);
+  const paletteNote = str(data, 'paletteNote') || note || t(lang, 'dressCode.paletteNote');
+  // a bar between the words, and a space so the line can wrap between them
+  const words = (list: string[]) => list.map((w, i) => (
+    <span key={i}>
+      {i > 0 && <span className="inv-wear-sep" aria-hidden>|</span>}
+      <span className="inv-wear-word">{w}</span>{' '}
+    </span>
+  ));
+  const swatches = motif.map((c) => <span key={c} className="inv-swatch" style={{ background: c }} title={c} />);
+  const sponsors = (str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) ? (
+    <div className="inv-two inv-attire text-sm">
+      {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
+      {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
+    </div>
+  ) : null;
   if (format) {
     return (
-      <Section id="dress-code" title={title ?? t(lang, 'dressCode.title')} tagline={line}>
-        {colors.length > 0 && <DressFigures colors={colors} />}
-        <div className="inv-dress-notes">
-          {str(data, 'attireText') && <p>{str(data, 'attireText')}</p>}
-          {colors.length > 0 && (
-            <div className="inv-swatches">
-              {colors.map((c) => <span key={c} className="inv-swatch" style={{ background: c }} title={c} />)}
-            </div>
-          )}
-          {note && <p className="inv-eyebrow inv-dress-note">{note}</p>}
-          {bool(data, 'avoidWhite') && <p className="inv-muted text-sm">{t(lang, 'dressCode.avoidWhite')}</p>}
-          {(str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) && (
-            <div className="inv-two inv-attire text-sm">
-              {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
-              {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
-            </div>
-          )}
-          {str(data, 'note') && <p className="whitespace-pre-line text-sm">{str(data, 'note')}</p>}
+      <Section id="dress-code" title={heading} tagline={attire ? undefined : tagline} className="inv-dresscode">
+        {intro && <p className="inv-wear-intro">{intro}</p>}
+        <div className="inv-wear">
+          <p className="inv-eyebrow inv-wear-head">{t(lang, 'dressCode.gents')}</p>
+          <div className="inv-dress">
+            {suits.map((c, i) => <SuitFigure key={i} color={c} tie={suits.length === 1 || i < suits.length - 1} id={`suit-${i}`} />)}
+          </div>
+          {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
+          {str(data, 'gentsNote') && <p className="inv-wear-note">{str(data, 'gentsNote')}</p>}
         </div>
+        <div className="inv-wear">
+          <p className="inv-eyebrow inv-wear-head">{t(lang, 'dressCode.ladies')}</p>
+          <div className="inv-dress">
+            {gowns.map((c, i) => <GownFigure key={i} color={c} style={i} id={`gown-${i}`} />)}
+          </div>
+          {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
+          {str(data, 'ladiesNote') && <p className="inv-wear-note">{str(data, 'ladiesNote')}</p>}
+        </div>
+        {motif.length > 0 && (
+          <div className="inv-wear">
+            <p className="inv-eyebrow inv-rule-head"><span>{t(lang, 'dressCode.palette')}</span></p>
+            <div className="inv-swatches">{swatches}</div>
+            <p className="inv-wear-note">{paletteNote}</p>
+          </div>
+        )}
+        {avoid.length > 0 && (
+          <div className="inv-wear">
+            <p className="inv-eyebrow inv-rule-head"><span>{t(lang, 'dressCode.avoid')}</span></p>
+            <ul className="inv-avoid">
+              {avoid.map((a) => (
+                <li key={a.value}>
+                  <span className="inv-avoid-ico"><Ico name={a.icon} /></span>
+                  <span className="inv-avoid-label">{a.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {sponsors && <div className="inv-wear">{sponsors}</div>}
+        {str(data, 'note') && <p className="inv-wear-note whitespace-pre-line">{str(data, 'note')}</p>}
+        <p className="inv-eyebrow inv-rule-head inv-wear-thanks"><span>{t(lang, 'dressCode.thanks')}</span></p>
       </Section>
     );
   }
+  // the other layouts say the same in a card, without the figures
   return (
-    <Section id="dress-code" title={title ?? t(lang, 'dressCode.title')} tagline={line}>
-      {layout === 'capiz' && colors.length > 0 && <DressFigures colors={colors} />}
+    <Section id="dress-code" title={heading} tagline={attire ? undefined : tagline}>
       <div className="inv-card text-center">
-        {(attire || str(data, 'attireText')) && (
-          <p className="text-lg">
-            {attire}
-            {str(data, 'attireText') && <span className="inv-muted block text-base">{str(data, 'attireText')}</span>}
+        {intro && <p>{intro}</p>}
+        {gents.length > 0 && (
+          <p className="mt-3 text-sm">
+            <span className="inv-eyebrow block">{t(lang, 'dressCode.gents')}</span>
+            {gents.join(' · ')}
+            {str(data, 'gentsNote') && <span className="inv-muted block italic">{str(data, 'gentsNote')}</span>}
           </p>
         )}
-        {colors.length > 0 && (
+        {ladies.length > 0 && (
+          <p className="mt-3 text-sm">
+            <span className="inv-eyebrow block">{t(lang, 'dressCode.ladies')}</span>
+            {ladies.join(' · ')}
+            {str(data, 'ladiesNote') && <span className="inv-muted block italic">{str(data, 'ladiesNote')}</span>}
+          </p>
+        )}
+        {motif.length > 0 && (
           <div className="mt-4">
             <p className="inv-eyebrow">{t(lang, 'dressCode.motif')}</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {colors.map((c) => (
-                <span key={c} className="inv-swatch" style={{ background: c }} title={c} />
-              ))}
-            </div>
+            <div className="flex flex-wrap justify-center gap-2">{swatches}</div>
+            <p className="inv-muted mt-2 text-sm">{paletteNote}</p>
           </div>
         )}
-        {bool(data, 'avoidWhite') && <p className="inv-muted mt-3 text-sm">{t(lang, 'dressCode.avoidWhite')}</p>}
-        {(str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) && (
-          <div className="inv-two inv-attire mt-4 text-sm">
-            {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
-            {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
-          </div>
+        {avoid.length > 0 && (
+          <p className="mt-3 text-sm">
+            <span className="inv-eyebrow block">{t(lang, 'dressCode.avoid')}</span>
+            {avoid.map((a) => a.label).join(' · ')}
+          </p>
         )}
+        {sponsors && <div className="mt-4">{sponsors}</div>}
         {str(data, 'note') && <p className="mt-3 whitespace-pre-line text-sm">{str(data, 'note')}</p>}
       </div>
     </Section>
@@ -1255,6 +1326,15 @@ function programIcon(title: string): string {
 }
 
 const ICON_PATHS: Record<string, string> = {
+  // the dress code's "kindly avoid" row
+  gown: 'M9 3l3 3 3-3M9 3l-1 6c0 2 1 3 4 3s4-1 4-3l-1-6M8 12l-3 9h14l-3-9',
+  suit: 'M8 3h8l1 5-5 13-5-13zM8 3L5 6v14h14V6l-3-3M12 8l-2 3h4z',
+  jeans: 'M7 3h10l1 18h-4l-2-10-2 10H6zM7 7h10',
+  tee: 'M8 3h8l4 4-3 3-1-1v12H8V9L7 10 4 7z',
+  slipper: 'M6 14c-1 4 1 7 6 7s7-3 6-7l-2-9c-1-3-7-3-8 0zM12 12l-3-5M12 12l3-5',
+  pattern: 'M8 3h8l4 4-3 3-1-1v12H8V9L7 10 4 7zM9 12l2 2M13 12l2 2M9 17l2 2M13 17l2 2',
+  shorts: 'M6 3h12l1 12h-5l-2-6-2 6H5zM6 7h12',
+  cap: 'M4 14a8 8 0 0 1 16 0M4 14h16M4 14l-2 2h10M12 6V4',
   church: 'M12 3v4M10 5h4M5 21V12l7-5 7 5v9M5 21h14M10 21v-5h4v5',
   glasses: 'M5 4h6l-1 6a2.5 2.5 0 0 1-4 0zM13 4h6l-1 6a2.5 2.5 0 0 1-4 0zM8 12v8M16 12v8M5.5 20h5M13.5 20h5',
   cutlery: 'M7 3v18M5 3v5a2 2 0 0 0 4 0V3M17 3c-2 0-3 3-3 6 0 2 1 3 3 3v9',
@@ -1287,60 +1367,6 @@ function ProgramIcon({ title }: { title: string }) {
  * sleeved gown and a strapless gown. Garments take the motif colours in
  * order, so the block recolours itself when the couple changes their palette.
  */
-function DressFigures({ colors }: { colors: string[] }) {
-  const m = (i: number) => colors[i % colors.length];
-  const skin = '#d8b596';
-  const hair = '#2b211b';
-  const vars = { '--m1': m(0), '--m2': m(1), '--m3': m(2), '--m4': m(3), '--m5': m(4) } as CSSProperties;
-  return (
-    <div className="inv-dress" style={vars} aria-hidden>
-      <svg viewBox="0 0 120 300">
-        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
-        <path d="M47 27c1-14 25-14 26 0c-4-6-21-6-26 0z" fill={hair} />
-        <path d="M55 42h10v8H55z" fill="#cda283" />
-        <path d="M42 52c8-4 28-4 36 0l7 10 3 70H32l3-70z" fill="#f4efe3" />
-        <path d="M42 52c8-4 28-4 36 0l7 10 3 70H32l3-70z" fill="var(--m1)" opacity="0.55" />
-        <path d="M60 52v80" stroke="var(--m5)" strokeOpacity="0.25" />
-        <path d="M52 52l8 6 8-6" stroke="var(--m5)" strokeOpacity="0.35" fill="none" />
-        <path d="M35 62l-4 62h10l2-58z M85 62l4 62H79l-2-58z" fill="var(--m1)" opacity="0.75" />
-        <path d="M39 132h42l3 92H68l-6-70-6 70H36z" fill="var(--m5)" />
-        <path d="M36 224h14l1 6H35z M68 224h14l2 6H67z" fill={hair} />
-      </svg>
-      <svg viewBox="0 0 120 300">
-        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
-        <path d="M46 24c2-16 26-16 28 0 3 10-2 22-4 30-3-8-5-14-10-14s-7 6-10 14c-2-8-7-20-4-30z" fill={hair} />
-        <path d="M55 42h10v8H55z" fill="#cda283" />
-        <path d="M44 52c6-2 26-2 32 0l3 44H41z" fill="var(--m2)" />
-        <path d="M44 52c-14 2-22 16-14 26 6-4 10-14 14-26z M76 52c14 2 22 16 14 26-6-4-10-14-14-26z" fill="var(--m2)" opacity="0.7" />
-        <path d="M41 96h38l14 132H27z" fill="var(--m2)" />
-        <path d="M41 96h38l14 132H27z" fill="#fff" opacity="0.18" />
-        <path d="M42 100h36" stroke="#fff" strokeOpacity="0.5" />
-      </svg>
-      <svg viewBox="0 0 120 300">
-        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
-        <path d="M46 24c2-16 26-16 28 0 2 14-2 30-3 44-3-10-5-24-11-24s-8 14-11 24c-1-14-5-30-3-44z" fill={hair} />
-        <path d="M55 42h10v8H55z" fill="#cda283" />
-        <path d="M45 52c6-3 24-3 30 0l4 40H41z" fill="var(--m3)" />
-        <path d="M45 52l-10 4-6 40 10 2 6-30z M75 52l10 4 6 40-10 2-6-30z" fill="var(--m3)" opacity="0.8" />
-        <path d="M41 92h38l16 136H25z" fill="var(--m3)" />
-        <path d="M41 92h38l16 136H25z" fill="#fff" opacity="0.14" />
-        <path d="M52 90c4 2 12 2 16 0" stroke="#fff" strokeOpacity="0.6" fill="none" />
-        <path d="M52 96h16l2 8H50z" fill={skin} />
-      </svg>
-      <svg viewBox="0 0 120 300">
-        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
-        <path d="M47 26c1-15 25-15 26 0 1 6-2 12-3 14-4-6-16-6-20 0-1-2-4-8-3-14z" fill={hair} />
-        <path d="M55 42h10v8H55z M47 50l3 34h20l3-34z" fill="#cda283" />
-        <path d="M45 58c4 4 26 4 30 0l4 34H41z" fill="var(--m4)" />
-        <path d="M45 58c-6 4-9 20-9 32l6-2z M75 58c6 4 9 20 9 32l-6-2z" fill={skin} />
-        <path d="M41 92h38l18 136H23z" fill="var(--m4)" />
-        <path d="M41 92h38l18 136H23z" fill="#fff" opacity="0.14" />
-        <path d="M41 92h38" stroke="#fff" strokeOpacity="0.5" />
-      </svg>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // The page
 // ---------------------------------------------------------------------------
@@ -1521,7 +1547,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'eighteen':
         return <Eighteen key={key} data={data} lang={lang} />;
       case 'dressCode':
-        return <DressCode key={key} data={data} lang={lang} layout={layout} title={lookTitle(look, lang, 'dressCode')} tagline={line('dressCode')} format={format} note={line('dressNote')} />;
+        return <DressCode key={key} data={data} lang={lang} occasion={occasion} title={lookTitle(look, lang, 'dressCode')} tagline={line('dressCode')} format={format} note={line('dressNote')} />;
       case 'gift':
         return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : named('gift', t(lang, 'gift.title'))} format={format} thanks={line('giftThanks')} />;
       case 'rsvp':

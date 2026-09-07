@@ -1,0 +1,44 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { loadPublic } from '@/lib/invitations';
+import { getSettings } from '@/lib/settings';
+import { LOOKS } from '@/lib/looks';
+import { Invitation } from '@/components/invite/renderer';
+
+export const metadata: Metadata = { title: 'Looks', robots: { index: false } };
+export const dynamic = 'force-dynamic';
+
+/**
+ * Every look, side by side, on the demo invitation: the same page, the same
+ * colours, the same words the couple typed — only the faces and the lines
+ * under the headings change. This is how a look is chosen for a theme: by
+ * scrolling five phones next to each other, not by reading font names.
+ */
+export default async function LooksPage() {
+  const s = await getSettings();
+  const invitation = await loadPublic(s['site.demoSlug']);
+  if (!invitation) notFound();
+  return (
+    <main className="mx-auto max-w-[1900px] px-4 py-8 sm:px-6">
+      <header className="mb-6 max-w-3xl">
+        <p className="eyebrow">The looks</p>
+        <h1 className="text-3xl">One page, five voices</h1>
+        <p className="mt-2 text-[color:var(--color-ink-soft)]">
+          A look is the faces a page is set in and the lines it says under each heading, in English and in Tagalog. The layout and the colours are the design&apos;s; the words are the couple&apos;s. A design ships with one look, and a customer on the Complete tier can pick another — so a theme the default fonts fight has somewhere to go.
+        </p>
+      </header>
+      <div className="looks-row">
+        {LOOKS.map((look) => (
+          <section key={look.key} className="looks-col">
+            <h2 className="text-xl">{look.name}</h2>
+            <p className="mb-1 text-sm text-[color:var(--color-ink-soft)]">{look.tagline}</p>
+            <p className="mb-3 text-xs text-[color:var(--color-ink-soft)]">{look.fonts.load.map((f) => f.split(':')[0]).join(' · ')} · names {look.joiner === 'and' ? 'joined by “and”' : 'joined by “&”'}</p>
+            <div className="looks-phone">
+              <Invitation invitation={invitation} bare shape="phone" look={look} businessName={s['business.name']} />
+            </div>
+          </section>
+        ))}
+      </div>
+    </main>
+  );
+}

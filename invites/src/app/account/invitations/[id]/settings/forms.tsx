@@ -60,10 +60,11 @@ export function SettingsForm(p: { invitationId: string; host: string; slug: stri
   );
 }
 
-export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; fonts: { key: string; label: string }[]; current: { paletteKey: string; palette: Palette; fontsKey: string }; canPresets: boolean; canCustom: boolean }) {
+export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; fonts: { key: string; label: string }[]; looks: { key: string; name: string; tagline: string }[]; current: { paletteKey: string; palette: Palette; fontsKey: string; lookKey: string }; canPresets: boolean; canCustom: boolean }) {
   const { pending, run, Msg } = useRun();
   const [custom, setCustom] = useState<Palette>(p.current.palette);
   const [fontsKey, setFontsKey] = useState(p.current.fontsKey);
+  const [lookKey, setLookKey] = useState(p.current.lookKey);
   return (
     <div className="space-y-4">
       <div>
@@ -88,6 +89,17 @@ export function ThemePicker(p: { invitationId: string; palettes: { key: string; 
           ))}
         </div>
         <button type="button" className="btn btn-secondary btn-sm mt-2" disabled={!p.canCustom || pending} onClick={() => run(() => themeAction(p.invitationId, { palette: custom }), 'Custom colours applied.')}>Apply colours</button>
+      </div>
+      <div>
+        <label className="label" htmlFor="look">Look {!p.canCustom && <span className="pill pill-warn ml-1">Complete tier</span>}</label>
+        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">The faces the page is set in and the lines under each heading. <a href="/looks" target="_blank" rel="noopener" className="underline">See them side by side</a>.</p>
+        <div className="flex gap-2">
+          <select id="look" className="field" value={lookKey} disabled={!p.canCustom} onChange={(e) => setLookKey(e.target.value)}>
+            <option value="">Design default</option>
+            {p.looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
+          </select>
+          <button type="button" className="btn btn-secondary" disabled={!p.canCustom || pending} onClick={() => run(() => themeAction(p.invitationId, { lookKey }), lookKey ? 'Look applied.' : 'Back to the design’s look.')}>Apply</button>
+        </div>
       </div>
       <div>
         <label className="label" htmlFor="fonts">Fonts {!p.canCustom && <span className="pill pill-warn ml-1">Complete tier</span>}</label>

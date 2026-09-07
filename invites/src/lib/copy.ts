@@ -21,22 +21,6 @@ const PHRASES = {
   'cover.invite': { en: 'joyfully invite you to celebrate their wedding', tl: 'ay masayang nag-aanyaya sa inyo sa kanilang kasal' },
   'cover.saveTheDate': { en: 'Save the Date', tl: 'I-save ang Petsa' },
   'cover.invited': { en: "You're invited", tl: 'Inaanyayahan ka' },
-  // The line in script under a heading. Shown by designs that carry one.
-  'ceremony.tagline': { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
-  'reception.tagline': { en: 'A place close to our hearts.', tl: 'Isang lugar na malapit sa aming puso.' },
-  'entourage.tagline': { en: 'With great love', tl: 'Nang may pagmamahal' },
-  'dressCode.tagline': { en: 'Dress the part', tl: 'Sa kasuotang nararapat' },
-  'gift.tagline': { en: 'Thank you!', tl: 'Maraming salamat!' },
-  'story.tagline': { en: 'A love rooted in purpose.', tl: 'Pag-ibig na may layunin.' },
-  'gallery.tagline': { en: "Moments we'll always cherish", tl: 'Mga sandaling laging iingatan' },
-  'program.tagline': { en: 'A day to remember.', tl: 'Isang araw na hindi malilimutan.' },
-  'social.tagline': { en: 'Help us capture the love!', tl: 'Tulungan kaming makuha ang saya!' },
-  'guestbook.tagline': { en: 'Leave us a message', tl: 'Mag-iwan ng mensahe' },
-  'photos.tagline': { en: 'Share your snaps with us!', tl: 'I-share ang mga kuha mo!' },
-  'rsvp.tagline': { en: 'Kindly confirm your attendance', tl: 'Pakikumpirma ang inyong pagdalo' },
-  'countdown.tagline': { en: 'The best is yet to come...', tl: 'Ang pinakamaganda ay paparating pa...' },
-  'contact.tagline': { en: "We're here to help!", tl: 'Narito kami para tumulong!' },
-  'closing.tagline': { en: 'See you there!', tl: 'Kita-kits!' },
   'countdown.title': { en: 'Counting down to the big day', tl: 'Bilang ng araw bago ang okasyon' },
   'countdown.days': { en: 'Days', tl: 'Araw' },
   'countdown.hours': { en: 'Hours', tl: 'Oras' },
@@ -59,6 +43,8 @@ const PHRASES = {
   'calendar.add': { en: 'Add to calendar', tl: 'Idagdag sa calendar' },
   'entourage.title': { en: 'The Entourage', tl: 'Ang Entourage' },
   'entourage.principal': { en: 'Principal Sponsors', tl: 'Mga Ninong at Ninang' },
+  'entourage.brideParents': { en: 'Parents of the bride', tl: 'Mga magulang ng bride' },
+  'entourage.groomParents': { en: 'Parents of the groom', tl: 'Mga magulang ng groom' },
   'entourage.ninong': { en: 'Ninong', tl: 'Ninong' },
   'entourage.ninang': { en: 'Ninang', tl: 'Ninang' },
   'entourage.secondary': { en: 'Secondary Sponsors', tl: 'Secondary Sponsors' },
@@ -159,18 +145,21 @@ const PHRASES = {
   'memorial.mass': { en: 'Thanksgiving Mass', tl: 'Misa ng Pasasalamat' },
   'memorial.inLieu': { en: 'In lieu of flowers', tl: 'Sa halip na bulaklak' },
   'contact.title': { en: 'Questions?', tl: 'May tanong?' },
+  'contact.chat': { en: 'Or message us on Viber / WhatsApp.', tl: 'O mag-message sa Viber / WhatsApp.' },
+  'venue.both': { en: 'Ceremony & Reception', tl: 'Seremonya at Salu-salo' },
+  'venue.reception': { en: 'Reception', tl: 'Salu-salo' },
+  'venue.getting': { en: 'Getting there', tl: 'Papunta roon' },
+  'map.openGoogle': { en: 'Open in Google Maps', tl: 'Buksan sa Google Maps' },
+  'map.openWaze': { en: 'Open in Waze', tl: 'Buksan sa Waze' },
+  'cover.scroll': { en: 'Scroll', tl: 'I-scroll' },
+  'invitation.ceremony': { en: 'Ceremony', tl: 'Seremonya' },
+  'photos.upload': { en: 'Upload here', tl: 'Mag-upload dito' },
   'contact.registration': { en: 'Registration', tl: 'Registration' },
   'checkin.title': { en: 'Check-in code', tl: 'Check-in code' },
   'checkin.hint': { en: 'Show this at the entrance.', tl: 'Ipakita ito sa entrance.' },
 } as const;
 
 export type PhraseKey = keyof typeof PHRASES;
-
-/** The line in script under a section heading, when the copy has one for it. */
-export function tagline(lang: Lang, section: string): string | undefined {
-  const key = `${section}.tagline`;
-  return key in PHRASES ? t(lang, key as PhraseKey) : undefined;
-}
 
 export function t(lang: Lang, key: PhraseKey, vars: Record<string, string | number> = {}): string {
   const entry = PHRASES[key] as { en: string; tl: string } | undefined;

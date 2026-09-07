@@ -199,6 +199,9 @@ model Template {
   openingPosterUrl String @default("")
   palette      Json
   fonts        Json
+  /// The look this design is set in — its faces and the lines under its
+  /// headings. See src/lib/looks.ts. Blank means the `fonts` column alone.
+  look         String   @default("")
   sections     String[]
   featured     Boolean  @default(false)
   published    Boolean  @default(true)

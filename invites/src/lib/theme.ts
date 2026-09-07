@@ -23,7 +23,17 @@ export type Palette = {
 export type Fonts = {
   display: string;
   body: string;
-  /** Google Fonts family names to load, e.g. ["Cormorant Garamond", "Jost"]. */
+  /** The names on the cover, when they are set in a face of their own. */
+  names?: string;
+  /** The line under a heading, when a design writes one. */
+  script?: string;
+  /** The script face's slant: an italic serif can play the part of a script. */
+  scriptStyle?: 'normal' | 'italic';
+  /**
+   * Google Fonts families to load, e.g. ["Cormorant Garamond", "Jost"]. A
+   * family may carry its own axis spec after a colon ("Lora:ital,wght@0,400;1,400")
+   * when the default weights are not what the look needs.
+   */
   load: string[];
 };
 
@@ -81,9 +91,13 @@ export function fontsFrom(raw: unknown): Fonts {
   const base = FONT_PRESETS[0].fonts;
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Partial<Fonts>;
+  const face = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   return {
-    display: typeof o.display === 'string' && o.display ? o.display : base.display,
-    body: typeof o.body === 'string' && o.body ? o.body : base.body,
+    display: face(o.display) ?? base.display,
+    body: face(o.body) ?? base.body,
+    ...(face(o.names) ? { names: face(o.names) } : {}),
+    ...(face(o.script) ? { script: face(o.script) } : {}),
+    ...(o.scriptStyle === 'italic' ? { scriptStyle: 'italic' as const } : {}),
     load: Array.isArray(o.load) ? o.load.filter((x): x is string => typeof x === 'string').slice(0, 4) : base.load,
   };
 }
@@ -98,11 +112,19 @@ export function cssVars(palette: Palette, fonts: Fonts): Record<string, string> 
     '--inv-accent2': palette.accent2,
     '--inv-display': fonts.display,
     '--inv-body': fonts.body,
+    '--inv-names': fonts.names || fonts.display,
+    '--inv-script': fonts.script || fonts.display,
+    '--inv-script-style': fonts.scriptStyle || 'normal',
   };
 }
 
 /** The Google Fonts stylesheet URL for a font set. */
 export function googleFontsUrl(fonts: Fonts): string {
-  const families = fonts.load.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;500;600;700`).join('&');
+  const families = fonts.load
+    .map((f) => {
+      const [family, axes] = f.split(':');
+      return `family=${encodeURIComponent(family).replace(/%20/g, '+')}:${axes || 'wght@400;500;600;700'}`;
+    })
+    .join('&');
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }

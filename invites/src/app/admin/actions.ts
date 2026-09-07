@@ -17,6 +17,7 @@ import { isOccasion } from '@/lib/occasions';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
+import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
@@ -145,6 +146,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
       description: s(fd, 'description'),
       thumbnailUrl: s(fd, 'thumbnailUrl'),
       layout,
+      look: isLook(s(fd, 'look')) ? s(fd, 'look') : '',
       collection: isCollection(s(fd, 'collection')) ? s(fd, 'collection') : '',
       // A clip with no poster would leave the guest on a blank screen until it
       // buffered, so the pair only takes effect together.

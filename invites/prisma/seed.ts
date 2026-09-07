@@ -178,7 +178,9 @@ async function main() {
     kind: 'wedding', brideFirst: 'Maria', groomFirst: 'Juan', brideFull: 'Maria Isabel Santos', groomFull: 'Juan Carlos Dela Cruz', brideNick: 'Maria', groomNick: 'Juan', monogram: 'J & M',
     date: dateKey, time: '14:00', introPreset: 'families', intro: 'Together with their families, Maria and Juan joyfully invite you to celebrate their wedding.',
     coverPhoto: pic('juan-maria-cover', 900, 1200), opening: 'seal', openingLine: '',
+    verse: '“And above all these things put on love, which binds everything together in perfect harmony.”', verseRef: 'Colossians 3:14',
   });
+  Object.assign(content.moment!, { line1: 'Same horizons', line2: 'A brighter tomorrow', line3: 'Together', frame: 'arch' });
   Object.assign(content.countdown!, { enabled: true, label: 'Counting down to the big day' });
   Object.assign(content.parents!, {
     phrasing: 'together',
@@ -188,6 +190,8 @@ async function main() {
   Object.assign(content.ceremony!, { type: 'catholic', venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dateKey, time: '14:00', seatedBy: '1:30 PM', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-agustin', 1200, 800), note: 'The church is air-conditioned. Please arrive early — Intramuros traffic is real.' });
   Object.assign(content.reception!, { venue: 'The Manila Hotel — Fiesta Pavilion', address: 'One Rizal Park, Ermita, Manila', time: '17:30', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the hotel. A shuttle leaves the church at 4:15 PM.', photo: pic('manila-hotel', 1200, 800), note: '' });
   Object.assign(content.entourage!, {
+    brideParents: [{ name: 'Engr. Roberto A. Santos' }, { name: 'Mrs. Carmen L. Santos' }],
+    groomParents: [{ name: 'Mr. Antonio B. Dela Cruz †' }, { name: 'Dr. Teresita R. Dela Cruz' }],
     principalSponsors: [
       { ninong: 'Mr. Jose Ramon Alcantara', ninang: 'Mrs. Lourdes Alcantara' }, { ninong: 'Atty. Federico Bautista', ninang: 'Dr. Milagros Bautista' }, { ninong: 'Engr. Danilo Cruz', ninang: 'Mrs. Rosario Cruz' },
       { ninong: 'Col. Ramon Villanueva (Ret.)', ninang: 'Mrs. Amparo Villanueva' }, { ninong: 'Mr. Ernesto Reyes', ninang: 'Ms. Corazon Reyes' }, { ninong: 'Hon. Alfredo Garcia', ninang: 'Mrs. Belen Garcia' },
@@ -212,7 +216,8 @@ async function main() {
   Object.assign(content.program!, { items: [{ time: '2:00 PM', title: 'Ceremony', note: 'San Agustin Church' }, { time: '4:00 PM', title: 'Cocktails & photos', note: 'Fiesta Pavilion foyer' }, { time: '5:30 PM', title: 'Reception', note: 'Dinner, toasts and dancing' }, { time: '8:30 PM', title: 'After-party', note: 'Tap Room, Manila Hotel' }], activities: '' });
   Object.assign(content.faq!, { items: [{ q: 'Is there parking?', a: 'Yes — free at The Manila Hotel. Intramuros parking is limited, so we suggest carpooling or the shuttle.' }, { q: 'Can I bring my kids?', a: 'As much as we love your little ones, this celebration is for adults only.' }, { q: 'What if it rains?', a: 'Both venues are indoors. Bring an umbrella for the walk to the car.' }, { q: 'Is there a shuttle?', a: 'A coaster leaves the church at 4:15 PM for the hotel.' }, { q: 'Hashtag?', a: '#JuanAndMariaSayIDo — tag us!' }] });
   Object.assign(content.travel!, { hotels: [{ name: 'The Manila Hotel', address: 'One Rizal Park, Ermita', note: 'Use code JMWEDDING for the group rate', url: 'https://www.manila-hotel.com.ph' }, { name: 'Bayleaf Intramuros', address: 'Muralla St, Intramuros', note: 'Walking distance to the church', url: '' }], directions: 'From NAIA: Skyway to Roxas Blvd, exit at Rizal Park. About 40 minutes without traffic — allow 90.', tips: 'Grab and taxis are reliable in the area. The LRT-1 UN Avenue station is a 10-minute walk from both venues.' });
-  Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', facebook: '', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
+  Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', tiktok: '@juanandmaria', facebook: 'juanandmaria', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
+  Object.assign(content.contact!, { name: 'Maria', phone: '0917 123 4567', name2: 'Juan', phone2: '0918 765 4321', email: '', messenger: 'https://m.me/juanandmaria', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
   Object.assign(content.music!, { url: '', title: 'Ikaw — Yeng Constantino', autoplay: true });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
   Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });

@@ -150,6 +150,10 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   }),
   textarea('intro', 'Intro wording', { placeholder: 'Together with their families…' }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
+  textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: 'Shown after the cover, on designs that carry one.' }),
+  text('verseRef', 'Its source', { placeholder: 'Colossians 3:14' }),
+  text('interlude1', 'Script line after the invitation', { placeholder: 'A day of love, a lifetime together.', hint: 'Leave blank and the design writes its own. Use a line break for two lines.' }),
+  text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.' }),
   ...(occasion === 'MEMORIAL'
     ? []
     : [
@@ -405,6 +409,8 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'Principal sponsors, secondary sponsors, and the wedding party. Unlimited rows.',
     minTier: 'STANDARD',
     fields: () => [
+      names('brideParents', 'Parents of the bride'),
+      names('groomParents', 'Parents of the groom'),
       list('principalSponsors', 'Principal Sponsors (Ninong & Ninang)', [text('ninong', 'Ninong', { placeholder: 'Mr. Jose Santos' }), text('ninang', 'Ninang', { placeholder: 'Mrs. Ana Santos' })], { addLabel: 'Add a pair' }),
       list('secondarySponsors', 'Secondary Sponsors', [
         select('role', 'Role', [{ value: 'candle', label: 'Candle' }, { value: 'veil', label: 'Veil' }, { value: 'cord', label: 'Cord' }]),
@@ -606,6 +612,7 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [
       text('hashtag', 'Hashtag', { placeholder: '#JuanAndMariaSayIDo' }),
       text('instagram', 'Instagram'),
+      text('tiktok', 'TikTok'),
       text('facebook', 'Facebook'),
       toggle('unplugged', 'Unplugged ceremony note'),
       textarea('unpluggedText', 'Wording', { placeholder: UNPLUGGED_PRESET.en }),
@@ -673,7 +680,16 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Contact',
     description: 'Who guests can reach with questions.',
     minTier: 'BASIC',
-    fields: () => [text('name', 'Name'), text('phone', 'Mobile'), text('email', 'Email'), text('messenger', 'Messenger link'), textarea('registrationNote', 'Registration note')],
+    fields: () => [
+      text('name', 'Name'),
+      text('phone', 'Mobile'),
+      text('name2', 'Second person'),
+      text('phone2', 'Their mobile'),
+      text('email', 'Email'),
+      text('messenger', 'Messenger link'),
+      text('chatNote', 'Chat apps', { placeholder: 'Or message us on Viber / WhatsApp.' }),
+      textarea('registrationNote', 'Registration note'),
+    ],
   },
 ];
 
@@ -681,7 +697,7 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
-  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
+  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing'],
   DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
   CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
   KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing'],
@@ -705,7 +721,7 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
  * occasion order after the ones that are.
  */
 export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
-  capiz: ['cover', 'moment', 'story', 'gallery', 'ceremony', 'entourage', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
 };
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {

@@ -518,8 +518,6 @@ table.data tr:hover td {
    line under each heading.
    =========================================================================== */
 .inv[data-layout='capiz'] {
-  --inv-script: 'Pinyon Script', 'Snell Roundhand', cursive;
-  --inv-names: 'Cinzel', var(--inv-display), serif;
   padding: 0;
   font-size: 1.0625rem;
   line-height: 1.55;
@@ -547,29 +545,6 @@ table.data tr:hover td {
 .inv[data-layout='capiz'] > .inv-hero,
 .inv[data-layout='capiz'] > .inv-section,
 .inv[data-layout='capiz'] > .inv-garland { position: relative; z-index: 1; }
-
-/* The plate: two strands of shell with the names set between them. Sized by
-   the page's width and hung from the top of the hero, so the strands land at
-   known heights — 0.32 and 0.97 of the width down — and the names group is
-   given exactly that band. What comes after the names starts under the lower
-   strand. Feathered at its edges so it and the frame read as one panel. On a
-   screen wider than it is tall the plate would be a sliver, so the frame's
-   own clusters do the work there. */
-@media (orientation: portrait) {
-  .inv[data-layout='capiz'] .inv-hero::before {
-    content: ''; position: absolute; left: 0; right: 0; top: -46vw; height: 233.15vw; z-index: 0; pointer-events: none;
-    background: url(/capiz/plate.jpg) center top / 100% auto no-repeat;
-    -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
-            mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
-  }
-  .inv[data-layout='capiz'] .inv-hero { display: block; padding: 0 1.6rem 3rem; }
-  .inv[data-layout='capiz'] .inv-hero-names { display: flex; flex-direction: column; justify-content: center; margin-top: 39vw; height: 58vw; }
-  .inv[data-layout='capiz'] .inv-hero-details { margin-top: 6vw; }
-  /* sized to sit inside the band with air on both sides of it */
-  .inv[data-layout='capiz'] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
-  .inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
-  .inv[data-layout='capiz'] .inv-names { font-size: clamp(1.9rem, 8.6vw, 2.6rem); }
-}
 .inv[data-layout='capiz'] .inv-hero > * { position: relative; z-index: 1; }
 
 /* a garland: one strung row cut from the couple's band image, across the
@@ -603,6 +578,7 @@ table.data tr:hover td {
 }
 .inv-tagline {
   font-family: var(--inv-script);
+  font-style: var(--inv-script-style, normal);
   font-size: 1.55rem;
   line-height: 1.1;
   color: var(--inv-accent);
@@ -680,28 +656,47 @@ table.data tr:hover td {
   box-shadow: 0 2px 8px -3px rgba(74,59,47,0.5);
 }
 
-/* --- hero --- */
+/* --- hero: measured by its own width (a container), so a phone and a
+   showcase column the width of a phone lay out the same --- */
 .inv[data-layout='capiz'] .inv-hero {
   min-height: 100svh;
-  padding: 4rem 1.6rem 3rem;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
+  padding: 0;
+  display: block;
+  container-type: inline-size;
 }
-.inv[data-layout='capiz'] .inv-hero-body { margin: 0 auto; }
+.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; margin: 0 auto; padding: 0 1.6rem 3rem; }
 .inv[data-layout='capiz'] .inv-hero-scrim,
 .inv[data-layout='capiz'] .inv-hero-photo { display: none; }
-.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; }
-.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 1.6rem; }
+.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
 .inv[data-layout='capiz'] .inv-names {
   font-family: var(--inv-names);
   font-weight: 500;
-  font-size: clamp(2.2rem, 10.5vw, 3rem);
+  font-size: clamp(1.9rem, 8.6cqw, 2.6rem);
   letter-spacing: 0.08em;
   text-indent: 0.08em;
   text-transform: uppercase;
   color: var(--inv-ink);
   line-height: 1.05;
+}
+/* The plate: hung from the top of the hero and sized by its width, so the
+   strands land at 0.36 and 1.01 of the width down and the names get exactly
+   the band between them; what follows starts under the lower strand. */
+.inv[data-layout='capiz'] .inv-hero::before {
+  content: ''; position: absolute; left: 0; right: 0; top: -46cqw; height: 233.15cqw; z-index: 0; pointer-events: none;
+  background: url(/capiz/plate.jpg) center top / 100% auto no-repeat;
+  -webkit-mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
+          mask-image: radial-gradient(ellipse 62% 48% at 50% 49%, #000 46%, rgba(0,0,0,.62) 72%, transparent 100%);
+}
+.inv[data-layout='capiz'] .inv-hero-names { display: flex; flex-direction: column; justify-content: center; margin-top: 39cqw; height: 58cqw; }
+.inv[data-layout='capiz'] .inv-hero-details { margin-top: 10cqw; }
+.inv[data-layout='capiz'] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
+/* On a screen wider than it is tall the plate would be a sliver, so the
+   frame's own clusters do the work — unless the page is told it is a phone. */
+@media (orientation: landscape) {
+  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero { display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 4rem 0 3rem; }
+  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero::before { display: none; }
+  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero-names { margin-top: 0; height: auto; }
+  .inv[data-layout='capiz']:not([data-shape='phone']) .inv-hero-details { margin-top: 0; }
 }
 .inv[data-layout='capiz'] .inv-amp {
   font-family: var(--inv-script);
@@ -851,6 +846,69 @@ table.data tr:hover td {
 
 /* the closing: the sign-off in script, the names and date beneath */
 .inv[data-layout='capiz'] #closing .inv-display { font-family: var(--inv-script); font-size: 2.6rem; }
+
+/* --- the format's blocks: the cover's date, place and lines, the verse, the
+   invitation rows, the venue and the way there, the interludes, the social
+   icons, the contact columns --- */
+.inv-hero-date { font-family: var(--inv-display); font-size: 1.05rem; letter-spacing: 0.5em; text-indent: 0.5em; margin: 0 0 0.9rem; text-align: center; }
+.inv-hero-place { margin-bottom: 0.2rem; color: var(--inv-ink); opacity: 0.85; }
+.inv-hero-lines { margin-top: 2.2rem; text-align: center; }
+.inv-hero-lines p { text-transform: uppercase; letter-spacing: 0.3em; text-indent: 0.3em; font-size: 0.74rem; line-height: 1.95; }
+.inv-scroll { margin-top: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 0.32em; text-indent: 0.32em; font-size: 0.58rem; color: var(--inv-muted); }
+.inv-scroll::after { content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.45rem auto 0; background: var(--inv-accent2); }
+.inv-verse { text-align: center; }
+.inv-verse-text { text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.95rem; line-height: 2; color: var(--inv-ink); }
+.inv-verse-ref { margin-top: 1.4rem; }
+.inv-rule { display: block; width: 2.6rem; height: 1px; margin: 1.6rem auto 0; background: var(--inv-accent2); }
+.inv-story-sign { text-align: center; margin-top: 2.4rem; }
+.inv-story-sign .inv-eyebrow { margin-bottom: 0.15rem; margin-top: 1.2rem; color: var(--inv-ink); opacity: 0.85; }
+.inv-story-sign .inv-eyebrow-date { margin-top: 0; letter-spacing: 0.42em; text-indent: 0.42em; }
+.inv-interlude { text-align: center; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.inv-interlude .inv-tagline { font-size: 2.1rem; line-height: 1.2; margin: 0; white-space: pre-line; }
+.inv-invite-sub { margin-bottom: 0.6rem; }
+.inv-invite-intro { text-align: center; max-width: 24rem; margin: 0 auto; }
+.inv-rows { list-style: none; margin: 1.6rem auto 0; padding: 0; display: grid; gap: 1.15rem; max-width: 22rem; }
+.inv-rows li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; }
+.inv-rows b, .inv-getting b { display: block; font-family: var(--inv-display); font-weight: 500; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.82rem; line-height: 1.5; color: var(--inv-ink); }
+.inv-rows span, .inv-getting span { display: block; text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.66rem; line-height: 1.6; color: var(--inv-accent); margin-top: 0.15rem; }
+.inv-ico { width: 2.2rem; height: 2.2rem; fill: none; stroke: var(--inv-accent); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.inv-ico-lg { display: block; width: 2.6rem; height: 2.6rem; margin: -0.7rem auto 0.9rem; stroke: var(--inv-ink); }
+.inv-ico-sm { width: 1.05rem; height: 1.05rem; stroke: currentColor; stroke-width: 1.6; }
+.inv-venue-photo { margin-bottom: 1.4rem; }
+.inv-venue-name { font-family: var(--inv-display); font-size: 1.4rem; text-align: center; color: var(--inv-ink); }
+.inv-venue-addr { text-align: center; }
+.inv-title-sub { margin-top: 2.6rem; margin-bottom: 0.8rem; font-size: 1.05rem; }
+.inv-getting { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; margin-top: 0.4rem; }
+.inv-btn-wide { display: flex; width: 100%; justify-content: center; align-items: center; gap: 0.6rem; margin-top: 0.65rem; }
+.inv-hashtag { font-family: var(--inv-display); font-size: 1.5rem; text-align: center; margin-top: 0.35rem; color: var(--inv-ink); }
+.inv-social-icons { display: flex; justify-content: center; gap: 1.7rem; margin-top: 1.3rem; }
+.inv-social-icons .inv-ico { width: 1.6rem; height: 1.6rem; stroke: var(--inv-ink); stroke-width: 1.5; }
+.inv-contact-head { display: flex; gap: 1rem; align-items: center; justify-content: center; text-align: left; }
+.inv-contact-head .inv-eyebrow { text-align: left; text-indent: 0; margin-bottom: 0.2rem; color: var(--inv-ink); }
+.inv-contact-cols { margin-top: 1.5rem; }
+.inv-contact-cols .inv-eyebrow { margin-bottom: 0.2rem; }
+.inv-dress-notes { text-align: center; margin-top: 0.4rem; }
+.inv-dress-notes > * + * { margin-top: 0.9rem; }
+.inv-dress-note { font-size: 0.62rem; line-height: 1.8; }
+.inv-gift-thanks { margin-top: 1.6rem; margin-bottom: 0; }
+.inv-amp[data-word] { font-family: var(--inv-display); font-style: italic; font-size: 0.5em; letter-spacing: 0; text-indent: 0; text-transform: none; }
+
+/* --- the looks: how each sets the names --- */
+.inv[data-look='heritage'] .inv-names { font-weight: 500; letter-spacing: 0.14em; text-indent: 0.14em; }
+.inv[data-look='romance'] .inv-names { text-transform: none; font-weight: 400; letter-spacing: 0.02em; text-indent: 0; font-size: clamp(2.6rem, 12.5cqw, 3.6rem); line-height: 1.1; }
+.inv[data-look='romance'] .inv-amp { font-size: 0.55em; }
+.inv[data-look='modern'] .inv-names { font-weight: 300; letter-spacing: 0.32em; text-indent: 0.32em; font-size: clamp(1.55rem, 7.2cqw, 2.1rem); }
+.inv[data-look='modern'] .inv-title { font-weight: 400; letter-spacing: 0.42em; text-indent: 0.42em; font-size: 0.95rem; }
+.inv[data-look='modern'] .inv-tagline { font-size: 1.45rem; }
+.inv[data-look='editorial'] .inv-names { font-weight: 400; letter-spacing: 0.12em; text-indent: 0.12em; }
+.inv[data-look='regal'] .inv-names { font-weight: 500; letter-spacing: 0.08em; text-indent: 0.08em; }
+
+/* --- the showcase: each look in a column the width of a phone --- */
+.looks-row { display: flex; gap: 1.5rem; overflow-x: auto; padding: 0.5rem 0 1.5rem; align-items: flex-start; scroll-snap-type: x proximity; }
+.looks-col { flex: none; width: 390px; scroll-snap-align: start; }
+.looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
+.looks-phone .inv { min-height: 100%; }
+.looks-phone .inv-hero { min-height: 784px; }
 
 /* the strip is decoration: none of it prints */
 @media print {

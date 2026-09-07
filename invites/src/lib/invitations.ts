@@ -23,6 +23,7 @@ import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
+import { LOOK_BY_KEY, isLook, type Look } from './looks';
 import { invitationPath } from './app-url';
 
 /**
@@ -32,7 +33,7 @@ import { invitationPath } from './app-url';
  * is the only writer of it.
  */
 
-export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string };
+export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string; lookKey?: string };
 export type StoredContent = Content & { theme?: ThemeOverride };
 
 /**
@@ -48,7 +49,7 @@ export type StoredContent = Content & { theme?: ThemeOverride };
  */
 export const RESERVED_SLUGS = new Set([
   // Directories under src/app.
-  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout',
+  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks',
   'privacy', 'refund-policy', 'signup', 'templates', 'terms',
   // Files under src/app that serve their own path.
   'robots.txt', 'sitemap.xml', 'favicon.ico',
@@ -168,15 +169,27 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
     if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Font choice is included in the Complete tier.');
     clean.fontsKey = theme.fontsKey;
   }
+  // A look is chosen the way fonts are: it is the fonts, and the lines with them.
+  if (theme.lookKey !== undefined) {
+    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Looks are included in the Complete tier.');
+    clean.lookKey = isLook(theme.lookKey) ? theme.lookKey : '';
+  }
   const content = contentOf(invitation.content);
   content.theme = { ...(content.theme ?? {}), ...clean };
   return prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
 }
 
 /** The palette and fonts a page renders with: the template's, overridden by the customer's. */
-export function resolveTheme(template: { palette: unknown; fonts: unknown }, content: StoredContent): { palette: Palette; fonts: Fonts } {
+/**
+ * The palette, the fonts and the look a page is set in. The design's own
+ * first, then what the customer chose over it. A look brings its fonts with
+ * it — that is what a look is — so a chosen look wins over a chosen font
+ * preset, and a design with a look ignores its own `fonts` column.
+ */
+export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent): { palette: Palette; fonts: Fonts; look?: Look } {
   let palette = paletteFrom(template.palette);
   let fonts = fontsFrom(template.fonts);
+  let look: Look | undefined = template.look && isLook(template.look) ? LOOK_BY_KEY[template.look] : undefined;
   const t = content.theme;
   if (t?.paletteKey) {
     const preset = PALETTE_PRESETS.find((p) => p.key === t.paletteKey);
@@ -185,9 +198,14 @@ export function resolveTheme(template: { palette: unknown; fonts: unknown }, con
   if (t?.palette) palette = paletteFrom({ ...palette, ...t.palette });
   if (t?.fontsKey) {
     const preset = FONT_PRESETS.find((f) => f.key === t.fontsKey);
-    if (preset) fonts = preset.fonts;
+    if (preset) {
+      fonts = preset.fonts;
+      look = undefined;
+    }
   }
-  return { palette, fonts };
+  if (t?.lookKey && isLook(t.lookKey)) look = LOOK_BY_KEY[t.lookKey];
+  if (look) fonts = look.fonts;
+  return { palette, fonts, look };
 }
 
 export async function updateSettings(

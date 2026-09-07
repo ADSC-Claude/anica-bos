@@ -1,6 +1,7 @@
 import type { Occasion, Tier } from '@prisma/client';
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
-import { t, tagline as taglineOf, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
+import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
+import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets } from '@/lib/openings';
@@ -36,6 +37,12 @@ export type RenderProps = {
   guest?: GuestForPage | null;
   preview?: boolean;
   print?: boolean;
+  /** The page alone: no opening, no music. For a showcase that sets several side by side. */
+  bare?: boolean;
+  /** "phone": lay the page out as a phone would whatever the screen, for a showcase column. */
+  shape?: 'phone';
+  /** A look to set the page in, over the design's and the customer's. For the showcase. */
+  look?: Look;
   businessName: string;
 };
 
@@ -128,14 +135,26 @@ function heroCopy(occasion: Occasion, cover: SectionData | undefined, lang: Lang
   }
 }
 
-function Hero({ occasion, content, lang, layout }: { occasion: Occasion; content: Content; lang: Lang; layout: string }) {
+/** "08 · 24 · 2026" — the date set the way a card sets it. */
+function dottedDate(dateKey: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  return m ? `${m[2]} · ${m[3]} · ${m[1]}` : '';
+}
+
+function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; eyebrow?: string }) {
   const cover = content.cover;
   const copy = heroCopy(occasion, cover, lang);
-  const eyebrow = layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow;
+  const eyebrow = lookEyebrow ?? (layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow);
   const photo = str(cover, 'coverPhoto') || str(cover, 'logo');
   const date = str(cover, 'date');
   const time = str(cover, 'time');
   const monogram = str(cover, 'monogram');
+  const joiner = look?.joiner ?? '&';
+  // The format's cover carries the place and the moment's three lines; the
+  // sentence that does the inviting waits for the invitation block.
+  const place = content.ceremony && str(content.ceremony, 'venue') ? content.ceremony : content.reception;
+  const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
+  const momentLines = format && !str(content.moment, 'backdrop') ? ['line1', 'line2', 'line3'].map((k) => str(content.moment, k)).filter(Boolean) : [];
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
@@ -149,24 +168,68 @@ function Hero({ occasion, content, lang, layout }: { occasion: Occasion; content
           <h1 className="inv-names">
             {copy.names.map((n, i) => (
               <span key={i}>
-                {i > 0 && <span className="inv-amp">&amp;</span>}
+                {i > 0 && (joiner === 'and' ? <span className="inv-amp" data-word="">{lang === 'tl' ? 'at' : 'and'}</span> : <span className="inv-amp">&amp;</span>)}
                 {n}
               </span>
             ))}
           </h1>
         </div>
         <div className="inv-hero-details">
-          {copy.sub && <p className="mt-3 text-sm opacity-90">{copy.sub}</p>}
-          {copy.intro && <p className="mx-auto mt-5 max-w-md text-base leading-relaxed opacity-95">{copy.intro}</p>}
-          {date && (
-            <p className="mt-6 text-lg">
-              <span className="inv-display block text-2xl">{formatDate(date, 'weekday')}</span>
-              {time && <span className="mt-1 block text-sm opacity-90">{formatTime(time)}</span>}
-            </p>
+          {format ? (
+            <>
+              {date && <p className="inv-hero-date">{dottedDate(date)}</p>}
+              {placeLines.map((l, i) => <p key={i} className="inv-eyebrow inv-hero-place">{l}</p>)}
+              {momentLines.length > 0 && (
+                <div className="inv-hero-lines">
+                  {momentLines.map((l, i) => <p key={i}>{l}</p>)}
+                </div>
+              )}
+              <p className="inv-scroll" aria-hidden>{t(lang, 'cover.scroll')}</p>
+            </>
+          ) : (
+            <>
+              {copy.sub && <p className="mt-3 text-sm opacity-90">{copy.sub}</p>}
+              {copy.intro && <p className="mx-auto mt-5 max-w-md text-base leading-relaxed opacity-95">{copy.intro}</p>}
+              {date && (
+                <p className="mt-6 text-lg">
+                  <span className="inv-display block text-2xl">{formatDate(date, 'weekday')}</span>
+                  {time && <span className="mt-1 block text-sm opacity-90">{formatTime(time)}</span>}
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
     </header>
+  );
+}
+
+/** The couple's verse or quotation, set in capitals after the cover. */
+function Verse({ text, source }: { text: string; source: string }) {
+  return (
+    <section id="verse" className="inv-section inv-verse">
+      <p className="inv-verse-text">{text}</p>
+      {source && <p className="inv-eyebrow inv-verse-ref">{source}</p>}
+      <span className="inv-rule" aria-hidden />
+    </section>
+  );
+}
+
+/** A line or two in script between chapters — the look's, or the couple's own. */
+function Interlude({ id, text }: { id: string; text: string }) {
+  return (
+    <section id={id} className="inv-section inv-interlude">
+      <p className="inv-tagline">{text}</p>
+    </section>
+  );
+}
+
+/** A line icon for the format's rows and headings. */
+function Ico({ name, className = '' }: { name: string; className?: string }) {
+  return (
+    <svg className={`inv-ico ${className}`} viewBox="0 0 24 24" aria-hidden>
+      <path d={ICON_PATHS[name] ?? ICON_PATHS.clock} />
+    </svg>
   );
 }
 
@@ -221,7 +284,22 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
   );
 }
 
-function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref }: { id: string; title: string; tagline?: string; data: SectionData; lang: Lang; fallbackDate: string; calendarHref?: string }) {
+type EventFormat = {
+  /** "ceremony": the invitation block with its rows; "reception": the venue and the way there. */
+  role: 'ceremony' | 'reception';
+  /** The sentence that does the inviting, and the full names over it. */
+  intro?: string;
+  sub?: string;
+  /** The attire, for the last row of the invitation block. */
+  attire?: string;
+  /** Ceremony and reception in one place: the venue block says so, and the invitation block skips the map. */
+  sameVenue: boolean;
+  /** No venue block follows, so the invitation block carries the map itself. */
+  mapHere: boolean;
+  gettingTitle: string;
+};
+
+function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref, format }: { id: string; title: string; tagline?: string; data: SectionData; lang: Lang; fallbackDate: string; calendarHref?: string; format?: EventFormat }) {
   const venue = str(data, 'venue');
   if (!venue) return null;
   const date = str(data, 'date') || fallbackDate;
@@ -229,6 +307,56 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
   const maps = mapsHref(data);
   const waze = wazeHref(data);
   const photo = str(data, 'photo');
+  const address = str(data, 'address');
+  if (format?.role === 'ceremony') {
+    const weekday = date ? formatDate(date, 'weekday').split(',')[0] : '';
+    return (
+      <Section id={id} title={title} tagline={tagline}>
+        {format.sub && <p className="inv-eyebrow inv-invite-sub">{format.sub}</p>}
+        {format.intro && <p className="inv-invite-intro">{format.intro}</p>}
+        <ul className="inv-rows">
+          {date && <li><Ico name="calendar" /><div><b>{weekday}</b><span>{formatDate(date)}</span></div></li>}
+          {time && <li><Ico name="clock" /><div><b>{formatTime(time)}</b><span>{t(lang, 'invitation.ceremony')}</span></div></li>}
+          <li><Ico name="pin" /><div><b>{venue}</b>{address && <span>{address}</span>}</div></li>
+          {format.attire && <li><Ico name="dress" /><div><b>{format.attire}</b></div></li>}
+        </ul>
+        {str(data, 'seatedBy') && <p className="inv-muted mt-4 text-center text-sm">{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
+        {(format.mapHere || !format.sameVenue || calendarHref) && (
+          <div className="no-print mt-5 flex flex-wrap justify-center gap-2">
+            {(format.mapHere || !format.sameVenue) && maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
+            {(format.mapHere || !format.sameVenue) && waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.waze')}</a>}
+            {calendarHref && <a href={calendarHref} className="inv-btn inv-btn-outline">{t(lang, 'calendar.add')}</a>}
+          </div>
+        )}
+      </Section>
+    );
+  }
+  if (format?.role === 'reception') {
+    return (
+      <Section id={id} title={title} tagline={tagline}>
+        {photo && <img src={imageUrl(photo, IMAGE.feature)} alt="" className="inv-photo inv-venue-photo aspect-[4/3]" loading="lazy" />}
+        <p className="inv-eyebrow">{format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception')}</p>
+        <p className="inv-venue-name">{venue}</p>
+        {address && <p className="inv-venue-addr">{address}</p>}
+        {time && !format.sameVenue && <p className="mt-2 text-center">{formatTime(time)}</p>}
+        {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm">{str(data, 'parkingNote')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
+        <h3 className="inv-title inv-title-sub">{format.gettingTitle}</h3>
+        <div className="inv-card inv-getting">
+          <Ico name="pin" />
+          <div>
+            <b>{venue}</b>
+            {address && <span>{address}</span>}
+          </div>
+        </div>
+        <div className="no-print">
+          {maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openGoogle')}</a>}
+          {waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline inv-btn-wide"><Ico name="pin" className="inv-ico-sm" />{t(lang, 'map.openWaze')}</a>}
+        </div>
+      </Section>
+    );
+  }
   return (
     <Section id={id} title={title} tagline={tagline}>
       <div className="inv-card text-center">
@@ -269,14 +397,20 @@ function NameList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function Entourage({ data, lang, tagline }: { data: SectionData; lang: Lang; tagline?: string }) {
+function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: Lang; tagline?: string; title?: string }) {
   const principal = rows<{ ninong: string; ninang: string }>(data, 'principalSponsors').filter((p) => p.ninong || p.ninang);
   const secondary = rows<{ role: string; first: string; second: string }>(data, 'secondarySponsors').filter((p) => p.first || p.second);
   const namesOf = (k: string) => rows<{ name: string }>(data, k).map((r) => r.name);
   const honor = str(data, 'honorTitle') === 'matron' ? t(lang, 'entourage.matronOfHonor') : t(lang, 'entourage.maidOfHonor');
   return (
-    <Section id="entourage" title={t(lang, 'entourage.title')} tagline={tagline}>
+    <Section id="entourage" title={title ?? t(lang, 'entourage.title')} tagline={tagline}>
       <div className="space-y-8">
+        {(namesOf('brideParents').some(nonEmpty) || namesOf('groomParents').some(nonEmpty)) && (
+          <div className="space-y-6">
+            <NameList title={t(lang, 'entourage.brideParents')} items={namesOf('brideParents')} />
+            <NameList title={t(lang, 'entourage.groomParents')} items={namesOf('groomParents')} />
+          </div>
+        )}
         {principal.length > 0 && (
           <div>
             <p className="inv-eyebrow">{t(lang, 'entourage.principal')}</p>
@@ -370,11 +504,36 @@ function Eighteen({ data, lang }: { data: SectionData; lang: Lang }) {
 
 const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
 
-function DressCode({ data, lang, tagline, layout }: { data: SectionData; lang: Lang; tagline?: string; layout?: string }) {
+function DressCode({ data, lang, tagline, layout, title, format, note }: { data: SectionData; lang: Lang; tagline?: string; layout?: string; title?: string; format?: boolean; note?: string }) {
   const colors = rows<string>(data, 'colors');
   const attire = ATTIRE[str(data, 'attire')] ?? '';
+  const line = format ? attire || tagline : tagline || (layout === 'capiz' ? attire || undefined : undefined);
+  if (format) {
+    return (
+      <Section id="dress-code" title={title ?? t(lang, 'dressCode.title')} tagline={line}>
+        {colors.length > 0 && <DressFigures colors={colors} />}
+        <div className="inv-dress-notes">
+          {str(data, 'attireText') && <p>{str(data, 'attireText')}</p>}
+          {colors.length > 0 && (
+            <div className="inv-swatches">
+              {colors.map((c) => <span key={c} className="inv-swatch" style={{ background: c }} title={c} />)}
+            </div>
+          )}
+          {note && <p className="inv-eyebrow inv-dress-note">{note}</p>}
+          {bool(data, 'avoidWhite') && <p className="inv-muted text-sm">{t(lang, 'dressCode.avoidWhite')}</p>}
+          {(str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) && (
+            <div className="inv-two inv-attire text-sm">
+              {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
+              {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
+            </div>
+          )}
+          {str(data, 'note') && <p className="whitespace-pre-line text-sm">{str(data, 'note')}</p>}
+        </div>
+      </Section>
+    );
+  }
   return (
-    <Section id="dress-code" title={t(lang, 'dressCode.title')} tagline={tagline || (layout === 'capiz' ? attire || undefined : undefined)}>
+    <Section id="dress-code" title={title ?? t(lang, 'dressCode.title')} tagline={line}>
       {layout === 'capiz' && colors.length > 0 && <DressFigures colors={colors} />}
       <div className="inv-card text-center">
         {(attire || str(data, 'attireText')) && (
@@ -406,11 +565,12 @@ function DressCode({ data, lang, tagline, layout }: { data: SectionData; lang: L
   );
 }
 
-function Gift({ data, lang, title, tagline }: { data: SectionData; lang: Lang; title: string; tagline?: string }) {
+function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionData; lang: Lang; title: string; tagline?: string; format?: boolean; thanks?: string }) {
   const registry = rows<{ label: string; url: string }>(data, 'registry');
   const qr = str(data, 'gcashQr');
   return (
     <Section id="gift" title={title} tagline={tagline}>
+      {format && <Ico name="gift" className="inv-ico-lg" />}
       {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'text')}</p>}
       {(qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
@@ -439,6 +599,7 @@ function Gift({ data, lang, title, tagline }: { data: SectionData; lang: Lang; t
           ))}
         </div>
       )}
+      {thanks && <p className="inv-tagline inv-gift-thanks">{thanks}</p>}
     </Section>
   );
 }
@@ -451,7 +612,7 @@ function stripReservedSentence(note: string): string {
     .trim();
 }
 
-function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string }) {
+function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string }) {
   const deadline = str(data, 'deadline');
   const open = rsvpOpen(inv);
   const seatsCap = personal && guest ? guest.seatsAllotted + (guest.plusOneAllowed ? 1 : 0) : 10;
@@ -464,7 +625,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
   const greeting = personal && guest ? guest.salutation || guest.name : '';
 
   return (
-    <Section id="rsvp" title={t(lang, 'rsvp.title')} tagline={tagline}>
+    <Section id="rsvp" title={title ?? t(lang, 'rsvp.title')} tagline={tagline}>
       {greeting && (
         <p className="inv-display mb-3 text-center text-2xl">
           {t(lang, 'rsvp.dear')} {greeting},
@@ -531,7 +692,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
 
 const STORY_FRAMES = ['arch', 'polaroid', 'polaroid', 'plain', 'circle'] as const;
 
-function Story({ data, lang, title, tagline, layout }: { data: SectionData; lang: Lang; title: string; tagline?: string; layout?: string }) {
+function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionData; lang: Lang; title: string; tagline?: string; layout?: string; signoff?: { names: string; date: string } }) {
   const timeline = rows<{ date: string; title: string; text: string; photo: string }>(data, 'timeline');
   const beside = layout === 'capiz';
   return (
@@ -570,6 +731,13 @@ function Story({ data, lang, title, tagline, layout }: { data: SectionData; lang
           </ol>
         </div>
       )}
+      {signoff && (
+        <div className="inv-story-sign">
+          <span className="inv-rule" aria-hidden />
+          <p className="inv-eyebrow">{signoff.names}</p>
+          {signoff.date && <p className="inv-eyebrow inv-eyebrow-date">{signoff.date}</p>}
+        </div>
+      )}
       {timeline.length > 0 && !beside && (
         <ol className="inv-timeline">
           {timeline.map((m, i) => (
@@ -586,14 +754,14 @@ function Story({ data, lang, title, tagline, layout }: { data: SectionData; lang
   );
 }
 
-function Gallery({ data, lang, tier, tagline }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string }) {
+function Gallery({ data, lang, tier, tagline, title }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string }) {
   const limit = galleryLimit(tier);
   const photos = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
   const video = hasFeature(tier, 'video') ? str(data, 'videoUrl') : '';
   if (!photos.length && !video) return null;
   const embed = video ? videoEmbed(video) : null;
   return (
-    <Section id="gallery" title={t(lang, 'gallery.title')} tagline={tagline}>
+    <Section id="gallery" title={title ?? t(lang, 'gallery.title')} tagline={tagline}>
       {photos.length > 0 && (
         <div className="inv-gallery">
           {photos.map((p, i) => (
@@ -684,19 +852,44 @@ function Travel({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-function Social({ data, lang, tagline }: { data: SectionData; lang: Lang; tagline?: string }) {
+function socialHref(network: 'instagram' | 'tiktok' | 'facebook', handle: string): string {
+  if (/^https?:\/\//.test(handle)) return handle;
+  const name = handle.replace(/^@/, '');
+  return network === 'instagram' ? `https://instagram.com/${name}` : network === 'tiktok' ? `https://www.tiktok.com/@${name}` : `https://facebook.com/${name}`;
+}
+
+function Social({ data, lang, tagline, title, format, cta }: { data: SectionData; lang: Lang; tagline?: string; title?: string; format?: boolean; cta?: string }) {
   const hashtag = str(data, 'hashtag');
+  const tag = hashtag ? (hashtag.startsWith('#') ? hashtag : `#${hashtag}`) : '';
+  const networks = (['instagram', 'tiktok', 'facebook'] as const).filter((n) => str(data, n));
   return (
-    <Section id="social" title={t(lang, 'social.title')} tagline={tagline}>
-      {hashtag && (
+    <Section id="social" title={title ?? t(lang, 'social.title')} tagline={format ? undefined : tagline}>
+      {format && (
+        <>
+          <Ico name="camera" className="inv-ico-lg" />
+          {tagline && <p className="inv-tagline">{tagline}</p>}
+          {tag && cta && <p className="text-center">{cta}</p>}
+          {tag && <p className="inv-hashtag">{tag}</p>}
+          {networks.length > 0 && (
+            <p className="inv-social-icons">
+              {networks.map((n) => (
+                <a key={n} href={socialHref(n, str(data, n))} target="_blank" rel="noopener" aria-label={n} title={str(data, n)}><Ico name={n} /></a>
+              ))}
+            </p>
+          )}
+        </>
+      )}
+      {!format && tag && (
         <p className="text-center">
           <span className="inv-eyebrow">{t(lang, 'social.hashtag')}</span>
-          <span className="inv-display text-3xl">{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</span>
+          <span className="inv-display text-3xl">{tag}</span>
         </p>
       )}
-      <p className="inv-muted mt-2 text-center text-sm">
-        {[str(data, 'instagram') && `IG ${str(data, 'instagram')}`, str(data, 'facebook') && `FB ${str(data, 'facebook')}`].filter(Boolean).join(' · ')}
-      </p>
+      {!format && (
+        <p className="inv-muted mt-2 text-center text-sm">
+          {[str(data, 'instagram') && `IG ${str(data, 'instagram')}`, str(data, 'tiktok') && `TikTok ${str(data, 'tiktok')}`, str(data, 'facebook') && `FB ${str(data, 'facebook')}`].filter(Boolean).join(' · ')}
+        </p>
+      )}
       {bool(data, 'unplugged') && (
         <div className="inv-card mt-4 text-center">
           <p className="inv-eyebrow">{t(lang, 'social.unplugged')}</p>
@@ -720,6 +913,9 @@ function GuestPhotos({
   token,
   print,
   tagline,
+  title,
+  format,
+  intro,
 }: {
   inv: PublicInvitation;
   data: SectionData;
@@ -728,11 +924,16 @@ function GuestPhotos({
   token?: string;
   print?: boolean;
   tagline?: string;
+  title?: string;
+  format?: boolean;
+  intro?: string;
 }) {
   const photos = inv.media;
   if (!photos.length && print) return null;
   return (
-    <Section id="guest-photos" title={t(lang, 'photos.title')} tagline={tagline}>
+    <Section id="guest-photos" title={title ?? t(lang, 'photos.title')} tagline={tagline}>
+      {format && <Ico name="upload" className="inv-ico-lg" />}
+      {format && intro && <p className="mx-auto mb-4 max-w-sm text-center">{intro}</p>}
       {photos.length > 0 ? (
         <div className="inv-gallery">
           {photos.map((m) => (
@@ -774,10 +975,10 @@ function GuestPhotos({
   );
 }
 
-function Guestbook({ inv, data, lang, hostsNoun, slug, tagline }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; tagline?: string }) {
+function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; tagline?: string; title?: string }) {
   if (!bool(data, 'enabled')) return null;
   return (
-    <Section id="guestbook" title={t(lang, 'guestbook.title')} tagline={tagline}>
+    <Section id="guestbook" title={title ?? t(lang, 'guestbook.title')} tagline={tagline}>
       {inv.guestbook.length > 0 && (
         <ul className="mb-5 space-y-2">
           {inv.guestbook.map((g) => (
@@ -841,12 +1042,48 @@ function Family({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-function Contact({ data, lang, tagline }: { data: SectionData; lang: Lang; tagline?: string }) {
+function Contact({ data, lang, tagline, title, format, note }: { data: SectionData; lang: Lang; tagline?: string; title?: string; format?: boolean; note?: string }) {
+  if (format) {
+    const people = [
+      { name: str(data, 'name'), phone: str(data, 'phone') },
+      { name: str(data, 'name2'), phone: str(data, 'phone2') },
+    ].filter((p) => p.name || p.phone);
+    return (
+      <Section id="contact" title={title ?? t(lang, 'contact.title')}>
+        <div className="inv-contact-head">
+          <Ico name="phone" />
+          <div>
+            {tagline && <p className="inv-eyebrow">{tagline}</p>}
+            {note && <p>{note}</p>}
+          </div>
+        </div>
+        {people.length > 0 && (
+          <div className={`inv-contact-cols ${people.length > 1 ? 'inv-two' : ''}`}>
+            {people.map((p, i) => (
+              <div key={i} className="text-center">
+                {p.name && <p className="inv-eyebrow">{p.name}</p>}
+                {p.phone && <p><a href={`tel:${p.phone.replace(/\s/g, '')}`}>{p.phone}</a></p>}
+              </div>
+            ))}
+          </div>
+        )}
+        {(str(data, 'chatNote') || str(data, 'messenger')) && (
+          <p className="inv-muted mt-4 text-center text-sm">
+            {str(data, 'messenger') ? <a href={str(data, 'messenger')} target="_blank" rel="noopener" className="underline">{str(data, 'chatNote') || t(lang, 'contact.chat')}</a> : str(data, 'chatNote')}
+          </p>
+        )}
+        {str(data, 'email') && <p className="mt-1 text-center text-sm"><a href={`mailto:${str(data, 'email')}`} className="underline">{str(data, 'email')}</a></p>}
+        {str(data, 'registrationNote') && <p className="mt-3 whitespace-pre-line text-center text-sm">{str(data, 'registrationNote')}</p>}
+      </Section>
+    );
+  }
   return (
-    <Section id="contact" title={t(lang, 'contact.title')} tagline={tagline}>
+    <Section id="contact" title={title ?? t(lang, 'contact.title')} tagline={tagline}>
       <div className="inv-card text-center">
         {str(data, 'name') && <p className="font-semibold">{str(data, 'name')}</p>}
         {str(data, 'phone') && <p><a href={`tel:${str(data, 'phone').replace(/\s/g, '')}`} className="underline">{str(data, 'phone')}</a></p>}
+        {str(data, 'name2') && <p className="mt-2 font-semibold">{str(data, 'name2')}</p>}
+        {str(data, 'phone2') && <p><a href={`tel:${str(data, 'phone2').replace(/\s/g, '')}`} className="underline">{str(data, 'phone2')}</a></p>}
         {str(data, 'email') && <p><a href={`mailto:${str(data, 'email')}`} className="underline">{str(data, 'email')}</a></p>}
         {str(data, 'messenger') && <p><a href={str(data, 'messenger')} target="_blank" rel="noopener" className="underline">Messenger</a></p>}
         {str(data, 'registrationNote') && <p className="mt-2 whitespace-pre-line text-sm">{str(data, 'registrationNote')}</p>}
@@ -897,6 +1134,15 @@ const ICON_PATHS: Record<string, string> = {
   camera: 'M4 8h3l2-3h6l2 3h3v12H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
   rings: 'M14.5 13a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0zM20.5 13a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0zM12 4l-2 2 2 2 2-2z',
   clock: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 7v5l3 2',
+  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M8 14h2M12 14h2M16 14h1',
+  pin: 'M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z',
+  dress: 'M9 3l3 3 3-3M9 3l-1 6h8l-1-6M8 9l-3 11h14L16 9',
+  gift: 'M3 9h18v4H3zM5 13v8h14v-8M12 9v12M12 9c-2 0-4-1-4-3s3-2 4 3c1-5 4-5 4-3s-2 3-4 3',
+  phone: 'M6 3h4l2 5-2.5 1.5a11 11 0 0 0 5 5L16 12l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z',
+  upload: 'M7 18a4 4 0 0 1-1-7.9A6 6 0 0 1 17.6 8 4 4 0 0 1 17 18H7zM12 12v9M9 15l3-3 3 3',
+  instagram: 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM17.5 6.5h.01',
+  tiktok: 'M13 3v12a3.5 3.5 0 1 1-3.5-3.5M13 3a5 5 0 0 0 5 5',
+  facebook: 'M14 3h3v4h-2c-.6 0-1 .4-1 1v3h3l-.5 4H14v6h-4v-6H7v-4h3V8a5 5 0 0 1 5-5z',
 };
 
 function ProgramIcon({ title }: { title: string }) {
@@ -977,13 +1223,20 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, shape, look: lookOverride, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
-  const { palette, fonts } = resolveTheme(inv.template, content);
+  const theme = resolveTheme(inv.template, content);
+  const { palette } = theme;
+  const look = lookOverride ?? theme.look;
+  const fonts = lookOverride ? lookOverride.fonts : theme.fonts;
   const layout = isLayout(inv.template.layout) ? inv.template.layout : 'classic';
   const style = cssVars(palette, fonts) as CSSProperties;
+  // The format: the page structure the reference sets — the cover with its
+  // place and lines, the verse, the invitation rows, the venue and the way
+  // there, the interludes. Capiz is built to it; the look supplies the words.
+  const format = layout === 'capiz';
   const personal = Boolean(guest) && hasFeature(inv.tier, 'rsvp.personalLinks');
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
@@ -1008,7 +1261,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    */
   function openingProps() {
     const assets = openingAssets(inv, inv.template);
-    const style = print
+    const style = print || bare
       ? 'none'
       : resolveOpening({
           chosen: str(content.cover, 'opening'),
@@ -1046,8 +1299,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const opening = openingProps();
 
   const order = sectionOrder(occasion, layout);
-  // The line in script under each heading — a Capiz trait; other designs show none.
-  const tag = (key: string) => (layout === 'capiz' ? taglineOf(lang, key) : undefined);
+  // The look's words: the line under each heading, and the headings it names.
+  const line = (key: LineKey) => lookLine(look, lang, key);
+  const named = (key: TitleKey, fallback: string) => lookTitle(look, lang, key) ?? fallback;
+  const sameVenue = Boolean(str(content.ceremony, 'venue')) && str(content.ceremony, 'venue').trim().toLowerCase() === str(content.reception, 'venue').trim().toLowerCase();
+  const hasReception = visible('reception') && Boolean(str(content.reception, 'venue'));
+  const names = displayTitle(occasion, content);
   const body = order.map((key) => {
     const block = section(key);
     const garland = layout === 'capiz' && block ? GARLANDS[key] : undefined;
@@ -1063,73 +1320,120 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} />;
+        return (
+          <Fragment key={key}>
+            <Hero occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} eyebrow={look ? line('cover') : undefined} />
+            {format && str(data, 'verse') && <Verse text={str(data, 'verse')} source={str(data, 'verseRef')} />}
+          </Fragment>
+        );
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
-          <Section key={key} id="countdown" eyebrow={layout === 'capiz' ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={layout === 'capiz' ? str(data, 'label') || tag('countdown') : undefined}>
+          <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>
             <Countdown target={eventAt.toISOString()} labels={[t(lang, 'countdown.days'), t(lang, 'countdown.hours'), t(lang, 'countdown.minutes'), t(lang, 'countdown.seconds')]} today={t(lang, 'countdown.today')} />
           </Section>
         ) : null;
       case 'parents':
         return <Parents key={key} occasion={occasion} data={data} lang={lang} />;
-      case 'ceremony':
-        return <EventBlock key={key} id="ceremony" title={sectionTitle('ceremony', occasion, lang)} tagline={tag('ceremony')} data={data} lang={lang} fallbackDate={coverDate} calendarHref={calendarHref} />;
-      case 'reception':
-        return <EventBlock key={key} id="reception" title={sectionTitle('reception', occasion, lang)} tagline={tag('reception')} data={data} lang={lang} fallbackDate={str(content.ceremony, 'venue') ? '' : coverDate} calendarHref={str(content.ceremony, 'venue') ? undefined : calendarHref} />;
+      case 'ceremony': {
+        const block = (
+          <EventBlock
+            id="ceremony"
+            title={named('invitation', sectionTitle('ceremony', occasion, lang))}
+            tagline={line('invitation')}
+            data={data}
+            lang={lang}
+            fallbackDate={coverDate}
+            calendarHref={calendarHref}
+            format={format ? { role: 'ceremony', intro: str(content.cover, 'intro'), sub: heroCopy(occasion, content.cover, lang).sub, attire: ATTIRE[str(content.dressCode, 'attire')], sameVenue, mapHere: !hasReception, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
+          />
+        );
+        const after = format && str(data, 'venue') ? str(content.cover, 'interlude1') || line('interlude1') : '';
+        return after ? (
+          <Fragment key={key}>
+            {block}
+            <Interlude id="interlude-1" text={after} />
+          </Fragment>
+        ) : (
+          <Fragment key={key}>{block}</Fragment>
+        );
+      }
+      case 'reception': {
+        const block = (
+          <EventBlock
+            id="reception"
+            title={named('venue', sectionTitle('reception', occasion, lang))}
+            tagline={line('venue')}
+            data={data}
+            lang={lang}
+            fallbackDate={str(content.ceremony, 'venue') ? '' : coverDate}
+            calendarHref={str(content.ceremony, 'venue') ? undefined : calendarHref}
+            format={format ? { role: 'reception', sameVenue, mapHere: true, gettingTitle: named('getting', t(lang, 'venue.getting')) } : undefined}
+          />
+        );
+        const after = format && str(data, 'venue') ? str(content.cover, 'interlude2') || line('interlude2') : '';
+        return after ? (
+          <Fragment key={key}>
+            {block}
+            <Interlude id="interlude-2" text={after} />
+          </Fragment>
+        ) : (
+          <Fragment key={key}>{block}</Fragment>
+        );
+      }
       case 'entourage':
-        return <Entourage key={key} data={data} lang={lang} tagline={tag('entourage')} />;
+        return <Entourage key={key} data={data} lang={lang} tagline={line('entourage')} title={lookTitle(look, lang, 'entourage')} />;
       case 'sponsors':
         return <Sponsors key={key} data={data} lang={lang} />;
       case 'eighteen':
         return <Eighteen key={key} data={data} lang={lang} />;
       case 'dressCode':
-        return <DressCode key={key} data={data} lang={lang} layout={layout} />;
+        return <DressCode key={key} data={data} lang={lang} layout={layout} title={lookTitle(look, lang, 'dressCode')} tagline={line('dressCode')} format={format} note={line('dressNote')} />;
       case 'gift':
-        return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : t(lang, 'gift.title')} tagline={tag('gift')} />;
+        return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : named('gift', t(lang, 'gift.title'))} format={format} thanks={line('giftThanks')} />;
       case 'rsvp':
-        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} tagline={tag('rsvp')} />;
+        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} />;
       case 'story':
-        return <Story key={key} data={data} lang={lang} title={t(lang, 'story.title')} tagline={tag('story')} layout={layout} />;
+        return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery':
-        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={tag('gallery')} />;
+        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} />;
       case 'program':
-        return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : t(lang, 'program.title')} tagline={tag('program')} />;
+        return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : named('program', t(lang, 'program.title'))} tagline={line('program')} />;
       case 'faq':
         return <Faq key={key} data={data} lang={lang} />;
       case 'moment':
-        return <Moment key={key} data={data} />;
+        return <Moment key={key} data={data} format={format} />;
       case 'travel':
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':
-        return <Social key={key} data={data} lang={lang} tagline={tag('social')} />;
+        return <Social key={key} data={data} lang={lang} tagline={line('social')} title={lookTitle(look, lang, 'social')} format={format} cta={line('socialCta')} />;
       case 'music':
         return null;
       case 'guestbook':
-        return <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={tag('guestbook')} />;
+        return <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
         return hasFeature(inv.tier, 'photoSharing') ? (
-          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={tag('photos')} />
+          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} />
         ) : null;
       case 'closing':
-        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={tag('closing')} names={layout === 'capiz' ? displayTitle(occasion, content) : undefined} date={layout === 'capiz' ? openingDate(coverDate) : undefined} />;
+        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={line('closing')} names={format ? names : undefined} date={format ? dottedDate(coverDate) : undefined} />;
       case 'speakers':
         return <Speakers key={key} data={data} lang={lang} />;
       case 'family':
         return <Family key={key} data={data} lang={lang} />;
       case 'contact':
-        return <Contact key={key} data={data} lang={lang} tagline={tag('contact')} />;
+        return <Contact key={key} data={data} lang={lang} tagline={line('contact')} title={lookTitle(look, lang, 'contact')} format={format} note={line('contactNote')} />;
     }
   }
 
   return (
-    <div className="inv" data-layout={layout} style={style} lang={lang}>
+    <div className="inv" data-layout={layout} data-look={look?.key} data-shape={shape} style={style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
       {preview && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
       )}
-      <Shell opening={opening} music={print ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+      <Shell opening={opening} music={print || bare ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {layout === 'capiz' && <CapizDecor />}
         {body}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
@@ -1159,11 +1463,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
  * swap the photograph for a client without touching the words, the frame or
  * anything else on the page.
  */
-function Moment({ data }: { data: SectionData }) {
+function Moment({ data, format }: { data: SectionData; format?: boolean }) {
   const frame = str(data, 'frame') || 'arch';
   const { url, kind } = resolveBackdrop(str(data, 'backdrop'), str(data, 'preset'));
   const lines = ['line1', 'line2', 'line3'].map((k) => str(data, k)).filter(Boolean);
   if (!url && lines.length === 0) return null;
+  // The format sets the three lines on the cover, so without the couple's own
+  // photograph behind the frame the block has nothing of its own to show.
+  if (format && !str(data, 'backdrop')) return null;
   return (
     <section id="moment" className="inv-moment" data-frame={frame} data-kind={kind}>
       <div className="inv-moment-view">

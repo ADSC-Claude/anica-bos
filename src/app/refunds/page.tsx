@@ -1,29 +1,30 @@
 import Link from 'next/link';
 import { getSettings } from '@/lib/settings';
-import { buildPrivacyNotice, NOTICE_EFFECTIVE } from '@/lib/privacy-notice';
-import { PRIVACY_CONSENT } from '@/lib/consent';
+import { buildRefundPolicy, REFUND_POLICY_EFFECTIVE } from '@/lib/refund-policy';
+import { cancellationPolicyText } from '@/lib/booking-policy';
 import { BrandMark } from '@/components/brand-mark';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Privacy notice',
+  title: 'Refund policy',
   description:
-    'How ANICA Wellness Spa collects, uses, keeps and erases your personal and health information, under the Philippine Data Privacy Act of 2012.',
+    'When a reservation fee at ANICA Wellness Spa is refunded, how to ask for a refund, and how long it takes to arrive.',
 };
 
 /**
- * The long version of the sentence beside the tick box.
+ * The refund policy, on a page of its own.
  *
- * Its own page rather than a modal on the booking form: a notice you have to be
- * mid-booking to read is a notice written for the spa's benefit rather than the
- * client's. This one can be linked to, bookmarked, printed and read by somebody
- * who has not decided to book yet — including by a client who wants to check
- * what the spa holds before asking for it back.
+ * Its own URL rather than a paragraph inside the booking form, for two
+ * reasons. A card acquirer requires the policy to be readable by somebody who
+ * has not started a booking — that is the point of the requirement, since a
+ * policy you can only reach mid-purchase is one you cannot compare beforehand.
+ * And a guest looking for it is usually looking *after* something went wrong,
+ * which is the worst moment to make her retrace a checkout to find it.
  */
-export default async function PrivacyPage() {
+export default async function RefundsPage() {
   const settings = await getSettings();
-  const sections = buildPrivacyNotice(settings);
+  const sections = buildRefundPolicy(settings);
 
   return (
     <div className="min-h-screen bg-sand-50">
@@ -42,18 +43,22 @@ export default async function PrivacyPage() {
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-8">
-        <h1 className="text-2xl font-semibold text-cocoa-800">Privacy notice</h1>
-        <p className="muted mt-1">In effect from {NOTICE_EFFECTIVE}.</p>
+        <h1 className="text-2xl font-semibold text-cocoa-800">Refund policy</h1>
+        <p className="muted mt-1">In effect from {REFUND_POLICY_EFFECTIVE}.</p>
 
-        {/* The tick box itself, quoted at the top. Somebody arriving from the
-            booking form is usually here to find out what they just agreed to,
-            and making them infer it from ten sections below would be a strange
-            way to answer that. */}
+        {/* The rule in one sentence, before the detail. Somebody who arrived
+            here from a cancelled booking wants the answer, not a document —
+            and the same sentence is what she was shown before she paid. */}
         <div className="mt-5 rounded-xl border border-cocoa-200 bg-cocoa-50 px-4 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
-            What you tick when you book
+            The short version
           </p>
-          <p className="mt-1.5 text-sm text-cocoa-700">{PRIVACY_CONSENT}</p>
+          <p className="mt-1.5 text-sm text-cocoa-700">
+            {cancellationPolicyText({
+              windowHours: settings['booking.cancellationHours'],
+              inTimePolicy: settings['booking.depositOnCancel'],
+            })}
+          </p>
           <p className="mt-2 text-xs text-cocoa-500">
             Everything below is that sentence, at length.
           </p>
@@ -94,8 +99,8 @@ export default async function PrivacyPage() {
             {settings['business.address']}
           </p>
           <span className="flex gap-4">
-            <Link href="/refunds" className="underline underline-offset-4">
-              Refund policy
+            <Link href="/privacy" className="underline underline-offset-4">
+              Privacy notice
             </Link>
             <Link href="/" className="underline underline-offset-4">
               Back to the spa

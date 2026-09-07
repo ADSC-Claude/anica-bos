@@ -698,6 +698,24 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
 };
 
 /** The sections a customer can fill for this occasion — the hidden ones left out. */
+/**
+ * A layout may tell its sections in a different order from the occasion's —
+ * Capiz follows the reference it was drawn from: the story and the details
+ * first, the forms and the countdown at the end. Keys not listed keep their
+ * occasion order after the ones that are.
+ */
+export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
+  capiz: ['cover', 'moment', 'story', 'gallery', 'ceremony', 'entourage', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+};
+
+export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
+  const base = OCCASION_SECTIONS[occasion];
+  const own = LAYOUT_ORDER[layout];
+  if (!own) return base;
+  const listed = own.filter((k) => base.includes(k));
+  return [...listed, ...base.filter((k) => !listed.includes(k))];
+}
+
 export function sectionsFor(occasion: Occasion): SectionDef[] {
   return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
 }

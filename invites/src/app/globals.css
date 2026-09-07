@@ -506,127 +506,375 @@ table.data tr:hover td {
   border-style: dashed;
 }
 
-/* Capiz: a strung border of shell discs down both edges, drawn from the palette
-   rather than supplied as artwork — so the same design recolours, and a customer
-   who changes the accent gets shell in their own colour instead of a border that
-   no longer matches the page it frames.
+/* ===========================================================================
+   Capiz: the page after the opening.
 
-   Real capiz is strung in overlapping columns, like scales: each disc is large,
-   ringed in thin brass, and sits half over the one above it. Two columns of
-   big discs read as capiz; a field of small ones reads as polka dots.
-
-   The pattern is four background layers because a repeating tile clips whatever
-   spills outside it — so a disc taller than its pitch cannot overlap its own
-   neighbour. Each column is therefore two layers on a double-height tile, one
-   phase-shifted past the other, and the second column is shifted half a step
-   again so the two interlock.
-
-   Absolute rather than fixed: a fixed strip would stay put while the page
-   scrolls under it, and would not print. */
+   The material is photographed, not drawn: pieces cut from the design's own
+   frame images in /public/capiz — a looping satin ground, four corner
+   clusters, two looping runs of hanging shell, and the arch — laid over the
+   page as layers, so the shells sit in the gaps between blocks and over the
+   edges of photos the way they do on a real strung panel. Everything else is
+   type: Cinzel for the names, Cormorant for the rest, Pinyon Script for the
+   line under each heading.
+   =========================================================================== */
 .inv[data-layout='capiz'] {
-  position: relative;
-  /* Disc, vertical step, and the strip. The disc is as wide as the strip, so
-     the inner column shows whole and the outer one runs off the page edge —
-     which is what gives the border its scalloped inside and its cropped
-     outside, the way a strung panel meets its frame. */
-  /* Shell is nacre — light in every palette, so it is mostly white with a
-     little of the card's own white mixed in rather than the card colour
-     itself, which on a dark palette would give black shell. */
-  --shell-pearl: color-mix(in srgb, var(--inv-surface) 32%, #fff);
-  --shell-d: 2.95rem;
-  --shell-step: 2.05rem;
-  --shell-w: 2.95rem;
-  padding-left: var(--shell-w);
-  padding-right: var(--shell-w);
+  --inv-script: 'Pinyon Script', 'Snell Roundhand', cursive;
+  --inv-names: 'Cinzel', var(--inv-display), serif;
+  padding: 0;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  /* The ground: draped silk, one image that repeats down the page without a
+     join, so the page is a single length of cloth rather than a stack of
+     sections. */
+  background-color: #f2e8dc;
 }
+/* No strung side border on this theme — the shell lives in clusters. */
 .inv[data-layout='capiz']::before,
-.inv[data-layout='capiz']::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: var(--shell-w);
-  z-index: 3;
-  pointer-events: none;
-  /* One shell: nacre at the crown, warming out to a thin brass rim. Opaque,
-     so the strip reads as a continuous pearly band the way a strung panel does
-     — a translucent disc lets the page through and the border turns to beads. */
-  --shell: radial-gradient(
-    circle calc(var(--shell-d) / 2) at 50% 50%,
-    var(--shell-pearl) 0 18%,
-    color-mix(in srgb, var(--shell-pearl) 88%, var(--inv-accent2)) 46%,
-    color-mix(in srgb, var(--shell-pearl) 64%, var(--inv-accent2)) 74%,
-    color-mix(in srgb, var(--shell-pearl) 42%, var(--inv-accent2)) 88%,
-    color-mix(in srgb, var(--inv-accent) 80%, var(--shell-pearl)) 91% 96%,
-    color-mix(in srgb, var(--inv-accent) 24%, transparent) 97% 98%,
-    transparent 99%
-  );
-  background-image: var(--shell), var(--shell), var(--shell), var(--shell);
-  background-size: var(--shell-d) calc(var(--shell-step) * 2);
-  /* Four places: the inner column on the half-step, the outer column — cropped
-     by the edge of the page — on the whole one. First in the list paints on
-     top, so the column against the page keeps its scallop clean. */
-  background-position:
-    0 calc(var(--shell-step) / 2),
-    0 calc(var(--shell-step) * 1.5),
-    calc(var(--shell-d) / -2) 0,
-    calc(var(--shell-d) / -2) var(--shell-step);
+.inv[data-layout='capiz']::after { display: none; }
+
+/* --- capiz, photographed: pieces cut from the couple's own frame images and
+   placed as layers over the ground — corner clusters at the page's corners
+   and in the gaps between blocks, hanging strands down the edges in long
+   alternating runs, and the arch behind the names --- */
+.inv[data-layout='capiz'] { position: relative; overflow: hidden; }
+/* The frame: the design's portrait image, fixed behind the page so every
+   screen carries the drapes and the corner clusters while the content scrolls
+   over it. A fixed element rather than background-attachment, which iOS
+   Safari does not honour. */
+.inv-frame { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: url(/capiz/portrait-frame.jpg) center / cover no-repeat; }
+.inv-corner {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: 18rem; height: 18rem;
+  background-size: cover; background-position: center;
 }
-.inv[data-layout='capiz']::before {
-  left: 0;
+.inv-corner[data-img='tl'] { background-image: url(/capiz/corner-tl.jpg); left: -1.5rem;
+  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 0% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
+          mask-image: radial-gradient(ellipse 95% 95% at 0% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
+.inv-corner[data-img='tr'] { background-image: url(/capiz/corner-tr.jpg); right: -1.5rem;
+  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 100% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
+          mask-image: radial-gradient(ellipse 95% 95% at 100% 0%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
+.inv-corner[data-img='bl'] { background-image: url(/capiz/corner-bl.jpg); left: -1.5rem;
+  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 0% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
+          mask-image: radial-gradient(ellipse 95% 95% at 0% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
+.inv-corner[data-img='br'] { background-image: url(/capiz/corner-br.jpg); right: -1.5rem;
+  -webkit-mask-image: radial-gradient(ellipse 95% 95% at 100% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%);
+          mask-image: radial-gradient(ellipse 95% 95% at 100% 100%, #000 40%, rgba(0,0,0,.6) 62%, transparent 82%); }
+.inv-corner[data-size='lg'] { width: 23rem; height: 23rem; }
+.inv-corner[data-size='sm'] { width: 15rem; height: 15rem; }
+
+.inv-edge {
+  position: absolute; z-index: 0; pointer-events: none;
+  width: 6.4rem;
+  background-repeat: repeat-y; background-size: 100% auto;
+  /* fades at both ends of the run, and on the side that meets the page, so the
+     strip's own cream never shows as a band against the ground */
+  -webkit-mask-composite: source-in; mask-composite: intersect;
 }
-.inv[data-layout='capiz']::after {
-  right: 0;
-  /* Mirrored, so the whole discs face the page from both sides and the cropped
-     column is the one against the paper edge. */
-  transform: scaleX(-1);
+.inv-edge[data-side='l'] { left: -1.2rem; background-image: url(/capiz/edge-l.jpg);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to right, #000 58%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to right, #000 58%, transparent 100%); }
+.inv-edge[data-side='r'] { right: -1.2rem; background-image: url(/capiz/edge-r.jpg);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to left, #000 58%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent, #000 9rem, #000 calc(100% - 9rem), transparent), linear-gradient(to left, #000 58%, transparent 100%); }
+
+/* a cluster sitting mid-page rather than in a page corner fades top and bottom too */
+.inv-corner[data-mid][data-img='tl'], .inv-corner[data-mid][data-img='bl'] {
+  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
+          mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
+.inv-corner[data-mid][data-img='tr'], .inv-corner[data-mid][data-img='br'] {
+  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
+          mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
+
+.inv[data-layout='capiz'] > .inv-hero,
+.inv[data-layout='capiz'] > .inv-section { position: relative; z-index: 1; }
+
+/* the arch, behind the names */
+.inv[data-layout='capiz'] .inv-hero::before {
+  content: ''; position: absolute; z-index: 0; pointer-events: none;
+  left: 50%; top: 0.5rem; width: 21rem; height: 20.6rem; transform: translateX(-50%);
+  background: url(/capiz/arch.jpg) center / cover no-repeat;
+  -webkit-mask-image: radial-gradient(ellipse 60% 62% at 50% 44%, #000 58%, rgba(0,0,0,.5) 74%, transparent 90%);
+          mask-image: radial-gradient(ellipse 60% 62% at 50% 44%, #000 58%, rgba(0,0,0,.5) 74%, transparent 90%);
 }
-/* A narrow phone cannot spare 5rem of margin between two strips of decoration. */
-@media (max-width: 26rem) {
-  .inv[data-layout='capiz'] {
-    --shell-d: 2.3rem;
-    --shell-step: 1.6rem;
-    --shell-w: 2.3rem;
-  }
-}
-/* A hairline where the shell meets the page, so the border reads as an edge
-   rather than as texture that ran out. */
+.inv[data-layout='capiz'] .inv-hero > * { position: relative; z-index: 1; }
+
+/* --- sections --- */
 .inv[data-layout='capiz'] .inv-section {
   position: relative;
+  padding: 3.25rem 2.9rem;
+  max-width: 26rem;
 }
+.inv[data-layout='capiz'] .inv-section + .inv-section { border-top: 0; }
+
+.inv[data-layout='capiz'] .inv-title {
+  font-family: var(--inv-display);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  font-size: 1.15rem;
+  color: var(--inv-ink);
+  margin-bottom: 0.35rem;
+}
+.inv-tagline {
+  font-family: var(--inv-script);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  color: var(--inv-accent);
+  text-align: center;
+  margin: 0.1rem 0 1.7rem;
+}
+.inv[data-layout='capiz'] .inv-eyebrow {
+  font-family: var(--inv-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--inv-ink);
+  opacity: 0.85;
+  margin-bottom: 0.45rem;
+}
+.inv[data-layout='capiz'] .inv-rule {
+  width: 2.2rem; height: 1px; background: var(--inv-ink); opacity: 0.5; margin: 1.6rem auto;
+}
+.inv[data-layout='capiz'] .inv-muted { color: var(--inv-muted); }
+.inv[data-layout='capiz'] .inv-list { gap: 0.15rem; font-size: 1.05rem; }
+.inv[data-layout='capiz'] .inv-two { gap: 1.25rem 1.25rem; align-items: start; }
+.inv[data-layout='capiz'] .inv-two > * + * { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 25%, transparent); }
+
+/* --- cards, buttons, fields --- */
+.inv[data-layout='capiz'] .inv-card {
+  background: rgba(255, 253, 249, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 1rem;
+  padding: 1.25rem 1.1rem;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 30px -18px rgba(74, 59, 47, 0.35);
+}
+.inv[data-layout='capiz'] .inv-btn {
+  font-family: var(--inv-display);
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 0.85rem 1.7rem;
+  min-height: 0;
+  background: var(--inv-accent);
+  border-color: var(--inv-accent);
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(74, 59, 47, 0.6);
+}
+.inv[data-layout='capiz'] .inv-btn:not(.inv-btn-outline)::after {
+  content: '➔'; font-size: 0.9em; margin-left: 0.15rem;
+}
+.inv[data-layout='capiz'] .inv-btn-outline {
+  background: rgba(255, 253, 249, 0.6);
+  border-color: rgba(255,255,255,0.85);
+  color: var(--inv-ink);
+  width: 100%;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.inv[data-layout='capiz'] .inv-field {
+  background: rgba(255, 253, 249, 0.6);
+  border: 1px solid rgba(255,255,255,0.85);
+  border-radius: 0.8rem;
+  padding: 0.85rem 1rem;
+  font-family: var(--inv-body);
+  font-size: 1rem;
+  color: var(--inv-ink);
+}
+.inv[data-layout='capiz'] .inv-field::placeholder { color: var(--inv-muted); }
+.inv[data-layout='capiz'] .inv-label {
+  font-family: var(--inv-display);
+  font-size: 0.66rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--inv-muted);
+  margin: 0 0 0.3rem 0.4rem;
+}
+.inv[data-layout='capiz'] .inv-swatch {
+  width: 2.1rem; height: 2.1rem;
+  border: 2px solid rgba(255,255,255,0.9);
+  box-shadow: 0 2px 8px -3px rgba(74,59,47,0.5);
+}
+
+/* --- hero --- */
 .inv[data-layout='capiz'] .inv-hero {
   min-height: 0;
+  padding: 5.6rem 1.6rem 2.5rem;
   align-items: center;
   flex-direction: column;
-  padding-top: 4rem;
 }
-.inv[data-layout='capiz'] .inv-hero-photo {
-  position: static;
-  width: min(100%, 20rem);
-  aspect-ratio: 3 / 4;
-  margin: 1.5rem auto 0;
-  object-fit: cover;
-  /* The same arch as the Moment, so the design reads as one hand. */
-  border-radius: 50% 50% 0.25rem 0.25rem / 32% 32% 0.25rem 0.25rem;
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 80%, transparent);
-}
-.inv[data-layout='capiz'] .inv-hero-scrim {
-  display: none;
-}
+.inv[data-layout='capiz'] .inv-hero-scrim { display: none; }
+.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; }
+.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 1.6rem; }
 .inv[data-layout='capiz'] .inv-names {
-  font-family: var(--inv-display);
+  font-family: var(--inv-names);
+  font-weight: 500;
+  font-size: clamp(2.2rem, 10.5vw, 3rem);
+  letter-spacing: 0.08em;
+  text-indent: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+  line-height: 1.05;
 }
-/* The shell border is the page's frame, not the invitation's content — a
-   printed copy has its own margins. */
+.inv[data-layout='capiz'] .inv-amp {
+  font-family: var(--inv-script);
+  font-style: normal;
+  font-size: 0.62em;
+  color: var(--inv-ink);
+  text-transform: none;
+  letter-spacing: 0;
+  text-indent: 0;
+  margin: 0.05em 0;
+}
+.inv-date {
+  font-family: var(--inv-display);
+  font-size: 1.05rem; letter-spacing: 0.42em; text-indent: 0.42em;
+  color: var(--inv-ink); margin-top: 1.4rem;
+}
+.inv-lines {
+  font-family: var(--inv-display);
+  font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase;
+  color: var(--inv-ink); opacity: 0.9; line-height: 1.9; margin-top: 1.4rem;
+}
+.inv-scroll {
+  margin-top: 3.4rem;
+  font-family: var(--inv-display);
+  font-size: 0.62rem; letter-spacing: 0.4em; text-indent: 0.4em; text-transform: uppercase;
+  color: var(--inv-muted);
+}
+.inv-scroll::after {
+  content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.6rem auto 0;
+  background: linear-gradient(var(--inv-ink), transparent);
+  opacity: 0.6;
+}
+
+/* --- quote block --- */
+.inv-quote {
+  font-family: var(--inv-display);
+  font-size: 0.9rem; letter-spacing: 0.22em; text-indent: 0.22em; text-transform: uppercase;
+  line-height: 2; text-align: center; color: var(--inv-ink);
+}
+.inv-quote cite {
+  display: block; font-style: normal; font-size: 0.68rem; letter-spacing: 0.3em; margin-top: 1rem; color: var(--inv-muted);
+}
+
+/* --- icon rows (details, program, contact) --- */
+.inv-icons { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+.inv-icons > li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; }
+.inv-icons svg { width: 2.2rem; height: 2.2rem; stroke: var(--inv-accent); fill: none; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+.inv-icons b {
+  display: block; font-family: var(--inv-display); font-weight: 500;
+  font-size: 0.82rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--inv-ink);
+}
+.inv-icons span { display: block; font-family: var(--inv-display); font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--inv-ink); opacity: 0.8; margin-top: 0.15rem; }
+.inv-icons[data-align='center'] { justify-items: center; }
+.inv-icons[data-align='center'] > li { grid-template-columns: 2.4rem auto; }
+
+/* the program reuses .inv-timeline in the app — restyle it into an icon row */
+.inv[data-layout='capiz'] .inv-timeline { border-left: 0; margin: 0; padding: 0; gap: 1.1rem; }
+.inv[data-layout='capiz'] .inv-timeline > li::before { display: none; }
+
+/* --- gallery collage --- */
+.inv[data-layout='capiz'] .inv-gallery { gap: 0.6rem; }
+.inv[data-layout='capiz'] .inv-gallery img { border-radius: 0.6rem; box-shadow: 0 10px 30px -16px rgba(74,59,47,0.5); }
+
+/* --- countdown, bare --- */
+.inv[data-layout='capiz'] .inv-count { max-width: 22rem; gap: 0; }
+.inv[data-layout='capiz'] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.4rem 0; }
+.inv[data-layout='capiz'] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
+.inv[data-layout='capiz'] .inv-count b { font-size: 2.4rem; font-weight: 400; color: var(--inv-ink); }
+.inv[data-layout='capiz'] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
+
+/* --- social brand row --- */
+.inv-brand { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1.1rem; }
+.inv-brand svg { width: 1.7rem; height: 1.7rem; fill: var(--inv-ink); }
+
+/* --- closing --- */
+.inv-sign {
+  font-family: var(--inv-script); font-size: 2.6rem; line-height: 1.1; color: var(--inv-ink); text-align: center;
+}
+.inv-sign small { display: block; font-family: var(--inv-display); font-size: 0.72rem; letter-spacing: 0.4em; text-indent: 0.4em; text-transform: uppercase; margin-top: 1.6rem; }
+
+/* big section icon (gift, camera, cloud, phone) */
+.inv-glyph { display: block; width: 2.8rem; height: 2.8rem; margin: 0 auto 0.8rem; stroke: var(--inv-ink); fill: none; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.inv[data-layout='capiz'] p { margin: 0; }
+.inv[data-layout='capiz'] .inv-hero-body > p + p { margin-top: 0; }
+
+/* --- our story: a timeline with the photos scattered beside it --- */
+.inv-story { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0 1.1rem; margin-top: 0.4rem; }
+.inv-story-photos { display: grid; gap: 1.1rem; align-content: start; padding-top: 0.6rem; }
+.inv-story-photos figure { margin: 0; }
+.inv-story-photos img { box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
+.inv-story-photos [data-frame='arch'] img { border-radius: 999px 999px 0.4rem 0.4rem; aspect-ratio: 3/4.6; }
+.inv-story-photos [data-frame='polaroid'] { background: #fffdf9; padding: 0.35rem 0.35rem 1.1rem; border-radius: 0.15rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.6); transform: rotate(-4deg); }
+.inv-story-photos [data-frame='polaroid'] img { border-radius: 0.1rem; aspect-ratio: 1; box-shadow: none; }
+.inv-story-photos [data-frame='polaroid'][data-tilt='r'] { transform: rotate(3.5deg); }
+.inv-story-photos [data-frame='circle'] img { border-radius: 999px; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--inv-accent) 45%, transparent); }
+.inv-story-photos [data-frame='plain'] img { border-radius: 0.3rem; aspect-ratio: 4/3; }
+.inv-story-line { position: relative; padding-left: 1.6rem; }
+.inv-story-line::before { content: ''; position: absolute; left: 0.28rem; top: 0.6rem; bottom: 0.6rem; width: 1px; background: color-mix(in srgb, var(--inv-accent) 70%, transparent); }
+.inv-story-line li { position: relative; list-style: none; margin: 0 0 1.7rem; }
+.inv-story-line li::before { content: ''; position: absolute; left: -1.6rem; top: 0.55rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--inv-bg); border: 1.5px solid var(--inv-accent); }
+.inv-story-line .y { font-family: var(--inv-display); font-size: 1.6rem; line-height: 1; color: var(--inv-ink); }
+.inv-story-line .t { font-family: var(--inv-display); font-style: italic; font-size: 1.15rem; color: var(--inv-ink); margin-top: 0.1rem; }
+.inv-story-line .x { font-size: 0.95rem; line-height: 1.5; color: var(--inv-ink); opacity: 0.85; margin-top: 0.45rem; max-width: 15rem; }
+.inv-story-line img { margin-top: 0.7rem; border-radius: 999px 999px 0.3rem 0.3rem; aspect-ratio: 3/3.6; max-width: 8.5rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
+
+/* --- prenup strip --- */
+.inv-strip { display: grid; grid-template-columns: 1fr 1.08fr 1fr; gap: 0.5rem; align-items: center; }
+.inv-strip img { aspect-ratio: 3/4; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74,59,47,0.55); }
+.inv-strip figure:nth-child(2) img { aspect-ratio: 3/4.4; }
+
+/* --- the gallery as a strip of three, the middle one a little taller --- */
+.inv[data-layout='capiz'] .inv-gallery { grid-template-columns: 1fr 1.08fr 1fr; gap: 0.5rem; align-items: center; }
+.inv[data-layout='capiz'] .inv-gallery figure:first-child { grid-column: auto; }
+.inv[data-layout='capiz'] .inv-gallery img { aspect-ratio: 3 / 4; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); }
+.inv[data-layout='capiz'] .inv-gallery figure:nth-child(2) img { aspect-ratio: 3 / 4.4; }
+
+/* --- dress code figures --- */
+.inv-dress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; align-items: end; margin: 0.8rem 0.2rem 0; }
+.inv-dress svg { width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 6px rgba(74,59,47,0.12)); }
+.inv-swatches { display: flex; justify-content: center; gap: 0.6rem; margin-top: 1.5rem; }
+
+/* a cluster in the gap after every block, alternating sides */
+.inv[data-layout='capiz'] .inv-section::after {
+  content: ''; position: absolute; z-index: 0; pointer-events: none;
+  bottom: -7.5rem; width: 15rem; height: 15rem; background-size: cover; background-position: center;
+}
+.inv[data-layout='capiz'] .inv-section:nth-of-type(odd)::after { left: -1.5rem; background-image: url(/capiz/corner-tl.jpg);
+  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
+          mask-image: radial-gradient(ellipse 100% 62% at 0% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
+.inv[data-layout='capiz'] .inv-section:nth-of-type(even)::after { right: -1.5rem; background-image: url(/capiz/corner-tr.jpg);
+  -webkit-mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%);
+          mask-image: radial-gradient(ellipse 100% 62% at 100% 50%, #000 34%, rgba(0,0,0,.55) 58%, transparent 80%); }
+.inv[data-layout='capiz'] .inv-section > * { position: relative; z-index: 1; }
+
+/* the hero, from the app's own markup */
+.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { color: var(--inv-ink); opacity: 0.85; }
+.inv[data-layout='capiz'] .inv-hero-body > p { margin: 0; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-3 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; opacity: 0.9; margin-top: 1.2rem; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-5 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; line-height: 1.9; margin-top: 1.4rem; max-width: 22rem; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-6 { margin-top: 1.4rem; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-6 .inv-display { font-size: 1.05rem; letter-spacing: 0.42em; text-indent: 0.42em; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-6 .block { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; margin-top: 0.4rem; }
+
+/* program rows: the app's timeline, with an icon before each entry */
+.inv[data-layout='capiz'] .inv-timeline > li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; padding: 0; }
+.inv[data-layout='capiz'] .inv-timeline > li > .inv-picon { width: 2.2rem; height: 2.2rem; stroke: var(--inv-accent); fill: none; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+.inv[data-layout='capiz'] .inv-timeline > li > div > .inv-muted { font-family: var(--inv-display); font-size: 0.82rem; letter-spacing: 0.24em; color: var(--inv-ink); opacity: 1; }
+.inv[data-layout='capiz'] .inv-timeline > li > div > .inv-display { font-family: var(--inv-display); font-weight: 500; font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85; }
+.inv-picon { display: none; }
+.inv[data-layout='capiz'] .inv-picon { display: block; }
+
+/* the closing: the sign-off in script, the names and date beneath */
+.inv[data-layout='capiz'] #closing .inv-display { font-family: var(--inv-script); font-size: 2.6rem; }
+
+/* the strip is decoration: none of it prints */
 @media print {
-  .inv[data-layout='capiz']::before,
-  .inv[data-layout='capiz']::after {
-    display: none;
-  }
-  .inv[data-layout='capiz'] {
-    padding-left: 0;
-    padding-right: 0;
-  }
+  .inv-frame, .inv-corner, .inv-edge,
+  .inv[data-layout='capiz'] .inv-hero::before,
+  .inv[data-layout='capiz'] .inv-section::after { display: none !important; }
+  .inv[data-layout='capiz'] { background-image: none; }
 }
 
 /* ---------------------------------------------------------------------------

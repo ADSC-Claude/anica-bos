@@ -48,6 +48,7 @@ export const PALETTE_PRESETS: { key: string; label: string; palette: Palette; mu
 
 export const FONT_PRESETS: { key: string; label: string; fonts: Fonts }[] = [
   { key: 'serif', label: 'Classic serif', fonts: { display: "'Cormorant Garamond', 'Hoefler Text', Georgia, serif", body: "'Jost', 'Segoe UI', system-ui, sans-serif", load: ['Cormorant Garamond', 'Jost'] } },
+  { key: 'capiz', label: 'Capiz (Cormorant, Cinzel, Pinyon Script)', fonts: { display: "'Cormorant Garamond', 'Hoefler Text', Georgia, serif", body: "'Cormorant Garamond', Georgia, serif", load: ['Cormorant Garamond', 'Cinzel', 'Pinyon Script'] } },
   { key: 'editorial', label: 'Editorial', fonts: { display: "'Playfair Display', Georgia, serif", body: "'DM Sans', system-ui, sans-serif", load: ['Playfair Display', 'DM Sans'] } },
   { key: 'script', label: 'Script', fonts: { display: "'Great Vibes', 'Brush Script MT', cursive", body: "'Lora', Georgia, serif", load: ['Great Vibes', 'Lora'] } },
   { key: 'modern', label: 'Modern sans', fonts: { display: "'Montserrat', 'Segoe UI', system-ui, sans-serif", body: "'Inter', system-ui, sans-serif", load: ['Montserrat', 'Inter'] } },

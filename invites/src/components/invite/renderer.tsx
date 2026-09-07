@@ -1,8 +1,8 @@
 import type { Occasion, Tier } from '@prisma/client';
 import type { CSSProperties, ReactNode } from 'react';
-import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
+import { t, tagline as taglineOf, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
-import { OCCASION_SECTIONS, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets } from '@/lib/openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
@@ -65,11 +65,12 @@ function videoEmbed(url: string): { src: string } | null {
   return null;
 }
 
-function Section({ id, eyebrow, title, children, className = '' }: { id: string; eyebrow?: string; title?: string; children: ReactNode; className?: string }) {
+function Section({ id, eyebrow, title, tagline, children, className = '' }: { id: string; eyebrow?: string; title?: string; tagline?: string; children: ReactNode; className?: string }) {
   return (
     <section id={id} className={`inv-section ${className}`}>
       {eyebrow && <p className="inv-eyebrow">{eyebrow}</p>}
       {title && <h2 className="inv-title">{title}</h2>}
+      {tagline && <p className="inv-tagline">{tagline}</p>}
       {children}
     </section>
   );
@@ -127,9 +128,10 @@ function heroCopy(occasion: Occasion, cover: SectionData | undefined, lang: Lang
   }
 }
 
-function Hero({ occasion, content, lang }: { occasion: Occasion; content: Content; lang: Lang }) {
+function Hero({ occasion, content, lang, layout }: { occasion: Occasion; content: Content; lang: Lang; layout: string }) {
   const cover = content.cover;
   const copy = heroCopy(occasion, cover, lang);
+  const eyebrow = layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow;
   const photo = str(cover, 'coverPhoto') || str(cover, 'logo');
   const date = str(cover, 'date');
   const time = str(cover, 'time');
@@ -140,7 +142,7 @@ function Hero({ occasion, content, lang }: { occasion: Occasion; content: Conten
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
         {monogram && <p className="inv-display mb-3 text-3xl opacity-90">{monogram}</p>}
-        {copy.eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }}>{copy.eyebrow}</p>}
+        {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }}>{eyebrow}</p>}
         <h1 className="inv-names">
           {copy.names.map((n, i) => (
             <span key={i}>
@@ -213,7 +215,7 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
   );
 }
 
-function EventBlock({ id, title, data, lang, fallbackDate, calendarHref }: { id: string; title: string; data: SectionData; lang: Lang; fallbackDate: string; calendarHref?: string }) {
+function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref }: { id: string; title: string; tagline?: string; data: SectionData; lang: Lang; fallbackDate: string; calendarHref?: string }) {
   const venue = str(data, 'venue');
   if (!venue) return null;
   const date = str(data, 'date') || fallbackDate;
@@ -222,7 +224,7 @@ function EventBlock({ id, title, data, lang, fallbackDate, calendarHref }: { id:
   const waze = wazeHref(data);
   const photo = str(data, 'photo');
   return (
-    <Section id={id} title={title}>
+    <Section id={id} title={title} tagline={tagline}>
       <div className="inv-card text-center">
         {photo && <img src={imageUrl(photo, IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[3/2]" loading="lazy" />}
         <p className="inv-display text-2xl">{venue}</p>
@@ -261,13 +263,13 @@ function NameList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function Entourage({ data, lang }: { data: SectionData; lang: Lang }) {
+function Entourage({ data, lang, tagline }: { data: SectionData; lang: Lang; tagline?: string }) {
   const principal = rows<{ ninong: string; ninang: string }>(data, 'principalSponsors').filter((p) => p.ninong || p.ninang);
   const secondary = rows<{ role: string; first: string; second: string }>(data, 'secondarySponsors').filter((p) => p.first || p.second);
   const namesOf = (k: string) => rows<{ name: string }>(data, k).map((r) => r.name);
   const honor = str(data, 'honorTitle') === 'matron' ? t(lang, 'entourage.matronOfHonor') : t(lang, 'entourage.maidOfHonor');
   return (
-    <Section id="entourage" title={t(lang, 'entourage.title')}>
+    <Section id="entourage" title={t(lang, 'entourage.title')} tagline={tagline}>
       <div className="space-y-8">
         {principal.length > 0 && (
           <div>
@@ -362,11 +364,12 @@ function Eighteen({ data, lang }: { data: SectionData; lang: Lang }) {
 
 const ATTIRE: Record<string, string> = { formal: 'Formal', semiFormal: 'Semi-formal', smartCasual: 'Smart casual', filipiniana: 'Filipiniana & Barong', cocktail: 'Cocktail', themed: 'Themed', casual: 'Casual' };
 
-function DressCode({ data, lang }: { data: SectionData; lang: Lang }) {
+function DressCode({ data, lang, tagline, layout }: { data: SectionData; lang: Lang; tagline?: string; layout?: string }) {
   const colors = rows<string>(data, 'colors');
   const attire = ATTIRE[str(data, 'attire')] ?? '';
   return (
-    <Section id="dress-code" title={t(lang, 'dressCode.title')}>
+    <Section id="dress-code" title={t(lang, 'dressCode.title')} tagline={tagline || (layout === 'capiz' ? attire || undefined : undefined)}>
+      {layout === 'capiz' && colors.length > 0 && <DressFigures colors={colors} />}
       <div className="inv-card text-center">
         {(attire || str(data, 'attireText')) && (
           <p className="text-lg">
@@ -397,11 +400,11 @@ function DressCode({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-function Gift({ data, lang, title }: { data: SectionData; lang: Lang; title: string }) {
+function Gift({ data, lang, title, tagline }: { data: SectionData; lang: Lang; title: string; tagline?: string }) {
   const registry = rows<{ label: string; url: string }>(data, 'registry');
   const qr = str(data, 'gcashQr');
   return (
-    <Section id="gift" title={title}>
+    <Section id="gift" title={title} tagline={tagline}>
       {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'text')}</p>}
       {(qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
@@ -442,7 +445,7 @@ function stripReservedSentence(note: string): string {
     .trim();
 }
 
-function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string }) {
+function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string }) {
   const deadline = str(data, 'deadline');
   const open = rsvpOpen(inv);
   const seatsCap = personal && guest ? guest.seatsAllotted + (guest.plusOneAllowed ? 1 : 0) : 10;
@@ -455,7 +458,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token }: { in
   const greeting = personal && guest ? guest.salutation || guest.name : '';
 
   return (
-    <Section id="rsvp" title={t(lang, 'rsvp.title')}>
+    <Section id="rsvp" title={t(lang, 'rsvp.title')} tagline={tagline}>
       {greeting && (
         <p className="inv-display mb-3 text-center text-2xl">
           {t(lang, 'rsvp.dear')} {greeting},
@@ -520,10 +523,13 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token }: { in
   );
 }
 
-function Story({ data, lang, title }: { data: SectionData; lang: Lang; title: string }) {
+const STORY_FRAMES = ['arch', 'polaroid', 'polaroid', 'plain', 'circle'] as const;
+
+function Story({ data, lang, title, tagline, layout }: { data: SectionData; lang: Lang; title: string; tagline?: string; layout?: string }) {
   const timeline = rows<{ date: string; title: string; text: string; photo: string }>(data, 'timeline');
+  const beside = layout === 'capiz';
   return (
-    <Section id="story" title={title}>
+    <Section id="story" title={title} tagline={tagline}>
       {str(data, 'howWeMet') && (
         <div className="mb-6">
           <p className="inv-eyebrow">{t(lang, 'story.howWeMet')}</p>
@@ -536,7 +542,29 @@ function Story({ data, lang, title }: { data: SectionData; lang: Lang; title: st
           <p className="whitespace-pre-line text-center">{str(data, 'proposal')}</p>
         </div>
       )}
-      {timeline.length > 0 && (
+      {timeline.length > 0 && beside && (
+        // The photographs run down one side in their own frames, the years
+        // down the other — the way an album is laid out, rather than a list.
+        <div className="inv-story">
+          <div className="inv-story-photos">
+            {timeline.filter((m) => m.photo).map((m, i) => (
+              <figure key={i} data-frame={STORY_FRAMES[i % STORY_FRAMES.length]} data-tilt={i % 2 ? 'r' : undefined}>
+                <img src={imageUrl(m.photo, IMAGE.story)} alt="" loading="lazy" />
+              </figure>
+            ))}
+          </div>
+          <ol className="inv-story-line">
+            {timeline.map((m, i) => (
+              <li key={i}>
+                {m.date && <div className="y">{m.date}</div>}
+                <div className="t">{m.title}</div>
+                {m.text && <p className="x whitespace-pre-line">{m.text}</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {timeline.length > 0 && !beside && (
         <ol className="inv-timeline">
           {timeline.map((m, i) => (
             <li key={i}>
@@ -552,14 +580,14 @@ function Story({ data, lang, title }: { data: SectionData; lang: Lang; title: st
   );
 }
 
-function Gallery({ data, lang, tier }: { data: SectionData; lang: Lang; tier: Tier }) {
+function Gallery({ data, lang, tier, tagline }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string }) {
   const limit = galleryLimit(tier);
   const photos = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
   const video = hasFeature(tier, 'video') ? str(data, 'videoUrl') : '';
   if (!photos.length && !video) return null;
   const embed = video ? videoEmbed(video) : null;
   return (
-    <Section id="gallery" title={t(lang, 'gallery.title')}>
+    <Section id="gallery" title={t(lang, 'gallery.title')} tagline={tagline}>
       {photos.length > 0 && (
         <div className="inv-gallery">
           {photos.map((p, i) => (
@@ -583,18 +611,21 @@ function Gallery({ data, lang, tier }: { data: SectionData; lang: Lang; tier: Ti
   );
 }
 
-function Program({ data, title }: { data: SectionData; title: string }) {
+function Program({ data, title, tagline }: { data: SectionData; title: string; tagline?: string }) {
   const items = rows<{ time: string; title: string; note: string }>(data, 'items');
   const activities = str(data, 'activities');
   return (
-    <Section id="program" title={title}>
+    <Section id="program" title={title} tagline={tagline}>
       {items.length > 0 && (
         <ol className="inv-timeline">
           {items.map((it, i) => (
             <li key={i}>
-              {it.time && <p className="inv-muted text-xs uppercase tracking-widest">{it.time}</p>}
-              <p className="inv-display text-xl">{it.title}</p>
-              {it.note && <p className="text-sm">{it.note}</p>}
+              <ProgramIcon title={it.title} />
+              <div>
+                {it.time && <p className="inv-muted text-xs uppercase tracking-widest">{it.time}</p>}
+                <p className="inv-display text-xl">{it.title}</p>
+                {it.note && <p className="text-sm">{it.note}</p>}
+              </div>
             </li>
           ))}
         </ol>
@@ -647,10 +678,10 @@ function Travel({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-function Social({ data, lang }: { data: SectionData; lang: Lang }) {
+function Social({ data, lang, tagline }: { data: SectionData; lang: Lang; tagline?: string }) {
   const hashtag = str(data, 'hashtag');
   return (
-    <Section id="social" title={t(lang, 'social.title')}>
+    <Section id="social" title={t(lang, 'social.title')} tagline={tagline}>
       {hashtag && (
         <p className="text-center">
           <span className="inv-eyebrow">{t(lang, 'social.hashtag')}</span>
@@ -682,6 +713,7 @@ function GuestPhotos({
   slug,
   token,
   print,
+  tagline,
 }: {
   inv: PublicInvitation;
   data: SectionData;
@@ -689,11 +721,12 @@ function GuestPhotos({
   slug: string;
   token?: string;
   print?: boolean;
+  tagline?: string;
 }) {
   const photos = inv.media;
   if (!photos.length && print) return null;
   return (
-    <Section id="guest-photos" title={t(lang, 'photos.title')}>
+    <Section id="guest-photos" title={t(lang, 'photos.title')} tagline={tagline}>
       {photos.length > 0 ? (
         <div className="inv-gallery">
           {photos.map((m) => (
@@ -735,10 +768,10 @@ function GuestPhotos({
   );
 }
 
-function Guestbook({ inv, data, lang, hostsNoun, slug }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string }) {
+function Guestbook({ inv, data, lang, hostsNoun, slug, tagline }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; tagline?: string }) {
   if (!bool(data, 'enabled')) return null;
   return (
-    <Section id="guestbook" title={t(lang, 'guestbook.title')}>
+    <Section id="guestbook" title={t(lang, 'guestbook.title')} tagline={tagline}>
       {inv.guestbook.length > 0 && (
         <ul className="mb-5 space-y-2">
           {inv.guestbook.map((g) => (
@@ -754,13 +787,15 @@ function Guestbook({ inv, data, lang, hostsNoun, slug }: { inv: PublicInvitation
   );
 }
 
-function Closing({ data, lang, hashtag }: { data: SectionData; lang: Lang; hashtag: string }) {
+function Closing({ data, lang, hashtag, tagline, names, date }: { data: SectionData; lang: Lang; hashtag: string; tagline?: string; names?: string; date?: string }) {
   return (
-    <Section id="closing" title={t(lang, 'closing.title')}>
+    <Section id="closing" title={t(lang, 'closing.title')} tagline={tagline}>
       {str(data, 'photo') && <img src={imageUrl(str(data, 'photo'), IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
       {str(data, 'message') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'message')}</p>}
       {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }}>{str(data, 'signature')}</p>}
       {hashtag && <p className="inv-muted mt-2 text-center text-sm">{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
+      {names && <p className="inv-eyebrow mt-6">{names}</p>}
+      {date && <p className="inv-eyebrow" style={{ letterSpacing: '0.42em', textIndent: '0.42em' }}>{date}</p>}
     </Section>
   );
 }
@@ -800,9 +835,9 @@ function Family({ data, lang }: { data: SectionData; lang: Lang }) {
   );
 }
 
-function Contact({ data, lang }: { data: SectionData; lang: Lang }) {
+function Contact({ data, lang, tagline }: { data: SectionData; lang: Lang; tagline?: string }) {
   return (
-    <Section id="contact" title={t(lang, 'contact.title')}>
+    <Section id="contact" title={t(lang, 'contact.title')} tagline={tagline}>
       <div className="inv-card text-center">
         {str(data, 'name') && <p className="font-semibold">{str(data, 'name')}</p>}
         {str(data, 'phone') && <p><a href={`tel:${str(data, 'phone').replace(/\s/g, '')}`} className="underline">{str(data, 'phone')}</a></p>}
@@ -811,6 +846,123 @@ function Contact({ data, lang }: { data: SectionData; lang: Lang }) {
         {str(data, 'registrationNote') && <p className="mt-2 whitespace-pre-line text-sm">{str(data, 'registrationNote')}</p>}
       </div>
     </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Capiz: the pieces laid over the page
+// ---------------------------------------------------------------------------
+
+/**
+ * The frame fixed behind the page, the four page corners, and the hanging
+ * strands down the edges in long alternating runs. The clusters in the gaps
+ * between blocks are CSS, on the sections themselves. Positions are
+ * fractions of the page, so the runs stay spread whatever its length.
+ */
+function CapizDecor() {
+  const runs: [side: 'l' | 'r', top: number, bottom: number][] = [['l', 0.05, 0.32], ['r', 0.2, 0.52], ['l', 0.44, 0.74], ['r', 0.64, 0.92]];
+  return (
+    <>
+      <div className="inv-frame" aria-hidden />
+      <span className="inv-corner" data-img="tl" data-size="lg" style={{ top: '-1rem' }} aria-hidden />
+      <span className="inv-corner" data-img="tr" style={{ top: '-1rem' }} aria-hidden />
+      <span className="inv-corner" data-img="bl" data-size="lg" style={{ bottom: '-1rem' }} aria-hidden />
+      <span className="inv-corner" data-img="br" style={{ bottom: '-1rem' }} aria-hidden />
+      {runs.map(([side, top, bottom], i) => (
+        <span key={i} className="inv-edge" data-side={side} style={{ top: `${top * 100}%`, height: `${(bottom - top) * 100}%` }} aria-hidden />
+      ))}
+    </>
+  );
+}
+
+/** Which line icon a program entry gets, from the words in its title. */
+function programIcon(title: string): string {
+  const s = title.toLowerCase();
+  if (/ceremon|church|mass|vow|wedding|kasal|misa/.test(s)) return 'church';
+  if (/cocktail|drink|toast|wine|inuman/.test(s) && !/speech/.test(s)) return 'glasses';
+  if (/dinner|lunch|reception|meal|food|salu|hapunan|tanghalian|merienda/.test(s)) return 'cutlery';
+  if (/speech|talumpati|message|program|remarks/.test(s)) return 'mic';
+  if (/danc|party|music|sayaw|band|dj/.test(s)) return 'music';
+  if (/photo|picture|litrato/.test(s)) return 'camera';
+  if (/arriv|welcome|dating|registration|entrance/.test(s)) return 'rings';
+  return 'clock';
+}
+
+const ICON_PATHS: Record<string, string> = {
+  church: 'M12 3v4M10 5h4M5 21V12l7-5 7 5v9M5 21h14M10 21v-5h4v5',
+  glasses: 'M5 4h6l-1 6a2.5 2.5 0 0 1-4 0zM13 4h6l-1 6a2.5 2.5 0 0 1-4 0zM8 12v8M16 12v8M5.5 20h5M13.5 20h5',
+  cutlery: 'M7 3v18M5 3v5a2 2 0 0 0 4 0V3M17 3c-2 0-3 3-3 6 0 2 1 3 3 3v9',
+  mic: 'M9 6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0zM6 11a6 6 0 0 0 12 0M12 17v4M9 21h6',
+  music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+  camera: 'M4 8h3l2-3h6l2 3h3v12H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
+  rings: 'M14.5 13a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0zM20.5 13a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0zM12 4l-2 2 2 2 2-2z',
+  clock: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM12 7v5l3 2',
+};
+
+function ProgramIcon({ title }: { title: string }) {
+  return (
+    <svg className="inv-picon" viewBox="0 0 24 24" aria-hidden>
+      <path d={ICON_PATHS[programIcon(title)]} />
+    </svg>
+  );
+}
+
+/**
+ * Four figures in the motif: a barong, a terno with butterfly sleeves, a
+ * sleeved gown and a strapless gown. Garments take the motif colours in
+ * order, so the block recolours itself when the couple changes their palette.
+ */
+function DressFigures({ colors }: { colors: string[] }) {
+  const m = (i: number) => colors[i % colors.length];
+  const skin = '#d8b596';
+  const hair = '#2b211b';
+  const vars = { '--m1': m(0), '--m2': m(1), '--m3': m(2), '--m4': m(3), '--m5': m(4) } as CSSProperties;
+  return (
+    <div className="inv-dress" style={vars} aria-hidden>
+      <svg viewBox="0 0 120 300">
+        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
+        <path d="M47 27c1-14 25-14 26 0c-4-6-21-6-26 0z" fill={hair} />
+        <path d="M55 42h10v8H55z" fill="#cda283" />
+        <path d="M42 52c8-4 28-4 36 0l7 10 3 70H32l3-70z" fill="#f4efe3" />
+        <path d="M42 52c8-4 28-4 36 0l7 10 3 70H32l3-70z" fill="var(--m1)" opacity="0.55" />
+        <path d="M60 52v80" stroke="var(--m5)" strokeOpacity="0.25" />
+        <path d="M52 52l8 6 8-6" stroke="var(--m5)" strokeOpacity="0.35" fill="none" />
+        <path d="M35 62l-4 62h10l2-58z M85 62l4 62H79l-2-58z" fill="var(--m1)" opacity="0.75" />
+        <path d="M39 132h42l3 92H68l-6-70-6 70H36z" fill="var(--m5)" />
+        <path d="M36 224h14l1 6H35z M68 224h14l2 6H67z" fill={hair} />
+      </svg>
+      <svg viewBox="0 0 120 300">
+        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
+        <path d="M46 24c2-16 26-16 28 0 3 10-2 22-4 30-3-8-5-14-10-14s-7 6-10 14c-2-8-7-20-4-30z" fill={hair} />
+        <path d="M55 42h10v8H55z" fill="#cda283" />
+        <path d="M44 52c6-2 26-2 32 0l3 44H41z" fill="var(--m2)" />
+        <path d="M44 52c-14 2-22 16-14 26 6-4 10-14 14-26z M76 52c14 2 22 16 14 26-6-4-10-14-14-26z" fill="var(--m2)" opacity="0.7" />
+        <path d="M41 96h38l14 132H27z" fill="var(--m2)" />
+        <path d="M41 96h38l14 132H27z" fill="#fff" opacity="0.18" />
+        <path d="M42 100h36" stroke="#fff" strokeOpacity="0.5" />
+      </svg>
+      <svg viewBox="0 0 120 300">
+        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
+        <path d="M46 24c2-16 26-16 28 0 2 14-2 30-3 44-3-10-5-24-11-24s-8 14-11 24c-1-14-5-30-3-44z" fill={hair} />
+        <path d="M55 42h10v8H55z" fill="#cda283" />
+        <path d="M45 52c6-3 24-3 30 0l4 40H41z" fill="var(--m3)" />
+        <path d="M45 52l-10 4-6 40 10 2 6-30z M75 52l10 4 6 40-10 2-6-30z" fill="var(--m3)" opacity="0.8" />
+        <path d="M41 92h38l16 136H25z" fill="var(--m3)" />
+        <path d="M41 92h38l16 136H25z" fill="#fff" opacity="0.14" />
+        <path d="M52 90c4 2 12 2 16 0" stroke="#fff" strokeOpacity="0.6" fill="none" />
+        <path d="M52 96h16l2 8H50z" fill={skin} />
+      </svg>
+      <svg viewBox="0 0 120 300">
+        <ellipse cx="60" cy="30" rx="12" ry="14" fill={skin} />
+        <path d="M47 26c1-15 25-15 26 0 1 6-2 12-3 14-4-6-16-6-20 0-1-2-4-8-3-14z" fill={hair} />
+        <path d="M55 42h10v8H55z M47 50l3 34h20l3-34z" fill="#cda283" />
+        <path d="M45 58c4 4 26 4 30 0l4 34H41z" fill="var(--m4)" />
+        <path d="M45 58c-6 4-9 20-9 32l6-2z M75 58c6 4 9 20 9 32l-6-2z" fill={skin} />
+        <path d="M41 92h38l18 136H23z" fill="var(--m4)" />
+        <path d="M41 92h38l18 136H23z" fill="#fff" opacity="0.14" />
+        <path d="M41 92h38" stroke="#fff" strokeOpacity="0.5" />
+      </svg>
+    </div>
   );
 }
 
@@ -888,43 +1040,45 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   }
   const opening = openingProps();
 
-  const order = OCCASION_SECTIONS[occasion];
+  const order = sectionOrder(occasion, layout);
+  // The line in script under each heading — a Capiz trait; other designs show none.
+  const tag = (key: string) => (layout === 'capiz' ? taglineOf(lang, key) : undefined);
   const body = order.map((key) => {
     if (!visible(key)) return null;
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return <Hero key={key} occasion={occasion} content={content} lang={lang} />;
+        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
-          <Section key={key} id="countdown" eyebrow={str(data, 'label') || t(lang, 'countdown.title')}>
+          <Section key={key} id="countdown" eyebrow={layout === 'capiz' ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={layout === 'capiz' ? str(data, 'label') || tag('countdown') : undefined}>
             <Countdown target={eventAt.toISOString()} labels={[t(lang, 'countdown.days'), t(lang, 'countdown.hours'), t(lang, 'countdown.minutes'), t(lang, 'countdown.seconds')]} today={t(lang, 'countdown.today')} />
           </Section>
         ) : null;
       case 'parents':
         return <Parents key={key} occasion={occasion} data={data} lang={lang} />;
       case 'ceremony':
-        return <EventBlock key={key} id="ceremony" title={sectionTitle('ceremony', occasion, lang)} data={data} lang={lang} fallbackDate={coverDate} calendarHref={calendarHref} />;
+        return <EventBlock key={key} id="ceremony" title={sectionTitle('ceremony', occasion, lang)} tagline={tag('ceremony')} data={data} lang={lang} fallbackDate={coverDate} calendarHref={calendarHref} />;
       case 'reception':
-        return <EventBlock key={key} id="reception" title={sectionTitle('reception', occasion, lang)} data={data} lang={lang} fallbackDate={str(content.ceremony, 'venue') ? '' : coverDate} calendarHref={str(content.ceremony, 'venue') ? undefined : calendarHref} />;
+        return <EventBlock key={key} id="reception" title={sectionTitle('reception', occasion, lang)} tagline={tag('reception')} data={data} lang={lang} fallbackDate={str(content.ceremony, 'venue') ? '' : coverDate} calendarHref={str(content.ceremony, 'venue') ? undefined : calendarHref} />;
       case 'entourage':
-        return <Entourage key={key} data={data} lang={lang} />;
+        return <Entourage key={key} data={data} lang={lang} tagline={tag('entourage')} />;
       case 'sponsors':
         return <Sponsors key={key} data={data} lang={lang} />;
       case 'eighteen':
         return <Eighteen key={key} data={data} lang={lang} />;
       case 'dressCode':
-        return <DressCode key={key} data={data} lang={lang} />;
+        return <DressCode key={key} data={data} lang={lang} layout={layout} />;
       case 'gift':
-        return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : t(lang, 'gift.title')} />;
+        return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : t(lang, 'gift.title')} tagline={tag('gift')} />;
       case 'rsvp':
-        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} />;
+        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} tagline={tag('rsvp')} />;
       case 'story':
-        return <Story key={key} data={data} lang={lang} title={t(lang, 'story.title')} />;
+        return <Story key={key} data={data} lang={lang} title={t(lang, 'story.title')} tagline={tag('story')} layout={layout} />;
       case 'gallery':
-        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} />;
+        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={tag('gallery')} />;
       case 'program':
-        return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : t(lang, 'program.title')} />;
+        return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : t(lang, 'program.title')} tagline={tag('program')} />;
       case 'faq':
         return <Faq key={key} data={data} lang={lang} />;
       case 'moment':
@@ -932,23 +1086,23 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'travel':
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':
-        return <Social key={key} data={data} lang={lang} />;
+        return <Social key={key} data={data} lang={lang} tagline={tag('social')} />;
       case 'music':
         return null;
       case 'guestbook':
-        return <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} />;
+        return <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={tag('guestbook')} />;
       case 'photos':
         return hasFeature(inv.tier, 'photoSharing') ? (
-          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} />
+          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={tag('photos')} />
         ) : null;
       case 'closing':
-        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} />;
+        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={tag('closing')} names={layout === 'capiz' ? displayTitle(occasion, content) : undefined} date={layout === 'capiz' ? openingDate(coverDate) : undefined} />;
       case 'speakers':
         return <Speakers key={key} data={data} lang={lang} />;
       case 'family':
         return <Family key={key} data={data} lang={lang} />;
       case 'contact':
-        return <Contact key={key} data={data} lang={lang} />;
+        return <Contact key={key} data={data} lang={lang} tagline={tag('contact')} />;
     }
   });
 
@@ -961,6 +1115,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         </div>
       )}
       <Shell opening={opening} music={print ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+        {layout === 'capiz' && <CapizDecor />}
         {body}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (

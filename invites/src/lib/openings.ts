@@ -168,15 +168,18 @@ export function resolveOpening(args: {
   // Otherwise the artwork wins: if a clip was made for this invitation, that
   // is what the guest should get.
   if (args.cinematic && tierAtLeast(args.tier, 'COMPLETE')) return 'cinematic';
-  const wanted = isOpening(args.chosen) && args.chosen !== 'none'
+  // Past this point the cinematic opening is unreachable: it is supplied by
+  // artwork alone, so naming it in a template or a saved choice must not
+  // select it. Without this a design that names it but has no clip yet would
+  // hand the guest an empty <video> and a screen that never opens.
+  const drawn = (k: string): k is OpeningKey => isOpening(k) && k !== 'none' && !OPENING_BY_KEY[k].staffOnly;
+  const wanted: OpeningKey = drawn(args.chosen)
     ? args.chosen
-    : args.chosen === 'none'
-      ? 'none'
-      : isOpening(args.templateDefault)
-        ? args.templateDefault
-        : args.legacyEnvelope
-          ? 'envelope'
-          : 'none';
+    : drawn(args.templateDefault)
+      ? args.templateDefault
+      : args.legacyEnvelope
+        ? 'envelope'
+        : 'none';
   if (wanted === 'none') return 'none';
   return tierAtLeast(args.tier, OPENING_BY_KEY[wanted].minTier) ? wanted : 'envelope';
 }

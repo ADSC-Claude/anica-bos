@@ -316,6 +316,45 @@ An invitation below Complete is not served the clip at all: the `<video>` is
 never rendered, so there are no bytes to decline. Its design's own drawn
 opening carries on instead.
 
+### The Moment, and where the scenery lives
+
+An early version of the cinematic opening baked the scenery into the clip. It
+should not: the clip is shared by every couple on a design, so a fixed view
+hands a Batangas couple somebody else's horizon, and no encoder can change it
+without commissioning new video.
+
+So the scenery is a **page section**, not part of the opening. `moment` is a
+frame — a capiz arch, a capiz window, or none — with three layers behind it
+that are deliberately independent:
+
+1. **the backdrop** — the couple's own photograph, which an encoder swaps at
+   any time without touching anything else,
+2. **the painted scene** (`src/lib/backdrops.ts`), used only when there is no
+   photograph, because a snapshot often fights a design built from capiz and
+   warm ivory, and forcing one in is worse than not,
+3. **the words** — three short lines, typed by the customer like every other
+   field.
+
+Every painted scene is somewhere in the Philippines: El Nido, Batangas, Taal,
+Boracay, Bohol, Banaue, Sagada, Intramuros. A couple marrying in Batangas is
+not handed a lake in Lombardy because the illustration happened to be pretty.
+A scene whose artwork does not exist yet is never offered, so the list can be
+written ahead of the painting, and an unpainted choice leaves the frame
+holding the page's own colour rather than a broken image.
+
+The frame itself is drawn in CSS from the palette, not supplied as a second
+image — so it re-skins with the design instead of needing one commission per
+colourway. The arch is the backdrop's own `border-radius` rather than a hole
+punched through an overlay, because an inverse mask has to hard-code the page
+colour into a shadow, which then lies the moment a customer picks another
+palette.
+
+**Nothing on the opening is fixed copy either.** Both its lines — the one on
+the closed screen and the one shown as it plays — are cover fields. An earlier
+version hid the text layer on the cinematic opening on the reasoning that the
+artwork carried the screen; that was wrong, and it meant the one opening a
+customer pays most for was the one they could not put their own words on.
+
 ### Shipping a design
 
 `prisma/templates.ts` is the catalogue, as data. The seed creates it on an

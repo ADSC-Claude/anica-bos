@@ -2,6 +2,7 @@ import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
 import { OPENINGS } from './openings';
+import { BACKDROPS } from './backdrops';
 
 /**
  * The shape of an invitation, section by section.
@@ -73,6 +74,7 @@ export type SectionKey =
   | 'program'
   | 'faq'
   | 'travel'
+  | 'moment'
   | 'social'
   | 'music'
   | 'guestbook'
@@ -157,7 +159,8 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
           OPENINGS.filter((o) => !o.staffOnly).map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
           { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
         ),
-        text('openingLine', 'Words on the opening', { placeholder: 'and so it begins', hint: 'Leave blank and each opening uses its own line.' }),
+        text('openingLine', 'Words on the opening', { placeholder: "You're invited", hint: 'The line on the closed screen. Leave blank and each opening uses its own.' }),
+        text('openingLine2', 'Words as it opens', { placeholder: 'Good things begin together', hint: 'Shown while the opening plays. Leave blank to show nothing.' }),
       ]),
 ];
 
@@ -557,6 +560,27 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [list('items', 'Questions', [text('q', 'Question', { required: true }), textarea('a', 'Answer', { required: true })], { addLabel: 'Add a question', max: 20 })],
   },
   {
+    key: 'moment',
+    label: 'The moment',
+    tl: 'Ang Sandali',
+    description: 'A framed view — your own photo behind the arch, or a painted Philippine scene when a photo would fight the design.',
+    minTier: 'STANDARD',
+    fields: () => [
+      image('backdrop', 'Your photo', { hint: 'Portrait works best. Sits behind the frame, and can be swapped any time without touching the rest of the page.' }),
+      select('preset', 'Painted scene instead', BACKDROPS.map((b) => ({ value: b.key, label: `${b.label} — ${b.place}` })), {
+        hint: 'Used only when no photo is set. Every scene is somewhere in the Philippines.',
+      }),
+      select('frame', 'Frame', [
+        { value: 'arch', label: 'Capiz arch' },
+        { value: 'window', label: 'Capiz window' },
+        { value: 'none', label: 'No frame — full bleed' },
+      ]),
+      text('line1', 'First line', { placeholder: 'Same horizons' }),
+      text('line2', 'Second line', { placeholder: 'A brighter' }),
+      text('line3', 'Third line', { placeholder: 'Tomorrow' }),
+    ],
+  },
+  {
     key: 'travel',
     label: 'Accommodation & travel',
     tl: 'Tuluyan at Biyahe',
@@ -652,14 +676,14 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
-  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'social', 'music', 'guestbook', 'photos', 'closing'],
-  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'closing'],
+  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
+  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
   CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
   KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing'],
-  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
   BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
-  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
-  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
+  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'moment', 'faq', 'photos', 'closing'],
   GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
   COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
   CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'photos', 'closing'],
@@ -743,6 +767,9 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
         break;
       case 'countdown':
         data.enabled = true;
+        break;
+      case 'moment':
+        data.frame = 'arch';
         break;
       case 'parents':
         if (occasion === 'WEDDING') data.phrasing = 'together';

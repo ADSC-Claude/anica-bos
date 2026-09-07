@@ -726,15 +726,34 @@ table.data tr:hover td {
   pointer-events: none;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
 }
-/* The artwork carries the whole closed screen, so the names and date stay on
-   the invitation underneath rather than being printed over an illustration
-   that was composed without them. Only the tap cue sits on top. */
-.inv-open[data-style='cinematic'] .inv-open-copy {
-  display: none;
-}
+/* The words on a cinematic opening are the couple's own and are typed in the
+   builder like everything else. The artwork is the frame around them, not a
+   finished screen they have to fit into — so the copy is laid over it and the
+   scrim below keeps it readable whatever the illustration does. */
+.inv-open[data-style='cinematic'] .inv-open-copy,
 .inv-open[data-style='cinematic'] .inv-open-hint {
   color: #fff;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+.inv-open[data-style='cinematic'] .inv-open-line,
+.inv-open[data-style='cinematic'] .inv-open-date {
+  color: inherit;
+}
+.inv-open[data-style='cinematic']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.28) 0%, transparent 62%);
+}
+.inv-open-line2 {
+  margin-top: 0.5rem;
+  font-family: var(--inv-body);
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 .inv-open[data-open='true'][data-style='cinematic'] .inv-open-clip {
   opacity: 0;
@@ -1034,5 +1053,125 @@ table.data tr:hover td {
 
   html {
     scroll-behavior: auto;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   The Moment: a frame on the page with the couple's own view behind it.
+
+   Three layers, deliberately separate — backdrop, frame, words — so an encoder
+   can swap the photograph for a client without disturbing the other two. The
+   frame is drawn in CSS from the palette, so it re-skins with the design
+   instead of being a second image to commission.
+
+   The arch is the backdrop's own border-radius rather than a hole punched
+   through an overlay: an inverse mask needs the page colour hard-coded into
+   the shadow, which then lies the moment a customer picks another palette.
+   --------------------------------------------------------------------------- */
+.inv-moment {
+  padding: 0;
+  background: var(--inv-bg);
+}
+.inv-moment-view {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 88vh;
+  overflow: hidden;
+}
+.inv-moment-back {
+  position: absolute;
+  object-fit: cover;
+}
+.inv-moment-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.inv-moment-frame::after {
+  content: '';
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 85%, transparent);
+}
+
+/* The capiz arch: square-shouldered at the foot, a half-round at the head. */
+.inv-moment[data-frame='arch'] .inv-moment-back,
+.inv-moment[data-frame='arch'] .inv-moment-frame::after {
+  inset: 7% 8% 6%;
+  border-radius: 50% 50% 0.25rem 0.25rem / 32% 32% 0.25rem 0.25rem;
+}
+/* A second hairline inside the first, the way a carved surround is stepped. */
+.inv-moment[data-frame='arch'] .inv-moment-frame::before {
+  content: '';
+  position: absolute;
+  inset: 9% 10% 8%;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 40%, transparent);
+  border-radius: 50% 50% 0.2rem 0.2rem / 30% 30% 0.2rem 0.2rem;
+}
+
+/* The capiz window: a rectangle divided by its muntins. */
+.inv-moment[data-frame='window'] .inv-moment-back,
+.inv-moment[data-frame='window'] .inv-moment-frame::after {
+  inset: 8% 8%;
+  border-radius: 0.3rem;
+}
+.inv-moment[data-frame='window'] .inv-moment-frame::before {
+  content: '';
+  position: absolute;
+  inset: 8% 8%;
+  background:
+    linear-gradient(to right, transparent calc(50% - 0.5px), color-mix(in srgb, var(--inv-accent2) 65%, transparent) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.3% - 0.5px), color-mix(in srgb, var(--inv-accent2) 65%, transparent) calc(33.3% - 0.5px) calc(33.3% + 0.5px), transparent calc(33.3% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(66.6% - 0.5px), color-mix(in srgb, var(--inv-accent2) 65%, transparent) calc(66.6% - 0.5px) calc(66.6% + 0.5px), transparent calc(66.6% + 0.5px));
+}
+
+/* No frame: the view is the page. */
+.inv-moment[data-frame='none'] .inv-moment-back {
+  inset: 0;
+}
+.inv-moment[data-frame='none'] .inv-moment-frame::after {
+  display: none;
+}
+
+/* An empty frame is a real answer, not a missing image — so it is given the
+   surface colour and a little depth rather than being left as a dropout. */
+.inv-moment[data-kind='none'] .inv-moment-frame::after {
+  background: linear-gradient(170deg, var(--inv-surface), color-mix(in srgb, var(--inv-accent2) 30%, var(--inv-surface)));
+}
+
+.inv-moment-copy {
+  position: absolute;
+  inset: auto 8% 6%;
+  z-index: 2;
+  padding: 3rem 1.5rem 1.6rem;
+  text-align: center;
+  border-radius: 0 0 0.25rem 0.25rem;
+}
+.inv-moment-copy p {
+  font-family: var(--inv-body);
+  font-size: 0.74rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  line-height: 2.1;
+  color: var(--inv-ink);
+}
+/* Over a photograph nobody has seen, a text-shadow is not enough — a pale sky
+   swallows white type. The words get their own ground. */
+.inv-moment[data-kind='photo'] .inv-moment-copy {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.34) 55%, transparent);
+}
+.inv-moment[data-kind='photo'] .inv-moment-copy p {
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+.inv-moment[data-frame='none'] .inv-moment-copy {
+  inset: auto 0 0;
+  border-radius: 0;
+}
+
+@media print {
+  .inv-moment-view {
+    aspect-ratio: 4 / 3;
+    max-height: 30vh;
   }
 }

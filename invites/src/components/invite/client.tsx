@@ -29,6 +29,8 @@ export type OpeningProps = {
   date: string;
   /** The one line on the closed screen. */
   line: string;
+  /** Shown while the opening plays. Blank shows nothing. */
+  line2: string;
   /** Letterspaced caps instead of the script face. */
   caps: boolean;
   /** Up to three, in the order the stage wants them. */
@@ -216,6 +218,7 @@ export function Shell({
             </div>
             <div className="inv-open-copy">
               {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}
+              {opening.line2 && <p className="inv-open-line2">{opening.line2}</p>}
               {opening.names && <p className="inv-open-names">{opening.names}</p>}
               {opening.date && <p className="inv-open-date">{opening.date}</p>}
             </div>

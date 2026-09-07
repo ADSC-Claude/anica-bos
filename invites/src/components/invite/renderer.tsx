@@ -4,6 +4,7 @@ import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets } from '@/lib/openings';
+import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
@@ -874,6 +875,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // card rather than written into a sentence.
       date: openingDate(coverDate),
       line: str(content.cover, 'openingLine') || def.line[lang],
+      line2: str(content.cover, 'openingLine2'),
       caps: Boolean(def.caps),
       photos,
       video: style === 'cinematic' ? assets.video : '',
@@ -922,6 +924,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : t(lang, 'program.title')} />;
       case 'faq':
         return <Faq key={key} data={data} lang={lang} />;
+      case 'moment':
+        return <Moment key={key} data={data} />;
       case 'travel':
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':
@@ -969,6 +973,36 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         )}
       </Shell>
     </div>
+  );
+}
+
+/**
+ * A framed view. The couple's own photograph if they gave one, else the
+ * painted scene they chose, else the frame alone holding the page's colour —
+ * which is a real answer, not a broken state, and is why nothing here is
+ * required.
+ *
+ * The backdrop is deliberately its own layer behind the frame: an encoder can
+ * swap the photograph for a client without touching the words, the frame or
+ * anything else on the page.
+ */
+function Moment({ data }: { data: SectionData }) {
+  const frame = str(data, 'frame') || 'arch';
+  const { url, kind } = resolveBackdrop(str(data, 'backdrop'), str(data, 'preset'));
+  const lines = ['line1', 'line2', 'line3'].map((k) => str(data, k)).filter(Boolean);
+  if (!url && lines.length === 0) return null;
+  return (
+    <section id="moment" className="inv-moment" data-frame={frame} data-kind={kind}>
+      <div className="inv-moment-view">
+        {url && <img className="inv-moment-back" src={url} alt="" loading="lazy" />}
+        <div className="inv-moment-frame" aria-hidden />
+        {lines.length > 0 && (
+          <div className="inv-moment-copy">
+            {lines.map((l, i) => <p key={i}>{l}</p>)}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

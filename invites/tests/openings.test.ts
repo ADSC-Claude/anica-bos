@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening } from '../src/lib/openings';
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
+import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES } from '../prisma/templates';
-import { fieldsFor, cleanSection, defaultContent } from '../src/lib/sections';
+import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS } from '../src/lib/sections';
 import { tierAtLeast } from '../src/lib/tiers';
 import { PALETTE_PRESETS } from '../src/lib/theme';
 
@@ -165,4 +166,63 @@ test('a clip made for one couple beats the one their design ships with', () => {
   assert.deepEqual(openingAssets(bespoke, design), { video: 'https://cdn/theirs.webm', poster: 'https://cdn/theirs.webp' });
   assert.deepEqual(openingAssets(none, design), { video: 'https://cdn/shared.webm', poster: 'https://cdn/shared.webp' });
   assert.deepEqual(openingAssets(none, none), { video: '', poster: '' });
+});
+
+test('a backdrop is the couple photo, else a painted scene, else nothing', () => {
+  const painted = BACKDROPS[0].key;
+  assert.deepEqual(resolveBackdrop('/uploads/theirs.jpg', painted), { url: '/uploads/theirs.jpg', kind: 'photo' });
+  // Every scene is unpainted today, so a preset alone still resolves to
+  // nothing — the frame holds the page's own colour rather than a broken img.
+  assert.deepEqual(resolveBackdrop('', painted), { url: '', kind: 'none' });
+  assert.deepEqual(resolveBackdrop('', 'nowhere'), { url: '', kind: 'none' });
+  assert.deepEqual(availableBackdrops(), BACKDROPS.filter((b) => b.url));
+});
+
+test('every painted scene is somewhere in the Philippines, and declared once', () => {
+  assert.equal(new Set(BACKDROPS.map((b) => b.key)).size, BACKDROPS.length);
+  for (const b of BACKDROPS) {
+    assert.ok(b.label && b.place && b.brief, b.key);
+    assert.ok(isBackdrop(b.key));
+  }
+  assert.equal(isBackdrop('lakecomo'), false);
+});
+
+test('the moment section is editable end to end, and skips a memorial', () => {
+  const fields = fieldsFor('moment', 'WEDDING');
+  const keys = fields.map((f) => f.key);
+  // The photo, the fallback scene, the frame and all three lines are fields —
+  // nothing on this section is fixed copy.
+  assert.deepEqual(keys, ['backdrop', 'preset', 'frame', 'line1', 'line2', 'line3']);
+  assert.ok(OCCASION_SECTIONS.WEDDING.includes('moment'));
+  assert.ok(!OCCASION_SECTIONS.MEMORIAL.includes('moment'), 'a scenic view is the wrong register for a memorial');
+  const { data, issues } = cleanSection(fields, {
+    backdrop: 'https://cdn/theirs.jpg', preset: 'elnido', frame: 'arch',
+    line1: '  Same horizons  ', line2: 'A brighter', line3: 'Tomorrow',
+  });
+  assert.equal(issues.length, 0);
+  assert.equal(data.line1, 'Same horizons');
+  assert.equal(data.preset, 'elnido');
+  assert.equal(defaultContent('WEDDING').moment?.frame, 'arch');
+});
+
+test('both lines of the opening are the customer’s own words', () => {
+  const cover = fieldsFor('cover', 'WEDDING').map((f) => f.key);
+  assert.ok(cover.includes('openingLine'), 'the closed screen line is editable');
+  assert.ok(cover.includes('openingLine2'), 'the line shown as it opens is editable');
+  const { data } = cleanSection(fieldsFor('cover', 'WEDDING'), { openingLine: "You're invited", openingLine2: 'Good things begin together' });
+  assert.equal(data.openingLine, "You're invited");
+  assert.equal(data.openingLine2, 'Good things begin together');
+});
+
+test('a design cannot name the cinematic opening into existence', () => {
+  // staffOnly openings are supplied by artwork, never selected. A template or
+  // a stale saved choice naming one must fall through, or the guest gets an
+  // empty <video> and a screen that never opens.
+  const base = { legacyEnvelope: false, tier: 'COMPLETE' as const, cinematic: false };
+  assert.equal(resolveOpening({ ...base, chosen: '', templateDefault: 'cinematic' }), 'none');
+  assert.equal(resolveOpening({ ...base, chosen: 'cinematic', templateDefault: '' }), 'none');
+  assert.equal(resolveOpening({ ...base, chosen: 'cinematic', templateDefault: 'seal' }), 'seal');
+  assert.equal(resolveOpening({ ...base, chosen: '', templateDefault: 'cinematic', legacyEnvelope: true }), 'envelope');
+  // Only the artwork flag reaches it.
+  assert.equal(resolveOpening({ ...base, chosen: '', templateDefault: '', cinematic: true }), 'cinematic');
 });

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { loadJobForCustomer, DFY_COLUMNS } from '@/lib/dfy';
+import { RUSH_CODE, PRIORITY_CODE } from '@/lib/pricing';
 import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, type Content } from '@/lib/sections';
@@ -47,6 +48,11 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   const stage = DFY_COLUMNS.findIndex((c) => c.key === job.status);
   const canEditIntake = ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status);
   const left = job.revisionsAllowed - job.revisionsUsed;
+  // Whether this build was paid to be quick, which is what shortens the
+  // turnaround and, with it, the number of rounds there is room for.
+  const bought = (code: string) => job.order.items.some((it) => it.kind === 'ADDON' && it.code === code);
+  const priority = bought(PRIORITY_CODE);
+  const hurried = priority || bought(RUSH_CODE);
 
   return (
     <>
@@ -85,8 +91,9 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
             <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-2" size="sm" />
           </div>
           <div className="card p-4 text-xs text-[color:var(--color-ink-500)]">
-            <p>Turnaround: {inv.order?.serviceMode === 'CONCIERGE' ? `${s['concierge.turnaroundDays']} working days` : `${s['dfy.turnaroundDays']} working days`} from the time we receive your details.</p>
-            <p className="mt-1">Revisions: {job.revisionsAllowed} rounds included.</p>
+            <p>Turnaround: {hurried ? (priority ? `${s['concierge.turnaroundDays']} working days` : `${s['rush.turnaroundHours']} hours`) : `${s['dfy.turnaroundDays']} working days`} from the time we receive your details.</p>
+            <p className="mt-1">Revisions: {job.revisionsAllowed} round{job.revisionsAllowed === 1 ? '' : 's'} included.</p>
+            {hurried && <p className="mt-1">Fewer than usual, because you asked for it early: there is limited time to encode, so there is minimal chance to revise.</p>}
           </div>
         </aside>
       </div>

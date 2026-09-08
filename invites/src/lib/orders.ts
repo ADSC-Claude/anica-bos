@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, serviceModeAvailable, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, type Quote } from './pricing';
+import { quote, serviceModeAvailable, revisionRounds, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, type Quote } from './pricing';
 import { TIER_LABELS } from './tiers';
 import { createDraft } from './invitations';
 import { audit } from './audit';
@@ -180,7 +180,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
           invitationId: order.invitationId,
           status: 'NEW',
           dueAt: addDays(now, days),
-          revisionsAllowed: priority ? s['concierge.revisions'] : s['dfy.revisions'],
+          revisionsAllowed: revisionRounds(order.tier, priority || rush, s['dfy.revisions']),
         },
       });
     }

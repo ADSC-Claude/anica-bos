@@ -110,6 +110,21 @@ export function addOnAvailable(code: string, tier: Tier): boolean {
  */
 const RUSH_BY_TIER: Partial<Record<Tier, number>> = { BASIC: 100_000, STANDARD: 150_000 };
 
+/**
+ * Preview rounds on a build that was paid to be quick. A round is a preview
+ * sent, read, replied to and worked through; there is no room for the ordinary
+ * two inside 24 hours on Basic, and promising them would mean missing the date
+ * the rush was bought for.
+ *
+ * It is a cap, never a bonus: a tier whose ordinary allowance is already lower
+ * keeps the lower number. Buying speed does not buy rounds.
+ */
+const RUSHED_ROUNDS: Record<Tier, number> = { BASIC: 1, STANDARD: 2, COMPLETE: 2 };
+
+export function revisionRounds(tier: Tier, rushed: boolean, ordinary: number): number {
+  return rushed ? Math.min(ordinary, RUSHED_ROUNDS[tier]) : ordinary;
+}
+
 export function addOnPrice(addOn: AddOnLike, tier: Tier): number {
   if (addOn.code !== RUSH_CODE) return addOn.priceCents;
   return RUSH_BY_TIER[tier] ?? addOn.priceCents;

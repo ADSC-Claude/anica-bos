@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quote, couponProblem, serviceFee, serviceModeAvailable, addOnAvailable, addOnPrice, type CouponLike, type PackageLike } from '../src/lib/pricing';
+import { quote, couponProblem, serviceFee, serviceModeAvailable, addOnAvailable, addOnPrice, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
 import { discountAmount, formatPeso, formatPesoShort, toCents } from '../src/lib/money';
 
 const pkg: PackageLike = { code: 'WEDDING_STANDARD', name: 'Wedding Standard', tier: 'STANDARD', priceCents: 300000, dfyFeeCents: 120000, conciergeFeeCents: 0 };
@@ -113,4 +113,22 @@ test('Rush is Basic and Standard only, and is dropped from a Signature quote', (
   assert.equal(dropped.addOnsCents, 0, 'not charged');
   assert.equal(dropped.totalCents, 400000);
   assert.ok(!dropped.items.some((i) => i.code === 'RUSH'), 'and not listed');
+});
+
+test('a build paid to be quick carries fewer rounds, never more', () => {
+  const ordinary = 2;
+  // What the tiers are sold when they buy the jump.
+  assert.equal(revisionRounds('BASIC', true, ordinary), 1, 'no room for two passes inside 24 hours');
+  assert.equal(revisionRounds('STANDARD', true, ordinary), 2);
+  assert.equal(revisionRounds('COMPLETE', true, ordinary), 2);
+
+  // Nothing changes for a build that was not rushed.
+  for (const t of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
+    assert.equal(revisionRounds(t, false, ordinary), ordinary, t);
+  }
+
+  // It caps, it does not grant: a generous ordinary allowance is cut down to
+  // the rushed number, and a meagre one is left alone rather than topped up.
+  assert.equal(revisionRounds('COMPLETE', true, 6), 2, 'cut down');
+  assert.equal(revisionRounds('BASIC', true, 0), 0, 'never topped up');
 });

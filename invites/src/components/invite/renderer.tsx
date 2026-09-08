@@ -4,7 +4,7 @@ import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
-import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening } from '@/lib/openings';
+import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
@@ -1454,7 +1454,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    */
   function openingProps() {
     const assets = openingAssets(inv, inv.template);
-    const style = print || bare
+    const key = print || bare
       ? 'none'
       : resolveOpening({
           chosen: str(content.cover, 'opening'),
@@ -1463,12 +1463,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           tier: inv.tier,
           cinematic: Boolean(assets.video) && hasPremiumOpening(inv),
         });
-    const def = OPENING_BY_KEY[style];
+    const def = OPENING_BY_KEY[key];
+    // The Letter is a clip like the premium opening, only shared: the same
+    // stage plays it, from the universal file rather than the design's.
+    const universal = key === 'universal';
+    const style = universal ? 'cinematic' : key;
     const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);
     const photos = [coverImage(content), ...gallery].filter(Boolean).slice(0, def.photos);
-    // The Capiz clip opens onto a blank card, and the words go on the card as
-    // it opens rather than over the closed face.
-    const clip = style === 'cinematic' && layout === 'capiz' ? 'capiz' : '';
+    // A clip that says nothing itself carries the words as it ends: on the
+    // Capiz card as it opens, or beneath the Letter's envelope — rather than
+    // over the closed face.
+    const clip = universal ? 'universal' : style === 'cinematic' && layout === 'capiz' ? 'capiz' : '';
     const wordsOnCard = Boolean(clip);
     return {
       style,
@@ -1485,8 +1490,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
       caps: Boolean(def.caps),
       photos,
-      video: style === 'cinematic' ? assets.video : '',
-      poster: style === 'cinematic' ? assets.poster : '',
+      video: universal ? UNIVERSAL_OPENING.video : style === 'cinematic' ? assets.video : '',
+      poster: universal ? UNIVERSAL_OPENING.poster : style === 'cinematic' ? assets.poster : '',
       hint: t(lang, 'envelope.open'),
     };
   }

@@ -865,7 +865,7 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
       case 'cover':
         data.introPreset = 'families';
         data.intro = '';
-        data.opening = 'envelope';
+        data.opening = 'universal';
         if (occasion === 'WEDDING') data.kind = 'wedding';
         break;
       case 'countdown':

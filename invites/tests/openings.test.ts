@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening, hasPremiumOpening, PREMIUM_OPENING_CODE } from '../src/lib/openings';
+import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening, hasPremiumOpening, PREMIUM_OPENING_CODE, UNIVERSAL_OPENING } from '../src/lib/openings';
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES, templateData } from '../prisma/templates';
@@ -84,9 +84,9 @@ test('a saved opening survives cleaning, and rubbish does not', () => {
   assert.ok(bad.issues.some((i) => i.path === 'opening'));
 });
 
-test('a new wedding starts with the envelope, and the old toggle is gone', () => {
+test('a new wedding starts with the Letter, and the old toggle is gone', () => {
   const c = defaultContent('WEDDING');
-  assert.equal(c.cover?.opening, 'envelope');
+  assert.equal(c.cover?.opening, 'universal');
   assert.equal('envelope' in (c.cover ?? {}), false, 'the boolean toggle no longer exists');
 });
 
@@ -127,9 +127,9 @@ test('Capiz is the Filipiniana flagship and its opening is one it can reach', ()
   assert.equal(capiz.collection, 'filipiniana');
   assert.equal(capiz.occasion, 'WEDDING');
   assert.equal(capiz.layout, 'capiz');
-  // It opens with the wax seal, which every package includes; the design
-  // itself is a Standard design, and its premium opening video is the add-on.
-  assert.equal(capiz.opening, 'seal');
+  // It opens with the Letter like every design; the design itself is a
+  // Standard design, and its premium opening video is the add-on.
+  assert.equal(capiz.opening, 'universal');
   assert.equal(capiz.premium, false);
   assert.equal(capiz.minTier, 'STANDARD');
   assert.ok(capiz.openingVideoUrl && capiz.openingPosterUrl, 'Capiz has a premium opening clip to add on');
@@ -146,9 +146,8 @@ test('the designs from the cancelled decks are gone, and nothing points at them'
   }
   // The drawn openings themselves stay: they are the self-serve set, and
   // other designs still ship with them.
-  assert.ok(TEMPLATES.some((t) => t.opening === 'seal'));
-  assert.ok(TEMPLATES.some((t) => t.opening === 'line'));
-  assert.ok(TEMPLATES.some((t) => t.opening === 'curtain'));
+  // every design opens with the Letter, the universal opening
+  for (const t of TEMPLATES) assert.equal(t.opening, 'universal', t.slug);
 });
 
 test('artwork supplies the cinematic opening; it is never chosen', () => {
@@ -273,4 +272,20 @@ test('the premium opening is an entitlement: bought, switched on, or made for th
   // the add-on is sold with any package: its opening is not gated by tier
   assert.equal(OPENING_BY_KEY.cinematic.minTier, 'BASIC');
   assert.equal(OPENING_BY_KEY.cinematic.name, 'Premium opening');
+});
+
+test('the Letter is the universal opening: on every design, in every package, its words beneath the envelope', () => {
+  const letter = OPENING_BY_KEY.universal;
+  assert.equal(letter.name, 'The Letter');
+  assert.equal(letter.minTier, 'BASIC');
+  assert.ok(!letter.staffOnly, 'a customer may pick it — it is the default, not a staff attachment');
+  assert.ok(letter.lineOnly, 'the closed face carries no names: the card inside says you are invited, and the names follow');
+  assert.match(UNIVERSAL_OPENING.video, /^\/openings\/universal\.mp4$/);
+  assert.match(UNIVERSAL_OPENING.poster, /^\/openings\/universal-poster\.jpg$/);
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.ok(openingsFor(tier).some((o) => o.key === 'universal'), tier);
+  // the design default, reachable from any package; the premium clip still wins when it is bought
+  const base = { chosen: '', templateDefault: 'universal', legacyEnvelope: false, tier: 'BASIC' as const };
+  assert.equal(resolveOpening(base), 'universal');
+  assert.equal(resolveOpening({ ...base, cinematic: true }), 'cinematic');
+  assert.equal(resolveOpening({ ...base, chosen: 'none' }), 'none');
 });

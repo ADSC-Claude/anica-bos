@@ -14,7 +14,7 @@ import { tierAtLeast } from './tiers';
  * are what differ.
  */
 /** In catalogue order — simplest first, so the builder's dropdown reads as a ladder. Every package includes all of the drawn ones. */
-export const OPENING_KEYS = ['none', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo', 'cinematic'] as const;
+export const OPENING_KEYS = ['none', 'universal', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo', 'cinematic'] as const;
 export type OpeningKey = (typeof OPENING_KEYS)[number];
 
 export type OpeningDef = {
@@ -55,6 +55,20 @@ export const OPENINGS: OpeningDef[] = [
     minTier: 'BASIC',
     photos: 0,
     line: { en: '', tl: '' },
+  },
+  {
+    // The universal opening: one clip for every design and every package. A
+    // sealed letter on white opens and a card slides out saying "you're
+    // invited to" — and the names and date come up beneath the envelope.
+    key: 'universal',
+    name: 'The Letter',
+    tagline: 'Included with every package.',
+    description: 'A sealed letter opens and a card slides out to say you are invited — then your names and date appear beneath it. Our universal opening, on every design.',
+    minTier: 'BASIC',
+    photos: 0,
+    line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
+    caps: true,
+    lineOnly: true,
   },
   {
     key: 'envelope',
@@ -207,6 +221,13 @@ export function openingsFor(tier: Tier): OpeningDef[] {
 
 /** The add-on's code in the catalogue — what an order item carries when the premium opening was bought. */
 export const PREMIUM_OPENING_CODE = 'PREMIUM_OPENING';
+
+/**
+ * The Letter's clip and its first frame. One file for every design: the
+ * artwork is neutral on purpose, and the couple's words are set over it by the
+ * page, so nothing is re-rendered when a name changes.
+ */
+export const UNIVERSAL_OPENING = { video: '/openings/universal.mp4', poster: '/openings/universal-poster.jpg' } as const;
 
 /**
  * Whether an invitation may play a premium opening clip: the add-on was bought

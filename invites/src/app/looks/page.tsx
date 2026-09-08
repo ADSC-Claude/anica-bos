@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { loadPublic } from '@/lib/invitations';
 import { getSettings } from '@/lib/settings';
-import { LOOKS } from '@/lib/looks';
+import { LOOKS, LOOK_MIN_TIER } from '@/lib/looks';
 import { Invitation } from '@/components/invite/renderer';
 import { requireStaffPage } from '@/lib/guard';
 
@@ -31,13 +31,13 @@ export default async function LooksPage({ searchParams }: { searchParams: Promis
         <p className="eyebrow">The looks</p>
         <h1 className="text-3xl">One page, five voices</h1>
         <p className="mt-2 text-[color:var(--color-ink-soft)]">
-          A look is the faces a page is set in and the lines it says under each heading, in English and in Tagalog. The layout and the colours are the design&apos;s; the words are the couple&apos;s. A design ships with one look, and a customer on the Complete tier can pick another — so a theme the default fonts fight has somewhere to go.
+          A look is the faces a page is set in and the lines it says under each heading, in English and in Tagalog. The layout and the colours are the design&apos;s; the words are the couple&apos;s. Every design ships in one look. Basic keeps it, Standard chooses among three, and Complete among all five — so a theme the default fonts fight has somewhere to go.
         </p>
       </header>
       <div className="looks-row">
         {LOOKS.map((look) => (
           <section key={look.key} className="looks-col">
-            <h2 className="text-xl">{look.name}</h2>
+            <h2 className="text-xl">{look.name} <span className="pill pill-info align-middle text-xs">{LOOK_MIN_TIER[look.key] === 'STANDARD' ? 'Standard & up' : 'Complete'}</span></h2>
             <p className="mb-1 text-sm text-[color:var(--color-ink-soft)]">{look.tagline}</p>
             <p className="mb-3 text-xs text-[color:var(--color-ink-soft)]">{look.fonts.load.map((f) => f.split(':')[0]).join(' · ')} · names {look.joiner === 'and' ? 'joined by “and”' : 'joined by “&”'}</p>
             <div className="looks-phone">

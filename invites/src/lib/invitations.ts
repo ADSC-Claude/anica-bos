@@ -26,7 +26,7 @@ import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
-import { LOOK_BY_KEY, isLook, type Look } from './looks';
+import { LOOK_BY_KEY, isLook, lookAllowed, type Look } from './looks';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
 import { notifyStaff } from './notifications';
@@ -203,20 +203,24 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
   assertOpenForChanges(user, invitation);
   const clean: ThemeOverride = {};
-  if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) {
-    if (!hasFeature(invitation.tier, 'palette.presets')) throw new HttpError(403, 'Palette presets are included from the Standard tier.');
-    clean.paletteKey = theme.paletteKey;
-  }
-  if (theme.palette) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Custom colours are included in the Complete tier.');
-    clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
-  }
+  // Colours are every package's: the presets and the picker alike.
+  if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) clean.paletteKey = theme.paletteKey;
+  if (theme.palette) clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
   if (theme.fontsKey && FONT_PRESETS.some((f) => f.key === theme.fontsKey)) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Font choice is included in the Complete tier.');
+    if (!hasFeature(invitation.tier, 'fonts.custom')) throw new HttpError(403, 'Font presets are included in the Complete package.');
     clean.fontsKey = theme.fontsKey;
   }
-  // A look is the faces and the lines under the headings; every package may choose one.
-  if (theme.lookKey !== undefined) clean.lookKey = isLook(theme.lookKey) ? theme.lookKey : '';
+  // A look is the faces and the lines under the headings. Basic keeps the
+  // design's own; Standard chooses among three, Complete among five.
+  if (theme.lookKey !== undefined) {
+    const key = isLook(theme.lookKey) ? theme.lookKey : '';
+    if (!lookAllowed(invitation.tier, key)) {
+      throw new HttpError(403, hasFeature(invitation.tier, 'fonts.choice')
+        ? 'That font style is included in the Complete package.'
+        : 'The Basic package is set in the design’s own fonts. Standard chooses among three font styles, Complete among five.');
+    }
+    clean.lookKey = key;
+  }
   // Day, night, or by the guest's clock; the guest can still switch on the page.
   if (theme.mode !== undefined) clean.mode = theme.mode === 'night' || theme.mode === 'auto' ? theme.mode : 'day';
   const content = contentOf(invitation.content);
@@ -231,7 +235,7 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
  * it — that is what a look is — so a chosen look wins over a chosen font
  * preset, and a design with a look ignores its own `fonts` column.
  */
-export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent): { palette: Palette; fonts: Fonts; look?: Look } {
+export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent, tier?: Tier): { palette: Palette; fonts: Fonts; look?: Look } {
   let palette = paletteFrom(template.palette);
   let fonts = fontsFrom(template.fonts);
   let look: Look | undefined = template.look && isLook(template.look) ? LOOK_BY_KEY[template.look] : undefined;
@@ -248,7 +252,9 @@ export function resolveTheme(template: { palette: unknown; fonts: unknown; look?
       look = undefined;
     }
   }
-  if (t?.lookKey && isLook(t.lookKey)) look = LOOK_BY_KEY[t.lookKey];
+  // A look chosen above the package — an invitation downgraded after the fact —
+  // falls back to the design's own, so the page shows only what was paid for.
+  if (t?.lookKey && isLook(t.lookKey) && (!tier || lookAllowed(tier, t.lookKey))) look = LOOK_BY_KEY[t.lookKey];
   if (look) fonts = look.fonts;
   return { palette, fonts, look };
 }

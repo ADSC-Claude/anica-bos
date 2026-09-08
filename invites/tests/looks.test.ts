@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOOKS, LOOK_BY_KEY, LOOK_KEYS, isLook, lookLine, lookTitle, type LineKey } from '../src/lib/looks';
+import { LOOKS, LOOK_BY_KEY, LOOK_KEYS, isLook, lookLine, lookTitle, looksFor, lookAllowed, type LineKey } from '../src/lib/looks';
+import { hasFeature, COMPARISON } from '../src/lib/tiers';
 import { googleFontsUrl } from '../src/lib/theme';
 import { resolveTheme } from '../src/lib/invitations';
 import { TEMPLATES } from '../prisma/templates';
@@ -63,4 +64,52 @@ test('a design carries a look, the customer can pick another, and a font preset 
   assert.equal(bogus.look, undefined);
   const plain = resolveTheme({ palette: capiz.palette, fonts: capiz.fonts }, {});
   assert.equal(plain.look, undefined);
+});
+
+test('the font style is what a package buys: the design’s own at Basic, three at Standard, five at Complete', () => {
+  assert.equal(looksFor('BASIC').length, 0, 'Basic picks nothing: it keeps the design’s own');
+  assert.equal(looksFor('STANDARD').length, 3);
+  assert.equal(looksFor('COMPLETE').length, LOOKS.length);
+  assert.equal(LOOKS.length, 5);
+  // every look Standard offers, Complete offers too
+  for (const l of looksFor('STANDARD')) assert.ok(looksFor('COMPLETE').some((c) => c.key === l.key), l.key);
+  // the design's own — the blank choice — is every package's
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.equal(lookAllowed(tier, ''), true, tier);
+  assert.equal(lookAllowed('BASIC', 'heritage'), false);
+  assert.equal(lookAllowed('STANDARD', 'heritage'), true);
+  assert.equal(lookAllowed('STANDARD', 'regal'), false, 'the two Complete looks are not Standard’s');
+  assert.equal(lookAllowed('COMPLETE', 'regal'), true);
+  assert.equal(lookAllowed('COMPLETE', 'nonsense'), false);
+});
+
+test('a design keeps its own look at every package, and a look above the package falls back to it', () => {
+  const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
+  const template = { palette: capiz.palette, fonts: capiz.fonts, look: 'heritage' };
+  // Basic is set in the design's own, whatever tier the look itself belongs to
+  assert.equal(resolveTheme(template, {}, 'BASIC').look?.key, 'heritage');
+  // a Complete-only look chosen and then downgraded: the page shows what was paid for
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }, 'COMPLETE').look?.key, 'regal');
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }, 'STANDARD').look?.key, 'heritage');
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'modern' } }, 'STANDARD').look?.key, 'modern');
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'modern' } }, 'BASIC').look?.key, 'heritage');
+  // without a tier — the showcase, staff previews — nothing is clamped
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }).look?.key, 'regal');
+});
+
+test('colours are every package’s, and the old font presets stay staff’s', () => {
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
+    assert.equal(hasFeature(tier, 'palette.presets'), true, tier);
+    assert.equal(hasFeature(tier, 'palette.custom'), true, tier);
+  }
+  assert.equal(hasFeature('BASIC', 'fonts.choice'), false);
+  assert.equal(hasFeature('STANDARD', 'fonts.choice'), true);
+  assert.equal(hasFeature('STANDARD', 'fonts.all'), false);
+  assert.equal(hasFeature('COMPLETE', 'fonts.all'), true);
+  assert.equal(hasFeature('STANDARD', 'fonts.custom'), false);
+  // the table the landing page draws says the same thing
+  const fonts = COMPARISON.find((r) => r.label === 'Font style')!;
+  assert.match(String(fonts.cells.STANDARD), /3/);
+  assert.match(String(fonts.cells.COMPLETE), /5/);
+  const colours = COMPARISON.find((r) => r.label === 'Colours')!;
+  assert.equal(colours.cells.BASIC, colours.cells.COMPLETE);
 });

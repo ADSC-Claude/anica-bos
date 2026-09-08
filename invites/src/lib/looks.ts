@@ -1,5 +1,7 @@
+import type { Tier } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Fonts } from './theme';
+import { tierAtLeast } from './tiers';
 
 /**
  * A look is the voice of an invitation: the faces it is set in and the lines
@@ -382,6 +384,38 @@ export const LOOK_BY_KEY: Record<LookKey, Look> = Object.fromEntries(LOOKS.map((
 
 export function isLook(value: string): value is LookKey {
   return (LOOK_KEYS as readonly string[]).includes(value);
+}
+
+/**
+ * How many looks a package may choose from. The faces are part of what is
+ * bought: Basic is set in the design's own look and picks nothing, Standard
+ * chooses among three, Complete among all five. A design's own look is what
+ * every package starts in, whichever list it belongs to — so a Basic
+ * invitation is never left without a voice, it simply keeps the one the
+ * design was drawn in.
+ */
+export const LOOK_MIN_TIER: Record<LookKey, Tier> = {
+  heritage: 'STANDARD',
+  romance: 'STANDARD',
+  modern: 'STANDARD',
+  editorial: 'COMPLETE',
+  regal: 'COMPLETE',
+};
+
+/** The looks this package may pick, in the order they are shown. Empty for Basic. */
+export function looksFor(tier: Tier): Look[] {
+  return LOOKS.filter((l) => tierAtLeast(tier, LOOK_MIN_TIER[l.key]));
+}
+
+/** Whether this package may set that look. Blank — the design's own — is always allowed. */
+export function lookAllowed(tier: Tier, key: string): boolean {
+  if (!key) return true;
+  return isLook(key) && tierAtLeast(tier, LOOK_MIN_TIER[key]);
+}
+
+/** How many looks the package chooses from, for the copy that says so. */
+export function lookCount(tier: Tier): number {
+  return looksFor(tier).length;
 }
 
 /** The line a look writes at `key`, or nothing when it writes none there. */

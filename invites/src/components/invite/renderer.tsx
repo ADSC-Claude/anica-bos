@@ -1410,7 +1410,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
-  const theme = resolveTheme(inv.template, content);
+  const theme = resolveTheme(inv.template, content, inv.tier);
   const { palette } = theme;
   // The design's own words written over the look's, and its own pictures
   // where the encoder set them; a blank slot keeps the layout's own.

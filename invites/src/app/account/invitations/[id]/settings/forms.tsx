@@ -3,7 +3,9 @@
 import type { ThemeMode } from '@/lib/invitations';
 
 import { useState, useTransition } from 'react';
+import type { Tier } from '@prisma/client';
 import type { Palette } from '@/lib/theme';
+import { TIER_LABELS } from '@/lib/tiers';
 import { settingsAction, themeAction, templateAction } from '@/app/account/actions';
 
 function useRun() {
@@ -62,19 +64,26 @@ export function SettingsForm(p: { invitationId: string; host: string; slug: stri
   );
 }
 
-export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; fonts: { key: string; label: string }[]; looks: { key: string; name: string; tagline: string }[]; current: { paletteKey: string; palette: Palette; fontsKey: string; lookKey: string; mode: string }; canPresets: boolean; canCustom: boolean }) {
+/** What this package may choose from, and where to see them. */
+function fontsNote(tier: Tier, offered: number, all: number) {
+  const see = <a href="/looks" target="_blank" rel="noopener" className="underline">See them side by side</a>;
+  if (offered === 0) return <>The {TIER_LABELS[tier]} package is set in the design’s own. {see}.</>;
+  if (offered < all) return <>The {TIER_LABELS[tier]} package chooses from {offered}; the Complete package from all {all}. {see}.</>;
+  return <>The Complete package chooses from all {all}. {see}.</>;
+}
+
+export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; looks: { key: string; name: string; tagline: string }[]; allLooks: number; current: { paletteKey: string; palette: Palette; lookKey: string; mode: string }; tier: Tier }) {
   const { pending, run, Msg } = useRun();
   const [custom, setCustom] = useState<Palette>(p.current.palette);
-  const [fontsKey, setFontsKey] = useState(p.current.fontsKey);
   const [lookKey, setLookKey] = useState(p.current.lookKey);
   const [mode, setMode] = useState(p.current.mode || 'day');
   return (
     <div className="space-y-4">
       <div>
-        <p className="label">Palette presets {!p.canPresets && <span className="pill pill-warn ml-1">Standard tier</span>}</p>
+        <p className="label">Palette presets</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {p.palettes.map((pal) => (
-            <button key={pal.key} type="button" disabled={!p.canPresets || pending} onClick={() => run(() => themeAction(p.invitationId, { paletteKey: pal.key }), `Palette: ${pal.label}`)} className={`card flex items-center gap-2 p-2 text-left text-xs ${p.current.paletteKey === pal.key ? 'ring-2 ring-[color:var(--color-plum-600)]' : ''} disabled:opacity-50`}>
+            <button key={pal.key} type="button" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { paletteKey: pal.key }), `Palette: ${pal.label}`)} className={`card flex items-center gap-2 p-2 text-left text-xs ${p.current.paletteKey === pal.key ? 'ring-2 ring-[color:var(--color-plum-600)]' : ''} disabled:opacity-50`}>
               <span className="flex gap-0.5">{[pal.palette.bg, pal.palette.accent, pal.palette.accent2].map((c) => <span key={c} className="h-5 w-5 rounded-full border border-black/10" style={{ background: c }} />)}</span>
               {pal.label}
             </button>
@@ -82,27 +91,31 @@ export function ThemePicker(p: { invitationId: string; palettes: { key: string; 
         </div>
       </div>
       <div>
-        <p className="label">Custom colours {!p.canCustom && <span className="pill pill-warn ml-1">Complete tier</span>}</p>
+        <p className="label">Custom colours</p>
         <div className="grid grid-cols-3 gap-2 text-xs sm:grid-cols-6">
           {(['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as (keyof Palette)[]).map((k) => (
             <label key={k} className="flex flex-col items-center gap-1">
-              <input type="color" value={custom[k]} disabled={!p.canCustom} onChange={(e) => setCustom({ ...custom, [k]: e.target.value })} className="h-9 w-9 cursor-pointer rounded-full border-0 bg-transparent" />
+              <input type="color" value={custom[k]} onChange={(e) => setCustom({ ...custom, [k]: e.target.value })} className="h-9 w-9 cursor-pointer rounded-full border-0 bg-transparent" />
               {k}
             </label>
           ))}
         </div>
-        <button type="button" className="btn btn-secondary btn-sm mt-2" disabled={!p.canCustom || pending} onClick={() => run(() => themeAction(p.invitationId, { palette: custom }), 'Custom colours applied.')}>Apply colours</button>
+        <button type="button" className="btn btn-secondary btn-sm mt-2" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { palette: custom }), 'Custom colours applied.')}>Apply colours</button>
       </div>
       <div>
-        <label className="label" htmlFor="look">Look</label>
-        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">The faces the page is set in and the lines under each heading. <a href="/looks" target="_blank" rel="noopener" className="underline">See them side by side</a>.</p>
-        <div className="flex gap-2">
-          <select id="look" className="field" value={lookKey} disabled={pending} onChange={(e) => setLookKey(e.target.value)}>
-            <option value="">Design default</option>
-            {p.looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
-          </select>
-          <button type="button" className="btn btn-secondary" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { lookKey }), lookKey ? 'Look applied.' : 'Back to the design’s look.')}>Apply</button>
-        </div>
+        <label className="label" htmlFor="look">Font style</label>
+        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">The faces the page is set in and the lines under each heading. {fontsNote(p.tier, p.looks.length, p.allLooks)}</p>
+        {p.looks.length === 0 ? (
+          <p className="rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] p-3 text-sm">Your invitation is set in the fonts its design was drawn in.</p>
+        ) : (
+          <div className="flex gap-2">
+            <select id="look" className="field" value={lookKey} disabled={pending} onChange={(e) => setLookKey(e.target.value)}>
+              <option value="">The design’s own</option>
+              {p.looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
+            </select>
+            <button type="button" className="btn btn-secondary" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { lookKey }), lookKey ? 'Font style applied.' : 'Back to the design’s own fonts.')}>Apply</button>
+          </div>
+        )}
       </div>
       <div>
         <label className="label" htmlFor="mode">Day &amp; night</label>
@@ -114,16 +127,6 @@ export function ThemePicker(p: { invitationId: string; palettes: { key: string; 
             <option value="auto">By the guest’s clock — night from 6 pm to 6 am</option>
           </select>
           <button type="button" className="btn btn-secondary" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { mode: mode as ThemeMode }), mode === 'night' ? 'Night it is.' : mode === 'auto' ? 'By the clock.' : 'Day it is.')}>Apply</button>
-        </div>
-      </div>
-      <div>
-        <label className="label" htmlFor="fonts">Fonts {!p.canCustom && <span className="pill pill-warn ml-1">Complete tier</span>}</label>
-        <div className="flex gap-2">
-          <select id="fonts" className="field" value={fontsKey} disabled={!p.canCustom} onChange={(e) => setFontsKey(e.target.value)}>
-            <option value="">Template default</option>
-            {p.fonts.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </select>
-          <button type="button" className="btn btn-secondary" disabled={!p.canCustom || pending || !fontsKey} onClick={() => run(() => themeAction(p.invitationId, { fontsKey }), 'Fonts applied.')}>Apply</button>
         </div>
       </div>
       <Msg />

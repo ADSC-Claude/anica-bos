@@ -7,7 +7,7 @@ import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFill
 import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
-import { LOOKS } from '@/lib/looks';
+import { LOOKS, looksFor } from '@/lib/looks';
 import { changeWindow, doneSections } from '@/lib/progress';
 import { InvitationPill } from '@/components/ui';
 
@@ -52,7 +52,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
     </>
   );
 }

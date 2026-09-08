@@ -5,8 +5,8 @@ import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { hasFeature, TIER_LABELS } from '@/lib/tiers';
-import { PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
-import { LOOKS } from '@/lib/looks';
+import { PALETTE_PRESETS } from '@/lib/theme';
+import { LOOKS, looksFor } from '@/lib/looks';
 import { displayHost } from '@/lib/app-url';
 import { PageHeader } from '@/components/ui';
 import { SettingsForm, ThemePicker, TemplatePicker } from './forms';
@@ -19,7 +19,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   const templates = await prisma.template.findMany({ where: { occasion: inv.occasion, published: true }, orderBy: { sortOrder: 'asc' } });
   const content = contentOf(inv.content);
-  const theme = resolveTheme(inv.template, content);
+  const theme = resolveTheme(inv.template, content, inv.tier);
   const allowed = templates.filter((t) => (hasFeature(inv.tier, 'templates.premium') || !t.premium) && (hasFeature(inv.tier, 'templates.any') || t.minTier === 'BASIC'));
 
   return (
@@ -32,8 +32,8 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
           <SettingsForm invitationId={inv.id} host={displayHost()} slug={inv.slug} title={inv.title} privacy={inv.privacy} language={inv.language} canCustomSlug={hasFeature(inv.tier, 'slug.custom')} canPassword={hasFeature(inv.tier, 'privacy.password')} hasPassword={Boolean(inv.passwordHash)} />
         </div>
         <div className="card p-5">
-          <h2 className="mb-3 font-semibold">Colours & fonts</h2>
-          <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} fonts={FONT_PRESETS.map((f) => ({ key: f.key, label: f.label }))} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, fontsKey: content.theme?.fontsKey ?? '', lookKey: content.theme?.lookKey ?? '', mode: content.theme?.mode ?? 'day' }} canPresets={hasFeature(inv.tier, 'palette.presets')} canCustom={hasFeature(inv.tier, 'palette.custom')} />
+          <h2 className="mb-3 font-semibold">Colours &amp; fonts</h2>
+          <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, lookKey: content.theme?.lookKey ?? '', mode: content.theme?.mode ?? 'day' }} tier={inv.tier} />
         </div>
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold">Template</h2>

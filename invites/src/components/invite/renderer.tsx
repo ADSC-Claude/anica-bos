@@ -17,6 +17,7 @@ import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
 import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
+import { spotifyRef, spotifyEmbed } from '@/lib/spotify';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -1186,6 +1187,16 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: 
   );
 }
 
+function OurSong({ song, title, lang }: { song: ReturnType<typeof spotifyRef> & object; title: string; lang: Lang }) {
+  const embed = spotifyEmbed(song);
+  return (
+    <Section id="music" title={t(lang, 'music.ourSong')} tagline={title || undefined} className="inv-song">
+      <iframe src={embed.src} title={title || 'Spotify'} width="100%" height={embed.height} style={{ border: 0, borderRadius: 12 }} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
+      <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'music.spotifyNote')}</p>
+    </Section>
+  );
+}
+
 function Closing({ data, lang, hashtag, tagline, names, date }: { data: SectionData; lang: Lang; hashtag: string; tagline?: string; names?: string; date?: string }) {
   return (
     <Section id="closing" title={tagline ? undefined : t(lang, 'closing.title')} tagline={tagline}>
@@ -1331,7 +1342,7 @@ const CAPIZ_PAGES: PageDef[] = [
   { key: 'guestbook', sections: ['guestbook'] },
   { key: 'photos', sections: ['photos'] },
   { key: 'rsvp', sections: ['rsvp'] },
-  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
+  { key: 'closing', sections: ['countdown', 'contact', 'music', 'closing'] },
 ];
 
 /** Which line icon a program entry gets, from the words in its title. */
@@ -1584,12 +1595,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'rsvp':
         return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} />;
       case 'story':
-        return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
+        return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery': {
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
         const sides = format ? ['line1', 'line2', 'line3'].map((k) => str(content.moment, k)).filter(Boolean) : [];
-        const prenup = format ? { note: line('galleryNote') ?? '', video: line('galleryVideo') ?? '', close: line('galleryClose') ?? '', watch: t(lang, 'gallery.watchPrenup'), sides, strand: art.strand } : undefined;
-        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
+        // the couple's own lines where they typed them, the look's where not
+        const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, 'gallery.watchPrenup'), sides, strand: art.strand } : undefined;
+        return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
       }
       case 'program':
         return <Program key={key} data={data} title={occasion === 'CORPORATE' ? t(lang, 'program.agenda') : named('program', t(lang, 'program.title'))} tagline={line('program')} />;
@@ -1602,8 +1614,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':
         return <Social key={key} data={data} lang={lang} tagline={line('social')} title={lookTitle(look, lang, 'social')} format={format} cta={line('socialCta')} />;
-      case 'music':
-        return null;
+      case 'music': {
+        // the song from Spotify, in Spotify's own player; the audio file plays from the shell, not here
+        const song = spotifyRef(str(data, 'spotify'));
+        return song && !print ? <OurSong key={key} song={song} title={str(data, 'title')} lang={lang} /> : null;
+      }
       case 'guestbook':
         return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
@@ -1611,7 +1626,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} />
         ) : null;
       case 'closing':
-        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={line('closing')} names={format ? names : undefined} date={format ? dottedDate(coverDate) : undefined} />;
+        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={str(data, 'line') || line('closing')} names={format ? names : undefined} date={format ? dottedDate(coverDate) : undefined} />;
       case 'speakers':
         return <Speakers key={key} data={data} lang={lang} />;
       case 'family':

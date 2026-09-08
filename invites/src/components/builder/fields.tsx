@@ -72,10 +72,12 @@ function FieldInput({
 }) {
   const id = `f-${field.key}`;
   switch (field.type) {
+    case 'date':
+      return <DateSelect field={field} id={id} value={String(value ?? '')} onChange={(v) => onChange(v)} />;
+    case 'time':
+      return <TimeSelect field={field} id={id} value={String(value ?? '')} onChange={(v) => onChange(v)} />;
     case 'text':
     case 'url':
-    case 'date':
-    case 'time':
       return (
         <div>
           <Label field={field} htmlFor={id} />
@@ -215,6 +217,86 @@ function ColorsInput({ field, value, onChange }: { field: Field; value: string[]
         {value.length < max && (
           <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange([...value, '#c9a86a'])}>+ Add colour</button>
         )}
+      </div>
+      <Hint text={field.hint} />
+    </div>
+  );
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * A date as three pull-up choices — month, day, year — rather than a typed
+ * field or a calendar that has to be paged back decade by decade: a birth
+ * date for a debut or a fiftieth is picked in three taps. The years run from
+ * three ahead back a hundred. Saved as the same YYYY-MM-DD as before; a part
+ * still blank saves nothing yet, so a half-picked date never lands as one.
+ */
+function DateSelect({ field, id, value, onChange }: { field: Field; id: string; value: string; onChange: (v: string) => void }) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const [parts, setParts] = useState<{ y: string; mo: string; d: string }>({ y: m?.[1] ?? '', mo: m?.[2] ?? '', d: m?.[3] ?? '' });
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: 104 }, (_, i) => String(thisYear + 3 - i));
+  const daysIn = parts.y && parts.mo ? new Date(Number(parts.y), Number(parts.mo), 0).getDate() : 31;
+  const set = (next: Partial<typeof parts>) => {
+    const p = { ...parts, ...next };
+    if (p.d && Number(p.d) > (p.y && p.mo ? new Date(Number(p.y), Number(p.mo), 0).getDate() : 31)) p.d = '';
+    setParts(p);
+    onChange(p.y && p.mo && p.d ? `${p.y}-${p.mo}-${p.d}` : '');
+  };
+  return (
+    <div>
+      <Label field={field} htmlFor={id} />
+      <div className="grid grid-cols-[1fr_5rem_6rem] gap-2">
+        <select id={id} className="field" value={parts.mo} onChange={(e) => set({ mo: e.target.value })} aria-label="Month">
+          <option value="">Month</option>
+          {MONTHS.map((name, i) => <option key={name} value={pad(i + 1)}>{name}</option>)}
+        </select>
+        <select className="field" value={parts.d} onChange={(e) => set({ d: e.target.value })} aria-label="Day">
+          <option value="">Day</option>
+          {Array.from({ length: daysIn }, (_, i) => <option key={i} value={pad(i + 1)}>{i + 1}</option>)}
+        </select>
+        <select className="field" value={parts.y} onChange={(e) => set({ y: e.target.value })} aria-label="Year">
+          <option value="">Year</option>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/** A time as pull-up choices: the hour, the minutes in fives, morning or afternoon. Saved as HH:MM, as before. */
+function TimeSelect({ field, id, value, onChange }: { field: Field; id: string; value: string; onChange: (v: string) => void }) {
+  const m = /^(\d{2}):(\d{2})$/.exec(value);
+  const h24 = m ? Number(m[1]) : NaN;
+  const [parts, setParts] = useState<{ h: string; mi: string; p: string }>({ h: m ? String(((h24 + 11) % 12) + 1) : '', mi: m?.[2] ?? '', p: m ? (h24 >= 12 ? 'PM' : 'AM') : '' });
+  const minutes = Array.from({ length: 12 }, (_, i) => pad(i * 5));
+  if (parts.mi && !minutes.includes(parts.mi)) minutes.push(parts.mi);
+  const set = (next: Partial<typeof parts>) => {
+    const p = { ...parts, ...next };
+    setParts(p);
+    if (p.h && p.p) onChange(`${pad((Number(p.h) % 12) + (p.p === 'PM' ? 12 : 0))}:${p.mi || '00'}`);
+    else onChange('');
+  };
+  return (
+    <div>
+      <Label field={field} htmlFor={id} />
+      <div className="grid grid-cols-3 gap-2">
+        <select id={id} className="field" value={parts.h} onChange={(e) => set({ h: e.target.value })} aria-label="Hour">
+          <option value="">Hour</option>
+          {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i + 1)}>{i + 1}</option>)}
+        </select>
+        <select className="field" value={parts.mi} onChange={(e) => set({ mi: e.target.value })} aria-label="Minutes">
+          <option value="">Min</option>
+          {minutes.sort().map((mi) => <option key={mi} value={mi}>{mi}</option>)}
+        </select>
+        <select className="field" value={parts.p} onChange={(e) => set({ p: e.target.value })} aria-label="AM or PM">
+          <option value="">AM / PM</option>
+          <option value="AM">AM</option>
+          <option value="PM">PM</option>
+        </select>
       </div>
       <Hint text={field.hint} />
     </div>

@@ -541,24 +541,29 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'story',
     label: 'Our story',
     tl: 'Ang Aming Kuwento',
-    description: 'How you met, the proposal, and a timeline with photos.',
+    description: 'How you met, the proposal, and a timeline with its photos — and the line under the heading.',
     minTier: 'STANDARD',
     labelFor: { MILESTONE_BIRTHDAY: 'Their story', ANNIVERSARY: 'Our story so far' },
     fields: () => [
+      text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true }),
       textarea('howWeMet', 'How we met'),
       textarea('proposal', 'The proposal'),
-      list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo')], { addLabel: 'Add a moment', max: 12 }),
+      list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
     ],
   },
   {
     key: 'gallery',
-    label: 'Gallery',
+    label: 'Prenup photos & video',
     tl: 'Mga Larawan',
-    description: 'Prenup photos with captions, and a video link.',
+    description: 'Your photos with their captions, your video, and the lines written around them on the page.',
     minTier: 'BASIC',
     fields: () => [
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo' }),
-      url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link.' }),
+      text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true }),
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
+      text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true }),
+      url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line." }),
+      text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true }),
     ],
   },
   {
@@ -636,12 +641,13 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'music',
     label: 'Music',
     tl: 'Musika',
-    description: 'A track that plays when guests tap play. Autoplay is attempted, then falls back to a button.',
+    description: 'Your song — from Spotify, or an audio file that plays as the page opens.',
     minTier: 'STANDARD',
     fields: () => [
-      url('url', 'Audio file link', { hint: 'A direct .mp3 link. Upload it to your Google Drive (public) or Dropbox and paste the direct link.' }),
+      url('spotify', 'Spotify song link', { hint: 'In Spotify, open the song, tap Share, then Copy song link and paste it here. Guests see Spotify\'s own player on the page and tap play: the whole song when they are signed in to Spotify, a thirty-second preview when not.', wide: true }),
+      url('url', 'Audio file link', { hint: 'A direct .mp3 link, if you have the file. It plays as the page opens and loops behind the invitation.' }),
       text('title', 'Song title'),
-      toggle('autoplay', 'Try to autoplay'),
+      toggle('autoplay', 'Try to autoplay the audio file'),
     ],
   },
   {
@@ -668,9 +674,9 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'closing',
     label: 'Closing',
     tl: 'Pagtatapos',
-    description: 'A thank-you and your signature.',
+    description: 'A photo, a thank-you, your signature, and the line above your names.',
     minTier: 'BASIC',
-    fields: () => [textarea('message', 'Closing message'), text('signature', 'Signed', { placeholder: 'Juan & Maria' }), image('photo', 'Closing photo')],
+    fields: () => [image('photo', 'Closing photo (above the message)'), textarea('message', 'Closing message'), text('signature', 'Signed', { placeholder: 'Juan & Maria' }), text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line." })],
   },
   {
     key: 'speakers',
@@ -735,7 +741,7 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
  * occasion order after the ones that are.
  */
 export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
-  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'music', 'closing'],
 };
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {

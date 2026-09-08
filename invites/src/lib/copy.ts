@@ -137,6 +137,7 @@ const PHRASES = {
   'music.pause': { en: 'Pause music', tl: 'I-pause' },
   'music.ourSong': { en: 'Our Song', tl: 'Ang Aming Awit' },
   'music.spotifyNote': { en: 'Tap play to listen on Spotify.', tl: 'I-tap ang play para makinig sa Spotify.' },
+  'music.tapPlay': { en: 'Tap play to listen.', tl: 'I-tap ang play para makinig.' },
   'guestbook.title': { en: 'Well Wishes', tl: 'Mga Pagbati' },
   'guestbook.prompt': { en: 'Leave a message for {hosts}', tl: 'Mag-iwan ng mensahe para sa {hosts}' },
   'guestbook.submit': { en: 'Post my wish', tl: 'I-post' },

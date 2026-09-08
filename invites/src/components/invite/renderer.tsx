@@ -11,13 +11,14 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, SpotifySong } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
 import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
-import { spotifyRef, spotifyEmbed } from '@/lib/spotify';
+import { spotifyRef, spotifyEmbed, spotifyUri, type SpotifyRef } from '@/lib/spotify';
+import { parseStart, youtubeId, youtubeEmbed } from '@/lib/song';
 import { imageUrl, IMAGE } from '@/lib/images';
 
 /**
@@ -71,8 +72,8 @@ function wazeHref(data: SectionData | undefined): string {
 }
 
 function videoEmbed(url: string): { src: string; poster?: string } | null {
-  const yt = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/.exec(url);
-  if (yt) return { src: `https://www.youtube-nocookie.com/embed/${yt[1]}`, poster: `https://i.ytimg.com/vi/${yt[1]}/maxresdefault.jpg` };
+  const yt = youtubeId(url);
+  if (yt) return youtubeEmbed(yt);
   const vimeo = /vimeo\.com\/(?:video\/)?(\d+)/.exec(url);
   if (vimeo) return { src: `https://player.vimeo.com/video/${vimeo[1]}` };
   return null;
@@ -1187,12 +1188,29 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: 
   );
 }
 
-function OurSong({ song, title, lang }: { song: ReturnType<typeof spotifyRef> & object; title: string; lang: Lang }) {
-  const embed = spotifyEmbed(song);
+/**
+ * The song, in its own player: YouTube's, which plays the whole song for
+ * every guest from the moment the couple chose; and Spotify's, which plays it
+ * whole for a guest signed in (from that moment, once its script takes over)
+ * and a preview for one who is not. Both when both are given.
+ */
+function OurSong({ song, youtube, startAt, title, lang }: { song: SpotifyRef | null; youtube: string | null; startAt: number; title: string; lang: Lang }) {
+  const embed = song ? spotifyEmbed(song) : null;
+  const yt = youtube ? youtubeEmbed(youtube, startAt) : null;
   return (
     <Section id="music" title={t(lang, 'music.ourSong')} tagline={title || undefined} className="inv-song">
-      <iframe src={embed.src} title={title || 'Spotify'} width="100%" height={embed.height} style={{ border: 0, borderRadius: 12 }} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
-      <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'music.spotifyNote')}</p>
+      {yt && (
+        <div>
+          <iframe src={yt.src} title={title || 'YouTube'} className="aspect-video w-full rounded-xl" style={{ border: 0 }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
+          <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'music.tapPlay')}</p>
+        </div>
+      )}
+      {song && embed && (
+        <div className={yt ? 'mt-4' : ''}>
+          <SpotifySong uri={spotifyUri(song)} src={embed.src} height={embed.height} startAt={startAt} title={title || 'Spotify'} />
+          <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'music.spotifyNote')}</p>
+        </div>
+      )}
     </Section>
   );
 }
@@ -1617,9 +1635,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'social':
         return <Social key={key} data={data} lang={lang} tagline={line('social')} title={lookTitle(look, lang, 'social')} format={format} cta={line('socialCta')} />;
       case 'music': {
-        // the song from Spotify, in Spotify's own player; the audio file plays from the shell, not here
+        // the song from Spotify or YouTube, in its own player, from the moment the couple chose; their own file plays from the shell, not here
         const song = spotifyRef(str(data, 'spotify'));
-        return song && !print ? <OurSong key={key} song={song} title={str(data, 'title')} lang={lang} /> : null;
+        const yt = youtubeId(str(data, 'youtube'));
+        return (song || yt) && !print ? <OurSong key={key} song={song} youtube={yt} startAt={parseStart(data?.start)} title={str(data, 'title')} lang={lang} /> : null;
       }
       case 'guestbook':
         return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
@@ -1647,7 +1666,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
       )}
-      <Shell opening={opening} music={print || bare ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+      <Shell opening={opening} music={print || bare ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (

@@ -528,6 +528,8 @@ enum MediaKind {
   PROOF
   INTAKE
   GUEST_PHOTO
+  /// The couple's own song file, from the Music section.
+  AUDIO
   OTHER
 }
 

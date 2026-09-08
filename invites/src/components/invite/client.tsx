@@ -119,6 +119,7 @@ export function Shell({
   opening,
   music,
   autoplay,
+  startAt = 0,
   playLabel,
   pauseLabel,
   children,
@@ -126,6 +127,8 @@ export function Shell({
   opening: OpeningProps;
   music: string;
   autoplay: boolean;
+  /** Seconds into the song it starts from — past a long intro — and returns to when it loops. */
+  startAt?: number;
   playLabel: string;
   pauseLabel: string;
   children: ReactNode;
@@ -137,16 +140,48 @@ export function Shell({
   const clip = useRef<HTMLVideoElement | null>(null);
   // The tap has landed: the hint goes, whatever the clip is still doing.
   const [tapped, setTapped] = useState(false);
+  // The song is taken to its start point once, on the first play; a pause resumes where it was.
+  const sought = useRef(false);
+  // Whether it got there. A host that serves byte ranges (storage does) takes
+  // the seek at once; one that does not makes an early seek land at 0, so the
+  // seek is tried again as the file arrives, until it lands or the song has
+  // played past the point anyway.
+  const landed = useRef(false);
+
+  const seekToStart = useCallback(() => {
+    const a = audio.current;
+    if (!a || startAt <= 0) return;
+    try {
+      a.currentTime = startAt;
+    } catch {
+      /* nothing loaded yet: settle() tries again as it loads */
+    }
+  }, [startAt]);
+
+  const settle = useCallback(() => {
+    const a = audio.current;
+    if (!a || startAt <= 0 || !sought.current || landed.current) return;
+    if (a.currentTime >= startAt - 0.25) {
+      landed.current = true;
+      return;
+    }
+    const ranges = a.seekable;
+    if (ranges.length && ranges.end(ranges.length - 1) >= startAt) seekToStart();
+  }, [startAt, seekToStart]);
 
   const play = useCallback(async () => {
     if (!audio.current) return;
+    if (!sought.current) {
+      sought.current = true;
+      seekToStart();
+    }
     try {
       await audio.current.play();
       setPlaying(true);
     } catch {
       setPlaying(false);
     }
-  }, []);
+  }, [seekToStart]);
 
   const toggle = useCallback(() => {
     if (!audio.current) return;
@@ -250,7 +285,22 @@ export function Shell({
       )}
       {music && (
         <>
-          <audio ref={audio} src={music} loop preload="none" />
+          {/* no `loop`: the song returns to its start point, not to the beginning */}
+          <audio
+            ref={audio}
+            src={music}
+            preload="none"
+            onLoadedMetadata={settle}
+            onCanPlay={settle}
+            onProgress={settle}
+            onPlaying={settle}
+            onSeeked={settle}
+            onEnded={() => {
+              landed.current = false;
+              seekToStart();
+              void audio.current?.play();
+            }}
+          />
           <button type="button" className="inv-music no-print" onClick={toggle} aria-label={playing ? pauseLabel : playLabel} title={playing ? pauseLabel : playLabel}>
             {playing ? '❚❚' : '♫'}
           </button>
@@ -797,5 +847,84 @@ export function ModeToggle({ mode, slug, dayLabel, nightLabel }: { mode: string;
     <button ref={ref} type="button" className="inv-mode no-print" onClick={flip} aria-label={night ? dayLabel : nightLabel} title={night ? dayLabel : nightLabel}>
       {night ? '☀' : '☾'}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Spotify's player, told where the song starts
+// ---------------------------------------------------------------------------
+
+type SpotifyController = {
+  addListener: (event: string, cb: (e: { data: { isPaused: boolean; position: number } }) => void) => void;
+  seek: (seconds: number) => void;
+};
+type SpotifyApi = {
+  createController: (el: HTMLElement, options: { uri: string; width: string | number; height: string | number }, cb: (c: SpotifyController) => void) => void;
+};
+declare global {
+  interface Window {
+    onSpotifyIframeApiReady?: (api: SpotifyApi) => void;
+    __spotifyApi?: Promise<SpotifyApi>;
+  }
+}
+
+/** Spotify's player script, loaded once for the page however many players ask. */
+function spotifyApi(): Promise<SpotifyApi> {
+  if (!window.__spotifyApi) {
+    window.__spotifyApi = new Promise((resolve) => {
+      window.onSpotifyIframeApiReady = (api) => resolve(api);
+      const s = document.createElement('script');
+      s.src = 'https://open.spotify.com/embed/iframe-api/v1';
+      s.async = true;
+      document.head.appendChild(s);
+    });
+  }
+  return window.__spotifyApi;
+}
+
+/**
+ * The plain embed is rendered by the server and works on its own. With a
+ * start point, Spotify's player script is loaded and a controller's player
+ * takes the embed's place; the first time playback begins before that moment,
+ * the controller seeks to it. Spotify seeks only when it is playing the whole
+ * song (a guest signed in); a preview is the thirty seconds Spotify picks, so
+ * there the start point cannot apply. Should the script never arrive, the
+ * plain embed simply stays.
+ */
+export function SpotifySong({ uri, src, height, startAt, title }: { uri: string; src: string; height: number; startAt: number; title: string }) {
+  const host = useRef<HTMLDivElement | null>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const el = host.current;
+    if (startAt <= 0 || !el) return;
+    let gone = false;
+    const mount = document.createElement('div');
+    el.appendChild(mount);
+    void spotifyApi().then((api) => {
+      if (gone) return;
+      api.createController(mount, { uri, width: '100%', height }, (controller) => {
+        let sought = false;
+        controller.addListener('ready', () => {
+          if (!gone) setReady(true);
+        });
+        controller.addListener('playback_update', (e) => {
+          if (sought || e.data.isPaused) return;
+          if (e.data.position < startAt * 1000) {
+            sought = true;
+            controller.seek(startAt);
+          }
+        });
+      });
+    });
+    return () => {
+      gone = true;
+      el.replaceChildren();
+    };
+  }, [uri, height, startAt]);
+  return (
+    <div>
+      <iframe src={src} title={title} width="100%" height={height} style={{ border: 0, borderRadius: 12, display: ready ? 'none' : undefined }} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
+      <div ref={host} />
+    </div>
   );
 }

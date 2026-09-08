@@ -186,3 +186,26 @@ test('the clothes are clothes: no shoes, ties or heels; kindly-avoid is the full
   const { data } = cleanSection(fieldsFor('dressCode', 'WEDDING'), { avoid: ['white', 'black', 'red', 'bright', 'prints', 'sequins', 'casual', 'shorts'] });
   assert.equal((data.avoid as string[]).length, 6, 'eight ticked keep the first six');
 });
+
+test('the Music section keeps the song’s links, its start as seconds, and its uploaded file', () => {
+  const fields = fieldsFor('music', 'WEDDING');
+  assert.ok(fields.some((f) => f.key === 'url' && f.type === 'audio'));
+  assert.ok(fields.some((f) => f.key === 'start' && f.type === 'offset'));
+  const { data, issues } = cleanSection(fields, {
+    spotify: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
+    youtube: 'https://youtu.be/dQw4w9WgXcQ',
+    url: '/uploads/inv/abc/song.mp3',
+    start: '1:05',
+    title: 'Our song',
+    autoplay: 'on',
+  });
+  assert.equal(issues.length, 0);
+  assert.equal(data.start, 65);
+  assert.equal(data.url, '/uploads/inv/abc/song.mp3');
+  assert.equal(data.youtube, 'https://youtu.be/dQw4w9WgXcQ');
+  assert.equal(data.autoplay, true);
+  assert.equal(cleanSection(fields, { start: 'soon' }).data.start, null);
+  assert.equal(cleanSection(fields, { start: 0 }).data.start, null);
+  assert.equal(cleanSection(fields, { start: 90 }).data.start, 90);
+  assert.equal(cleanSection(fields, { url: 'song.mp3' }).issues.length, 1);
+});

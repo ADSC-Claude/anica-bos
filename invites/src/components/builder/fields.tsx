@@ -28,7 +28,7 @@ export function SectionFields({ fields, value, onChange, lang, invitationId, lis
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
-        <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' ? 'sm:col-span-2' : ''}>
+        <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' || f.type === 'audio' ? 'sm:col-span-2' : ''}>
           <FieldInput field={f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
         </div>
       ))}
@@ -147,6 +147,10 @@ function FieldInput({
       );
     case 'image':
       return <ImageInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
+    case 'audio':
+      return <AudioInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
+    case 'offset':
+      return <OffsetInput field={field} id={id} value={typeof value === 'number' ? value : null} onChange={onChange} />;
     case 'colors':
       return <ColorsInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
     case 'swatches':
@@ -512,6 +516,113 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
       ) : (
         <p className="hint">Your package includes up to {max} here. Upgrade for more.</p>
       )}
+      <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/**
+ * The couple's own song file. A photo passes through the server; a song is
+ * often bigger than a serverless function's request may carry, so the
+ * browser asks for a signed address, puts the file in storage itself, and
+ * has the server record it. Where there is no cloud storage (development)
+ * the server says so and takes the file the ordinary way.
+ */
+function AudioInput({ field, value, onChange, invitationId }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  async function upload(file: File) {
+    setBusy(true);
+    setError('');
+    setProgress(0);
+    try {
+      const contentType =
+        file.type === 'audio/mpeg' || file.type === 'audio/mp3' || /\.mp3$/i.test(file.name) ? 'audio/mpeg'
+        : file.type === 'audio/mp4' || file.type === 'audio/x-m4a' || /\.m4a$/i.test(file.name) ? 'audio/mp4'
+        : '';
+      if (!contentType) throw new Error('Only MP3 and M4A audio files are accepted.');
+      if (file.size > 20 * 1024 * 1024) throw new Error('Songs must be 20 MB or smaller.');
+      const signRes = await fetch('/api/account/upload/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitationId, contentType, size: file.size }) });
+      const sign = await signRes.json();
+      if (!signRes.ok) throw new Error(sign.error ?? 'Upload failed.');
+      if (sign.direct) {
+        const fd = new FormData();
+        fd.set('file', file);
+        fd.set('invitationId', invitationId);
+        fd.set('kind', 'AUDIO');
+        const res = await fetch('/api/account/upload', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? 'Upload failed.');
+        onChange(json.url);
+      } else {
+        await putWithProgress(sign.uploadUrl, file, contentType, setProgress);
+        const res = await fetch('/api/account/upload/commit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitationId, storagePath: sign.storagePath, contentType }) });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? 'Upload failed.');
+        onChange(json.url);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+  const uploaded = value.startsWith('/uploads/') || value.includes('/storage/v1/object/public/');
+  return (
+    <div>
+      <Label field={field} />
+      <div className="space-y-2">
+        {value && <audio controls preload="metadata" src={value} className="w-full" />}
+        <input ref={input} type="file" accept="audio/mpeg,audio/mp4,.mp3,.m4a" className="field max-w-full text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        <input type="url" className="field text-xs" placeholder="…or paste a direct link to an MP3" value={uploaded ? '' : value} onChange={(e) => onChange(e.target.value)} />
+        {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>Remove</button>}
+        {busy && <p className="hint">{progress > 0 && progress < 100 ? `Uploading… ${progress}%` : 'Uploading…'}</p>}
+        {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
+      </div>
+      <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/** PUT a file with a progress readout — fetch cannot report upload progress, XHR can. */
+function putWithProgress(url: string, file: File, contentType: string, onProgress: (pct: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('The file could not be sent to storage. Please try again.')));
+    xhr.onerror = () => reject(new Error('The file could not be sent to storage. Please check your connection and try again.'));
+    xhr.send(file);
+  });
+}
+
+/** A moment in the song, as minutes and seconds — pull-up choices, like a date. Stored as seconds; none is null. */
+function OffsetInput({ field, id, value, onChange }: { field: Field; id: string; value: number | null; onChange: (v: number | null) => void }) {
+  const total = value ?? 0;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  const set = (mm: number, ss: number) => {
+    const n = mm * 60 + ss;
+    onChange(n > 0 ? n : null);
+  };
+  return (
+    <div>
+      <Label field={field} htmlFor={id} />
+      <div className="grid grid-cols-2 gap-2">
+        <select id={id} className="field" value={m} onChange={(e) => set(Number(e.target.value), s)} aria-label="Minutes">
+          {Array.from({ length: 15 }, (_, i) => <option key={i} value={i}>{i} min</option>)}
+        </select>
+        <select className="field" value={s} onChange={(e) => set(m, Number(e.target.value))} aria-label="Seconds">
+          {Array.from({ length: 60 }, (_, i) => <option key={i} value={i}>{String(i).padStart(2, '0')} sec</option>)}
+        </select>
+      </div>
       <Hint text={field.hint} />
     </div>
   );

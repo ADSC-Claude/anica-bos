@@ -16,6 +16,11 @@ export function spotifyRef(raw: string): SpotifyRef | null {
   return { kind: m[1].toLowerCase() as SpotifyRef['kind'], id: m[2] };
 }
 
+/** The URI Spotify's player script takes. */
+export function spotifyUri(ref: SpotifyRef): string {
+  return `spotify:${ref.kind}:${ref.id}`;
+}
+
 /** The embed player's address and the height Spotify draws it at. */
 export function spotifyEmbed(ref: SpotifyRef): { src: string; height: number } {
   return { src: `https://open.spotify.com/embed/${ref.kind}/${ref.id}?utm_source=generator&theme=0`, height: ref.kind === 'track' ? 152 : 352 };

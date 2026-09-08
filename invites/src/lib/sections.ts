@@ -5,6 +5,7 @@ import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
+import { parseStart } from './song';
 
 /**
  * The shape of an invitation, section by section.
@@ -34,6 +35,10 @@ export type FieldType =
   | 'number'
   | 'toggle'
   | 'image'
+  /** a song file, uploaded; stored as its URL, like 'image' */
+  | 'audio'
+  /** a moment in a song, stored as seconds, picked as minutes and seconds */
+  | 'offset'
   | 'select'
   | 'colors'
   /** colours picked from the named palette (src/lib/palette.ts); stored as hex like 'colors' */
@@ -126,6 +131,8 @@ const date = (key: string, label: string, extra: Partial<Field> = {}): Field => 
 const time = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'time', ...extra });
 const url = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'url', ...extra });
 const image = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'image', ...extra });
+const audio = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'audio', ...extra });
+const offset = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'offset', ...extra });
 const toggle = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'toggle', ...extra });
 const number = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'number', ...extra });
 const person = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'person', ...extra });
@@ -643,13 +650,15 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'music',
     label: 'Music',
     tl: 'Musika',
-    description: 'Your song — from Spotify, or an audio file that plays as the page opens.',
+    description: 'Your song — from Spotify, from YouTube, or a file of your own that plays as the page opens — and the moment it starts.',
     minTier: 'STANDARD',
     fields: () => [
-      url('spotify', 'Spotify song link', { hint: 'In Spotify, open the song, tap Share, then Copy song link and paste it here. Guests see Spotify\'s own player on the page and tap play: the whole song when they are signed in to Spotify, a thirty-second preview when not.', wide: true }),
-      url('url', 'Audio file link', { hint: 'A direct .mp3 link, if you have the file. It plays as the page opens and loops behind the invitation.' }),
+      url('spotify', 'Spotify song link', { hint: "In Spotify, open the song, tap Share, then Copy song link and paste it here. Guests see Spotify's own player on the page and tap play: the whole song when they are signed in to Spotify, a thirty-second preview when not.", wide: true }),
+      url('youtube', 'YouTube link', { hint: "The song's video or audio on YouTube: open it, tap Share, then Copy link. Guests see YouTube's player on the page and tap play; it plays the whole song for everyone, from the moment you pick below.", wide: true }),
+      audio('url', 'Your own audio file', { hint: 'An MP3 or M4A of the song, up to 20 MB. It plays as the invitation opens and loops quietly behind the page, from the moment you pick below.' }),
+      offset('start', 'Start the song at', { hint: 'Minutes and seconds into the song, to skip a long intro. Exact for your own file and for YouTube. On Spotify it applies when the guest hears the whole song; a preview plays the thirty seconds Spotify picks.' }),
       text('title', 'Song title'),
-      toggle('autoplay', 'Try to autoplay the audio file'),
+      toggle('autoplay', 'Try to autoplay your own audio file'),
     ],
   },
   {
@@ -802,6 +811,7 @@ function emptyValue(field: Field): unknown {
     case 'toggle':
       return false;
     case 'number':
+    case 'offset':
       return null;
     case 'colors':
     case 'swatches':
@@ -926,7 +936,13 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
     }
     case 'url':
     case 'image':
+    case 'audio':
       return cleanUrl(raw, path, issues);
+    case 'offset': {
+      // seconds into the song; none is null, so an untouched field is not a "started" one
+      const n = parseStart(raw);
+      return n > 0 ? n : null;
+    }
     case 'number': {
       if (raw === '' || raw === null || raw === undefined) return null;
       const n = Number(raw);

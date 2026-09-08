@@ -9,6 +9,7 @@ import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
 import { LOOKS, looksFor } from '@/lib/looks';
 import { changeWindow, doneSections } from '@/lib/progress';
+import { selfServe as isSelfServe } from '@/lib/pricing';
 import { InvitationPill } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,9 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   const limit = galleryLimit(inv.tier);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);
   const done = doneSections(content.progress);
-  const w = changeWindow(inv.eventAt);
+  // DIY has no closing date and no hand-off, so it gets no window and its own notices
+  const selfServe = isSelfServe(inv.order?.serviceMode);
+  const w = changeWindow(inv.eventAt, inv.order?.serviceMode);
   const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
 
   return (
@@ -52,7 +55,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} selfServe={selfServe} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
     </>
   );
 }

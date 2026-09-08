@@ -19,6 +19,7 @@ export function Builder({
   invitationId,
   slug,
   status,
+  selfServe,
   sections,
   current,
   fields,
@@ -41,6 +42,12 @@ export function Builder({
   window: { closesAt: string; finalAt: string; closed: boolean } | null;
   slug: string;
   status: string;
+  /**
+   * DIY: the couple builds and publishes it themselves. Done marks their own
+   * progress, nothing is handed to anyone, and there is no closing date — so
+   * the notices say that instead of promising a team that is not coming.
+   */
+  selfServe: boolean;
   /** The look the page is set in ('' for the design's own) and the looks to choose from. */
   lookKey: string;
   allLooks: number;
@@ -155,6 +162,19 @@ export function Builder({
         <div className="mb-4 space-y-2">
           {closed && window ? (
             <Notice tone="warn">Changes closed on {when(window.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(window.finalAt)}. Message us for anything urgent.</Notice>
+          ) : selfServe ? (
+            allDone ? (
+              <Notice tone="ok">
+                Every section is marked Done{completedAt ? ` (${when(completedAt)})` : ''} — your invitation is ready to {status === 'PUBLISHED' ? 'share' : 'publish'}.
+                Open any section whenever you want to change something; it stays yours to edit right up to the day.
+              </Notice>
+            ) : (
+              <Notice tone="info">
+                Fill in each section and press <b>Done</b> when it is complete — it folds away and the next one opens ({doneCount} of {total} so far).
+                <b> Done is your own progress mark</b>: nothing is sent anywhere, and you can {status === 'PUBLISHED' ? 'keep changing a published invitation' : 'publish as soon as the cover is filled in'}.
+                You can leave and come back any time; everything you save stays with your account.
+              </Notice>
+            )
           ) : allDone ? (
             <Notice tone="ok">Every section is marked Done{completedAt ? ` (${when(completedAt)})` : ''} — our team has your invitation. You can still open a section to change something{window ? ` until ${when(window.closesAt)}` : ''}.</Notice>
           ) : (

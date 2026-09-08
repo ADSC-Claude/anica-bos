@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { selfServe } from '@/lib/pricing';
 import { OrderPill, PaymentPill } from '@/components/ui';
 
 export const metadata = { title: 'Order status', robots: { index: false } };
@@ -26,7 +27,7 @@ export default async function ConfirmPage({ params }: { params: Promise<{ refere
   const active = order.status === 'ACTIVE' || order.status === 'PAID';
   const waitingGateway = order.status === 'PENDING_PAYMENT' && latest?.provider === 'PAYMONGO' && latest.status === 'PENDING';
   const waitingProof = order.status === 'PENDING_PAYMENT' && latest?.provider === 'MANUAL' && latest.status === 'PENDING';
-  const dfy = order.serviceMode !== 'DIY';
+  const dfy = !selfServe(order.serviceMode);
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-lg flex-col justify-center px-5 py-12 text-center">

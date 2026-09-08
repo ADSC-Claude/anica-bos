@@ -46,10 +46,21 @@ export type Quote = {
 };
 
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
-  { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder. Instant, unlimited edits.', turnaround: 'Instant', revisions: 'Unlimited (self-serve)', intake: 'Builder' },
+  { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder and publish it yourself — no hand-off, no waiting. It stays yours to change right up to the day.', turnaround: 'Instant', revisions: 'Unlimited before you publish; after, by package', intake: 'Builder' },
   { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '2–3 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
   { key: 'CONCIERGE', label: 'Full Concierge', short: 'Concierge', blurb: 'We encode it and manage your guest list and RSVP follow-ups until the day.', turnaround: '3–5 working days + ongoing', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
+
+/**
+ * Self-serve is DIY: the customer fills the builder, publishes it themselves
+ * and keeps editing it, with no hand-off to our team and no closing date. The
+ * other two modes are team-serviced — we encode, the customer approves, and
+ * changes close three weeks out so the final touches can be made. An
+ * invitation with no order at all (a seed, a staff draft) is self-serve.
+ */
+export function selfServe(mode: ServiceMode | null | undefined): boolean {
+  return (mode ?? 'DIY') === 'DIY';
+}
 
 export function serviceFee(pkg: PackageLike, mode: ServiceMode): number {
   if (mode === 'DFY') return pkg.dfyFeeCents;

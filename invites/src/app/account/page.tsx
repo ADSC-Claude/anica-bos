@@ -3,6 +3,7 @@ import { requireCustomerPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS } from '@/lib/tiers';
+import { selfServe } from '@/lib/pricing';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader, InvitationPill, OrderPill, Empty, Money } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -45,7 +46,7 @@ export default async function AccountHome() {
         <div className="grid gap-4 sm:grid-cols-2">
           {invitations.map((inv) => {
             const active = inv.order?.status === 'ACTIVE' || inv.order?.status === 'PAID' || !inv.order;
-            const dfy = inv.order?.serviceMode && inv.order.serviceMode !== 'DIY';
+            const dfy = !selfServe(inv.order?.serviceMode);
             return (
               <div key={inv.id} className="card overflow-hidden">
                 <div className="flex gap-4 p-4">

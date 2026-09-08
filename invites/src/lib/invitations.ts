@@ -1,5 +1,5 @@
 import 'server-only';
-import type { Occasion, Tier, Privacy } from '@prisma/client';
+import type { Occasion, Tier, Privacy, ServiceMode } from '@prisma/client';
 import { prisma, isUniqueError } from './db';
 import { HttpError } from './errors';
 import { slugify, randomCode } from './codes';
@@ -29,6 +29,7 @@ import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, ty
 import { LOOK_BY_KEY, BASE_LOOK, isLook, lookAllowed, type Look } from './looks';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
+import { selfServe } from './pricing';
 import { notifyStaff } from './notifications';
 import { formatDate } from './datetime';
 
@@ -44,12 +45,19 @@ export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; f
 export type StoredContent = Content & { theme?: ThemeOverride; progress?: Progress };
 
 /**
- * Three weeks before the event the invitation closes to the couple's changes
- * and passes to our team for the final touches. Staff are never locked out.
+ * On a team-serviced invitation, three weeks before the event it closes to the
+ * couple's changes and passes to our team for the final touches. A DIY
+ * invitation never closes — nobody is waiting to encode it, so it stays theirs
+ * to change until the link expires. Staff are never locked out either way.
+ *
+ * The service mode comes from the order, so every caller has to load it; an
+ * invitation with no order is self-serve.
  */
-export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null }) {
+export type ChangeGate = { eventAt: Date | null; order: { serviceMode: ServiceMode } | null };
+
+export function assertOpenForChanges(user: SessionUser, invitation: ChangeGate) {
   if (user.role !== 'CUSTOMER') return;
-  const w = changeWindow(invitation.eventAt);
+  const w = changeWindow(invitation.eventAt, invitation.order?.serviceMode);
   if (w?.closed) throw new HttpError(403, `Changes closed on ${formatDate(w.closesAt)}, three weeks before your event, so our team can finish the final touches by ${formatDate(w.finalAt)}. Message us for anything urgent.`);
 }
 
@@ -134,7 +142,7 @@ export function unlocked(invitation: { order: { status: string } | null }): bool
 }
 
 export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown, opts: { done?: boolean } = {}) {
-  const invitation = await prisma.invitation.findUnique({ where: { id: invitationId }, include: { order: { select: { status: true } } } });
+  const invitation = await prisma.invitation.findUnique({ where: { id: invitationId }, include: { order: { select: { status: true, serviceMode: true } } } });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
   assertOpenForChanges(user, invitation);
   if (!OCCASION_SECTIONS[invitation.occasion].includes(key)) throw new HttpError(400, 'That section does not belong to this occasion.');
@@ -149,7 +157,10 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   // the fixed writings are ours: a customer's save keeps them as they were
   const data = isStaff(user.role) && can(user.role, 'invitations.edit') ? cleaned : keepStaffFields(fields, content[key], cleaned);
   content[key] = data;
-  // Done, section by section; the form is complete once every section the couple has is Done, and the team is told
+  // Done, section by section; the form is complete once every section the
+  // couple has is Done. On a team-serviced invitation that is the hand-off and
+  // the queue is told; on a DIY one it is the couple's own progress mark and
+  // nobody is called, because nobody is waiting to encode it.
   let completed = false;
   if (opts.done !== undefined) {
     content.progress = withDone(content.progress, key, opts.done);
@@ -184,14 +195,16 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   });
   if (completed) {
     await audit(user, { module: 'invitations', action: 'form.complete', entityType: 'Invitation', entityId: invitationId, summary: `Every section marked Done: ${title}` });
-    await notifyStaff('invitations.view', `Form complete: ${title}`, 'Every section is marked Done. The invitation is ready for our team.', `/admin/invitations/${invitationId}`);
+    if (!selfServe(invitation.order?.serviceMode)) {
+      await notifyStaff('invitations.view', `Form complete: ${title}`, 'Every section is marked Done. The invitation is ready for our team.', `/admin/invitations/${invitationId}`);
+    }
   }
   return { invitation: updated, issues, done: doneSections(content.progress), completedAt: content.progress?.completedAt ?? null };
 }
 
 /** Reopen (or close) one section without touching what it holds. Counts as no edit. */
 export async function setSectionDone(user: SessionUser, invitationId: string, key: SectionKey, done: boolean) {
-  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { order: { select: { serviceMode: true } } } });
   assertOpenForChanges(user, invitation);
   const content = contentOf(invitation.content);
   content.progress = withDone(content.progress, key, done);
@@ -200,7 +213,7 @@ export async function setSectionDone(user: SessionUser, invitationId: string, ke
 }
 
 export async function updateTheme(user: SessionUser, invitationId: string, theme: ThemeOverride) {
-  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { order: { select: { serviceMode: true } } } });
   assertOpenForChanges(user, invitation);
   const clean: ThemeOverride = {};
   // Colours are every package's: the presets and the picker alike.
@@ -267,7 +280,7 @@ export async function updateSettings(
   invitationId: string,
   input: { slug?: string; privacy?: Privacy; password?: string; language?: Lang; title?: string },
 ) {
-  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { order: { select: { serviceMode: true } } } });
   const data: Record<string, unknown> = {};
   // the words and the language are the invitation; the link and who may open it stay the couple's to change
   if (input.language !== undefined || input.title !== undefined) assertOpenForChanges(user, invitation);
@@ -306,7 +319,7 @@ export async function updateSettings(
 }
 
 export async function changeTemplate(user: SessionUser, invitationId: string, templateId: string) {
-  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { order: { select: { serviceMode: true } } } });
   assertOpenForChanges(user, invitation);
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');

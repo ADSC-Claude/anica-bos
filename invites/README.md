@@ -173,6 +173,16 @@ add-ons → coupon) → pay → order `PENDING_PAYMENT → PAID → ACTIVE` → 
 unlocks → sections with a progress bar and tier-locked sections shown with an
 *Upgrade* badge → live preview (phone / desktop) → publish → share.
 
+DIY is self-serve all the way through: nothing is handed to staff, no `DfyJob`
+is created, the customer publishes it themselves, and the invitation never
+closes to their changes. Marking a section *Done* folds it away and moves the
+progress bar — it is their own bookkeeping, not a submission, and an
+invitation can be published with sections still unmarked — `publishProblems()`
+insists only on the cover's required fields and on finishing a colour motif
+once one is started. `selfServe()` in
+`src/lib/pricing.ts` is the one definition of which orders work this way: DIY,
+and an invitation with no order behind it at all.
+
 **Done-For-You:** same checkout with DFY ticked → pay → a `DfyJob` is created
 → the customer fills the intake form (the same fields as the builder, in one
 page), or says they will send it via Messenger / Viber / Excel → an encoder is
@@ -180,6 +190,15 @@ assigned, builds it in the same builder → moves the job to *Preview sent*
 (customer gets a link by dashboard + email) → customer requests changes
 (rounds are counted) or approves → staff publishes → the customer can still
 edit afterwards.
+
+**The change window is a Done-For-You thing, not a platform thing.** On a
+team-serviced invitation, three weeks before the event it closes to the
+customer's changes so an encoder can make the final touches, which are due two
+weeks before; `changeWindow()` in `src/lib/progress.ts` computes both dates and
+`assertOpenForChanges()` enforces it on every customer write. Both take the
+service mode, so a DIY invitation has no window to be locked out of — it stays
+the customer's until the link expires, which is what the packages promise on
+the landing page. Staff are never locked out either way.
 
 Every write to an invitation goes through `src/lib/invitations.ts`; every
 read of it by a guest goes through `loadPublic()`. Drafts are visible only to

@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, type Quote } from './pricing';
+import { quote, selfServe, type Quote } from './pricing';
 import { createDraft } from './invitations';
 import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
@@ -152,7 +152,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
         data: { editsAllowed: order.package.editsAfterPublish, ...(premiumOpening ? { premiumOpening: true } : {}) },
       });
     }
-    if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {
+    if (!selfServe(order.serviceMode) && order.invitationId && !order.dfyJob) {
       const concierge = order.serviceMode === 'CONCIERGE';
       const days = concierge ? s['concierge.turnaroundDays'] : s['dfy.turnaroundDays'];
       await tx.dfyJob.create({
@@ -167,10 +167,10 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
     }
   });
 
-  const dfy = order.serviceMode !== 'DIY';
+  const dfy = !selfServe(order.serviceMode);
   const nextStep = dfy
     ? 'Next: tell us the details. Fill in the intake form from your dashboard, or send everything over Messenger or Viber and we will encode it for you.'
-    : 'Your builder is unlocked — open your dashboard to start filling in your invitation.';
+    : 'Your builder is unlocked — fill in your invitation at your own pace, then publish it yourself the moment it looks right.';
 
   await notify(order.userId, 'Payment confirmed', nextStep, order.invitationId ? `/account/invitations/${order.invitationId}` : '/account');
   await sendEmail({

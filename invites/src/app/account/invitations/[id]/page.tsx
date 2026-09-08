@@ -11,7 +11,8 @@ import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
 import { contentOf } from '@/lib/invitations';
 import { publishProblems, sectionsFor, sectionUnlocked } from '@/lib/sections';
-import { changeWindow, doneSections } from '@/lib/progress';
+import { doneSections } from '@/lib/progress';
+import { selfServe } from '@/lib/pricing';
 import { PageHeader, InvitationPill, Stat, Notice } from '@/components/ui';
 import { PublishControls, ShareBox } from './controls';
 
@@ -27,14 +28,14 @@ export default async function InvitationDashboard({ params }: { params: Promise<
     prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true } }),
   ]);
   const active = !inv.order || inv.order.status === 'ACTIVE' || inv.order.status === 'PAID';
-  const dfy = inv.order?.serviceMode && inv.order.serviceMode !== 'DIY';
+  // DIY builds, publishes and edits itself; the other modes are ours to encode
+  const dfy = !selfServe(inv.order?.serviceMode);
   const url = invitationUrl(inv.slug);
   const content = contentOf(inv.content);
   const problems = publishProblems(inv.occasion, content);
   const mine = sectionsFor(inv.occasion).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier)).map((d) => d.key);
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
-  const window = changeWindow(inv.eventAt);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);
   const upgrade = nextTier(inv.tier);
 
@@ -61,15 +62,13 @@ export default async function InvitationDashboard({ params }: { params: Promise<
         <div className="space-y-4">
           {active && !dfy && (
             <div className="card p-5">
-              <h2 className="mb-2 font-semibold">Your form</h2>
+              <h2 className="mb-2 font-semibold">Your progress</h2>
               {complete ? (
-                <p className="text-sm">✓ Every section is marked Done{content.progress?.completedAt ? ` (${formatDate(new Date(content.progress.completedAt))})` : ''}. Our team has your invitation.</p>
+                <p className="text-sm">✓ Every section is marked Done{content.progress?.completedAt ? ` (${formatDate(new Date(content.progress.completedAt))})` : ''} — nothing left to fill in. <Link href={`/account/invitations/${inv.id}/builder`} className="underline">Open the builder</Link> whenever you want to change something.</p>
               ) : (
-                <p className="text-sm"><b>{doneCount} of {mine.length}</b> sections marked Done. Our team starts on your invitation only once every section is Done — <Link href={`/account/invitations/${inv.id}/builder`} className="underline">continue where you left off</Link>. Everything you save stays.</p>
+                <p className="text-sm"><b>{doneCount} of {mine.length}</b> sections marked Done — your own progress mark, so you can publish before they all are. <Link href={`/account/invitations/${inv.id}/builder`} className="underline">Continue where you left off</Link>. Everything you save stays.</p>
               )}
-              {window && (
-                <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">{window.closed ? `Changes closed on ${formatDate(window.closesAt)}; final touches by our team until ${formatDate(window.finalAt)}.` : `Changes close on ${formatDate(window.closesAt)}, three weeks before the event; our team's final touches are done by ${formatDate(window.finalAt)}.`}</p>
-              )}
+              <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">Your invitation stays yours to edit right up to the day{inv.expiresAt ? `, and the link stays live until ${formatDate(inv.expiresAt)}` : ''}.</p>
             </div>
           )}
           <div className="card p-5">

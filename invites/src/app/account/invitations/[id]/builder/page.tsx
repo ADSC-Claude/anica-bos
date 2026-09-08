@@ -3,9 +3,12 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, emptySection, type SectionKey } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, customerFields, emptySection, type SectionKey } from '@/lib/sections';
+import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
+import { LOOKS } from '@/lib/looks';
+import { changeWindow, doneSections } from '@/lib/progress';
 import { InvitationPill } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -28,10 +31,14 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
     minTier: sectionMinTier(d.key, inv.occasion),
   }));
   const current = (sections.find((s) => s.key === section && s.unlocked)?.key ?? sections.find((s) => s.unlocked)!.key) as SectionKey;
-  const fields = fieldsFor(current, inv.occasion);
+  // the fixed writings are ours: staff editing for the customer see them, the customer does not
+  const fields = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier) : customerFields(fieldsFor(current, inv.occasion, inv.tier));
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);
+  const done = doneSections(content.progress);
+  const w = changeWindow(inv.eventAt);
+  const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
 
   return (
     <>
@@ -45,7 +52,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} />
     </>
   );
 }

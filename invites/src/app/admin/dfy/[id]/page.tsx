@@ -8,7 +8,7 @@ import { sectionsFor, sectionLabel, fieldsFor, type Content, type Field } from '
 import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, DfyPill, BackLink } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
-import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExtendAction } from '../../actions';
+import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExtendAction, dfyOpeningAction } from '../../actions';
 import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,9 @@ function renderValue(field: Field, v: unknown): string {
   if (field.type === 'toggle') return v ? 'Yes' : 'No';
   if (field.type === 'person') { const p = v as { title: string; name: string; deceased: boolean }; return p.name ? `${p.title} ${p.name}${p.deceased ? ' †' : ''}`.trim() : ''; }
   if (field.type === 'colors') return (v as string[]).join(', ');
+  // Show what the customer picked, not the key we store it under — an encoder
+  // reading an intake should see "The Seal", not "seal".
+  if (field.type === 'select') return field.options?.find((o) => o.value === v)?.label ?? String(v);
   if (field.type === 'list') return (v as Record<string, unknown>[]).map((row) => (field.item ?? []).map((f) => renderValue(f, row[f.key])).filter(Boolean).join(' · ')).join('\n');
   return String(v);
 }
@@ -105,6 +108,19 @@ export default async function DfyJobPage({ params, searchParams }: { params: Pro
               </form>
             ) : <p>{job.assignee?.name ?? 'Unassigned'}</p>}
           </section>
+          {canEdit && (
+            <section className="card p-4 text-sm">
+              <h2 className="mb-2 font-semibold">Cinematic opening</h2>
+              <p className="mb-2 text-xs text-[color:var(--color-ink-500)]">
+                Made for this couple, and it replaces whatever the design opens with. Complete tier only — this order is {job.invitation.tier}.
+              </p>
+              <form action={dfyOpeningAction.bind(null, job.id, back)} className="space-y-2">
+                <input name="openingVideoUrl" defaultValue={job.invitation.openingVideoUrl} className="field" placeholder="Clip URL (portrait MP4 or WebM, muted)" />
+                <input name="openingPosterUrl" defaultValue={job.invitation.openingPosterUrl} className="field" placeholder="Poster URL (the clip's first frame)" />
+                <button className="btn btn-secondary btn-sm" type="submit">Save opening</button>
+              </form>
+            </section>
+          )}
           {canEdit && (
             <section className="card p-4 text-sm">
               <h2 className="mb-2 font-semibold">Internal notes</h2>

@@ -26,6 +26,11 @@ function sniff(buffer: Buffer): string | null {
   if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP')
     return 'image/webp';
   if (buffer.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
+  // MP3: an ID3 tag in front, or a bare frame — its sync bits set, layer III
+  if (buffer.subarray(0, 3).toString('ascii') === 'ID3') return 'audio/mpeg';
+  if (buffer[0] === 0xff && (buffer[1] & 0xe6) === 0xe2) return 'audio/mpeg';
+  // M4A: an MP4 container that declares itself audio
+  if (buffer.subarray(4, 8).toString('ascii') === 'ftyp' && buffer.subarray(8, 12).toString('ascii') === 'M4A ') return 'audio/mp4';
   // Excel (xlsx) is a zip: PK\x03\x04. Accepted only for intake uploads.
   if (buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04)
     return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -38,6 +43,22 @@ const EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+};
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+/** A song file: MP3, or M4A from an iPhone. */
+export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
+/** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */
+export const AUDIO_MAX_BYTES = 20 * 1024 * 1024;
+
+export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio';
+const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
+  images: { types: IMAGE_TYPES, message: 'Only JPEG, PNG and WebP images are accepted.' },
+  'images-and-pdf': { types: [...IMAGE_TYPES, 'application/pdf'], message: 'Only JPEG, PNG, WebP and PDF files are accepted.' },
+  intake: { types: [...IMAGE_TYPES, 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], message: 'Only JPEG, PNG, WebP, PDF and Excel files are accepted.' },
+  audio: { types: AUDIO_TYPES, message: 'Only MP3 and M4A audio files are accepted.' },
 };
 
 export type Stored = { url: string; storagePath: string; contentType: string };
@@ -51,28 +72,18 @@ export async function storeFile(args: {
   entityType: string;
   entityId: string;
   visibility?: 'public' | 'private';
-  accept?: 'images' | 'images-and-pdf' | 'intake';
+  accept?: Accept;
+  /** The most the file may weigh; a photo's 10 MB unless said otherwise. */
+  maxBytes?: number;
 }): Promise<Stored> {
   const bytes = Buffer.from(await args.file.arrayBuffer());
   if (bytes.length === 0) throw new HttpError(400, 'That file is empty.');
-  if (bytes.length > MAX_BYTES) throw new HttpError(400, 'Files must be 10 MB or smaller.');
+  const maxBytes = args.maxBytes ?? MAX_BYTES;
+  if (bytes.length > maxBytes) throw new HttpError(400, `Files must be ${Math.round(maxBytes / 1024 / 1024)} MB or smaller.`);
 
   const contentType = sniff(bytes);
-  const accept = args.accept ?? 'images';
-  const allowed =
-    accept === 'images'
-      ? ['image/jpeg', 'image/png', 'image/webp']
-      : accept === 'images-and-pdf'
-        ? ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-        : Object.keys(EXTENSIONS);
-  if (!contentType || !allowed.includes(contentType)) {
-    throw new HttpError(
-      400,
-      accept === 'images'
-        ? 'Only JPEG, PNG and WebP images are accepted.'
-        : 'Only JPEG, PNG, WebP, PDF and Excel files are accepted.',
-    );
-  }
+  const { types, message } = ACCEPTS[args.accept ?? 'images'];
+  if (!contentType || !types.includes(contentType)) throw new HttpError(400, message);
 
   const visibility = args.visibility ?? 'public';
   const objectPath = `${args.entityType}/${args.entityId}/${randomUUID()}.${EXTENSIONS[contentType]}`;
@@ -166,4 +177,55 @@ export async function signedUrl(storagePath: string, expiresIn = 3600): Promise<
   if (!res.ok) return null;
   const json = (await res.json()) as { signedURL?: string };
   return json.signedURL ? `${base}/storage/v1${json.signedURL}` : null;
+}
+
+/**
+ * A signed address the browser uploads a file to directly, for one too big to
+ * pass through the server: a serverless function takes a request body of 4.5
+ * MB at most, and a song is often more. The file's type is fixed here, so the
+ * object is named for it; the browser puts the bytes, and the caller records
+ * the object once it is there (`directUploadUrl`). Null without cloud
+ * storage — development and CI then take the file through the server.
+ */
+export async function signedUpload(args: { entityType: string; entityId: string; contentType: string }): Promise<{ uploadUrl: string; storagePath: string; url: string } | null> {
+  if (!storageConfigured()) return null;
+  const ext = EXTENSIONS[args.contentType];
+  if (!ext) throw new HttpError(400, 'That kind of file is not accepted.');
+  const bucket = process.env.SUPABASE_PUBLIC_BUCKET ?? 'invites-public';
+  const base = process.env.SUPABASE_URL!.replace(/\/$/, '');
+  const objectPath = `${args.entityType}/${args.entityId}/${randomUUID()}.${ext}`;
+  const res = await fetch(`${base}/storage/v1/object/upload/sign/${bucket}/${objectPath}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+  });
+  if (!res.ok) throw new HttpError(502, `Could not prepare the upload: ${await res.text()}`);
+  const json = (await res.json()) as { url?: string };
+  if (!json.url) throw new HttpError(502, 'Could not prepare the upload.');
+  return {
+    uploadUrl: `${base}/storage/v1${json.url}`,
+    storagePath: `${bucket}/${objectPath}`,
+    url: `${base}/storage/v1/object/public/${bucket}/${objectPath}`,
+  };
+}
+
+/**
+ * The public address of an object the browser uploaded directly — only when
+ * its path is this entity's own, so nobody records another's file as theirs.
+ */
+export function directUploadUrl(storagePath: string, entityType: string, entityId: string): string | null {
+  if (!storageConfigured()) return null;
+  const bucket = process.env.SUPABASE_PUBLIC_BUCKET ?? 'invites-public';
+  if (storagePath.includes('..') || !storagePath.startsWith(`${bucket}/${entityType}/${entityId}/`)) return null;
+  const base = process.env.SUPABASE_URL!.replace(/\/$/, '');
+  return `${base}/storage/v1/object/public/${storagePath}`;
+}
+
+/** Whether a public object is there — checked after a direct upload, before its row is written. */
+export async function publicObjectExists(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { method: 'HEAD' });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

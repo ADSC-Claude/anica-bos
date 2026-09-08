@@ -7,10 +7,11 @@
  * It DELETES EVERYTHING first.
  */
 import { PrismaClient, type Occasion, type Tier } from '@prisma/client';
+import { swatchHex } from '../src/lib/palette';
 import { resolveDatabaseUrl } from '../src/lib/db-url';
 import bcrypt from 'bcryptjs';
 import { defaultContent, type Content } from '../src/lib/sections';
-import { PALETTE_PRESETS, FONT_PRESETS } from '../src/lib/theme';
+import { TEMPLATES, templateData } from './templates';
 import { guestToken, orderReference, paymentReference } from '../src/lib/codes';
 import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } from '../src/lib/copy';
 import { addDays } from '../src/lib/datetime';
@@ -72,8 +73,6 @@ async function wipe() {
   for (const t of tables) await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${t}" CASCADE`);
 }
 
-const pal = (key: string) => PALETTE_PRESETS.find((p) => p.key === key)!.palette;
-const fonts = (key: string) => FONT_PRESETS.find((f) => f.key === key)!.fonts;
 const pic = (seed: string, w = 900, h = 1200) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
 
 async function main() {
@@ -142,7 +141,11 @@ async function main() {
   await prisma.addOn.createMany({
     data: [
       { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 1 },
-      { code: 'ENVELOPE', name: 'Animated envelope opening', description: 'Guests tap to open. Included free on the demo so you can see it.', priceCents: 19900, sortOrder: 2 },
+      // Priced on request until the turnaround is known: it is design time,
+      // not a switch, so quoting a flat number before the first one is made
+      // would be a guess printed on a public page.
+      { code: 'CINEMATIC', name: 'Cinematic opening (Done-For-You)', description: 'A filmed cover that opens as your guest taps — a seal breaking, panels drawing back, drawn by our designers for your motif. On Complete with Done-For-You or Concierge.', priceCents: 0, sortOrder: 4 },
+      { code: 'ENVELOPE', name: 'Animated opening', description: 'The Drape, The Seal, The Curtain, Photo Story or The Line — a short moving scene before the invitation. Guests tap to open. Included free on the demo so you can see it.', priceCents: 19900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout for the lolas.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing (Basic tier).', priceCents: 19900, sortOrder: 4 },
       { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Done-For-You jumps the queue.', priceCents: 49900, sortOrder: 5 },
@@ -160,30 +163,12 @@ async function main() {
   });
 
   // --- templates ------------------------------------------------------------
-  const templates = await Promise.all(
-    [
-      { slug: 'classic-ivory', name: 'Classic Ivory', occasion: 'WEDDING', minTier: 'BASIC', layout: 'classic', palette: pal('ivory'), fonts: fonts('serif'), featured: true, description: 'Full-bleed photo, serif names, sage and gold.', thumb: pic('classic-ivory') },
-      { slug: 'garden-botanical', name: 'Garden Botanical', occasion: 'WEDDING', minTier: 'BASIC', layout: 'garden', palette: pal('emerald'), fonts: fonts('serif'), featured: true, description: 'Arched photo, emerald and ivory. Tagaytay energy.', thumb: pic('garden-botanical') },
-      { slug: 'modern-minimal', name: 'Modern Minimal', occasion: 'WEDDING', minTier: 'STANDARD', layout: 'modern', palette: pal('mono'), fonts: fonts('modern'), featured: false, description: 'Uppercase sans, black and white, lots of air.', thumb: pic('modern-minimal') },
-      { slug: 'filipiniana-gold', name: 'Filipiniana Gold', occasion: 'WEDDING', minTier: 'STANDARD', premium: true, layout: 'editorial', palette: pal('royal'), fonts: fonts('script'), featured: true, description: 'Royal blue and gold, script names. Premium.', thumb: pic('filipiniana-gold') },
-      { slug: 'beach-sunset', name: 'Beach Sunset', occasion: 'WEDDING', minTier: 'STANDARD', layout: 'classic', palette: pal('sunset'), fonts: fonts('editorial'), featured: false, description: 'Warm sunset tones for Boracay, Siargao and La Union.', thumb: pic('beach-sunset') },
-      { slug: 'enchanted-blush', name: 'Enchanted Blush', occasion: 'DEBUT', minTier: 'BASIC', layout: 'festive', palette: pal('blush'), fonts: fonts('script'), featured: true, description: 'Blush and gold with a script name for the debutante.', thumb: pic('enchanted-blush') },
-      { slug: 'starlight-debut', name: 'Starlight', occasion: 'DEBUT', minTier: 'STANDARD', premium: true, layout: 'editorial', palette: pal('lilac'), fonts: fonts('editorial'), featured: false, description: 'Lilac and silver. Premium.', thumb: pic('starlight') },
-      { slug: 'little-cloud', name: 'Little Cloud', occasion: 'CHRISTENING', minTier: 'BASIC', layout: 'garden', palette: pal('dusty'), fonts: fonts('playful'), featured: true, description: 'Dusty blue, soft and gentle. Binyag + 1st birthday ready.', thumb: pic('little-cloud') },
-      { slug: 'party-pop', name: 'Party Pop', occasion: 'KIDS_BIRTHDAY', minTier: 'BASIC', layout: 'festive', palette: pal('pastel'), fonts: fonts('playful'), featured: true, description: 'Confetti and pastels for a lucky 7th.', thumb: pic('party-pop') },
-      { slug: 'golden-hour', name: 'Golden Hour', occasion: 'MILESTONE_BIRTHDAY', minTier: 'BASIC', layout: 'editorial', palette: pal('navy'), fonts: fonts('serif'), featured: false, description: 'Navy and champagne for a 50th or 60th.', thumb: pic('golden-hour') },
-      { slug: 'silver-jubilee', name: 'Silver Jubilee', occasion: 'ANNIVERSARY', minTier: 'BASIC', layout: 'classic', palette: pal('navy'), fonts: fonts('script'), featured: false, description: 'For silver and golden anniversaries and renewals of vows.', thumb: pic('silver-jubilee') },
-      { slug: 'boardroom', name: 'Boardroom', occasion: 'CORPORATE', minTier: 'BASIC', layout: 'modern', palette: pal('mono'), fonts: fonts('modern'), featured: false, description: 'Logo, agenda, speakers and a registration QR.', thumb: pic('boardroom') },
-      { slug: 'quiet-light', name: 'Quiet Light', occasion: 'MEMORIAL', minTier: 'BASIC', layout: 'quiet', palette: pal('slate'), fonts: fonts('serif'), featured: false, description: 'Muted and respectful, for the 40th day and babang luksa.', thumb: pic('quiet-light') },
-    ].map((t, i) =>
-      prisma.template.create({
-        data: { slug: t.slug, name: t.name, occasion: t.occasion as Occasion, minTier: t.minTier as Tier, premium: t.premium ?? false, layout: t.layout, palette: t.palette as never, fonts: t.fonts as never, sections: [], featured: t.featured, description: t.description, thumbnailUrl: t.thumb, sortOrder: i },
-      }),
-    ),
-  );
-  const classic = templates[0];
-  const garden = templates[1];
-  const blush = templates[5];
+  const templates = await Promise.all(TEMPLATES.map((t, i) => prisma.template.create({ data: templateData(t, i) })));
+  // By slug, not by position — inserting a design at the top of the list above
+  // must not silently repoint the demo invitations at a different template.
+  const bySlug = (slug: string) => templates.find((t) => t.slug === slug)!;
+  const capiz = bySlug('capiz');
+  const blush = bySlug('enchanted-blush');
 
   // --- the demo: Juan & Maria ---------------------------------------------
   const wedding = addDays(new Date(), 75);
@@ -193,8 +178,10 @@ async function main() {
   Object.assign(content.cover!, {
     kind: 'wedding', brideFirst: 'Maria', groomFirst: 'Juan', brideFull: 'Maria Isabel Santos', groomFull: 'Juan Carlos Dela Cruz', brideNick: 'Maria', groomNick: 'Juan', monogram: 'J & M',
     date: dateKey, time: '14:00', introPreset: 'families', intro: 'Together with their families, Maria and Juan joyfully invite you to celebrate their wedding.',
-    coverPhoto: pic('juan-maria-cover', 900, 1200), envelope: true,
+    coverPhoto: pic('juan-maria-cover', 900, 1200), opening: 'seal', openingLine: '',
+    verse: '“And above all these things put on love, which binds everything together in perfect harmony.”', verseRef: 'Colossians 3:14',
   });
+  Object.assign(content.moment!, { line1: 'Same horizons', line2: 'A brighter tomorrow', line3: 'Together', frame: 'arch' });
   Object.assign(content.countdown!, { enabled: true, label: 'Counting down to the big day' });
   Object.assign(content.parents!, {
     phrasing: 'together',
@@ -204,6 +191,8 @@ async function main() {
   Object.assign(content.ceremony!, { type: 'catholic', venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dateKey, time: '14:00', seatedBy: '1:30 PM', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-agustin', 1200, 800), note: 'The church is air-conditioned. Please arrive early — Intramuros traffic is real.' });
   Object.assign(content.reception!, { venue: 'The Manila Hotel — Fiesta Pavilion', address: 'One Rizal Park, Ermita, Manila', time: '17:30', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the hotel. A shuttle leaves the church at 4:15 PM.', photo: pic('manila-hotel', 1200, 800), note: '' });
   Object.assign(content.entourage!, {
+    brideParents: [{ name: 'Engr. Roberto A. Santos' }, { name: 'Mrs. Carmen L. Santos' }],
+    groomParents: [{ name: 'Mr. Antonio B. Dela Cruz †' }, { name: 'Dr. Teresita R. Dela Cruz' }],
     principalSponsors: [
       { ninong: 'Mr. Jose Ramon Alcantara', ninang: 'Mrs. Lourdes Alcantara' }, { ninong: 'Atty. Federico Bautista', ninang: 'Dr. Milagros Bautista' }, { ninong: 'Engr. Danilo Cruz', ninang: 'Mrs. Rosario Cruz' },
       { ninong: 'Col. Ramon Villanueva (Ret.)', ninang: 'Mrs. Amparo Villanueva' }, { ninong: 'Mr. Ernesto Reyes', ninang: 'Ms. Corazon Reyes' }, { ninong: 'Hon. Alfredo Garcia', ninang: 'Mrs. Belen Garcia' },
@@ -216,9 +205,9 @@ async function main() {
     littleGroom: 'Nathan Cruz', littleBride: 'Isabella Reyes', ringBearer: 'Gabriel Santos', coinBearer: 'Matteo Dela Cruz', bibleBearer: 'Elijah Ramos',
     flowerGirls: [{ name: 'Althea Santos' }, { name: 'Zoey Lim' }, { name: 'Mia Garcia' }],
   });
-  Object.assign(content.dressCode!, { attire: 'formal', attireText: 'Long gown or cocktail dress for ladies; suit or Barong Tagalog for gentlemen.', colors: ['#5b6b4e', '#c9b48a', '#f4ede2', '#8c9a82'], avoidWhite: true, sponsorsAttire: 'Champagne gown / Barong Tagalog', entourageAttire: 'Sage green', note: '' });
+  Object.assign(content.dressCode!, { attire: 'formal', attireText: 'We kindly encourage our guests to wear elegant formal attire.', gentsColors: ['soft-black', 'camel', 'olive', 'sand'].map(swatchHex), gentsItems: ['suit', 'coat', 'longSleeves'], gentsNote: 'Tie is optional.', ladiesColors: ['champagne-gold', 'sage', 'dusty-rose', 'caramel', 'mocha'].map(swatchHex), ladiesItems: ['longGown', 'cocktail', 'separates'], ladiesNote: 'We encourage earthy, neutral and muted tones.', colors: ['champagne', 'taupe', 'dusty-rose', 'sage', 'olive', 'mocha', 'caramel', 'chocolate'].map(swatchHex), paletteNote: 'You may choose from this palette or similar shades.', avoid: ['white', 'bright', 'casual', 'sports', 'slippers', 'prints'], sponsorsAttire: 'Champagne gown / Barong Tagalog', entourageAttire: 'Sage green', note: '' });
   Object.assign(content.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Maria S.', gcashNumber: '0917 123 4567', gcashQr: pic('gcash-qr', 400, 400), bankDetails: 'BPI · Juan Carlos Dela Cruz · 1234 5678 90', registry: [] });
-  Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
+  Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
   Object.assign(content.story!, {
     howWeMet: 'We met in 2018 at a friend’s despedida in Katipunan — Juan spilled a whole cup of taho on Maria’s shoes and offered to buy her new ones. She said yes to the shoes, and eventually to everything else.',
     proposal: 'On a quiet morning in Sagada, before the sunrise crowd arrived, Juan asked. Maria cried so much the tour guide thought something was wrong.',
@@ -228,15 +217,16 @@ async function main() {
   Object.assign(content.program!, { items: [{ time: '2:00 PM', title: 'Ceremony', note: 'San Agustin Church' }, { time: '4:00 PM', title: 'Cocktails & photos', note: 'Fiesta Pavilion foyer' }, { time: '5:30 PM', title: 'Reception', note: 'Dinner, toasts and dancing' }, { time: '8:30 PM', title: 'After-party', note: 'Tap Room, Manila Hotel' }], activities: '' });
   Object.assign(content.faq!, { items: [{ q: 'Is there parking?', a: 'Yes — free at The Manila Hotel. Intramuros parking is limited, so we suggest carpooling or the shuttle.' }, { q: 'Can I bring my kids?', a: 'As much as we love your little ones, this celebration is for adults only.' }, { q: 'What if it rains?', a: 'Both venues are indoors. Bring an umbrella for the walk to the car.' }, { q: 'Is there a shuttle?', a: 'A coaster leaves the church at 4:15 PM for the hotel.' }, { q: 'Hashtag?', a: '#JuanAndMariaSayIDo — tag us!' }] });
   Object.assign(content.travel!, { hotels: [{ name: 'The Manila Hotel', address: 'One Rizal Park, Ermita', note: 'Use code JMWEDDING for the group rate', url: 'https://www.manila-hotel.com.ph' }, { name: 'Bayleaf Intramuros', address: 'Muralla St, Intramuros', note: 'Walking distance to the church', url: '' }], directions: 'From NAIA: Skyway to Roxas Blvd, exit at Rizal Park. About 40 minutes without traffic — allow 90.', tips: 'Grab and taxis are reliable in the area. The LRT-1 UN Avenue station is a 10-minute walk from both venues.' });
-  Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', facebook: '', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
-  Object.assign(content.music!, { url: '', title: 'Ikaw — Yeng Constantino', autoplay: true });
+  Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', tiktok: '@juanandmaria', facebook: 'juanandmaria', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
+  Object.assign(content.contact!, { name: 'Maria', phone: '0917 123 4567', name2: 'Juan', phone2: '0918 765 4321', email: '', messenger: 'https://m.me/juanandmaria', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
+  Object.assign(content.music!, { song: 'Ikaw — Yeng Constantino', start: 65, url: '' });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
   Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });
   Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900) });
 
   const demo = await prisma.invitation.create({
     data: {
-      userId: maria.id, templateId: classic.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
+      userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
       content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: -1, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
     },
   });
@@ -245,7 +235,7 @@ async function main() {
     data: {
       reference: orderReference(), userId: maria.id, packageId: weddingComplete.id, invitationId: demo.id, occasion: 'WEDDING', tier: 'COMPLETE', serviceMode: 'DIY',
       subtotalCents: weddingComplete.priceCents, addOnsCents: 19900, totalCents: weddingComplete.priceCents + 19900, status: 'ACTIVE', paidAt: addDays(new Date(), -25), activatedAt: addDays(new Date(), -25), createdAt: addDays(new Date(), -25),
-      items: { create: [{ kind: 'PACKAGE', code: 'WEDDING_COMPLETE', name: weddingComplete.name, amountCents: weddingComplete.priceCents, sortOrder: 0 }, { kind: 'ADDON', code: 'ENVELOPE', name: 'Animated envelope opening', amountCents: 19900, sortOrder: 1 }] },
+      items: { create: [{ kind: 'PACKAGE', code: 'WEDDING_COMPLETE', name: weddingComplete.name, amountCents: weddingComplete.priceCents, sortOrder: 0 }, { kind: 'ADDON', code: 'ENVELOPE', name: 'Animated opening', amountCents: 19900, sortOrder: 1 }] },
     },
   });
   await prisma.payment.create({ data: { reference: paymentReference(), orderId: demoOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: demoOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_demo', gatewayPaymentId: 'pay_demo', gatewayEventId: 'evt_demo', paidAt: addDays(new Date(), -25) } });
@@ -299,7 +289,7 @@ async function main() {
 
   // --- a christening order with a proof waiting for review ------------------
   const christBasic = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_BASIC' } });
-  const cloud = templates[7];
+  const cloud = bySlug('little-cloud');
   const christ = await prisma.invitation.create({ data: { userId: maria.id, templateId: cloud.id, occasion: 'CHRISTENING', tier: 'BASIC', title: "Baby Liam's Christening", slug: 'baby-liam-christening', status: 'DRAFT', content: defaultContent('CHRISTENING') as never, editsAllowed: 3 } });
   const christOrder = await prisma.order.create({
     data: {
@@ -311,8 +301,6 @@ async function main() {
   await prisma.notification.create({ data: { userId: support.id, title: `Proof of payment — ${christOrder.reference}`, body: 'BPI · Maria Santos', href: '/admin/payments' } });
   await prisma.supportMessage.create({ data: { userId: maria.id, invitationId: christ.id, body: 'Hi! I sent the BPI transfer for the christening invite — did you receive it?', channel: 'app' } });
 
-  // Unused variable guard for garden template (kept for future demos).
-  void garden;
   void admin;
 
   console.info(`

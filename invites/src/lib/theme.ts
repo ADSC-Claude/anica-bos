@@ -23,12 +23,26 @@ export type Palette = {
 export type Fonts = {
   display: string;
   body: string;
-  /** Google Fonts family names to load, e.g. ["Cormorant Garamond", "Jost"]. */
+  /** The names on the cover, when they are set in a face of their own. */
+  names?: string;
+  /** The line under a heading, when a design writes one. */
+  script?: string;
+  /** The script face's slant: an italic serif can play the part of a script. */
+  scriptStyle?: 'normal' | 'italic';
+  /**
+   * Google Fonts families to load, e.g. ["Cormorant Garamond", "Jost"]. A
+   * family may carry its own axis spec after a colon ("Lora:ital,wght@0,400;1,400")
+   * when the default weights are not what the look needs.
+   */
   load: string[];
 };
 
 export const PALETTE_PRESETS: { key: string; label: string; palette: Palette; muted?: boolean }[] = [
   { key: 'ivory', label: 'Ivory & Sage', palette: { bg: '#faf7f2', surface: '#ffffff', ink: '#2b2b28', muted: '#6b6a61', accent: '#5b6b4e', accent2: '#c9b48a' } },
+  { key: 'white', label: 'Warm White & Taupe', palette: { bg: '#fdfbf7', surface: '#ffffff', ink: '#2c2825', muted: '#7b736a', accent: '#8a7a66', accent2: '#d8cdbb' } },
+  { key: 'champagne', label: 'White & Champagne', palette: { bg: '#fbf8f3', surface: '#ffffff', ink: '#2e2a24', muted: '#7a7167', accent: '#b39456', accent2: '#e4d7bd' } },
+  { key: 'linen', label: 'Linen & Ash', palette: { bg: '#f7f5f1', surface: '#ffffff', ink: '#2a2a28', muted: '#75746f', accent: '#5f5d57', accent2: '#cfcabd' } },
+  { key: 'capiz', label: 'Capiz & Bronze', palette: { bg: '#f6f1e8', surface: '#fffdf8', ink: '#4a3b2c', muted: '#8b7a64', accent: '#a8763f', accent2: '#d8c6a0' } },
   { key: 'blush', label: 'Blush & Gold', palette: { bg: '#fbf4f2', surface: '#ffffff', ink: '#3a2e2e', muted: '#7a6a6a', accent: '#a6555e', accent2: '#d3b06c' } },
   { key: 'navy', label: 'Navy & Champagne', palette: { bg: '#f6f4ef', surface: '#ffffff', ink: '#1f2a3d', muted: '#5d6675', accent: '#1f2a3d', accent2: '#c8ad7f' } },
   { key: 'terracotta', label: 'Terracotta & Cream', palette: { bg: '#fbf6ef', surface: '#ffffff', ink: '#3b2a22', muted: '#7d6a5f', accent: '#b8603d', accent2: '#e0b98a' } },
@@ -44,13 +58,14 @@ export const PALETTE_PRESETS: { key: string; label: string; palette: Palette; mu
 
 export const FONT_PRESETS: { key: string; label: string; fonts: Fonts }[] = [
   { key: 'serif', label: 'Classic serif', fonts: { display: "'Cormorant Garamond', 'Hoefler Text', Georgia, serif", body: "'Jost', 'Segoe UI', system-ui, sans-serif", load: ['Cormorant Garamond', 'Jost'] } },
+  { key: 'capiz', label: 'Capiz (Cormorant, Cinzel, Pinyon Script)', fonts: { display: "'Cormorant Garamond', 'Hoefler Text', Georgia, serif", body: "'Cormorant Garamond', Georgia, serif", load: ['Cormorant Garamond', 'Cinzel', 'Pinyon Script'] } },
   { key: 'editorial', label: 'Editorial', fonts: { display: "'Playfair Display', Georgia, serif", body: "'DM Sans', system-ui, sans-serif", load: ['Playfair Display', 'DM Sans'] } },
   { key: 'script', label: 'Script', fonts: { display: "'Great Vibes', 'Brush Script MT', cursive", body: "'Lora', Georgia, serif", load: ['Great Vibes', 'Lora'] } },
   { key: 'modern', label: 'Modern sans', fonts: { display: "'Montserrat', 'Segoe UI', system-ui, sans-serif", body: "'Inter', system-ui, sans-serif", load: ['Montserrat', 'Inter'] } },
   { key: 'playful', label: 'Playful', fonts: { display: "'Fredoka', 'Segoe UI', system-ui, sans-serif", body: "'Nunito', system-ui, sans-serif", load: ['Fredoka', 'Nunito'] } },
 ];
 
-export const LAYOUTS = ['classic', 'editorial', 'garden', 'modern', 'festive', 'quiet'] as const;
+export const LAYOUTS = ['classic', 'editorial', 'garden', 'modern', 'festive', 'quiet', 'capiz'] as const;
 export type Layout = (typeof LAYOUTS)[number];
 
 export function isLayout(v: string): v is Layout {
@@ -58,7 +73,7 @@ export function isLayout(v: string): v is Layout {
 }
 
 export function paletteFrom(raw: unknown): Palette {
-  const base = PALETTE_PRESETS[0].palette;
+  const base = PALETTE_PRESETS.find((p) => p.key === 'ivory')!.palette;
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Partial<Palette>;
   const hex = (v: unknown, fallback: string) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : fallback);
@@ -76,9 +91,13 @@ export function fontsFrom(raw: unknown): Fonts {
   const base = FONT_PRESETS[0].fonts;
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Partial<Fonts>;
+  const face = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   return {
-    display: typeof o.display === 'string' && o.display ? o.display : base.display,
-    body: typeof o.body === 'string' && o.body ? o.body : base.body,
+    display: face(o.display) ?? base.display,
+    body: face(o.body) ?? base.body,
+    ...(face(o.names) ? { names: face(o.names) } : {}),
+    ...(face(o.script) ? { script: face(o.script) } : {}),
+    ...(o.scriptStyle === 'italic' ? { scriptStyle: 'italic' as const } : {}),
     load: Array.isArray(o.load) ? o.load.filter((x): x is string => typeof x === 'string').slice(0, 4) : base.load,
   };
 }
@@ -93,11 +112,19 @@ export function cssVars(palette: Palette, fonts: Fonts): Record<string, string> 
     '--inv-accent2': palette.accent2,
     '--inv-display': fonts.display,
     '--inv-body': fonts.body,
+    '--inv-names': fonts.names || fonts.display,
+    '--inv-script': fonts.script || fonts.display,
+    '--inv-script-style': fonts.scriptStyle || 'normal',
   };
 }
 
 /** The Google Fonts stylesheet URL for a font set. */
 export function googleFontsUrl(fonts: Fonts): string {
-  const families = fonts.load.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;500;600;700`).join('&');
+  const families = fonts.load
+    .map((f) => {
+      const [family, axes] = f.split(':');
+      return `family=${encodeURIComponent(family).replace(/%20/g, '+')}:${axes || 'wght@400;500;600;700'}`;
+    })
+    .join('&');
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }

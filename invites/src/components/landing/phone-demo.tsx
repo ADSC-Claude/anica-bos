@@ -1,34 +1,32 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 /**
- * The phone on the landing page shows the real demo invitation in an iframe
- * and slowly scrolls it, pausing while the visitor is touching or hovering.
- * Same-origin, so scrolling the frame's document is allowed.
+ * The phone on the landing page plays the flagship design's opening — the one
+ * part of a design the public sees — from its own still, on a tap. The tap is
+ * the gesture that lets it play with sound on a phone. The invitation under
+ * the opening is not here: it is unveiled for the customer after they choose.
  */
-export function PhoneDemo({ src }: { src: string }) {
-  const frame = useRef<HTMLIFrameElement>(null);
-  const [paused, setPaused] = useState(false);
-  useEffect(() => {
-    let dir = 1;
-    const id = setInterval(() => {
-      if (paused) return;
-      const win = frame.current?.contentWindow;
-      const doc = frame.current?.contentDocument;
-      if (!win || !doc) return;
-      const max = doc.documentElement.scrollHeight - win.innerHeight;
-      if (max <= 0) return;
-      const y = win.scrollY + dir * 1.2;
-      if (y >= max) dir = -1;
-      if (y <= 0) dir = 1;
-      win.scrollTo(0, y);
-    }, 40);
-    return () => clearInterval(id);
-  }, [paused]);
+export function PhoneOpening({ src, poster, name }: { src: string; poster: string; name: string }) {
+  const [playing, setPlaying] = useState(false);
   return (
-    <div className="phone mx-auto" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onTouchStart={() => setPaused(true)} onTouchEnd={() => setPaused(false)}>
-      <iframe ref={frame} src={src} title="Demo invitation" loading="lazy" />
+    <div className="phone mx-auto">
+      <div className="screen overflow-hidden bg-black">
+        {playing ? (
+          <video src={src} poster={poster} autoPlay playsInline controls onEnded={() => setPlaying(false)} className="h-full w-full object-cover" />
+        ) : (
+          <button type="button" onClick={() => setPlaying(true)} className="relative block h-full w-full" aria-label={`Watch the opening of ${name}`}>
+            <img src={poster} alt="" className="h-full w-full object-cover" />
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/15 text-white">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
+                <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.3em] drop-shadow">Tap to watch the opening</span>
+            </span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

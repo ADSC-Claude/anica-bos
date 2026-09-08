@@ -4,49 +4,183 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
- * server. Each of these degrades: without JavaScript the envelope is simply
- * not shown, the countdown shows the date, and the forms post nowhere — so
- * the forms below are the only thing a guest cannot do without it, which is
- * why the RSVP-by-text number is printed beside them.
+ * server. Each of these degrades: without JavaScript the opening removes
+ * itself (see the noscript rule below), the countdown shows the date, and the
+ * forms post nowhere — so the forms below are the only thing a guest cannot
+ * do without it, which is why the RSVP-by-text number is printed beside them.
  */
 
 // ---------------------------------------------------------------------------
-// Envelope + music. One component, because the tap that opens the envelope
-// is the user gesture that lets audio play on a phone.
+// The opening + music. One component, because the tap that opens the
+// invitation is the user gesture that lets audio play on a phone.
+//
+// Every opening is the same overlay with a different stage inside it and a
+// different exit in CSS. Nothing here downloads a video: the couple's own
+// words and photos are what move, which is why a name change needs no
+// re-rendering and a guest on mobile data waits for nothing.
 // ---------------------------------------------------------------------------
 
+export type OpeningProps = {
+  /** An OpeningKey. "none" renders nothing at all. */
+  style: string;
+  monogram: string;
+  names: string;
+  /** "08 · 24 · 26" — already formatted by the server. */
+  date: string;
+  /** The one line on the closed screen. */
+  line: string;
+  /** Shown while the opening plays. Blank shows nothing. */
+  line2: string;
+  /** Letterspaced caps instead of the script face. */
+  caps: boolean;
+  /** Up to three, in the order the stage wants them. */
+  photos: string[];
+  /** "cinematic" only: the clip, and the still shown until it plays. */
+  video: string;
+  poster: string;
+  /** Which clip, when the words belong on its card rather than over its face — "capiz". */
+  clip: string;
+  /** "Tap to open". */
+  hint: string;
+};
+
+function Stage({ style, monogram, photos, video, poster, videoRef }: {
+  style: string;
+  monogram: string;
+  photos: string[];
+  video: string;
+  poster: string;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}) {
+  switch (style) {
+    case 'cinematic':
+      // The poster carries the whole closed screen, so the guest sees the
+      // artwork immediately and the clip is only fetched when they tap —
+      // preload="none" is what keeps the first paint free of it.
+      return (
+        <video
+          ref={videoRef}
+          className="inv-open-clip"
+          src={video}
+          poster={poster}
+          muted
+          playsInline
+          preload="none"
+          aria-hidden
+        />
+      );
+    case 'envelope':
+    case 'seal':
+      return (
+        <span className="inv-open-env" aria-hidden>
+          <span className="inv-open-card" />
+          <span className="inv-open-flap" />
+          <span className="inv-open-wax">{monogram || '♥'}</span>
+        </span>
+      );
+    case 'drape':
+      return <span className="inv-open-drape" aria-hidden />;
+    case 'curtain':
+      return (
+        <span className="inv-open-scene" aria-hidden>
+          {photos[0] && <img className="inv-open-back" src={photos[0]} alt="" />}
+          <span className="inv-open-panel" data-side="l" />
+          <span className="inv-open-panel" data-side="r" />
+        </span>
+      );
+    case 'photo':
+      return (
+        <span className="inv-open-fan" aria-hidden>
+          {photos.slice(0, 3).map((src, i) => (
+            <span key={src + i} className="inv-open-shot" data-i={i}>
+              <img src={src} alt="" />
+            </span>
+          ))}
+        </span>
+      );
+    case 'line':
+      return (
+        <svg className="inv-open-curve" viewBox="0 0 320 110" fill="none" aria-hidden>
+          <path d="M8 88 C 84 12, 236 12, 312 88" stroke="var(--inv-accent2)" strokeWidth="1.5" strokeLinecap="round" pathLength={1} />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+/**
+ * Hides the overlay outright when scripts do not run — otherwise a guest with
+ * JavaScript off would be left tapping a screen that never opens.
+ */
+const NO_JS = '.inv-open{display:none !important}';
+
 export function Shell({
-  envelope,
-  monogram,
-  hint,
+  opening,
   music,
-  autoplay,
+  startAt = 0,
   playLabel,
   pauseLabel,
   children,
 }: {
-  envelope: boolean;
-  monogram: string;
-  hint: string;
+  opening: OpeningProps;
+  /** The background song. It plays on the tap that opens the invitation, and the guest can pause it. */
   music: string;
-  autoplay: boolean;
+  /** Seconds into the song it starts from — past a long intro — and returns to when it loops. */
+  startAt?: number;
   playLabel: string;
   pauseLabel: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(!envelope);
+  const closed = opening.style !== 'none';
+  const [open, setOpen] = useState(!closed);
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
+  const clip = useRef<HTMLVideoElement | null>(null);
+  // The tap has landed: the hint goes, whatever the clip is still doing.
+  const [tapped, setTapped] = useState(false);
+  // The song is taken to its start point once, on the first play; a pause resumes where it was.
+  const sought = useRef(false);
+  // Whether it got there. A host that serves byte ranges (storage does) takes
+  // the seek at once; one that does not makes an early seek land at 0, so the
+  // seek is tried again as the file arrives, until it lands or the song has
+  // played past the point anyway.
+  const landed = useRef(false);
+
+  const seekToStart = useCallback(() => {
+    const a = audio.current;
+    if (!a || startAt <= 0) return;
+    try {
+      a.currentTime = startAt;
+    } catch {
+      /* nothing loaded yet: settle() tries again as it loads */
+    }
+  }, [startAt]);
+
+  const settle = useCallback(() => {
+    const a = audio.current;
+    if (!a || startAt <= 0 || !sought.current || landed.current) return;
+    if (a.currentTime >= startAt - 0.25) {
+      landed.current = true;
+      return;
+    }
+    const ranges = a.seekable;
+    if (ranges.length && ranges.end(ranges.length - 1) >= startAt) seekToStart();
+  }, [startAt, seekToStart]);
 
   const play = useCallback(async () => {
     if (!audio.current) return;
+    if (!sought.current) {
+      sought.current = true;
+      seekToStart();
+    }
     try {
       await audio.current.play();
       setPlaying(true);
     } catch {
       setPlaying(false);
     }
-  }, []);
+  }, [seekToStart]);
 
   const toggle = useCallback(() => {
     if (!audio.current) return;
@@ -57,27 +191,115 @@ export function Shell({
   }, [playing, play]);
 
   useEffect(() => {
-    if (!envelope && music && autoplay) void play();
-  }, [envelope, music, autoplay, play]);
+    if (!closed && music) void play();
+  }, [closed, music, play]);
 
-  const openEnvelope = () => {
-    setOpen(true);
-    if (music && autoplay) void play();
+  // The page behind must not scroll under the overlay — on a phone a stray
+  // swipe would otherwise scroll the invitation past the opening unseen.
+  useEffect(() => {
+    if (open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
+  /**
+   * The tap. For every drawn opening the CSS exit runs and the overlay is gone
+   * on a timer; the cinematic one instead plays its clip and leaves when the
+   * clip ends, because the reveal *is* the clip.
+   *
+   * The tap is also what makes both of these work at all on a phone: playing
+   * video or audio without a user gesture is blocked, and this is the gesture.
+   */
+  const reveal = () => {
+    setTapped(true);
+    if (music) void play();
+    const video = clip.current;
+    if (opening.style !== 'cinematic' || !video) {
+      setOpen(true);
+      return;
+    }
+    // A guest who asked for less motion gets the poster — the same artwork,
+    // standing still — and a plain fade when they tap. The clip never plays.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setOpen(true);
+      return;
+    }
+    // The card the clip opens onto stays blank — the invitation under it says
+    // the names — so the page comes up as the clip reaches its last moments,
+    // with no hold on an empty card; `ended` is the fallback if timing misses.
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      setOpen(true);
+    };
+    const onTime = () => {
+      if (video.duration && video.duration - video.currentTime <= 0.6) {
+        video.removeEventListener('timeupdate', onTime);
+        finish();
+      }
+    };
+    video.addEventListener('timeupdate', onTime);
+    video.addEventListener('ended', finish, { once: true });
+    // A clip that will not play — an unsupported codec, a file that 404s, a
+    // browser that refuses — must not strand the guest on a screen that never
+    // opens, so the reveal happens anyway.
+    video.addEventListener('error', finish, { once: true });
+    void video.play().catch(finish);
   };
 
   return (
     <>
-      {envelope && (
-        <div className="inv-envelope" data-open={open} role="button" tabIndex={open ? -1 : 0} aria-hidden={open} onClick={openEnvelope} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openEnvelope()}>
-          <div className="inv-envelope-flap">
-            <div className="inv-envelope-seal">{monogram || '♥'}</div>
+      {closed && (
+        <>
+          <noscript><style>{NO_JS}</style></noscript>
+          <div
+            className="inv-open"
+            data-style={opening.style}
+            data-clip={opening.clip || undefined}
+            data-open={open}
+            data-tapped={tapped}
+            role="button"
+            tabIndex={open ? -1 : 0}
+            aria-label={opening.hint}
+            aria-hidden={open}
+            onClick={reveal}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && reveal()}
+          >
+            <div className="inv-open-stage">
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
+            </div>
+            <div className="inv-open-copy">
+              {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}
+              {opening.line2 && <p className="inv-open-line2">{opening.line2}</p>}
+              {opening.names && <p className="inv-open-names">{opening.names}</p>}
+              {opening.date && <p className="inv-open-date">{opening.date}</p>}
+            </div>
+            <p className="inv-open-hint">{opening.hint}</p>
           </div>
-          <p className="inv-envelope-hint">{hint}</p>
-        </div>
+        </>
       )}
       {music && (
         <>
-          <audio ref={audio} src={music} loop preload="none" />
+          {/* no `loop`: the song returns to its start point, not to the beginning */}
+          <audio
+            ref={audio}
+            src={music}
+            preload="none"
+            onLoadedMetadata={settle}
+            onCanPlay={settle}
+            onProgress={settle}
+            onPlaying={settle}
+            onSeeked={settle}
+            onEnded={() => {
+              landed.current = false;
+              seekToStart();
+              void audio.current?.play();
+            }}
+          />
           <button type="button" className="inv-music no-print" onClick={toggle} aria-label={playing ? pauseLabel : playLabel} title={playing ? pauseLabel : playLabel}>
             {playing ? '❚❚' : '♫'}
           </button>
@@ -136,13 +358,18 @@ export type RsvpFormProps = {
   askDepartment: boolean;
   mealChoices: string[];
   existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: string[]; mealChoice: string; dietary: string; message: string } | null;
-  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'attendees' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department', string>;
+  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department', string>;
 };
 
 export function RsvpForm(p: RsvpFormProps) {
   const [response, setResponse] = useState<'ACCEPT' | 'DECLINE'>(p.existing?.response ?? 'ACCEPT');
   const [seats, setSeats] = useState(p.existing?.seats || Math.min(p.maxSeats, 1));
-  const [attendees, setAttendees] = useState<string[]>(p.existing?.attendees ?? []);
+  // The people the guest is bringing. What is saved is the whole party, the
+  // guest first, so an earlier answer is read back without their own name.
+  const [companions, setCompanions] = useState<string[]>(() => {
+    const saved = p.existing?.attendees ?? [];
+    return saved[0] && saved[0] === p.defaultName ? saved.slice(1) : saved;
+  });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -168,7 +395,7 @@ export function RsvpForm(p: RsvpFormProps) {
       name: String(fd.get('name') ?? ''),
       response,
       seats: response === 'ACCEPT' ? seats : 0,
-      attendees: attendees.slice(0, seats),
+      attendees: response === 'ACCEPT' && seats > 1 ? [String(fd.get('name') ?? ''), ...companions.slice(0, seats - 1)] : [],
       mealChoice: String(fd.get('mealChoice') ?? ''),
       dietary: String(fd.get('dietary') ?? ''),
       message: String(fd.get('message') ?? ''),
@@ -218,10 +445,10 @@ export function RsvpForm(p: RsvpFormProps) {
 
       {response === 'ACCEPT' && p.collectAttendees && seats > 1 && (
         <div>
-          <span className="inv-label">{p.labels.attendees}</span>
+          <span className="inv-label">{p.labels.companions}</span>
           <div className="space-y-2">
-            {Array.from({ length: seats }, (_, i) => (
-              <input key={i} className="inv-field" placeholder={`${i + 1}.`} value={attendees[i] ?? ''} onChange={(e) => setAttendees((a) => { const n = [...a]; n[i] = e.target.value; return n; })} />
+            {Array.from({ length: seats - 1 }, (_, i) => (
+              <input key={i} className="inv-field" placeholder={p.labels.companion.replace('{n}', String(i + 1))} value={companions[i] ?? ''} autoComplete="off" onChange={(e) => setCompanions((a) => { const n = [...a]; n[i] = e.target.value; return n; })} />
             ))}
           </div>
         </div>
@@ -458,5 +685,166 @@ export function GuestPhotoForm({
         {busy ? labels.sending : labels.submit}
       </button>
     </form>
+  );
+}
+
+/**
+ * The film, shown as its poster with the title written over it until the guest
+ * taps; then the player takes its place and starts. The poster is the video's
+ * own still when the host offers one, else one of the couple's photographs.
+ */
+export function VideoFacade({ src, poster, fallback, title, cta, label }: { src: string; poster: string; fallback: string; title: string; cta: string; label: string }) {
+  const [on, setOn] = useState(false);
+  if (on) {
+    const url = `${src}${src.includes('?') ? '&' : '?'}autoplay=1`;
+    return <iframe src={url} title={label} className="inv-video-frame" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />;
+  }
+  return (
+    <button type="button" className="inv-video-facade" onClick={() => setOn(true)} aria-label={label}>
+      {poster && (
+        <img
+          src={poster}
+          alt=""
+          loading="lazy"
+          onError={(e) => {
+            if (fallback && e.currentTarget.src !== fallback) e.currentTarget.src = fallback;
+            else e.currentTarget.hidden = true;
+          }}
+        />
+      )}
+      <span className="inv-video-play" aria-hidden="true" />
+      {title && <span className="inv-video-title">{title}</span>}
+      {cta && <span className="inv-video-cta">{cta}</span>}
+    </button>
+  );
+}
+
+/**
+ * The Capiz ground, laid to the pages: behind each page its background, in
+ * order, trimmed to the page's own height — a page longer than one background
+ * carries on into the next. Where a background begins it dissolves in over the
+ * foot of the one before (a quarter of the width, half above the join and half
+ * below), so no edge shows; the last is anchored at its foot, so the invitation
+ * ends on the bottom of the background drawn last. The backgrounds' height
+ * follows the column's width, so this is measured, not styled, and runs again
+ * whenever the column or a page changes size.
+ */
+export function PageGround({ ratio, order, last, backgrounds, night }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[] }) {
+  const ref = useRef<HTMLSpanElement | null>(null);
+  useEffect(() => {
+    const inv = ref.current?.closest<HTMLElement>('.inv');
+    const ground = inv?.querySelector<HTMLElement>('.inv-ground');
+    if (!inv || !ground) return;
+    const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
+    let frame = 0;
+    const lay = () => {
+      const width = inv.clientWidth;
+      const bg = width * ratio;
+      if (!bg || !pages.length) return;
+      const seam = Math.round(width * 0.24);
+      const half = Math.round(seam / 2);
+      const invTop = inv.getBoundingClientRect().top;
+      const segs: { n: number; top: number; height: number; foot: boolean }[] = [];
+      let k = 0;
+      pages.forEach((p, i) => {
+        const r = p.getBoundingClientRect();
+        const top = r.top - invTop;
+        const lastPage = i === pages.length - 1;
+        // A page up to a tenth taller than one background (with the seam it
+        // reaches into) stays on one, drawn a little larger; a longer page is
+        // split evenly over as many as it needs, each trimmed to its share.
+        const count = Math.max(1, Math.ceil((r.height + seam) / (bg * 1.1)));
+        const share = r.height / count;
+        for (let j = 0; j < count; j++) {
+          const foot = lastPage && j === count - 1;
+          segs.push({ n: foot ? last : order[Math.min(k++, order.length - 1)], top: top + j * share, height: share, foot });
+        }
+      });
+      while (ground.children.length > segs.length) ground.lastElementChild?.remove();
+      segs.forEach((s, i) => {
+        let el = ground.children[i] as HTMLElement | undefined;
+        if (!el) {
+          el = document.createElement('div');
+          ground.appendChild(el);
+        }
+        const first = i === 0;
+        const final = i === segs.length - 1;
+        // reaches half a seam up into the page before and half a seam down under the next
+        const top = first ? s.top : s.top - half;
+        const bottom = final ? inv.scrollHeight : s.top + s.height + half;
+        const box = bottom - top;
+        el.className = `inv-paper${first ? ' is-first' : ''}${s.foot ? ' is-foot' : ''}`;
+        el.style.top = `${Math.round(top)}px`;
+        el.style.height = `${Math.round(box)}px`;
+        // taller than its background: drawn to the box's height, the sides trimmed
+        el.style.backgroundSize = box > bg ? 'auto 100%' : '100% auto';
+        el.style.setProperty('--seam', `${seam}px`);
+        // the background by number — by night, the night one where the design has it
+        const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
+        const url = (dark ? night?.[(s.n - 1) % backgrounds.length] : '') || backgrounds[(s.n - 1) % backgrounds.length];
+        const src = `url("${url}")`;
+        if (el.style.backgroundImage !== src) el.style.backgroundImage = src;
+      });
+      ground.toggleAttribute('data-night-art', inv.dataset.mode === 'night' && Boolean(night?.length));
+    };
+    const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(lay); };
+    queue();
+    const ro = new ResizeObserver(queue);
+    ro.observe(inv);
+    for (const p of pages) ro.observe(p);
+    // day to night and back: the papers change
+    const mo = new MutationObserver(queue);
+    mo.observe(inv, { attributes: true, attributeFilter: ['data-mode'] });
+    window.addEventListener('load', queue);
+    document.fonts?.ready.then(queue).catch(() => {});
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); mo.disconnect(); window.removeEventListener('load', queue); };
+  }, [ratio, order, last, backgrounds, night]);
+  return <span ref={ref} hidden />;
+}
+
+/**
+ * Day and night. The couple sets how the page opens — day, night, or by the
+ * guest's clock (night from six in the evening to six in the morning) — and
+ * the guest may switch with this button; their choice is kept on their phone
+ * for this invitation. The mode is an attribute on the page, which the CSS
+ * and the ground both read.
+ */
+export function ModeToggle({ mode, slug, dayLabel, nightLabel }: { mode: string; slug: string; dayLabel: string; nightLabel: string }) {
+  const ref = useRef<HTMLButtonElement | null>(null);
+  const [night, setNight] = useState(mode === 'night');
+  const key = `inv-mode:${slug}`;
+  useEffect(() => {
+    const inv = ref.current?.closest<HTMLElement>('.inv');
+    if (!inv) return;
+    let want = mode === 'night';
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved === 'day' || saved === 'night') want = saved === 'night';
+      else if (mode === 'auto') {
+        const h = new Date().getHours();
+        want = h >= 18 || h < 6;
+      }
+    } catch {
+      // storage refused: the couple's setting stands
+    }
+    inv.dataset.mode = want ? 'night' : 'day';
+    setNight(want);
+  }, [mode, key]);
+  const flip = () => {
+    const inv = ref.current?.closest<HTMLElement>('.inv');
+    if (!inv) return;
+    const next = !night;
+    inv.dataset.mode = next ? 'night' : 'day';
+    setNight(next);
+    try {
+      localStorage.setItem(key, next ? 'night' : 'day');
+    } catch {
+      // storage refused: the switch still holds for this visit
+    }
+  };
+  return (
+    <button ref={ref} type="button" className="inv-mode no-print" onClick={flip} aria-label={night ? dayLabel : nightLabel} title={night ? dayLabel : nightLabel}>
+      {night ? '☀' : '☾'}
+    </button>
   );
 }

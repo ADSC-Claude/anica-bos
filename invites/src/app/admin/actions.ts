@@ -1,5 +1,6 @@
 'use server';
 
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS } from '@/lib/design';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -14,7 +15,10 @@ import { assignJob, moveJob, staffReply, updateJobNotes, extendDue } from '@/lib
 import { setSettings } from '@/lib/settings';
 import { notify } from '@/lib/notifications';
 import { isOccasion } from '@/lib/occasions';
+import { isCollection } from '@/lib/collections';
+import { isOpening } from '@/lib/openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
+import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
@@ -94,6 +98,30 @@ export async function dfyReplyAction(jobId: string, back: string, fd: FormData) 
 export async function dfyNotesAction(jobId: string, back: string, fd: FormData) {
   return run('dfy.edit', back, async (user) => { await updateJobNotes(user, jobId, s(fd, 'notes')); });
 }
+/**
+ * Attach a cinematic opening made for this couple. Concierge work: the clip is
+ * drawn for one invitation and overrides whatever its design ships with.
+ *
+ * The pair is stored together or not at all — a clip with no poster leaves the
+ * guest on a blank screen while it buffers, which is worse than no opening.
+ */
+export async function dfyOpeningAction(jobId: string, back: string, fd: FormData) {
+  return run('dfy.edit', back, async (user) => {
+    const job = await prisma.dfyJob.findUniqueOrThrow({ where: { id: jobId }, include: { invitation: { select: { id: true, tier: true, title: true } } } });
+    const video = s(fd, 'openingVideoUrl');
+    const poster = s(fd, 'openingPosterUrl');
+    if (video && !poster) throw new HttpError(400, 'A clip needs its poster too — that still is the closed screen until the guest taps.');
+    if (video && job.invitation.tier !== 'COMPLETE') {
+      throw new HttpError(400, `The cinematic opening is a Complete feature and this invitation is ${job.invitation.tier}. Upgrade the order first, or the guest would never see it.`);
+    }
+    await prisma.invitation.update({ where: { id: job.invitationId }, data: { openingVideoUrl: video, openingPosterUrl: video ? poster : '' } });
+    await audit(user, {
+      module: 'dfy', action: video ? 'opening.set' : 'opening.cleared', entityType: 'Invitation', entityId: job.invitationId,
+      summary: video ? `Cinematic opening attached to ${job.invitation.title}.` : `Cinematic opening removed from ${job.invitation.title}.`,
+    });
+    return video ? 'Cinematic opening attached.' : 'Cinematic opening removed.';
+  });
+}
 export async function dfyExtendAction(jobId: string, back: string, fd: FormData) {
   return run('dfy.edit', back, async (user) => { await extendDue(user, jobId, n(fd, 'days', 1)); return 'Deadline moved.'; });
 }
@@ -119,12 +147,26 @@ export async function saveTemplateAction(templateId: string | null, back: string
       description: s(fd, 'description'),
       thumbnailUrl: s(fd, 'thumbnailUrl'),
       layout,
+      look: isLook(s(fd, 'look')) ? s(fd, 'look') : '',
+      collection: isCollection(s(fd, 'collection')) ? s(fd, 'collection') : '',
+      // A clip with no poster would leave the guest on a blank screen until it
+      // buffered, so the pair only takes effect together.
+      openingVideoUrl: s(fd, 'openingPosterUrl') ? s(fd, 'openingVideoUrl') : '',
+      openingPosterUrl: s(fd, 'openingPosterUrl'),
+      opening: isOpening(s(fd, 'opening')) && s(fd, 'opening') !== 'none' ? s(fd, 'opening') : '',
       palette: (palettePreset && !s(fd, 'bg') ? palettePreset.palette : palette) as never,
       fonts: fonts as never,
       sections,
       featured: b(fd, 'featured'),
       published: b(fd, 'published'),
       sortOrder: n(fd, 'sortOrder'),
+      // the design's own words over its look's, and its own pictures; blank is the code's own
+      words: wordsOf(Object.fromEntries((['en', 'tl'] as const).map((lang) => [lang, Object.fromEntries([...LINE_KEYS, ...TITLE_KEYS].map((k) => [k, s(fd, `words_${lang}_${k}`)]))]))) as never,
+      art: artOf({
+        backgrounds: Array.from({ length: 8 }, (_, i) => s(fd, `art_bg_${i + 1}`)),
+        night: Array.from({ length: 8 }, (_, i) => s(fd, `art_night_${i + 1}`)),
+        strand: s(fd, 'art_strand'),
+      }) as never,
     };
     if (!data.name) throw new HttpError(400, 'A template needs a name.');
     const saved = templateId ? await prisma.template.update({ where: { id: templateId }, data }) : await prisma.template.create({ data });

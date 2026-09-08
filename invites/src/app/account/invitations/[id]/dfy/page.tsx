@@ -5,7 +5,7 @@ import { HttpError } from '@/lib/errors';
 import { loadJobForCustomer, DFY_COLUMNS } from '@/lib/dfy';
 import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, emptySection, type Content } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, type Content } from '@/lib/sections';
 import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
@@ -29,7 +29,8 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   // builder's sidebar shows them: a customer who cannot see that a guest photo
   // album exists cannot ask for one, and Done-For-You is where they would ask.
   const sections = sectionsFor(inv.occasion).map((d) => {
-    const fields = fieldsFor(d.key, inv.occasion);
+    // the customer's own fields only: the fixed writings are ours
+    const fields = customerFields(fieldsFor(d.key, inv.occasion, inv.tier));
     const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier);
     return {
       key: d.key,

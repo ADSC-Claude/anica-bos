@@ -188,8 +188,26 @@ model Template {
   description  String   @default("")
   thumbnailUrl String   @default("")
   layout       String   @default("classic")
+  /// Colour family shown as a strip in the gallery. See src/lib/collections.ts. "" means it belongs to none.
+  collection   String   @default("")
+  /// The opening this design ships with. The customer may override it. See src/lib/openings.ts.
+  opening      String   @default("")
+  /// A cinematic opening's shared assets: the clip that plays on tap and the
+  /// still shown in its place until it does. One pair per design, served to
+  /// every customer on it — never rendered per couple.
+  openingVideoUrl  String @default("")
+  openingPosterUrl String @default("")
   palette      Json
   fonts        Json
+  /// The look this design is set in — its faces and the lines under its
+  /// headings. See src/lib/looks.ts. Blank means the `fonts` column alone.
+  look         String   @default("")
+  /// The words the design writes over its look's, per language:
+  /// {"en": {"gallery": "…"}, "tl": {…}}. See src/lib/design.ts.
+  words        Json     @default("{}")
+  /// The design's own pictures, by URL — its backgrounds by day and by night,
+  /// its strand. Blank falls back to the files shipped with the layout. See src/lib/design.ts.
+  art          Json     @default("{}")
   sections     String[]
   featured     Boolean  @default(false)
   published    Boolean  @default(true)
@@ -200,6 +218,7 @@ model Template {
   invitations Invitation[]
 
   @@index([occasion, published, sortOrder])
+  @@index([collection, published, sortOrder])
 }
 
 enum DiscountType {
@@ -379,6 +398,11 @@ model Invitation {
   /// The link stops resolving after this. Set from the package on publish.
   expiresAt    DateTime?
   ogImageUrl   String           @default("")
+  /// A cinematic opening encoded for this couple alone, overriding the
+  /// design's shared one. Staff set these on a Done-For-You or Concierge
+  /// order; they are not customer content and never pass through the builder.
+  openingVideoUrl  String          @default("")
+  openingPosterUrl String          @default("")
   editsUsed    Int              @default(0)
   /// -1 means unlimited until the event.
   editsAllowed Int              @default(3)
@@ -504,6 +528,8 @@ enum MediaKind {
   PROOF
   INTAKE
   GUEST_PHOTO
+  /// The couple's own song file, from the Music section.
+  AUDIO
   OTHER
 }
 

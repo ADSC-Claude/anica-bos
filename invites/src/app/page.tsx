@@ -6,11 +6,11 @@ import { prisma } from '@/lib/db';
 import { catalogue } from '@/lib/orders';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
-import { paletteFrom } from '@/lib/theme';
-import { appUrl, invitationPath } from '@/lib/app-url';
+import { appUrl } from '@/lib/app-url';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
-import { PhoneDemo } from '@/components/landing/phone-demo';
+import { PhoneOpening } from '@/components/landing/phone-demo';
 import { TemplateGallery } from '@/components/landing/gallery';
+import { toGalleryTemplate } from '@/lib/gallery';
 import { Packages } from '@/components/landing/packages';
 import { ContactButtons } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -42,7 +42,8 @@ export default async function Landing() {
     catalogue(),
     prisma.template.findMany({ where: { published: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }] }),
   ]);
-  const demo = invitationPath(s['site.demoSlug']);
+  // the design whose opening the phone plays: the featured one with a clip
+  const flagship = templates.find((t) => t.openingVideoUrl && t.openingPosterUrl) ?? null;
   const weddingPackages = TIERS.map((t) => packages.find((p) => p.occasion === 'WEDDING' && p.tier === t) ?? packages.find((p) => p.occasion === null && p.tier === t)).filter((p): p is NonNullable<typeof p> => Boolean(p));
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -68,9 +69,9 @@ export default async function Landing() {
               <Link href="/checkout" className="btn btn-primary">Create your invitation</Link>
               <Link href="/checkout?mode=DFY" className="btn btn-secondary">Let us do it for you</Link>
             </div>
-            <p className="mt-4 text-sm text-[color:var(--color-ink-500)]">One-time payment · GCash / Maya · No app needed for guests · <a href={demo} target="_blank" rel="noopener" className="underline">See the live demo</a></p>
+            <p className="mt-4 text-sm text-[color:var(--color-ink-500)]">One-time payment · GCash / Maya · No app needed for guests</p>
           </div>
-          <PhoneDemo src={demo} />
+          {flagship && <PhoneOpening src={flagship.openingVideoUrl} poster={flagship.openingPosterUrl} name={flagship.name} />}
         </section>
 
         {/* Trust bar */}
@@ -104,23 +105,11 @@ export default async function Landing() {
         <section id="templates" className="bg-white py-16">
           <div className="mx-auto max-w-6xl px-5">
             <p className="eyebrow text-center">Templates</p>
-            <h2 className="display mt-2 text-center text-3xl">Designs for every Filipino celebration</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">{OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label).join(', ')} at launch — with {OCCASIONS.filter((o) => o.phase > 1).length} more occasions from milestone birthdays to memorials.</p>
+            <h2 className="display mt-2 text-center text-3xl">Our designs, by their openings</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">Every design begins with a short moving scene your guest sees first. Watch the openings here — the invitation beneath each one is unveiled for our clients once they have chosen. More designs, for {OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label.toLowerCase()).join(', ')} and beyond, are on the way.</p>
             <div className="mt-8">
-              <TemplateGallery compact demoSlug={s['site.demoSlug']} templates={templates.map((t) => { const p = paletteFrom(t.palette); return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, minTier: t.minTier, premium: t.premium, description: t.description, thumbnailUrl: t.thumbnailUrl, layout: t.layout, palette: { bg: p.bg, accent: p.accent, accent2: p.accent2, ink: p.ink }, featured: t.featured }; })} />
+              <TemplateGallery compact templates={templates.map(toGalleryTemplate)} />
             </div>
-          </div>
-        </section>
-
-        {/* Live demo */}
-        <section className="mx-auto max-w-6xl px-5 py-16">
-          <div className="card flex flex-wrap items-center justify-between gap-4 p-6 md:p-8">
-            <div>
-              <p className="eyebrow">Live demo</p>
-              <h2 className="display mt-1 text-2xl">Open “Juan & Maria” on your phone</h2>
-              <p className="mt-1 max-w-xl text-sm text-[color:var(--color-ink-700)]">A complete wedding invitation: parents, the full entourage with ninongs and ninangs, dress code swatches, a GCash gift note, story, gallery, FAQ and a working RSVP. Try it — responses on the demo are not kept.</p>
-            </div>
-            <a href={demo} target="_blank" rel="noopener" className="btn btn-primary">Open the demo</a>
           </div>
         </section>
 
@@ -157,7 +146,7 @@ export default async function Landing() {
                 ['RSVP dashboard', 'Who accepted, how many seats, meal choices, dietary notes, messages — and an Excel export for the caterer.'],
                 ['Entourage section', 'Principal sponsors in paired columns, secondary sponsors for candle, veil and cord, the whole wedding party. Unlimited rows.'],
                 ['GCash QR gift note', 'A gracious preset note (“Your presence is the greatest gift…”), your GCash QR and bank details. Tagalog version included.'],
-                ['Seating & check-in', 'Assign tables, show each guest theirs, and check people in at the door by scanning their QR.'],
+                ['Guest photos', 'After the day, guests upload their own photos and videos to your page — you approve what shows.'],
                 ['Messenger-ready', 'Loads fast on mobile data, renders inside the Messenger and Viber browsers, and the link preview shows your photo and names.'],
               ].map(([t, d]) => <div key={t} className="card p-5"><h3 className="font-semibold">{t}</h3><p className="mt-1 text-sm text-[color:var(--color-ink-700)]">{d}</p></div>)}
             </div>

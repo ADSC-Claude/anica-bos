@@ -28,6 +28,7 @@ project, no shared code or rows.
 - [How it works](#how-it-works)
 - [Packages, tiers and gating](#packages-tiers-and-gating)
 - [Occasions and sections](#occasions-and-sections)
+- [Collections and openings](#collections-and-openings)
 - [Money and payments](#money-and-payments)
 - [Done-For-You](#done-for-you)
 - [Guest data and privacy](#guest-data-and-privacy)
@@ -225,6 +226,151 @@ everyday Tagalog ("Mga Magulang", "Paki-confirm po ang inyong pagdalo bago
 ang…"), switched per invitation. The default copy blocks (intro lines, gift
 notes, adults-only, unplugged ceremony, RSVP note) have Tagalog variants too.
 
+## Collections and openings
+
+A **collection** is a colour family that cuts across occasions — the way a
+couple actually shops ("show me the white ones") rather than the way the
+database is organised. `src/lib/collections.ts` declares them; a template
+carries at most one in `Template.collection`. A collection with no published
+design of its own is never shown and has no page, so the list can be written
+ahead of the designs.
+
+**Capiz** is the flagship, in the Filipiniana Collection at
+`/collections/filipiniana`: capiz shell and bronze wax, opening with the seal.
+It has its own `capiz` layout, whose shell border is drawn from the palette
+rather than supplied as artwork, so the design recolours with the customer's
+own accent instead of framing the page in a colour that no longer matches it.
+
+An **opening** is the short moving scene before the invitation. The guest taps
+once, it plays, and the invitation is underneath. `src/lib/openings.ts` is the
+catalogue:
+
+| Opening | Tier | What the guest sees |
+| --- | --- | --- |
+| The Envelope | Basic | A closed envelope, the monogram on the seal, the flap opening. |
+| The Line | Standard | A gold curve drawing itself across warm white. |
+| The Curtain | Standard | Two sheer curtains over the couple's photo, parting to the sides. |
+| The Drape | Complete | Hanging silk with the names on it, lifted away. |
+| The Seal | Complete | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
+| Photo Story | Complete | Three photos fanned like prints, sliding apart. |
+| Cinematic | Complete + Done-For-You | Embroidered panels tied with a silk bow. The bow unties, the panels draw back. |
+
+**None of these is a video.** Every one is drawn by the browser from the
+couple's own palette, words and photos — a `<div>`, a CSS transition and, for
+The Line, one SVG path. That is not a stylistic preference:
+
+- The names, date and line are live text, so a couple can change a nickname at
+  11pm and the opening says the new one on the next reload. A rendered clip
+  would have to be re-made per couple, per edit, by hand.
+- It weighs nothing. A 4-second 1080p clip is 2–6 MB before it plays; this is
+  a few kilobytes of markup already in the page. The product is a link opened
+  on mobile data in a Messenger in-app browser, and the first screen is the
+  one that decides whether the guest waits.
+- It re-skins itself. The stage reads `--inv-accent`, `--inv-surface` and the
+  rest, so an opening works on all twelve palettes without a second asset.
+- Nothing goes through storage, so nothing is charged for egress.
+
+That holds for the six drawn openings. **The cinematic one is the exception,
+and it is deliberate.** Photoreal cloth — a silk bow untying, beadwork with
+raised shadow — cannot be drawn in CSS or in Lottie, which is vector. It is
+artwork somebody makes, so it is a file.
+
+What makes it affordable is that the file is still shared. One clip per
+design, not per couple: the names never appear inside it, so the same few
+hundred kilobytes serve every customer on that design and the CDN caches it
+after the first guest. `preload="none"` means it is not fetched at all until
+the tap, so it costs a guest who never opens the invitation nothing, and the
+tap is a user gesture, which is what lets it play on iOS at all.
+
+Because it is artwork rather than a setting, it is never offered in the
+builder (`staffOnly`) and never chosen by a customer. It arrives with a
+Done-For-You or Concierge order: staff attach the clip and its poster to the
+design (`Template.openingVideoUrl`) or, for Concierge, to the one invitation
+it was drawn for (`Invitation.openingVideoUrl`), from the DFY job page. The
+poster is required alongside the clip, because that still *is* the closed
+screen until the guest taps.
+
+Generated video also has a place on the marketing pages — a hero loop, one
+asset made once. What must not be a file is a *render per couple*: that is the
+thing that cannot carry live text and cannot be made at self-serve prices.
+
+Which opening a guest gets is `resolveOpening()`: the customer's choice
+(`content.cover.opening`), else the design's default (`Template.opening`),
+else none. An opening above the invitation's tier falls back to The Envelope
+rather than to nothing, so a downgrade never leaves a guest looking at a blank
+first screen where there used to be one.
+
+Three things every opening must do, and the tests and the CSS enforce:
+
+- **Work without JavaScript.** The overlay is server-rendered, so a `<noscript>`
+  rule hides it outright — otherwise a guest with scripts off would tap a
+  screen that never opens.
+- **Respect `prefers-reduced-motion`.** The tap-to-open moment stays; nothing
+  slides, sways or draws. The overlay simply fades.
+- **Disappear from print.** `/[slug]/print` and Save as PDF render the
+  invitation only.
+
+The cinematic one adds two of its own, both tested: a clip that 404s or will
+not decode reveals the invitation anyway rather than stranding the guest on a
+screen that never opens, and under `prefers-reduced-motion` the poster stands
+in — the same artwork, held still — and the clip never plays.
+
+An invitation below Complete is not served the clip at all: the `<video>` is
+never rendered, so there are no bytes to decline. Its design's own drawn
+opening carries on instead.
+
+### The Moment, and where the scenery lives
+
+An early version of the cinematic opening baked the scenery into the clip. It
+should not: the clip is shared by every couple on a design, so a fixed view
+hands a Batangas couple somebody else's horizon, and no encoder can change it
+without commissioning new video.
+
+So the scenery is a **page section**, not part of the opening. `moment` is a
+frame — a capiz arch, a capiz window, or none — with three layers behind it
+that are deliberately independent:
+
+1. **the backdrop** — the couple's own photograph, which an encoder swaps at
+   any time without touching anything else,
+2. **the painted scene** (`src/lib/backdrops.ts`), used only when there is no
+   photograph, because a snapshot often fights a design built from capiz and
+   warm ivory, and forcing one in is worse than not,
+3. **the words** — three short lines, typed by the customer like every other
+   field.
+
+Every painted scene is somewhere in the Philippines: El Nido, Batangas, Taal,
+Boracay, Bohol, Banaue, Sagada, Intramuros. A couple marrying in Batangas is
+not handed a lake in Lombardy because the illustration happened to be pretty.
+A scene whose artwork does not exist yet is never offered, so the list can be
+written ahead of the painting, and an unpainted choice leaves the frame
+holding the page's own colour rather than a broken image.
+
+The frame itself is drawn in CSS from the palette, not supplied as a second
+image — so it re-skins with the design instead of needing one commission per
+colourway. The arch is the backdrop's own `border-radius` rather than a hole
+punched through an overlay, because an inverse mask has to hard-code the page
+colour into a shadow, which then lies the moment a customer picks another
+palette.
+
+**Nothing on the opening is fixed copy either.** Both its lines — the one on
+the closed screen and the one shown as it plays — are cover fields. An earlier
+version hid the text layer on the cinematic opening on the reasoning that the
+artwork carried the screen; that was wrong, and it meant the one opening a
+customer pays most for was the one they could not put their own words on.
+
+### Shipping a design
+
+`prisma/templates.ts` is the catalogue, as data. The seed creates it on an
+empty database; `npm run db:templates` upserts it into one that already has
+customers — matching on slug, so a design keeps its id and every invitation
+built on it keeps rendering. `-- --dry` lists the changes without writing
+them. `published` is deliberately not synced: a design staff unpublished in
+the admin stays unpublished.
+
+In production, run the **Sync the invitation designs** workflow. It deletes
+nothing, which is why it needs no confirmation phrase — unlike the seed, which
+truncates the schema.
+
 ## Money and payments
 
 All money is an integer number of **centavos**. `₱1,999.00 === 199900`.
@@ -412,14 +558,15 @@ image, a 404, the admin redirect and the RSVP endpoint.
 
 ```
 invites/
-  prisma/           schema, migrations, seed
-  scripts/          build guard, integrity check, jobs runner
+  prisma/           schema, migrations, seed, the design catalogue
+  scripts/          build guard, integrity check, jobs runner, design sync
   src/lib/          the domain: sections, tiers, pricing, copy, invitations,
                     orders, payments, guests, rsvp, dfy, reports, jobs,
                     plus auth, guard, rbac, db, storage, paymongo, email
   src/components/   invite renderer + client pieces, builder form engine,
                     landing page pieces, site chrome, shared UI
-  src/app/          (public) /, /templates, /demo, /[slug], policies
+  src/app/          (public) /, /templates, /collections/*, /demo, /[slug],
+                    policies
                     /login, /signup, /checkout/*
                     /account/*  customer dashboard
                     /admin/*    staff dashboard
@@ -433,3 +580,10 @@ Phase 1 and most of Phase 2 from the build brief are here. Not yet built:
 Google / Facebook sign-in (email works everywhere including the Messenger
 browser), custom domains, and the Save-the-Date mini-invite as a separate page
 (it is currently a *card type* on the cover).
+
+Blush, Garden and Midnight have one design each, carried over from the
+existing catalogue; Filipiniana has two. White is declared but has no designs,
+so it does not appear anywhere and `/collections/white` is a 404 — which is
+the intended behaviour of a collection written ahead of its designs, and what
+happened when an earlier set was withdrawn. Filling one out is a row per
+design in `prisma/templates.ts` and a run of the sync workflow.

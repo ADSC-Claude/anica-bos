@@ -506,8 +506,458 @@ table.data tr:hover td {
   border-style: dashed;
 }
 
-/* The envelope. */
-.inv-envelope {
+/* ===========================================================================
+   Capiz: the page after the opening.
+
+   The material is photographed, not drawn: pieces cut from the design's own
+   frame images in /public/capiz — a looping satin ground, four corner
+   clusters, two looping runs of hanging shell, and the arch — laid over the
+   page as layers, so the shells sit in the gaps between blocks and over the
+   edges of photos the way they do on a real strung panel. Everything else is
+   type: Cinzel for the names, Cormorant for the rest, Pinyon Script for the
+   line under each heading.
+   =========================================================================== */
+.inv[data-layout='capiz'] {
+  padding: 0;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  /* The ground: draped silk, one image that repeats down the page without a
+     join, so the page is a single length of cloth rather than a stack of
+     sections. */
+  background-color: #f2e8dc;
+}
+/* No strung side border on this theme — the shell lives in clusters. */
+.inv[data-layout='capiz']::before,
+.inv[data-layout='capiz']::after { display: none; }
+
+/* --- capiz, photographed: one solid ground the whole way down, cut into
+   pages. The cover carries the couple's whole frame; every page after it
+   opens with a strung row of shell — the join with the page before — and the
+   last closes on the frame's foot. The rows are cut from the couple's own
+   images, their edges faded into the ground so they float on it, and they
+   scroll with the words they belong to. --- */
+.inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
+body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
+/* The ground: the designer's numbered backgrounds, in order — 1 to 7, then 5
+   and 6 over and over, 8 last — one behind each page and trimmed to the page's
+   own height, so no page runs longer than its words. They are 2.645 times as
+   tall as they are wide. Where one ends the next dissolves in over a quarter of
+   the width, half above the join and half below, so no edge shows; PageGround
+   measures the pages and lays the papers. The shells and sprays live in the
+   corners and along the edges, so the words keep to the middle, set close, the
+   way an invitation is; the cover alone is a whole background, the names in
+   its upper part and the verse at its foot. */
+.inv[data-layout='capiz'] { background: #f0dccb; --capiz-bg: min(264.5vw, 84.6rem); }
+.inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.inv-paper {
+  position: absolute; left: 0; right: 0;
+  background-repeat: no-repeat; background-size: 100% auto; background-position: center top;
+}
+.inv-paper:not(.is-first) {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--seam, 6rem));
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--seam, 6rem));
+}
+.inv-paper.is-foot { background-position: center bottom; }
+.inv-page {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: min(11vw, 3.5rem) min(5vw, 1.6rem);
+}
+/* the cover is one whole background: the names in its upper part, the verse
+   toward its foot, above the shells there */
+.inv-page[data-page='cover'] { min-height: var(--capiz-bg); justify-content: flex-start; padding-top: min(26vw, 8.3rem); padding-bottom: min(25vw, 8rem); }
+.inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; }
+.inv-page[data-page='cover'] > .inv-verse { margin-top: auto; }
+/* the closing keeps clear of the shells at the foot of 8 */
+.inv-page[data-page='closing'] { padding-bottom: min(20vw, 6.4rem); }
+.inv-page > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.inv-page > .inv-section + .inv-section { padding-top: 1rem; }
+
+/* --- sections --- */
+.inv[data-layout='capiz'] .inv-section {
+  position: relative;
+  padding: 3.25rem 2.9rem;
+  max-width: 26rem;
+}
+.inv[data-layout='capiz'] .inv-section + .inv-section { border-top: 0; }
+
+.inv[data-layout='capiz'] .inv-title {
+  font-family: var(--inv-display);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  font-size: 1.15rem;
+  color: var(--inv-ink);
+  margin-bottom: 0.35rem;
+}
+.inv-tagline {
+  font-family: var(--inv-script);
+  font-style: var(--inv-script-style, normal);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  color: var(--inv-accent);
+  text-align: center;
+  margin: 0.1rem 0 1.7rem;
+}
+.inv[data-layout='capiz'] .inv-eyebrow {
+  font-family: var(--inv-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  color: var(--inv-ink);
+  opacity: 0.85;
+  margin-bottom: 0.45rem;
+}
+.inv[data-layout='capiz'] .inv-rule {
+  width: 2.2rem; height: 1px; background: var(--inv-ink); opacity: 0.5; margin: 1.6rem auto;
+}
+.inv[data-layout='capiz'] .inv-muted { color: var(--inv-muted); }
+.inv[data-layout='capiz'] .inv-list { gap: 0.15rem; font-size: 1.05rem; }
+.inv[data-layout='capiz'] .inv-two { gap: 1.25rem 1.25rem; align-items: start; }
+.inv[data-layout='capiz'] .inv-two > * + * { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 25%, transparent); }
+
+/* --- cards, buttons, fields --- */
+.inv[data-layout='capiz'] .inv-card {
+  background: rgba(255, 253, 249, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 1rem;
+  padding: 1.25rem 1.1rem;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 30px -18px rgba(74, 59, 47, 0.35);
+}
+.inv[data-layout='capiz'] .inv-btn {
+  font-family: var(--inv-display);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.8rem 1.3rem;
+  min-height: 0;
+  background: var(--inv-accent);
+  border-color: var(--inv-accent);
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(74, 59, 47, 0.6);
+}
+.inv[data-layout='capiz'] .inv-btn:not(.inv-btn-outline)::after {
+  content: '➔'; font-size: 0.9em; margin-left: 0.15rem;
+}
+.inv[data-layout='capiz'] .inv-btn-outline {
+  background: rgba(255, 253, 249, 0.6);
+  border-color: rgba(255,255,255,0.85);
+  color: var(--inv-ink);
+  width: 100%;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.inv[data-layout='capiz'] .inv-field {
+  background: rgba(255, 253, 249, 0.6);
+  border: 1px solid rgba(255,255,255,0.85);
+  border-radius: 0.8rem;
+  padding: 0.85rem 1rem;
+  font-family: var(--inv-body);
+  font-size: 1rem;
+  color: var(--inv-ink);
+}
+.inv[data-layout='capiz'] .inv-field::placeholder { color: var(--inv-muted); }
+.inv[data-layout='capiz'] .inv-label {
+  font-family: var(--inv-display);
+  font-size: 0.66rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--inv-muted);
+  margin: 0 0 0.3rem 0.4rem;
+}
+.inv[data-layout='capiz'] .inv-swatch {
+  width: 2.1rem; height: 2.1rem;
+  border: 2px solid rgba(255,255,255,0.9);
+  box-shadow: 0 2px 8px -3px rgba(74,59,47,0.5);
+}
+
+/* --- hero: the names centred in the frame, measured by its own width (a
+   container) so a phone and a showcase column the width of a phone agree --- */
+.inv[data-layout='capiz'] .inv-hero {
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  container-type: inline-size;
+}
+.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; margin: 0 auto; padding: 0 1.6rem; }
+.inv[data-layout='capiz'] .inv-hero-scrim,
+.inv[data-layout='capiz'] .inv-hero-photo { display: none; }
+.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
+.inv[data-layout='capiz'] .inv-names {
+  font-family: var(--inv-names);
+  font-weight: 500;
+  font-size: clamp(1.9rem, 8.6cqw, 2.6rem);
+  letter-spacing: 0.08em;
+  text-indent: 0.08em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+  line-height: 1.05;
+}
+.inv[data-layout='capiz'] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
+.inv[data-layout='capiz'] .inv-hero-details { margin-top: 1.6rem; }
+.inv[data-layout='capiz'] .inv-amp {
+  font-family: var(--inv-script);
+  font-style: normal;
+  font-size: 0.62em;
+  color: var(--inv-ink);
+  text-transform: none;
+  letter-spacing: 0;
+  text-indent: 0;
+  margin: 0.05em 0;
+}
+.inv-date {
+  font-family: var(--inv-display);
+  font-size: 1.05rem; letter-spacing: 0.42em; text-indent: 0.42em;
+  color: var(--inv-ink); margin-top: 1.4rem;
+}
+.inv-lines {
+  font-family: var(--inv-display);
+  font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase;
+  color: var(--inv-ink); opacity: 0.9; line-height: 1.9; margin-top: 1.4rem;
+}
+.inv-scroll {
+  margin-top: 3.4rem;
+  font-family: var(--inv-display);
+  font-size: 0.62rem; letter-spacing: 0.4em; text-indent: 0.4em; text-transform: uppercase;
+  color: var(--inv-muted);
+}
+.inv-scroll::after {
+  content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.6rem auto 0;
+  background: linear-gradient(var(--inv-ink), transparent);
+  opacity: 0.6;
+}
+
+/* --- quote block --- */
+.inv-quote {
+  font-family: var(--inv-display);
+  font-size: 0.9rem; letter-spacing: 0.22em; text-indent: 0.22em; text-transform: uppercase;
+  line-height: 2; text-align: center; color: var(--inv-ink);
+}
+.inv-quote cite {
+  display: block; font-style: normal; font-size: 0.68rem; letter-spacing: 0.3em; margin-top: 1rem; color: var(--inv-muted);
+}
+
+/* --- icon rows (details, program, contact) --- */
+.inv-icons { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+.inv-icons > li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; }
+.inv-icons svg { width: 2.2rem; height: 2.2rem; stroke: var(--inv-accent); fill: none; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+.inv-icons b {
+  display: block; font-family: var(--inv-display); font-weight: 500;
+  font-size: 0.82rem; letter-spacing: 0.24em; text-transform: uppercase; color: var(--inv-ink);
+}
+.inv-icons span { display: block; font-family: var(--inv-display); font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--inv-ink); opacity: 0.8; margin-top: 0.15rem; }
+.inv-icons[data-align='center'] { justify-items: center; }
+.inv-icons[data-align='center'] > li { grid-template-columns: 2.4rem auto; }
+
+/* the program reuses .inv-timeline in the app — restyle it into an icon row */
+.inv[data-layout='capiz'] .inv-timeline { border-left: 0; margin: 0; padding: 0; gap: 1.1rem; }
+.inv[data-layout='capiz'] .inv-timeline > li::before { display: none; }
+
+/* --- gallery collage --- */
+
+/* --- countdown, bare --- */
+.inv[data-layout='capiz'] .inv-count { max-width: 22rem; gap: 0; }
+.inv[data-layout='capiz'] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.1rem 0; }
+.inv[data-layout='capiz'] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
+.inv[data-layout='capiz'] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
+.inv[data-layout='capiz'] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
+
+/* --- social brand row --- */
+.inv-brand { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1.1rem; }
+.inv-brand svg { width: 1.7rem; height: 1.7rem; fill: var(--inv-ink); }
+
+/* --- closing --- */
+.inv-sign {
+  font-family: var(--inv-script); font-size: 2.6rem; line-height: 1.1; color: var(--inv-ink); text-align: center;
+}
+.inv-sign small { display: block; font-family: var(--inv-display); font-size: 0.72rem; letter-spacing: 0.4em; text-indent: 0.4em; text-transform: uppercase; margin-top: 1.6rem; }
+
+/* big section icon (gift, camera, cloud, phone) */
+.inv-glyph { display: block; width: 2.8rem; height: 2.8rem; margin: 0 auto 0.8rem; stroke: var(--inv-ink); fill: none; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.inv[data-layout='capiz'] p { margin: 0; }
+.inv[data-layout='capiz'] .inv-hero-body > p + p { margin-top: 0; }
+
+/* --- our story: a timeline with the photos scattered beside it --- */
+.inv-story { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0 1.1rem; margin-top: 0; }
+.inv-story-photos { display: grid; gap: 0.8rem; align-content: start; padding-top: 0.4rem; }
+.inv-story-photos figure { margin: 0; }
+.inv-story-photos img { box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
+.inv-story-photos [data-frame='arch'] img { border-radius: 999px 999px 0.4rem 0.4rem; aspect-ratio: 3/4.6; }
+.inv-story-photos [data-frame='polaroid'] { background: #fffdf9; padding: 0.35rem 0.35rem 1.1rem; border-radius: 0.15rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.6); transform: rotate(-4deg); }
+.inv-story-photos [data-frame='polaroid'] img { border-radius: 0.1rem; aspect-ratio: 1; box-shadow: none; }
+.inv-story-photos [data-frame='polaroid'][data-tilt='r'] { transform: rotate(3.5deg); }
+.inv-story-photos [data-frame='circle'] img { border-radius: 999px; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--inv-accent) 45%, transparent); }
+.inv-story-photos [data-frame='plain'] img { border-radius: 0.3rem; aspect-ratio: 4/3; }
+.inv-story-line { position: relative; padding-left: 1.6rem; }
+.inv-story-line::before { content: ''; position: absolute; left: 0.28rem; top: 0.6rem; bottom: 0.6rem; width: 1px; background: color-mix(in srgb, var(--inv-accent) 70%, transparent); }
+.inv-story-line li { position: relative; list-style: none; margin: 0 0 0.8rem; }
+.inv-story-line li::before { content: ''; position: absolute; left: -1.6rem; top: 0.55rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--inv-bg); border: 1.5px solid var(--inv-accent); }
+.inv-story-line .y { font-family: var(--inv-display); font-size: 1.6rem; line-height: 1; color: var(--inv-ink); }
+.inv-story-line .t { font-family: var(--inv-display); font-style: italic; font-size: 1.15rem; color: var(--inv-ink); margin-top: 0.1rem; }
+.inv-story-line .x { font-size: 0.95rem; line-height: 1.5; color: var(--inv-ink); opacity: 0.85; margin-top: 0.45rem; max-width: 15rem; }
+.inv-story-line img { margin-top: 0.7rem; border-radius: 999px 999px 0.3rem 0.3rem; aspect-ratio: 3/3.6; max-width: 8.5rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
+
+/* --- prenup strip --- */
+.inv-strip { display: grid; grid-template-columns: 1fr 1.08fr 1fr; gap: 0.5rem; align-items: center; }
+.inv-strip img { aspect-ratio: 3/4; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74,59,47,0.55); }
+.inv-strip figure:nth-child(2) img { aspect-ratio: 3/4.4; }
+
+/* the hashtag, sized for the column */
+.inv[data-layout='capiz'] #social .inv-display { display: block; font-size: 1.35rem; letter-spacing: 0.04em; margin-top: 0.3rem; }
+.inv[data-layout='capiz'] #social .inv-eyebrow { display: block; }
+
+/* --- the gallery as a mosaic: a large tile, two small beside it, then the
+   mirror of that below, so six photographs interlock instead of lining up --- */
+.inv[data-layout='capiz'] .inv-gallery { grid-template-columns: repeat(3, 1fr); grid-auto-rows: min(34vw, 10.4rem); grid-auto-flow: dense; gap: 0.45rem; align-items: stretch; }
+.inv[data-layout='capiz'] .inv-gallery figure { position: relative; overflow: hidden; margin: 0; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); background: #e3d6ca; }
+.inv[data-layout='capiz'] .inv-gallery figure:first-child { grid-column: auto; }
+.inv[data-layout='capiz'] .inv-gallery figure:nth-child(6n + 1),
+.inv[data-layout='capiz'] .inv-gallery figure:nth-child(6n + 5) { grid-column: span 2; grid-row: span 2; }
+.inv[data-layout='capiz'] .inv-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; border-radius: 0; }
+.inv[data-layout='capiz'] .inv-gallery figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 1.4rem 0.5rem 0.4rem; color: #fff; background: linear-gradient(transparent, rgba(60, 45, 35, 0.55)); }
+.looks-phone .inv[data-layout='capiz'] .inv-gallery { grid-auto-rows: 8.2rem; }
+
+/* --- dress code figures --- */
+/* The dress code, the way a printed card says it: the gentlemen in their
+   suits and the ladies in their gowns in the couple's colours, the pieces
+   asked for as one line with bars between, the palette, the things kindly
+   asked against as crossed icons, and a thank-you between two rules. */
+.inv-wear { text-align: center; margin-top: 1.5rem; }
+.inv-wear-intro { text-align: center; text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.58rem; line-height: 1.9; color: var(--inv-muted); max-width: 19rem; margin: -0.1rem auto 0; }
+.inv-wear-head { margin-bottom: 0.7rem; }
+/* the rows of figures reach into the section's side room, so five gowns fit a
+   phone; every figure is the same share of the width, so the gentlemen and
+   the ladies stand the same size */
+.inv-dress { display: flex; justify-content: center; align-items: flex-end; gap: 2%; margin: 0 -2.4rem; }
+/* a drawn figure: the garment's shading, recoloured, under the rest as drawn */
+.inv-figure { position: relative; display: block; flex: 0 0 auto; width: min(17.5%, 5.4rem); filter: drop-shadow(0 6px 6px rgba(74,59,47,0.14)); }
+.inv-figure img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.inv-wear-line { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.6rem; line-height: 1.9; margin: 0.8rem auto 0; max-width: 20rem; color: var(--inv-ink); }
+.inv-wear-word { white-space: nowrap; }
+.inv-wear-sep { margin: 0 0.55rem; opacity: 0.45; }
+.inv-wear-note { font-style: italic; font-size: 0.82rem; line-height: 1.6; color: var(--inv-muted); margin: 0.35rem auto 0; max-width: 20rem; }
+.inv-rule-head { display: flex; align-items: center; justify-content: center; gap: 0.8rem; margin: 0 auto 0.9rem; max-width: 20rem; }
+.inv-rule-head::before, .inv-rule-head::after { content: ''; flex: 1 1 0; min-width: 1.1rem; height: 1px; background: color-mix(in srgb, var(--inv-ink) 32%, transparent); }
+.inv-rule-head > span { flex: 0 1 auto; }
+.inv-swatches { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.7rem 0.55rem; margin: 0 auto; max-width: 19rem; }
+/* a swatch and its name: four to a row, the name in the small caps of the page */
+.inv-swatch-item { display: flex; flex-direction: column; align-items: center; gap: 0.32rem; width: 4.2rem; }
+.inv-swatch-name { font-family: var(--inv-body); font-size: 0.5rem; letter-spacing: 0.14em; text-transform: uppercase; line-height: 1.3; text-align: center; color: var(--inv-ink); opacity: 0.85; }
+.inv-avoid { list-style: none; margin: 0 auto; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem 0.4rem; max-width: 19rem; }
+.inv-avoid li { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; }
+.inv-avoid-ico { position: relative; width: 3.3rem; height: 3.3rem; border-radius: 50%; border: 1.5px solid #a8433d; display: grid; place-items: center; overflow: hidden; }
+.inv-avoid-ico .inv-ico { width: 1.7rem; height: 1.7rem; stroke: var(--inv-ink); stroke-width: 1.4; }
+.inv-avoid-ico::after { content: ''; position: absolute; left: 50%; top: -0.4rem; bottom: -0.4rem; width: 1.5px; margin-left: -0.75px; background: #a8433d; transform: rotate(45deg); }
+.inv-avoid-label { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.52rem; line-height: 1.55; color: var(--inv-ink); }
+.inv-wear-thanks { margin-top: 1.7rem; margin-bottom: 0; }
+.inv[data-layout='capiz'] .inv-attire { gap: 1rem; }
+.inv[data-layout='capiz'] .inv-attire .inv-eyebrow { margin-bottom: 0.2rem; }
+
+.inv[data-layout='capiz'] .inv-section > * { position: relative; z-index: 1; }
+
+/* the hero, from the app's own markup */
+.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { color: var(--inv-ink); opacity: 0.85; }
+.inv[data-layout='capiz'] .inv-hero-body > p { margin: 0; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-3 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; opacity: 0.9; margin-top: 1.2rem; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-5 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; line-height: 1.9; margin-top: 1.4rem; max-width: 22rem; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-6 { margin-top: 1.4rem; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-6 .inv-display { font-size: 1.05rem; letter-spacing: 0.42em; text-indent: 0.42em; }
+.inv[data-layout='capiz'] .inv-hero-body > .mt-6 .block { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; margin-top: 0.4rem; }
+
+/* program rows: the app's timeline, with an icon before each entry */
+.inv[data-layout='capiz'] .inv-timeline > li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; padding: 0; }
+.inv[data-layout='capiz'] .inv-timeline > li > .inv-picon { width: 2.2rem; height: 2.2rem; stroke: var(--inv-accent); fill: none; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+.inv[data-layout='capiz'] .inv-timeline > li > div > .inv-muted { font-family: var(--inv-display); font-size: 0.82rem; letter-spacing: 0.24em; color: var(--inv-ink); opacity: 1; }
+.inv[data-layout='capiz'] .inv-timeline > li > div > .inv-display { font-family: var(--inv-display); font-weight: 500; font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85; }
+.inv-picon { display: none; }
+.inv[data-layout='capiz'] .inv-picon { display: block; }
+
+/* the closing: the sign-off in script, the names and date beneath */
+.inv[data-layout='capiz'] #closing .inv-display { font-family: var(--inv-script); font-size: 2.6rem; }
+
+/* --- the format's blocks: the cover's date, place and lines, the verse, the
+   invitation rows, the venue and the way there, the interludes, the social
+   icons, the contact columns --- */
+.inv-hero-date { font-family: var(--inv-display); font-size: 1.05rem; letter-spacing: 0.5em; text-indent: 0.5em; margin: 0 0 0.9rem; text-align: center; }
+.inv-hero-place { margin-bottom: 0.2rem; color: var(--inv-ink); opacity: 0.85; }
+.inv-hero-lines { margin-top: 2.2rem; text-align: center; }
+.inv-hero-lines p { text-transform: uppercase; letter-spacing: 0.3em; text-indent: 0.3em; font-size: 0.74rem; line-height: 1.95; }
+.inv-scroll { margin-top: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 0.32em; text-indent: 0.32em; font-size: 0.58rem; color: var(--inv-muted); }
+.inv-scroll::after { content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.45rem auto 0; background: var(--inv-accent2); }
+.inv-verse { text-align: center; }
+.inv-page > .inv-verse { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.inv-verse-text { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.88rem; line-height: 1.8; color: var(--inv-ink); max-width: 22rem; margin: 0 auto; }
+.inv-verse-ref { margin-top: 0.9rem; }
+.inv-rule { display: block; width: 2.6rem; height: 1px; margin: 1.6rem auto 0; background: var(--inv-accent2); }
+.inv-story-sign { text-align: center; margin-top: 1.2rem; }
+.inv-getting-block + .inv-getting-block { margin-top: 1.4rem; }
+.inv-venues { display: grid; gap: 1.4rem; margin-top: 0.4rem; }
+.inv-story-sign .inv-eyebrow { margin-bottom: 0.15rem; margin-top: 0.6rem; color: var(--inv-ink); opacity: 0.85; }
+.inv-story-sign .inv-eyebrow-date { margin-top: 0; letter-spacing: 0.42em; text-indent: 0.42em; }
+.inv-interlude { text-align: center; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.inv-interlude .inv-tagline { font-size: 2.1rem; line-height: 1.2; margin: 0; white-space: pre-line; }
+.inv-invite-sub { margin-bottom: 0.6rem; }
+.inv-invite-intro { text-align: center; max-width: 24rem; margin: 0 auto; }
+.inv-rows { list-style: none; margin: 1.6rem auto 0; padding: 0; display: grid; gap: 1.15rem; max-width: 22rem; }
+.inv-rows li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; }
+.inv-rows b, .inv-getting b { display: block; font-family: var(--inv-display); font-weight: 500; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.82rem; line-height: 1.5; color: var(--inv-ink); }
+.inv-rows span, .inv-getting span { display: block; text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.66rem; line-height: 1.6; color: var(--inv-accent); margin-top: 0.15rem; }
+.inv-ico { width: 2.2rem; height: 2.2rem; fill: none; stroke: var(--inv-accent); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.inv-ico-lg { display: block; width: 2.6rem; height: 2.6rem; margin: -0.7rem auto 0.9rem; stroke: var(--inv-ink); }
+.inv-ico-sm { width: 1.05rem; height: 1.05rem; stroke: currentColor; stroke-width: 1.6; }
+.inv-venue-photo { margin-bottom: 1.4rem; }
+.inv-venue-name { font-family: var(--inv-display); font-size: 1.4rem; text-align: center; color: var(--inv-ink); }
+.inv-venue-addr { text-align: center; }
+.inv-title-sub { margin-top: 2.6rem; margin-bottom: 0.8rem; font-size: 1.05rem; }
+.inv-getting { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; margin-top: 0.4rem; }
+.inv-btn-wide { display: flex; width: 100%; justify-content: center; align-items: center; gap: 0.6rem; margin-top: 0.65rem; }
+.inv-hashtag { font-family: var(--inv-display); font-size: 1.5rem; text-align: center; margin-top: 0.35rem; color: var(--inv-ink); }
+.inv-social-icons { display: flex; justify-content: center; gap: 1.7rem; margin-top: 1.3rem; }
+.inv-social-icons .inv-ico { width: 1.6rem; height: 1.6rem; stroke: var(--inv-ink); stroke-width: 1.5; }
+.inv-contact-head { display: flex; gap: 1rem; align-items: center; justify-content: center; text-align: left; }
+.inv-contact-head .inv-eyebrow { text-align: left; text-indent: 0; margin-bottom: 0.2rem; color: var(--inv-ink); }
+.inv-contact-cols { margin-top: 1rem; }
+.inv-contact-cols .inv-eyebrow { margin-bottom: 0.2rem; }
+.inv-gift-thanks { margin-top: 1.6rem; margin-bottom: 0; }
+.inv-amp[data-word] { font-family: var(--inv-display); font-style: italic; font-size: 0.5em; letter-spacing: 0; text-indent: 0; text-transform: none; }
+
+/* --- the looks: how each sets the names --- */
+.inv[data-look='heritage'] .inv-names { font-weight: 500; letter-spacing: 0.14em; text-indent: 0.14em; }
+.inv[data-look='romance'] .inv-names { text-transform: none; font-weight: 400; letter-spacing: 0.02em; text-indent: 0; font-size: clamp(2.6rem, 12.5cqw, 3.6rem); line-height: 1.1; }
+.inv[data-look='romance'] .inv-amp { font-size: 0.55em; }
+.inv[data-look='modern'] .inv-names { font-weight: 300; letter-spacing: 0.32em; text-indent: 0.32em; font-size: clamp(1.55rem, 7.2cqw, 2.1rem); }
+.inv[data-look='modern'] .inv-title { font-weight: 400; letter-spacing: 0.42em; text-indent: 0.42em; font-size: 0.95rem; }
+.inv[data-look='modern'] .inv-tagline { font-size: 1.45rem; }
+.inv[data-look='editorial'] .inv-names { font-weight: 400; letter-spacing: 0.12em; text-indent: 0.12em; }
+.inv[data-look='regal'] .inv-names { font-weight: 500; letter-spacing: 0.08em; text-indent: 0.08em; }
+
+/* --- the showcase: each look in a column the width of a phone --- */
+.looks-row { display: flex; gap: 1.5rem; overflow-x: auto; padding: 0.5rem 0 1.5rem; align-items: flex-start; scroll-snap-type: x proximity; }
+.looks-col { flex: none; width: 390px; scroll-snap-align: start; }
+.looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
+.looks-phone .inv { min-height: 100%; }
+.looks-phone .inv[data-layout='capiz'] { --capiz-bg: 1031px; }
+
+/* the ground is decoration: none of it prints */
+@media print {
+  .inv-page { min-height: 0; padding: 1rem 0; }
+  .inv-ground { display: none; }
+  .inv[data-layout='capiz'] { max-width: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   The opening: the moving scene a guest sees before the invitation.
+
+   One overlay, six stages. Everything is drawn by the browser from the
+   couple's palette, words and photos — there is no video to download and
+   nothing to re-render when a name changes. The overlay dismisses itself
+   500ms after the stage has finished moving, so the guest never waits.
+   --------------------------------------------------------------------------- */
+.inv-open {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -515,62 +965,425 @@ table.data tr:hover td {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  padding: 2rem 1.5rem;
+  text-align: center;
   background: var(--inv-bg);
   color: var(--inv-ink);
   cursor: pointer;
-  transition: opacity 500ms ease, visibility 500ms ease;
+  transition: opacity 500ms ease 550ms, visibility 0s linear 1050ms;
 }
-.inv-envelope[data-open='true'] {
+.inv-open[data-open='true'] {
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
 }
-.inv-envelope-flap {
-  width: 16rem;
-  height: 10rem;
-  background: var(--inv-surface);
-  border: 1px solid var(--inv-accent2);
-  border-radius: 0.5rem;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
-}
-.inv-envelope-flap::before {
-  content: '';
+.inv-open-stage {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
-    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
-  background-size: 50% 100%;
-  background-repeat: no-repeat;
-  background-position: left top, right top;
-  opacity: 0.6;
+  display: grid;
+  place-items: center;
 }
-.inv-envelope-seal {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
-  background: var(--inv-accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.inv-open-copy {
+  position: relative;
+  z-index: 2;
+  /* Positioned with `translate` rather than `transform`, so the entrance
+     animation below can own `transform` without cancelling the offset. */
+  animation: inv-rise 900ms ease both 250ms;
+}
+.inv-open-line {
   font-family: var(--inv-display);
-  font-size: 1rem;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--inv-accent);
+}
+.inv-open-line[data-caps='true'] {
+  font-family: var(--inv-body);
+  font-size: 0.72rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+}
+.inv-open-names {
+  margin-top: 0.85rem;
+  font-family: var(--inv-display);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+.inv-open-date {
+  margin-top: 0.6rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
+  color: var(--inv-muted);
+}
+.inv-open-hint {
+  position: absolute;
+  bottom: 2.25rem;
+  z-index: 3;
+  animation: inv-pulse 1.6s ease-in-out infinite;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  font-size: 0.7rem;
+}
+.inv-open[data-open='true'] .inv-open-hint,
+.inv-open[data-tapped='true'] .inv-open-hint {
+  animation: none;
+  opacity: 0;
+  transition: opacity 250ms ease;
 }
 @keyframes inv-pulse {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
 }
-.inv-envelope-hint {
-  margin-top: 1.5rem;
-  animation: inv-pulse 1.6s ease-in-out infinite;
+@keyframes inv-rise {
+  from { opacity: 0; transform: translateY(0.75rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* The Envelope and The Seal share a stage: a card inside a folded face with a
+   wax seal. The seal lifts the card further and cracks the wax. */
+.inv-open-env {
+  position: relative;
+  width: min(17rem, 76vw);
+  aspect-ratio: 8 / 5;
+  perspective: 900px;
+}
+.inv-open-card {
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: 8%;
+  bottom: 8%;
+  border-radius: 0.2rem;
+  background: var(--inv-surface);
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
+  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms, opacity 500ms ease 550ms;
+}
+.inv-open-flap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background: var(--inv-surface);
+  border: 1px solid var(--inv-accent2);
+  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
+  transform-origin: top center;
+  transition: transform 750ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease 500ms;
+}
+.inv-open-flap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.6;
+  background:
+    linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
+    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  background-position: left top, right top;
+}
+.inv-open-wax {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 999px;
+  background: var(--inv-accent);
+  color: #fff;
+  font-family: var(--inv-display);
+  font-size: 1rem;
+  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.55);
+  transform: translate(-50%, -50%);
+  transition: transform 450ms ease, opacity 350ms ease 150ms;
+}
+.inv-open[data-style='seal'] .inv-open-wax::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem;
+  border-radius: 999px;
+  border: 1px dashed color-mix(in srgb, var(--inv-accent) 45%, transparent);
+}
+.inv-open[data-open='true'] .inv-open-flap {
+  transform: rotateX(-160deg);
+  opacity: 0;
+}
+.inv-open[data-open='true'] .inv-open-wax {
+  transform: translate(-50%, -50%) scale(1.4) rotate(12deg);
+  opacity: 0;
+}
+.inv-open[data-open='true'] .inv-open-card {
+  transform: translateY(-1rem);
+  opacity: 0;
+}
+.inv-open[data-open='true'][data-style='seal'] .inv-open-card {
+  transform: translateY(-3rem);
+}
+.inv-open[data-style='envelope'] .inv-open-env,
+.inv-open[data-style='seal'] .inv-open-env {
+  translate: 0 min(-6rem, -16vh);
+}
+.inv-open[data-style='envelope'] .inv-open-copy,
+.inv-open[data-style='seal'] .inv-open-copy {
+  translate: 0 min(6.5rem, 18vh);
+}
+
+/* The Cinematic opening: the one opening that is a file. The clip fills the
+   screen and the copy sits over it; the overlay leaves when the clip ends
+   rather than on a timer, so the reveal and the exit are the same moment. */
+.inv-open-clip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* The tap belongs to the overlay, not to the video: without this the guest
+     can land on the element itself and the browser treats it as a media
+     click rather than as opening the invitation. */
+  pointer-events: none;
+}
+/* Chromium paints an overlay play button and a control bar on a paused video
+   even with no `controls` attribute. On an invitation that is somebody's
+   artwork with a media player sitting on top of it. */
+.inv-open-clip::-webkit-media-controls,
+.inv-open-clip::-webkit-media-controls-enclosure,
+.inv-open-clip::-webkit-media-controls-panel,
+.inv-open-clip::-webkit-media-controls-start-playback-button,
+.inv-open-clip::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+/* The cue has to stay readable over artwork nobody has seen yet, so the foot
+   of the frame is darkened rather than trusting the illustration to be dark
+   in the one place the words land. */
+.inv-open[data-style='cinematic']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 22%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45), transparent);
+}
+/* The words on a cinematic opening are the couple's own and are typed in the
+   builder like everything else. The artwork is the frame around them, not a
+   finished screen they have to fit into — so the copy is laid over it and the
+   scrim below keeps it readable whatever the illustration does. */
+/* The artwork owns the middle of the frame — a seal, a knot, whatever the
+   clip is built around — so the line sits above it rather than across it. */
+.inv-open[data-style='cinematic'] .inv-open-copy {
+  translate: 0 min(-13rem, -30vh);
+}
+.inv-open[data-style='cinematic'] .inv-open-copy,
+.inv-open[data-style='cinematic'] .inv-open-hint {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6);
+}
+.inv-open[data-style='cinematic'] .inv-open-line,
+.inv-open[data-style='cinematic'] .inv-open-date {
+  color: inherit;
+}
+.inv-open[data-style='cinematic']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.28) 0%, transparent 62%);
+}
+.inv-open-line2 {
+  margin-top: 0.5rem;
+  font-family: var(--inv-body);
+  font-size: 0.68rem;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  letter-spacing: 0.24em;
-  font-size: 0.7rem;
+  opacity: 0.85;
+}
+/* The cinematic overlay leaves with its clip: the page is told to come up
+   0.6s before the last frame (client.tsx) and the fade runs over exactly that,
+   so the invitation is fully there as the clip ends — no wait on the blank
+   card the clip opens onto, and no words set on it. */
+.inv-open[data-style='cinematic'] {
+  transition: opacity 600ms ease 0s, visibility 0s linear 600ms;
+}
+.inv-open[data-open='true'][data-style='cinematic'] .inv-open-clip {
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+/* The Capiz clip. Its sealed face already says an invitation is here, and the
+   card it opens onto is blank on purpose: the couple's own words are set on
+   it here, so a name changed in the builder shows on the next reload and the
+   clip is never re-rendered. The artwork is light, so no scrim and no white
+   line over it. */
+.inv-open[data-clip='capiz']::before,
+.inv-open[data-clip='capiz']::after,
+.inv-open[data-clip='capiz'] .inv-open-copy { display: none; }
+.inv-open[data-clip='capiz'] .inv-open-hint { color: #6b5744; text-shadow: none; }
+/* The card's box: the clip is object-fit cover, so this is the same box the
+   clip is drawn in — as wide as the screen or as tall as it, whichever the
+   9:16 frame needs — and the words are placed in it by fractions of the frame. */
+.inv-open-plate {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  width: max(100%, calc(100dvh * 9 / 16)); aspect-ratio: 9 / 16;
+  container-type: size; pointer-events: none;
+  opacity: 0; transition: opacity 900ms ease;
+}
+.inv-open-plate[data-show='true'] { opacity: 1; }
+.inv-open-plate > div {
+  position: absolute; left: 14%; width: 68%; top: 15%; bottom: 13%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #5b4a3b; text-align: center;
+}
+.inv-plate-mono { font-family: var(--inv-names, var(--inv-display)); font-size: 7.5cqw; letter-spacing: 0.16em; text-indent: 0.16em; }
+.inv-plate-eyebrow { font-family: var(--inv-body); font-size: 2.6cqw; letter-spacing: 0.34em; text-indent: 0.34em; text-transform: uppercase; margin-top: 3.5cqh; line-height: 1.7; }
+.inv-plate-names { font-family: var(--inv-script, var(--inv-display)); font-size: 15cqw; line-height: 1.1; margin-top: 2.5cqh; }
+.inv-plate-and { display: block; font-size: 6.5cqw; line-height: 1.25; opacity: 0.85; }
+.inv-plate-date { font-family: var(--inv-body); font-size: 3.7cqw; letter-spacing: 0.34em; text-indent: 0.34em; margin-top: 4.5cqh; }
+.inv-plate-line2 { font-family: var(--inv-body); font-size: 2.2cqw; letter-spacing: 0.24em; text-transform: uppercase; margin-top: 3cqh; opacity: 0.85; }
+
+/* The Drape: hanging silk with the names on it, lifted away. */
+.inv-open-drape {
+  position: absolute;
+  inset: 0;
+  transform-origin: top center;
+  background:
+    repeating-linear-gradient(97deg, rgba(255, 255, 255, 0.5) 0 2px, transparent 2px 28px),
+    linear-gradient(
+      101deg,
+      color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-surface)) 0%,
+      var(--inv-surface) 20%,
+      color-mix(in srgb, var(--inv-accent2) 38%, var(--inv-surface)) 42%,
+      var(--inv-surface) 63%,
+      color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-surface)) 84%,
+      var(--inv-surface) 100%
+    );
+  transition: transform 1150ms cubic-bezier(0.7, 0, 0.3, 1);
+}
+.inv-open-drape::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 18%;
+  background: linear-gradient(to top, color-mix(in srgb, var(--inv-accent2) 45%, transparent), transparent);
+}
+.inv-open[data-open='true'] .inv-open-drape {
+  transform: translateY(-102%);
+}
+
+/* The Curtain: two sheer panels over the couple's photo, parting sideways. */
+.inv-open-scene {
+  position: absolute;
+  inset: 0;
+  /* Behind the photo: a photo that has not arrived yet — or never will — must
+     read as the couple's colours, not as a hole in the design. */
+  background: linear-gradient(160deg, var(--inv-surface), color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-surface)));
+}
+.inv-open-back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.inv-open-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.12) 45%, rgba(0, 0, 0, 0.42));
+}
+.inv-open-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 56%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.44) 0 3px, rgba(255, 255, 255, 0.24) 3px 22px);
+  animation: inv-breathe 8s ease-in-out infinite;
+  transition: transform 1200ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.inv-open-panel[data-side='l'] { left: 0; }
+.inv-open-panel[data-side='r'] { right: 0; animation-delay: -4s; }
+@keyframes inv-breathe {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; }
+}
+.inv-open[data-open='true'] .inv-open-panel[data-side='l'] { transform: translateX(-102%); }
+.inv-open[data-open='true'] .inv-open-panel[data-side='r'] { transform: translateX(102%); }
+.inv-open[data-style='curtain'] .inv-open-copy,
+.inv-open[data-style='curtain'] .inv-open-hint {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+}
+.inv-open[data-style='curtain'] .inv-open-line,
+.inv-open[data-style='curtain'] .inv-open-date {
+  color: inherit;
+}
+
+/* Photo Story: three prints fanned on a table, sliding apart. */
+.inv-open-fan {
+  position: relative;
+  width: min(21rem, 84vw);
+  aspect-ratio: 1;
+  transform: translateY(min(-4.5rem, -12vh));
+}
+.inv-open-shot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56%;
+  aspect-ratio: 3 / 4;
+  margin: -37.3% 0 0 -28%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 0.4rem solid var(--inv-surface);
+  background: color-mix(in srgb, var(--inv-accent2) 35%, var(--inv-surface));
+  box-shadow: 0 18px 30px -18px rgba(0, 0, 0, 0.5);
+  transition: transform 1000ms cubic-bezier(0.5, 0, 0.2, 1), opacity 600ms ease 250ms;
+}
+.inv-open-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.05);
+}
+.inv-open-shot[data-i='0'] { transform: translate(-42%, 2%) rotate(-9deg); }
+.inv-open-shot[data-i='1'] { transform: rotate(2deg); z-index: 1; }
+.inv-open-shot[data-i='2'] { transform: translate(42%, 2%) rotate(9deg); }
+.inv-open[data-open='true'] .inv-open-shot[data-i='0'] { transform: translate(-135%, 8%) rotate(-18deg); opacity: 0; }
+.inv-open[data-open='true'] .inv-open-shot[data-i='1'] { transform: translateY(-22%) rotate(0deg); opacity: 0; }
+.inv-open[data-open='true'] .inv-open-shot[data-i='2'] { transform: translate(135%, 8%) rotate(18deg); opacity: 0; }
+.inv-open[data-style='photo'] .inv-open-copy {
+  translate: 0 min(9rem, 26vh);
+}
+
+/* The Line: one gold curve drawing itself, then drifting away. */
+.inv-open-curve {
+  width: min(20rem, 76vw);
+  height: auto;
+  transform: translateY(min(-5rem, -13vh));
+  transition: opacity 600ms ease, transform 900ms ease;
+}
+.inv-open-curve path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: inv-draw 1900ms ease forwards 250ms;
+}
+@keyframes inv-draw {
+  to { stroke-dashoffset: 0; }
+}
+.inv-open[data-open='true'] .inv-open-curve {
+  opacity: 0;
+  transform: translateY(min(-6.5rem, -17vh));
+}
+.inv-open[data-style='line'] .inv-open-copy {
+  translate: 0 1.5rem;
 }
 
 /* Sticky RSVP button and music toggle. */
@@ -668,7 +1481,7 @@ table.data tr:hover td {
 }
 
 @media print {
-  .inv-envelope,
+  .inv-open,
   .inv-sticky,
   .inv-music,
   .no-print {
@@ -701,10 +1514,217 @@ table.data tr:hover td {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inv-envelope-hint {
+  /* The opening still happens — a guest who asked for less motion should not
+     lose the tap-to-open moment — but nothing slides, sways or draws: the
+     overlay simply fades out. */
+  .inv-open-hint,
+  .inv-open-copy,
+  .inv-open-panel,
+  .inv-open-curve path {
     animation: none;
   }
+  .inv-open-drape,
+  .inv-open-panel,
+  .inv-open-shot,
+  .inv-open-flap,
+  .inv-open-card,
+  .inv-open-wax,
+  .inv-open-curve {
+    transition: opacity 300ms ease;
+    transform: none !important;
+  }
+  .inv-open {
+    transition: opacity 300ms ease, visibility 0s linear 300ms;
+  }
+
   html {
     scroll-behavior: auto;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The Moment: a frame on the page with the couple's own view behind it.
+
+   Three layers, deliberately separate — backdrop, frame, words — so an encoder
+   can swap the photograph for a client without disturbing the other two. The
+   frame is drawn in CSS from the palette, so it re-skins with the design
+   instead of being a second image to commission.
+
+   The arch is the backdrop's own border-radius rather than a hole punched
+   through an overlay: an inverse mask needs the page colour hard-coded into
+   the shadow, which then lies the moment a customer picks another palette.
+   --------------------------------------------------------------------------- */
+.inv-moment {
+  padding: 0;
+  background: var(--inv-bg);
+}
+.inv-moment-view {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 88vh;
+  overflow: hidden;
+}
+.inv-moment-back {
+  position: absolute;
+  object-fit: cover;
+}
+.inv-moment-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.inv-moment-frame::after {
+  content: '';
+  position: absolute;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 85%, transparent);
+}
+
+/* The capiz arch: square-shouldered at the foot, a half-round at the head. */
+.inv-moment[data-frame='arch'] .inv-moment-back,
+.inv-moment[data-frame='arch'] .inv-moment-frame::after {
+  inset: 7% 8% 6%;
+  border-radius: 50% 50% 0.25rem 0.25rem / 32% 32% 0.25rem 0.25rem;
+}
+/* A second hairline inside the first, the way a carved surround is stepped. */
+.inv-moment[data-frame='arch'] .inv-moment-frame::before {
+  content: '';
+  position: absolute;
+  inset: 9% 10% 8%;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 40%, transparent);
+  border-radius: 50% 50% 0.2rem 0.2rem / 30% 30% 0.2rem 0.2rem;
+}
+
+/* The capiz window: a rectangle divided by its muntins. */
+.inv-moment[data-frame='window'] .inv-moment-back,
+.inv-moment[data-frame='window'] .inv-moment-frame::after {
+  inset: 8% 8%;
+  border-radius: 0.3rem;
+}
+.inv-moment[data-frame='window'] .inv-moment-frame::before {
+  content: '';
+  position: absolute;
+  inset: 8% 8%;
+  background:
+    linear-gradient(to right, transparent calc(50% - 0.5px), color-mix(in srgb, var(--inv-accent2) 65%, transparent) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(33.3% - 0.5px), color-mix(in srgb, var(--inv-accent2) 65%, transparent) calc(33.3% - 0.5px) calc(33.3% + 0.5px), transparent calc(33.3% + 0.5px)),
+    linear-gradient(to bottom, transparent calc(66.6% - 0.5px), color-mix(in srgb, var(--inv-accent2) 65%, transparent) calc(66.6% - 0.5px) calc(66.6% + 0.5px), transparent calc(66.6% + 0.5px));
+}
+
+/* No frame: the view is the page. */
+.inv-moment[data-frame='none'] .inv-moment-back {
+  inset: 0;
+}
+.inv-moment[data-frame='none'] .inv-moment-frame::after {
+  display: none;
+}
+
+/* An empty frame is a real answer, not a missing image — so it is given the
+   surface colour and a little depth rather than being left as a dropout. */
+.inv-moment[data-kind='none'] .inv-moment-frame::after {
+  background: linear-gradient(170deg, var(--inv-surface), color-mix(in srgb, var(--inv-accent2) 30%, var(--inv-surface)));
+}
+
+.inv-moment-copy {
+  position: absolute;
+  inset: auto 8% 6%;
+  z-index: 2;
+  padding: 3rem 1.5rem 1.6rem;
+  text-align: center;
+  border-radius: 0 0 0.25rem 0.25rem;
+}
+.inv-moment-copy p {
+  font-family: var(--inv-body);
+  font-size: 0.74rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  line-height: 2.1;
+  color: var(--inv-ink);
+}
+/* Over a photograph nobody has seen, a text-shadow is not enough — a pale sky
+   swallows white type. The words get their own ground. */
+.inv-moment[data-kind='photo'] .inv-moment-copy {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.34) 55%, transparent);
+}
+.inv-moment[data-kind='photo'] .inv-moment-copy p {
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+.inv-moment[data-frame='none'] .inv-moment-copy {
+  inset: auto 0 0;
+  border-radius: 0;
+}
+
+@media print {
+  .inv-moment-view {
+    aspect-ratio: 4 / 3;
+    max-height: 30vh;
+  }
+}
+
+/* --- the prenup page: a glimpse of the couple before the day --- */
+.inv-prenup-head { position: relative; text-align: center; padding: 0 4rem; }
+.inv-rule-sm { display: block; width: 1px; height: 1.1rem; margin: 0.55rem auto 0; background: var(--inv-accent2); }
+.inv-prenup-title { font-family: var(--inv-display); font-style: italic; font-weight: 500; text-transform: uppercase; letter-spacing: 0.2em; text-indent: 0.2em; font-size: 1.32rem; line-height: 1.3; color: var(--inv-accent); max-width: 16ch; margin: 0.8rem auto 0; }
+.inv-prenup-side { position: absolute; width: 5rem; font-size: 0.56rem; line-height: 1.75; color: var(--inv-muted); margin: 0; }
+.inv-prenup-side::after { content: ''; display: block; width: 1.3rem; height: 1px; margin-top: 0.5rem; background: var(--inv-accent2); }
+.inv-prenup-side-l { left: 0; top: 6.4rem; text-align: left; font-style: italic; font-family: var(--inv-display); font-size: 0.7rem; letter-spacing: 0.06em; }
+.inv-prenup-side-r { right: 0; top: 2.6rem; text-align: right; text-transform: uppercase; letter-spacing: 0.26em; }
+.inv-prenup-side-r::after { margin-left: auto; }
+.inv-prenup-hero { margin: 0.8rem -1.25rem 0; }
+.inv-prenup-hero img {
+  display: block; width: 100%; aspect-ratio: 1 / 1.02; object-fit: cover;
+  -webkit-mask-image: radial-gradient(ellipse 72% 66% at 50% 46%, #000 48%, transparent 100%);
+  mask-image: radial-gradient(ellipse 72% 66% at 50% 46%, #000 48%, transparent 100%);
+}
+.inv-prenup-strand { position: relative; height: 0; padding-bottom: 25.3%; margin: -17% -1.25rem 0; background: center top / 100% auto no-repeat; }
+.inv-prenup-note { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 1.8; max-width: 17rem; margin: 0 auto; }
+.inv-arches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 1.1rem; }
+.inv-arches[data-count='2'] { grid-template-columns: repeat(2, 1fr); padding: 0 12%; }
+.inv-arches[data-count='1'] { grid-template-columns: 1fr; padding: 0 26%; }
+.inv-arches figure { margin: 0; text-align: center; }
+.inv-arches img { display: block; width: 100%; aspect-ratio: 3 / 3.9; object-fit: cover; border-radius: 999px 999px 0.3rem 0.3rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); }
+.inv-arches figure:nth-child(odd) img { filter: grayscale(1) contrast(1.03); }
+.inv-arches figcaption { margin-top: 0.7rem; text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.54rem; line-height: 1.75; color: var(--inv-muted); }
+.inv-video-facade, .inv-video-frame { display: block; width: 100%; aspect-ratio: 16 / 9; margin-top: 1.1rem; border: 0; border-radius: 0.4rem; overflow: hidden; }
+.inv-video-facade { position: relative; padding: 0; background: #3a3129; cursor: pointer; box-shadow: 0 16px 34px -18px rgba(74, 59, 47, 0.6); text-align: right; }
+.inv-video-facade img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.inv-video-facade::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(40, 30, 22, 0.18), rgba(40, 30, 22, 0) 40%, rgba(40, 30, 22, 0.25)); }
+.inv-video-play { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 3.2rem; height: 3.2rem; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.16); backdrop-filter: blur(3px); z-index: 1; }
+.inv-video-play::after { content: ''; position: absolute; left: 55%; top: 50%; translate: -50% -50%; border-style: solid; border-width: 0.5rem 0 0.5rem 0.85rem; border-color: transparent transparent transparent #fff; }
+.inv-video-title { position: absolute; right: 1rem; top: 0.9rem; z-index: 1; font-family: var(--inv-script, var(--inv-display)); font-style: var(--inv-script-style, normal); font-size: 1.7rem; line-height: 1.05; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35); max-width: 48%; }
+.inv-video-cta { position: absolute; right: 1rem; bottom: 0.9rem; z-index: 1; text-transform: uppercase; letter-spacing: 0.26em; font-size: 0.52rem; line-height: 1.7; color: #fff; max-width: 40%; }
+.inv-prenup-close { text-align: center; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.64rem; line-height: 1.8; margin: 1.2rem auto 0; max-width: 17rem; }
+
+/* set close, the way an invitation is: the cards, the fields and the form's
+   gaps a little tighter on this format, the closing photograph a little shorter */
+.inv[data-layout='capiz'] .inv-card { padding: 1rem; }
+.inv[data-layout='capiz'] .inv-field { padding: 0.5rem 0.8rem; }
+.inv[data-layout='capiz'] #rsvp-form > :not(:last-child) { margin-block-end: 0.6rem; }
+.inv[data-layout='capiz'] #closing .inv-photo { aspect-ratio: 16 / 9; margin-bottom: 0.6rem; }
+.inv-getting-section .inv-title { margin-bottom: 0.8rem; }
+
+/* ---------------------------------------------------------------------------
+   Night. The guest switches with the sun-and-moon button (top right); the
+   couple sets the default in Settings, or leaves it to the guest's clock.
+   Capiz by night: its papers darkened and tinted toward a deep blue, unless
+   the design has its own night backgrounds (data-night-art, drawn as is), the
+   ink lifted to ivory, the cards and fields on dark glass. */
+.inv-mode { position: fixed; right: 1rem; top: 1rem; z-index: 40; width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent); background: color-mix(in srgb, var(--inv-surface) 88%, transparent); color: var(--inv-ink); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); cursor: pointer; backdrop-filter: blur(6px); }
+.inv-mode:hover { transform: translateY(-1px); }
+.inv[data-layout='capiz'][data-mode='night'] { background: #1a1b26; }
+/* The palette's variables are set inline on .inv by the theme, so the night
+   ones are set one level down, on everything in the page but the opening. */
+.inv[data-layout='capiz'][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
+body:has(.inv[data-layout='capiz'][data-mode='night']) { background: #12131c; }
+.inv[data-mode='night'] .inv-ground:not([data-night-art]) .inv-paper { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
+.inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
+.inv[data-layout='capiz'][data-mode='night'] .inv-card,
+.inv[data-layout='capiz'][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-field::placeholder { color: var(--inv-muted); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-swatch { border-color: rgba(255, 255, 255, 0.55); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-avoid-ico { border-color: #d98a84; }
+.inv[data-layout='capiz'][data-mode='night'] .inv-avoid-ico::after { background: #d98a84; }
+.inv[data-layout='capiz'][data-mode='night'] .inv-figure { filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
+.inv[data-layout='capiz'][data-mode='night'] .inv-open[data-clip='capiz'] .inv-open-hint { color: #f1e9dd; }
+@media print { .inv-mode { display: none; } }

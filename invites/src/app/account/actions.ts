@@ -6,7 +6,7 @@ import type { Privacy } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
-import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride } from '@/lib/invitations';
+import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone} from '@/lib/invitations';
 import { addGuest, updateGuest, deleteGuest, importGuests, saveTable, deleteTable, assignTable, checkIn, type GuestInput } from '@/lib/guests';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
@@ -27,13 +27,24 @@ function refresh(id: string) {
   revalidatePath(`/account/invitations/${id}`, 'layout');
 }
 
-export async function saveSectionAction(invitationId: string, key: SectionKey, data: unknown) {
+export async function saveSectionAction(invitationId: string, key: SectionKey, data: unknown, opts: { done?: boolean } = {}) {
   const user = await requireUser();
   return action(async () => {
     await ownInvitation(user, invitationId);
-    const result = await saveSection(user, invitationId, key, data);
+    const result = await saveSection(user, invitationId, key, data, opts);
     refresh(invitationId);
-    return { issues: result.issues, slug: result.invitation.slug, editsUsed: result.invitation.editsUsed, editsAllowed: result.invitation.editsAllowed };
+    return { issues: result.issues, slug: result.invitation.slug, editsUsed: result.invitation.editsUsed, editsAllowed: result.invitation.editsAllowed, done: result.done, completedAt: result.completedAt };
+  });
+}
+
+/** Reopen a section marked Done (or mark it Done again) without saving anything else. */
+export async function sectionDoneAction(invitationId: string, key: SectionKey, done: boolean) {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    const list = await setSectionDone(user, invitationId, key, done);
+    refresh(invitationId);
+    return { done: list };
   });
 }
 
@@ -51,6 +62,16 @@ export async function settingsAction(invitationId: string, formData: FormData) {
     refresh(invitationId);
   });
   return result;
+}
+
+/** The language the guest page speaks, switched from the builder. */
+export async function languageAction(invitationId: string, language: 'en' | 'tl') {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    await updateSettings(user, invitationId, { language: language === 'tl' ? 'tl' : 'en' });
+    refresh(invitationId);
+  });
 }
 
 export async function themeAction(invitationId: string, theme: ThemeOverride) {

@@ -1,5 +1,7 @@
 'use client';
 
+import type { ThemeMode } from '@/lib/invitations';
+
 import { useState, useTransition } from 'react';
 import type { Palette } from '@/lib/theme';
 import { settingsAction, themeAction, templateAction } from '@/app/account/actions';
@@ -60,10 +62,12 @@ export function SettingsForm(p: { invitationId: string; host: string; slug: stri
   );
 }
 
-export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; fonts: { key: string; label: string }[]; current: { paletteKey: string; palette: Palette; fontsKey: string }; canPresets: boolean; canCustom: boolean }) {
+export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; fonts: { key: string; label: string }[]; looks: { key: string; name: string; tagline: string }[]; current: { paletteKey: string; palette: Palette; fontsKey: string; lookKey: string; mode: string }; canPresets: boolean; canCustom: boolean }) {
   const { pending, run, Msg } = useRun();
   const [custom, setCustom] = useState<Palette>(p.current.palette);
   const [fontsKey, setFontsKey] = useState(p.current.fontsKey);
+  const [lookKey, setLookKey] = useState(p.current.lookKey);
+  const [mode, setMode] = useState(p.current.mode || 'day');
   return (
     <div className="space-y-4">
       <div>
@@ -88,6 +92,29 @@ export function ThemePicker(p: { invitationId: string; palettes: { key: string; 
           ))}
         </div>
         <button type="button" className="btn btn-secondary btn-sm mt-2" disabled={!p.canCustom || pending} onClick={() => run(() => themeAction(p.invitationId, { palette: custom }), 'Custom colours applied.')}>Apply colours</button>
+      </div>
+      <div>
+        <label className="label" htmlFor="look">Look</label>
+        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">The faces the page is set in and the lines under each heading. <a href="/looks" target="_blank" rel="noopener" className="underline">See them side by side</a>.</p>
+        <div className="flex gap-2">
+          <select id="look" className="field" value={lookKey} disabled={pending} onChange={(e) => setLookKey(e.target.value)}>
+            <option value="">Design default</option>
+            {p.looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
+          </select>
+          <button type="button" className="btn btn-secondary" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { lookKey }), lookKey ? 'Look applied.' : 'Back to the design’s look.')}>Apply</button>
+        </div>
+      </div>
+      <div>
+        <label className="label" htmlFor="mode">Day &amp; night</label>
+        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">How the page opens. Guests can always switch with the sun-and-moon button on the page.</p>
+        <div className="flex gap-2">
+          <select id="mode" className="field" value={mode} disabled={pending} onChange={(e) => setMode(e.target.value)}>
+            <option value="day">Day</option>
+            <option value="night">Night</option>
+            <option value="auto">By the guest’s clock — night from 6 pm to 6 am</option>
+          </select>
+          <button type="button" className="btn btn-secondary" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { mode: mode as ThemeMode }), mode === 'night' ? 'Night it is.' : mode === 'auto' ? 'By the clock.' : 'Day it is.')}>Apply</button>
+        </div>
       </div>
       <div>
         <label className="label" htmlFor="fonts">Fonts {!p.canCustom && <span className="pill pill-warn ml-1">Complete tier</span>}</label>

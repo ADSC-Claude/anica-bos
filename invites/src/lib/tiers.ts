@@ -88,15 +88,37 @@ export function galleryLimit(tier: Tier): number {
  * The comparison table on the landing page, row by row. Text cells are shown
  * as written; booleans become ✓ or —.
  */
-export type ComparisonRow = { label: string; cells: Record<Tier, string | boolean>; group?: string };
+export type ComparisonRow = {
+  label: string;
+  cells: Record<Tier, string | boolean>;
+  group?: string;
+  /** Built, but kept out of the package for now. Stays out of every table. */
+  hidden?: true;
+};
 
-export const COMPARISON: ComparisonRow[] = [
+/**
+ * Features that exist in the code but are not offered yet — too much to
+ * encode for Done-For-You, and not what most couples ask for. Nothing is
+ * removed: their pages still work if reached, they just are not shown or sold.
+ * To offer one later, delete it from this set and un-hide its rows.
+ */
+export const FUTURE_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>(['guests.manager', 'guests.import', 'seating', 'checkin']);
+
+/** Whether a feature is part of the package customers can see and buy. */
+export function featureOffered(feature: FeatureKey): boolean {
+  return !FUTURE_FEATURES.has(feature);
+}
+
+/** Every row, including the ones held back. The tables use COMPARISON. */
+export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + premium designs' } },
   { label: 'Colour & font customization', cells: { BASIC: false, STANDARD: 'Palette presets', COMPLETE: 'Full custom palette + fonts' } },
   { label: 'Cover: names, monogram, date, cover photo', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
+  { label: 'Opening animation before the invitation', cells: { BASIC: 'The Envelope', STANDARD: '+ The Line, The Curtain', COMPLETE: '+ The Drape, The Seal, Photo Story' } },
+  { label: 'Cinematic opening, drawn for you (Done-For-You)', cells: { BASIC: false, STANDARD: false, COMPLETE: 'Add-on' } },
   { label: 'Countdown timer', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Ceremony & reception + Google Maps & Waze buttons', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
-  { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
+  { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true }, hidden: true },
   { label: 'Dress code + colour motif swatches', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Photos', cells: { BASIC: '1 cover photo', STANDARD: 'Gallery up to 10', COMPLETE: 'Unlimited gallery + prenup video' } },
   { label: 'RSVP', cells: { BASIC: 'Simple form', STANDARD: '+ RSVP dashboard, Excel export', COMPLETE: '+ per-guest links, reserved seats, meal choice, plus-one control, auto-close' } },
@@ -104,13 +126,13 @@ export const COMPARISON: ComparisonRow[] = [
   { label: 'Our Story / timeline', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Gift note + GCash / bank QR', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Hashtag & social', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
-  { label: 'FAQ section', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
+  { label: 'FAQ section', cells: { BASIC: false, STANDARD: true, COMPLETE: true }, hidden: true },
   { label: 'Background music', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Program / timeline of the day', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
-  { label: 'Accommodation & travel tips', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
-  { label: 'Guest list manager (Excel import, groups, reminders)', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
-  { label: "Seating chart on the guest's page", cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
-  { label: 'QR check-in on event day', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
+  { label: 'Accommodation & travel tips', cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
+  { label: 'Guest list manager (Excel import, groups, reminders)', cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
+  { label: "Seating chart on the guest's page", cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
+  { label: 'QR check-in on event day', cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
   { label: 'Guestbook / well-wishes wall', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Link', cells: { BASIC: '/juan-and-maria', STANDARD: '+ custom slug', COMPLETE: '+ password / private option' } },
@@ -118,3 +140,7 @@ export const COMPARISON: ComparisonRow[] = [
   { label: 'Link validity', cells: { BASIC: 'Event + 30 days', STANDARD: 'Event + 6 months', COMPLETE: 'Event + 1 year' } },
   { label: 'Support', cells: { BASIC: 'Email', STANDARD: 'Messenger / Viber', COMPLETE: 'Priority + 1 free design tweak' } },
 ];
+
+/** What the landing page, checkout and upgrade page show. */
+export const COMPARISON: ComparisonRow[] = COMPARISON_ALL.filter((r) => !r.hidden);
+

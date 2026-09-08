@@ -10,6 +10,7 @@ import {
   displayTitle,
   eventInstant,
   fieldsFor,
+  keepStaffFields,
   publishProblems,
   rsvpDeadline,
   sectionUnlocked,
@@ -17,13 +18,19 @@ import {
   type Content,
   type SectionKey,
   OCCASION_SECTIONS,
+  sectionOffered,
 } from './sections';
 import { hasFeature } from './tiers';
+import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
+import { LOOK_BY_KEY, isLook, type Look } from './looks';
 import { invitationPath } from './app-url';
+import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
+import { notifyStaff } from './notifications';
+import { formatDate } from './datetime';
 
 /**
  * The invitation's lifecycle: a draft is created at checkout, unlocked when
@@ -32,8 +39,19 @@ import { invitationPath } from './app-url';
  * is the only writer of it.
  */
 
-export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string };
-export type StoredContent = Content & { theme?: ThemeOverride };
+export type ThemeMode = 'day' | 'night' | 'auto';
+export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string; lookKey?: string; mode?: ThemeMode };
+export type StoredContent = Content & { theme?: ThemeOverride; progress?: Progress };
+
+/**
+ * Three weeks before the event the invitation closes to the couple's changes
+ * and passes to our team for the final touches. Staff are never locked out.
+ */
+export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null }) {
+  if (user.role !== 'CUSTOMER') return;
+  const w = changeWindow(invitation.eventAt);
+  if (w?.closed) throw new HttpError(403, `Changes closed on ${formatDate(w.closesAt)}, three weeks before your event, so our team can finish the final touches by ${formatDate(w.finalAt)}. Message us for anything urgent.`);
+}
 
 /**
  * Slugs live at the site root, so this list is not a nicety: a slug equal to a
@@ -48,7 +66,7 @@ export type StoredContent = Content & { theme?: ThemeOverride };
  */
 export const RESERVED_SLUGS = new Set([
   // Directories under src/app.
-  'account', 'admin', 'api', 'checkout', 'coming-soon', 'demo', 'login', 'logout',
+  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks',
   'privacy', 'refund-policy', 'signup', 'templates', 'terms',
   // Files under src/app that serve their own path.
   'robots.txt', 'sitemap.xml', 'favicon.ico',
@@ -115,18 +133,32 @@ export function unlocked(invitation: { order: { status: string } | null }): bool
   return invitation.order?.status === 'ACTIVE' || invitation.order?.status === 'PAID' || invitation.order === null;
 }
 
-export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown) {
+export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown, opts: { done?: boolean } = {}) {
   const invitation = await prisma.invitation.findUnique({ where: { id: invitationId }, include: { order: { select: { status: true } } } });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
+  assertOpenForChanges(user, invitation);
   if (!OCCASION_SECTIONS[invitation.occasion].includes(key)) throw new HttpError(400, 'That section does not belong to this occasion.');
   if (!sectionUnlocked(key, invitation.occasion, invitation.tier)) {
     throw new HttpError(403, 'That section is not included in your package. Upgrade to unlock it.');
   }
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet. The builder unlocks once payment is confirmed.');
 
-  const { data, issues } = cleanSection(fieldsFor(key, invitation.occasion), raw);
+  const fields = fieldsFor(key, invitation.occasion);
+  const { data: cleaned, issues } = cleanSection(fields, raw);
   const content = contentOf(invitation.content);
+  // the fixed writings are ours: a customer's save keeps them as they were
+  const data = isStaff(user.role) && can(user.role, 'invitations.edit') ? cleaned : keepStaffFields(fields, content[key], cleaned);
   content[key] = data;
+  // Done, section by section; the form is complete once every section the couple has is Done, and the team is told
+  let completed = false;
+  if (opts.done !== undefined) {
+    content.progress = withDone(content.progress, key, opts.done);
+    const mine = OCCASION_SECTIONS[invitation.occasion].filter((k) => sectionOffered(k) && sectionUnlocked(k, invitation.occasion, invitation.tier));
+    if (formComplete(content.progress, mine) && !content.progress.completedAt) {
+      content.progress.completedAt = new Date().toISOString();
+      completed = true;
+    }
+  }
 
   const eventAt = eventInstant(content);
   const deadline = rsvpDeadline(content);
@@ -150,11 +182,26 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
       ...(published ? { editsUsed: { increment: 1 } } : {}),
     },
   });
-  return { invitation: updated, issues };
+  if (completed) {
+    await audit(user, { module: 'invitations', action: 'form.complete', entityType: 'Invitation', entityId: invitationId, summary: `Every section marked Done: ${title}` });
+    await notifyStaff('invitations.view', `Form complete: ${title}`, 'Every section is marked Done. The invitation is ready for our team.', `/admin/invitations/${invitationId}`);
+  }
+  return { invitation: updated, issues, done: doneSections(content.progress), completedAt: content.progress?.completedAt ?? null };
+}
+
+/** Reopen (or close) one section without touching what it holds. Counts as no edit. */
+export async function setSectionDone(user: SessionUser, invitationId: string, key: SectionKey, done: boolean) {
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertOpenForChanges(user, invitation);
+  const content = contentOf(invitation.content);
+  content.progress = withDone(content.progress, key, done);
+  await prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
+  return doneSections(content.progress);
 }
 
 export async function updateTheme(user: SessionUser, invitationId: string, theme: ThemeOverride) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertOpenForChanges(user, invitation);
   const clean: ThemeOverride = {};
   if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) {
     if (!hasFeature(invitation.tier, 'palette.presets')) throw new HttpError(403, 'Palette presets are included from the Standard tier.');
@@ -168,15 +215,26 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
     if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Font choice is included in the Complete tier.');
     clean.fontsKey = theme.fontsKey;
   }
+  // A look is the faces and the lines under the headings; every package may choose one.
+  if (theme.lookKey !== undefined) clean.lookKey = isLook(theme.lookKey) ? theme.lookKey : '';
+  // Day, night, or by the guest's clock; the guest can still switch on the page.
+  if (theme.mode !== undefined) clean.mode = theme.mode === 'night' || theme.mode === 'auto' ? theme.mode : 'day';
   const content = contentOf(invitation.content);
   content.theme = { ...(content.theme ?? {}), ...clean };
   return prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
 }
 
 /** The palette and fonts a page renders with: the template's, overridden by the customer's. */
-export function resolveTheme(template: { palette: unknown; fonts: unknown }, content: StoredContent): { palette: Palette; fonts: Fonts } {
+/**
+ * The palette, the fonts and the look a page is set in. The design's own
+ * first, then what the customer chose over it. A look brings its fonts with
+ * it — that is what a look is — so a chosen look wins over a chosen font
+ * preset, and a design with a look ignores its own `fonts` column.
+ */
+export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent): { palette: Palette; fonts: Fonts; look?: Look } {
   let palette = paletteFrom(template.palette);
   let fonts = fontsFrom(template.fonts);
+  let look: Look | undefined = template.look && isLook(template.look) ? LOOK_BY_KEY[template.look] : undefined;
   const t = content.theme;
   if (t?.paletteKey) {
     const preset = PALETTE_PRESETS.find((p) => p.key === t.paletteKey);
@@ -185,9 +243,14 @@ export function resolveTheme(template: { palette: unknown; fonts: unknown }, con
   if (t?.palette) palette = paletteFrom({ ...palette, ...t.palette });
   if (t?.fontsKey) {
     const preset = FONT_PRESETS.find((f) => f.key === t.fontsKey);
-    if (preset) fonts = preset.fonts;
+    if (preset) {
+      fonts = preset.fonts;
+      look = undefined;
+    }
   }
-  return { palette, fonts };
+  if (t?.lookKey && isLook(t.lookKey)) look = LOOK_BY_KEY[t.lookKey];
+  if (look) fonts = look.fonts;
+  return { palette, fonts, look };
 }
 
 export async function updateSettings(
@@ -197,6 +260,8 @@ export async function updateSettings(
 ) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
   const data: Record<string, unknown> = {};
+  // the words and the language are the invitation; the link and who may open it stay the couple's to change
+  if (input.language !== undefined || input.title !== undefined) assertOpenForChanges(user, invitation);
 
   if (input.slug !== undefined) {
     const slug = slugify(input.slug);
@@ -233,6 +298,7 @@ export async function updateSettings(
 
 export async function changeTemplate(user: SessionUser, invitationId: string, templateId: string) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertOpenForChanges(user, invitation);
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
   if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, 'Premium designs are included in the Complete tier.');

@@ -1,6 +1,11 @@
+import { MOTIF_MIN, MOTIF_MAX } from './palette';
+import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
+import { OPENINGS } from './openings';
+import { BACKDROPS } from './backdrops';
+import { parseStart } from './song';
 
 /**
  * The shape of an invitation, section by section.
@@ -12,7 +17,14 @@ import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGG
  * so switching designs never loses data.
  */
 
-export type Option = { value: string; label: string };
+export type Option = {
+  value: string;
+  label: string;
+  /** checks: offered only when the field it depends on holds one of these values */
+  when?: string[];
+  /** Shown but not selectable below this tier. The renderer gates it again. */
+  lockedTier?: Tier;
+};
 
 export type FieldType =
   | 'text'
@@ -23,8 +35,15 @@ export type FieldType =
   | 'number'
   | 'toggle'
   | 'image'
+  /** a song file, uploaded; stored as its URL, like 'image' */
+  | 'audio'
+  /** a moment in a song, stored as seconds, picked as minutes and seconds */
+  | 'offset'
   | 'select'
   | 'colors'
+  /** colours picked from the named palette (src/lib/palette.ts); stored as hex like 'colors' */
+  | 'swatches'
+  | 'checks'
   | 'person'
   | 'list';
 
@@ -35,7 +54,7 @@ export type Field = {
   hint?: string;
   placeholder?: string;
   required?: boolean;
-  /** select */
+  /** select, checks */
   options?: Option[];
   /** select: picking an option copies its text into this sibling field */
   presets?: Preset[];
@@ -44,8 +63,22 @@ export type Field = {
   item?: Field[];
   addLabel?: string;
   max?: number;
+  /** swatches: how many at least, asked at publish */
+  min?: number;
+  /** swatches: offer the palette's presets — four colours that go together, in one tap */
+  sets?: boolean;
+  /** checks: the sibling field whose values decide which options (by their 'when') are offered */
+  dependsOn?: string;
+  /** checks: the list folds away behind a button, the ticked ones showing as chips */
+  fold?: boolean;
   /** Render full-width in a two-column form. */
   wide?: boolean;
+  /**
+   * A fixed writing: the design's own words, with the look's line as its
+   * default, and ours to change — per design in the admin, or here for one
+   * invitation by staff editing for the customer. Not on the client's form.
+   */
+  staff?: boolean;
 };
 
 export type Person = { title: string; name: string; deceased: boolean };
@@ -67,6 +100,7 @@ export type SectionKey =
   | 'program'
   | 'faq'
   | 'travel'
+  | 'moment'
   | 'social'
   | 'music'
   | 'guestbook'
@@ -88,6 +122,8 @@ export type SectionDef = {
   /** Occasions where the lowest tier is different from `minTier`. */
   tierOverride?: Partial<Record<Occasion, Tier>>;
   labelFor?: Partial<Record<Occasion, string>>;
+  /** Built, but not offered yet: not in the builder, not on the page. */
+  hidden?: true;
   fields: (occasion: Occasion) => Field[];
 };
 
@@ -101,11 +137,16 @@ const date = (key: string, label: string, extra: Partial<Field> = {}): Field => 
 const time = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'time', ...extra });
 const url = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'url', ...extra });
 const image = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'image', ...extra });
+const audio = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'audio', ...extra });
+const offset = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'offset', ...extra });
 const toggle = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'toggle', ...extra });
 const number = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'number', ...extra });
 const person = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'person', ...extra });
 const select = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'select', options, ...extra });
 const list = (key: string, label: string, item: Field[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'list', item, wide: true, ...extra });
+/** A row of things to tick; stored as the ticked values, in the options' order. */
+const checks = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'checks', options, wide: true, ...extra });
+const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en, ...(i.for ? { when: i.for } : {}) }));
 const names = (key: string, label: string, extra: Partial<Field> = {}): Field => list(key, label, [text('name', 'Name', { required: true })], { addLabel: 'Add a name', ...extra });
 
 const MAPS_HINT = 'Paste the "Share" link from Google Maps. Guests get a one-tap button.';
@@ -138,9 +179,25 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
     presetTarget: 'intro',
     hint: 'Pick a preset, then edit the wording below.',
   }),
-  textarea('intro', 'Intro wording', { placeholder: 'Together with their families…' }),
+  textarea('intro', 'Intro wording', { placeholder: 'Together with their families…', staff: true }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
-  ...(occasion === 'MEMORIAL' ? [] : [toggle('envelope', 'Animated envelope opening', { hint: 'Guests tap to open. Adds a little ceremony to the link.' })]),
+  textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: "Shown after the cover, on designs that carry one. Blank keeps the design's own verse.", staff: true }),
+  text('verseRef', 'Its source', { placeholder: 'Colossians 3:14', staff: true }),
+  text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.', staff: true }),
+  ...(occasion === 'MEMORIAL'
+    ? []
+    : [
+        select(
+          'opening',
+          'Opening',
+          // Staff-only openings are left out: the cinematic one is artwork
+          // somebody has to make, so it is attached to an order, never picked.
+          OPENINGS.filter((o) => !o.staffOnly).map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
+          { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
+        ),
+        text('openingLine', 'Words on the opening', { placeholder: "You're invited", hint: 'The line on the closed screen. Leave blank and each opening uses its own.' }),
+        text('openingLine2', 'Words as it opens', { placeholder: 'Good things begin together', hint: 'Shown while the opening plays. Leave blank to show nothing.' }),
+      ]),
 ];
 
 const SECTION_DEFS: SectionDef[] = [
@@ -274,10 +331,11 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Countdown',
     description: 'Counts down to the date and time on the cover.',
     minTier: 'BASIC',
-    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day' })],
+    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day', staff: true })],
   },
   {
     key: 'parents',
+    hidden: true,
     label: 'Parents',
     tl: 'Mga Magulang',
     description: 'With titles, and a † marker for those who have passed.',
@@ -381,6 +439,8 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'Principal sponsors, secondary sponsors, and the wedding party. Unlimited rows.',
     minTier: 'STANDARD',
     fields: () => [
+      names('brideParents', 'Parents of the bride'),
+      names('groomParents', 'Parents of the groom'),
       list('principalSponsors', 'Principal Sponsors (Ninong & Ninang)', [text('ninong', 'Ninong', { placeholder: 'Mr. Jose Santos' }), text('ninang', 'Ninang', { placeholder: 'Mrs. Ana Santos' })], { addLabel: 'Add a pair' }),
       list('secondarySponsors', 'Secondary Sponsors', [
         select('role', 'Role', [{ value: 'candle', label: 'Candle' }, { value: 'veil', label: 'Veil' }, { value: 'cord', label: 'Cord' }]),
@@ -434,22 +494,21 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'dressCode',
     label: 'Dress code',
     tl: 'Kasuotan',
-    description: 'Attire and up to five motif colours shown as swatches.',
+    description: 'What to wear, in colours and lists: the suits and gowns drawn on the page take the colours you pick.',
     minTier: 'BASIC',
     labelFor: { KIDS_BIRTHDAY: 'Theme & attire' },
-    fields: () => [
-      select('attire', 'Guest attire', [
-        { value: 'formal', label: 'Formal' },
-        { value: 'semiFormal', label: 'Semi-formal' },
-        { value: 'smartCasual', label: 'Smart casual' },
-        { value: 'filipiniana', label: 'Filipiniana & Barong' },
-        { value: 'cocktail', label: 'Cocktail' },
-        { value: 'themed', label: 'Themed (describe below)' },
-        { value: 'casual', label: 'Casual' },
-      ]),
-      text('attireText', 'Attire details', { placeholder: 'e.g. Long gown for ladies, suit for gentlemen' }),
-      { key: 'colors', label: 'Colour motif', type: 'colors', max: 5, wide: true, hint: 'Up to five colours. Guests see them as swatches.' },
-      toggle('avoidWhite', 'Ask guests to avoid white / off-white'),
+    fields: (occasion) => [
+      checks('attire', 'Dress code', ATTIRES.map((a) => ({ value: a.value, label: a.en })), { min: 1, max: 2, hint: 'One, or two that go together — formal with cocktail, say. The clothes below follow what you pick.' }),
+      text('attireText', 'Line under the heading', { placeholder: 'e.g. We kindly encourage our guests to wear elegant formal attire.', hint: 'Blank writes one from the attire picked.', staff: true }),
+      { key: 'gentsColors', label: 'Suit colours for the gentlemen', type: 'swatches', max: 4, hint: 'Up to four, from the palette. The suits drawn on the page take these colours; blank uses the motif.' },
+      checks('gentsItems', 'For gentlemen', attireOptions(gentsItems(occasion)), { dependsOn: 'attire', min: 2, max: 3, hint: 'Two or three. Only what suits your dress code is offered; guests read them as one line.' }),
+      text('gentsNote', 'Note for gentlemen', { placeholder: 'e.g. Tie is optional.', hint: "Blank keeps the design's own note.", staff: true }),
+      { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'swatches', max: 5, hint: 'Up to five, from the palette. The gowns drawn on the page take these colours; blank uses the motif. A pale pick is deepened on the page — no guest wears white.' },
+      checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion)), { dependsOn: 'attire', min: 2, max: 3, hint: 'Two or three, the same way.' }),
+      text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.', hint: "Blank keeps the design's own note.", staff: true }),
+      { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
+      text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.', staff: true }),
+      checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { max: AVOID_MAX, fold: true, hint: 'Up to six, from everything guests are ever asked to leave at home. Each one is drawn crossed out on the page.' }),
       text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
       text('entourageAttire', 'Entourage', { placeholder: 'e.g. Sage green' }),
       textarea('note', 'Note'),
@@ -464,7 +523,7 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { MEMORIAL: 'In lieu of flowers', KIDS_BIRTHDAY: 'Gift ideas' },
     fields: () => [
       select('preset', 'Preset', GIFT_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: GIFT_PRESETS, presetTarget: 'text' }),
-      textarea('text', 'Gift note'),
+      textarea('text', 'Gift note', { staff: true }),
       text('gcashName', 'GCash name'),
       text('gcashNumber', 'GCash number', { placeholder: '0917 000 0000' }),
       image('gcashQr', 'GCash / Maya QR', { hint: 'A screenshot of your QR from the app.' }),
@@ -481,40 +540,45 @@ const SECTION_DEFS: SectionDef[] = [
     fields: (occasion) => [
       date('deadline', 'RSVP deadline', { hint: 'The form closes after this date on the Complete tier.' }),
       toggle('showSeats', 'Ask how many are coming'),
-      toggle('collectAttendees', 'Ask for the names of those attending'),
+      toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
-      list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true })], { addLabel: 'Add a choice', max: 6 }),
+      list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
-      textarea('policyText', 'Policy wording'),
+      textarea('policyText', 'Policy wording', { staff: true }),
       select('notePreset', 'RSVP note', RSVP_NOTE_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: RSVP_NOTE_PRESETS, presetTarget: 'note' }),
-      textarea('note', 'RSVP note', { hint: '{n} becomes the reserved seats on a personal link; {date} the deadline.' }),
+      textarea('note', 'RSVP note', { hint: '{n} becomes the reserved seats on a personal link; {date} the deadline.', staff: true }),
       ...(occasion === 'CORPORATE' ? [toggle('askDepartment', 'Ask for department / company')] : []),
       text('contactPhone', 'RSVP by text', { placeholder: 'Mobile number guests can text instead' }),
-      textarea('reminderText', 'Reminder message', { hint: 'Used when you send RSVP reminders from the guest list.' }),
+      textarea('reminderText', 'Reminder message', { hint: 'Used when RSVP reminders are sent from the guest list.', staff: true }),
     ],
   },
   {
     key: 'story',
     label: 'Our story',
     tl: 'Ang Aming Kuwento',
-    description: 'How you met, the proposal, and a timeline with photos.',
+    description: 'How you met, the proposal, and a timeline with its photos — and the line under the heading.',
     minTier: 'STANDARD',
     labelFor: { MILESTONE_BIRTHDAY: 'Their story', ANNIVERSARY: 'Our story so far' },
     fields: () => [
+      text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       textarea('howWeMet', 'How we met'),
       textarea('proposal', 'The proposal'),
-      list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo')], { addLabel: 'Add a moment', max: 12 }),
+      list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
     ],
   },
   {
     key: 'gallery',
-    label: 'Gallery',
+    label: 'Prenup photos & video',
     tl: 'Mga Larawan',
-    description: 'Prenup photos with captions, and a video link.',
+    description: 'Your photos with their captions, your video, and the lines written around them on the page.',
     minTier: 'BASIC',
     fields: () => [
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo' }),
-      url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link.' }),
+      text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
+      text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
+      url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
+      text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],
   },
   {
@@ -532,6 +596,7 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'faq',
+    hidden: true,
     label: 'FAQ',
     tl: 'Mga Paalala',
     description: 'Parking, kids, rain plan, shuttle, hashtag reminders.',
@@ -539,7 +604,29 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [list('items', 'Questions', [text('q', 'Question', { required: true }), textarea('a', 'Answer', { required: true })], { addLabel: 'Add a question', max: 20 })],
   },
   {
+    key: 'moment',
+    label: 'The moment',
+    tl: 'Ang Sandali',
+    description: 'A framed view — your own photo behind the arch, or a painted Philippine scene when a photo would fight the design.',
+    minTier: 'STANDARD',
+    fields: () => [
+      image('backdrop', 'Your photo', { hint: 'Portrait works best. Sits behind the frame, and can be swapped any time without touching the rest of the page.' }),
+      select('preset', 'Painted scene instead', BACKDROPS.map((b) => ({ value: b.key, label: `${b.label} — ${b.place}` })), {
+        hint: 'Used only when no photo is set. Every scene is somewhere in the Philippines.',
+      }),
+      select('frame', 'Frame', [
+        { value: 'arch', label: 'Capiz arch' },
+        { value: 'window', label: 'Capiz window' },
+        { value: 'none', label: 'No frame — full bleed' },
+      ]),
+      text('line1', 'First line', { placeholder: 'Same horizons', staff: true }),
+      text('line2', 'Second line', { placeholder: 'A brighter', staff: true }),
+      text('line3', 'Third line', { placeholder: 'Tomorrow', staff: true }),
+    ],
+  },
+  {
     key: 'travel',
+    hidden: true,
     label: 'Accommodation & travel',
     tl: 'Tuluyan at Biyahe',
     description: 'Hotels, booking codes, directions from Manila.',
@@ -559,21 +646,22 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [
       text('hashtag', 'Hashtag', { placeholder: '#JuanAndMariaSayIDo' }),
       text('instagram', 'Instagram'),
+      text('tiktok', 'TikTok'),
       text('facebook', 'Facebook'),
       toggle('unplugged', 'Unplugged ceremony note'),
-      textarea('unpluggedText', 'Wording', { placeholder: UNPLUGGED_PRESET.en }),
+      textarea('unpluggedText', 'Wording', { placeholder: UNPLUGGED_PRESET.en, staff: true }),
     ],
   },
   {
     key: 'music',
-    label: 'Music',
+    label: 'Background music',
     tl: 'Musika',
-    description: 'A track that plays when guests tap play. Autoplay is attempted, then falls back to a button.',
+    description: 'The song that plays behind the page as the invitation opens, from the moment you choose.',
     minTier: 'STANDARD',
     fields: () => [
-      url('url', 'Audio file link', { hint: 'A direct .mp3 link. Upload it to your Google Drive (public) or Dropbox and paste the direct link.' }),
-      text('title', 'Song title'),
-      toggle('autoplay', 'Try to autoplay'),
+      text('song', 'Your song', { placeholder: 'e.g. Ikaw — Yeng Constantino, or a Spotify / YouTube link', hint: 'The title and artist, or paste a link from Spotify or YouTube. Our team prepares the background music from it: a song cannot stream from Spotify or YouTube behind a page, so we make it a file that plays as the invitation opens.', wide: true }),
+      offset('start', 'Start the song at', { hint: 'Minutes and seconds into the song, to skip a long intro. The music starts here every time it plays.' }),
+      audio('url', 'Your own audio file (optional)', { hint: 'If you already have the song as an MP3 or M4A, up to 20 MB, upload it here. Otherwise our team adds it.' }),
     ],
   },
   {
@@ -582,7 +670,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Pagbati',
     description: 'A well-wishes wall guests can write on. You approve each message.',
     minTier: 'COMPLETE',
-    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple' }), toggle('moderated', 'Approve messages before they show')],
+    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple', staff: true }), toggle('moderated', 'Approve messages before they show')],
   },
   {
     key: 'photos',
@@ -592,7 +680,7 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'COMPLETE',
     fields: () => [
       toggle('enabled', 'Let guests add photos'),
-      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day' }),
+      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', staff: true }),
       toggle('moderated', 'Approve photos before they show'),
     ],
   },
@@ -600,9 +688,14 @@ const SECTION_DEFS: SectionDef[] = [
     key: 'closing',
     label: 'Closing',
     tl: 'Pagtatapos',
-    description: 'A thank-you and your signature.',
+    description: 'A photo, a thank-you, your signature, and the line above your names.',
     minTier: 'BASIC',
-    fields: () => [textarea('message', 'Closing message'), text('signature', 'Signed', { placeholder: 'Juan & Maria' }), image('photo', 'Closing photo')],
+    fields: () => [
+      image('photo', 'Closing photo (above the message)'),
+      textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
+      text('signature', 'Signed', { placeholder: 'Juan & Maria' }),
+      text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line.", staff: true }),
+    ],
   },
   {
     key: 'speakers',
@@ -626,7 +719,16 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Contact',
     description: 'Who guests can reach with questions.',
     minTier: 'BASIC',
-    fields: () => [text('name', 'Name'), text('phone', 'Mobile'), text('email', 'Email'), text('messenger', 'Messenger link'), textarea('registrationNote', 'Registration note')],
+    fields: () => [
+      text('name', 'Name'),
+      text('phone', 'Mobile'),
+      text('name2', 'Second person'),
+      text('phone2', 'Their mobile'),
+      text('email', 'Email'),
+      text('messenger', 'Messenger link'),
+      text('chatNote', 'Chat apps', { placeholder: 'Or message us on Viber / WhatsApp.', staff: true }),
+      textarea('registrationNote', 'Registration note', { staff: true }),
+    ],
   },
 ];
 
@@ -634,14 +736,14 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
-  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'social', 'music', 'guestbook', 'photos', 'closing'],
-  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'closing'],
+  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing'],
+  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
   CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
   KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing'],
-  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
   BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
-  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
-  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
+  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'moment', 'faq', 'photos', 'closing'],
   GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
   COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
   CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'photos', 'closing'],
@@ -650,8 +752,32 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
   MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'photos', 'closing'],
 };
 
+/** The sections a customer can fill for this occasion — the hidden ones left out. */
+/**
+ * A layout may tell its sections in a different order from the occasion's —
+ * Capiz follows the reference it was drawn from: the story and the details
+ * first, the forms and the countdown at the end. Keys not listed keep their
+ * occasion order after the ones that are.
+ */
+export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
+  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+};
+
+export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
+  const base = OCCASION_SECTIONS[occasion];
+  const own = LAYOUT_ORDER[layout];
+  if (!own) return base;
+  const listed = own.filter((k) => base.includes(k));
+  return [...listed, ...base.filter((k) => !listed.includes(k))];
+}
+
 export function sectionsFor(occasion: Occasion): SectionDef[] {
-  return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]);
+  return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
+}
+
+/** Whether a section is part of what is offered today. */
+export function sectionOffered(key: SectionKey): boolean {
+  return !SECTION_BY_KEY[key].hidden;
 }
 
 export function sectionLabel(key: SectionKey, occasion: Occasion): string {
@@ -668,8 +794,34 @@ export function sectionUnlocked(key: SectionKey, occasion: Occasion, tier: Tier)
   return tierAtLeast(tier, sectionMinTier(key, occasion));
 }
 
-export function fieldsFor(key: SectionKey, occasion: Occasion): Field[] {
-  return SECTION_BY_KEY[key].fields(occasion);
+/**
+ * The fields for one section. Pass the invitation's tier and any option the
+ * tier cannot have comes back marked `lockedTier`, so the form can show it
+ * greyed out with the package name instead of hiding it. Without a tier
+ * nothing is locked — validation and the renderer gate it anyway.
+ */
+/** The fields the client fills. The fixed writings (`staff`) are ours, and are not on their form. */
+export function customerFields(fields: Field[]): Field[] {
+  return fields.filter((f) => !f.staff);
+}
+
+/**
+ * A client's save keeps the fixed writings as they were: their form never
+ * carried them, so a blank in what they sent must not overwrite ours.
+ */
+export function keepStaffFields(fields: Field[], before: SectionData | undefined, data: SectionData): SectionData {
+  for (const f of fields) if (f.staff && before && f.key in before) data[f.key] = before[f.key];
+  return data;
+}
+
+export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier): Field[] {
+  const fields = SECTION_BY_KEY[key].fields(occasion);
+  if (!tier) return fields;
+  return fields.map((f) =>
+    f.options?.some((o) => o.lockedTier)
+      ? { ...f, options: f.options.map((o) => (o.lockedTier && tierAtLeast(tier, o.lockedTier) ? { value: o.value, label: o.label } : o)) }
+      : f,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -681,9 +833,11 @@ function emptyValue(field: Field): unknown {
     case 'toggle':
       return false;
     case 'number':
+    case 'offset':
       return null;
     case 'colors':
-      return [];
+    case 'swatches':
+    case 'checks':
     case 'list':
       return [];
     case 'person':
@@ -702,21 +856,35 @@ export function emptySection(fields: Field[]): SectionData {
 /** A fresh invitation's content: every section present, sensible toggles on. */
 export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
   const content: Content = {};
-  for (const def of sectionsFor(occasion)) {
+  // Every section the occasion lists, hidden ones included: what is stored
+  // must not depend on what is offered this month, or un-hiding a section
+  // later would find invitations with no slot for it.
+  for (const def of OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k])) {
     const data = emptySection(def.fields(occasion));
     switch (def.key) {
       case 'cover':
         data.introPreset = 'families';
         data.intro = '';
-        data.envelope = true;
+        data.opening = 'envelope';
         if (occasion === 'WEDDING') data.kind = 'wedding';
         break;
       case 'countdown':
         data.enabled = true;
         break;
+      case 'moment':
+        data.frame = 'arch';
+        break;
       case 'parents':
         if (occasion === 'WEDDING') data.phrasing = 'together';
         break;
+      case 'dressCode': {
+        const d = attireDefaults(occasion);
+        data.attire = d.attire;
+        data.gentsItems = d.gents;
+        data.ladiesItems = d.ladies;
+        data.avoid = d.avoid;
+        break;
+      }
       case 'gift':
         data.preset = 'presence';
         data.text = lang === 'tl' ? GIFT_PRESETS[0].tl : GIFT_PRESETS[0].en;
@@ -735,9 +903,6 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
       case 'guestbook':
         data.enabled = true;
         data.moderated = true;
-        break;
-      case 'music':
-        data.autoplay = true;
         break;
       case 'dressCode':
         data.avoidWhite = occasion === 'WEDDING';
@@ -790,7 +955,13 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
     }
     case 'url':
     case 'image':
+    case 'audio':
       return cleanUrl(raw, path, issues);
+    case 'offset': {
+      // seconds into the song; none is null, so an untouched field is not a "started" one
+      const n = parseStart(raw);
+      return n > 0 ? n : null;
+    }
     case 'number': {
       if (raw === '' || raw === null || raw === undefined) return null;
       const n = Number(raw);
@@ -810,12 +981,19 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
       }
       return s;
     }
-    case 'colors': {
+    case 'colors':
+    case 'swatches': {
       const arr = Array.isArray(raw) ? raw : [];
       return arr
         .map((c) => cleanString(c, 7))
         .filter((c) => HEX.test(c))
         .slice(0, field.max ?? 5);
+    }
+    case 'checks': {
+      // the ticked options only, kept in the options' order; a single word (how the attire was stored once) counts as one tick
+      const arr = Array.isArray(raw) ? raw.map((v) => cleanString(v, 40)) : typeof raw === 'string' && raw ? [cleanString(raw, 40)] : [];
+      const ticked = (field.options ?? []).map((o) => o.value).filter((v) => arr.includes(v));
+      return field.max ? ticked.slice(0, field.max) : ticked;
     }
     case 'person': {
       const p = (raw && typeof raw === 'object' ? raw : {}) as Partial<Person>;
@@ -864,6 +1042,16 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
   const cover = content.cover ?? {};
   for (const f of fieldsFor('cover', occasion)) {
     if (f.required && !String(cover[f.key] ?? '').trim()) problems.push(`Cover: ${f.label} is required.`);
+  }
+  // a motif is a set: four to eight colours. One started with fewer is not done;
+  // none at all is a couple who chose not to show a palette, and that is allowed.
+  const dress = content.dressCode;
+  if (dress && sectionOffered('dressCode')) {
+    for (const f of fieldsFor('dressCode', occasion)) {
+      if ((f.type !== 'swatches' && f.type !== 'checks') || !f.min) continue;
+      const n = Array.isArray(dress[f.key]) ? (dress[f.key] as unknown[]).length : 0;
+      if (n > 0 && n < f.min) problems.push(`Dress code: pick at least ${f.min} ${f.type === 'swatches' ? 'colours' : 'choices'} for ${f.label.toLowerCase()} (${n} chosen).`);
+    }
   }
   return problems;
 }

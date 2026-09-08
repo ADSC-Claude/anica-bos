@@ -13,8 +13,8 @@ import { tierAtLeast } from './tiers';
  * components/invite/client.tsx); the stage pieces and the CSS in globals.css
  * are what differ.
  */
-/** In catalogue order — cheapest first, so the builder's dropdown reads as a ladder. */
-export const OPENING_KEYS = ['none', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo', 'cinematic'] as const;
+/** In catalogue order — simplest first, so the builder's dropdown reads as a ladder. Every package includes all of the drawn ones. */
+export const OPENING_KEYS = ['none', 'universal', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo', 'cinematic'] as const;
 export type OpeningKey = (typeof OPENING_KEYS)[number];
 
 export type OpeningDef = {
@@ -57,6 +57,20 @@ export const OPENINGS: OpeningDef[] = [
     line: { en: '', tl: '' },
   },
   {
+    // The universal opening: one clip for every design and every package. A
+    // sealed letter on white opens and a card slides out saying "you're
+    // invited to" — and the names and date come up beneath the envelope.
+    key: 'universal',
+    name: 'The Letter',
+    tagline: 'Included with every package.',
+    description: 'A sealed letter opens and a card slides out to say you are invited — then your names and date appear beneath it. Our universal opening, on every design.',
+    minTier: 'BASIC',
+    photos: 0,
+    line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
+    caps: true,
+    lineOnly: true,
+  },
+  {
     key: 'envelope',
     name: 'The Envelope',
     tagline: 'The one everyone knows.',
@@ -71,7 +85,7 @@ export const OPENINGS: OpeningDef[] = [
     name: 'The Line',
     tagline: 'The best is yet to come.',
     description: 'A single gold curve draws itself across warm white, your line of script underneath. It sweeps aside on tap.',
-    minTier: 'STANDARD',
+    minTier: 'BASIC',
     photos: 0,
     line: { en: 'and so it begins', tl: 'at dito nagsisimula' },
   },
@@ -80,7 +94,7 @@ export const OPENINGS: OpeningDef[] = [
     name: 'The Curtain',
     tagline: 'A beautiful reveal.',
     description: 'Two sheer curtains breathe over your photo, then part to the sides.',
-    minTier: 'STANDARD',
+    minTier: 'BASIC',
     photos: 1,
     line: { en: 'Together always', tl: 'Magkasama magpakailanman' },
     caps: true,
@@ -90,7 +104,7 @@ export const OPENINGS: OpeningDef[] = [
     name: 'The Drape',
     tagline: 'A new chapter begins.',
     description: 'A hanging silk drape with your names on it, lifted away on tap.',
-    minTier: 'COMPLETE',
+    minTier: 'BASIC',
     photos: 0,
     line: { en: 'A new chapter begins', tl: 'Isang bagong yugto' },
     caps: true,
@@ -100,7 +114,7 @@ export const OPENINGS: OpeningDef[] = [
     name: 'The Seal',
     tagline: 'A story, sealed with love.',
     description: 'A wax seal pressed with your monogram. It lifts, the flap folds back and the card rises.',
-    minTier: 'COMPLETE',
+    minTier: 'BASIC',
     photos: 0,
     line: { en: 'Our forever begins here', tl: 'Dito nagsisimula ang forever' },
     caps: true,
@@ -110,16 +124,16 @@ export const OPENINGS: OpeningDef[] = [
     name: 'Photo Story',
     tagline: 'A glimpse of your greatest moments.',
     description: 'Three of your photos fanned like prints on a table, with your names and date. They slide apart on tap.',
-    minTier: 'COMPLETE',
+    minTier: 'BASIC',
     photos: 3,
     line: { en: 'Same people, new adventures', tl: 'Parehong tao, bagong yugto' },
   },
   {
     key: 'cinematic',
-    name: 'Cinematic opening',
+    name: 'Premium opening',
     tagline: 'An invitation that opens like a gift.',
-    description: 'A filmed cover that opens on the tap — a seal breaking, panels drawing back, whatever the design calls for. Drawn by our designers for one design at a time, and part of Done-For-You.',
-    minTier: 'COMPLETE',
+    description: 'Our premium designed opening video: a seal breaking, a card sliding out with your names and date on it. Made for one design at a time, and an add-on with any package.',
+    minTier: 'BASIC',
     photos: 0,
     line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
     caps: true,
@@ -167,15 +181,19 @@ export function resolveOpening(args: {
   templateDefault: string;
   legacyEnvelope: boolean;
   tier: Tier;
-  /** True once a cinematic clip has been encoded for this invitation or its design. */
+  /**
+   * True when a clip exists for this invitation or its design AND the
+   * invitation is entitled to it — the premium opening add-on was bought or
+   * switched on, or the clip was made for this couple (see hasPremiumOpening).
+   */
   cinematic?: boolean;
 }): OpeningKey {
   // A customer who turned the opening off keeps it off, whatever staff have
   // since attached — "none" is a decision, not a gap waiting to be filled.
   if (args.chosen === 'none') return 'none';
-  // Otherwise the artwork wins: if a clip was made for this invitation, that
-  // is what the guest should get.
-  if (args.cinematic && tierAtLeast(args.tier, 'COMPLETE')) return 'cinematic';
+  // Otherwise the premium opening wins: it is an add-on with any package, so
+  // the package is no gate here — the entitlement is.
+  if (args.cinematic) return 'cinematic';
   // Past this point the cinematic opening is unreachable: it is supplied by
   // artwork alone, so naming it in a template or a saved choice must not
   // select it. Without this a design that names it but has no clip yet would
@@ -199,6 +217,25 @@ export function resolveOpening(args: {
  */
 export function openingsFor(tier: Tier): OpeningDef[] {
   return OPENINGS.filter((o) => !o.staffOnly && tierAtLeast(tier, o.minTier));
+}
+
+/** The add-on's code in the catalogue — what an order item carries when the premium opening was bought. */
+export const PREMIUM_OPENING_CODE = 'PREMIUM_OPENING';
+
+/**
+ * The Letter's clip and its first frame. One file for every design: the
+ * artwork is neutral on purpose, and the couple's words are set over it by the
+ * page, so nothing is re-rendered when a name changes.
+ */
+export const UNIVERSAL_OPENING = { video: '/openings/universal.mp4', poster: '/openings/universal-poster.jpg' } as const;
+
+/**
+ * Whether an invitation may play a premium opening clip: the add-on was bought
+ * with the order or switched on by staff, or a clip was made for this couple
+ * alone — that is premium work by definition, whatever the package.
+ */
+export function hasPremiumOpening(invitation: { premiumOpening: boolean; openingVideoUrl: string }): boolean {
+  return invitation.premiumOpening || Boolean(invitation.openingVideoUrl);
 }
 
 /** The clip and its poster, preferring the pair made for this couple. */

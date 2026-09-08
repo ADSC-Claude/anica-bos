@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening } from '../src/lib/openings';
+import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening, hasPremiumOpening, PREMIUM_OPENING_CODE, UNIVERSAL_OPENING } from '../src/lib/openings';
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES, templateData } from '../prisma/templates';
@@ -29,16 +29,13 @@ test('the opening catalogue is complete and every key is declared', () => {
   assert.equal(openingName('drape'), 'The Drape');
 });
 
-test('a tier only offers the openings it has paid for', () => {
+test('every package offers every drawn opening; only the premium video is extra', () => {
   const keys = (tier: 'BASIC' | 'STANDARD' | 'COMPLETE') => openingsFor(tier).map((o) => o.key);
-  assert.deepEqual(keys('BASIC'), ['none', 'envelope']);
-  assert.ok(keys('STANDARD').includes('curtain'));
-  assert.ok(!keys('STANDARD').includes('seal'));
-  // Everything except the cinematic one, which no tier can pick: it is
-  // artwork attached to an order, not an option.
-  assert.deepEqual(keys('COMPLETE'), OPENING_KEYS.filter((k) => k !== 'cinematic'));
+  // Everything except the premium one, which no tier can pick: it is
+  // artwork attached to an order (the add-on), not an option.
   for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
-    assert.ok(!keys(tier).includes('cinematic'), `${tier} is not offered the cinematic opening`);
+    assert.deepEqual(keys(tier), OPENING_KEYS.filter((k) => k !== 'cinematic'), `${tier} is offered every drawn opening`);
+    assert.ok(!keys(tier).includes('cinematic'), `${tier} is not offered the premium opening as a choice`);
   }
 });
 
@@ -63,22 +60,16 @@ test('an invitation built before openings existed keeps its envelope', () => {
   assert.equal(resolveOpening({ ...base, legacyEnvelope: true, templateDefault: 'envelope' }), 'envelope');
 });
 
-test('an opening above the tier falls back to the envelope, never to a blank screen', () => {
-  assert.equal(resolveOpening({ chosen: 'seal', templateDefault: '', legacyEnvelope: false, tier: 'BASIC' }), 'envelope');
-  assert.equal(resolveOpening({ chosen: '', templateDefault: 'photo', legacyEnvelope: false, tier: 'STANDARD' }), 'envelope');
+test('a drawn opening is reachable from every package', () => {
+  assert.equal(resolveOpening({ chosen: 'seal', templateDefault: '', legacyEnvelope: false, tier: 'BASIC' }), 'seal');
+  assert.equal(resolveOpening({ chosen: '', templateDefault: 'photo', legacyEnvelope: false, tier: 'STANDARD' }), 'photo');
   assert.equal(resolveOpening({ chosen: 'seal', templateDefault: '', legacyEnvelope: false, tier: 'COMPLETE' }), 'seal');
 });
 
-test('the cover offers every opening, and locks the ones the tier cannot have', () => {
+test('the cover offers every drawn opening to every package, none locked', () => {
   const opening = (tier?: 'BASIC' | 'STANDARD' | 'COMPLETE') => fieldsFor('cover', 'WEDDING', tier).find((f) => f.key === 'opening')!;
-  // Every key is offered whatever the tier, so a saved value is never rejected
-  // by cleanSection just because the customer downgraded.
   assert.deepEqual(opening().options?.map((o) => o.value), OPENING_KEYS.filter((k) => k !== 'cinematic'));
-  const basic = opening('BASIC').options!;
-  assert.equal(basic.find((o) => o.value === 'envelope')?.lockedTier, undefined);
-  assert.equal(basic.find((o) => o.value === 'seal')?.lockedTier, 'COMPLETE');
-  const complete = opening('COMPLETE').options!;
-  assert.ok(complete.every((o) => !o.lockedTier));
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.ok(opening(tier).options!.every((o) => !o.lockedTier), `${tier} has nothing locked`);
   // A memorial is never unwrapped.
   assert.equal(fieldsFor('cover', 'MEMORIAL').some((f) => f.key === 'opening'), false);
 });
@@ -86,16 +77,16 @@ test('the cover offers every opening, and locks the ones the tier cannot have', 
 test('a saved opening survives cleaning, and rubbish does not', () => {
   const fields = fieldsFor('cover', 'WEDDING', 'BASIC');
   const { data } = cleanSection(fields, { opening: 'seal', openingLine: '  and so it begins  ' });
-  assert.equal(data.opening, 'seal', 'a locked option still saves — the renderer downgrades it');
+  assert.equal(data.opening, 'seal');
   assert.equal(data.openingLine, 'and so it begins');
   const bad = cleanSection(fields, { opening: 'fireworks' });
   assert.equal(bad.data.opening, '');
   assert.ok(bad.issues.some((i) => i.path === 'opening'));
 });
 
-test('a new wedding starts with the envelope, and the old toggle is gone', () => {
+test('a new wedding starts with the Letter, and the old toggle is gone', () => {
   const c = defaultContent('WEDDING');
-  assert.equal(c.cover?.opening, 'envelope');
+  assert.equal(c.cover?.opening, 'universal');
   assert.equal('envelope' in (c.cover ?? {}), false, 'the boolean toggle no longer exists');
 });
 
@@ -136,10 +127,13 @@ test('Capiz is the Filipiniana flagship and its opening is one it can reach', ()
   assert.equal(capiz.collection, 'filipiniana');
   assert.equal(capiz.occasion, 'WEDDING');
   assert.equal(capiz.layout, 'capiz');
-  // It opens with the wax seal, which is Complete-only — so the design has to
-  // be Complete-reachable or a customer would pick it and get the envelope.
-  assert.equal(capiz.opening, 'seal');
-  assert.equal(capiz.premium, true);
+  // It opens with the Letter like every design; the design itself is a
+  // Standard design, and its premium opening video is the add-on.
+  assert.equal(capiz.opening, 'universal');
+  assert.equal(capiz.premium, false);
+  assert.equal(capiz.minTier, 'STANDARD');
+  assert.ok(capiz.openingVideoUrl && capiz.openingPosterUrl, 'Capiz has a premium opening clip to add on');
+  assert.equal(capiz.thumb, '/covers/capiz.jpg', 'the gallery shows its cover, not the clip');
   const filipiniana = TEMPLATES.filter((t) => t.collection === 'filipiniana');
   assert.ok(filipiniana.length >= 1);
   for (const t of filipiniana) assert.equal(t.occasion, 'WEDDING');
@@ -152,9 +146,8 @@ test('the designs from the cancelled decks are gone, and nothing points at them'
   }
   // The drawn openings themselves stay: they are the self-serve set, and
   // other designs still ship with them.
-  assert.ok(TEMPLATES.some((t) => t.opening === 'seal'));
-  assert.ok(TEMPLATES.some((t) => t.opening === 'line'));
-  assert.ok(TEMPLATES.some((t) => t.opening === 'curtain'));
+  // every design opens with the Letter, the universal opening
+  for (const t of TEMPLATES) assert.equal(t.opening, 'universal', t.slug);
 });
 
 test('artwork supplies the cinematic opening; it is never chosen', () => {
@@ -167,12 +160,14 @@ test('artwork supplies the cinematic opening; it is never chosen', () => {
   // But not an explicit "none": turning the opening off is a decision, and a
   // clip attached afterwards must not quietly undo it.
   assert.equal(resolveOpening({ ...base, chosen: 'none', cinematic: true }), 'none');
-  // Below Complete the clip is not served at all: the design's own opening
-  // carries on, itself downgraded to the envelope here because The Drape is
-  // Complete-only too. Either way the guest gets an opening, never a blank.
-  assert.equal(resolveOpening({ ...base, tier: 'STANDARD', cinematic: true }), 'envelope');
-  assert.equal(resolveOpening({ ...base, tier: 'BASIC', cinematic: true }), 'envelope');
-  assert.equal(resolveOpening({ ...base, templateDefault: 'curtain', tier: 'STANDARD', cinematic: true }), 'curtain');
+  // The premium opening is an add-on with any package, so the package is no
+  // gate: bought on Basic, the clip plays on Basic.
+  assert.equal(resolveOpening({ ...base, tier: 'STANDARD', cinematic: true }), 'cinematic');
+  assert.equal(resolveOpening({ ...base, tier: 'BASIC', cinematic: true }), 'cinematic');
+  // Without it the design's own drawn opening carries on, in any package.
+  // Never a blank.
+  assert.equal(resolveOpening({ ...base, tier: 'STANDARD', cinematic: false }), 'drape');
+  assert.equal(resolveOpening({ ...base, templateDefault: 'curtain', tier: 'BASIC', cinematic: false }), 'curtain');
 });
 
 test('a clip made for one couple beats the one their design ships with', () => {
@@ -265,4 +260,32 @@ test('the cinematic cover says only that an invitation is here', () => {
   for (const k of ['drape', 'seal', 'curtain', 'line', 'photo'] as const) {
     assert.ok(!OPENING_BY_KEY[k].lineOnly, `${k} still shows the names`);
   }
+});
+
+test('the premium opening is an entitlement: bought, switched on, or made for the couple', () => {
+  assert.equal(PREMIUM_OPENING_CODE, 'PREMIUM_OPENING');
+  // the design's clip alone is not enough — the add-on has to be on the invitation
+  assert.equal(hasPremiumOpening({ premiumOpening: false, openingVideoUrl: '' }), false);
+  assert.equal(hasPremiumOpening({ premiumOpening: true, openingVideoUrl: '' }), true);
+  // a clip made for this couple is premium work whatever the package
+  assert.equal(hasPremiumOpening({ premiumOpening: false, openingVideoUrl: '/uploads/x/clip.mp4' }), true);
+  // the add-on is sold with any package: its opening is not gated by tier
+  assert.equal(OPENING_BY_KEY.cinematic.minTier, 'BASIC');
+  assert.equal(OPENING_BY_KEY.cinematic.name, 'Premium opening');
+});
+
+test('the Letter is the universal opening: on every design, in every package, its words beneath the envelope', () => {
+  const letter = OPENING_BY_KEY.universal;
+  assert.equal(letter.name, 'The Letter');
+  assert.equal(letter.minTier, 'BASIC');
+  assert.ok(!letter.staffOnly, 'a customer may pick it — it is the default, not a staff attachment');
+  assert.ok(letter.lineOnly, 'the closed face carries no names: the card inside says you are invited, and the names follow');
+  assert.match(UNIVERSAL_OPENING.video, /^\/openings\/universal\.mp4$/);
+  assert.match(UNIVERSAL_OPENING.poster, /^\/openings\/universal-poster\.jpg$/);
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.ok(openingsFor(tier).some((o) => o.key === 'universal'), tier);
+  // the design default, reachable from any package; the premium clip still wins when it is bought
+  const base = { chosen: '', templateDefault: 'universal', legacyEnvelope: false, tier: 'BASIC' as const };
+  assert.equal(resolveOpening(base), 'universal');
+  assert.equal(resolveOpening({ ...base, cinematic: true }), 'cinematic');
+  assert.equal(resolveOpening({ ...base, chosen: 'none' }), 'none');
 });

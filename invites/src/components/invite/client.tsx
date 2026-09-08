@@ -38,7 +38,7 @@ export type OpeningProps = {
   /** "cinematic" only: the clip, and the still shown until it plays. */
   video: string;
   poster: string;
-  /** Which clip, when the words belong on its card rather than over its face — "capiz". */
+  /** Which clip, when the words belong on it rather than over its closed face — "capiz" (on the card) or "universal" (beneath the envelope). */
   clip: string;
   /** The word set between two names on the card — "and", "at" or "&" — the look's, the same as the cover. */
   and?: string;
@@ -314,8 +314,9 @@ export function Shell({
             {opening.clip && (
               <div className="inv-open-plate" data-show={plate} aria-hidden>
                 <div>
-                  {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
-                  {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
+                  {/* the Letter's own card says "you're invited to" — only the names and date follow it */}
+                  {opening.monogram && opening.clip !== 'universal' && <p className="inv-plate-mono">{opening.monogram}</p>}
+                  {opening.line && opening.clip !== 'universal' && <p className="inv-plate-eyebrow">{opening.line}</p>}
                   {opening.names && <p className="inv-plate-names">{cardNames(opening.names, opening.and || '&')}</p>}
                   {opening.date && <p className="inv-plate-date">{opening.date}</p>}
                   {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}

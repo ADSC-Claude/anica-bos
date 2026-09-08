@@ -1,5 +1,6 @@
 import type { Template } from '@prisma/client';
-import { paletteFrom } from './theme';
+import { paletteFrom, fontsFrom, cssVars, googleFontsUrl } from './theme';
+import { LOOK_BY_KEY, isLook } from './looks';
 
 /**
  * What a gallery card needs. The landing page and the templates page both
@@ -21,13 +22,18 @@ export type GalleryTemplate = {
   featured: boolean;
   collection: string;
   opening: string;
-  /** The cinematic opening's clip and still — what the public sees of the design. */
+  /** The premium opening's clip and still — the add-on a design with them can sell. */
   openingVideoUrl: string;
   openingPosterUrl: string;
+  /** The design's CSS variables and its Google Fonts sheet, so a preview can set words in its own faces. */
+  vars: Record<string, string>;
+  fontsUrl: string;
 };
 
 export function toGalleryTemplate(t: Template): GalleryTemplate {
   const p = paletteFrom(t.palette);
+  // the design's look sets its faces, as it does on the invitation itself (resolveTheme)
+  const fonts = t.look && isLook(t.look) ? LOOK_BY_KEY[t.look].fonts : fontsFrom(t.fonts);
   return {
     id: t.id,
     slug: t.slug,
@@ -44,5 +50,7 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     opening: t.opening,
     openingVideoUrl: t.openingVideoUrl,
     openingPosterUrl: t.openingPosterUrl,
+    vars: cssVars(p, fonts),
+    fontsUrl: googleFontsUrl(fonts),
   };
 }

@@ -6,8 +6,8 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { toGalleryTemplate } from '@/lib/gallery';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
-import { OPENINGS, OPENING_BY_KEY } from '@/lib/openings';
-import { TIER_LABELS } from '@/lib/tiers';
+import { PREMIUM_OPENING_CODE } from '@/lib/openings';
+import { formatPesoShort } from '@/lib/money';
 import { occasionLabel } from '@/lib/occasions';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { TemplateGallery } from '@/components/landing/gallery';
@@ -35,12 +35,11 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
 
 export default async function CollectionPage({ params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
-  const [s, session, found] = await Promise.all([getSettings(), getSession(), load(key)]);
+  const [s, session, found, premium] = await Promise.all([getSettings(), getSession(), load(key), prisma.addOn.findFirst({ where: { code: PREMIUM_OPENING_CODE, active: true } })]);
   if (!found) notFound();
   const { info, templates } = found;
-  // The openings these designs actually ship with, in catalogue order — the
-  // couple is choosing a first impression as much as a colour.
-  const openings = OPENINGS.filter((o) => templates.some((t) => t.opening === o.key));
+  // The designs here with a premium opening clip of their own to add on.
+  const withClip = templates.filter((t) => t.openingVideoUrl && t.openingPosterUrl);
   const occasions = [...new Set(templates.map((t) => t.occasion))];
   // Only collections that have a design of their own — a link to an empty one
   // would 404.
@@ -64,37 +63,23 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
           {templates.length} design{templates.length === 1 ? '' : 's'} · {occasions.map(occasionLabel).join(', ')}
         </p>
 
-        {openings.length > 0 && (
-          <section className="mt-10">
-            <h2 className="display text-2xl">The openings</h2>
-            <p className="mt-1 max-w-2xl text-[color:var(--color-ink-700)]">
-              Every design in this collection starts with a short moving scene. Your guest taps once, it plays, and the invitation is underneath. It is drawn from your own words and photos, so it opens as fast as the page does — there is no video to wait for.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {openings.map((o) => (
-                <article key={o.key} className="card p-4">
-                  <p className="display text-xl">{o.name}</p>
-                  <p className="mt-1 text-sm italic text-[color:var(--color-ink-500)]">{o.tagline}</p>
-                  <p className="mt-2 text-sm text-[color:var(--color-ink-700)]">{o.description}</p>
-                  <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">
-                    {o.minTier === 'BASIC' ? 'Included in every package' : `${TIER_LABELS[o.minTier]} and up`}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        <section className="mt-10">
+          <h2 className="display text-2xl">The opening</h2>
+          <p className="mt-1 max-w-2xl text-[color:var(--color-ink-700)]">
+            Every package opens with The Letter: a sealed envelope your guest taps once, a card that says you are invited, then your names and date, and the invitation underneath.
+            {withClip.length > 0 && ` The premium opening video, made for ${withClip.map((t) => t.name).join(' and ')}, is an add-on${premium ? ` at ${formatPesoShort(premium.priceCents)}` : ''} — a seal breaking, a card sliding out with your names on it.`}
+          </p>
+        </section>
 
         <section className="mt-12">
           <h2 className="display text-2xl">The designs</h2>
           <div className="mt-5">
-            <TemplateGallery collection={key} templates={templates.map(toGalleryTemplate)} />
+            <TemplateGallery collection={key} templates={templates.map(toGalleryTemplate)} premiumPriceCents={premium?.priceCents} />
           </div>
           <ul className="mt-6 grid gap-2 sm:grid-cols-2">
             {templates.map((t) => (
               <li key={t.id} className="text-sm text-[color:var(--color-ink-700)]">
                 <b>{t.name}</b> — {t.description}
-                {t.opening && ` Opens with ${OPENING_BY_KEY[t.opening as keyof typeof OPENING_BY_KEY]?.name ?? t.opening}.`}
               </li>
             ))}
           </ul>

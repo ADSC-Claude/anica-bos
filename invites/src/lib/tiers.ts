@@ -111,11 +111,11 @@ export function featureOffered(feature: FeatureKey): boolean {
 
 /** Every row, including the ones held back. The tables use COMPARISON. */
 export const COMPARISON_ALL: ComparisonRow[] = [
-  { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + premium designs' } },
+  { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + Complete-only designs' } },
   { label: 'Colour & font customization', cells: { BASIC: false, STANDARD: 'Palette presets', COMPLETE: 'Full custom palette + fonts' } },
   { label: 'Cover: names, monogram, date, cover photo', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
-  { label: 'Opening animation before the invitation', cells: { BASIC: 'The Envelope', STANDARD: '+ The Line, The Curtain', COMPLETE: '+ The Drape, The Seal, Photo Story' } },
-  { label: 'Cinematic opening, drawn for you (Done-For-You)', cells: { BASIC: false, STANDARD: false, COMPLETE: 'Add-on' } },
+  { label: 'Opening before the invitation (a short moving scene)', cells: { BASIC: 'Included', STANDARD: 'Included', COMPLETE: 'Included' } },
+  { label: 'Premium opening video, made for your design', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on' } },
   { label: 'Countdown timer', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Ceremony & reception + Google Maps & Waze buttons', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true }, hidden: true },

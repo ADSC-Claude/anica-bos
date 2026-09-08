@@ -7,11 +7,24 @@ import { OCCASIONS } from '@/lib/occasions';
 import type { GalleryTemplate } from '@/lib/gallery';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
-import { openingName } from '@/lib/openings';
+import { PREMIUM_OPENING_CODE } from '@/lib/openings';
+import { formatPesoShort } from '@/lib/money';
+import { OpeningPreview } from './opening-preview';
 
 export type { GalleryTemplate };
 
-export function TemplateGallery({ templates, compact = false, collection: fixedCollection }: { templates: GalleryTemplate[]; compact?: boolean; collection?: string }) {
+/** "Complete only" for a design kept out of Basic and Standard; otherwise the lowest package it comes in. */
+export function packageLine(t: { premium: boolean; minTier: Tier }): string {
+  return t.premium ? 'Complete only' : t.minTier === 'BASIC' ? 'Basic & up' : `${TIER_LABELS[t.minTier]} & up`;
+}
+
+export function TemplateGallery({ templates, compact = false, collection: fixedCollection, premiumPriceCents }: {
+  templates: GalleryTemplate[];
+  compact?: boolean;
+  collection?: string;
+  /** The premium opening add-on's price, for the line on a design that has one. */
+  premiumPriceCents?: number;
+}) {
   const [occasion, setOccasion] = useState<string>('');
   const [tier, setTier] = useState<string>('');
   // A gallery already scoped to one collection (the collection page) hides the
@@ -53,12 +66,17 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {shown.map((t) => (
           <article key={t.id} className="card group overflow-hidden">
-            <OpeningCard t={t} />
+            <CoverCard t={t} premiumPriceCents={premiumPriceCents} />
             <div className="p-3">
               <p className="text-sm font-semibold">{t.name} {t.featured && <span className="pill pill-info">Popular</span>}</p>
-              <p className="text-xs text-[color:var(--color-ink-500)]">{OCCASIONS.find((o) => o.key === t.occasion)?.label} · {t.premium ? 'Premium · Complete' : t.minTier === 'BASIC' ? 'Basic & up' : `${TIER_LABELS[t.minTier]} & up`}</p>
-              <TemplateNote collection={t.collection} opening={t.opening} name={t.name} />
+              <p className="text-xs text-[color:var(--color-ink-500)]">{OCCASIONS.find((o) => o.key === t.occasion)?.label} · {packageLine(t)}</p>
+              <TemplateNote t={t} premiumPriceCents={premiumPriceCents} />
               <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm mt-3 w-full">Choose this design</Link>
+              {hasClip(t) && (
+                <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}&addon=${PREMIUM_OPENING_CODE}`} className="mt-1.5 block text-center text-xs text-[color:var(--color-ink-500)] underline">
+                  Choose it with the premium opening
+                </Link>
+              )}
             </div>
           </article>
         ))}
@@ -69,59 +87,58 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
   );
 }
 
+/** A design with a premium opening clip of its own to sell. */
+function hasClip(t: GalleryTemplate): boolean {
+  return Boolean(t.openingVideoUrl && t.openingPosterUrl);
+}
+
 /**
- * What the public sees of a design: its opening, and only its opening. The
- * card is the clip's own still with a play button; a tap plays the clip in
- * place, sound and all, since the tap is the gesture that allows it. A design
- * with no clip yet shows its name on its palette. The invitation itself is
- * never on the card — it is unveiled for the customer after they choose.
+ * What the public sees of a design: its cover page — the first page a guest
+ * lands on, the shape of a phone, so the card reads as the invitation and not
+ * as a square swatch. The pages under the cover are unveiled for the customer
+ * after they choose. A design that has a premium opening clip carries a small
+ * pill on the cover; a tap opens the preview — the clip at phone size with
+ * the sample words on the card and the cover fading in, as a guest gets it.
+ * A design with no cover image yet shows its name on its palette.
  */
-function OpeningCard({ t }: { t: GalleryTemplate }) {
-  const [playing, setPlaying] = useState(false);
-  const clip = Boolean(t.openingVideoUrl && t.openingPosterUrl);
-  if (!clip) {
-    return (
-      <div className="relative aspect-[9/16] overflow-hidden" style={{ background: `linear-gradient(160deg, ${t.palette.bg} 0%, ${t.palette.accent2} 100%)` }}>
+function CoverCard({ t, premiumPriceCents }: { t: GalleryTemplate; premiumPriceCents?: number }) {
+  const [preview, setPreview] = useState(false);
+  const clip = hasClip(t);
+  return (
+    <div className="relative aspect-[9/16] overflow-hidden" style={{ background: `linear-gradient(160deg, ${t.palette.bg} 0%, ${t.palette.accent2} 100%)` }}>
+      {t.thumbnailUrl ? (
+        <img src={t.thumbnailUrl} alt={`The cover of ${t.name}`} className="absolute inset-0 h-full w-full object-cover object-top" loading="lazy" />
+      ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
           <span className="text-[10px] uppercase tracking-[0.3em]" style={{ color: t.palette.ink }}>{OCCASIONS.find((o) => o.key === t.occasion)?.label}</span>
           <span className="display mt-2 text-2xl" style={{ color: t.palette.accent }}>{t.name}</span>
           <span className="mt-2 flex gap-1">{[t.palette.bg, t.palette.accent, t.palette.accent2].map((c) => <span key={c} className="h-3 w-3 rounded-full border border-black/10" style={{ background: c }} />)}</span>
-          <span className="mt-4 text-[10px] uppercase tracking-[0.2em]" style={{ color: t.palette.ink }}>Opening coming soon</span>
+          <span className="mt-4 text-[10px] uppercase tracking-[0.2em]" style={{ color: t.palette.ink }}>Cover coming soon</span>
         </div>
-      </div>
-    );
-  }
-  return (
-    <div className="relative aspect-[9/16] overflow-hidden bg-black">
-      {playing ? (
-        <video src={t.openingVideoUrl} poster={t.openingPosterUrl} className="absolute inset-0 h-full w-full object-cover" autoPlay playsInline controls onEnded={() => setPlaying(false)} />
-      ) : (
-        <button type="button" onClick={() => setPlaying(true)} className="group/play absolute inset-0 block h-full w-full" aria-label={`Watch the opening of ${t.name}`}>
-          <img src={t.openingPosterUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-          <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/15 text-white transition group-hover/play:bg-black/30">
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
-              <svg viewBox="0 0 24 24" className="ml-1 h-6 w-6" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.3em] drop-shadow">Watch the opening</span>
-          </span>
+      )}
+      {clip && (
+        <button type="button" onClick={() => setPreview(true)} className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white shadow backdrop-blur transition hover:bg-black/75" aria-label={`Watch the premium opening of ${t.name}`}>
+          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+          Premium opening
         </button>
       )}
+      {preview && clip && <OpeningPreview t={t} priceCents={premiumPriceCents} onClose={() => setPreview(false)} />}
     </div>
   );
 }
 
 /**
- * The second line on a card: the collection, and what the design opens with.
- * A design named after its opening — The Drape opens with The Drape — says it
- * once, not twice.
+ * The second line on a card: the collection, and the premium opening add-on
+ * when the design has a clip of its own — with its price when the page knows
+ * it. The opening every package includes is not news, so it is not said here.
  */
-function TemplateNote({ collection, opening, name }: { collection: string; opening: string; name: string }) {
-  const label = collection ? COLLECTION_BY_KEY[collection]?.label ?? '' : '';
-  const opens = opening && !name.includes(openingName(opening)) ? `Opens with ${openingName(opening)}` : '';
-  if (!label && !opens) return null;
+function TemplateNote({ t, premiumPriceCents }: { t: GalleryTemplate; premiumPriceCents?: number }) {
+  const label = t.collection ? COLLECTION_BY_KEY[t.collection]?.label ?? '' : '';
+  const premium = hasClip(t) ? (premiumPriceCents ? `Premium opening add-on · +${formatPesoShort(premiumPriceCents)}` : 'Premium opening add-on') : '';
+  if (!label && !premium) return null;
   return (
     <p className="mt-0.5 text-xs text-[color:var(--color-ink-500)]">
-      {[label, opens].filter(Boolean).join(' · ')}
+      {[label, premium].filter(Boolean).join(' · ')}
     </p>
   );
 }

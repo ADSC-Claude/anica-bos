@@ -110,9 +110,9 @@ export default async function DfyJobPage({ params, searchParams }: { params: Pro
           </section>
           {canEdit && (
             <section className="card p-4 text-sm">
-              <h2 className="mb-2 font-semibold">Cinematic opening</h2>
+              <h2 className="mb-2 font-semibold">Premium opening</h2>
               <p className="mb-2 text-xs text-[color:var(--color-ink-500)]">
-                Made for this couple, and it replaces whatever the design opens with. Complete tier only — this order is {job.invitation.tier}.
+                A clip made for this couple. It replaces whatever the design opens with and counts as the premium opening, whatever the package.
               </p>
               <form action={dfyOpeningAction.bind(null, job.id, back)} className="space-y-2">
                 <input name="openingVideoUrl" defaultValue={job.invitation.openingVideoUrl} className="field" placeholder="Clip URL (portrait MP4 or WebM, muted)" />

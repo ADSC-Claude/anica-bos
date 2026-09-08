@@ -99,8 +99,9 @@ export async function dfyNotesAction(jobId: string, back: string, fd: FormData) 
   return run('dfy.edit', back, async (user) => { await updateJobNotes(user, jobId, s(fd, 'notes')); });
 }
 /**
- * Attach a cinematic opening made for this couple. Concierge work: the clip is
- * drawn for one invitation and overrides whatever its design ships with.
+ * Attach a premium opening made for this couple. Concierge work: the clip is
+ * drawn for one invitation and overrides whatever its design ships with, and
+ * counts as the premium opening whatever the package (see hasPremiumOpening).
  *
  * The pair is stored together or not at all — a clip with no poster leaves the
  * guest on a blank screen while it buffers, which is worse than no opening.
@@ -111,15 +112,12 @@ export async function dfyOpeningAction(jobId: string, back: string, fd: FormData
     const video = s(fd, 'openingVideoUrl');
     const poster = s(fd, 'openingPosterUrl');
     if (video && !poster) throw new HttpError(400, 'A clip needs its poster too — that still is the closed screen until the guest taps.');
-    if (video && job.invitation.tier !== 'COMPLETE') {
-      throw new HttpError(400, `The cinematic opening is a Complete feature and this invitation is ${job.invitation.tier}. Upgrade the order first, or the guest would never see it.`);
-    }
     await prisma.invitation.update({ where: { id: job.invitationId }, data: { openingVideoUrl: video, openingPosterUrl: video ? poster : '' } });
     await audit(user, {
       module: 'dfy', action: video ? 'opening.set' : 'opening.cleared', entityType: 'Invitation', entityId: job.invitationId,
-      summary: video ? `Cinematic opening attached to ${job.invitation.title}.` : `Cinematic opening removed from ${job.invitation.title}.`,
+      summary: video ? `Premium opening attached to ${job.invitation.title}.` : `Premium opening removed from ${job.invitation.title}.`,
     });
-    return video ? 'Cinematic opening attached.' : 'Cinematic opening removed.';
+    return video ? 'Premium opening attached.' : 'Premium opening removed.';
   });
 }
 export async function dfyExtendAction(jobId: string, back: string, fd: FormData) {
@@ -225,6 +223,18 @@ export async function setTierAction(invitationId: string, back: string, fd: Form
     await prisma.invitation.update({ where: { id: invitationId }, data: { tier, editsAllowed: tier === 'BASIC' ? 3 : -1 } });
     await audit(user, { module: 'invitations', action: 'tier.set', entityType: 'Invitation', entityId: invitationId, summary: tier, sensitive: true });
     return `Tier set to ${tier}.`;
+  });
+}
+/**
+ * The premium opening add-on, switched by hand: for an order paid outside the
+ * site, a gift, or a refund. Bought with an order it is set on activation.
+ */
+export async function setPremiumOpeningAction(invitationId: string, back: string, fd: FormData) {
+  return run('invitations.edit', back, async (user) => {
+    const on = s(fd, 'premiumOpening') === 'on';
+    await prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpening: on } });
+    await audit(user, { module: 'invitations', action: on ? 'premiumOpening.on' : 'premiumOpening.off', entityType: 'Invitation', entityId: invitationId, sensitive: true });
+    return on ? 'Premium opening switched on.' : 'Premium opening switched off.';
   });
 }
 export async function archiveInvitationAction(invitationId: string, back: string) {

@@ -268,6 +268,41 @@ table.data tr:hover td {
   display: block;
 }
 
+/* The gallery's preview of a premium opening: a phone in a dim room, the
+   clip, the sample words on the card as it settles, the cover fading in
+   beneath. The phone is the container the plate's type is sized by (cqw),
+   the same way the invitation's own overlay sizes it. */
+.gal-preview {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center; padding: 1.25rem;
+  overflow-y: auto; overscroll-behavior: contain;
+  background: rgba(20, 17, 14, 0.84); backdrop-filter: blur(6px);
+}
+/* on a phone the words sit under the frame, so the frame leaves them room */
+@media (max-width: 640px) {
+  .gal-preview { align-items: flex-start; }
+  .gal-preview .gal-phone { width: min(20rem, 86vw, calc(56vh * 9 / 16)); }
+}
+.gal-preview-body { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1.75rem; max-width: 58rem; }
+.gal-phone {
+  position: relative; width: min(20rem, 86vw, calc(84vh * 9 / 16)); aspect-ratio: 9 / 16;
+  border-radius: 1.75rem; overflow: hidden; background: #1f1d1a;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.7), 0 0 0 8px #1f1d1a;
+  container-type: size;
+}
+.gal-clip { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.gal-plate { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 900ms ease; }
+.gal-plate[data-show='true'] { opacity: 1; }
+.gal-plate > div {
+  position: absolute; left: 14%; width: 68%; top: 15%; bottom: 13%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #5b4a3b; text-align: center;
+}
+.gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
+.gal-cover[data-show='true'] { opacity: 1; }
+.gal-preview-side { max-width: 20rem; color: #fff; }
+.gal-preview-side .eyebrow { color: rgba(255, 255, 255, 0.7); }
+
 /* ── the invitation ──────────────────────────────────────────────────────
    Everything below reads `--inv-*` and nothing else. The variables are set
    inline on .inv by the renderer, per template.
@@ -1228,6 +1263,28 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-open[data-clip='capiz']::after,
 .inv-open[data-clip='capiz'] .inv-open-copy { display: none; }
 .inv-open[data-clip='capiz'] .inv-open-hint { color: #6b5744; text-shadow: none; }
+/* The Letter, the universal opening. A sealed letter on white opens to a card
+   that says "you're invited to", and the names and date come up beneath the
+   envelope — the card is small in the frame, so the words sit under it, large.
+   Light artwork: a dark hint, no scrim, no white line over the face. */
+.inv-open[data-clip='universal']::before,
+.inv-open[data-clip='universal']::after,
+.inv-open[data-clip='universal'] .inv-open-copy { display: none; }
+.inv-open[data-clip='universal'] .inv-open-hint { color: #7a6a5a; text-shadow: none; }
+.inv-open[data-clip='universal'] .inv-open-plate > div {
+  top: 60%; bottom: 14%; left: 8%; width: 84%;
+  justify-content: flex-start; color: #4a3f36;
+}
+.inv-open[data-clip='universal'] .inv-plate-names { font-size: 13cqw; margin-top: 0; }
+.inv-open[data-clip='universal'] .inv-plate-date { margin-top: 3cqh; }
+.inv-open[data-clip='universal'] .inv-plate-line2 { margin-top: 2.5cqh; }
+.inv-open[data-clip='universal'] { background: #fcfcfc; }
+/* A wide screen shows the whole frame, letterboxed on the clip's own white, so
+   the words beneath the envelope stay on screen; a phone fills it as usual. */
+@media (min-aspect-ratio: 9/16) {
+  .inv-open[data-clip='universal'] .inv-open-clip { object-fit: contain; }
+  .inv-open[data-clip='universal'] .inv-open-plate { width: calc(100dvh * 9 / 16); }
+}
 /* The card's box: the clip is object-fit cover, so this is the same box the
    clip is drawn in — as wide as the screen or as tall as it, whichever the
    9:16 frame needs — and the words are placed in it by fractions of the frame. */

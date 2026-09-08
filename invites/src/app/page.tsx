@@ -11,6 +11,7 @@ import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrom
 import { PhoneOpening } from '@/components/landing/phone-demo';
 import { TemplateGallery } from '@/components/landing/gallery';
 import { toGalleryTemplate } from '@/lib/gallery';
+import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { Packages } from '@/components/landing/packages';
 import { ContactButtons } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -105,10 +106,10 @@ export default async function Landing() {
         <section id="templates" className="bg-white py-16">
           <div className="mx-auto max-w-6xl px-5">
             <p className="eyebrow text-center">Templates</p>
-            <h2 className="display mt-2 text-center text-3xl">Our designs, by their openings</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">Every design begins with a short moving scene your guest sees first. Watch the openings here — the invitation beneath each one is unveiled for our clients once they have chosen. More designs, for {OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label.toLowerCase()).join(', ')} and beyond, are on the way.</p>
+            <h2 className="display mt-2 text-center text-3xl">Our designs</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">Each design is shown by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen; the premium opening video is an add-on. More designs, for {OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label.toLowerCase()).join(', ')} and beyond, are on the way.</p>
             <div className="mt-8">
-              <TemplateGallery compact templates={templates.map(toGalleryTemplate)} />
+              <TemplateGallery compact templates={templates.map(toGalleryTemplate)} premiumPriceCents={addOns.find((a) => a.code === PREMIUM_OPENING_CODE && a.active)?.priceCents} />
             </div>
           </div>
         </section>

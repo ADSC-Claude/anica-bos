@@ -403,6 +403,10 @@ model Invitation {
   /// order; they are not customer content and never pass through the builder.
   openingVideoUrl  String          @default("")
   openingPosterUrl String          @default("")
+  /// The premium opening video add-on, bought with the order or switched on
+  /// by staff. Without it the design's clip is not played and the guest gets
+  /// the opening every package includes.
+  premiumOpening   Boolean         @default(false)
   editsUsed    Int              @default(0)
   /// -1 means unlimited until the event.
   editsAllowed Int              @default(3)

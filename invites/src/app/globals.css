@@ -292,7 +292,7 @@ table.data tr:hover td {
    phone is 9:16 where the clip's frame is taller, so the words are set per
    clip: the bow's card is the ground the ribbons uncover, above the knot. */
 .gal-phone[data-clip='baby-blue-bow'] { background: #cfdff0; }
-.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; top: 11%; bottom: 55%; }
+.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; top: 18%; bottom: 48%; }
 .gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
 .gal-cover[data-show='true'] { opacity: 1; }
 .gal-preview-side { max-width: 20rem; color: #fff; }
@@ -1424,9 +1424,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-open[data-clip='baby-blue-bow'] .inv-open-hint { color: #4a5b7a; text-shadow: none; }
 .inv-open[data-clip='baby-blue-bow'] { background: #cfdff0; }
 /* its card is the clear ground the ribbons leave: the words in the design's
-   blue, set high in the diamond the ribbons open — the owner drew where — and
+   blue, set in the diamond the ribbons open — the owner drew where — and
    larger than the Capiz card's, which has a narrow card to fit. */
-.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; top: 14%; bottom: 52%; }
+.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; top: 21%; bottom: 45%; }
 .inv-open[data-clip='baby-blue-bow'] .inv-plate-eyebrow,
 .gal-phone[data-clip='baby-blue-bow'] .inv-plate-eyebrow { font-size: 3.2vw; font-size: 3.2cqw; letter-spacing: 0.36em; text-indent: 0.36em; }
 .inv-open[data-clip='baby-blue-bow'] .inv-plate-names,

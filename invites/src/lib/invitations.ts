@@ -20,7 +20,7 @@ import {
   OCCASION_SECTIONS,
   sectionOffered,
 } from './sections';
-import { hasFeature } from './tiers';
+import { hasFeature, TIER_LABELS } from './tiers';
 import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
@@ -207,17 +207,17 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
   if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) clean.paletteKey = theme.paletteKey;
   if (theme.palette) clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
   if (theme.fontsKey && FONT_PRESETS.some((f) => f.key === theme.fontsKey)) {
-    if (!hasFeature(invitation.tier, 'fonts.custom')) throw new HttpError(403, 'Font presets are included in the Complete package.');
+    if (!hasFeature(invitation.tier, 'fonts.custom')) throw new HttpError(403, `Font presets are included in the ${TIER_LABELS.COMPLETE} package.`);
     clean.fontsKey = theme.fontsKey;
   }
   // A look is the faces and the lines under the headings. Basic keeps the
-  // design's own; Standard chooses among three, Complete among five.
+  // design's own; Standard chooses among three, Signature among five.
   if (theme.lookKey !== undefined) {
     const key = isLook(theme.lookKey) ? theme.lookKey : '';
     if (!lookAllowed(invitation.tier, key)) {
       throw new HttpError(403, hasFeature(invitation.tier, 'fonts.choice')
-        ? 'That font style is included in the top package.'
-        : 'The Basic package is set in one font style. Standard chooses among three, the top package among five.');
+        ? `That font style is included in the ${TIER_LABELS.COMPLETE} package.`
+        : `The Basic package is set in one font style. Standard chooses among three, ${TIER_LABELS.COMPLETE} among five.`);
     }
     clean.lookKey = key;
   }
@@ -283,7 +283,7 @@ export async function updateSettings(
   }
   if (input.privacy !== undefined) {
     if (input.privacy === 'PASSWORD' && !hasFeature(invitation.tier, 'privacy.password')) {
-      throw new HttpError(403, 'Password protection is included in the Complete tier.');
+      throw new HttpError(403, `Password protection is included in the ${TIER_LABELS.COMPLETE} package.`);
     }
     data.privacy = input.privacy;
     if (input.privacy === 'PASSWORD') {
@@ -310,7 +310,7 @@ export async function changeTemplate(user: SessionUser, invitationId: string, te
   assertOpenForChanges(user, invitation);
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
-  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, 'That design is only in the Complete package.');
+  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, `That design is only in the ${TIER_LABELS.COMPLETE} package.`);
   if (!hasFeature(invitation.tier, 'templates.any') && template.minTier !== 'BASIC') throw new HttpError(403, 'The Basic tier includes designs from the Basic set. Upgrade to choose any template.');
   await prisma.invitation.update({ where: { id: invitationId }, data: { templateId } });
   await audit(user, { module: 'invitations', action: 'template.change', entityType: 'Invitation', entityId: invitationId, summary: `Switched to ${template.name}` });
@@ -404,7 +404,7 @@ export async function recordView(invitationId: string): Promise<void> {
   }
 }
 
-/** RSVP is open unless the customer closed it, or the Complete-tier deadline has passed. */
+/** RSVP is open unless the customer closed it, or the Signature-package deadline has passed. */
 export function rsvpOpen(invitation: { rsvpClosed: boolean; rsvpDeadline: Date | null; tier: Tier }): boolean {
   if (invitation.rsvpClosed) return false;
   if (hasFeature(invitation.tier, 'rsvp.autoClose') && invitation.rsvpDeadline && invitation.rsvpDeadline.getTime() < Date.now()) return false;

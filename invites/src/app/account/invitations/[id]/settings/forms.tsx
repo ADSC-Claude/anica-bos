@@ -35,14 +35,14 @@ export function SettingsForm(p: { invitationId: string; host: string; slug: stri
           <span className="text-[color:var(--color-ink-500)]">{p.host}/</span>
           <input id="slug" name="slug" className="field" defaultValue={p.slug} disabled={!p.canCustomSlug} pattern="[a-z0-9-]{3,60}" />
         </div>
-        <p className="hint">{p.canCustomSlug ? 'Lowercase letters, numbers and dashes.' : 'Custom links are included from the Standard tier.'}</p>
+        <p className="hint">{p.canCustomSlug ? 'Lowercase letters, numbers and dashes.' : 'Custom links are included from the Standard package.'}</p>
       </div>
       <div>
         <label className="label" htmlFor="privacy">Who can open it</label>
         <select id="privacy" name="privacy" className="field" value={privacy} onChange={(e) => setPrivacy(e.target.value)}>
           <option value="PUBLIC">Public — anyone with the link, and search engines may index it</option>
           <option value="UNLISTED">Unlisted — anyone with the link, hidden from search</option>
-          <option value="PASSWORD" disabled={!p.canPassword}>Password — guests type a password first{p.canPassword ? '' : ' (Complete tier)'}</option>
+          <option value="PASSWORD" disabled={!p.canPassword}>Password — guests type a password first{p.canPassword ? '' : ` (${TIER_LABELS.COMPLETE} package)`}</option>
         </select>
       </div>
       {privacy === 'PASSWORD' && (
@@ -142,7 +142,7 @@ export function TemplatePicker(p: { invitationId: string; currentId: string; tem
         {p.templates.map((t) => (
           <button key={t.id} type="button" disabled={pending || t.id === p.currentId} onClick={() => run(() => templateAction(p.invitationId, t.id), `Switched to ${t.name}.`)} className={`card overflow-hidden text-left ${t.id === p.currentId ? 'ring-2 ring-[color:var(--color-plum-600)]' : ''}`}>
             <div className="aspect-[9/16] bg-[color:var(--color-sand-100)]">{t.thumbnailUrl && <img src={t.thumbnailUrl} alt="" className="h-full w-full object-cover object-top" />}</div>
-            <div className="p-2 text-sm"><span className="block font-semibold">{t.name}</span><span className="block text-xs text-[color:var(--color-ink-500)]">{t.premium ? 'Complete only · ' : ''}{t.layout}</span></div>
+            <div className="p-2 text-sm"><span className="block font-semibold">{t.name}</span><span className="block text-xs text-[color:var(--color-ink-500)]">{t.premium ? `${TIER_LABELS.COMPLETE} only · ` : ''}{t.layout}</span></div>
           </button>
         ))}
       </div>

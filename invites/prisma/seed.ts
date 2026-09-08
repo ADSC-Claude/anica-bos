@@ -12,6 +12,7 @@ import { resolveDatabaseUrl } from '../src/lib/db-url';
 import bcrypt from 'bcryptjs';
 import { defaultContent, type Content } from '../src/lib/sections';
 import { TEMPLATES, templateData } from './templates';
+import { TIER_LABELS } from '../src/lib/tiers';
 import { guestToken, orderReference, paymentReference } from '../src/lib/codes';
 import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } from '../src/lib/copy';
 import { addDays } from '../src/lib/datetime';
@@ -108,7 +109,7 @@ async function main() {
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
     { tier: 'BASIC', price: 99900, dfy: 50000, concierge: 250000, edits: 3, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
     { tier: 'STANDARD', price: 199900, dfy: 80000, concierge: 250000, edits: -1, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 349900, dfy: 120000, concierge: 250000, edits: -1, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Complete-only designs.' },
+    { tier: 'COMPLETE', price: 349900, dfy: 120000, concierge: 250000, edits: -1, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -125,7 +126,7 @@ async function main() {
           code: `${op.occasion ?? 'ANY'}_${t.tier}`,
           occasion: op.occasion,
           tier: t.tier,
-          name: `${op.label} ${t.tier.charAt(0)}${t.tier.slice(1).toLowerCase()}`,
+          name: `${op.label} ${TIER_LABELS[t.tier]}`,
           tagline: t.tagline,
           priceCents: Math.round((t.price * op.scale) / 100) * 100,
           dfyFeeCents: t.dfy,
@@ -312,7 +313,7 @@ Seeded.
     support@youreinvitedto.com    Support / Finance
 
   Customers (${PASSWORD_SUPPLIED ? 'same password' : `password "${PASSWORD}"`}):
-    maria@example.com             owns the demo "Juan & Maria" (Complete) and a pending christening order
+    maria@example.com             owns the demo "Juan & Maria" (Signature) and a pending christening order
     sofia@example.com             Done-For-You debut in progress
 
   Demo invitation:  /juan-and-maria

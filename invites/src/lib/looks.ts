@@ -389,7 +389,7 @@ export function isLook(value: string): value is LookKey {
 /**
  * How many looks a package may choose from. The faces are part of what is
  * bought: Basic is set in the design's own look and picks nothing, Standard
- * chooses among three, Complete among all five. A design's own look is what
+ * chooses among three, Signature among all five. A design's own look is what
  * every package starts in, whichever list it belongs to — so a Basic
  * invitation is never left without a voice, it simply keeps the one the
  * design was drawn in.

@@ -1,7 +1,7 @@
 /**
  * A template's look is a palette and a pair of fonts, applied as CSS variables
  * on the invitation root. The renderer never hard-codes a colour, so a
- * customer on the Standard tier can pick another preset and a Complete
+ * customer on the Standard tier can pick another preset and a Signature
  * customer can type their own hex values — and the same section markup
  * re-skins itself.
  */

@@ -11,7 +11,8 @@ export const TIERS: Tier[] = ['BASIC', 'STANDARD', 'COMPLETE'];
 export const TIER_LABELS: Record<Tier, string> = {
   BASIC: 'Basic',
   STANDARD: 'Standard',
-  COMPLETE: 'Complete',
+  // The top package. "Complete" promised there was nothing left to add, and there is: the add-ons.
+  COMPLETE: 'Signature',
 };
 
 const RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
@@ -59,7 +60,7 @@ export const FEATURE_MIN_TIER: Record<FeatureKey, Tier> = {
   'palette.presets': 'BASIC',
   'palette.custom': 'BASIC',
   // The font style — a look, in src/lib/looks.ts. Basic is set in the design's
-  // own and picks nothing; Standard chooses among three; Complete among five.
+  // own and picks nothing; Standard chooses among three; Signature among five.
   'fonts.choice': 'STANDARD',
   'fonts.all': 'COMPLETE',
   // The old font presets, faces without the lines: staff's tool, never a
@@ -89,7 +90,7 @@ export function hasFeature(tier: Tier, feature: FeatureKey): boolean {
   return tierAtLeast(tier, FEATURE_MIN_TIER[feature]);
 }
 
-/** How many gallery photos a tier may carry. Infinity for Complete. */
+/** How many gallery photos a tier may carry. Infinity for Signature. */
 export function galleryLimit(tier: Tier): number {
   if (hasFeature(tier, 'gallery.unlimited')) return Infinity;
   if (hasFeature(tier, 'gallery.10')) return 10;
@@ -123,7 +124,7 @@ export function featureOffered(feature: FeatureKey): boolean {
 
 /** Every row, including the ones held back. The tables use COMPARISON. */
 export const COMPARISON_ALL: ComparisonRow[] = [
-  { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + Complete-only designs' } },
+  { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + Signature-only designs' } },
   { label: 'Colours', cells: { BASIC: 'Yours to choose', STANDARD: 'Yours to choose', COMPLETE: 'Yours to choose' } },
   { label: 'Font style', cells: { BASIC: 'Modern', STANDARD: '3 to choose from', COMPLETE: 'All 5 to choose from' } },
   { label: 'Cover: names, monogram, date, cover photo', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },

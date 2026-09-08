@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
-import { TIERS } from '@/lib/tiers';
+import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
 import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS } from '@/lib/design';
@@ -48,7 +48,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Select label="Lowest tier" name="minTier" defaultValue={t?.minTier ?? 'BASIC'} options={TIERS.map((x) => ({ value: x, label: x }))} />
           <Select label="Collection" name="collection" defaultValue={t?.collection ?? ''} options={[{ value: '', label: '— none —' }, ...COLLECTIONS.map((c) => ({ value: c.key, label: c.label }))]} hint="The colour family this design is shown under in the gallery." />
           <Select label="Opening" name="opening" defaultValue={t?.opening ?? ''} options={[{ value: '', label: '— none —' }, ...OPENINGS.filter((o) => o.key !== 'none').map((o) => ({ value: o.key, label: `${o.name} — ${o.tagline}` }))]} hint="What this design opens with when the customer has not picked one. Their choice always wins." />
-          <Checkbox label="Complete only (kept out of Basic and Standard)" name="premium" defaultChecked={t?.premium} />
+          <Checkbox label={`${TIER_LABELS.COMPLETE} only (kept out of Basic and Standard)`} name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
           <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="The cover page, portrait (9:16), shown in the gallery and the checkout. Leave blank to show the palette." />
           <Field label="Premium opening clip URL" name="openingVideoUrl" defaultValue={t?.openingVideoUrl} hint="Portrait MP4 or WebM, muted, a few seconds. Played for customers who bought the premium opening add-on with this design; it overrides the opening chosen above." />

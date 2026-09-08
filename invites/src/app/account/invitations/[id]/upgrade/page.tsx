@@ -21,7 +21,7 @@ export default async function UpgradePage({ params }: { params: Promise<{ id: st
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
       <PageHeader title="Upgrade your package" subtitle={`You are on ${TIER_LABELS[inv.tier]}. Pay only the difference; everything you have built stays.`} />
-      {options.length === 0 ? <p className="card p-5">You already have everything — Complete is the top tier.</p> : (
+      {options.length === 0 ? <p className="card p-5">You already have everything — {TIER_LABELS.COMPLETE} is the top package.</p> : (
         <div className="grid gap-4 sm:grid-cols-2">
           {options.map((p) => (
             <div key={p.id} className="card p-5">

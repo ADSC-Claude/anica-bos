@@ -16,8 +16,10 @@ Four surfaces, one backend:
 | Admin | `/admin` | Orders & payments (PayMongo webhook + manual proof review), DFY kanban, templates, customers, invitations, coupons, support inbox, reports, settings (pricing editor, payment accounts, copy, staff, audit trail) |
 
 Same toolchain as the ANICA spa and rental apps in this repository, and
-otherwise entirely separate from them: its own database, its own Vercel
-project, no shared code or rows.
+otherwise separate from them: its own Vercel project, no shared code, no
+shared rows. Not its own database, though — it is its own **schema**,
+`invites`, inside the Postgres the spa also uses, and the distance between
+those two facts is one environment variable. See step 6 of [Deployment](#deployment).
 
 ---
 
@@ -654,7 +656,40 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    next build: redeploy after editing it. Production is
    `https://youreinvitedto.com`, with `www.` redirecting to the apex.
    Set `CRON_SECRET`.
-6. **Seed** the production database once, then sign in as the Owner, change
+6. **Keep previews off the production database.** Vercel gives every
+   environment the same variables unless you scope them, so out of the box a
+   preview build applies its branch's migrations to the live database. That is
+   how a column rename on a branch took the storefront down: the rename ran
+   from the branch's own preview, production's code kept asking for the old
+   name, and every page reading the catalogue served 500 until the branch
+   merged — with a green preview the whole time, because the preview's code
+   matched the schema it had just changed.
+
+   In Vercel → Settings → Environment Variables, add `DATABASE_SCHEMA` scoped
+   to **Preview** only, with a schema of its own — `invites_preview`. Nothing
+   needs provisioning: Prisma creates the schema on the first preview build and
+   migrates it, and the seed workflow fills it. Previews then have their own
+   catalogue and their own orders, and no branch can reach a customer's guest
+   list. `scripts/build.mjs` refuses to build a preview that is still pointed at
+   production's schema, so this cannot quietly come undone; if a preview ever
+   has a genuinely separate database that reuses the name, set
+   `PRODUCTION_DATABASE_SCHEMA` to whatever production actually uses.
+
+   **Add that variable; do not edit the existing one.** Rescoping the single
+   all-environments row to Preview is the same edit as deleting Production's
+   copy, and a production build naming no schema is not pointed at nothing —
+   it is pointed at `public`. That happened. The build ran the invitations'
+   first migration there and failed at `CREATE TYPE "Role"`, because `public`
+   in this database holds an abandoned copy of the spa's tables from a move
+   that was never finished, and it rolled back having created nothing.
+
+   The failure was the lucky outcome. Against any *empty* schema that
+   migration succeeds, the build goes green, and production comes up serving a
+   catalogue with no packages and no invitations while the real rows sit in
+   `invites` with nothing reading them. `scripts/build.mjs` now refuses a
+   production build pointed anywhere but production's own schema — the preview
+   rule read from the other side.
+7. **Seed** the production database once, then sign in as the Owner, change
    the passwords, and replace the demo's placeholder photos and the sample
    testimonials on the landing page.
 

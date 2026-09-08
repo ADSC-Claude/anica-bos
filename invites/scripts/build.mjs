@@ -10,7 +10,12 @@
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { describeDatabaseUrl, resolveDatabaseUrl } from './db-url.mjs';
+import {
+  describeDatabaseUrl,
+  resolveDatabaseUrl,
+  previewOnProductionSchema,
+  productionOffProductionSchema,
+} from './db-url.mjs';
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -219,6 +224,51 @@ if (production && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn(
     '\n! SUPABASE_SERVICE_ROLE_KEY is not set — uploads will be written to the container\n' +
       '  filesystem, which does not survive the request. Set it before anyone uploads a photo.',
+  );
+}
+
+/**
+ * A preview deployment must not be pointed at the schema production serves.
+ *
+ * Vercel gives every environment the same variables unless someone scopes them,
+ * so by default a preview build runs *this branch's* migrations against the
+ * live database. That is not a hypothetical: a column rename on a branch was
+ * applied to production by its own preview build, production's code went on
+ * asking for the old name, and every page that reads the catalogue served 500
+ * until the branch merged. Nothing warned anybody — the preview went green,
+ * because the preview's code matched the schema it had just changed.
+ *
+ * The fix is one variable: set DATABASE_SCHEMA on the Preview environment to a
+ * schema of its own. Prisma creates it on the first migration, so there is
+ * nothing to provision; seed it once and previews have their own catalogue,
+ * their own orders, and none of a customer's guest list.
+ *
+ * This refuses to build instead of warning, because a warning in a build log is
+ * exactly what did not stop it the first time.
+ */
+if (previewOnProductionSchema()) {
+  fail(
+    `This is a preview build, and it is pointed at "${process.env.DATABASE_SCHEMA || 'public'}" — the schema production serves.`,
+    'Building would apply this branch\'s migrations to live customer data. In Vercel → Settings →\n' +
+      '  Environment Variables, add DATABASE_SCHEMA scoped to Preview only (invites_preview is a fine\n' +
+      '  name). The first preview build creates the schema and migrates it; run the seed once to fill\n' +
+      '  the catalogue. If a preview genuinely has its own database and reuses the name, set\n' +
+      '  PRODUCTION_DATABASE_SCHEMA to whatever production actually uses.',
+  );
+}
+
+// And the same refusal the other way round. A production build that names no
+// schema is not pointed at nothing; it is pointed at `public`, which in this
+// database belongs to the spa. See productionOffProductionSchema for the hour
+// that rule cost.
+if (productionOffProductionSchema()) {
+  fail(
+    `This is a production build, and it is pointed at "${process.env.DATABASE_SCHEMA || 'public'}" — not "${process.env.PRODUCTION_DATABASE_SCHEMA || 'invites'}", the schema production serves.`,
+    'Building would migrate somebody else\'s schema in the same database. In Vercel → Settings →\n' +
+      '  Environment Variables, set DATABASE_SCHEMA for Production back to the schema this app owns.\n' +
+      '  Scope the preview\'s own value to Preview alone rather than editing this one, so the two\n' +
+      '  environments cannot be changed by the same edit. If production really has moved schema, set\n' +
+      '  PRODUCTION_DATABASE_SCHEMA to the new name so this check knows what it is checking against.',
   );
 }
 

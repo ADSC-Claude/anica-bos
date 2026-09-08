@@ -21,15 +21,17 @@ export type FieldsProps = {
   invitationId: string;
   /** Lists longer than this show a note (gallery limit per tier). */
   listLimits?: Record<string, number>;
+  /** A list's hint from the design, where the page has a fixed number of frames. */
+  listHints?: Record<string, string>;
 };
 
-export function SectionFields({ fields, value, onChange, lang, invitationId, listLimits = {} }: FieldsProps) {
+export function SectionFields({ fields, value, onChange, lang, invitationId, listLimits = {}, listHints = {} }: FieldsProps) {
   const set = (key: string, v: unknown) => onChange({ ...value, [key]: v });
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
         <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' || f.type === 'audio' ? 'sm:col-span-2' : ''}>
-          <FieldInput field={f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
+          <FieldInput field={listHints[f.key] ? { ...f, hint: listHints[f.key] } : f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
         </div>
       ))}
     </div>
@@ -532,7 +534,7 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
       {value.length < max ? (
         <button type="button" className="btn btn-secondary btn-sm mt-2" onClick={() => onChange([...value, blank()])}>+ {field.addLabel ?? 'Add'}</button>
       ) : (
-        <p className="hint">Your package includes up to {max} here. Upgrade for more.</p>
+        <p className="hint">{limit !== undefined && limit < (field.max ?? 200) && limit <= 12 ? `The page holds ${max} here.` : `Your package includes up to ${max} here. Upgrade for more.`}</p>
       )}
       <Hint text={field.hint} />
     </div>

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, type Content, type SectionKey } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, photoFrames, photoFramesHint, type Content, type SectionKey } from '@/lib/sections';
 import { sectionAnchor } from '@/lib/anchors';
 import { intakeRows, intakeFilled } from '@/lib/intake';
 import { doneSections } from '@/lib/progress';
@@ -91,7 +91,8 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
         intakeData={intakeData}
         intakeNotes={intake.notes ?? ''}
         lang={inv.language === 'tl' ? 'tl' : 'en'}
-        listLimits={{ photos: limit === Infinity ? 200 : limit }}
+        listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)) }}
+        listHints={photoFramesHint(inv.template.layout)}
         done={doneSections(content.progress)}
       />
     </>

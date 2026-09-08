@@ -51,6 +51,12 @@ export type TemplateSeed = {
   featured: boolean;
   description: string;
   thumb: string;
+  /**
+   * The slug of the invitation that shows the design off. A visitor may scroll
+   * it from the opening to Our Story before choosing (the peek). The gallery
+   * offers the peek only where that invitation exists on this design.
+   */
+  demo?: string;
   /** Kept for the invitations on it, but not on sale. */
   retired?: boolean;
 };
@@ -66,7 +72,7 @@ export const TEMPLATES: TemplateSeed[] = [
     slug: 'baby-blue', name: 'Baby Blue', occasion: 'CHRISTENING', minTier: 'BASIC', premium: false, layout: 'babyblue', collection: 'babyblue', opening: 'universal',
     palette: pal('babyblue'), fonts: fonts('serif'), look: 'romance', featured: true,
     description: 'Sky and clouds, a dove, baby’s breath and blue organza. Made for a christening, soft as a blanket.',
-    thumb: '/covers/baby-blue.jpg',
+    thumb: '/covers/baby-blue.jpg', demo: 'lucas-andrei-christening',
     words: {
       en: {
         cover: 'The christening of',
@@ -92,7 +98,7 @@ export const TEMPLATES: TemplateSeed[] = [
       },
     },
   },
-  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg' },
+  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg', demo: 'juan-and-maria' },
   { slug: 'classic-ivory', name: 'Classic Ivory', occasion: 'WEDDING', minTier: 'BASIC', layout: 'classic', collection: '', opening: 'universal', palette: pal('ivory'), fonts: fonts('serif'), featured: true, description: 'Full-bleed photo, serif names, sage and gold.', thumb: pic('classic-ivory') , retired: true },
   { slug: 'garden-botanical', name: 'Garden Botanical', occasion: 'WEDDING', minTier: 'BASIC', layout: 'garden', collection: 'garden', opening: 'universal', palette: pal('emerald'), fonts: fonts('serif'), featured: true, description: 'Arched photo, emerald and ivory. Tagaytay energy.', thumb: pic('garden-botanical') , retired: true },
   { slug: 'modern-minimal', name: 'Modern Minimal', occasion: 'WEDDING', minTier: 'STANDARD', layout: 'modern', collection: '', opening: 'universal', palette: pal('mono'), fonts: fonts('modern'), featured: false, description: 'Uppercase sans, black and white, lots of air.', thumb: pic('modern-minimal') , retired: true },
@@ -133,6 +139,7 @@ export function templateData(t: TemplateSeed, sortOrder: number) {
     featured: t.featured,
     description: t.description,
     thumbnailUrl: t.thumb,
+    demoSlug: t.demo ?? '',
     sortOrder,
     published: !t.retired,
   };

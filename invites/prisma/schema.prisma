@@ -197,6 +197,10 @@ model Template {
   /// every customer on it — never rendered per couple.
   openingVideoUrl  String @default("")
   openingPosterUrl String @default("")
+  /// The slug of the invitation that shows this design off: a visitor may
+  /// scroll it from the opening to Our Story (the peek) before choosing the
+  /// design, whatever its status. Blank means no peek is offered.
+  demoSlug         String @default("")
   palette      Json
   fonts        Json
   /// The look this design is set in — its faces and the lines under its

@@ -833,10 +833,29 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
       // how far the ground before dissolves into this page: the layout's share
       // of the width, or the page's own (a drawn page keeps its top clear)
       const seamOf = (p: HTMLElement) => Math.round(width * (p.dataset.seam ? Number(p.dataset.seam) : seamShare));
+      // A join is the page before dissolving out over the page after, which is
+      // laid beneath it and starts early, so the page after never shows a cut
+      // top edge and the page before never a cut foot: it is transparent by
+      // the time its picture ends. Where the join sits relative to the page's
+      // top edge depends on what is drawn there. A page whose ground is its
+      // own picture starts that picture half a seam up, inside the page
+      // before, so the two pictures cross halfway across the join. A drawn
+      // page cannot move its ground — its frames and writings sit at fixed
+      // places on it — so the ground begins at its top edge and the join lies
+      // wholly below it, short, to keep its header clear; and the page after a
+      // drawn page joins wholly above its own top edge, short, so the drawn
+      // page's foot is not dissolved under its last frame. Pages by number
+      // keep the split half and half.
+      const drawnOut = Math.round(width * 0.2);
+      const joinOf = (p: HTMLElement, before: HTMLElement | undefined, seam: number): { above: number; below: number } => {
+        if (p.hasAttribute('data-drawn')) return { above: 0, below: seam };
+        if (before?.hasAttribute('data-drawn')) return { above: drawnOut, below: 0 };
+        return { above: Math.round(seam / 2), below: seam - Math.round(seam / 2) };
+      };
       // the background by number — by night, the night one where the design has it
       const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
       const byNumber = (n: number) => (dark ? night?.[(n - 1) % backgrounds.length] : '') || backgrounds[(n - 1) % backgrounds.length];
-      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; seam: number; own?: Ground }[] = [];
+      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground }[] = [];
       let k = 0;
       pages.forEach((p, i) => {
         const r = p.getBoundingClientRect();
@@ -846,6 +865,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const bg = width * (own ? own.ratio : ratio);
         if (!bg) return;
         const seam = seamOf(p);
+        const join = joinOf(p, pages[i - 1], seam);
         // A page with a ground of its own always sits on that one ground,
         // whatever its height. By number: a page up to a tenth taller than one
         // background (with the seam it reaches into) stays on one, drawn a
@@ -856,53 +876,66 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         for (let j = 0; j < count; j++) {
           const foot = lastPage && j === count - 1;
           const url = own ? own.url : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
-          segs.push({ url, bg, top: top + j * share, height: share, foot, seam, own });
+          // a page split over several backgrounds joins itself half and half
+          const half = Math.round(seam / 2);
+          segs.push({ url, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own });
         }
       });
-      // the papers to draw: one per segment, and under a page shorter than its
-      // own ground, a second that brings the ground's foot in beneath the words
-      const papers: { className: string; top: number; height: number; seam: number; draw: (el: HTMLElement) => void }[] = [];
+      // The papers to draw: one per segment, and under a page shorter than its
+      // own ground, a second that brings the ground's foot in beneath the words.
+      // Earlier papers lie on top of later ones, and every paper but the last
+      // dissolves out across its foot (`out`) — over the next paper, which
+      // starts that far up, opaque. A foot paper also fades in at its top
+      // (`seam`), over its own page's ground.
+      const papers: { className: string; top: number; height: number; seam: number; out: number; z: number; draw: (el: HTMLElement) => void }[] = [];
       segs.forEach((s, i) => {
         const first = i === 0;
         const final = i === segs.length - 1;
-        // reaches half its own seam up into the page before, and half the next one's down under the next
-        const half = Math.round(s.seam / 2);
-        const nextHalf = final ? 0 : Math.round(segs[i + 1].seam / 2);
+        // starts its share of the join up inside the page before, and reaches
+        // the next join's foot, dissolving out across it
+        const half = first ? 0 : s.above;
+        const nextHalf = final ? 0 : segs[i + 1].below;
+        const out = final ? 0 : segs[i + 1].above + segs[i + 1].below;
         const top = first ? s.top : s.top - half;
         const bottom = final ? inv.scrollHeight : s.top + s.height + nextHalf;
         const box = bottom - top;
+        const z = 2 * (segs.length - i);
         const g = s.own;
         const bgH = Math.round(s.bg);
         if (g && g.slices && s.height < bgH * 0.96) {
           // shorter than its ground: the foot of the picture comes in under the
-          // words, fading up from nothing, so the page ends the way the ground does
+          // words, fading up from nothing, so the page ends the way the ground
+          // does; it runs to the paper's foot, so the join never cuts it
           const footH = Math.round(g.ratio * width * 0.44);
           const shown = Math.min(footH, Math.round(s.height * 0.55));
           const foot = g.slices.foot;
-          papers.push({ className: 'inv-paper is-foot-art', top: s.top + s.height - shown, height: shown + nextHalf, seam: Math.round(shown * 0.7), draw: (el) => {
+          papers.push({ className: 'inv-paper is-foot-art', top: s.top + s.height - shown, height: shown + nextHalf, seam: Math.round(shown * 0.7), out, z: z + 1, draw: (el) => {
             el.style.backgroundImage = `url("${foot}")`;
             el.style.backgroundSize = '100% auto';
-            el.style.backgroundPosition = `center calc(100% - ${nextHalf}px)`;
+            el.style.backgroundPosition = 'center bottom';
             el.style.backgroundRepeat = 'no-repeat';
           } });
         }
-        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: s.seam, draw: (el) => {
+        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: 0, out, z, draw: (el) => {
         if (s.own) {
-          // A ground of the page's own, laid to the page's top edge (the paper
-          // starts half a seam above it). A page no taller than the ground shows
-          // it whole, its edge colours filling the strips beyond; a taller page
-          // keeps the ground's head and foot whole and stretches the band between.
+          // A ground of the page's own, laid from the paper's top: for most
+          // pages that is half a seam up inside the page before, so the picture
+          // crosses into the one before it; for a drawn page it is the page's
+          // own top edge. A page no taller than the ground shows it whole, its
+          // edge colours filling the strips beyond; a taller page keeps the
+          // ground's head and foot whole and stretches the band between.
           const g = s.own;
           const bgH = Math.round(s.bg);
-          const startY = first ? 0 : half;
-          const tall = s.height > bgH * 1.02;
+          const startY = 0;
+          const tall = s.height + half > bgH * 1.02;
           if (tall && g.slices) {
+            // the foot slice runs to the paper's foot, so the join never cuts it
             el.style.backgroundImage = `url("${g.slices.top}"), url("${g.slices.foot}"), url("${g.slices.mid}")`;
             el.style.backgroundSize = '100% auto, 100% auto, 100% 100%';
-            el.style.backgroundPosition = `center ${startY}px, center calc(100% - ${nextHalf}px), center top`;
+            el.style.backgroundPosition = `center ${startY}px, center bottom, center top`;
           } else {
             el.style.backgroundImage = `url("${g.url}"), linear-gradient(to bottom, ${g.top} 0, ${g.top} ${startY}px, ${g.bottom} ${startY + bgH}px, ${g.bottom} 100%)`;
-            el.style.backgroundSize = `${tall ? `auto ${Math.round(s.height)}px` : '100% auto'}, 100% 100%`;
+            el.style.backgroundSize = `${tall ? `auto ${Math.round(s.height + half)}px` : '100% auto'}, 100% 100%`;
             el.style.backgroundPosition = `center ${startY}px, center top`;
           }
           el.style.backgroundRepeat = 'no-repeat';
@@ -926,7 +959,9 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         el.className = pp.className;
         el.style.top = `${Math.round(pp.top)}px`;
         el.style.height = `${Math.round(pp.height)}px`;
+        el.style.zIndex = String(pp.z);
         el.style.setProperty('--seam', `${pp.seam}px`);
+        el.style.setProperty('--out', `${pp.out}px`);
         pp.draw(el);
       });
       ground.toggleAttribute('data-night-art', dark);

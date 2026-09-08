@@ -5,7 +5,8 @@ import { HttpError } from '@/lib/errors';
 import { loadJobForCustomer, DFY_COLUMNS } from '@/lib/dfy';
 import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, type Content } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type Content } from '@/lib/sections';
+import { galleryLimit } from '@/lib/tiers';
 import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
@@ -40,6 +41,8 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
       unlocked,
       minTier: sectionMinTier(d.key, inv.occasion),
       initial: { ...emptySection(fields), ...(existing[d.key] ?? {}), ...(intake.content?.[d.key] ?? {}) },
+      // a photo page drawn with frames holds so many, whatever the package
+      ...(d.key === 'gallery' ? { listLimits: { photos: Math.min(galleryLimit(inv.tier) === Infinity ? 200 : galleryLimit(inv.tier), photoFrames(inv.template.layout)) }, listHints: photoFramesHint(inv.template.layout) } : {}),
     };
   });
 

@@ -590,9 +590,17 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   position: absolute; left: 0; right: 0;
   background-repeat: no-repeat; background-size: 100% auto; background-position: center top;
 }
-.inv-paper:not(.is-first) {
-  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--seam, 6rem));
-  mask-image: linear-gradient(to bottom, transparent, #000 var(--seam, 6rem));
+/* A paper's dissolves: in across its head over `--seam` (a foot paper, coming
+   up over its own page's ground) and out across its foot over `--out` (every
+   paper but the last, over the page after, which lies beneath it). Either is
+   0 where there is none. Eased: a straight ramp shows its two ends as faint
+   lines where the slope changes — the eye finds them even on organza — so the
+   curve starts and ends flat and does its work in the middle. */
+.inv-paper {
+  --seam: 0px;
+  --out: 0px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04) calc(var(--seam) * 0.15), rgba(0, 0, 0, 0.18) calc(var(--seam) * 0.33), rgba(0, 0, 0, 0.5) calc(var(--seam) * 0.5), rgba(0, 0, 0, 0.82) calc(var(--seam) * 0.67), rgba(0, 0, 0, 0.96) calc(var(--seam) * 0.85), #000 var(--seam), #000 calc(100% - var(--out)), rgba(0, 0, 0, 0.96) calc(100% - var(--out) * 0.85), rgba(0, 0, 0, 0.82) calc(100% - var(--out) * 0.67), rgba(0, 0, 0, 0.5) calc(100% - var(--out) * 0.5), rgba(0, 0, 0, 0.18) calc(100% - var(--out) * 0.33), rgba(0, 0, 0, 0.04) calc(100% - var(--out) * 0.15), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04) calc(var(--seam) * 0.15), rgba(0, 0, 0, 0.18) calc(var(--seam) * 0.33), rgba(0, 0, 0, 0.5) calc(var(--seam) * 0.5), rgba(0, 0, 0, 0.82) calc(var(--seam) * 0.67), rgba(0, 0, 0, 0.96) calc(var(--seam) * 0.85), #000 var(--seam), #000 calc(100% - var(--out)), rgba(0, 0, 0, 0.96) calc(100% - var(--out) * 0.85), rgba(0, 0, 0, 0.82) calc(100% - var(--out) * 0.67), rgba(0, 0, 0, 0.5) calc(100% - var(--out) * 0.5), rgba(0, 0, 0, 0.18) calc(100% - var(--out) * 0.33), rgba(0, 0, 0, 0.04) calc(100% - var(--out) * 0.15), transparent 100%);
 }
 .inv-paper.is-foot { background-position: center bottom; }
 .inv-page {
@@ -928,6 +936,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-hero-lines p { text-transform: uppercase; letter-spacing: 0.3em; text-indent: 0.3em; font-size: 0.74rem; line-height: 1.95; }
 .inv-scroll { margin-top: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 0.32em; text-indent: 0.32em; font-size: 0.58rem; color: var(--inv-muted); }
 .inv-scroll::after { content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.45rem auto 0; background: var(--inv-accent2); }
+/* the peek's end: the design's name and the way in, on the ground where Our Story left off */
+.inv-peek { text-align: center; padding-top: 2.5rem; padding-bottom: 3.5rem; }
+.inv-peek .inv-peek-line { max-width: 22rem; margin: 0.8rem auto 1.6rem; font-size: 0.95rem; line-height: 1.6; color: var(--inv-ink); }
 .inv-verse { text-align: center; }
 .inv-page > .inv-verse { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .inv-verse-text { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.88rem; line-height: 1.8; color: var(--inv-ink); max-width: 22rem; margin: 0 auto; }
@@ -1000,9 +1011,16 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    =========================================================================== */
 .inv[data-layout='babyblue'] { background: #eef3f9; --bb-cover: min(298.9vw, 95.6rem); }
 /* room at the foot of every plain page, so a short page's words end above the ground's foot art */
-.inv[data-layout='babyblue'] .inv-page { padding-bottom: min(28vw, 9rem); }
-/* the cover is one whole ground: the names in the sky, the verse toward its foot above the clouds */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: var(--bb-cover); justify-content: flex-start; padding-top: min(34vw, 10.9rem); padding-bottom: min(40vw, 12.8rem); }
+.inv[data-layout='babyblue'] .inv-page { padding-bottom: min(22vw, 7rem); }
+/* The cover is one screen, not one whole ground: the opening lands on it
+   with the names centred in the sky and the verse at the foot, where the
+   ground's own foot (the church, the clouds) comes in beneath the words.
+   The ground is three phone-widths tall; shown whole it left a screen of
+   empty sky between the names and the verse. */
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 100vh; min-height: 100dvh; justify-content: center; padding-top: min(12vw, 3.8rem); padding-bottom: min(12vw, 3.8rem); }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; }
+/* the verse sits at the foot of the screen, on the clouds, whatever the names above it need */
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { position: absolute; left: 0; right: 0; bottom: min(16vw, 5.1rem); margin: 0; padding-top: 0; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
@@ -1019,6 +1037,8 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
 .inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }
+/* the client's word for a photo, on the polaroid's strip, leaning with the frame */
+.inv[data-paged] .inv-bb-art > .inv-bb-caption { position: absolute; margin: 0; text-align: center; font-family: var(--inv-script, var(--inv-names)); font-size: 3.1cqw; line-height: 1.15; color: var(--inv-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the ink on this design is a dusty navy; the hero's script names read in it too */
 .inv[data-layout='babyblue'] .inv-names { color: var(--inv-ink); }
 .inv[data-layout='babyblue'] .inv-tagline { color: var(--inv-ink); opacity: 0.9; }
@@ -1329,6 +1349,8 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-open[data-clip='baby-blue-bow'] .inv-open-copy { display: none; }
 .inv-open[data-clip='baby-blue-bow'] .inv-open-hint { color: #4a5b7a; text-shadow: none; }
 .inv-open[data-clip='baby-blue-bow'] { background: #cfdff0; }
+/* its card is the clear ground the ribbons leave: the words in the design's blue */
+.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; }
 @media (min-aspect-ratio: 9/16) {
   .inv-open[data-clip='baby-blue-bow'] .inv-open-clip { object-fit: contain; }
 }

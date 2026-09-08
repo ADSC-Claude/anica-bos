@@ -569,7 +569,7 @@ const SECTION_DEFS: SectionDef[] = [
       occasion === 'CHRISTENING'
         ? [
             text('line', 'Line under the heading', { placeholder: 'e.g. A little prayer, a big answer.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-            list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6, hint: 'Six frames on the page, in this order. Name each moment your way; a frame with no photo stays empty.' }),
+            list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6 }),
           ]
         : [
             text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
@@ -587,7 +587,7 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { CHRISTENING: 'Baby photos', COMMUNION: 'Photos', KIDS_BIRTHDAY: 'Photos', BABY_SHOWER: 'Photos', MILESTONE_BIRTHDAY: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
     fields: () => [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo' }),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
@@ -856,6 +856,26 @@ export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
 export const PAGED_LAYOUTS = ['capiz', 'babyblue'] as const;
 export function isPaged(layout: string): boolean {
   return (PAGED_LAYOUTS as readonly string[]).includes(layout);
+}
+
+/**
+ * How many photographs a design's photo page holds, where the page is drawn
+ * with frames: Baby Blue's has four polaroids and that is the page. Any other
+ * design lays out however many the package allows.
+ */
+const LAYOUT_PHOTO_FRAMES: Record<string, number> = { babyblue: 4 };
+export function photoFrames(layout: string): number {
+  return LAYOUT_PHOTO_FRAMES[layout] ?? Infinity;
+}
+/**
+ * What the photos list says under itself on a design with frames, keyed by
+ * the list's field. Nothing: the client chose the design by its cover and can
+ * see the page as they fill it, so the form does not describe the page — the
+ * count beside the list says how many it holds.
+ */
+export function photoFramesHint(layout: string): Record<string, string> | undefined {
+  void layout;
+  return undefined;
 }
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {

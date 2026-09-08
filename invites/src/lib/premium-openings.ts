@@ -36,6 +36,12 @@ export type PremiumOpening = {
    * its piece on its own and the names wait for the cover.
    */
   words?: boolean;
+  /**
+   * The line over the names on the card: 'invited' is the opening's own
+   * ("You are invited"); 'cover' is the design's cover line ("The christening
+   * of"), for a clip whose face has already said the guest is invited.
+   */
+  eyebrow?: 'invited' | 'cover';
 };
 
 export const PREMIUM_OPENINGS: PremiumOpening[] = [
@@ -49,9 +55,9 @@ export const PREMIUM_OPENINGS: PremiumOpening[] = [
     words: true,
   },
   {
-    // The card is a tag on the ribbon and it carries its own writing, so the
-    // names are not set on it: the bow unties, the ribbons sweep aside, and
-    // the cover says whose christening it is.
+    // The tag on the ribbon already says the guest is invited; as the bow
+    // unties and the ribbons sweep aside, the child's name and the date come
+    // up on the clear ground they leave, under the design's cover line.
     key: 'baby-blue-bow',
     name: 'The Blue Bow',
     tagline: 'A satin bow with a tag, untied — the ribbons sweep aside.',
@@ -59,6 +65,8 @@ export const PREMIUM_OPENINGS: PremiumOpening[] = [
     poster: '/openings/baby-blue-poster.jpg',
     designs: ['baby-blue'],
     collections: ['babyblue'],
+    words: true,
+    eyebrow: 'cover',
   },
 ];
 

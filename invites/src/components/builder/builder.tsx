@@ -25,6 +25,7 @@ export function Builder({
   initial,
   lang,
   listLimits,
+  listHints,
   editsLeft,
   lookKey,
   allLooks,
@@ -52,6 +53,8 @@ export function Builder({
   initial: SectionData;
   lang: Lang;
   listLimits: Record<string, number>;
+  /** a list's hint from the design, e.g. a photo page with a fixed number of frames */
+  listHints?: Record<string, string>;
   editsLeft: number | null;
 }) {
   const router = useRouter();
@@ -186,7 +189,7 @@ export function Builder({
         ) : (
           <>
             <fieldset disabled={closed} className="min-w-0 border-0 p-0">
-              <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} />
+              <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
             </fieldset>
             {!closed && (
               <div className="sticky bottom-0 mt-6 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] py-3">

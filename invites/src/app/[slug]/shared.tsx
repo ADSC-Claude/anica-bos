@@ -88,6 +88,20 @@ export function ExpiredNotice({ invitation }: { invitation: PublicInvitation }) 
 }
 
 /**
+ * The peek: a design's demo from the opening to Our Story, for a visitor
+ * choosing a design. Only the invitation a design names as its demo
+ * (Template.demoSlug) opens this way, whatever its status — the design
+ * declares it public — and it stops after Our Story with the way in.
+ * No view is counted and no guest's link is involved.
+ */
+export async function PeekPage({ slug }: { slug: string }) {
+  const invitation = await loadPublic(slug, { preview: true });
+  if (!invitation || invitation.template.demoSlug !== slug) notFound();
+  const s = await getSettings();
+  return <Invitation invitation={invitation} guest={null} peek businessName={s['business.name']} />;
+}
+
+/**
  * `bare` drops the opening, the music and the day-and-night toggle: the page
  * as a page, for staff working on it beside a form. Only a previewer (the
  * owner or staff) gets it; a guest's link always opens the way it was made.

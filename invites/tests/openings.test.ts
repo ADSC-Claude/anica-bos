@@ -483,3 +483,11 @@ test('the client’s answers lay over the form without wiping what they left bla
   assert.equal(intakeFilled(fields, { line: '', howWeMet: '' }), false);
   assert.deepEqual(intakeRows(fields, intake).map((r) => r.label), ['How we met']);
 });
+
+test('a design names the demo a visitor may peek at, and the row carries it', () => {
+  const row = (slug: string) => templateData(TEMPLATES.find((t) => t.slug === slug)!, 0);
+  assert.equal(row('baby-blue').demoSlug, 'lucas-andrei-christening');
+  assert.equal(row('capiz').demoSlug, 'juan-and-maria');
+  // a design with no demo has no peek
+  assert.equal(row('classic-ivory').demoSlug, '');
+});

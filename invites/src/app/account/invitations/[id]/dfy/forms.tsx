@@ -9,7 +9,7 @@ import type { Lang } from '@/lib/copy';
 import { SectionFields } from '@/components/builder/fields';
 import { saveIntakeAction, requestRevisionAction, approveAction, commentAction } from '@/app/account/actions';
 
-type IntakeSection = { key: SectionKey; label: string; description: string; fields: Field[]; initial: SectionData; unlocked: boolean; minTier: Tier };
+type IntakeSection = { key: SectionKey; label: string; description: string; fields: Field[]; initial: SectionData; unlocked: boolean; minTier: Tier; listLimits?: Record<string, number>; listHints?: Record<string, string> };
 
 export function IntakeForm({ invitationId, lang, sections, method: initialMethod, notes: initialNotes, editable, messenger, viber }: { invitationId: string; lang: Lang; sections: IntakeSection[]; method: string; notes: string; editable: boolean; messenger: string; viber: string }) {
   // Locked sections are shown but never carry content: nothing about them
@@ -60,7 +60,7 @@ export function IntakeForm({ invitationId, lang, sections, method: initialMethod
               <details key={s.key} open={open === s.key} onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && setOpen(s.key)} className="card p-4">
                 <summary className="cursor-pointer font-semibold">{s.label} <span className="ml-2 text-xs font-normal text-[color:var(--color-ink-500)]">{s.description}</span></summary>
                 <div className="mt-3">
-                  <SectionFields fields={s.fields} value={content[s.key]} onChange={(v) => setContent((c) => ({ ...c, [s.key]: v }))} lang={lang} invitationId={invitationId} />
+                  <SectionFields fields={s.fields} value={content[s.key]} onChange={(v) => setContent((c) => ({ ...c, [s.key]: v }))} lang={lang} invitationId={invitationId} listLimits={s.listLimits} listHints={s.listHints} />
                 </div>
               </details>
             ) : (

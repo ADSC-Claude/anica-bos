@@ -27,6 +27,8 @@ export function Builder({
   listLimits,
   editsLeft,
   lookKey,
+  allLooks,
+  tier,
   looks,
   done: doneInitial,
   completedAt,
@@ -41,6 +43,8 @@ export function Builder({
   status: string;
   /** The look the page is set in ('' for the design's own) and the looks to choose from. */
   lookKey: string;
+  allLooks: number;
+  tier: Tier;
   looks: { key: string; name: string; tagline: string }[];
   sections: BuilderSection[];
   current: SectionKey;
@@ -161,7 +165,7 @@ export function Builder({
             </Notice>
           )}
         </div>
-        {!closed && <QuickChoices invitationId={invitationId} lang={lang} lookKey={lookKey} looks={looks} onChanged={() => setPreviewKey((k) => k + 1)} />}
+        {!closed && <QuickChoices invitationId={invitationId} lang={lang} lookKey={lookKey} looks={looks} allLooks={allLooks} tier={tier} onChanged={() => setPreviewKey((k) => k + 1)} />}
         <header className="mb-4">
           <h2 className="display text-2xl">{section?.label} {isDone && <span className="pill pill-ok align-middle text-xs">Done</span>}</h2>
           <p className="text-sm text-[color:var(--color-ink-500)]">{section?.description}</p>
@@ -228,7 +232,7 @@ export function Builder({
  * look — the fonts and the lines under the headings — it is set in. Every
  * package may pick either. The design's own look is the blank choice.
  */
-function QuickChoices({ invitationId, lang, lookKey, looks, onChanged }: { invitationId: string; lang: 'en' | 'tl'; lookKey: string; looks: { key: string; name: string; tagline: string }[]; onChanged: () => void }) {
+function QuickChoices({ invitationId, lang, lookKey, looks, allLooks, tier, onChanged }: { invitationId: string; lang: 'en' | 'tl'; lookKey: string; looks: { key: string; name: string; tagline: string }[]; allLooks: number; tier: Tier; onChanged: () => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [note, setNote] = useState('');
@@ -252,12 +256,18 @@ function QuickChoices({ invitationId, lang, lookKey, looks, onChanged }: { invit
         <p className="hint">The fixed words on the page — buttons, labels, the lines under the headings. Your own words stay as you typed them.</p>
       </div>
       <div>
-        <label className="label" htmlFor="quick-look">Fonts &amp; voice</label>
-        <select id="quick-look" className="field" value={lookKey} disabled={pending} onChange={(e) => run(() => themeAction(invitationId, { lookKey: e.target.value }), e.target.value ? 'Look applied.' : 'Back to the design’s own look.')}>
-          <option value="">The design’s own</option>
-          {looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
-        </select>
-        <p className="hint">{note || 'A look is a set of faces and the lines written under each heading.'}</p>
+        <label className="label" htmlFor="quick-look">Font style</label>
+        {looks.length <= 1 ? (
+          <p className="field flex items-center text-[color:var(--color-ink-soft)]">{looks[0]?.name ?? 'The design’s own'}</p>
+        ) : (
+          <select id="quick-look" className="field" value={lookKey} disabled={pending} onChange={(e) => run(() => themeAction(invitationId, { lookKey: e.target.value }), e.target.value ? 'Font style applied.' : 'Back to the design’s own fonts.')}>
+            <option value="">The design’s own</option>
+            {looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
+          </select>
+        )}
+        <p className="hint">{note || (looks.length <= 1
+          ? `A set of faces and the lines written under each heading. The ${TIER_LABELS[tier]} package is set in one.`
+          : `A set of faces and the lines written under each heading. The ${TIER_LABELS[tier]} package chooses from ${looks.length}${looks.length < allLooks ? `; the ${TIER_LABELS.COMPLETE} package from all ${allLooks}` : ''}.`)}</p>
       </div>
     </div>
   );

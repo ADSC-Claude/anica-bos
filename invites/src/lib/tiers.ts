@@ -11,7 +11,8 @@ export const TIERS: Tier[] = ['BASIC', 'STANDARD', 'COMPLETE'];
 export const TIER_LABELS: Record<Tier, string> = {
   BASIC: 'Basic',
   STANDARD: 'Standard',
-  COMPLETE: 'Complete',
+  // The top package. "Complete" promised there was nothing left to add, and there is: the add-ons.
+  COMPLETE: 'Signature',
 };
 
 const RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
@@ -29,6 +30,9 @@ export type FeatureKey =
   | 'templates.premium'
   | 'palette.presets'
   | 'palette.custom'
+  | 'fonts.choice'
+  | 'fonts.all'
+  | 'fonts.custom'
   | 'gallery.10'
   | 'gallery.unlimited'
   | 'video'
@@ -51,8 +55,17 @@ export type FeatureKey =
 export const FEATURE_MIN_TIER: Record<FeatureKey, Tier> = {
   'templates.any': 'STANDARD',
   'templates.premium': 'COMPLETE',
-  'palette.presets': 'STANDARD',
-  'palette.custom': 'COMPLETE',
+  // Colours are every package's to choose: the presets and the custom picker
+  // alike. What a package buys is the faces, below.
+  'palette.presets': 'BASIC',
+  'palette.custom': 'BASIC',
+  // The font style — a look, in src/lib/looks.ts. Basic is set in the design's
+  // own and picks nothing; Standard chooses among three; Signature among five.
+  'fonts.choice': 'STANDARD',
+  'fonts.all': 'COMPLETE',
+  // The old font presets, faces without the lines: staff's tool, never a
+  // customer's, and left at the top package for the invitations that carry one.
+  'fonts.custom': 'COMPLETE',
   'gallery.10': 'STANDARD',
   'gallery.unlimited': 'COMPLETE',
   video: 'COMPLETE',
@@ -79,7 +92,7 @@ export function hasFeature(tier: Tier, feature: FeatureKey): boolean {
 
 /**
  * How many gallery photos a tier may carry: none for Basic, ten for Standard,
- * Infinity for Complete. Basic's "1 cover photo" in COMPARISON is the cover
+ * Infinity for Signature. Basic's "1 cover photo" in COMPARISON is the cover
  * section's own photo, which is not a gallery row and is not counted here.
  */
 export function galleryLimit(tier: Tier): number {
@@ -115,8 +128,9 @@ export function featureOffered(feature: FeatureKey): boolean {
 
 /** Every row, including the ones held back. The tables use COMPARISON. */
 export const COMPARISON_ALL: ComparisonRow[] = [
-  { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + Complete-only designs' } },
-  { label: 'Colour & font customization', cells: { BASIC: false, STANDARD: 'Palette presets', COMPLETE: 'Full custom palette + fonts' } },
+  { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + Signature-only designs' } },
+  { label: 'Colours', cells: { BASIC: 'Yours to choose', STANDARD: 'Yours to choose', COMPLETE: 'Yours to choose' } },
+  { label: 'Font style', cells: { BASIC: 'Modern', STANDARD: '3 to choose from', COMPLETE: 'All 5 to choose from' } },
   { label: 'Cover: names, monogram, date, cover photo', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Opening before the invitation (a short moving scene)', cells: { BASIC: 'Included', STANDARD: 'Included', COMPLETE: 'Included' } },
   { label: 'Premium opening video, made for your design', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on' } },

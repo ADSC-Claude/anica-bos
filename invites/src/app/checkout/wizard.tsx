@@ -156,7 +156,7 @@ export function CheckoutWizard(p: WizardProps) {
                   </div>
                   <div className="p-2">
                     <span className="block text-sm font-semibold">{tp.name}</span>
-                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? 'Complete only' : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpening ? ' · premium opening add-on' : ''}</span>
+                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? `${TIER_LABELS.COMPLETE} only` : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpening ? ' · premium opening add-on' : ''}</span>
                   </div>
                 </button>
               ))}

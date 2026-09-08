@@ -20,13 +20,13 @@ import {
   OCCASION_SECTIONS,
   sectionOffered,
 } from './sections';
-import { hasFeature } from './tiers';
+import { hasFeature, TIER_LABELS } from './tiers';
 import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
-import { LOOK_BY_KEY, isLook, type Look } from './looks';
+import { LOOK_BY_KEY, BASE_LOOK, isLook, lookAllowed, type Look } from './looks';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
 import { notifyStaff } from './notifications';
@@ -203,20 +203,24 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
   assertOpenForChanges(user, invitation);
   const clean: ThemeOverride = {};
-  if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) {
-    if (!hasFeature(invitation.tier, 'palette.presets')) throw new HttpError(403, 'Palette presets are included from the Standard tier.');
-    clean.paletteKey = theme.paletteKey;
-  }
-  if (theme.palette) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Custom colours are included in the Complete tier.');
-    clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
-  }
+  // Colours are every package's: the presets and the picker alike.
+  if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) clean.paletteKey = theme.paletteKey;
+  if (theme.palette) clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
   if (theme.fontsKey && FONT_PRESETS.some((f) => f.key === theme.fontsKey)) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Font choice is included in the Complete tier.');
+    if (!hasFeature(invitation.tier, 'fonts.custom')) throw new HttpError(403, `Font presets are included in the ${TIER_LABELS.COMPLETE} package.`);
     clean.fontsKey = theme.fontsKey;
   }
-  // A look is the faces and the lines under the headings; every package may choose one.
-  if (theme.lookKey !== undefined) clean.lookKey = isLook(theme.lookKey) ? theme.lookKey : '';
+  // A look is the faces and the lines under the headings. Basic keeps the
+  // design's own; Standard chooses among three, Signature among five.
+  if (theme.lookKey !== undefined) {
+    const key = isLook(theme.lookKey) ? theme.lookKey : '';
+    if (!lookAllowed(invitation.tier, key)) {
+      throw new HttpError(403, hasFeature(invitation.tier, 'fonts.choice')
+        ? `That font style is included in the ${TIER_LABELS.COMPLETE} package.`
+        : `The Basic package is set in one font style. Standard chooses among three, ${TIER_LABELS.COMPLETE} among five.`);
+    }
+    clean.lookKey = key;
+  }
   // Day, night, or by the guest's clock; the guest can still switch on the page.
   if (theme.mode !== undefined) clean.mode = theme.mode === 'night' || theme.mode === 'auto' ? theme.mode : 'day';
   const content = contentOf(invitation.content);
@@ -231,10 +235,13 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
  * it — that is what a look is — so a chosen look wins over a chosen font
  * preset, and a design with a look ignores its own `fonts` column.
  */
-export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent): { palette: Palette; fonts: Fonts; look?: Look } {
+export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent, tier?: Tier): { palette: Palette; fonts: Fonts; look?: Look } {
   let palette = paletteFrom(template.palette);
   let fonts = fontsFrom(template.fonts);
   let look: Look | undefined = template.look && isLook(template.look) ? LOOK_BY_KEY[template.look] : undefined;
+  // A design drawn in a look above the package is set in the one every package
+  // has: Basic is Modern, whatever the design ships in.
+  if (tier && look && !lookAllowed(tier, look.key)) look = LOOK_BY_KEY[BASE_LOOK];
   const t = content.theme;
   if (t?.paletteKey) {
     const preset = PALETTE_PRESETS.find((p) => p.key === t.paletteKey);
@@ -248,7 +255,9 @@ export function resolveTheme(template: { palette: unknown; fonts: unknown; look?
       look = undefined;
     }
   }
-  if (t?.lookKey && isLook(t.lookKey)) look = LOOK_BY_KEY[t.lookKey];
+  // A look chosen above the package — an invitation downgraded after the fact —
+  // is ignored, so the page shows only what was paid for.
+  if (t?.lookKey && isLook(t.lookKey) && (!tier || lookAllowed(tier, t.lookKey))) look = LOOK_BY_KEY[t.lookKey];
   if (look) fonts = look.fonts;
   return { palette, fonts, look };
 }
@@ -274,7 +283,7 @@ export async function updateSettings(
   }
   if (input.privacy !== undefined) {
     if (input.privacy === 'PASSWORD' && !hasFeature(invitation.tier, 'privacy.password')) {
-      throw new HttpError(403, 'Password protection is included in the Complete tier.');
+      throw new HttpError(403, `Password protection is included in the ${TIER_LABELS.COMPLETE} package.`);
     }
     data.privacy = input.privacy;
     if (input.privacy === 'PASSWORD') {
@@ -301,7 +310,7 @@ export async function changeTemplate(user: SessionUser, invitationId: string, te
   assertOpenForChanges(user, invitation);
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
-  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, 'That design is only in the Complete package.');
+  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, `That design is only in the ${TIER_LABELS.COMPLETE} package.`);
   if (!hasFeature(invitation.tier, 'templates.any') && template.minTier !== 'BASIC') throw new HttpError(403, 'The Basic tier includes designs from the Basic set. Upgrade to choose any template.');
   await prisma.invitation.update({ where: { id: invitationId }, data: { templateId } });
   await audit(user, { module: 'invitations', action: 'template.change', entityType: 'Invitation', entityId: invitationId, summary: `Switched to ${template.name}` });
@@ -395,7 +404,7 @@ export async function recordView(invitationId: string): Promise<void> {
   }
 }
 
-/** RSVP is open unless the customer closed it, or the Complete-tier deadline has passed. */
+/** RSVP is open unless the customer closed it, or the Signature-package deadline has passed. */
 export function rsvpOpen(invitation: { rsvpClosed: boolean; rsvpDeadline: Date | null; tier: Tier }): boolean {
   if (invitation.rsvpClosed) return false;
   if (hasFeature(invitation.tier, 'rsvp.autoClose') && invitation.rsvpDeadline && invitation.rsvpDeadline.getTime() < Date.now()) return false;

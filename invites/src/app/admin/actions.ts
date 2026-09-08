@@ -1,6 +1,6 @@
 'use server';
 
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS } from '@/lib/design';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -161,11 +161,12 @@ export async function saveTemplateAction(templateId: string | null, back: string
       published: b(fd, 'published'),
       sortOrder: n(fd, 'sortOrder'),
       // the design's own words over its look's, and its own pictures; blank is the code's own
-      words: wordsOf(Object.fromEntries((['en', 'tl'] as const).map((lang) => [lang, Object.fromEntries([...LINE_KEYS, ...TITLE_KEYS].map((k) => [k, s(fd, `words_${lang}_${k}`)]))]))) as never,
+      words: wordsOf(Object.fromEntries((['en', 'tl'] as const).map((lang) => [lang, Object.fromEntries([...LINE_KEYS, ...TITLE_KEYS.map(titleWord)].map((k) => [k, s(fd, `words_${lang}_${k}`)]))]))) as never,
       art: artOf({
         backgrounds: Array.from({ length: 8 }, (_, i) => s(fd, `art_bg_${i + 1}`)),
         night: Array.from({ length: 8 }, (_, i) => s(fd, `art_night_${i + 1}`)),
         strand: s(fd, 'art_strand'),
+        grounds: Object.fromEntries(BABYBLUE_GROUND_KEYS.map((k) => [k, s(fd, `art_ground_${k}`)])),
       }) as never,
     };
     if (!data.name) throw new HttpError(400, 'A template needs a name.');

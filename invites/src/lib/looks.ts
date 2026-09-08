@@ -1,5 +1,7 @@
+import type { Tier } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Fonts } from './theme';
+import { tierAtLeast } from './tiers';
 
 /**
  * A look is the voice of an invitation: the faces it is set in and the lines
@@ -24,6 +26,7 @@ export type LineKey =
   | 'story'
   | 'invitation'
   | 'entourage'
+  | 'sponsors' // ninong and ninang
   | 'gallery'
   | 'galleryNote' // between the large photograph and the arches
   | 'galleryVideo' // written over the film
@@ -53,7 +56,7 @@ export type LineKey =
   | 'ladiesNote';
 
 /** The headings a look names. A missing one falls back to the fixed phrase. */
-export type TitleKey = 'story' | 'invitation' | 'entourage' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
+export type TitleKey = 'story' | 'invitation' | 'entourage' | 'sponsors' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
 
 export type Look = {
   key: LookKey;
@@ -98,6 +101,7 @@ export const LOOKS: Look[] = [
       story: { en: '', tl: '' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
+      sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
       gallery: { en: "Moments we'll always cherish", tl: 'Mga sandaling laging iingatan' },
       galleryNote: { en: 'These are the moments that reminded us — it has always been you.', tl: 'Ito ang mga sandaling nagpaalala sa amin — ikaw, at ikaw pa rin.' },
       galleryVideo: { en: 'Our story in motion', tl: 'Ang aming kuwento, gumagalaw' },
@@ -160,6 +164,7 @@ export const LOOKS: Look[] = [
       story: { en: 'Every love story is beautiful, but ours is our favorite.', tl: 'Maganda ang bawat kuwento ng pag-ibig, pero ang amin ang paborito namin.' },
       invitation: { en: 'Come celebrate with us', tl: 'Halina at makipagdiwang' },
       entourage: { en: 'The people we love most', tl: 'Ang mga taong pinakamamahal namin' },
+      sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
       gallery: { en: 'A few of our favorite frames', tl: 'Ilan sa aming mga paboritong kuha' },
       galleryNote: { en: 'Every picture, the same answer: you.', tl: 'Sa bawat larawan, iisa ang sagot: ikaw.' },
       galleryVideo: { en: 'Watch us fall', tl: 'Panoorin kaming umibig' },
@@ -223,6 +228,7 @@ export const LOOKS: Look[] = [
       story: { en: '', tl: '' },
       invitation: { en: "You're invited", tl: 'Inaanyayahan ka' },
       entourage: { en: 'Standing with us', tl: 'Kasama namin' },
+      sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
       gallery: { en: 'Before the big day', tl: 'Bago ang malaking araw' },
       galleryNote: { en: 'Moments, kept.', tl: 'Mga sandali, iningatan.' },
       galleryVideo: { en: 'In motion', tl: 'Gumagalaw' },
@@ -285,6 +291,7 @@ export const LOOKS: Look[] = [
       story: { en: 'Every chapter, ours.', tl: 'Bawat kabanata, amin.' },
       invitation: { en: 'Requesting the pleasure of your company', tl: 'Hinihiling ang inyong pagdalo' },
       entourage: { en: 'Those who stand beside us', tl: 'Ang mga nasa tabi namin' },
+      sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
       gallery: { en: 'Us, as we are', tl: 'Kami, kung ano kami' },
       galleryNote: { en: 'A few frames from the way here.', tl: 'Ilang kuha mula sa daan patungo rito.' },
       galleryVideo: { en: 'The film', tl: 'Ang pelikula' },
@@ -347,6 +354,7 @@ export const LOOKS: Look[] = [
       story: { en: 'A love written in the stars', tl: 'Pag-ibig na nakasulat sa mga bituin' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
+      sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
       gallery: { en: 'Moments to keep', tl: 'Mga sandaling iingatan' },
       galleryNote: { en: 'The days that led us here.', tl: 'Ang mga araw na naghatid sa amin dito.' },
       galleryVideo: { en: 'Our story, in motion', tl: 'Ang aming kuwento, gumagalaw' },
@@ -382,6 +390,57 @@ export const LOOK_BY_KEY: Record<LookKey, Look> = Object.fromEntries(LOOKS.map((
 
 export function isLook(value: string): value is LookKey {
   return (LOOK_KEYS as readonly string[]).includes(value);
+}
+
+/**
+ * How many looks a package may choose from. The faces are part of what is
+ * bought: Basic is set in the design's own look and picks nothing, Standard
+ * chooses among three, Signature among all five. A design's own look is what
+ * every package starts in, whichever list it belongs to — so a Basic
+ * invitation is never left without a voice, it simply keeps the one the
+ * design was drawn in.
+ */
+export const LOOK_MIN_TIER: Record<LookKey, Tier> = {
+  modern: 'BASIC',
+  romance: 'STANDARD',
+  editorial: 'STANDARD',
+  heritage: 'COMPLETE',
+  regal: 'COMPLETE',
+};
+
+/**
+ * The look every package has, and the one a design falls back to when its own
+ * is above the package: a design drawn in Regal, bought at Basic, is set in
+ * Modern rather than in nothing.
+ */
+export const BASE_LOOK: LookKey = 'modern';
+
+const TIER_RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
+
+/**
+ * The looks this package may pick, the ones it already had first. Basic has
+ * one — the font style it is set in, with nothing to choose.
+ */
+export function looksFor(tier: Tier): Look[] {
+  return LOOKS.filter((l) => tierAtLeast(tier, LOOK_MIN_TIER[l.key])).sort(
+    (a, b) => TIER_RANK[LOOK_MIN_TIER[a.key]] - TIER_RANK[LOOK_MIN_TIER[b.key]] || LOOKS.indexOf(a) - LOOKS.indexOf(b),
+  );
+}
+
+/** Whether this package may set that look. Blank — the design's own — is always allowed. */
+export function lookAllowed(tier: Tier, key: string): boolean {
+  if (!key) return true;
+  return isLook(key) && tierAtLeast(tier, LOOK_MIN_TIER[key]);
+}
+
+/** The look a page is actually set in: the one asked for, if the package has it; else the one every package has. */
+export function lookForTier(tier: Tier, key: string): LookKey {
+  return isLook(key) && lookAllowed(tier, key) ? key : BASE_LOOK;
+}
+
+/** How many looks the package chooses from, for the copy that says so. */
+export function lookCount(tier: Tier): number {
+  return looksFor(tier).length;
 }
 
 /** The line a look writes at `key`, or nothing when it writes none there. */

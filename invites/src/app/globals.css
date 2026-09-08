@@ -552,7 +552,7 @@ table.data tr:hover td {
    type: Cinzel for the names, Cormorant for the rest, Pinyon Script for the
    line under each heading.
    =========================================================================== */
-.inv[data-layout='capiz'] {
+.inv[data-paged] {
   padding: 0;
   font-size: 1.0625rem;
   line-height: 1.55;
@@ -562,8 +562,8 @@ table.data tr:hover td {
   background-color: #f2e8dc;
 }
 /* No strung side border on this theme — the shell lives in clusters. */
-.inv[data-layout='capiz']::before,
-.inv[data-layout='capiz']::after { display: none; }
+.inv[data-paged]::before,
+.inv[data-paged]::after { display: none; }
 
 /* --- capiz, photographed: one solid ground the whole way down, cut into
    pages. The cover carries the couple's whole frame; every page after it
@@ -571,8 +571,9 @@ table.data tr:hover td {
    last closes on the frame's foot. The rows are cut from the couple's own
    images, their edges faded into the ground so they float on it, and they
    scroll with the words they belong to. --- */
-.inv[data-layout='capiz'] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
+.inv[data-paged] { position: relative; overflow: hidden; max-width: 32rem; margin: 0 auto; }
 body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
+body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* The ground: the designer's numbered backgrounds, in order — 1 to 7, then 5
    and 6 over and over, 8 last — one behind each page and trimmed to the page's
    own height, so no page runs longer than its words. They are 2.645 times as
@@ -582,7 +583,8 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
    corners and along the edges, so the words keep to the middle, set close, the
    way an invitation is; the cover alone is a whole background, the names in
    its upper part and the verse at its foot. */
-.inv[data-layout='capiz'] { background: #f0dccb; --capiz-bg: min(264.5vw, 84.6rem); }
+.inv[data-paged] { --capiz-bg: min(264.5vw, 84.6rem); }
+.inv[data-layout='capiz'] { background: #f0dccb; }
 .inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .inv-paper {
   position: absolute; left: 0; right: 0;
@@ -609,14 +611,14 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-page > .inv-section + .inv-section { padding-top: 1rem; }
 
 /* --- sections --- */
-.inv[data-layout='capiz'] .inv-section {
+.inv[data-paged] .inv-section {
   position: relative;
   padding: 3.25rem 2.9rem;
   max-width: 26rem;
 }
-.inv[data-layout='capiz'] .inv-section + .inv-section { border-top: 0; }
+.inv[data-paged] .inv-section + .inv-section { border-top: 0; }
 
-.inv[data-layout='capiz'] .inv-title {
+.inv[data-paged] .inv-title {
   font-family: var(--inv-display);
   font-weight: 500;
   text-transform: uppercase;
@@ -635,7 +637,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   text-align: center;
   margin: 0.1rem 0 1.7rem;
 }
-.inv[data-layout='capiz'] .inv-eyebrow {
+.inv[data-paged] .inv-eyebrow {
   font-family: var(--inv-display);
   font-size: 0.72rem;
   letter-spacing: 0.3em;
@@ -644,16 +646,16 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   opacity: 0.85;
   margin-bottom: 0.45rem;
 }
-.inv[data-layout='capiz'] .inv-rule {
+.inv[data-paged] .inv-rule {
   width: 2.2rem; height: 1px; background: var(--inv-ink); opacity: 0.5; margin: 1.6rem auto;
 }
-.inv[data-layout='capiz'] .inv-muted { color: var(--inv-muted); }
-.inv[data-layout='capiz'] .inv-list { gap: 0.15rem; font-size: 1.05rem; }
-.inv[data-layout='capiz'] .inv-two { gap: 1.25rem 1.25rem; align-items: start; }
-.inv[data-layout='capiz'] .inv-two > * + * { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 25%, transparent); }
+.inv[data-paged] .inv-muted { color: var(--inv-muted); }
+.inv[data-paged] .inv-list { gap: 0.15rem; font-size: 1.05rem; }
+.inv[data-paged] .inv-two { gap: 1.25rem 1.25rem; align-items: start; }
+.inv[data-paged] .inv-two > * + * { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 25%, transparent); }
 
 /* --- cards, buttons, fields --- */
-.inv[data-layout='capiz'] .inv-card {
+.inv[data-paged] .inv-card {
   background: rgba(255, 253, 249, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 1rem;
@@ -661,7 +663,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   backdrop-filter: blur(6px);
   box-shadow: 0 8px 30px -18px rgba(74, 59, 47, 0.35);
 }
-.inv[data-layout='capiz'] .inv-btn {
+.inv[data-paged] .inv-btn {
   font-family: var(--inv-display);
   font-weight: 600;
   font-size: 0.68rem;
@@ -674,10 +676,10 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   color: #fff;
   box-shadow: 0 10px 22px -14px rgba(74, 59, 47, 0.6);
 }
-.inv[data-layout='capiz'] .inv-btn:not(.inv-btn-outline)::after {
+.inv[data-paged] .inv-btn:not(.inv-btn-outline)::after {
   content: '➔'; font-size: 0.9em; margin-left: 0.15rem;
 }
-.inv[data-layout='capiz'] .inv-btn-outline {
+.inv[data-paged] .inv-btn-outline {
   background: rgba(255, 253, 249, 0.6);
   border-color: rgba(255,255,255,0.85);
   color: var(--inv-ink);
@@ -685,7 +687,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   justify-content: center;
   gap: 0.75rem;
 }
-.inv[data-layout='capiz'] .inv-field {
+.inv[data-paged] .inv-field {
   background: rgba(255, 253, 249, 0.6);
   border: 1px solid rgba(255,255,255,0.85);
   border-radius: 0.8rem;
@@ -694,13 +696,13 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   font-size: 1rem;
   color: var(--inv-ink);
 }
-.inv[data-layout='capiz'] .inv-field::placeholder { color: var(--inv-muted); }
-.inv[data-layout='capiz'] .inv-label {
+.inv[data-paged] .inv-field::placeholder { color: var(--inv-muted); }
+.inv[data-paged] .inv-label {
   font-family: var(--inv-display);
   font-size: 0.66rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--inv-muted);
   margin: 0 0 0.3rem 0.4rem;
 }
-.inv[data-layout='capiz'] .inv-swatch {
+.inv[data-paged] .inv-swatch {
   width: 2.1rem; height: 2.1rem;
   border: 2px solid rgba(255,255,255,0.9);
   box-shadow: 0 2px 8px -3px rgba(74,59,47,0.5);
@@ -708,7 +710,7 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 
 /* --- hero: the names centred in the frame, measured by its own width (a
    container) so a phone and a showcase column the width of a phone agree --- */
-.inv[data-layout='capiz'] .inv-hero {
+.inv[data-paged] .inv-hero {
   min-height: 0;
   padding: 0;
   display: flex;
@@ -717,11 +719,11 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   flex-direction: column;
   container-type: inline-size;
 }
-.inv[data-layout='capiz'] .inv-hero-body { max-width: 30rem; margin: 0 auto; padding: 0 1.6rem; }
-.inv[data-layout='capiz'] .inv-hero-scrim,
-.inv[data-layout='capiz'] .inv-hero-photo { display: none; }
-.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
-.inv[data-layout='capiz'] .inv-names {
+.inv[data-paged] .inv-hero-body { max-width: 30rem; margin: 0 auto; padding: 0 1.6rem; }
+.inv[data-paged] .inv-hero-scrim,
+.inv[data-paged] .inv-hero-photo { display: none; }
+.inv[data-paged] .inv-hero .inv-eyebrow { margin-bottom: 0.9rem; }
+.inv[data-paged] .inv-names {
   font-family: var(--inv-names);
   font-weight: 500;
   font-size: clamp(1.9rem, 8.6cqw, 2.6rem);
@@ -731,9 +733,9 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   color: var(--inv-ink);
   line-height: 1.05;
 }
-.inv[data-layout='capiz'] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
-.inv[data-layout='capiz'] .inv-hero-details { margin-top: 1.6rem; }
-.inv[data-layout='capiz'] .inv-amp {
+.inv[data-paged] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
+.inv[data-paged] .inv-hero-details { margin-top: 1.6rem; }
+.inv[data-paged] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;
   font-size: 0.62em;
@@ -788,17 +790,17 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-icons[data-align='center'] > li { grid-template-columns: 2.4rem auto; }
 
 /* the program reuses .inv-timeline in the app — restyle it into an icon row */
-.inv[data-layout='capiz'] .inv-timeline { border-left: 0; margin: 0; padding: 0; gap: 1.1rem; }
-.inv[data-layout='capiz'] .inv-timeline > li::before { display: none; }
+.inv[data-paged] .inv-timeline { border-left: 0; margin: 0; padding: 0; gap: 1.1rem; }
+.inv[data-paged] .inv-timeline > li::before { display: none; }
 
 /* --- gallery collage --- */
 
 /* --- countdown, bare --- */
-.inv[data-layout='capiz'] .inv-count { max-width: 22rem; gap: 0; }
-.inv[data-layout='capiz'] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.1rem 0; }
-.inv[data-layout='capiz'] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
-.inv[data-layout='capiz'] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
-.inv[data-layout='capiz'] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
+.inv[data-paged] .inv-count { max-width: 22rem; gap: 0; }
+.inv[data-paged] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.1rem 0; }
+.inv[data-paged] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
+.inv[data-paged] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
+.inv[data-paged] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
 
 /* --- social brand row --- */
 .inv-brand { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1.1rem; }
@@ -813,8 +815,8 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 /* big section icon (gift, camera, cloud, phone) */
 .inv-glyph { display: block; width: 2.8rem; height: 2.8rem; margin: 0 auto 0.8rem; stroke: var(--inv-ink); fill: none; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
 
-.inv[data-layout='capiz'] p { margin: 0; }
-.inv[data-layout='capiz'] .inv-hero-body > p + p { margin-top: 0; }
+.inv[data-paged] p { margin: 0; }
+.inv[data-paged] .inv-hero-body > p + p { margin-top: 0; }
 
 /* --- our story: a timeline with the photos scattered beside it --- */
 .inv-story { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0 1.1rem; margin-top: 0; }
@@ -842,19 +844,19 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-strip figure:nth-child(2) img { aspect-ratio: 3/4.4; }
 
 /* the hashtag, sized for the column */
-.inv[data-layout='capiz'] #social .inv-display { display: block; font-size: 1.35rem; letter-spacing: 0.04em; margin-top: 0.3rem; }
-.inv[data-layout='capiz'] #social .inv-eyebrow { display: block; }
+.inv[data-paged] #social .inv-display { display: block; font-size: 1.35rem; letter-spacing: 0.04em; margin-top: 0.3rem; }
+.inv[data-paged] #social .inv-eyebrow { display: block; }
 
 /* --- the gallery as a mosaic: a large tile, two small beside it, then the
    mirror of that below, so six photographs interlock instead of lining up --- */
-.inv[data-layout='capiz'] .inv-gallery { grid-template-columns: repeat(3, 1fr); grid-auto-rows: min(34vw, 10.4rem); grid-auto-flow: dense; gap: 0.45rem; align-items: stretch; }
-.inv[data-layout='capiz'] .inv-gallery figure { position: relative; overflow: hidden; margin: 0; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); background: #e3d6ca; }
-.inv[data-layout='capiz'] .inv-gallery figure:first-child { grid-column: auto; }
-.inv[data-layout='capiz'] .inv-gallery figure:nth-child(6n + 1),
-.inv[data-layout='capiz'] .inv-gallery figure:nth-child(6n + 5) { grid-column: span 2; grid-row: span 2; }
-.inv[data-layout='capiz'] .inv-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; border-radius: 0; }
-.inv[data-layout='capiz'] .inv-gallery figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 1.4rem 0.5rem 0.4rem; color: #fff; background: linear-gradient(transparent, rgba(60, 45, 35, 0.55)); }
-.looks-phone .inv[data-layout='capiz'] .inv-gallery { grid-auto-rows: 8.2rem; }
+.inv[data-paged] .inv-gallery { grid-template-columns: repeat(3, 1fr); grid-auto-rows: min(34vw, 10.4rem); grid-auto-flow: dense; gap: 0.45rem; align-items: stretch; }
+.inv[data-paged] .inv-gallery figure { position: relative; overflow: hidden; margin: 0; border-radius: 0.35rem; box-shadow: 0 12px 26px -14px rgba(74, 59, 47, 0.55); background: #e3d6ca; }
+.inv[data-paged] .inv-gallery figure:first-child { grid-column: auto; }
+.inv[data-paged] .inv-gallery figure:nth-child(6n + 1),
+.inv[data-paged] .inv-gallery figure:nth-child(6n + 5) { grid-column: span 2; grid-row: span 2; }
+.inv[data-paged] .inv-gallery img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; border-radius: 0; }
+.inv[data-paged] .inv-gallery figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 1.4rem 0.5rem 0.4rem; color: #fff; background: linear-gradient(transparent, rgba(60, 45, 35, 0.55)); }
+.looks-phone .inv[data-paged] .inv-gallery { grid-auto-rows: 8.2rem; }
 
 /* --- dress code figures --- */
 /* The dress code, the way a printed card says it: the gentlemen in their
@@ -892,30 +894,30 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-avoid-ico::after { content: ''; position: absolute; left: 50%; top: -0.4rem; bottom: -0.4rem; width: 1.5px; margin-left: -0.75px; background: #a8433d; transform: rotate(45deg); }
 .inv-avoid-label { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.52rem; line-height: 1.55; color: var(--inv-ink); }
 .inv-wear-thanks { margin-top: 1.7rem; margin-bottom: 0; }
-.inv[data-layout='capiz'] .inv-attire { gap: 1rem; }
-.inv[data-layout='capiz'] .inv-attire .inv-eyebrow { margin-bottom: 0.2rem; }
+.inv[data-paged] .inv-attire { gap: 1rem; }
+.inv[data-paged] .inv-attire .inv-eyebrow { margin-bottom: 0.2rem; }
 
-.inv[data-layout='capiz'] .inv-section > * { position: relative; z-index: 1; }
+.inv[data-paged] .inv-section > * { position: relative; z-index: 1; }
 
 /* the hero, from the app's own markup */
-.inv[data-layout='capiz'] .inv-hero .inv-eyebrow { color: var(--inv-ink); opacity: 0.85; }
-.inv[data-layout='capiz'] .inv-hero-body > p { margin: 0; }
-.inv[data-layout='capiz'] .inv-hero-body > .mt-3 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; opacity: 0.9; margin-top: 1.2rem; }
-.inv[data-layout='capiz'] .inv-hero-body > .mt-5 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; line-height: 1.9; margin-top: 1.4rem; max-width: 22rem; }
-.inv[data-layout='capiz'] .inv-hero-body > .mt-6 { margin-top: 1.4rem; }
-.inv[data-layout='capiz'] .inv-hero-body > .mt-6 .inv-display { font-size: 1.05rem; letter-spacing: 0.42em; text-indent: 0.42em; }
-.inv[data-layout='capiz'] .inv-hero-body > .mt-6 .block { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; margin-top: 0.4rem; }
+.inv[data-paged] .inv-hero .inv-eyebrow { color: var(--inv-ink); opacity: 0.85; }
+.inv[data-paged] .inv-hero-body > p { margin: 0; }
+.inv[data-paged] .inv-hero-body > .mt-3 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; opacity: 0.9; margin-top: 1.2rem; }
+.inv[data-paged] .inv-hero-body > .mt-5 { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; line-height: 1.9; margin-top: 1.4rem; max-width: 22rem; }
+.inv[data-paged] .inv-hero-body > .mt-6 { margin-top: 1.4rem; }
+.inv[data-paged] .inv-hero-body > .mt-6 .inv-display { font-size: 1.05rem; letter-spacing: 0.42em; text-indent: 0.42em; }
+.inv[data-paged] .inv-hero-body > .mt-6 .block { font-family: var(--inv-display); font-size: 0.74rem; letter-spacing: 0.3em; text-indent: 0.3em; text-transform: uppercase; margin-top: 0.4rem; }
 
 /* program rows: the app's timeline, with an icon before each entry */
-.inv[data-layout='capiz'] .inv-timeline > li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; padding: 0; }
-.inv[data-layout='capiz'] .inv-timeline > li > .inv-picon { width: 2.2rem; height: 2.2rem; stroke: var(--inv-accent); fill: none; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
-.inv[data-layout='capiz'] .inv-timeline > li > div > .inv-muted { font-family: var(--inv-display); font-size: 0.82rem; letter-spacing: 0.24em; color: var(--inv-ink); opacity: 1; }
-.inv[data-layout='capiz'] .inv-timeline > li > div > .inv-display { font-family: var(--inv-display); font-weight: 500; font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85; }
+.inv[data-paged] .inv-timeline > li { display: grid; grid-template-columns: 2.4rem 1fr; gap: 1rem; align-items: center; text-align: left; padding: 0; }
+.inv[data-paged] .inv-timeline > li > .inv-picon { width: 2.2rem; height: 2.2rem; stroke: var(--inv-accent); fill: none; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+.inv[data-paged] .inv-timeline > li > div > .inv-muted { font-family: var(--inv-display); font-size: 0.82rem; letter-spacing: 0.24em; color: var(--inv-ink); opacity: 1; }
+.inv[data-paged] .inv-timeline > li > div > .inv-display { font-family: var(--inv-display); font-weight: 500; font-size: 0.82rem; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85; }
 .inv-picon { display: none; }
-.inv[data-layout='capiz'] .inv-picon { display: block; }
+.inv[data-paged] .inv-picon { display: block; }
 
 /* the closing: the sign-off in script, the names and date beneath */
-.inv[data-layout='capiz'] #closing .inv-display { font-family: var(--inv-script); font-size: 2.6rem; }
+.inv[data-paged] #closing .inv-display { font-family: var(--inv-script); font-size: 2.6rem; }
 
 /* --- the format's blocks: the cover's date, place and lines, the verse, the
    invitation rows, the venue and the way there, the interludes, the social
@@ -978,14 +980,55 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .looks-col { flex: none; width: 390px; scroll-snap-align: start; }
 .looks-phone { position: relative; height: 800px; overflow: auto; border-radius: 2.2rem; border: 8px solid #1f1d1a; background: #1f1d1a; transform: translateZ(0); }
 .looks-phone .inv { min-height: 100%; }
-.looks-phone .inv[data-layout='capiz'] { --capiz-bg: 1031px; }
+.looks-phone .inv[data-paged] { --capiz-bg: 1031px; --bb-cover: 1166px; }
 
 /* the ground is decoration: none of it prints */
 @media print {
   .inv-page { min-height: 0; padding: 1rem 0; }
   .inv-ground { display: none; }
-  .inv[data-layout='capiz'] { max-width: none; }
+  .inv[data-paged] { max-width: none; }
 }
+
+/* ===========================================================================
+   Baby Blue: a christening on the designer's ten grounds, one behind each
+   page. Six are tall and narrow, four the shape of a phone; each is trimmed to
+   the page it sits behind and dissolves into the next. Two of them are drawn
+   pages — Our Story with its timeline and six frames, Baby Photos with four —
+   whose words are set live where the designer set hers and whose frames take
+   the client's photographs; those pages keep the ground's own proportions so
+   the frames land where they were drawn.
+   =========================================================================== */
+.inv[data-layout='babyblue'] { background: #eef3f9; --bb-cover: min(298.9vw, 95.6rem); }
+/* room at the foot of every plain page, so a short page's words end above the ground's foot art */
+.inv[data-layout='babyblue'] .inv-page { padding-bottom: min(28vw, 9rem); }
+/* the cover is one whole ground: the names in the sky, the verse toward its foot above the clouds */
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: var(--bb-cover); justify-content: flex-start; padding-top: min(34vw, 10.9rem); padding-bottom: min(40vw, 12.8rem); }
+.inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
+/* the drawn pages: the ground's own shape, nothing else on them but what is placed */
+.inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
+.inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
+.inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
+/* placed on the ground, over the shared rule that keeps every section child in flow */
+.inv[data-paged] .inv-bb-art > .inv-bb-head { position: absolute; left: 6%; right: 6%; text-align: center; }
+.inv[data-paged] .inv-bb-head .inv-title { font-size: 5.6cqw; letter-spacing: 0.3em; text-indent: 0.3em; margin-bottom: 1.6cqw; }
+.inv[data-paged] .inv-bb-head .inv-bb-sub { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.26em; text-indent: 0.26em; font-size: 2.2cqw; line-height: 1.75; color: var(--inv-ink); margin: 0 auto; padding: 0 12%; }
+.inv[data-paged] .inv-bb-head .inv-bb-eyebrow { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.34em; text-indent: 0.34em; font-size: 2.9cqw; color: var(--inv-ink); margin-bottom: 0.4cqw; }
+.inv[data-paged] .inv-bb-head .inv-bb-script { font-family: var(--inv-names); font-weight: 400; font-size: 9.6cqw; line-height: 1.15; color: var(--inv-ink); margin: 0 0 1.4cqw; text-transform: none; letter-spacing: 0; }
+.inv[data-paged] .inv-bb-art > .inv-bb-slot { position: absolute; aspect-ratio: 1; margin: 0; overflow: hidden; background: #e8e3dd; }
+.inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; border-radius: 0; }
+.inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
+.inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
+.inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }
+/* the ink on this design is a dusty navy; the hero's script names read in it too */
+.inv[data-layout='babyblue'] .inv-names { color: var(--inv-ink); }
+.inv[data-layout='babyblue'] .inv-tagline { color: var(--inv-ink); opacity: 0.9; }
+.inv[data-layout='babyblue'] .inv-card { background: rgba(255, 255, 255, 0.62); border-color: rgba(255, 255, 255, 0.9); box-shadow: 0 8px 30px -18px rgba(74, 91, 122, 0.35); }
+.inv[data-layout='babyblue'] .inv-btn { box-shadow: 0 10px 22px -14px rgba(74, 91, 122, 0.6); }
+.inv[data-layout='babyblue'] .inv-field, .inv[data-layout='babyblue'] .inv-btn-outline { background: rgba(255, 255, 255, 0.66); }
+/* the photographs beyond the four frames: two to a row, square */
+.inv[data-layout='babyblue'] .inv-gallery { grid-template-columns: repeat(2, 1fr); grid-auto-rows: min(42vw, 13rem); gap: 0.6rem; }
+.inv[data-layout='babyblue'] .inv-gallery figure:nth-child(n) { grid-column: auto; grid-row: auto; }
+.looks-phone .inv[data-layout='babyblue'] .inv-gallery { grid-auto-rows: 10.5rem; }
 
 /* ---------------------------------------------------------------------------
    The opening: the moving scene a guest sees before the invitation.
@@ -1754,10 +1797,10 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 
 /* set close, the way an invitation is: the cards, the fields and the form's
    gaps a little tighter on this format, the closing photograph a little shorter */
-.inv[data-layout='capiz'] .inv-card { padding: 1rem; }
-.inv[data-layout='capiz'] .inv-field { padding: 0.5rem 0.8rem; }
-.inv[data-layout='capiz'] #rsvp-form > :not(:last-child) { margin-block-end: 0.6rem; }
-.inv[data-layout='capiz'] #closing .inv-photo { aspect-ratio: 16 / 9; margin-bottom: 0.6rem; }
+.inv[data-paged] .inv-card { padding: 1rem; }
+.inv[data-paged] .inv-field { padding: 0.5rem 0.8rem; }
+.inv[data-paged] #rsvp-form > :not(:last-child) { margin-block-end: 0.6rem; }
+.inv[data-paged] #closing .inv-photo { aspect-ratio: 16 / 9; margin-bottom: 0.6rem; }
 .inv-getting-section .inv-title { margin-bottom: 0.8rem; }
 
 /* ---------------------------------------------------------------------------
@@ -1768,19 +1811,19 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
    ink lifted to ivory, the cards and fields on dark glass. */
 .inv-mode { position: fixed; right: 1rem; top: 1rem; z-index: 40; width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent); background: color-mix(in srgb, var(--inv-surface) 88%, transparent); color: var(--inv-ink); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); cursor: pointer; backdrop-filter: blur(6px); }
 .inv-mode:hover { transform: translateY(-1px); }
-.inv[data-layout='capiz'][data-mode='night'] { background: #1a1b26; }
+.inv[data-paged][data-mode='night'] { background: #1a1b26; }
 /* The palette's variables are set inline on .inv by the theme, so the night
    ones are set one level down, on everything in the page but the opening. */
-.inv[data-layout='capiz'][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
-body:has(.inv[data-layout='capiz'][data-mode='night']) { background: #12131c; }
+.inv[data-paged][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
+body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-mode='night'] .inv-ground:not([data-night-art]) .inv-paper { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
 .inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
-.inv[data-layout='capiz'][data-mode='night'] .inv-card,
-.inv[data-layout='capiz'][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }
-.inv[data-layout='capiz'][data-mode='night'] .inv-field::placeholder { color: var(--inv-muted); }
-.inv[data-layout='capiz'][data-mode='night'] .inv-swatch { border-color: rgba(255, 255, 255, 0.55); }
-.inv[data-layout='capiz'][data-mode='night'] .inv-avoid-ico { border-color: #d98a84; }
-.inv[data-layout='capiz'][data-mode='night'] .inv-avoid-ico::after { background: #d98a84; }
-.inv[data-layout='capiz'][data-mode='night'] .inv-figure { filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
-.inv[data-layout='capiz'][data-mode='night'] .inv-open[data-clip='capiz'] .inv-open-hint { color: #f1e9dd; }
+.inv[data-paged][data-mode='night'] .inv-card,
+.inv[data-paged][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }
+.inv[data-paged][data-mode='night'] .inv-field::placeholder { color: var(--inv-muted); }
+.inv[data-paged][data-mode='night'] .inv-swatch { border-color: rgba(255, 255, 255, 0.55); }
+.inv[data-paged][data-mode='night'] .inv-avoid-ico { border-color: #d98a84; }
+.inv[data-paged][data-mode='night'] .inv-avoid-ico::after { background: #d98a84; }
+.inv[data-paged][data-mode='night'] .inv-figure { filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
+.inv[data-paged][data-mode='night'] .inv-open[data-clip='capiz'] .inv-open-hint { color: #f1e9dd; }
 @media print { .inv-mode { display: none; } }

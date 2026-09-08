@@ -3,7 +3,7 @@ import { prisma } from './db';
 import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { parseCsv, toCsv } from './csv';
-import { hasFeature } from './tiers';
+import { hasFeature, TIER_LABELS } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import type { SessionUser } from './auth';
@@ -17,7 +17,7 @@ import type { Tier } from '@prisma/client';
 
 function requireGuestManager(tier: Tier) {
   if (!hasFeature(tier, 'rsvp.personalLinks')) {
-    throw new HttpError(403, 'Per-guest links and the guest list manager are included in the Complete tier.');
+    throw new HttpError(403, `Per-guest links and the guest list manager are included in the ${TIER_LABELS.COMPLETE} package.`);
   }
 }
 
@@ -185,7 +185,7 @@ export async function rsvpsCsv(invitationId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export async function saveTable(invitation: { id: string; tier: Tier }, input: { id?: string; name: string; capacity: number }) {
-  if (!hasFeature(invitation.tier, 'seating')) throw new HttpError(403, 'Seating charts are included in the Complete tier.');
+  if (!hasFeature(invitation.tier, 'seating')) throw new HttpError(403, `Seating charts are included in the ${TIER_LABELS.COMPLETE} package.`);
   const name = input.name.trim().slice(0, 60);
   if (!name) throw new HttpError(400, 'A table needs a name.');
   const capacity = Math.max(1, Math.min(50, Math.round(input.capacity) || 10));
@@ -203,7 +203,7 @@ export async function deleteTable(invitation: { id: string }, tableId: string) {
 }
 
 export async function assignTable(invitation: { id: string; tier: Tier }, guestId: string, tableId: string | null) {
-  if (!hasFeature(invitation.tier, 'seating')) throw new HttpError(403, 'Seating charts are included in the Complete tier.');
+  if (!hasFeature(invitation.tier, 'seating')) throw new HttpError(403, `Seating charts are included in the ${TIER_LABELS.COMPLETE} package.`);
   const guest = await prisma.guest.findFirst({ where: { id: guestId, invitationId: invitation.id } });
   if (!guest) throw new HttpError(404, 'That guest is not on this list.');
   if (tableId) {
@@ -215,7 +215,7 @@ export async function assignTable(invitation: { id: string; tier: Tier }, guestI
 
 /** Event-day check-in by scanning the guest's QR (their token) or tapping a row. */
 export async function checkIn(user: SessionUser, invitation: { id: string; tier: Tier }, tokenOrId: string, undo = false) {
-  if (!hasFeature(invitation.tier, 'checkin')) throw new HttpError(403, 'QR check-in is included in the Complete tier.');
+  if (!hasFeature(invitation.tier, 'checkin')) throw new HttpError(403, `QR check-in is included in the ${TIER_LABELS.COMPLETE} package.`);
   const guest = await prisma.guest.findFirst({ where: { invitationId: invitation.id, OR: [{ token: tokenOrId }, { id: tokenOrId }] }, include: { table: true } });
   if (!guest) throw new HttpError(404, 'No guest matches that code.');
   const updated = await prisma.guest.update({

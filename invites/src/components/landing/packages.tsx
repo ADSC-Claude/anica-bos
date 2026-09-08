@@ -11,9 +11,9 @@ export type PackageCard = { tier: Tier; name: string; tagline: string; priceCent
 export type AddOnCard = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
 
 const HIGHLIGHTS: Record<Tier, string[]> = {
-  BASIC: ['1 design from the Basic set', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Parents, dress code with motif swatches', '1 cover photo', 'Simple RSVP form', '3 edits after publish · link valid 30 days after'],
-  STANDARD: ['Any template + palette presets', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', 'Gallery up to 10 photos + background music', 'RSVP dashboard + Excel export · custom link', 'Unlimited edits · link valid 6 months after'],
-  COMPLETE: ['Premium designs + full custom palette & fonts', 'Everything in Standard', 'Per-guest personalised links with reserved seats', 'Guest list manager, seating chart, QR check-in', 'Meal choice, plus-one control, auto-close RSVP', 'Program, travel tips, guestbook, unlimited gallery + video', 'Password option · priority support · link valid 1 year after'],
+  BASIC: ['1 design from the Basic set', 'Your own colours, set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form', '3 edits after publish · link valid 30 days after'],
+  STANDARD: ['Any template, 3 font styles to choose from', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', 'Gallery up to 10 photos + background music', 'RSVP dashboard + Excel export · custom link', 'Unlimited edits · link valid 6 months after'],
+  COMPLETE: ['Signature-only designs, all 5 font styles', 'Everything in Standard', 'Per-guest personalised links with reserved seats', 'Guest list manager, seating chart, QR check-in', 'Meal choice, plus-one control, auto-close RSVP', 'Program, travel tips, guestbook, unlimited gallery + video', 'Password option · priority support · link valid 1 year after'],
 };
 
 export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns: AddOnCard[] }) {

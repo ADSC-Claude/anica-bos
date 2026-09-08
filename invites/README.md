@@ -85,13 +85,13 @@ reconciles with itself.
   change it on first sign-in protects nothing if a stranger signs in first.
 - **Customers:** Maria (owns the demo, plus a christening order waiting for
   proof-of-payment review) and Sofia (a Done-For-You debut mid-encoding).
-- **Catalogue:** Basic / Standard / Complete packages for Wedding, Debut,
+- **Catalogue:** Basic / Standard / Signature packages for Wedding, Debut,
   Christening and Kids' Birthday, plus a generic fallback used by every other
   occasion; seven add-ons; three coupons (`LAUNCH20`, `REFER500`, one expired).
 - **Templates:** five wedding designs (one premium), two debut, one each for
   christening, kids' birthday, milestone birthday, anniversary, corporate and
   memorial.
-- **The demo, "Juan & Maria":** a Complete-tier wedding with parents (one
+- **The demo, "Juan & Maria":** a Signature-package wedding with parents (one
   marked *the late*), six pairs of principal sponsors, secondary sponsors,
   the full wedding party, dress code with four motif swatches, a gift note
   with a GCash QR, RSVP with meal choices and an adults-only policy, story
@@ -101,7 +101,7 @@ reconciles with itself.
 
 ## The shared album
 
-A Complete-tier invitation can collect photos from its guests. The couple
+A Signature-package invitation can collect photos from its guests. The couple
 switches it on in the builder under *Guest photos*, and the guest page grows a
 wall and an upload form beneath it. Guests need no account; the form takes a
 name, a photo and an optional caption.
@@ -122,7 +122,7 @@ bytes rather than the name the browser claimed.
 Photos go out through Supabase's image transformation endpoint, not as the
 file the phone uploaded. A phone photo is three or four megabytes and four
 thousand pixels wide; the guest page shows it in a grid cell a couple of
-hundred pixels across, and a Complete-tier album holds up to five hundred of
+hundred pixels across, and a Signature-package album holds up to five hundred of
 them. Served raw, one album opened by two hundred guests is hundreds of
 gigabytes of egress — on its own enough to exhaust a month's allowance for
 every app sharing the Supabase project.
@@ -241,6 +241,19 @@ It has its own `capiz` layout, whose shell border is drawn from the palette
 rather than supplied as artwork, so the design recolours with the customer's
 own accent instead of framing the page in a colour that no longer matches it.
 
+**Baby Blue** is the christening design, in the Baby Blue Theme at
+`/collections/babyblue`: sky and clouds with a dove and the church bell for
+the cover, blue and cream organza for the rest. Its `babyblue` layout lays one
+of the designer's ten grounds behind each page (`src/lib/design.ts` names
+them; `PageGround` trims each to its page, keeps a taller page's head and foot
+whole and stretches the band between, and brings a short page's foot in under
+the words). Two grounds are drawn pages — Our Story with six polaroid frames
+down a timeline, Baby Photos with four — whose frames take the client's
+photographs and whose writings are set live where the designer set hers
+(`src/lib/babyblue.ts` holds the measured slots), so staff and the client can
+change them. The christening's story is told in six milestones, the design's
+own to start.
+
 An **opening** is the short moving scene before the invitation. The guest taps
 once, it plays, and the invitation is underneath. `src/lib/openings.ts` is the
 catalogue:
@@ -250,10 +263,10 @@ catalogue:
 | The Envelope | Basic | A closed envelope, the monogram on the seal, the flap opening. |
 | The Line | Standard | A gold curve drawing itself across warm white. |
 | The Curtain | Standard | Two sheer curtains over the couple's photo, parting to the sides. |
-| The Drape | Complete | Hanging silk with the names on it, lifted away. |
-| The Seal | Complete | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
-| Photo Story | Complete | Three photos fanned like prints, sliding apart. |
-| Cinematic | Complete + Done-For-You | Embroidered panels tied with a silk bow. The bow unties, the panels draw back. |
+| The Drape | Every package | Hanging silk with the names on it, lifted away. |
+| The Seal | Every package | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
+| Photo Story | Every package | Three photos fanned like prints, sliding apart. |
+| Cinematic | The premium opening add-on | Embroidered panels tied with a silk bow. The bow unties, the panels draw back. |
 
 **None of these is a video.** Every one is drawn by the browser from the
 couple's own palette, words and photos — a `<div>`, a CSS transition and, for
@@ -315,7 +328,7 @@ not decode reveals the invitation anyway rather than stranding the guest on a
 screen that never opens, and under `prefers-reduced-motion` the poster stands
 in — the same artwork, held still — and the clip never plays.
 
-An invitation below Complete is not served the clip at all: the `<video>` is
+An invitation without the premium opening add-on is not served the clip at all: the `<video>` is
 never rendered, so there are no bytes to decline. Its design's own drawn
 opening carries on instead.
 
@@ -438,7 +451,7 @@ at `/admin/settings` with sane defaults in `src/lib/settings-defaults.ts`.
 
 `POST /api/jobs/daily` (bearer `CRON_SECRET`; `vercel.json` schedules it at
 06:00 Manila) expires links past their validity, warns a week before, cancels
-stale unpaid orders, auto-closes Complete-tier RSVPs after the deadline, and
+stale unpaid orders, auto-closes Signature-package RSVPs after the deadline, and
 flags overdue DFY jobs. Idempotent. `npm run jobs:daily` runs it from a shell.
 
 ## Deployment

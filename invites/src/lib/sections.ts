@@ -1,7 +1,7 @@
 import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
-import { tierAtLeast } from './tiers';
+import { tierAtLeast, TIER_LABELS } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
@@ -538,11 +538,11 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'Deadline, what to ask, and the policy line.',
     minTier: 'BASIC',
     fields: (occasion) => [
-      date('deadline', 'RSVP deadline', { hint: 'The form closes after this date on the Complete tier.' }),
+      date('deadline', 'RSVP deadline', { hint: `The form closes after this date on the ${TIER_LABELS.COMPLETE} package.` }),
       toggle('showSeats', 'Ask how many are coming'),
       toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
-      list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
+      list('mealChoices', `Meal choices (${TIER_LABELS.COMPLETE} package)`, [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
       textarea('policyText', 'Policy wording', { staff: true }),
       select('notePreset', 'RSVP note', RSVP_NOTE_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: RSVP_NOTE_PRESETS, presetTarget: 'note' }),
@@ -559,16 +559,22 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'How you met, the proposal, and a timeline with its photos — and the line under the heading.',
     minTier: 'STANDARD',
     labelFor: { MILESTONE_BIRTHDAY: 'Their story', ANNIVERSARY: 'Our story so far' },
-    fields: () => [
-      text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      textarea('howWeMet', 'How we met'),
-      textarea('proposal', 'The proposal'),
-      list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
-    ],
+    fields: (occasion) =>
+      occasion === 'CHRISTENING'
+        ? [
+            text('line', 'Line under the heading', { placeholder: 'e.g. A little prayer, a big answer.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
+            list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6, hint: 'Six frames on the page, in this order. Name each moment your way; a frame with no photo stays empty.' }),
+          ]
+        : [
+            text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
+            textarea('howWeMet', 'How we met'),
+            textarea('proposal', 'The proposal'),
+            list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
+          ],
   },
   {
     key: 'gallery',
-    label: 'Photos & video',
+    label: 'Prenup photos & video',
     tl: 'Mga Larawan',
     description: 'Your photos with their captions, your video, and the lines written around them on the page.',
     /**
@@ -579,24 +585,17 @@ const SECTION_DEFS: SectionDef[] = [
      * to give Basic the cover alone than three empty arches.
      */
     minTier: 'STANDARD',
-    /** Whose photos these are. The guest-facing heading stays "Gallery". */
-    labelFor: {
-      WEDDING: 'Prenup photos & video',
-      ENGAGEMENT: 'Engagement photos & video',
-      DEBUT: "Debutante's photos & video",
-      CHRISTENING: "Baby's photos & video",
-      BABY_SHOWER: "Baby's photos & video",
-      KIDS_BIRTHDAY: "Celebrant's photos & video",
-      MILESTONE_BIRTHDAY: "Celebrant's photos & video",
-      GRADUATION: "Graduate's photos & video",
-      ANNIVERSARY: 'Our photos & video',
-      MEMORIAL: 'Photos in remembrance',
-    },
+    /**
+     * Whose photos these are; the label above is the wedding's. Corporate and
+     * housewarming carry no gallery, so nothing falls back to "Prenup". The
+     * guest-facing heading stays "Gallery" whatever the occasion.
+     */
+    labelFor: { CHRISTENING: 'Baby photos', BABY_SHOWER: 'Baby photos', KIDS_BIRTHDAY: "Celebrant's photos", MILESTONE_BIRTHDAY: "Celebrant's photos", COMMUNION: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
     fields: () => [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
       text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],
@@ -698,6 +697,7 @@ const SECTION_DEFS: SectionDef[] = [
   {
     key: 'photos',
     label: 'Guest photos',
+    labelFor: { CHRISTENING: 'Post-event photos' },
     tl: 'Mga Larawan ng Bisita',
     description: 'A shared album your guests add to from their phones. You approve each photo before it appears.',
     minTier: 'COMPLETE',
@@ -739,6 +739,7 @@ const SECTION_DEFS: SectionDef[] = [
   {
     key: 'contact',
     label: 'Contact person',
+    labelFor: { CHRISTENING: 'Assistance' },
     tl: 'Contact',
     description: 'Who guests can reach with questions.',
     minTier: 'BASIC',
@@ -761,7 +762,7 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
   WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing'],
   DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
-  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
+  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing'],
   KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing'],
   MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
   BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
@@ -784,7 +785,17 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
  */
 export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
   capiz: ['cover', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+  // Baby Blue: cover with the verse, the story, the invitation, ninong and
+  // ninang, baby photos, the venue, the dress code, gift and program, snap and
+  // share with the post-event photos, then RSVP, countdown, assistance, ending.
+  babyblue: ['cover', 'story', 'ceremony', 'sponsors', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
 };
+
+/** The layouts built as a run of pages, each on its own ground. */
+export const PAGED_LAYOUTS = ['capiz', 'babyblue'] as const;
+export function isPaged(layout: string): boolean {
+  return (PAGED_LAYOUTS as readonly string[]).includes(layout);
+}
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
   const base = OCCASION_SECTIONS[occasion];
@@ -877,6 +888,16 @@ export function emptySection(fields: Field[]): SectionData {
 }
 
 /** A fresh invitation's content: every section present, sensible toggles on. */
+/** The six milestones a christening story is drawn with — the client's to rename, one per frame. */
+export const CHRISTENING_MILESTONES: { title: string; text: string }[] = [
+  { title: 'The Prayer', text: 'It all started with a prayer.' },
+  { title: 'The Wait', text: 'A season of faith, patience, and love.' },
+  { title: 'The Answer', text: 'You made our hearts fuller.' },
+  { title: 'The Preparation', text: 'Tiny outfits, big dreams.' },
+  { title: 'The Arrival', text: 'A new chapter begins.' },
+  { title: 'Our Greatest Blessing', text: 'You are so loved.' },
+];
+
 export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
   const content: Content = {};
   // Every section the occasion lists, hidden ones included: what is stored
@@ -893,6 +914,9 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
         break;
       case 'countdown':
         data.enabled = true;
+        break;
+      case 'story':
+        if (occasion === 'CHRISTENING') data.timeline = CHRISTENING_MILESTONES.map((m) => ({ ...m, photo: '' }));
         break;
       case 'moment':
         data.frame = 'arch';

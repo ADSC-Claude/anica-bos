@@ -3,7 +3,7 @@ import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
-import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -37,7 +37,7 @@ export type GuestForPage = {
   plusOneAllowed: boolean;
   token: string;
   table: { name: string } | null;
-  rsvps: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: unknown; mealChoice: string; dietary: string; message: string }[];
+  rsvps: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: unknown; mealChoice: string; dietary: string; message: string; groupName: string }[];
 };
 
 export type RenderProps = {
@@ -175,10 +175,14 @@ function dottedDate(dateKey: string): string {
   return m ? `${m[2]} · ${m[3]} · ${m[1]}` : '';
 }
 
-function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; eyebrow?: string }) {
+function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; saveTheDate?: boolean; eyebrow?: string }) {
   const cover = content.cover;
   const copy = heroCopy(occasion, cover, lang);
-  const eyebrow = lookEyebrow ?? (layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow);
+  // A Save the Date says so above the names, over anything the design or the
+  // look would otherwise put there — that line is the whole point of the card.
+  const eyebrow = saveTheDate
+    ? t(lang, 'cover.saveTheDate')
+    : lookEyebrow ?? (layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow);
   const photo = str(cover, 'coverPhoto') || str(cover, 'logo');
   const date = str(cover, 'date');
   const time = str(cover, 'time');
@@ -765,6 +769,11 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
   const policy = str(data, 'policy') !== 'none' ? str(data, 'policyText') : '';
   const existing = personal && guest?.rsvps[0] ? { ...guest.rsvps[0], attendees: Array.isArray(guest.rsvps[0].attendees) ? (guest.rsvps[0].attendees as string[]) : [] } : null;
   const mealChoices = hasFeature(inv.tier, 'rsvp.meal') ? rows<{ label: string }>(data, 'mealChoices').map((m) => m.label) : [];
+  // Every package asks this one: it costs the guest a tap and it is what turns
+  // the printed headcount sheet into something a coordinator can work from.
+  // A couple who wrote no list gets their occasion's — sponsors, the bride's
+  // side, the groom's side — rather than no question at all.
+  const groups = guestGroups(inv.occasion, data);
   const greeting = personal && guest ? guest.salutation || guest.name : '';
 
   return (
@@ -796,6 +805,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           askDietary={bool(data, 'askDietary')}
           askDepartment={bool(data, 'askDepartment')}
           mealChoices={mealChoices}
+          groups={groups}
           existing={existing}
           labels={{
             name: t(lang, 'rsvp.name'),
@@ -806,6 +816,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
             companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),
             dietary: t(lang, 'rsvp.dietary'),
+            group: t(lang, 'rsvp.group'),
             message: t(lang, 'rsvp.message', { hosts: hostsNoun }),
             phone: t(lang, 'rsvp.phone'),
             submit: t(lang, 'rsvp.submit'),
@@ -1573,9 +1584,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
   const templateSections = new Set(inv.template.sections);
+  // A Save the Date carries the couple, the date and nothing after it.
+  const saveTheDate = Boolean(inv.saveTheDateOfId);
 
   const visible = (key: SectionKey) =>
-    OCCASION_SECTIONS[occasion].includes(key) &&
+    sectionOnCard(key, occasion, saveTheDate) &&
     sectionOffered(key) &&
     (templateSections.size === 0 || templateSections.has(key)) &&
     sectionUnlocked(key, occasion, inv.tier) &&
@@ -1598,7 +1611,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // still wins over both (openingAssets).
     const premium = premiumOpeningOf(inv.template, inv.premiumOpeningKey);
     const assets = openingAssets(inv, premium ? { openingVideoUrl: premium.video, openingPosterUrl: premium.poster } : inv.template);
-    const key = print || bare
+    // A Save the Date is read on sight. Deleting the couple's chosen opening
+    // when the card is created is not enough: the design's own opening would
+    // still play, and an envelope to be torn open is the invitation's moment,
+    // not this one's.
+    const key = print || bare || saveTheDate
       ? 'none'
       : resolveOpening({
           chosen: str(content.cover, 'opening'),
@@ -1666,9 +1683,57 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // The peek ends with Our Story, or with the cover where the design has no
   // story: the pages up to that one, then the way in.
   const peekEnd = (keys: string[]) => { const i = keys.indexOf('story'); return i < 0 ? 1 : i + 1; };
-  const body = format
-    ? pages()
-    : (peek ? order.slice(0, peekEnd(order)) : order).map((key) => section(key));
+  /**
+   * The Save the Date is one screen, not a shortened invitation.
+   *
+   * Pouring two sections through the paged machinery leaves the design's own
+   * holes: Capiz's cover page is 264% of the viewport wide on purpose, sized
+   * to hold the names at its head and the verse at its foot with the shells
+   * between, and a card carrying only names and a date falls through it. So
+   * the card is composed here instead — the design's art banded at the top and
+   * the foot, everything else centred between them, nothing to scroll.
+   */
+  // The design's own picture, if it has one. A design with no artwork keeps
+  // the palette and the type, which is a card too.
+  const stdArt = !saveTheDate ? '' : capiz ? art.backgrounds[0] : babyblue ? art.grounds.cover?.url ?? '' : '';
+
+  function saveTheDateCard() {
+    const cover = content.cover;
+    const monogram = str(cover, 'monogram');
+    const names = heroCopy(occasion, cover, lang).names;
+    const joiner = look?.joiner ?? '&';
+    // The design's own picture, banded head and foot. A design with no artwork
+    // of its own keeps the palette and the type, which is a card too.
+    return (
+      <div className="inv-std" key="std">
+        <div className="inv-std-body">
+          {monogram && <p className="inv-display inv-std-monogram">{monogram}</p>}
+          <p className="inv-eyebrow inv-std-eyebrow">{t(lang, 'cover.saveTheDate')}</p>
+          <h1 className="inv-names inv-std-names">
+            {names.map((n, i) => (
+              <span key={i}>
+                {i > 0 && (joiner === 'and' ? <span className="inv-amp" data-word="">{lang === 'tl' ? 'at' : 'and'}</span> : <span className="inv-amp">&amp;</span>)}
+                {n}
+              </span>
+            ))}
+          </h1>
+          {coverDate && <p className="inv-std-date">{dottedDate(coverDate)}</p>}
+          {eventAt && (
+            <div className="inv-std-count">
+              <Countdown target={eventAt.toISOString()} labels={[t(lang, 'countdown.days'), t(lang, 'countdown.hours'), t(lang, 'countdown.minutes'), t(lang, 'countdown.seconds')]} today={t(lang, 'countdown.today')} />
+            </div>
+          )}
+          <p className="inv-std-follow">{t(lang, 'cover.follows')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const body = saveTheDate
+    ? saveTheDateCard()
+    : format
+      ? pages()
+      : (peek ? order.slice(0, peekEnd(order)) : order).map((key) => section(key));
   const peekEndBlock = peek ? (
     <section key="peek-end" className="inv-section inv-peek">
       <p className="inv-eyebrow">{lang === 'tl' ? `Ang disenyong ${inv.template.name}` : `The ${inv.template.name} design`}</p>
@@ -1720,7 +1785,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} eyebrow={look ? line('cover') : undefined} />;
+        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
           <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>
@@ -1830,7 +1895,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   }
 
   return (
-    <div className="inv" data-layout={layout} data-paged={format ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} style={style} lang={lang}>
+    <div className="inv" data-layout={layout} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {preview && (

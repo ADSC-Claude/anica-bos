@@ -4,9 +4,9 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, serviceModeAvailable, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, type Quote } from './pricing';
+import { quote, serviceModeAvailable, saveTheDateOffered, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
 import { TIER_LABELS } from './tiers';
-import { createDraft } from './invitations';
+import { createDraft, createSaveTheDate } from './invitations';
 import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
 import { sendEmail, render, baseVars } from './email';
@@ -59,7 +59,7 @@ export async function buildQuote(input: {
   const codes = Array.from(new Set(input.addOnCodes)).slice(0, 12);
   const addOns = codes.length ? await prisma.addOn.findMany({ where: { code: { in: codes }, active: true, quoted: true } }) : [];
   const coupon = input.couponCode?.trim() ? await prisma.coupon.findUnique({ where: { code: input.couponCode.trim().toUpperCase() } }) : undefined;
-  const q = quote({ pkg, serviceMode: input.serviceMode, addOns, coupon: input.couponCode?.trim() ? coupon : undefined });
+  const q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: input.couponCode?.trim() ? coupon : undefined });
   return { ...q, pkg, addOns, couponId: coupon && !q.couponError ? coupon.id : undefined };
 }
 
@@ -190,6 +190,14 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       });
     }
   });
+
+  // Outside the transaction: it needs a unique slug, which means reading rows
+  // the transaction has not committed yet, and a Save the Date that failed to
+  // be created must not roll back a payment that succeeded.
+  if (order.invitationId && saveTheDateOffered(order.occasion) && order.items.some((it) => it.kind === 'ADDON' && it.code === SAVE_THE_DATE_CODE)) {
+    const parent = await prisma.invitation.findUnique({ where: { id: order.invitationId } });
+    if (parent) await createSaveTheDate(parent);
+  }
 
   const dfy = order.serviceMode !== 'DIY';
   const nextStep = dfy

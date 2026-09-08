@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { publishAction, unpublishAction, toggleRsvpAction } from '@/app/account/actions';
 
-export function PublishControls({ invitationId, status, problems, rsvpClosed }: { invitationId: string; status: string; problems: string[]; rsvpClosed: boolean }) {
+export function PublishControls({ invitationId, status, problems, rsvpClosed, rsvp = true }: { invitationId: string; status: string; problems: string[]; rsvpClosed: boolean; rsvp?: boolean }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
@@ -19,7 +19,8 @@ export function PublishControls({ invitationId, status, problems, rsvpClosed }: 
         {status === 'PUBLISHED' ? (
           <>
             <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => unpublishAction(invitationId))}>Unpublish</button>
-            <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => toggleRsvpAction(invitationId, !rsvpClosed))}>{rsvpClosed ? 'Reopen RSVP' : 'Close RSVP'}</button>
+            {/* A Save the Date collects no replies, so it has none to close. */}
+            {rsvp && <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => toggleRsvpAction(invitationId, !rsvpClosed))}>{rsvpClosed ? 'Reopen RSVP' : 'Close RSVP'}</button>}
           </>
         ) : (
           <button type="button" className="btn btn-primary" disabled={pending || problems.length > 0} onClick={() => run(() => publishAction(invitationId).then((r) => (r.ok ? { ok: true } : r)))}>{pending ? 'Publishing…' : 'Publish invitation'}</button>

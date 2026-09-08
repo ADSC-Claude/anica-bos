@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
+import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, guestGroups, GUEST_GROUP_PRESETS, sectionOnCard, SAVE_THE_DATE_SECTIONS, type SectionKey } from '../src/lib/sections';
 import { OCCASION_KEYS } from '../src/lib/occasions';
+import { saveTheDateOffered, addOnAvailable } from '../src/lib/pricing';
 
 test('every occasion has a cover, an RSVP and a closing, and every section it lists is defined', () => {
   for (const o of OCCASION_KEYS) {
@@ -254,6 +255,116 @@ test('the fixed writings are ours: off the client’s form, and kept through a c
   assert.deepEqual(closing, ['photo', 'signature']);
   // and staff editing for the customer see everything
   assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'message' && f.staff));
+});
+
+test('guests are offered their occasion\'s groups until the couple writes their own', () => {
+  // Nothing filled in: the standard list for the occasion, so a couple who
+  // never opens the field still gets a headcount sheet worth printing.
+  assert.deepEqual(guestGroups('WEDDING', undefined), GUEST_GROUP_PRESETS.WEDDING);
+  assert.ok(guestGroups('WEDDING', {}).includes('Principal sponsor (Ninong / Ninang)'));
+  assert.ok(guestGroups('CHRISTENING', {}).includes('Ninong / Ninang'));
+  assert.ok(guestGroups('KIDS_BIRTHDAY', {}).includes('Classmate / schoolmate'));
+
+  // Their own list replaces it whole — no merging, no leftovers.
+  const own = { groups: [{ label: "Lola's side" }, { label: 'Basketball team' }] };
+  assert.deepEqual(guestGroups('WEDDING', own), ["Lola's side", 'Basketball team']);
+
+  // Blank rows are not groups, and the toggle silences the question outright.
+  assert.deepEqual(guestGroups('WEDDING', { groups: [{ label: '  ' }] }), GUEST_GROUP_PRESETS.WEDDING);
+  assert.deepEqual(guestGroups('WEDDING', { ...own, hideGroups: true }), []);
+
+  // A memorial does not sort its mourners; a corporate event asks for the
+  // department instead.
+  assert.deepEqual(guestGroups('MEMORIAL', {}), []);
+  assert.deepEqual(guestGroups('CORPORATE', {}), []);
+});
+
+// A child, a debutante and a graduate all have friends who are not their
+// classmates — the kid from the next street, the friend from the old school.
+test('a celebration for a young guest of honour offers their own friends, not only their class', () => {
+  for (const occasion of ['KIDS_BIRTHDAY', 'COMMUNION', 'DEBUT', 'GRADUATION'] as const) {
+    const groups = guestGroups(occasion, {});
+    assert.ok(groups.some((g) => /classmate/i.test(g)), `${occasion} lists classmates`);
+    assert.ok(
+      groups.some((g) => /friend/i.test(g) && !/classmate/i.test(g) && !/family friend/i.test(g) && !/mommy|daddy/i.test(g)),
+      `${occasion} also lets the guest of honour's own friends say so`,
+    );
+  }
+});
+
+// "Family" reads as the immediate one, so a cousin skips it. Wherever a family
+// label is offered, the wider word is offered next to it.
+test('a relative can say so without having to call themselves family', () => {
+  for (const [occasion, groups] of Object.entries(GUEST_GROUP_PRESETS)) {
+    for (const g of groups) {
+      // "Family friend" is a friend of the family, not a family label.
+      if (!/family/i.test(g) || /family friend/i.test(g)) continue;
+      const sibling = g.replace(/family/i, (m) => (m[0] === 'F' ? 'Relative' : 'relative'));
+      assert.ok(groups.includes(sibling), `${occasion}: "${g}" has no "${sibling}" beside it`);
+    }
+  }
+});
+
+test('every preset group is a distinct, non-empty label', () => {
+  for (const [occasion, groups] of Object.entries(GUEST_GROUP_PRESETS)) {
+    assert.ok(groups.length >= 3, occasion);
+    assert.equal(new Set(groups).size, groups.length, occasion);
+    for (const g of groups) assert.equal(g, g.trim(), occasion);
+    for (const g of groups) assert.ok(g.length > 0 && g.length <= 60, `${occasion}: ${g}`);
+  }
+});
+
+test('a Save the Date carries the couple and the date, and nothing that waits for the invitation', () => {
+  for (const o of OCCASION_KEYS) {
+    const keys = sectionsFor(o, true).map((d) => d.key);
+    // A memorial has no countdown to the day and is not announced in advance;
+    // saveTheDateOffered keeps the card off it. Every other occasion gets both.
+    assert.deepEqual(keys, o === 'MEMORIAL' ? ['cover'] : ['cover', 'countdown'], o);
+
+    // What it must not carry: anything a couple months out cannot answer, and
+    // anything that would collect replies against the wrong card.
+    for (const key of ['rsvp', 'gift', 'entourage', 'gallery', 'program', 'guestbook'] as SectionKey[]) {
+      assert.equal(sectionOnCard(key, o, true), false, `${o}: ${key} is not on a Save the Date`);
+    }
+    // And the ordinary invitation is untouched by any of it.
+    assert.deepEqual(sectionsFor(o).map((d) => d.key), OCCASION_SECTIONS[o].filter((k) => sectionOffered(k)), o);
+    assert.equal(sectionOnCard('rsvp', o, false), true, o);
+  }
+});
+
+test('sectionOnCard still refuses a section the occasion never had', () => {
+  // KIDS_BIRTHDAY has no entourage, on either kind of card.
+  assert.equal(OCCASION_SECTIONS.KIDS_BIRTHDAY.includes('entourage'), false);
+  assert.equal(sectionOnCard('entourage', 'KIDS_BIRTHDAY', false), false);
+  assert.equal(sectionOnCard('entourage', 'KIDS_BIRTHDAY', true), false);
+  // And every key a Save the Date carries is one the occasion has — on every
+  // occasion the card is actually offered on.
+  for (const o of OCCASION_KEYS.filter(saveTheDateOffered)) {
+    for (const k of SAVE_THE_DATE_SECTIONS) assert.ok(OCCASION_SECTIONS[o].includes(k), `${o}: ${k}`);
+  }
+});
+
+test('the one gathering nobody announces in advance is not sold a Save the Date', () => {
+  assert.equal(saveTheDateOffered('MEMORIAL'), false);
+  assert.equal(addOnAvailable('SAVE_THE_DATE', 'BASIC', 'MEMORIAL'), false);
+  for (const o of OCCASION_KEYS.filter((k) => k !== 'MEMORIAL')) {
+    assert.equal(saveTheDateOffered(o), true, o);
+    assert.equal(addOnAvailable('SAVE_THE_DATE', 'BASIC', o), true, o);
+  }
+  // Asked without an occasion — the landing page's catalogue — it still lists.
+  assert.equal(addOnAvailable('SAVE_THE_DATE', 'BASIC'), true);
+});
+
+test('a Save the Date cover drops the opening controls, and an ordinary one keeps them', () => {
+  const keys = (std: boolean) => fieldsFor('cover', 'WEDDING', 'COMPLETE', std).map((f) => f.key);
+  for (const k of ['opening', 'openingLine', 'openingLine2']) {
+    assert.ok(keys(false).includes(k), `an invitation still offers ${k}`);
+    assert.equal(keys(true).includes(k), false, `a Save the Date does not offer ${k}`);
+  }
+  // Everything else about the cover is untouched: same fields, same order.
+  assert.deepEqual(keys(true), keys(false).filter((k) => !['opening', 'openingLine', 'openingLine2'].includes(k)));
+  // And only the cover is filtered — the countdown has no opening to lose.
+  assert.deepEqual(fieldsFor('countdown', 'WEDDING', 'COMPLETE', true), fieldsFor('countdown', 'WEDDING', 'COMPLETE'));
 });
 
 test('the cover offers five ways the photo sits, the veil first', async () => {

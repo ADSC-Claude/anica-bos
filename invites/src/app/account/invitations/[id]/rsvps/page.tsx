@@ -15,19 +15,20 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, include: { guest: { select: { groupName: true, table: { select: { name: true } } } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
+  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, updatedAt: true, guestId: true }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
   const dashboard = hasFeature(inv.tier, 'rsvp.dashboard');
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
-      <PageHeader title="RSVP responses" subtitle={inv.rsvpClosed ? 'RSVP is closed.' : 'RSVP is open.'} actions={<><RsvpToggle invitationId={inv.id} closed={inv.rsvpClosed} />{hasFeature(inv.tier, 'rsvp.export') && <a href={`/account/invitations/${inv.id}/rsvps.csv`} className="btn btn-secondary btn-sm">Export Excel / CSV</a>}</>} />
+      <PageHeader title="RSVP responses" subtitle={inv.rsvpClosed ? 'RSVP is closed.' : 'RSVP is open.'} actions={<><RsvpToggle invitationId={inv.id} closed={inv.rsvpClosed} />{hasFeature(inv.tier, 'rsvp.export') && <><Link href={`/account/invitations/${inv.id}/rsvps/print`} className="btn btn-secondary btn-sm">Headcount sheet</Link><a href={`/account/invitations/${inv.id}/rsvps.csv`} className="btn btn-secondary btn-sm">Export Excel / CSV</a></>}</>} />
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Accepted" value={summary.accepted} />
         <Stat label="Seats confirmed" value={summary.seats} />
         <Stat label="Declined" value={summary.declined} />
         <Stat label="Total responses" value={summary.accepted + summary.declined} />
       </div>
-      {!dashboard && <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">The Basic package shows responses here; the Standard package adds meal and dietary columns, Excel export and message history. <Link href={`/account/invitations/${inv.id}/upgrade`} className="underline">Upgrade</Link></p>}
+      {!dashboard && <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">The Basic package shows responses here; the Standard package adds meal and dietary columns, Excel export, message history, and a printable headcount sheet to hand your caterer or coordinator. <Link href={`/account/invitations/${inv.id}/upgrade`} className="underline">Upgrade</Link></p>}
+      {dashboard && <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">The headcount sheet prints on one page — who is coming, how many of each meal, and a tick box beside every name. Yours to hand out or send as a PDF.</p>}
       {rsvps.length === 0 ? <Empty>No responses yet.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="data">
@@ -35,7 +36,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
             <tbody>
               {rsvps.map((r) => (
                 <tr key={r.id}>
-                  <td>{r.name}{r.guest && <span className="block text-xs text-[color:var(--color-ink-500)]">{[r.guest.groupName, r.guest.table?.name].filter(Boolean).join(' · ') || 'personal link'}</span>}</td>
+                  <td>{r.name}{(r.groupName || r.guestId) && <span className="block text-xs text-[color:var(--color-ink-500)]">{[r.groupName, r.guestId ? 'personal link' : ''].filter(Boolean).join(' · ')}</span>}</td>
                   <td><span className={`pill ${r.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{r.response === 'ACCEPT' ? 'Accepted' : 'Declined'}</span></td>
                   <td>{r.response === 'ACCEPT' ? r.seats : '—'}</td>
                   <td className="text-xs">{Array.isArray(r.attendees) ? (r.attendees as string[]).join(', ') : ''}</td>

@@ -12,8 +12,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const user = await requireCustomerPage();
   const [s, unread] = await Promise.all([getSettings(), unreadCount(user.id)]);
   return (
-    <div className="min-h-dvh bg-[color:var(--color-sand-50)]">
-      <header className="border-b border-[color:var(--color-sand-200)] bg-white">
+    <div className="min-h-dvh bg-[color:var(--color-sand-50)] print:min-h-0 print:bg-white">
+      <header className="no-print border-b border-[color:var(--color-sand-200)] bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <Link href="/account" className="display text-xl">{s['business.name']}</Link>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
@@ -30,8 +30,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-5 py-6">{children}</main>
-      <footer className="mx-auto max-w-6xl px-5 pb-10 text-xs text-[color:var(--color-ink-500)]">
+      <main className="mx-auto max-w-6xl px-5 py-6 print:max-w-none print:p-0">{children}</main>
+      <footer className="no-print mx-auto max-w-6xl px-5 pb-10 text-xs text-[color:var(--color-ink-500)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--color-sand-200)] pt-4">
           <span>Need a hand? {s['contact.hoursNote']}</span>
           <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} size="sm" />

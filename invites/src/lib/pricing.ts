@@ -1,4 +1,4 @@
-import type { DiscountType, ServiceMode, Tier } from '@prisma/client';
+import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
 
 /**
@@ -71,6 +71,12 @@ export const RUSH_CODE = 'RUSH';
 export const PRIORITY_CODE = 'PRIORITY';
 
 /**
+ * A second card, months ahead of the invitation: same couple, same design, its
+ * own link. Bought with the order, it is created when the order activates.
+ */
+export const SAVE_THE_DATE_CODE = 'SAVE_THE_DATE';
+
+/**
  * What each package may be sold with. Both rules are here, next to the
  * arithmetic that reads them, because a rule enforced only in the checkout UI
  * is not a rule: the wizard and the server both price through quote().
@@ -106,10 +112,20 @@ export const DEFAULT_SERVICE_MODE: ServiceMode = 'DFY';
  * that build carries too much information to guarantee overnight. A tier is
  * never offered both — they are the same purchase under two promises.
  */
-export function addOnAvailable(code: string, tier: Tier): boolean {
+export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): boolean {
   if (code === RUSH_CODE) return tier !== 'COMPLETE';
   if (code === PRIORITY_CODE) return tier === 'COMPLETE';
+  if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
   return true;
+}
+
+/**
+ * A memorial is the one gathering nobody announces in advance, and it is the
+ * one occasion with no countdown to the day — the two facts are the same fact.
+ * Everything else can be announced early.
+ */
+export function saveTheDateOffered(occasion: Occasion): boolean {
+  return occasion !== 'MEMORIAL';
 }
 
 /**
@@ -163,6 +179,8 @@ export function quote(input: {
   pkg: PackageLike;
   serviceMode: ServiceMode;
   addOns: AddOnLike[];
+  /** What is being celebrated. Some add-ons do not suit every occasion. */
+  occasion?: Occasion;
   coupon?: CouponLike | null;
   now?: Date;
 }): Quote {
@@ -178,7 +196,7 @@ export function quote(input: {
 
   let addOnsCents = 0;
   for (const a of input.addOns) {
-    if (!addOnAvailable(a.code, input.pkg.tier)) continue;
+    if (!addOnAvailable(a.code, input.pkg.tier, input.occasion)) continue;
     const cents = addOnPrice(a, input.pkg.tier);
     items.push({ kind: 'ADDON', code: a.code, name: a.name, amountCents: cents });
     addOnsCents += cents;

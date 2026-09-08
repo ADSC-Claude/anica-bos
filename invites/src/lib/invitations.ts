@@ -16,11 +16,14 @@ import {
   sectionUnlocked,
   coverImage,
   type Content,
+  type SectionData,
   type SectionKey,
   OCCASION_SECTIONS,
+  sectionOnCard,
   sectionOffered,
 } from './sections';
 import { hasFeature, TIER_LABELS } from './tiers';
+import { saveTheDateOffered } from './pricing';
 import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
@@ -149,6 +152,70 @@ export async function createDraft(args: {
   });
 }
 
+/**
+ * The Save the Date for an invitation: a second card, months ahead of the one
+ * it announces.
+ *
+ * It is a row of its own rather than another face on the invitation, because
+ * the two are finished at different times. A Save the Date goes out when the
+ * couple has a date and not much else; the invitation is published when they
+ * have a venue, a programme and a dress code. Sharing a record would mean
+ * publishing in June to announce a December wedding — starting the revision
+ * count and settling the design six months early.
+ *
+ * What it copies is what makes the pair look like one suite: the design, the
+ * palette and fonts, the couple's names and their cover photo. What it does
+ * not copy is everything a Save the Date has no business asking.
+ *
+ * It carries no revision count of its own. Rounds of changes belong to the
+ * build behind an order, and this card has no order — it is the couple's to
+ * edit until they publish it, and ours to change after, like any invitation.
+ */
+export async function createSaveTheDate(parent: {
+  id: string;
+  userId: string;
+  templateId: string;
+  occasion: Occasion;
+  tier: Tier;
+  title: string;
+  slug: string;
+  language: string;
+  eventAt: Date | null;
+  content: unknown;
+}) {
+  if (!saveTheDateOffered(parent.occasion)) throw new HttpError(400, 'A Save the Date is not offered for this occasion.');
+  const existing = await prisma.invitation.findUnique({ where: { saveTheDateOfId: parent.id }, select: { id: true } });
+  if (existing) return prisma.invitation.findUniqueOrThrow({ where: { id: existing.id } });
+
+  const from = contentOf(parent.content);
+  const cover: SectionData = { ...(from.cover ?? {}) };
+  // The wedding cover already knows how to announce itself as a Save the Date;
+  // every other occasion is told by the row it sits in. Either way the couple
+  // can still change the card type in their builder.
+  if (parent.occasion === 'WEDDING') cover.kind = 'saveTheDate';
+  // The opening is the invitation's moment. A Save the Date wants to be read
+  // on the spot, not unwrapped.
+  delete cover.opening;
+  delete cover.envelope;
+
+  const content: Content = { cover, ...(from.countdown ? { countdown: from.countdown } : {}), ...(from.theme ? { theme: from.theme } : {}) };
+
+  return prisma.invitation.create({
+    data: {
+      saveTheDateOfId: parent.id,
+      userId: parent.userId,
+      templateId: parent.templateId,
+      occasion: parent.occasion,
+      tier: parent.tier,
+      title: `${parent.title} — Save the Date`,
+      slug: await uniqueSlug(`${parent.slug}-save-the-date`),
+      content: content as never,
+      language: parent.language,
+      eventAt: parent.eventAt,
+    },
+  });
+}
+
 /** Whether the order behind this invitation has been paid. Drafts are read-only until then. */
 export function unlocked(invitation: { order: { status: string } | null }): boolean {
   return invitation.order?.status === 'ACTIVE' || invitation.order?.status === 'PAID' || invitation.order === null;
@@ -159,13 +226,13 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
   assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
-  if (!OCCASION_SECTIONS[invitation.occasion].includes(key)) throw new HttpError(400, 'That section does not belong to this occasion.');
+  if (!sectionOnCard(key, invitation.occasion, Boolean(invitation.saveTheDateOfId))) throw new HttpError(400, 'That section does not belong to this card.');
   if (!sectionUnlocked(key, invitation.occasion, invitation.tier)) {
     throw new HttpError(403, 'That section is not included in your package. Upgrade to unlock it.');
   }
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet. The builder unlocks once payment is confirmed.');
 
-  const fields = fieldsFor(key, invitation.occasion);
+  const fields = fieldsFor(key, invitation.occasion, undefined, Boolean(invitation.saveTheDateOfId));
   const { data: cleaned, issues } = cleanSection(fields, raw);
   const content = contentOf(invitation.content);
   // the fixed writings are ours: a customer's save keeps them as they were
@@ -351,7 +418,9 @@ export async function changeTemplate(user: SessionUser, invitationId: string, te
 export async function publish(user: SessionUser, invitationId: string) {
   const invitation = await prisma.invitation.findUniqueOrThrow({
     where: { id: invitationId },
-    include: { order: { include: { package: true } } },
+    // A Save the Date has no order of its own — it was bought as an add-on on
+    // the invitation it announces, and it borrows that order's package.
+    include: { order: { include: { package: true } }, saveTheDateOf: { include: { order: { include: { package: true } } } } },
   });
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet.');
   const content = contentOf(invitation.content);
@@ -359,7 +428,10 @@ export async function publish(user: SessionUser, invitationId: string) {
   if (problems.length) throw new HttpError(400, problems.join(' '));
 
   const eventAt = eventInstant(content) ?? invitation.eventAt;
-  const validityDays = invitation.order?.package.linkValidityDays ?? 30;
+  // Thirty days is the floor for an invitation with no package behind it. A
+  // Save the Date published a year out would expire long before the wedding it
+  // announces, so it takes the package's validity from the order it came with.
+  const validityDays = (invitation.order ?? invitation.saveTheDateOf?.order)?.package.linkValidityDays ?? 30;
   const expiresAt = eventAt ? addDays(eventAt, validityDays) : addDays(new Date(), validityDays);
 
   const updated = await prisma.invitation.update({

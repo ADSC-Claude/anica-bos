@@ -20,9 +20,9 @@ export const WARDROBE = wardrobe as Drawing[];
 
 /** The kinds each attire item calls for, best first. Items that are not an outfit (a tie, shoes) call for none. */
 const GENTS_KINDS: Record<string, string[]> = {
-  suit: ['suit'], tuxedo: ['tuxedo', 'suit'], businessSuit: ['suit'], coat: ['suit'], blazer: ['suit'], bowTie: ['tuxedo'],
+  suit: ['suit'], tuxedo: ['tuxedo', 'suit'], businessSuit: ['suit'], coat: ['suit'], blazer: ['suit'],
   barong: ['barong', 'barongShort'], longSleeves: ['shirt', 'linen'], polo: ['shirtShort', 'barongShort', 'shirt'], buttonDown: ['shirt', 'linen'],
-  chinos: ['shirt', 'shirtShort', 'casual'], darkJeans: ['casual', 'shirt'], sneakers: ['casual', 'shirtShort'], themed: ['casual'], muted: ['suit'],
+  chinos: ['shirt', 'shirtShort', 'casual'], darkJeans: ['casual', 'shirt'], themed: ['casual'], muted: ['suit'],
 };
 const LADIES_KINDS: Record<string, string[]> = {
   longGown: ['long'], cocktail: ['cocktail'], separates: ['blouseSkirt', 'blouseTrousers'], filipiniana: ['terno'],
@@ -32,7 +32,7 @@ const LADIES_KINDS: Record<string, string[]> = {
 /** At a children's party the rows are the boys and the girls. */
 const BOYS_KINDS: Record<string, string[]> = {
   suit: ['boyFormal'], tuxedo: ['boyFormal'], coat: ['boyFormal'], barong: ['boyBarong'], longSleeves: ['boySmart'],
-  polo: ['boyCasual', 'boySmart'], buttonDown: ['boySmart'], chinos: ['boySmart'], darkJeans: ['boyCasual'], sneakers: ['boyCasual'], themed: ['boyCasual'],
+  polo: ['boyCasual', 'boySmart'], buttonDown: ['boySmart'], chinos: ['boySmart'], darkJeans: ['boyCasual'], themed: ['boyCasual'],
 };
 const GIRLS_KINDS: Record<string, string[]> = { partyDress: ['girl'], sundayDress: ['girl'], jumpsuit: ['girl'], blouseSkirt: ['girl'], themed: ['girl'], longGown: ['girl'], cocktail: ['girl'], midi: ['girl'] };
 

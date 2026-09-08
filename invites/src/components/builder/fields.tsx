@@ -410,10 +410,26 @@ function ChecksInput({ field, value, onChange, sibling }: { field: Field; value:
   };
   const short = min > 0 && value.length > 0 && value.length < min;
   const over = value.length > max;
+  // a folding list: the ticked ones as chips, the list behind a button
+  const [open, setOpen] = useState(!field.fold);
+  const labelOf = (v: string) => all.find((o) => o.value === v)?.label ?? v;
   return (
     <div>
       <Label field={field} />
-      <div className="flex flex-wrap gap-1.5">
+      {field.fold && (
+        <div className="mb-2 flex min-h-9 flex-wrap items-center gap-2">
+          {value.map((v) => (
+            <span key={v} className="flex items-center gap-1.5 rounded-full border border-[color:var(--color-sand-200)] bg-white px-2.5 py-1 text-xs">
+              <span aria-hidden className="text-[color:var(--bad)]">⊘</span>{labelOf(v)}
+              <button type="button" className="text-[color:var(--color-ink-500)]" onClick={() => onChange(value.filter((x) => x !== v))} aria-label={`Remove ${labelOf(v)}`}>✕</button>
+            </span>
+          ))}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+            {open ? 'Hide the list' : value.length ? 'Change the list' : 'Pick from the list'}
+          </button>
+        </div>
+      )}
+      {open && <div className="flex flex-wrap gap-1.5">
         {options.map((o) => {
           const on = value.includes(o.value);
           const full = !on && value.length >= max;
@@ -424,7 +440,7 @@ function ChecksInput({ field, value, onChange, sibling }: { field: Field; value:
             </label>
           );
         })}
-      </div>
+      </div>}
       {(min > 0 || max < Infinity) && (
         <p className={`mt-1 text-xs ${short || over ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
           {value.length} of {min > 0 && max < Infinity ? `${min}–${max}` : max < Infinity ? `up to ${max}` : `at least ${min}`}{short ? ` · pick at least ${min}` : over ? ` · untick ${value.length - max} — only the first ${max} are kept` : value.length >= max ? ' · full' : ''}

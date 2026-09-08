@@ -1368,6 +1368,8 @@ const ICON_PATHS: Record<string, string> = {
   pattern: 'M8 3h8l4 4-3 3-1-1v12H8V9L7 10 4 7zM9 12l2 2M13 12l2 2M9 17l2 2M13 17l2 2',
   shorts: 'M6 3h12l1 12h-5l-2-6-2 6H5zM6 7h12',
   cap: 'M4 14a8 8 0 0 1 16 0M4 14h16M4 14l-2 2h10M12 6V4',
+  sneaker: 'M3 15l2-4 4 1 3-4 4 2 5 3v3H3zM3 18h18M9 12l1 2M12 11l1 2',
+  sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8zM5 15l.6 1.4L7 17l-1.4.6L5 19l-.6-1.4L3 17l1.4-.6z',
   church: 'M12 3v4M10 5h4M5 21V12l7-5 7 5v9M5 21h14M10 21v-5h4v5',
   glasses: 'M5 4h6l-1 6a2.5 2.5 0 0 1-4 0zM13 4h6l-1 6a2.5 2.5 0 0 1-4 0zM8 12v8M16 12v8M5.5 20h5M13.5 20h5',
   cutlery: 'M7 3v18M5 3v5a2 2 0 0 0 4 0V3M17 3c-2 0-3 3-3 6 0 2 1 3 3 3v9',

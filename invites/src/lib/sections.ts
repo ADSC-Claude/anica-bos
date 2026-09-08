@@ -1,5 +1,5 @@
 import { MOTIF_MIN, MOTIF_MAX } from './palette';
-import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, type AttireItem } from './attire';
+import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
@@ -64,6 +64,8 @@ export type Field = {
   sets?: boolean;
   /** checks: the sibling field whose values decide which options (by their 'when') are offered */
   dependsOn?: string;
+  /** checks: the list folds away behind a button, the ticked ones showing as chips */
+  fold?: boolean;
   /** Render full-width in a two-column form. */
   wide?: boolean;
 };
@@ -493,7 +495,7 @@ const SECTION_DEFS: SectionDef[] = [
       text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.' }),
       { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
       text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.' }),
-      checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { hint: 'Each one is drawn crossed out.' }),
+      checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { max: AVOID_MAX, fold: true, hint: 'Up to six, from everything guests are ever asked to leave at home. Each one is drawn crossed out on the page.' }),
       text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
       text('entourageAttire', 'Entourage', { placeholder: 'e.g. Sage green' }),
       textarea('note', 'Note'),

@@ -66,8 +66,8 @@ test('colours must be hex and at most the field allows: eight for the motif, fou
 
 test('a checklist keeps only its own options, in their order, and each occasion offers its own', () => {
   const wedding = fieldsFor('dressCode', 'WEDDING');
-  const { data } = cleanSection(wedding, { gentsItems: ['dressShoes', 'tuxedo', 'suit', 'suit', 'nonsense'], avoid: ['prints', 'white'] });
-  assert.deepEqual(data.gentsItems, ['suit', 'dressShoes'], 'the tuxedo is not on the wedding list; the order is the list\'s');
+  const { data } = cleanSection(wedding, { gentsItems: ['coat', 'tuxedo', 'suit', 'suit', 'nonsense'], avoid: ['prints', 'white'] });
+  assert.deepEqual(data.gentsItems, ['suit', 'coat'], 'the tuxedo is not on the wedding list; the order is the list\'s');
   assert.deepEqual(data.avoid, ['white', 'prints']);
   const avoid = wedding.find((f) => f.key === 'avoid')!;
   assert.ok(avoid.options!.some((o) => o.value === 'white' && /bride/.test(o.label)), 'white is asked for the bride at a wedding');
@@ -92,9 +92,9 @@ test('the dress code is one or two attires and the clothes follow it: two or thr
   assert.equal(gents.max, 3);
   assert.ok(gents.options!.find((o) => o.value === 'suit')!.when!.includes('formal'));
   // the old single word still reads as one attire; three attires are cut to two; four pieces to three
-  const { data } = cleanSection(wedding, { attire: 'formal', gentsItems: ['suit', 'coat', 'longSleeves', 'dressShoes'] });
+  const { data } = cleanSection(wedding, { attire: 'formal', gentsItems: ['suit', 'coat', 'longSleeves', 'barong'] });
   assert.deepEqual(data.attire, ['formal']);
-  assert.deepEqual(data.gentsItems, ['suit', 'coat', 'longSleeves']);
+  assert.deepEqual(data.gentsItems, ['suit', 'coat', 'barong'], 'four pieces cut to three, in the list\'s order');
   assert.deepEqual(cleanSection(wedding, { attire: ['casual', 'formal', 'cocktail'] }).data.attire, ['formal', 'cocktail']);
   assert.deepEqual(attireKeys('formal'), ['formal']);
   assert.deepEqual(attireKeys(['formal', 'cocktail']), ['formal', 'cocktail']);
@@ -165,4 +165,24 @@ test('a lady\'s garment is never white: pale colours are deepened, colours are k
   const wide = { id: 'w', group: 'girls' as const, kind: 'girl', w: 100, h: 100 };
   assert.equal(figureHeight([gown, gown, gown, gown], [gown, gown]), 38);
   assert.ok(Math.abs(figureHeight([wide, wide, wide, wide, wide], [gown]) - (100 - 8) / 5) < 1e-9);
+});
+
+test('the clothes are clothes: no shoes, ties or heels; kindly-avoid is the full list everywhere, six at most, folded', async () => {
+  const { gentsItems, ladiesItems, avoidItems, AVOID_MAX } = await import('../src/lib/attire');
+  const { OCCASION_KEYS: keys } = await import('../src/lib/occasions');
+  for (const o of keys) {
+    const g = gentsItems(o).map((i) => i.value);
+    const l = ladiesItems(o).map((i) => i.value);
+    for (const acc of ['tie', 'bowTie', 'dressShoes', 'loafers', 'sneakers']) assert.ok(!g.includes(acc), `${o}: ${acc}`);
+    assert.ok(!l.includes('heels'), `${o}: heels`);
+    assert.ok(g.length >= 3 && l.length >= 3, `${o} still offers a choice`);
+    assert.equal(avoidItems(o).length, 15, `${o} offers the whole avoid list`);
+  }
+  assert.ok(avoidItems('WEDDING').some((i) => /bride/.test(i.en)) && avoidItems('DEBUT').some((i) => /debutante/.test(i.en)));
+  const avoid = fieldsFor('dressCode', 'WEDDING').find((f) => f.key === 'avoid')!;
+  assert.equal(avoid.max, AVOID_MAX);
+  assert.equal(avoid.fold, true);
+  assert.equal(avoid.min, undefined, 'no minimum');
+  const { data } = cleanSection(fieldsFor('dressCode', 'WEDDING'), { avoid: ['white', 'black', 'red', 'bright', 'prints', 'sequins', 'casual', 'shorts'] });
+  assert.equal((data.avoid as string[]).length, 6, 'eight ticked keep the first six');
 });

@@ -83,8 +83,9 @@ reconciles with itself.
   That is because its built-in password is written in `prisma/seed.ts` in a
   public repository, on an account whose role is ADMIN — and being forced to
   change it on first sign-in protects nothing if a stranger signs in first.
-- **Customers:** Maria (owns the demo, plus a christening order waiting for
-  proof-of-payment review) and Sofia (a Done-For-You debut mid-encoding).
+- **Customers:** Maria (owns the two demos, plus a christening order waiting
+  for proof-of-payment review) and Denise (a Done-For-You christening on Baby
+  Blue, form in, waiting for the encoder).
 - **Catalogue:** Basic / Standard / Signature packages for Wedding, Debut,
   Christening and Kids' Birthday, plus a generic fallback used by every other
   occasion; seven add-ons; three coupons (`LAUNCH20`, `REFER500`, one expired).
@@ -293,6 +294,72 @@ The gallery's premium-opening preview sets the words on the clip's card from
 the design's demo, with the same `plateWords` the guest page uses — rename
 the child in the demo's form and the preview follows — and describes each clip
 from its catalogue entry (`blurb`).
+
+**The card's writing is never a beat you have to catch.** The preview plays
+the clip, brings the words up on the card, holds them, lets the invitation's
+cover fade in beneath as a guest gets it — and then comes back to the card and
+rests there, because the writing is what the visitor opened it to read. And
+when a clip will not play at all — a phone in low power mode refuses autoplay
+outright, a slow line has not finished the file, a browser will not decode it
+— the words come up anyway, on a card in the design's own colours rather than
+over a poster whose artwork already says "you're invited" in its own hand.
+The guest page has had those guards since it was built (`LOAD_GRACE_MS`,
+`END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own,
+and the guest page now has the card too (`.inv-open-still`): its words used to
+land on the poster, where the Capiz seal's own "YOU'RE INVITED" printed
+through the couple's.
+
+**Day and night is sold, not hidden.** Every paged design reads twice over:
+the same pages by daylight and after dark. The couple sets which one their
+invitation opens in — or lets it follow the guest's own clock, evening from
+six — and the guest may switch with the moon in the corner, their phone
+keeping the choice per invitation. That is now said on All designs
+(`app/templates/page.tsx`), because it is a reason to buy and nobody could
+have known it from the covers.
+
+**What is typed reaches both surfaces.** The card's words are `plateWords()`
+over the invitation's own cover fields — the monogram, the line, the names,
+the date and the words under it — so renaming the child in the builder renames
+them on the guest's card and on the gallery's preview at once, with nobody
+retyping anything. The faces follow the same rule: the guest page sets the
+overlay inside the invitation's own `.inv` wrapper, and the preview resolves
+the demo's theme the same way (`resolveTheme` in `lib/peek.ts`), so a look
+changed in the builder changes the writing in the opening too.
+
+**Each clip's words are set where that clip leaves room.** Capiz's card is
+narrow and upright, so its words are stacked down the middle of it. The Baby
+Blue bow opens a diamond of clear satin, measured off the clip's last frame at
+21%–55% of the frame, widest at 42%, with its axis two points right of the
+frame's middle — so the bow's words are set to that box, on that axis, and
+sized to fill it. The owner marked the centre they wanted on their own phone,
+37.9% down the screen and 51.7% across; this box lands the writing's middle
+within a tenth of a point of it. The two surfaces show them in the same place: the gallery's
+9:16 phone crops 11.09% off each end of the 976:2120 frame, and the preview's
+box is the guest page's put through that crop. The name's size comes down as
+the name gets longer (`--plate-chars`, from `plateChars` in `lib/openings.ts`)
+so "Juan Sebastian" keeps the same clearance from the satin that "Lucas" has:
+the divisor is what sets how wide a long name runs, and it is scored against
+"Maximilian", not the demo's five letters. Sideways the clip is letterboxed
+and the words' box is letterboxed with it — the media query has to sit BELOW
+the unconditional rule, because the two weigh the same and while it sat above
+it never applied, which left the box four times the screen's width.
+
+**A snippet says nothing about what is under it.** A design's peek
+(`/<demo slug>?peek=1`) runs from the opening to Our Story and ends with the
+design's name, the way in, and the way back — never a line explaining which
+pages the visitor is not being shown. Every design we add works this way: the
+catalogue is where the pages are described, and a snippet that has to explain
+itself is a snippet that is not doing its job.
+
+**Every movement has a way out.** A page a visitor stepped into carries a back
+sign, and anything that covers the screen carries a cross that closes it. The
+peek gets both, fixed above the opening so nobody is held by a clip they have
+seen enough of (`PeekControls`): the arrow steps back through their own
+history when they came from a page of ours, and falls back to `/templates`
+when they landed on the link cold. The premium-opening preview keeps its cross
+in the corner of the dimmed screen the whole time, beside Escape and a click
+on the backdrop. `BackArrow` (`src/components/back.tsx`) is the same arrow for
+ordinary pages: all designs, a collection, checkout, signing up, the policies.
 
 **Baby Blue** is the christening design, in the Baby Blue Theme at
 `/collections/babyblue`: sky and clouds with a dove and the church bell for

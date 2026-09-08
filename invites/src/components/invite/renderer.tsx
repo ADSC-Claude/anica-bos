@@ -12,7 +12,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS } from '@/lib/design';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '@/lib/babyblue';
 import { Drawn } from './figures';
@@ -28,6 +28,9 @@ import { imageUrl, IMAGE } from '@/lib/images';
  * section says. A section that the tier does not include, or that the
  * customer left empty, simply does not appear.
  */
+
+/** Where the way out of a peek leads when there is no page of ours behind it. */
+const PEEK_EXIT = '/templates';
 
 export type GuestForPage = {
   id: string;
@@ -153,7 +156,7 @@ function heroCopy(occasion: Occasion, cover: SectionData | undefined, lang: Lang
  * exactly the way a guest's will, and changes to the demo's form show up in
  * the preview without anybody retyping them.
  */
-export type PlateWords = { monogram: string; line: string; names: string[]; and: string; date: string };
+export type PlateWords = { monogram: string; line: string; names: string[]; and: string; date: string; line2: string };
 export function plateWords(occasion: Occasion, content: Content, lang: Lang, look: Look | undefined, premium: PremiumOpening | null): PlateWords {
   const cover = content.cover;
   const names = heroCopy(occasion, cover, lang).names.filter(Boolean);
@@ -166,6 +169,8 @@ export function plateWords(occasion: Occasion, content: Content, lang: Lang, loo
     names: names.length ? names : [displayTitle(occasion, content)],
     and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
     date: openingDate(str(cover, 'date')),
+    // the couple's own words under the date, where they wrote any
+    line2: str(cover, 'openingLine2'),
   };
 }
 
@@ -1657,7 +1662,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // a premium card whose face has already said "you are invited", else
       // this opening's own line.
       line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || def.line[lang],
-      line2: str(content.cover, 'openingLine2'),
+      line2: plate.line2,
       and: plate.and,
       words: wordsOnCard,
       caps: Boolean(def.caps),
@@ -1734,11 +1739,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     : format
       ? pages()
       : (peek ? order.slice(0, peekEnd(order)) : order).map((key) => section(key));
+  // A peek is a snippet of a design, not a page that explains itself: the
+  // design's name, the way in, and the way back out. What the pages under it
+  // hold is the catalogue's to say, not this page's.
   const peekEndBlock = peek ? (
     <section key="peek-end" className="inv-section inv-peek">
       <p className="inv-eyebrow">{lang === 'tl' ? `Ang disenyong ${inv.template.name}` : `The ${inv.template.name} design`}</p>
-      <p className="inv-peek-line">{lang === 'tl' ? 'Ang mga sumusunod na pahina — ang paanyaya, ang lugar, ang kasuotan, ang RSVP — ay sa inyo nang punan.' : 'The pages after this — the invitation, the venue, the dress code, the RSVP — are yours to fill.'}</p>
       <a href={`/checkout?occasion=${inv.occasion}&template=${inv.template.id}${inv.template.premium ? '&tier=COMPLETE' : ''}`} className="inv-btn">{lang === 'tl' ? 'Kunin ang disenyong ito' : 'Get this design'}</a>
+      <p className="inv-peek-back"><a href={PEEK_EXIT}>{lang === 'tl' ? '← Bumalik sa mga disenyo' : '← Back to the designs'}</a></p>
     </section>
   ) : null;
   function pages() {
@@ -1895,8 +1903,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   }
 
   return (
-    <div className="inv" data-layout={layout} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
+    <div className="inv" data-layout={layout} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
+      {peek && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {preview && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">

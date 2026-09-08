@@ -11,6 +11,7 @@ import { formatPesoShort } from '@/lib/money';
 import { occasionLabel } from '@/lib/occasions';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { TemplateGallery } from '@/components/landing/gallery';
+import { BackArrow } from '@/components/back';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,9 +50,8 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
     <>
       <SiteHeader s={s} signedIn={Boolean(session)} />
       <main className="mx-auto max-w-6xl px-5 py-12">
-        <p className="eyebrow">
-          <Link href="/templates" className="hover:underline">Templates</Link> · Collection
-        </p>
+        <BackArrow href="/templates" label="All designs" />
+        <p className="eyebrow mt-4">Collection</p>
         <h1 className="display mt-1 flex flex-wrap items-center gap-3 text-4xl">
           {info.label}
           <span className="flex gap-1">

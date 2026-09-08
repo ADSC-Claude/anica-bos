@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, openingsFor, openingAssets, resolveOpening, hasPremiumOpening, PREMIUM_OPENING_CODE, UNIVERSAL_OPENING } from '../src/lib/openings';
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
-import { TEMPLATES, templateData } from '../prisma/templates';
+import { type TemplateSeed, TEMPLATES, templateData } from '../prisma/templates';
+// A design with no clip drawn for it and no demo. None is in the catalogue any
+// more — the scaffold designs are gone — so the tests make one from Capiz.
+const PLAIN: TemplateSeed = { ...TEMPLATES.find((t) => t.slug === 'capiz')!, slug: 'plain', name: 'Plain', collection: '', demo: undefined, openingVideoUrl: undefined, openingPosterUrl: undefined };
+
 import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder, isPaged, FIT, FIT_DEFAULT, fitOf } from '../src/lib/sections';
 import { sectionAnchor } from '../src/lib/anchors';
 import { overlayIntake, intakeFilled, intakeRows } from '../src/lib/intake';
@@ -363,7 +367,7 @@ test('a design is offered its own theme’s premium openings and no other’s', 
   for (const clip of forCapiz) assert.ok(!forBabyBlue.includes(clip), `${clip.key} crosses themes`);
 
   // A design with no clip drawn for it sells no add-on.
-  const plain = TEMPLATES.find((t) => t.slug === 'classic-ivory')!;
+  const plain = PLAIN;
   assert.equal(hasPremiumClip(design(plain)), false);
   assert.equal(hasPremiumClip(design(babyBlue)), true);
 });
@@ -398,7 +402,7 @@ test('a chosen opening that no longer fits the design falls back to the design�
   // Nothing chosen yet.
   assert.equal(premiumOpeningOf(babyBlue, '')?.key, 'baby-blue-bow');
   // A design with no clips has none to fall back to.
-  assert.equal(premiumOpeningOf({ slug: 'classic-ivory', collection: '' }, 'capiz'), null);
+  assert.equal(premiumOpeningOf({ slug: 'plain', collection: '' }, 'capiz'), null);
   // What may be stored: the design's own, or blank for "the design's first".
   assert.equal(premiumOpeningAllowed(babyBlue, 'baby-blue-bow'), true);
   assert.equal(premiumOpeningAllowed(babyBlue, ''), true);
@@ -412,7 +416,7 @@ test('a design’s row carries its first premium opening, so the gallery preview
   assert.equal(row('baby-blue').openingVideoUrl, '/openings/baby-blue.mp4');
   assert.equal(row('baby-blue').openingPosterUrl, '/openings/baby-blue-poster.jpg');
   // A design with no clip carries none, and the checkout hides the add-on.
-  assert.equal(row('classic-ivory').openingVideoUrl, '');
+  assert.equal(templateData(PLAIN, 0).openingVideoUrl, '');
 });
 
 test('every writing a client types carries the room the page has for it', () => {
@@ -489,5 +493,5 @@ test('a design names the demo a visitor may peek at, and the row carries it', ()
   assert.equal(row('baby-blue').demoSlug, 'lucas-andrei-christening');
   assert.equal(row('capiz').demoSlug, 'juan-and-maria');
   // a design with no demo has no peek
-  assert.equal(row('classic-ivory').demoSlug, '');
+  assert.equal(templateData(PLAIN, 0).demoSlug, '');
 });

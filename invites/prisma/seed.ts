@@ -90,12 +90,11 @@ async function main() {
   const hash = await bcrypt.hash(PASSWORD, 11);
 
   // --- people --------------------------------------------------------------
-  const [admin, encoder, support, maria, sofia] = await Promise.all([
+  const [admin, encoder, support, maria] = await Promise.all([
     prisma.user.create({ data: { email: 'owner@youreinvitedto.com', name: 'Angelica Corporal', role: 'ADMIN', passwordHash: hash, mustChangePassword: true } }),
     prisma.user.create({ data: { email: 'encoder@youreinvitedto.com', name: 'Encoder', role: 'ENCODER', passwordHash: hash, mustChangePassword: true } }),
     prisma.user.create({ data: { email: 'support@youreinvitedto.com', name: 'Support', role: 'SUPPORT', passwordHash: hash, mustChangePassword: true } }),
     prisma.user.create({ data: { email: 'maria@example.com', name: 'Maria Santos', role: 'CUSTOMER', phone: '0917 123 4567', passwordHash: hash } }),
-    prisma.user.create({ data: { email: 'sofia@example.com', name: 'Sofia Villanueva', role: 'CUSTOMER', phone: '0918 555 0101', passwordHash: hash } }),
   ]);
 
   // --- settings that differ from the defaults ------------------------------
@@ -182,7 +181,6 @@ async function main() {
   // must not silently repoint the demo invitations at a different template.
   const bySlug = (slug: string) => templates.find((t) => t.slug === slug)!;
   const capiz = bySlug('capiz');
-  const blush = bySlug('enchanted-blush');
 
   // --- the demo: Juan & Maria ---------------------------------------------
   const wedding = addDays(new Date(), 75);
@@ -279,29 +277,6 @@ async function main() {
   });
   await prisma.guestbookEntry.createMany({ data: [{ invitationId: demo.id, name: 'Tita Baby', message: 'Finally! Ang tagal naming hinintay ito. Congratulations, Juan and Maria!', approved: true }, { invitationId: demo.id, name: 'Camille', message: 'From taho to “I do” — so proud of you two. ❤️', approved: true }, { invitationId: demo.id, name: 'Anonymous', message: 'Best wishes from the office!', approved: false }] });
   await prisma.invitationView.createMany({ data: Array.from({ length: 14 }, (_, i) => ({ invitationId: demo.id, day: new Date(addDays(new Date(), -i).toISOString().slice(0, 10)), count: 10 + ((i * 7) % 40) })) });
-
-  // --- Sofia's debut: a Done-For-You job mid-way -----------------------------
-  const debutStandard = await prisma.package.findUniqueOrThrow({ where: { code: 'DEBUT_STANDARD' } });
-  const debutContent = defaultContent('DEBUT', 'en');
-  Object.assign(debutContent.cover!, { celebrantFirst: 'Sofia', celebrantFull: 'Sofia Andrea Villanueva', theme: 'Enchanted Garden', date: addDays(new Date(), 40).toISOString().slice(0, 10), time: '18:00', intro: 'You are invited to celebrate as Sofia turns eighteen.', coverPhoto: pic('sofia-cover', 900, 1200), envelope: true });
-  Object.assign(debutContent.reception!, { venue: 'Fernwood Gardens', address: 'Quezon City', time: '18:00' });
-  const debut = await prisma.invitation.create({ data: { userId: sofia.id, templateId: blush.id, occasion: 'DEBUT', tier: 'STANDARD', title: "Sofia's 18th", slug: 'sofia-turns-18', status: 'DRAFT', content: debutContent as never, eventAt: addDays(new Date(), 40), editsAllowed: 4, ogImageUrl: pic('sofia-cover', 900, 1200) } });
-  const debutOrder = await prisma.order.create({
-    data: {
-      reference: orderReference(), userId: sofia.id, packageId: debutStandard.id, invitationId: debut.id, occasion: 'DEBUT', tier: 'STANDARD', serviceMode: 'DFY',
-      subtotalCents: debutStandard.priceCents, serviceFeeCents: debutStandard.dfyFeeCents, totalCents: debutStandard.priceCents + debutStandard.dfyFeeCents, status: 'ACTIVE', paidAt: addDays(new Date(), -3), activatedAt: addDays(new Date(), -3), createdAt: addDays(new Date(), -3),
-      items: { create: [{ kind: 'PACKAGE', code: 'DEBUT_STANDARD', name: debutStandard.name, amountCents: debutStandard.priceCents, sortOrder: 0 }, { kind: 'SERVICE', code: 'SERVICE_DFY', name: 'Encoding service', amountCents: debutStandard.dfyFeeCents, sortOrder: 1 }] },
-    },
-  });
-  await prisma.payment.create({ data: { reference: paymentReference(), orderId: debutOrder.id, provider: 'MANUAL', status: 'PAID', amountCents: debutOrder.totalCents, channel: 'GCash', payerName: 'Sofia Villanueva', payerReference: '1234567890', proofUrl: pic('proof-1', 600, 1000), reviewedById: support.id, reviewedAt: addDays(new Date(), -3), paidAt: addDays(new Date(), -3) } });
-  const job = await prisma.dfyJob.create({
-    data: {
-      orderId: debutOrder.id, invitationId: debut.id, status: 'ENCODING', assigneeId: encoder.id, intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -2), dueAt: addDays(new Date(), 1), revisionsAllowed: 4,
-      intake: { method: 'FORM', notes: 'Theme is Enchanted Garden — lots of greenery and fairy lights. 18 Roses list is on the Viber message I sent.', content: { cover: debutContent.cover, reception: debutContent.reception, eighteen: { roses: [{ name: 'Papa', relation: 'Father' }, { name: 'Kuya Marco', relation: 'Brother' }, { name: 'Tito Jun', relation: 'Uncle' }] } } } as never,
-      internalNotes: 'Waiting on the full 18 Roses list — customer said she will send it by Viber tonight.',
-    },
-  });
-  await prisma.dfyRevision.create({ data: { jobId: job.id, round: 0, authorId: encoder.id, authorName: encoder.name, byStaff: true, body: 'Hi Sofia! Got your details — starting on the layout now. Please send the rest of the 18 Roses when you can.' } });
 
   // --- a christening Done-For-You job on Baby Blue, the client's form in -------
   // What the encoder's workspace opens on: every segment the client filled,
@@ -420,7 +395,6 @@ Seeded.
 
   Customers (${PASSWORD_SUPPLIED ? 'same password' : `password "${PASSWORD}"`}):
     maria@example.com             owns the demo "Juan & Maria" (Signature) and a pending christening order
-    sofia@example.com             Done-For-You debut in progress
     denise@example.com            Done-For-You christening on Baby Blue, form in, waiting for the encoder
 
   Demo invitation:  /juan-and-maria

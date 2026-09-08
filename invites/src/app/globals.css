@@ -292,9 +292,39 @@ table.data tr:hover td {
    phone is 9:16 where the clip's frame is taller, so the words are set per
    clip: the bow's card is the ground the ribbons uncover, above the knot. */
 .gal-phone[data-clip='baby-blue-bow'] { background: #cfdff0; }
-.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; top: 6%; bottom: 34%; }
+/* The same words on the same part of the artwork as the guest page gets: the
+   phone is 9:16 and the clip is 976:2120, so `cover` shaves 11.09% of the
+   phone's height off each end of the frame — the guest page's box of 21%..55%
+   of the frame is this one, put through p = 1.22182f − 11.091. */
+.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 14.5%; bottom: 44%; }
+/* The card the words go on when the clip could not play at all — a phone in
+   low power mode refuses autoplay, a slow line has not finished the file, a
+   browser will not decode it. The poster cannot stand in: both posters carry
+   their own writing (the Capiz seal says YOU'RE INVITED, the bow's tag says
+   it too), which would fight the couple's names. So the words go on a plain
+   card in the design's own colours instead. */
+.gal-still {
+  position: absolute; inset: 0; opacity: 0; transition: opacity 500ms ease;
+  background: radial-gradient(116% 86% at 50% 42%, var(--inv-surface, #fdfbf7) 42%, color-mix(in srgb, var(--inv-surface, #fdfbf7) 55%, var(--inv-accent2, #d8c7a8)) 100%);
+}
+.gal-still[data-show='true'] { opacity: 1; }
+/* On that card there is no diamond to sit inside, so the bow's words take the
+   whole of it rather than the box cut for the satin. Capiz is left alone: its
+   box is the shared default, and it reads the same on the card as on the clip.
+   The guest page's own card does the same (.inv-open[data-still]). */
+.gal-phone[data-still='true'][data-clip='baby-blue-bow'] .gal-plate > div { top: 12%; bottom: 12%; }
 .gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
 .gal-cover[data-show='true'] { opacity: 1; }
+/* the cross that closes the preview, in the corner of the dimmed screen the
+   whole time — a visitor who has seen enough of a snippet should not have to
+   look for the way out */
+.gal-close {
+  position: fixed; top: 1rem; right: 1rem; z-index: 61;
+  width: 2.6rem; height: 2.6rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.45); color: #fff;
+  display: grid; place-items: center; font-size: 1.35rem; line-height: 1;
+}
+.gal-close:hover { background: rgba(0, 0, 0, 0.72); }
 .gal-preview-side { max-width: 20rem; color: #fff; }
 .gal-preview-side .eyebrow { color: rgba(255, 255, 255, 0.7); }
 
@@ -1011,9 +1041,25 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-hero-lines p { text-transform: uppercase; letter-spacing: 0.3em; text-indent: 0.3em; font-size: 0.74rem; line-height: 1.95; }
 .inv-scroll { margin-top: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 0.32em; text-indent: 0.32em; font-size: 0.58rem; color: var(--inv-muted); }
 .inv-scroll::after { content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.45rem auto 0; background: var(--inv-accent2); }
-/* the peek's end: the design's name and the way in, on the ground where Our Story left off */
+/* the peek's end: the design's name, the way in and the way back, on the ground where Our Story left off */
 .inv-peek { text-align: center; padding-top: 2.5rem; padding-bottom: 3.5rem; }
-.inv-peek .inv-peek-line { max-width: 22rem; margin: 0.8rem auto 1.6rem; font-size: 0.95rem; line-height: 1.6; color: var(--inv-ink); }
+.inv-peek .inv-btn { margin-top: 0.9rem; }
+.inv-peek-back { margin-top: 1.1rem; font-size: 0.8rem; }
+.inv-peek-back a { color: var(--inv-muted); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--inv-muted) 45%, transparent); }
+.inv-peek-back a:hover { color: var(--inv-ink); }
+/* The way out of a peek, on every design: the arrow steps back where the
+   visitor came from, the cross closes the design. Both sit above the opening,
+   so nobody is held by a clip they have seen enough of. */
+.inv-peek-controls { position: fixed; left: 0; right: 0; top: 0; z-index: 55; display: flex; justify-content: space-between; padding: 0.85rem 1rem; pointer-events: none; }
+.inv-peek-btn {
+  pointer-events: auto; width: 2.6rem; height: 2.6rem; border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14); background: rgba(255, 255, 255, 0.86); color: #2f2b28;
+  display: grid; place-items: center; font-size: 1.2rem; line-height: 1; text-decoration: none;
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px);
+}
+.inv-peek-btn:hover { background: #fff; transform: translateY(-1px); }
+/* the day-and-night switch steps down a row, so the cross has the corner */
+.inv[data-peek] .inv-mode { top: 4.2rem; }
 .inv-verse { text-align: center; }
 .inv-page > .inv-verse { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .inv-verse-text { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.88rem; line-height: 1.8; color: var(--inv-ink); max-width: 22rem; margin: 0 auto; }
@@ -1431,14 +1477,31 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-open[data-clip='baby-blue-bow'] .inv-open-copy { display: none; }
 .inv-open[data-clip='baby-blue-bow'] .inv-open-hint { color: #4a5b7a; text-shadow: none; }
 .inv-open[data-clip='baby-blue-bow'] { background: #cfdff0; }
-/* its card is the clear ground the ribbons leave: the words in the design's blue */
-.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; }
-@media (min-aspect-ratio: 1/1) {
-  .inv-open[data-clip='baby-blue-bow'] .inv-open-clip { object-fit: contain; }
-  /* letterboxed, the frame is as tall as the screen and no wider than that
-     needs: the words' box (below) follows it, so the type stays the frame's size */
-  .inv-open[data-clip='baby-blue-bow'] .inv-open-plate { width: calc(100vh * 976 / 2120); width: calc(100dvh * 976 / 2120); }
-}
+/* its card is the clear ground the ribbons leave: the words in the design's
+   blue, set in the diamond the ribbons open — the owner drew where — and
+   larger than the Capiz card's, which has a narrow card to fit. */
+/* The diamond the ribbons open is not quite centred on the frame: its axis
+   runs about two points right of the middle, and its widest row is at 42% of
+   the frame. The box is set on that axis rather than the frame's, or the
+   eyebrow's first letter ends up on the satin. The owner marked the centre
+   they wanted on a phone — 37.9% down the screen, 51.7% across — and this box
+   puts the writing's middle at 38.0% and 52%. */
+.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 21%; bottom: 45%; }
+/* The type is shared between the two surfaces because the clip fills the
+   width of both, so a size in cqw lands the same on each; only the boxes
+   above differ, because the preview's 9:16 phone crops the frame's head and
+   foot and the guest page's plate does not. The name is set to fill the
+   diamond and comes down as the name gets longer (--plate-chars, set from the
+   couple's own words in lib/openings.ts), so a long one keeps clear of the
+   satin instead of running under it. */
+.inv-open[data-clip='baby-blue-bow'] .inv-plate-eyebrow,
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-eyebrow { font-size: 3.8vw; font-size: 3.8cqw; letter-spacing: 0.2em; text-indent: 0.2em; }
+.inv-open[data-clip='baby-blue-bow'] .inv-plate-names,
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-names { font-size: 20vw; font-size: min(29cqw, calc(170cqw / var(--plate-chars, 9))); margin-top: 2.2vh; margin-top: 2.2cqh; }
+.inv-open[data-clip='baby-blue-bow'] .inv-plate-date,
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-date { font-size: 5.4vw; font-size: 5.4cqw; margin-top: 2.6vh; margin-top: 2.6cqh; }
+.inv-open[data-clip='baby-blue-bow'] .inv-plate-line2,
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-line2 { font-size: 3vw; font-size: 3cqw; margin-top: 2.2vh; margin-top: 2.2cqh; }
 /* The bow's frame is 976 x 2120 — a phone's full screen rather than 9:16 —
    so the box its words are placed in is that frame, drawn the way object-fit
    cover draws it: as wide as the screen or as tall as it, whichever the frame
@@ -1449,11 +1512,20 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   width: max(100%, calc(100dvh * 976 / 2120));
   aspect-ratio: 976 / 2120;
 }
+/* Sideways the clip is letterboxed instead, so the plate is letterboxed with
+   it: as tall as the screen and no wider than that needs, or the words would
+   be placed in a box four times the screen's width and land off it entirely.
+   This block must stay BELOW the rule above — the two weigh the same, so the
+   later one wins, and while it sat above it never applied at all. */
+@media (min-aspect-ratio: 1/1) {
+  .inv-open[data-clip='baby-blue-bow'] .inv-open-clip { object-fit: contain; }
+  .inv-open[data-clip='baby-blue-bow'] .inv-open-plate { width: calc(100vh * 976 / 2120); width: calc(100dvh * 976 / 2120); }
+}
 /* The card's box: the clip is object-fit cover, so this is the same box the
    clip is drawn in — as wide as the screen or as tall as it, whichever the
    9:16 frame needs — and the words are placed in it by fractions of the frame. */
 .inv-open-plate {
-  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 2;
   width: max(100%, calc(100vh * 9 / 16));
   width: max(100%, calc(100dvh * 9 / 16));
   aspect-ratio: 9 / 16;
@@ -1463,6 +1535,19 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* The type is sized by the frame (cqw); a browser without container units
    gets the viewport-based line before each, close enough on a phone. */
 .inv-open-plate[data-show='true'] { opacity: 1; }
+/* The card the words go on when the clip could not play — the same answer the
+   gallery's preview gives (.gal-still), and for the same reason: both posters
+   carry their own writing, so the couple's names printed over one come out as
+   a double exposure across the wax seal. */
+.inv-open-still {
+  position: absolute; inset: 0; z-index: 1; opacity: 0; transition: opacity 500ms ease; pointer-events: none;
+  /* above the stage, below the words (.inv-open-plate is given z-index 2) */
+  background: radial-gradient(116% 86% at 50% 42%, var(--inv-surface, #fdfbf7) 42%, color-mix(in srgb, var(--inv-surface, #fdfbf7) 55%, var(--inv-accent2, #d8c7a8)) 100%);
+}
+.inv-open-still[data-show='true'] { opacity: 1; }
+/* and on that card the bow's words take the whole of it, as they do in the
+   gallery's preview — there is no diamond to sit inside */
+.inv-open[data-still][data-clip='baby-blue-bow'] .inv-open-plate > div { top: 12%; bottom: 12%; }
 .inv-open-plate > div {
   position: absolute; left: 14%; width: 68%; top: 15%; bottom: 13%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;

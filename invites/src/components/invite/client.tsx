@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { plateChars } from '@/lib/openings';
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
@@ -169,6 +170,17 @@ export function Shell({
   const [tapped, setTapped] = useState(false);
   // The clip's card is out and the couple's words are on it.
   const [plate, setPlate] = useState(false);
+  /**
+   * The clip never ran, so the words are going on a card drawn in the design's
+   * own colours instead of on the poster.
+   *
+   * The poster is the clip's first frame and both of ours carry their own
+   * writing baked into the artwork — the Capiz seal reads YOU'RE INVITED, the
+   * bow's tag says it too — so the couple's card printed over it comes out as
+   * a double exposure, their names crossing the wax seal. The gallery's
+   * preview solves it the same way (.gal-still).
+   */
+  const [still, setStill] = useState(false);
   // The song is taken to its start point once, on the first play; a pause resumes where it was.
   const sought = useRef(false);
   // Whether it got there. A host that serves byte ranges (storage does) takes
@@ -271,11 +283,14 @@ export function Shell({
       if (done || ending) return;
       ending = true;
       if (!words) return finish();
+      // the clip is at its end only if it actually ran; anything else puts the
+      // words on the design's own card rather than over the poster's artwork
+      if (video.currentTime < 0.1) setStill(true);
       setPlate(true);
       window.setTimeout(finish, CARD_HOLD_MS);
     };
-    // A guest who asked for less motion gets the poster — the same artwork,
-    // standing still — with the words on it, and the fade. The clip never plays.
+    // A guest who asked for less motion gets the words on the design's own card
+    // and the fade, with no clip and nothing moving.
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       close();
       return;
@@ -332,6 +347,7 @@ export function Shell({
             data-clip={opening.clip || undefined}
             data-open={open}
             data-tapped={tapped}
+            data-still={still || undefined}
             role="button"
             tabIndex={open ? -1 : 0}
             aria-label={opening.hint}
@@ -342,12 +358,14 @@ export function Shell({
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
             </div>
+            {/* the card the words go on when the clip could not play */}
+            {opening.words && <div className="inv-open-still" data-show={still} aria-hidden />}
             {opening.words && (
               <div className="inv-open-plate" data-show={plate} aria-hidden>
                 <div>
                   {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
                   {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
-                  {opening.names && <p className="inv-plate-names">{cardNames(opening.names, opening.and || '&')}</p>}
+                  {opening.names && <p className="inv-plate-names" style={{ ['--plate-chars' as string]: plateChars(opening.names.split(' & ')) }}>{cardNames(opening.names, opening.and || '&')}</p>}
                   {opening.date && <p className="inv-plate-date">{opening.date}</p>}
                   {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}
                 </div>
@@ -1039,5 +1057,32 @@ export function ModeToggle({ mode, slug, dayLabel, nightLabel }: { mode: string;
     <button ref={ref} type="button" className="inv-mode no-print" onClick={flip} aria-label={night ? dayLabel : nightLabel} title={night ? dayLabel : nightLabel}>
       {night ? '☀' : '☾'}
     </button>
+  );
+}
+
+/**
+ * The way out of a design's peek. Two signs, because they mean two things:
+ * the arrow steps back to wherever the visitor came from, and the cross
+ * closes the peek and leaves them at the designs. They sit above the opening
+ * too, so nobody is held by a clip they have seen enough of.
+ */
+export function PeekControls({ href, backLabel, closeLabel }: { href: string; backLabel: string; closeLabel: string }) {
+  const step = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    if (typeof window === 'undefined' || window.history.length <= 1) return;
+    try {
+      if (!document.referrer || new URL(document.referrer).origin !== window.location.origin) return;
+    } catch {
+      // a referrer we cannot read is not one we can step back to
+      return;
+    }
+    e.preventDefault();
+    window.history.back();
+  };
+  return (
+    <div className="inv-peek-controls no-print">
+      <a href={href} className="inv-peek-btn" onClick={step} aria-label={backLabel} title={backLabel}>←</a>
+      <a href={href} className="inv-peek-btn" aria-label={closeLabel} title={closeLabel}>×</a>
+    </div>
   );
 }

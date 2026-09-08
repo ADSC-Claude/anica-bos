@@ -260,3 +260,17 @@ export function openingAssets(
     ? { video: invitation.openingVideoUrl, poster: invitation.openingPosterUrl }
     : { video: template.openingVideoUrl, poster: template.openingPosterUrl };
 }
+
+/**
+ * How many letters the longest line of a card's names runs to.
+ *
+ * The Baby Blue card is the clear ground the untied ribbons leave, and its
+ * name is set to fill that ground — so the size has to come down as the name
+ * gets longer, or "Juan Sebastian" runs into the satin where "Lucas" sat with
+ * room to spare. The CSS divides by this; the floor keeps a two-letter
+ * nickname from being sized off the card.
+ */
+export function plateChars(names: string[]): number {
+  const longest = names.reduce((n, s) => Math.max(n, s.trim().length), 0);
+  return Math.max(5, longest);
+}

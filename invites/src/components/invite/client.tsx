@@ -40,6 +40,8 @@ export type OpeningProps = {
   poster: string;
   /** Which clip, when the words belong on its card rather than over its face — "capiz". */
   clip: string;
+  /** The word set between two names on the card — "and", "at" or "&" — the look's, the same as the cover. */
+  and?: string;
   /** "Tap to open". */
   hint: string;
 };
@@ -115,6 +117,24 @@ function Stage({ style, monogram, photos, video, poster, videoRef }: {
  */
 const NO_JS = '.inv-open{display:none !important}';
 
+/** Seconds before a clip's end at which its card is out and the words come up on it. */
+const CARD_WORDS_AT = 0.9;
+/** How long the card holds with the words on it before the page fades in. */
+const CARD_HOLD_MS = 1800;
+
+/** "Maria & Juan" as the two names and the word between them; anything else as one line. */
+function cardNames(names: string, and: string): ReactNode {
+  const pair = names.split(' & ');
+  if (pair.length !== 2) return names;
+  return (
+    <>
+      {pair[0]}
+      <span className="inv-plate-and">{and}</span>
+      {pair[1]}
+    </>
+  );
+}
+
 export function Shell({
   opening,
   music,
@@ -139,6 +159,8 @@ export function Shell({
   const clip = useRef<HTMLVideoElement | null>(null);
   // The tap has landed: the hint goes, whatever the clip is still doing.
   const [tapped, setTapped] = useState(false);
+  // The clip's card is out and the couple's words are on it.
+  const [plate, setPlate] = useState(false);
   // The song is taken to its start point once, on the first play; a pause resumes where it was.
   const sought = useRef(false);
   // Whether it got there. A host that serves byte ranges (storage does) takes
@@ -227,9 +249,12 @@ export function Shell({
       setOpen(true);
       return;
     }
-    // The card the clip opens onto stays blank — the invitation under it says
-    // the names — so the page comes up as the clip reaches its last moments,
-    // with no hold on an empty card; `ended` is the fallback if timing misses.
+    // The card the clip opens onto is blank in the file: on a clip that sets
+    // the couple's words on it, they come up as the card settles, stay long
+    // enough to read, and then the page fades in over them. On any other clip
+    // the page comes up as the clip reaches its last moments, with no hold on
+    // an empty card; `ended` is the fallback if timing misses.
+    const words = Boolean(opening.clip);
     let done = false;
     const finish = () => {
       if (done) return;
@@ -237,13 +262,27 @@ export function Shell({
       setOpen(true);
     };
     const onTime = () => {
-      if (video.duration && video.duration - video.currentTime <= 0.6) {
+      if (!video.duration) return;
+      const left = video.duration - video.currentTime;
+      if (words) {
+        if (left <= CARD_WORDS_AT) setPlate(true);
+        return;
+      }
+      if (left <= 0.6) {
         video.removeEventListener('timeupdate', onTime);
         finish();
       }
     };
     video.addEventListener('timeupdate', onTime);
-    video.addEventListener('ended', finish, { once: true });
+    video.addEventListener(
+      'ended',
+      () => {
+        if (!words) return finish();
+        setPlate(true);
+        window.setTimeout(finish, CARD_HOLD_MS);
+      },
+      { once: true },
+    );
     // A clip that will not play — an unsupported codec, a file that 404s, a
     // browser that refuses — must not strand the guest on a screen that never
     // opens, so the reveal happens anyway.
@@ -272,6 +311,17 @@ export function Shell({
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
             </div>
+            {opening.clip && (
+              <div className="inv-open-plate" data-show={plate} aria-hidden>
+                <div>
+                  {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
+                  {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
+                  {opening.names && <p className="inv-plate-names">{cardNames(opening.names, opening.and || '&')}</p>}
+                  {opening.date && <p className="inv-plate-date">{opening.date}</p>}
+                  {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}
+                </div>
+              </div>
+            )}
             <div className="inv-open-copy">
               {opening.line && <p className="inv-open-line" data-caps={opening.caps}>{opening.line}</p>}
               {opening.line2 && <p className="inv-open-line2">{opening.line2}</p>}

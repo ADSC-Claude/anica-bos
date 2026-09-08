@@ -1482,6 +1482,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       date: def.lineOnly && !wordsOnCard ? '' : openingDate(coverDate),
       line: str(content.cover, 'openingLine') || def.line[lang],
       line2: str(content.cover, 'openingLine2'),
+      and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
       caps: Boolean(def.caps),
       photos,
       video: style === 'cinematic' ? assets.video : '',

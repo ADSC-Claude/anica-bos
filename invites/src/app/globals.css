@@ -1207,10 +1207,11 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   text-transform: uppercase;
   opacity: 0.85;
 }
-/* The cinematic overlay leaves with its clip: the page is told to come up
-   0.6s before the last frame (client.tsx) and the fade runs over exactly that,
-   so the invitation is fully there as the clip ends — no wait on the blank
-   card the clip opens onto, and no words set on it. */
+/* The cinematic overlay leaves with its clip. On a clip with no words of its
+   own the page is told to come up 0.6s before the last frame (client.tsx) and
+   the fade runs over exactly that, so the invitation is fully there as the
+   clip ends. On one that sets the couple's words on its card (Capiz) the card
+   holds with them for a moment first, then the same fade. */
 .inv-open[data-style='cinematic'] {
   transition: opacity 600ms ease 0s, visibility 0s linear 600ms;
 }
@@ -1219,10 +1220,10 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
   transition: opacity 600ms ease;
 }
 /* The Capiz clip. Its sealed face already says an invitation is here, and the
-   card it opens onto is blank on purpose: the couple's own words are set on
-   it here, so a name changed in the builder shows on the next reload and the
-   clip is never re-rendered. The artwork is light, so no scrim and no white
-   line over it. */
+   card it opens onto is blank in the file on purpose: the couple's own words
+   are set on it here as it settles, so a name changed in the builder shows on
+   the next reload and the clip is never re-rendered. The artwork is light, so
+   no scrim and no white line over it. */
 .inv-open[data-clip='capiz']::before,
 .inv-open[data-clip='capiz']::after,
 .inv-open[data-clip='capiz'] .inv-open-copy { display: none; }

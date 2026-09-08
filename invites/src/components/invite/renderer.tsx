@@ -166,11 +166,20 @@ function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyeb
   const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
   // the three lines under the place: the look's, or the couple's own where staff wrote them
   const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
+  // A paged design's ground is its artwork, so the photograph is not laid
+  // behind the words: Capiz sets it as an arched portrait above the names,
+  // between the clusters, the way a printed card carries the couple.
+  const portrait = format && layout === 'capiz' && photo;
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
+        {portrait && (
+          <figure className="inv-portrait">
+            <img src={imageUrl(photo, IMAGE.hero)} alt="" />
+          </figure>
+        )}
         {/* Two groups, so a design can set the names apart from the rest —
             Capiz holds them between the two strands of its plate. */}
         <div className="inv-hero-names">

@@ -182,7 +182,7 @@ async function main() {
   Object.assign(content.cover!, {
     kind: 'wedding', brideFirst: 'Maria', groomFirst: 'Juan', brideFull: 'Maria Isabel Santos', groomFull: 'Juan Carlos Dela Cruz', brideNick: 'Maria', groomNick: 'Juan', monogram: 'J & M',
     date: dateKey, time: '14:00', introPreset: 'families', intro: 'Together with their families, Maria and Juan joyfully invite you to celebrate their wedding.',
-    coverPhoto: pic('juan-maria-cover', 900, 1200), opening: 'seal', openingLine: '',
+    coverPhoto: '/demo/placeholder-photo.png', opening: 'seal', openingLine: '',
     verse: '“And above all these things put on love, which binds everything together in perfect harmony.”', verseRef: 'Colossians 3:14',
   });
   Object.assign(content.moment!, { line1: 'Same horizons', line2: 'A brighter tomorrow', line3: 'Together', frame: 'arch' });
@@ -231,7 +231,7 @@ async function main() {
   const demo = await prisma.invitation.create({
     data: {
       userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
-      content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: 6, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
+      content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: '/demo/placeholder-photo.png', editsAllowed: 6, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
       // the demo bought the premium opening, so the Capiz clip plays on it
       premiumOpening: true,
     },

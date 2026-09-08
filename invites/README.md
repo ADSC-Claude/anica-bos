@@ -240,6 +240,12 @@ ahead of the designs.
 It has its own `capiz` layout, whose shell border is drawn from the palette
 rather than supplied as artwork, so the design recolours with the customer's
 own accent instead of framing the page in a colour that no longer matches it.
+A couple's cover photo is not laid behind the words the way the other layouts
+do it — the ground is the artwork — but set as an arched portrait in a thin
+bronze frame under the clusters and above the names, the way a printed card
+carries the couple. The Juan & Maria demo carries the grey photo placeholder
+(`public/demo/placeholder-photo.png`) in that frame, so a visitor sees where
+their own photograph goes rather than somebody else's.
 
 **Baby Blue** is the christening design, in the Baby Blue Theme at
 `/collections/babyblue`: sky and clouds with a dove and the church bell for

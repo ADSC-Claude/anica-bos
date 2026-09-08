@@ -733,6 +733,30 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv[data-paged] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
 .inv[data-paged] .inv-hero-details { margin-top: 1.6rem; }
+
+/*
+ * The couple's photograph on the Capiz cover. A paged design's ground is the
+ * artwork, so the photo is not laid behind the words the way the other layouts
+ * do it: it is an arched portrait in a thin bronze frame, set under the
+ * clusters and above the names, the way a printed card carries the couple.
+ * The arch is a half circle on a four-by-five photograph.
+ */
+.inv-portrait {
+  width: min(66%, 15.5rem);
+  margin: 0 auto 1.8rem;
+  padding: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 75%, transparent);
+  border-radius: 999px 999px 0.9rem 0.9rem;
+  background: color-mix(in srgb, #fff 38%, transparent);
+  box-shadow: 0 22px 44px -26px rgba(70, 48, 22, 0.5);
+}
+.inv-portrait img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: 999px 999px 0.65rem 0.65rem;
+}
 .inv[data-paged] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;

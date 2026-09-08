@@ -608,15 +608,18 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
 
    **Add that variable; do not edit the existing one.** Rescoping the single
    all-environments row to Preview is the same edit as deleting Production's
-   schema, and Production without a schema is not pointed at nothing — it is
-   pointed at `public`, which in this database is the spa's. That happened: the
-   next production build ran the invitations' first migration in the spa's
-   schema, Postgres refused it at `CREATE TYPE "Role"` because the spa owns a
-   `Role`, the transaction rolled back with nothing created, and the failed row
-   Prisma leaves behind sat in the spa's migration ledger blocking *its*
-   deployments until somebody deleted it. `scripts/build.mjs` now refuses a
-   production build pointed anywhere but production's own schema, which is the
-   same rule as the preview one read from the other side.
+   copy, and a production build naming no schema is not pointed at nothing —
+   it is pointed at `public`. That happened. The build ran the invitations'
+   first migration there and failed at `CREATE TYPE "Role"`, because `public`
+   in this database holds an abandoned copy of the spa's tables from a move
+   that was never finished, and it rolled back having created nothing.
+
+   The failure was the lucky outcome. Against any *empty* schema that
+   migration succeeds, the build goes green, and production comes up serving a
+   catalogue with no packages and no invitations while the real rows sit in
+   `invites` with nothing reading them. `scripts/build.mjs` now refuses a
+   production build pointed anywhere but production's own schema — the preview
+   rule read from the other side.
 7. **Seed** the production database once, then sign in as the Owner, change
    the passwords, and replace the demo's placeholder photos and the sample
    testimonials on the landing page.

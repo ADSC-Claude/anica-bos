@@ -79,17 +79,21 @@ export function previewOnProductionSchema(env = process.env) {
  * preview guard was written, DATABASE_SCHEMA was scoped to Preview by editing
  * the one all-environments row rather than adding a second — which left
  * Production naming no schema at all. The next production build fell through
- * to `public`: the spa's schema, in the same database, and it ran the
- * invitations' first migration there. Postgres refused it at CREATE TYPE
- * "Role", because the spa owns a Role, so the transaction rolled back and
- * nothing was created. What survived was a failed-migration row in the spa's
- * own ledger, which stops the spa deploying until somebody deletes it by hand.
+ * to `public` and ran the invitations' first migration there. It failed at
+ * CREATE TYPE "Role" and rolled back, because `public` in this database holds
+ * an abandoned copy of the spa's schema from a migration that was never
+ * finished: the tables exist, and not one row. The live spa is a different
+ * Supabase project in a different region and was never reachable from here.
  *
- * Nothing about that is specific to this pair of apps. Two schemas in one
- * database and a variable that can be edited to mean neither of them is
- * enough. So a production build states which schema it is for, or it does not
- * build — and an empty DATABASE_SCHEMA is a statement of `public`, which for
- * this app is always somebody else's.
+ * The near miss is not that schema. It is the invitations site itself. Had
+ * that migration succeeded — as it would have against any empty schema — the
+ * build would have gone green, and production would have come up serving a
+ * catalogue with no packages, no invitations and no customers, while the real
+ * rows sat untouched in `invites` where nothing was looking.
+ *
+ * So a production build states which schema it is for, or it does not build.
+ * An empty DATABASE_SCHEMA is not a build with no opinion; it is a build that
+ * has chosen `public`, and `public` is never this app's.
  */
 /** @param {Record<string, string | undefined>} [env] */
 export function productionOffProductionSchema(env = process.env) {

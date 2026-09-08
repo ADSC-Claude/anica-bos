@@ -585,7 +585,25 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    next build: redeploy after editing it. Production is
    `https://youreinvitedto.com`, with `www.` redirecting to the apex.
    Set `CRON_SECRET`.
-6. **Seed** the production database once, then sign in as the Owner, change
+6. **Keep previews off the production database.** Vercel gives every
+   environment the same variables unless you scope them, so out of the box a
+   preview build applies its branch's migrations to the live database. That is
+   how a column rename on a branch took the storefront down: the rename ran
+   from the branch's own preview, production's code kept asking for the old
+   name, and every page reading the catalogue served 500 until the branch
+   merged — with a green preview the whole time, because the preview's code
+   matched the schema it had just changed.
+
+   In Vercel → Settings → Environment Variables, add `DATABASE_SCHEMA` scoped
+   to **Preview** only, with a schema of its own — `invites_preview`. Nothing
+   needs provisioning: Prisma creates the schema on the first preview build and
+   migrates it, and the seed workflow fills it. Previews then have their own
+   catalogue and their own orders, and no branch can reach a customer's guest
+   list. `scripts/build.mjs` refuses to build a preview that is still pointed at
+   production's schema, so this cannot quietly come undone; if a preview ever
+   has a genuinely separate database that reuses the name, set
+   `PRODUCTION_DATABASE_SCHEMA` to whatever production actually uses.
+7. **Seed** the production database once, then sign in as the Owner, change
    the passwords, and replace the demo's placeholder photos and the sample
    testimonials on the landing page.
 

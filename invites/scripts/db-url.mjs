@@ -51,3 +51,23 @@ export function describeDatabaseUrl(raw) {
   const schema = url.searchParams.get('schema') ?? 'public';
   return `${url.hostname}:${port}${url.pathname} schema=${schema}${role}`;
 }
+
+/**
+ * Whether a build is a preview pointed at the schema production serves.
+ *
+ * Vercel hands every environment the same variables unless someone scopes
+ * them, so by default a preview build applies its branch's migrations to the
+ * live database — which is how a column rename on a branch took the storefront
+ * down while its own preview stayed green. scripts/build.mjs refuses to build
+ * when this answers true; the fix is a DATABASE_SCHEMA scoped to Preview.
+ *
+ * It is here rather than inline in the build so a test can hold it: a rule
+ * that only exists inside a script nobody imports is a rule until somebody
+ * edits the script.
+ */
+/** @param {Record<string, string | undefined>} [env] */
+export function previewOnProductionSchema(env = process.env) {
+  if (env.VERCEL_ENV !== 'preview') return false;
+  const production = env.PRODUCTION_DATABASE_SCHEMA || 'invites';
+  return (env.DATABASE_SCHEMA || 'public') === production;
+}

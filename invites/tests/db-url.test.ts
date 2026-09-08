@@ -125,3 +125,33 @@ test('the script rule adds pgbouncer=true on the transaction pooler', async () =
   assert.equal(url.searchParams.get('connection_limit'), '1');
   assert.equal(url.searchParams.get('schema'), 'invites');
 });
+
+// A preview deployment shares Vercel's variables with production unless
+// somebody scopes them, so by default a branch's migrations run against live
+// customer data. That is not hypothetical: a column rename shipped that way and
+// the storefront served 500 until the branch merged, with the preview green
+// throughout because its code matched the schema it had just changed. The build
+// refuses; this holds the rule the build asks.
+test('a preview pointed at production’s schema is refused, and nothing else is', async () => {
+  const { previewOnProductionSchema } = await import('../scripts/db-url.mjs');
+  const preview = (over: Record<string, string | undefined> = {}) => ({ VERCEL_ENV: 'preview', ...over });
+
+  assert.equal(previewOnProductionSchema(preview({ DATABASE_SCHEMA: 'invites' })), true, 'production’s schema by name');
+  assert.equal(previewOnProductionSchema(preview()), false, 'no schema is `public`, which is not production’s here');
+  assert.equal(
+    previewOnProductionSchema(preview({ PRODUCTION_DATABASE_SCHEMA: 'public' })),
+    true,
+    'unless production is the one living in public',
+  );
+  assert.equal(previewOnProductionSchema(preview({ DATABASE_SCHEMA: 'invites_preview' })), false, 'a schema of its own');
+  assert.equal(
+    previewOnProductionSchema(preview({ DATABASE_SCHEMA: 'invites', PRODUCTION_DATABASE_SCHEMA: 'invites_live' })),
+    false,
+    'a separate database may reuse the name; PRODUCTION_DATABASE_SCHEMA says which is which',
+  );
+
+  // Every other environment migrates the schema it is given: production is the
+  // whole point, and a local build has no VERCEL_ENV at all.
+  assert.equal(previewOnProductionSchema({ VERCEL_ENV: 'production', DATABASE_SCHEMA: 'invites' }), false);
+  assert.equal(previewOnProductionSchema({ DATABASE_SCHEMA: 'invites' }), false);
+});

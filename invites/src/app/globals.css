@@ -308,9 +308,10 @@ table.data tr:hover td {
   background: radial-gradient(116% 86% at 50% 42%, var(--inv-surface, #fdfbf7) 42%, color-mix(in srgb, var(--inv-surface, #fdfbf7) 55%, var(--inv-accent2, #d8c7a8)) 100%);
 }
 .gal-still[data-show='true'] { opacity: 1; }
-/* On that card there is no clip to sit clear of, so the words take the whole
-   of it rather than the box cut for the artwork's own clear ground. */
-.gal-phone[data-still='true'] .gal-plate > div { top: 11%; bottom: 11%; }
+/* On that card there is no diamond to sit inside, so the bow's words take the
+   whole of it rather than the box cut for the satin. Capiz is left alone: its
+   box is the shared default, and it reads the same on the card as on the clip. */
+.gal-phone[data-still='true'][data-clip='baby-blue-bow'] .gal-plate > div { top: 12%; bottom: 12%; }
 .gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
 .gal-cover[data-show='true'] { opacity: 1; }
 /* the cross that closes the preview, in the corner of the dimmed screen the

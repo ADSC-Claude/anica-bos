@@ -52,3 +52,12 @@ test('the card sizes its name by the longest line', () => {
   // whitespace is not a letter
   assert.equal(plateChars(['  Sebastian  ']), 9);
 });
+
+/** The words a couple types under the date reach the card, and the preview. */
+test("the card carries the couple's own second line", () => {
+  const content = { cover: { child: 'Lucas', date: '2026-11-07', openingLine2: 'Good things begin together' } };
+  const w = plateWords('CHRISTENING', content, 'en', LOOK_BY_KEY.romance, PREMIUM_OPENING_BY_KEY['baby-blue-bow']);
+  assert.equal(w.line2, 'Good things begin together');
+  const blank = plateWords('CHRISTENING', { cover: { child: 'Lucas' } }, 'en', LOOK_BY_KEY.romance, PREMIUM_OPENING_BY_KEY['baby-blue-bow']);
+  assert.equal(blank.line2, '');
+});

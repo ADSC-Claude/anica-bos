@@ -17,7 +17,7 @@ import { formatPesoShort } from '@/lib/money';
  * their names in place of the demo's. A design with no demo yet shows this
  * stock sample.
  */
-const SAMPLE = { monogram: 'J & M', line: 'You are invited', names: ['Maria', 'Juan'], and: 'and', date: '11 · 21 · 26' };
+const SAMPLE = { monogram: 'J & M', line: 'You are invited', names: ['Maria', 'Juan'], and: 'and', date: '11 · 21 · 26', line2: '' };
 /** Seconds before the clip's end at which the words come up on the card. */
 const WORDS_AT = 0.9;
 /** How long the card holds with the words before the invitation fades in beneath. */
@@ -189,6 +189,7 @@ export function OpeningPreview({ t, priceCents, onClose }: { t: GalleryTemplate;
                 ))}
               </p>
               {card.date && <p className="inv-plate-date">{card.date}</p>}
+              {card.line2 && <p className="inv-plate-line2">{card.line2}</p>}
             </div>
           </div>
           {t.thumbnailUrl && <img src={t.thumbnailUrl} alt={`The cover of ${t.name}`} className="gal-cover" data-show={cover} />}

@@ -156,7 +156,7 @@ function heroCopy(occasion: Occasion, cover: SectionData | undefined, lang: Lang
  * exactly the way a guest's will, and changes to the demo's form show up in
  * the preview without anybody retyping them.
  */
-export type PlateWords = { monogram: string; line: string; names: string[]; and: string; date: string };
+export type PlateWords = { monogram: string; line: string; names: string[]; and: string; date: string; line2: string };
 export function plateWords(occasion: Occasion, content: Content, lang: Lang, look: Look | undefined, premium: PremiumOpening | null): PlateWords {
   const cover = content.cover;
   const names = heroCopy(occasion, cover, lang).names.filter(Boolean);
@@ -169,6 +169,8 @@ export function plateWords(occasion: Occasion, content: Content, lang: Lang, loo
     names: names.length ? names : [displayTitle(occasion, content)],
     and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
     date: openingDate(str(cover, 'date')),
+    // the couple's own words under the date, where they wrote any
+    line2: str(cover, 'openingLine2'),
   };
 }
 
@@ -1660,7 +1662,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // a premium card whose face has already said "you are invited", else
       // this opening's own line.
       line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || def.line[lang],
-      line2: str(content.cover, 'openingLine2'),
+      line2: plate.line2,
       and: plate.and,
       words: wordsOnCard,
       caps: Boolean(def.caps),

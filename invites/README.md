@@ -306,6 +306,15 @@ over a poster whose artwork already says "you're invited" in its own hand.
 The guest page has had those guards since it was built (`LOAD_GRACE_MS`,
 `END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own.
 
+**What is typed reaches both surfaces.** The card's words are `plateWords()`
+over the invitation's own cover fields — the monogram, the line, the names,
+the date and the words under it — so renaming the child in the builder renames
+them on the guest's card and on the gallery's preview at once, with nobody
+retyping anything. The faces follow the same rule: the guest page sets the
+overlay inside the invitation's own `.inv` wrapper, and the preview resolves
+the demo's theme the same way (`resolveTheme` in `lib/peek.ts`), so a look
+changed in the builder changes the writing in the opening too.
+
 **Each clip's words are set where that clip leaves room.** Capiz's card is
 narrow and upright, so its words are stacked down the middle of it. The Baby
 Blue bow opens a diamond of clear satin, measured off the clip's last frame at

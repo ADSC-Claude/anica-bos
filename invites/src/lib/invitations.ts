@@ -10,6 +10,7 @@ import {
   displayTitle,
   eventInstant,
   fieldsFor,
+  keepStaffFields,
   publishProblems,
   rsvpDeadline,
   sectionUnlocked,
@@ -20,6 +21,7 @@ import {
   sectionOffered,
 } from './sections';
 import { hasFeature } from './tiers';
+import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
@@ -141,8 +143,11 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   }
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet. The builder unlocks once payment is confirmed.');
 
-  const { data, issues } = cleanSection(fieldsFor(key, invitation.occasion), raw);
+  const fields = fieldsFor(key, invitation.occasion);
+  const { data: cleaned, issues } = cleanSection(fields, raw);
   const content = contentOf(invitation.content);
+  // the fixed writings are ours: a customer's save keeps them as they were
+  const data = isStaff(user.role) && can(user.role, 'invitations.edit') ? cleaned : keepStaffFields(fields, content[key], cleaned);
   content[key] = data;
   // Done, section by section; the form is complete once every section the couple has is Done, and the team is told
   let completed = false;

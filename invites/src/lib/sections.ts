@@ -73,6 +73,12 @@ export type Field = {
   fold?: boolean;
   /** Render full-width in a two-column form. */
   wide?: boolean;
+  /**
+   * A fixed writing: the design's own words, with the look's line as its
+   * default, and ours to change — per design in the admin, or here for one
+   * invitation by staff editing for the customer. Not on the client's form.
+   */
+  staff?: boolean;
 };
 
 export type Person = { title: string; name: string; deceased: boolean };
@@ -173,11 +179,11 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
     presetTarget: 'intro',
     hint: 'Pick a preset, then edit the wording below.',
   }),
-  textarea('intro', 'Intro wording', { placeholder: 'Together with their families…' }),
+  textarea('intro', 'Intro wording', { placeholder: 'Together with their families…', staff: true }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
-  textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: 'Shown after the cover, on designs that carry one.' }),
-  text('verseRef', 'Its source', { placeholder: 'Colossians 3:14' }),
-  text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.' }),
+  textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: "Shown after the cover, on designs that carry one. Blank keeps the design's own verse.", staff: true }),
+  text('verseRef', 'Its source', { placeholder: 'Colossians 3:14', staff: true }),
+  text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.', staff: true }),
   ...(occasion === 'MEMORIAL'
     ? []
     : [
@@ -325,7 +331,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Countdown',
     description: 'Counts down to the date and time on the cover.',
     minTier: 'BASIC',
-    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day' })],
+    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day', staff: true })],
   },
   {
     key: 'parents',
@@ -493,15 +499,15 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { KIDS_BIRTHDAY: 'Theme & attire' },
     fields: (occasion) => [
       checks('attire', 'Dress code', ATTIRES.map((a) => ({ value: a.value, label: a.en })), { min: 1, max: 2, hint: 'One, or two that go together — formal with cocktail, say. The clothes below follow what you pick.' }),
-      text('attireText', 'Line under the heading', { placeholder: 'e.g. We kindly encourage our guests to wear elegant formal attire.', hint: 'Blank writes one from the attire you picked.' }),
+      text('attireText', 'Line under the heading', { placeholder: 'e.g. We kindly encourage our guests to wear elegant formal attire.', hint: 'Blank writes one from the attire picked.', staff: true }),
       { key: 'gentsColors', label: 'Suit colours for the gentlemen', type: 'swatches', max: 4, hint: 'Up to four, from the palette. The suits drawn on the page take these colours; blank uses the motif.' },
       checks('gentsItems', 'For gentlemen', attireOptions(gentsItems(occasion)), { dependsOn: 'attire', min: 2, max: 3, hint: 'Two or three. Only what suits your dress code is offered; guests read them as one line.' }),
-      text('gentsNote', 'Note for gentlemen', { placeholder: 'e.g. Tie is optional.' }),
+      text('gentsNote', 'Note for gentlemen', { placeholder: 'e.g. Tie is optional.', hint: "Blank keeps the design's own note.", staff: true }),
       { key: 'ladiesColors', label: 'Gown colours for the ladies', type: 'swatches', max: 5, hint: 'Up to five, from the palette. The gowns drawn on the page take these colours; blank uses the motif. A pale pick is deepened on the page — no guest wears white.' },
       checks('ladiesItems', 'For ladies', attireOptions(ladiesItems(occasion)), { dependsOn: 'attire', min: 2, max: 3, hint: 'Two or three, the same way.' }),
-      text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.' }),
+      text('ladiesNote', 'Note for ladies', { placeholder: 'e.g. We encourage earthy, neutral and muted tones.', hint: "Blank keeps the design's own note.", staff: true }),
       { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
-      text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.' }),
+      text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.', staff: true }),
       checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { max: AVOID_MAX, fold: true, hint: 'Up to six, from everything guests are ever asked to leave at home. Each one is drawn crossed out on the page.' }),
       text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
       text('entourageAttire', 'Entourage', { placeholder: 'e.g. Sage green' }),
@@ -517,7 +523,7 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { MEMORIAL: 'In lieu of flowers', KIDS_BIRTHDAY: 'Gift ideas' },
     fields: () => [
       select('preset', 'Preset', GIFT_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: GIFT_PRESETS, presetTarget: 'text' }),
-      textarea('text', 'Gift note'),
+      textarea('text', 'Gift note', { staff: true }),
       text('gcashName', 'GCash name'),
       text('gcashNumber', 'GCash number', { placeholder: '0917 000 0000' }),
       image('gcashQr', 'GCash / Maya QR', { hint: 'A screenshot of your QR from the app.' }),
@@ -538,12 +544,12 @@ const SECTION_DEFS: SectionDef[] = [
       toggle('askDietary', 'Ask about allergies / dietary notes'),
       list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
-      textarea('policyText', 'Policy wording'),
+      textarea('policyText', 'Policy wording', { staff: true }),
       select('notePreset', 'RSVP note', RSVP_NOTE_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: RSVP_NOTE_PRESETS, presetTarget: 'note' }),
-      textarea('note', 'RSVP note', { hint: '{n} becomes the reserved seats on a personal link; {date} the deadline.' }),
+      textarea('note', 'RSVP note', { hint: '{n} becomes the reserved seats on a personal link; {date} the deadline.', staff: true }),
       ...(occasion === 'CORPORATE' ? [toggle('askDepartment', 'Ask for department / company')] : []),
       text('contactPhone', 'RSVP by text', { placeholder: 'Mobile number guests can text instead' }),
-      textarea('reminderText', 'Reminder message', { hint: 'Used when you send RSVP reminders from the guest list.' }),
+      textarea('reminderText', 'Reminder message', { hint: 'Used when RSVP reminders are sent from the guest list.', staff: true }),
     ],
   },
   {
@@ -554,7 +560,7 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'STANDARD',
     labelFor: { MILESTONE_BIRTHDAY: 'Their story', ANNIVERSARY: 'Our story so far' },
     fields: () => [
-      text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true }),
+      text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       textarea('howWeMet', 'How we met'),
       textarea('proposal', 'The proposal'),
       list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
@@ -567,12 +573,12 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'Your photos with their captions, your video, and the lines written around them on the page.',
     minTier: 'BASIC',
     fields: () => [
-      text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true }),
+      text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
-      text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true }),
+      text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
-      text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line." }),
-      text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true }),
+      text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
+      text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],
   },
   {
@@ -613,9 +619,9 @@ const SECTION_DEFS: SectionDef[] = [
         { value: 'window', label: 'Capiz window' },
         { value: 'none', label: 'No frame — full bleed' },
       ]),
-      text('line1', 'First line', { placeholder: 'Same horizons' }),
-      text('line2', 'Second line', { placeholder: 'A brighter' }),
-      text('line3', 'Third line', { placeholder: 'Tomorrow' }),
+      text('line1', 'First line', { placeholder: 'Same horizons', staff: true }),
+      text('line2', 'Second line', { placeholder: 'A brighter', staff: true }),
+      text('line3', 'Third line', { placeholder: 'Tomorrow', staff: true }),
     ],
   },
   {
@@ -643,22 +649,19 @@ const SECTION_DEFS: SectionDef[] = [
       text('tiktok', 'TikTok'),
       text('facebook', 'Facebook'),
       toggle('unplugged', 'Unplugged ceremony note'),
-      textarea('unpluggedText', 'Wording', { placeholder: UNPLUGGED_PRESET.en }),
+      textarea('unpluggedText', 'Wording', { placeholder: UNPLUGGED_PRESET.en, staff: true }),
     ],
   },
   {
     key: 'music',
-    label: 'Music',
+    label: 'Background music',
     tl: 'Musika',
-    description: 'Your song — from Spotify, from YouTube, or a file of your own that plays as the page opens — and the moment it starts.',
+    description: 'The song that plays behind the page as the invitation opens, from the moment you choose.',
     minTier: 'STANDARD',
     fields: () => [
-      url('spotify', 'Spotify song link', { hint: "In Spotify, open the song, tap Share, then Copy song link and paste it here. Guests see Spotify's own player on the page and tap play: the whole song when they are signed in to Spotify, a thirty-second preview when not.", wide: true }),
-      url('youtube', 'YouTube link', { hint: "The song's video or audio on YouTube: open it, tap Share, then Copy link. Guests see YouTube's player on the page and tap play; it plays the whole song for everyone, from the moment you pick below.", wide: true }),
-      audio('url', 'Your own audio file', { hint: 'An MP3 or M4A of the song, up to 20 MB. It plays as the invitation opens and loops quietly behind the page, from the moment you pick below.' }),
-      offset('start', 'Start the song at', { hint: 'Minutes and seconds into the song, to skip a long intro. Exact for your own file and for YouTube. On Spotify it applies when the guest hears the whole song; a preview plays the thirty seconds Spotify picks.' }),
-      text('title', 'Song title'),
-      toggle('autoplay', 'Try to autoplay your own audio file'),
+      text('song', 'Your song', { placeholder: 'e.g. Ikaw — Yeng Constantino, or a Spotify / YouTube link', hint: 'The title and artist, or paste a link from Spotify or YouTube. Our team prepares the background music from it: a song cannot stream from Spotify or YouTube behind a page, so we make it a file that plays as the invitation opens.', wide: true }),
+      offset('start', 'Start the song at', { hint: 'Minutes and seconds into the song, to skip a long intro. The music starts here every time it plays.' }),
+      audio('url', 'Your own audio file (optional)', { hint: 'If you already have the song as an MP3 or M4A, up to 20 MB, upload it here. Otherwise our team adds it.' }),
     ],
   },
   {
@@ -667,7 +670,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Pagbati',
     description: 'A well-wishes wall guests can write on. You approve each message.',
     minTier: 'COMPLETE',
-    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple' }), toggle('moderated', 'Approve messages before they show')],
+    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple', staff: true }), toggle('moderated', 'Approve messages before they show')],
   },
   {
     key: 'photos',
@@ -677,7 +680,7 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'COMPLETE',
     fields: () => [
       toggle('enabled', 'Let guests add photos'),
-      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day' }),
+      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', staff: true }),
       toggle('moderated', 'Approve photos before they show'),
     ],
   },
@@ -687,7 +690,12 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Pagtatapos',
     description: 'A photo, a thank-you, your signature, and the line above your names.',
     minTier: 'BASIC',
-    fields: () => [image('photo', 'Closing photo (above the message)'), textarea('message', 'Closing message'), text('signature', 'Signed', { placeholder: 'Juan & Maria' }), text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line." })],
+    fields: () => [
+      image('photo', 'Closing photo (above the message)'),
+      textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
+      text('signature', 'Signed', { placeholder: 'Juan & Maria' }),
+      text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line.", staff: true }),
+    ],
   },
   {
     key: 'speakers',
@@ -718,8 +726,8 @@ const SECTION_DEFS: SectionDef[] = [
       text('phone2', 'Their mobile'),
       text('email', 'Email'),
       text('messenger', 'Messenger link'),
-      text('chatNote', 'Chat apps', { placeholder: 'Or message us on Viber / WhatsApp.' }),
-      textarea('registrationNote', 'Registration note'),
+      text('chatNote', 'Chat apps', { placeholder: 'Or message us on Viber / WhatsApp.', staff: true }),
+      textarea('registrationNote', 'Registration note', { staff: true }),
     ],
   },
 ];
@@ -752,7 +760,7 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
  * occasion order after the ones that are.
  */
 export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
-  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'music', 'closing'],
+  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
 };
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
@@ -792,6 +800,20 @@ export function sectionUnlocked(key: SectionKey, occasion: Occasion, tier: Tier)
  * greyed out with the package name instead of hiding it. Without a tier
  * nothing is locked — validation and the renderer gate it anyway.
  */
+/** The fields the client fills. The fixed writings (`staff`) are ours, and are not on their form. */
+export function customerFields(fields: Field[]): Field[] {
+  return fields.filter((f) => !f.staff);
+}
+
+/**
+ * A client's save keeps the fixed writings as they were: their form never
+ * carried them, so a blank in what they sent must not overwrite ours.
+ */
+export function keepStaffFields(fields: Field[], before: SectionData | undefined, data: SectionData): SectionData {
+  for (const f of fields) if (f.staff && before && f.key in before) data[f.key] = before[f.key];
+  return data;
+}
+
 export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier): Field[] {
   const fields = SECTION_BY_KEY[key].fields(occasion);
   if (!tier) return fields;
@@ -881,9 +903,6 @@ export function defaultContent(occasion: Occasion, lang: Lang = 'en'): Content {
       case 'guestbook':
         data.enabled = true;
         data.moderated = true;
-        break;
-      case 'music':
-        data.autoplay = true;
         break;
       case 'dressCode':
         data.avoidWhite = occasion === 'WEDDING';

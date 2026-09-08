@@ -42,7 +42,15 @@ export type LineKey =
   | 'countdown'
   | 'contact' // the small line under the heading
   | 'contactNote'
-  | 'closing';
+  | 'closing'
+  | 'closingMessage' // the thank-you above the names
+  | 'verse' // the verse on the cover page, and its source
+  | 'verseRef'
+  | 'moment1' // the Moment's three lines
+  | 'moment2'
+  | 'moment3'
+  | 'gentsNote' // under the gentlemen's pieces on the dress code page
+  | 'ladiesNote';
 
 /** The headings a look names. A missing one falls back to the fixed phrase. */
 export type TitleKey = 'story' | 'invitation' | 'entourage' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
@@ -109,6 +117,14 @@ export const LOOKS: Look[] = [
       contact: { en: "We're here to help!", tl: 'Narito kami para tumulong!' },
       contactNote: { en: 'For any questions, feel free to reach out.', tl: 'Para sa anumang tanong, huwag mag-atubiling magtanong.' },
       closing: { en: 'See you there! ♡', tl: 'Kita-kits! ♡' },
+      closingMessage: { en: 'Thank you for being part of our story. We cannot wait to celebrate with you.', tl: 'Salamat sa pagiging bahagi ng aming kuwento. Hindi na kami makapaghintay na makipagdiwang sa inyo.' },
+      verse: { en: 'And above all these things put on love, which binds everything together in perfect harmony.', tl: 'At higit sa lahat ng ito, magbihis kayo ng pag-ibig, na siyang buklod ng ganap na pagkakaisa.' },
+      verseRef: { en: 'Colossians 3:14', tl: 'Colosas 3:14' },
+      moment1: { en: 'Same horizons', tl: 'Iisang abot-tanaw' },
+      moment2: { en: 'A brighter', tl: 'Mas maliwanag na' },
+      moment3: { en: 'Tomorrow', tl: 'Bukas' },
+      gentsNote: { en: 'Tie is optional.', tl: 'Opsyonal ang kurbata.' },
+      ladiesNote: { en: 'We encourage earthy, neutral and muted tones.', tl: 'Hinihikayat namin ang mga kulay-lupa, neutral at malalamlam na tono.' },
     },
   },
   {
@@ -163,6 +179,14 @@ export const LOOKS: Look[] = [
       contact: { en: 'Ask us anything', tl: 'Magtanong lang' },
       contactNote: { en: "We're happy to help with anything at all.", tl: 'Masaya kaming tumulong sa kahit ano.' },
       closing: { en: 'With all our love', tl: 'Nang buong pagmamahal' },
+      closingMessage: { en: 'Your presence means the world to us. Thank you for celebrating our love.', tl: 'Napakahalaga sa amin ng inyong presensya. Salamat sa pakikipagdiwang sa aming pag-ibig.' },
+      verse: { en: 'Love is patient, love is kind. It always protects, always trusts, always hopes, always perseveres.', tl: 'Ang pag-ibig ay matiyaga at magandang-loob. Lagi itong nagtatanggol, nagtitiwala, umaasa at nagtitiis.' },
+      verseRef: { en: '1 Corinthians 13:4, 7', tl: '1 Corinto 13:4, 7' },
+      moment1: { en: 'Two hearts', tl: 'Dalawang puso' },
+      moment2: { en: 'One', tl: 'Iisa' },
+      moment3: { en: 'Forever', tl: 'Magpakailanman' },
+      gentsNote: { en: '', tl: '' },
+      ladiesNote: { en: '', tl: '' },
     },
   },
   {
@@ -218,6 +242,14 @@ export const LOOKS: Look[] = [
       contact: { en: "We've got you", tl: 'Nandito kami' },
       contactNote: { en: 'Message us any time.', tl: 'Mag-message kahit kailan.' },
       closing: { en: 'See you soon', tl: 'Magkita tayo' },
+      closingMessage: { en: 'Thank you for being here with us.', tl: 'Salamat sa pagsama sa amin.' },
+      verse: { en: 'I have found the one whom my soul loves.', tl: 'Natagpuan ko ang minamahal ng aking kaluluwa.' },
+      verseRef: { en: 'Song of Solomon 3:4', tl: 'Awit ni Solomon 3:4' },
+      moment1: { en: 'Here', tl: 'Dito' },
+      moment2: { en: 'Now', tl: 'Ngayon' },
+      moment3: { en: 'Always', tl: 'Palagi' },
+      gentsNote: { en: '', tl: '' },
+      ladiesNote: { en: '', tl: '' },
     },
   },
   {
@@ -272,6 +304,14 @@ export const LOOKS: Look[] = [
       contact: { en: 'Should you need anything', tl: 'Kung may kailangan kayo' },
       contactNote: { en: 'A question, a request, a change of plans — write to us.', tl: 'Tanong, hiling, pagbabago ng plano — sumulat sa amin.' },
       closing: { en: 'Until we meet', tl: 'Hanggang sa muli' },
+      closingMessage: { en: 'With grateful hearts, we thank you for sharing this day with us.', tl: 'Nang may pusong nagpapasalamat, salamat sa pagbabahagi ng araw na ito sa amin.' },
+      verse: { en: 'Two are better than one. A cord of three strands is not quickly broken.', tl: 'Mas mabuti ang dalawa kaysa isa. Ang lubid na tatlong pilipit ay hindi agad napapatid.' },
+      verseRef: { en: 'Ecclesiastes 4:9, 12', tl: 'Mangangaral 4:9, 12' },
+      moment1: { en: 'The beginning', tl: 'Ang simula' },
+      moment2: { en: 'Of every', tl: 'Ng bawat' },
+      moment3: { en: 'Tomorrow', tl: 'Bukas' },
+      gentsNote: { en: '', tl: '' },
+      ladiesNote: { en: '', tl: '' },
     },
   },
   {
@@ -326,6 +366,14 @@ export const LOOKS: Look[] = [
       contact: { en: "We're here to help!", tl: 'Narito kami para tumulong!' },
       contactNote: { en: 'For any questions, feel free to reach out.', tl: 'Para sa anumang tanong, huwag mag-atubiling magtanong.' },
       closing: { en: 'See you there!', tl: 'Kita-kits!' },
+      closingMessage: { en: 'We are honoured by your presence and grateful for your love.', tl: 'Karangalan namin ang inyong presensya, at nagpapasalamat kami sa inyong pagmamahal.' },
+      verse: { en: 'Many waters cannot quench love, neither can floods drown it.', tl: 'Hindi kayang patayin ng maraming tubig ang pag-ibig, ni malunod man ito ng mga baha.' },
+      verseRef: { en: 'Song of Solomon 8:7', tl: 'Awit ni Solomon 8:7' },
+      moment1: { en: 'Together', tl: 'Magkasama' },
+      moment2: { en: 'From this day', tl: 'Mula sa araw na ito' },
+      moment3: { en: 'Forward', tl: 'Pasulong' },
+      gentsNote: { en: '', tl: '' },
+      ladiesNote: { en: '', tl: '' },
     },
   },
 ];

@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseStart, formatStart, youtubeId, youtubeEmbed, START_MAX } from '../src/lib/song';
-import { spotifyUri } from '../src/lib/spotify';
 
 test('the start of a song reads minutes and seconds, or seconds, and nothing else', () => {
   assert.equal(parseStart('1:05'), 65);
@@ -37,5 +36,4 @@ test('a YouTube link in any of its forms names the video, and the player starts 
   assert.equal(youtubeEmbed(id, 65).src, `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0&start=65`);
   assert.equal(youtubeEmbed(id).src, `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0`);
   assert.ok(youtubeEmbed(id).poster.includes(id));
-  assert.equal(spotifyUri({ kind: 'track', id: 'abc123def456' }), 'spotify:track:abc123def456');
 });

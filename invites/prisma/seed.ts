@@ -219,7 +219,7 @@ async function main() {
   Object.assign(content.travel!, { hotels: [{ name: 'The Manila Hotel', address: 'One Rizal Park, Ermita', note: 'Use code JMWEDDING for the group rate', url: 'https://www.manila-hotel.com.ph' }, { name: 'Bayleaf Intramuros', address: 'Muralla St, Intramuros', note: 'Walking distance to the church', url: '' }], directions: 'From NAIA: Skyway to Roxas Blvd, exit at Rizal Park. About 40 minutes without traffic — allow 90.', tips: 'Grab and taxis are reliable in the area. The LRT-1 UN Avenue station is a 10-minute walk from both venues.' });
   Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', tiktok: '@juanandmaria', facebook: 'juanandmaria', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
   Object.assign(content.contact!, { name: 'Maria', phone: '0917 123 4567', name2: 'Juan', phone2: '0918 765 4321', email: '', messenger: 'https://m.me/juanandmaria', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
-  Object.assign(content.music!, { url: '', title: 'Ikaw — Yeng Constantino', autoplay: true });
+  Object.assign(content.music!, { song: 'Ikaw — Yeng Constantino', start: 65, url: '' });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
   Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });
   Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900) });

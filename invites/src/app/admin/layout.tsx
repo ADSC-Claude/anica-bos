@@ -4,19 +4,21 @@ import { ROLE_LABELS, visibleModules } from '@/lib/rbac';
 import { getSettings } from '@/lib/settings';
 import { unreadCount } from '@/lib/notifications';
 import { logoutAction } from '@/app/login/actions';
+import { prisma } from '@/lib/db';
 
 export const metadata = { robots: { index: false } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireStaffSession();
-  const [s, unread] = await Promise.all([getSettings(), unreadCount(user.id)]);
+  // the name as it is now, not as it was at sign-in: a rename shows without signing out
+  const [s, unread, me] = await Promise.all([getSettings(), unreadCount(user.id), prisma.user.findUnique({ where: { id: user.id }, select: { name: true } })]);
   const modules = visibleModules(user.role);
   return (
     <div className="min-h-dvh bg-[color:var(--color-sand-50)] lg:flex">
       <aside className="border-b border-[color:var(--color-sand-200)] bg-white lg:min-h-dvh lg:w-56 lg:shrink-0 lg:border-r lg:border-b-0">
         <div className="px-4 py-4">
           <Link href="/admin" className="display text-lg">{s['business.name']}</Link>
-          <p className="text-xs text-[color:var(--color-ink-500)]">{user.name} · {ROLE_LABELS[user.role]}</p>
+          <p className="text-xs text-[color:var(--color-ink-500)]">{me?.name ?? user.name} · {ROLE_LABELS[user.role]}</p>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2 lg:flex-col lg:overflow-visible">
           {modules.map((m) => (

@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, emptySection, type SectionKey } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, customerFields, emptySection, type SectionKey } from '@/lib/sections';
+import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
 import { LOOKS } from '@/lib/looks';
@@ -30,7 +31,8 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
     minTier: sectionMinTier(d.key, inv.occasion),
   }));
   const current = (sections.find((s) => s.key === section && s.unlocked)?.key ?? sections.find((s) => s.unlocked)!.key) as SectionKey;
-  const fields = fieldsFor(current, inv.occasion, inv.tier);
+  // the fixed writings are ours: staff editing for the customer see them, the customer does not
+  const fields = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier) : customerFields(fieldsFor(current, inv.occasion, inv.tier));
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);

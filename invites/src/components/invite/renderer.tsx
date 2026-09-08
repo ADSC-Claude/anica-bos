@@ -11,13 +11,12 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, SpotifySong } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART } from '@/lib/design';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
 import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
-import { spotifyRef, spotifyEmbed, spotifyUri, type SpotifyRef } from '@/lib/spotify';
 import { parseStart, youtubeId, youtubeEmbed } from '@/lib/song';
 import { imageUrl, IMAGE } from '@/lib/images';
 
@@ -161,7 +160,8 @@ function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyeb
   // sentence that does the inviting waits for the invitation block.
   const place = content.ceremony && str(content.ceremony, 'venue') ? content.ceremony : content.reception;
   const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
-  const momentLines = format && !str(content.moment, 'backdrop') ? ['line1', 'line2', 'line3'].map((k) => str(content.moment, k)).filter(Boolean) : [];
+  // the Moment's three lines: the couple's own, else the look's
+  const momentLines = format && !str(content.moment, 'backdrop') ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
@@ -527,7 +527,9 @@ const GOWN_COLORS = ['champagne-gold', 'sage', 'dusty-rose', 'chocolate', 'mauve
  * else a classic set), the pieces asked for as one line each, the suggested
  * palette, the things kindly asked against as crossed icons, and a thank-you.
  */
-function DressCode({ data, lang, occasion, tagline, title, format, note }: { data: SectionData; lang: Lang; occasion: Occasion; tagline?: string; title?: string; format?: boolean; note?: string }) {
+function DressCode({ data, lang, occasion, tagline, title, format, note, notes }: { data: SectionData; lang: Lang; occasion: Occasion; tagline?: string; title?: string; format?: boolean; note?: string; /** the look's notes under the pieces — fixed writings, behind the couple's own */ notes?: { gents?: string; ladies?: string } }) {
+  const gentsNote = str(data, 'gentsNote') || notes?.gents || '';
+  const ladiesNote = str(data, 'ladiesNote') || notes?.ladies || '';
   const motif = rows<string>(data, 'colors');
   // one dress code, or two that go together: "Formal & Cocktail Attire"
   const attires = attireKeys(data.attire).map((k) => attireName(k, lang)).filter(Boolean);
@@ -592,7 +594,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
             {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} id={`dress-gent-${i}`} width={widthOf(d)} />)}
           </div>
           {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
-          {str(data, 'gentsNote') && <p className="inv-wear-note">{str(data, 'gentsNote')}</p>}
+          {gentsNote && <p className="inv-wear-note">{gentsNote}</p>}
         </div>
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.girls' : 'dressCode.ladies')}</p>
@@ -600,7 +602,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
             {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} id={`dress-lady-${i}`} width={widthOf(d)} />)}
           </div>
           {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
-          {str(data, 'ladiesNote') && <p className="inv-wear-note">{str(data, 'ladiesNote')}</p>}
+          {ladiesNote && <p className="inv-wear-note">{ladiesNote}</p>}
         </div>
         {motif.length > 0 && (
           <div className="inv-wear">
@@ -637,14 +639,14 @@ function DressCode({ data, lang, occasion, tagline, title, format, note }: { dat
           <p className="mt-3 text-sm">
             <span className="inv-eyebrow block">{t(lang, 'dressCode.gents')}</span>
             {gents.join(' · ')}
-            {str(data, 'gentsNote') && <span className="inv-muted block italic">{str(data, 'gentsNote')}</span>}
+            {gentsNote && <span className="inv-muted block italic">{gentsNote}</span>}
           </p>
         )}
         {ladies.length > 0 && (
           <p className="mt-3 text-sm">
             <span className="inv-eyebrow block">{t(lang, 'dressCode.ladies')}</span>
             {ladies.join(' · ')}
-            {str(data, 'ladiesNote') && <span className="inv-muted block italic">{str(data, 'ladiesNote')}</span>}
+            {ladiesNote && <span className="inv-muted block italic">{ladiesNote}</span>}
           </p>
         )}
         {motif.length > 0 && (
@@ -1188,38 +1190,12 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: 
   );
 }
 
-/**
- * The song, in its own player: YouTube's, which plays the whole song for
- * every guest from the moment the couple chose; and Spotify's, which plays it
- * whole for a guest signed in (from that moment, once its script takes over)
- * and a preview for one who is not. Both when both are given.
- */
-function OurSong({ song, youtube, startAt, title, lang }: { song: SpotifyRef | null; youtube: string | null; startAt: number; title: string; lang: Lang }) {
-  const embed = song ? spotifyEmbed(song) : null;
-  const yt = youtube ? youtubeEmbed(youtube, startAt) : null;
-  return (
-    <Section id="music" title={t(lang, 'music.ourSong')} tagline={title || undefined} className="inv-song">
-      {yt && (
-        <div>
-          <iframe src={yt.src} title={title || 'YouTube'} className="aspect-video w-full rounded-xl" style={{ border: 0 }} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen loading="lazy" />
-          <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'music.tapPlay')}</p>
-        </div>
-      )}
-      {song && embed && (
-        <div className={yt ? 'mt-4' : ''}>
-          <SpotifySong uri={spotifyUri(song)} src={embed.src} height={embed.height} startAt={startAt} title={title || 'Spotify'} />
-          <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'music.spotifyNote')}</p>
-        </div>
-      )}
-    </Section>
-  );
-}
-
-function Closing({ data, lang, hashtag, tagline, names, date }: { data: SectionData; lang: Lang; hashtag: string; tagline?: string; names?: string; date?: string }) {
+function Closing({ data, lang, hashtag, tagline, names, date, message }: { data: SectionData; lang: Lang; hashtag: string; tagline?: string; names?: string; date?: string; /** the look's thank-you — a fixed writing, behind the couple's own */ message?: string }) {
+  const thanks = str(data, 'message') || message || '';
   return (
     <Section id="closing" title={tagline ? undefined : t(lang, 'closing.title')} tagline={tagline}>
       {str(data, 'photo') && <img src={imageUrl(str(data, 'photo'), IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
-      {str(data, 'message') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'message')}</p>}
+      {thanks && <p className="mx-auto max-w-md whitespace-pre-line text-center">{thanks}</p>}
       {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }}>{str(data, 'signature')}</p>}
       {hashtag && <p className="inv-muted mt-2 text-center text-sm">{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
       {names && <p className="inv-eyebrow mt-6">{names}</p>}
@@ -1360,7 +1336,7 @@ const CAPIZ_PAGES: PageDef[] = [
   { key: 'guestbook', sections: ['guestbook'] },
   { key: 'photos', sections: ['photos'] },
   { key: 'rsvp', sections: ['rsvp'] },
-  { key: 'closing', sections: ['countdown', 'contact', 'music', 'closing'] },
+  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
 ];
 
 /** Which line icon a program entry gets, from the words in its title. */
@@ -1522,7 +1498,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const sameVenue = Boolean(str(content.ceremony, 'venue')) && str(content.ceremony, 'venue').trim().toLowerCase() === str(content.reception, 'venue').trim().toLowerCase();
   const hasReception = visible('reception') && Boolean(str(content.reception, 'venue'));
   const names = displayTitle(occasion, content);
-  const verse = format && str(content.cover, 'verse') ? <Verse key="verse" text={str(content.cover, 'verse')} source={str(content.cover, 'verseRef')} /> : null;
+  // the couple's own verse with its own source; else the look's, a fixed writing
+  const ownVerse = str(content.cover, 'verse');
+  const verseText = ownVerse || line('verse') || '';
+  const verse = format && verseText ? <Verse key="verse" text={verseText} source={ownVerse ? str(content.cover, 'verseRef') : line('verseRef') || ''} /> : null;
   const body = format ? pages() : order.map((key) => section(key));
   function pages() {
     const drawn = new Map<string, ReactNode>();
@@ -1609,7 +1588,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'eighteen':
         return <Eighteen key={key} data={data} lang={lang} />;
       case 'dressCode':
-        return <DressCode key={key} data={data} lang={lang} occasion={occasion} title={lookTitle(look, lang, 'dressCode')} tagline={line('dressCode')} format={format} note={line('dressNote')} />;
+        return <DressCode key={key} data={data} lang={lang} occasion={occasion} title={lookTitle(look, lang, 'dressCode')} tagline={line('dressCode')} format={format} note={line('dressNote')} notes={{ gents: line('gentsNote'), ladies: line('ladiesNote') }} />;
       case 'gift':
         return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : named('gift', t(lang, 'gift.title'))} format={format} thanks={line('giftThanks')} />;
       case 'rsvp':
@@ -1618,7 +1597,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery': {
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
-        const sides = format ? ['line1', 'line2', 'line3'].map((k) => str(content.moment, k)).filter(Boolean) : [];
+        const sides = format ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || line(`moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
         // the couple's own lines where they typed them, the look's where not
         const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, 'gallery.watchPrenup'), sides, strand: art.strand } : undefined;
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
@@ -1629,17 +1608,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Faq key={key} data={data} lang={lang} />;
       case 'moment':
         // on the format the three lines are on the cover, so without a photograph there is no page
-        return format && !str(data, 'backdrop') ? null : <Moment key={key} data={data} format={format} />;
+        return format && !str(data, 'backdrop') ? null : <Moment key={key} data={data} format={format} fallback={[1, 2, 3].map((n) => line(`moment${n}` as LineKey) || '')} />;
       case 'travel':
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':
         return <Social key={key} data={data} lang={lang} tagline={line('social')} title={lookTitle(look, lang, 'social')} format={format} cta={line('socialCta')} />;
-      case 'music': {
-        // the song from Spotify or YouTube, in its own player, from the moment the couple chose; their own file plays from the shell, not here
-        const song = spotifyRef(str(data, 'spotify'));
-        const yt = youtubeId(str(data, 'youtube'));
-        return (song || yt) && !print ? <OurSong key={key} song={song} youtube={yt} startAt={parseStart(data?.start)} title={str(data, 'title')} lang={lang} /> : null;
-      }
+      case 'music':
+        // background music has no block of its own: the song plays from the shell as the invitation opens
+        return null;
       case 'guestbook':
         return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
@@ -1647,7 +1623,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} />
         ) : null;
       case 'closing':
-        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={str(data, 'line') || line('closing')} names={format ? names : undefined} date={format ? dottedDate(coverDate) : undefined} />;
+        return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={str(data, 'line') || line('closing')} message={line('closingMessage')} names={format ? names : undefined} date={format ? dottedDate(coverDate) : undefined} />;
       case 'speakers':
         return <Speakers key={key} data={data} lang={lang} />;
       case 'family':
@@ -1666,7 +1642,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
       )}
-      <Shell opening={opening} music={print || bare ? '' : musicUrl} autoplay={bool(content.music, 'autoplay')} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+      <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && (
@@ -1695,11 +1671,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
  * swap the photograph for a client without touching the words, the frame or
  * anything else on the page.
  */
-function Moment({ data, format }: { data: SectionData; format?: boolean }) {
+function Moment({ data, format, fallback = [] }: { data: SectionData; format?: boolean; /** the look's three lines — fixed writings, behind the couple's own */ fallback?: string[] }) {
   const frame = str(data, 'frame') || 'arch';
   const { url, kind } = resolveBackdrop(str(data, 'backdrop'), str(data, 'preset'));
-  const lines = ['line1', 'line2', 'line3'].map((k) => str(data, k)).filter(Boolean);
-  if (!url && lines.length === 0) return null;
+  const own = ['line1', 'line2', 'line3'].map((k) => str(data, k)).filter(Boolean);
+  // with nothing of the couple's own — no picture, no lines — there is no block; with a picture, the look's lines stand in for theirs
+  if (!url && own.length === 0) return null;
+  const lines = own.length ? own : fallback.filter(Boolean);
   // The format sets the three lines on the cover, so without the couple's own
   // photograph behind the frame the block has nothing of its own to show.
   if (format && !str(data, 'backdrop')) return null;

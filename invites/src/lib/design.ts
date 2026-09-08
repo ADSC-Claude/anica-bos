@@ -19,12 +19,17 @@ export type DesignArt = {
   strand?: string;
 };
 
-export const LINE_KEYS: LineKey[] = ['cover', 'story', 'invitation', 'entourage', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closing'];
+export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'moment2', 'moment3', 'story', 'invitation', 'entourage', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'gentsNote', 'ladiesNote', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closingMessage', 'closing'];
 export const TITLE_KEYS: TitleKey[] = ['story', 'invitation', 'entourage', 'gallery', 'venue', 'getting', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'contact'];
 
 /** Where each line is read, for the admin's form. */
 export const LINE_LABELS: Record<LineKey, string> = {
   cover: 'Cover — above the names',
+  verse: 'Cover page — the verse',
+  verseRef: 'Cover page — the verse’s source',
+  moment1: 'The Moment — first line',
+  moment2: 'The Moment — second line',
+  moment3: 'The Moment — third line',
   story: 'Our Story — under the heading',
   invitation: 'The Invitation — under the heading',
   entourage: 'Entourage — under the heading',
@@ -35,6 +40,8 @@ export const LINE_LABELS: Record<LineKey, string> = {
   venue: 'The Venue — under the heading',
   interlude2: 'The Venue — the script line after the way there',
   dressCode: 'Dress Code — under the heading, when no attire is set',
+  gentsNote: 'Dress Code — the note under the gentlemen’s pieces',
+  ladiesNote: 'Dress Code — the note under the ladies’ pieces',
   dressNote: 'Dress Code — the note under the palette',
   giftThanks: 'Gift — the thank-you in script',
   program: 'Program — under the heading',
@@ -46,6 +53,7 @@ export const LINE_LABELS: Record<LineKey, string> = {
   countdown: 'Countdown — the line above the numbers',
   contact: 'Assistance — the small line under the heading',
   contactNote: 'Assistance — the note',
+  closingMessage: 'Closing — the thank-you',
   closing: 'Closing — the line above the names',
 };
 export const TITLE_LABELS: Record<TitleKey, string> = {

@@ -118,15 +118,14 @@ const NO_JS = '.inv-open{display:none !important}';
 export function Shell({
   opening,
   music,
-  autoplay,
   startAt = 0,
   playLabel,
   pauseLabel,
   children,
 }: {
   opening: OpeningProps;
+  /** The background song. It plays on the tap that opens the invitation, and the guest can pause it. */
   music: string;
-  autoplay: boolean;
   /** Seconds into the song it starts from — past a long intro — and returns to when it loops. */
   startAt?: number;
   playLabel: string;
@@ -192,8 +191,8 @@ export function Shell({
   }, [playing, play]);
 
   useEffect(() => {
-    if (!closed && music && autoplay) void play();
-  }, [closed, music, autoplay, play]);
+    if (!closed && music) void play();
+  }, [closed, music, play]);
 
   // The page behind must not scroll under the overlay — on a phone a stray
   // swipe would otherwise scroll the invitation past the opening unseen.
@@ -216,7 +215,7 @@ export function Shell({
    */
   const reveal = () => {
     setTapped(true);
-    if (music && autoplay) void play();
+    if (music) void play();
     const video = clip.current;
     if (opening.style !== 'cinematic' || !video) {
       setOpen(true);
@@ -847,84 +846,5 @@ export function ModeToggle({ mode, slug, dayLabel, nightLabel }: { mode: string;
     <button ref={ref} type="button" className="inv-mode no-print" onClick={flip} aria-label={night ? dayLabel : nightLabel} title={night ? dayLabel : nightLabel}>
       {night ? '☀' : '☾'}
     </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Spotify's player, told where the song starts
-// ---------------------------------------------------------------------------
-
-type SpotifyController = {
-  addListener: (event: string, cb: (e: { data: { isPaused: boolean; position: number } }) => void) => void;
-  seek: (seconds: number) => void;
-};
-type SpotifyApi = {
-  createController: (el: HTMLElement, options: { uri: string; width: string | number; height: string | number }, cb: (c: SpotifyController) => void) => void;
-};
-declare global {
-  interface Window {
-    onSpotifyIframeApiReady?: (api: SpotifyApi) => void;
-    __spotifyApi?: Promise<SpotifyApi>;
-  }
-}
-
-/** Spotify's player script, loaded once for the page however many players ask. */
-function spotifyApi(): Promise<SpotifyApi> {
-  if (!window.__spotifyApi) {
-    window.__spotifyApi = new Promise((resolve) => {
-      window.onSpotifyIframeApiReady = (api) => resolve(api);
-      const s = document.createElement('script');
-      s.src = 'https://open.spotify.com/embed/iframe-api/v1';
-      s.async = true;
-      document.head.appendChild(s);
-    });
-  }
-  return window.__spotifyApi;
-}
-
-/**
- * The plain embed is rendered by the server and works on its own. With a
- * start point, Spotify's player script is loaded and a controller's player
- * takes the embed's place; the first time playback begins before that moment,
- * the controller seeks to it. Spotify seeks only when it is playing the whole
- * song (a guest signed in); a preview is the thirty seconds Spotify picks, so
- * there the start point cannot apply. Should the script never arrive, the
- * plain embed simply stays.
- */
-export function SpotifySong({ uri, src, height, startAt, title }: { uri: string; src: string; height: number; startAt: number; title: string }) {
-  const host = useRef<HTMLDivElement | null>(null);
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const el = host.current;
-    if (startAt <= 0 || !el) return;
-    let gone = false;
-    const mount = document.createElement('div');
-    el.appendChild(mount);
-    void spotifyApi().then((api) => {
-      if (gone) return;
-      api.createController(mount, { uri, width: '100%', height }, (controller) => {
-        let sought = false;
-        controller.addListener('ready', () => {
-          if (!gone) setReady(true);
-        });
-        controller.addListener('playback_update', (e) => {
-          if (sought || e.data.isPaused) return;
-          if (e.data.position < startAt * 1000) {
-            sought = true;
-            controller.seek(startAt);
-          }
-        });
-      });
-    });
-    return () => {
-      gone = true;
-      el.replaceChildren();
-    };
-  }, [uri, height, startAt]);
-  return (
-    <div>
-      <iframe src={src} title={title} width="100%" height={height} style={{ border: 0, borderRadius: 12, display: ready ? 'none' : undefined }} allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
-      <div ref={host} />
-    </div>
   );
 }

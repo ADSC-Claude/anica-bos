@@ -41,6 +41,8 @@ function Label({ field, htmlFor }: { field: Field; htmlFor?: string }) {
     <label className="label" htmlFor={htmlFor}>
       {field.label}
       {field.required && <span className="text-[color:var(--bad)]"> *</span>}
+      {/* a fixed writing — seen only by staff editing for the customer */}
+      {field.staff && <span className="ml-2 rounded-full bg-[color:var(--color-sand-100)] px-2 py-0.5 text-[10px] font-normal uppercase tracking-wide text-[color:var(--color-ink-500)]">Ours</span>}
     </label>
   );
 }

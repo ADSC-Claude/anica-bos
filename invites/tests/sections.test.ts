@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
+import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
 import { OCCASION_KEYS } from '../src/lib/occasions';
 
 test('every occasion has a cover, an RSVP and a closing, and every section it lists is defined', () => {
@@ -187,25 +187,47 @@ test('the clothes are clothes: no shoes, ties or heels; kindly-avoid is the full
   assert.equal((data.avoid as string[]).length, 6, 'eight ticked keep the first six');
 });
 
-test('the Music section keeps the song’s links, its start as seconds, and its uploaded file', () => {
+test('Background music keeps the song named, its start as seconds, and its uploaded file — and nothing that would put a player on the page', () => {
   const fields = fieldsFor('music', 'WEDDING');
+  assert.deepEqual(fields.map((f) => f.key), ['song', 'start', 'url']);
   assert.ok(fields.some((f) => f.key === 'url' && f.type === 'audio'));
   assert.ok(fields.some((f) => f.key === 'start' && f.type === 'offset'));
   const { data, issues } = cleanSection(fields, {
-    spotify: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
-    youtube: 'https://youtu.be/dQw4w9WgXcQ',
+    song: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
     url: '/uploads/inv/abc/song.mp3',
     start: '1:05',
-    title: 'Our song',
+    spotify: 'left over from before',
     autoplay: 'on',
   });
   assert.equal(issues.length, 0);
   assert.equal(data.start, 65);
   assert.equal(data.url, '/uploads/inv/abc/song.mp3');
-  assert.equal(data.youtube, 'https://youtu.be/dQw4w9WgXcQ');
-  assert.equal(data.autoplay, true);
+  assert.equal(data.song, 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC');
+  assert.ok(!('spotify' in data) && !('autoplay' in data), 'the old keys are dropped');
   assert.equal(cleanSection(fields, { start: 'soon' }).data.start, null);
   assert.equal(cleanSection(fields, { start: 0 }).data.start, null);
   assert.equal(cleanSection(fields, { start: 90 }).data.start, 90);
   assert.equal(cleanSection(fields, { url: 'song.mp3' }).issues.length, 1);
+});
+
+test('the fixed writings are ours: off the client’s form, and kept through a client’s save', () => {
+  const fields = fieldsFor('gallery', 'WEDDING');
+  const mine = customerFields(fields).map((f) => f.key);
+  assert.ok(mine.includes('photos') && mine.includes('videoUrl'));
+  for (const k of ['line', 'note', 'videoTitle', 'close']) assert.ok(!mine.includes(k), k);
+  const before = { line: 'Ours', note: 'Also ours', photos: [] };
+  const { data } = cleanSection(fields, { photos: [{ url: 'https://x/y.jpg', caption: '' }] });
+  const kept = keepStaffFields(fields, before, data);
+  assert.equal(kept.line, 'Ours');
+  assert.equal(kept.note, 'Also ours');
+  assert.equal((kept.photos as unknown[]).length, 1);
+  // the cover keeps its intro choice and photo for the client; the wording, the verse and the script line are ours
+  const cover = customerFields(fieldsFor('cover', 'WEDDING')).map((f) => f.key);
+  assert.ok(cover.includes('introPreset') && cover.includes('coverPhoto') && cover.includes('date'));
+  for (const k of ['intro', 'verse', 'verseRef', 'interlude2']) assert.ok(!cover.includes(k), k);
+  // the closing keeps the photo and the signature for the client; the thank-you and the line above the names are ours
+  const closing = customerFields(fieldsFor('closing', 'WEDDING')).map((f) => f.key);
+  assert.deepEqual(closing, ['photo', 'signature']);
+  // and staff editing for the customer see everything
+  assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'message' && f.staff));
 });

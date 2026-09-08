@@ -59,11 +59,12 @@ export const OPENINGS: OpeningDef[] = [
   {
     // The universal opening: one clip for every design and every package. A
     // sealed letter on white opens and a card slides out saying "you're
-    // invited to" — and the names and date come up beneath the envelope.
+    // invited to", and the invitation follows. No writing of the couple's
+    // goes on it — that is what the premium opening adds.
     key: 'universal',
     name: 'The Letter',
     tagline: 'Included with every package.',
-    description: 'A sealed letter opens and a card slides out to say you are invited — then your names and date appear beneath it. Our universal opening, on every design.',
+    description: 'A sealed letter opens and a card slides out to say you are invited — then your invitation. Our universal opening, on every design; the premium opening sets your names on its card.',
     minTier: 'BASIC',
     photos: 0,
     line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
@@ -223,9 +224,8 @@ export function openingsFor(tier: Tier): OpeningDef[] {
 export const PREMIUM_OPENING_CODE = 'PREMIUM_OPENING';
 
 /**
- * The Letter's clip and its first frame. One file for every design: the
- * artwork is neutral on purpose, and the couple's words are set over it by the
- * page, so nothing is re-rendered when a name changes.
+ * The Letter's clip and its first frame. One file for every design, and no
+ * writing of the couple's on it: it plays, and the cover says who is inviting.
  */
 export const UNIVERSAL_OPENING = { video: '/openings/universal.mp4', poster: '/openings/universal-poster.jpg' } as const;
 

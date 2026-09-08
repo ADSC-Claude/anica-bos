@@ -1264,26 +1264,17 @@ body:has(.inv[data-layout='capiz']) { background: #e9dfd2; }
 .inv-open[data-clip='capiz'] .inv-open-copy { display: none; }
 .inv-open[data-clip='capiz'] .inv-open-hint { color: #6b5744; text-shadow: none; }
 /* The Letter, the universal opening. A sealed letter on white opens to a card
-   that says "you're invited to", and the names and date come up beneath the
-   envelope — the card is small in the frame, so the words sit under it, large.
-   Light artwork: a dark hint, no scrim, no white line over the face. */
+   that says "you're invited to", and the invitation follows: no writing of
+   the couple's goes on it — that is the premium opening's. Light artwork: a
+   dark hint, no scrim, no white line over the face. */
 .inv-open[data-clip='universal']::before,
 .inv-open[data-clip='universal']::after,
 .inv-open[data-clip='universal'] .inv-open-copy { display: none; }
 .inv-open[data-clip='universal'] .inv-open-hint { color: #7a6a5a; text-shadow: none; }
-.inv-open[data-clip='universal'] .inv-open-plate > div {
-  top: 60%; bottom: 14%; left: 8%; width: 84%;
-  justify-content: flex-start; color: #4a3f36;
-}
-.inv-open[data-clip='universal'] .inv-plate-names { font-size: 13vw; font-size: 13cqw; margin-top: 0; }
-.inv-open[data-clip='universal'] .inv-plate-date { margin-top: 3vh; margin-top: 3cqh; }
-.inv-open[data-clip='universal'] .inv-plate-line2 { margin-top: 2.5vh; margin-top: 2.5cqh; }
 .inv-open[data-clip='universal'] { background: #fcfcfc; }
-/* A wide screen shows the whole frame, letterboxed on the clip's own white, so
-   the words beneath the envelope stay on screen; a phone fills it as usual. */
+/* A wide screen shows the whole frame, letterboxed on the clip's own white; a phone fills it as usual. */
 @media (min-aspect-ratio: 9/16) {
   .inv-open[data-clip='universal'] .inv-open-clip { object-fit: contain; }
-  .inv-open[data-clip='universal'] .inv-open-plate { width: calc(100vh * 9 / 16); width: calc(100dvh * 9 / 16); }
 }
 /* The card's box: the clip is object-fit cover, so this is the same box the
    clip is drawn in — as wide as the screen or as tall as it, whichever the

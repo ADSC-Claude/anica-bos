@@ -38,8 +38,10 @@ export type OpeningProps = {
   /** "cinematic" only: the clip, and the still shown until it plays. */
   video: string;
   poster: string;
-  /** Which clip, when the words belong on it rather than over its closed face — "capiz" (on the card) or "universal" (beneath the envelope). */
+  /** Which clip is playing, for its own styling — "capiz" or "universal". */
   clip: string;
+  /** The couple's words are set on the clip as it ends (a premium clip, on its card). The Letter carries none. */
+  words?: boolean;
   /** The word set between two names on the card — "and", "at" or "&" — the look's, the same as the cover. */
   and?: string;
   /** "Tap to open". */
@@ -254,7 +256,7 @@ export function Shell({
     // enough to read, and then the page fades in over them. On any other clip
     // the page comes up as the clip reaches its last moments, with no hold on
     // an empty card.
-    const words = Boolean(opening.clip);
+    const words = Boolean(opening.words);
     let done = false;
     let ending = false;
     const finish = () => {
@@ -340,12 +342,11 @@ export function Shell({
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
             </div>
-            {opening.clip && (
+            {opening.words && (
               <div className="inv-open-plate" data-show={plate} aria-hidden>
                 <div>
-                  {/* the Letter's own card says "you're invited to" — only the names and date follow it */}
-                  {opening.monogram && opening.clip !== 'universal' && <p className="inv-plate-mono">{opening.monogram}</p>}
-                  {opening.line && opening.clip !== 'universal' && <p className="inv-plate-eyebrow">{opening.line}</p>}
+                  {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
+                  {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
                   {opening.names && <p className="inv-plate-names">{cardNames(opening.names, opening.and || '&')}</p>}
                   {opening.date && <p className="inv-plate-date">{opening.date}</p>}
                   {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}

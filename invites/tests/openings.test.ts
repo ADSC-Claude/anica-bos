@@ -277,12 +277,12 @@ test('the premium opening is an entitlement: bought, switched on, or made for th
   assert.equal(OPENING_BY_KEY.cinematic.name, 'Premium opening');
 });
 
-test('the Letter is the universal opening: on every design, in every package, its words beneath the envelope', () => {
+test('the Letter is the universal opening: on every design, in every package, and it carries no writing', () => {
   const letter = OPENING_BY_KEY.universal;
   assert.equal(letter.name, 'The Letter');
   assert.equal(letter.minTier, 'BASIC');
   assert.ok(!letter.staffOnly, 'a customer may pick it — it is the default, not a staff attachment');
-  assert.ok(letter.lineOnly, 'the closed face carries no names: the card inside says you are invited, and the names follow');
+  assert.ok(letter.lineOnly, 'no names anywhere on it: the card inside says you are invited, and the cover says who — the names on a clip are the premium opening\'s');
   assert.match(UNIVERSAL_OPENING.video, /^\/openings\/universal\.mp4$/);
   assert.match(UNIVERSAL_OPENING.poster, /^\/openings\/universal-poster\.jpg$/);
   for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.ok(openingsFor(tier).some((o) => o.key === 'universal'), tier);

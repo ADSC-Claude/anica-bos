@@ -25,7 +25,7 @@ export default async function TemplatesPage() {
       <main className="mx-auto max-w-6xl px-5 py-12">
         <p className="eyebrow">Templates</p>
         <h1 className="display mt-1 text-4xl">All designs</h1>
-        <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Each design is shown here by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen. Every package opens with The Letter — a sealed envelope that opens to say you are invited, then your names. The premium opening video made for a design is an add-on.</p>
+        <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Each design is shown here by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen. Every package opens with The Letter — a sealed envelope that opens to say you are invited, then your invitation. The premium opening video made for a design, with your names on its card, is an add-on.</p>
         {collections.length > 0 && (
           <section className="mt-8">
             <h2 className="display text-2xl">Browse by collection</h2>

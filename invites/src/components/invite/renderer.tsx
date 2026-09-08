@@ -1469,11 +1469,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const style = universal ? 'cinematic' : key;
     const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);
     const photos = [coverImage(content), ...gallery].filter(Boolean).slice(0, def.photos);
-    // A clip that says nothing itself carries the words as it ends: on the
-    // Capiz card as it opens, or beneath the Letter's envelope — rather than
-    // over the closed face.
+    // Which clip is playing, for its own styling. Only a premium clip carries
+    // the couple's words — on the Capiz card as it opens. The Letter, the
+    // opening every package includes, carries no writing at all: it plays and
+    // the invitation follows, and the names wait for the cover.
     const clip = universal ? 'universal' : style === 'cinematic' && layout === 'capiz' ? 'capiz' : '';
-    const wordsOnCard = Boolean(clip);
+    const wordsOnCard = clip === 'capiz';
     return {
       style,
       clip,
@@ -1487,6 +1488,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       line: str(content.cover, 'openingLine') || def.line[lang],
       line2: str(content.cover, 'openingLine2'),
       and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
+      words: wordsOnCard,
       caps: Boolean(def.caps),
       photos,
       video: universal ? UNIVERSAL_OPENING.video : style === 'cinematic' ? assets.video : '',

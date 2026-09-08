@@ -125,7 +125,7 @@ export function featureOffered(feature: FeatureKey): boolean {
 export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Template choice', cells: { BASIC: '1 from the Basic set', STANDARD: 'Any template', COMPLETE: 'Any template + Complete-only designs' } },
   { label: 'Colours', cells: { BASIC: 'Yours to choose', STANDARD: 'Yours to choose', COMPLETE: 'Yours to choose' } },
-  { label: 'Font style', cells: { BASIC: "The design's own", STANDARD: '3 to choose from', COMPLETE: 'All 5 to choose from' } },
+  { label: 'Font style', cells: { BASIC: 'Modern', STANDARD: '3 to choose from', COMPLETE: 'All 5 to choose from' } },
   { label: 'Cover: names, monogram, date, cover photo', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Opening before the invitation (a short moving scene)', cells: { BASIC: 'Included', STANDARD: 'Included', COMPLETE: 'Included' } },
   { label: 'Premium opening video, made for your design', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on' } },

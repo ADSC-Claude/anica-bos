@@ -65,11 +65,11 @@ export function SettingsForm(p: { invitationId: string; host: string; slug: stri
 }
 
 /** What this package may choose from, and where to see them. */
-function fontsNote(tier: Tier, offered: number, all: number) {
+function fontsNote(tier: Tier, offered: number, all: number, top: string) {
   const see = <a href="/looks" target="_blank" rel="noopener" className="underline">See them side by side</a>;
-  if (offered === 0) return <>The {TIER_LABELS[tier]} package is set in the design’s own. {see}.</>;
-  if (offered < all) return <>The {TIER_LABELS[tier]} package chooses from {offered}; the Complete package from all {all}. {see}.</>;
-  return <>The Complete package chooses from all {all}. {see}.</>;
+  if (offered <= 1) return <>The {TIER_LABELS[tier]} package is set in one. {see}.</>;
+  if (offered < all) return <>The {TIER_LABELS[tier]} package chooses from {offered}; the {top} package from all {all}. {see}.</>;
+  return <>The {TIER_LABELS[tier]} package chooses from all {all}. {see}.</>;
 }
 
 export function ThemePicker(p: { invitationId: string; palettes: { key: string; label: string; palette: Palette }[]; looks: { key: string; name: string; tagline: string }[]; allLooks: number; current: { paletteKey: string; palette: Palette; lookKey: string; mode: string }; tier: Tier }) {
@@ -104,9 +104,9 @@ export function ThemePicker(p: { invitationId: string; palettes: { key: string; 
       </div>
       <div>
         <label className="label" htmlFor="look">Font style</label>
-        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">The faces the page is set in and the lines under each heading. {fontsNote(p.tier, p.looks.length, p.allLooks)}</p>
-        {p.looks.length === 0 ? (
-          <p className="rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] p-3 text-sm">Your invitation is set in the fonts its design was drawn in.</p>
+        <p className="mb-2 text-xs text-[color:var(--color-ink-soft)]">The faces the page is set in and the lines under each heading. {fontsNote(p.tier, p.looks.length, p.allLooks, TIER_LABELS.COMPLETE)}</p>
+        {p.looks.length <= 1 ? (
+          <p className="rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] p-3 text-sm">Your invitation is set in <b>{p.looks[0]?.name ?? 'the design’s own'}</b>{p.looks[0] ? ` — ${p.looks[0].tagline}` : ''}</p>
         ) : (
           <div className="flex gap-2">
             <select id="look" className="field" value={lookKey} disabled={pending} onChange={(e) => setLookKey(e.target.value)}>

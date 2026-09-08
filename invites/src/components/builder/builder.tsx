@@ -257,17 +257,17 @@ function QuickChoices({ invitationId, lang, lookKey, looks, allLooks, tier, onCh
       </div>
       <div>
         <label className="label" htmlFor="quick-look">Font style</label>
-        {looks.length === 0 ? (
-          <p className="field flex items-center text-[color:var(--color-ink-soft)]">The design’s own</p>
+        {looks.length <= 1 ? (
+          <p className="field flex items-center text-[color:var(--color-ink-soft)]">{looks[0]?.name ?? 'The design’s own'}</p>
         ) : (
           <select id="quick-look" className="field" value={lookKey} disabled={pending} onChange={(e) => run(() => themeAction(invitationId, { lookKey: e.target.value }), e.target.value ? 'Font style applied.' : 'Back to the design’s own fonts.')}>
             <option value="">The design’s own</option>
             {looks.map((l) => <option key={l.key} value={l.key}>{l.name} — {l.tagline}</option>)}
           </select>
         )}
-        <p className="hint">{note || (looks.length === 0
-          ? `The ${TIER_LABELS[tier]} package is set in the fonts its design was drawn in.`
-          : `A set of faces and the lines written under each heading. The ${TIER_LABELS[tier]} package chooses from ${looks.length}${looks.length < allLooks ? `; the Complete package from all ${allLooks}` : ''}.`)}</p>
+        <p className="hint">{note || (looks.length <= 1
+          ? `A set of faces and the lines written under each heading. The ${TIER_LABELS[tier]} package is set in one.`
+          : `A set of faces and the lines written under each heading. The ${TIER_LABELS[tier]} package chooses from ${looks.length}${looks.length < allLooks ? `; the ${TIER_LABELS.COMPLETE} package from all ${allLooks}` : ''}.`)}</p>
       </div>
     </div>
   );

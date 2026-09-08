@@ -395,22 +395,41 @@ export function isLook(value: string): value is LookKey {
  * design was drawn in.
  */
 export const LOOK_MIN_TIER: Record<LookKey, Tier> = {
-  heritage: 'STANDARD',
+  modern: 'BASIC',
   romance: 'STANDARD',
-  modern: 'STANDARD',
-  editorial: 'COMPLETE',
+  editorial: 'STANDARD',
+  heritage: 'COMPLETE',
   regal: 'COMPLETE',
 };
 
-/** The looks this package may pick, in the order they are shown. Empty for Basic. */
+/**
+ * The look every package has, and the one a design falls back to when its own
+ * is above the package: a design drawn in Regal, bought at Basic, is set in
+ * Modern rather than in nothing.
+ */
+export const BASE_LOOK: LookKey = 'modern';
+
+const TIER_RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
+
+/**
+ * The looks this package may pick, the ones it already had first. Basic has
+ * one — the font style it is set in, with nothing to choose.
+ */
 export function looksFor(tier: Tier): Look[] {
-  return LOOKS.filter((l) => tierAtLeast(tier, LOOK_MIN_TIER[l.key]));
+  return LOOKS.filter((l) => tierAtLeast(tier, LOOK_MIN_TIER[l.key])).sort(
+    (a, b) => TIER_RANK[LOOK_MIN_TIER[a.key]] - TIER_RANK[LOOK_MIN_TIER[b.key]] || LOOKS.indexOf(a) - LOOKS.indexOf(b),
+  );
 }
 
 /** Whether this package may set that look. Blank — the design's own — is always allowed. */
 export function lookAllowed(tier: Tier, key: string): boolean {
   if (!key) return true;
   return isLook(key) && tierAtLeast(tier, LOOK_MIN_TIER[key]);
+}
+
+/** The look a page is actually set in: the one asked for, if the package has it; else the one every package has. */
+export function lookForTier(tier: Tier, key: string): LookKey {
+  return isLook(key) && lookAllowed(tier, key) ? key : BASE_LOOK;
 }
 
 /** How many looks the package chooses from, for the copy that says so. */

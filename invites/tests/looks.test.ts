@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LOOKS, LOOK_BY_KEY, LOOK_KEYS, isLook, lookLine, lookTitle, looksFor, lookAllowed, type LineKey } from '../src/lib/looks';
+import { LOOKS, LOOK_BY_KEY, LOOK_KEYS, isLook, lookLine, lookTitle, looksFor, lookAllowed, lookForTier, BASE_LOOK, type LineKey } from '../src/lib/looks';
 import { hasFeature, COMPARISON } from '../src/lib/tiers';
 import { googleFontsUrl } from '../src/lib/theme';
 import { resolveTheme } from '../src/lib/invitations';
@@ -66,33 +66,37 @@ test('a design carries a look, the customer can pick another, and a font preset 
   assert.equal(plain.look, undefined);
 });
 
-test('the font style is what a package buys: the design’s own at Basic, three at Standard, five at Complete', () => {
-  assert.equal(looksFor('BASIC').length, 0, 'Basic picks nothing: it keeps the design’s own');
-  assert.equal(looksFor('STANDARD').length, 3);
-  assert.equal(looksFor('COMPLETE').length, LOOKS.length);
+test('the font style is what a package buys: Modern at Basic, three at Standard, five at the top', () => {
+  assert.deepEqual(looksFor('BASIC').map((l) => l.key), ['modern'], 'Basic is set in Modern and picks nothing');
+  assert.deepEqual(looksFor('STANDARD').map((l) => l.key), ['modern', 'romance', 'editorial']);
+  assert.deepEqual(looksFor('COMPLETE').map((l) => l.key), ['modern', 'romance', 'editorial', 'heritage', 'regal']);
   assert.equal(LOOKS.length, 5);
-  // every look Standard offers, Complete offers too
-  for (const l of looksFor('STANDARD')) assert.ok(looksFor('COMPLETE').some((c) => c.key === l.key), l.key);
   // the design's own — the blank choice — is every package's
   for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.equal(lookAllowed(tier, ''), true, tier);
-  assert.equal(lookAllowed('BASIC', 'heritage'), false);
-  assert.equal(lookAllowed('STANDARD', 'heritage'), true);
-  assert.equal(lookAllowed('STANDARD', 'regal'), false, 'the two Complete looks are not Standard’s');
+  assert.equal(lookAllowed('BASIC', 'modern'), true);
+  assert.equal(lookAllowed('BASIC', 'romance'), false);
+  assert.equal(lookAllowed('STANDARD', 'editorial'), true);
+  assert.equal(lookAllowed('STANDARD', 'heritage'), false, 'Heritage and Regal are the top package’s');
   assert.equal(lookAllowed('COMPLETE', 'regal'), true);
   assert.equal(lookAllowed('COMPLETE', 'nonsense'), false);
+  assert.equal(BASE_LOOK, 'modern');
+  assert.equal(lookForTier('BASIC', 'regal'), 'modern');
+  assert.equal(lookForTier('STANDARD', 'romance'), 'romance');
 });
 
-test('a design keeps its own look at every package, and a look above the package falls back to it', () => {
+test('a design above the package is set in Modern; a look chosen and then downgraded falls back the same way', () => {
   const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
   const template = { palette: capiz.palette, fonts: capiz.fonts, look: 'heritage' };
-  // Basic is set in the design's own, whatever tier the look itself belongs to
-  assert.equal(resolveTheme(template, {}, 'BASIC').look?.key, 'heritage');
-  // a Complete-only look chosen and then downgraded: the page shows what was paid for
+  // Capiz ships in Heritage, a top-package look: below that it is set in Modern
+  assert.equal(resolveTheme(template, {}, 'COMPLETE').look?.key, 'heritage');
+  assert.equal(resolveTheme(template, {}, 'STANDARD').look?.key, 'modern');
+  assert.equal(resolveTheme(template, {}, 'BASIC').look?.key, 'modern');
+  // a chosen look the package has stays; one above it is ignored
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'romance' } }, 'STANDARD').look?.key, 'romance');
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }, 'STANDARD').look?.key, 'modern');
   assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }, 'COMPLETE').look?.key, 'regal');
-  assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }, 'STANDARD').look?.key, 'heritage');
-  assert.equal(resolveTheme(template, { theme: { lookKey: 'modern' } }, 'STANDARD').look?.key, 'modern');
-  assert.equal(resolveTheme(template, { theme: { lookKey: 'modern' } }, 'BASIC').look?.key, 'heritage');
   // without a tier — the showcase, staff previews — nothing is clamped
+  assert.equal(resolveTheme(template, {}).look?.key, 'heritage');
   assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }).look?.key, 'regal');
 });
 

@@ -83,8 +83,9 @@ reconciles with itself.
   That is because its built-in password is written in `prisma/seed.ts` in a
   public repository, on an account whose role is ADMIN — and being forced to
   change it on first sign-in protects nothing if a stranger signs in first.
-- **Customers:** Maria (owns the demo, plus a christening order waiting for
-  proof-of-payment review) and Sofia (a Done-For-You debut mid-encoding).
+- **Customers:** Maria (owns the two demos, plus a christening order waiting
+  for proof-of-payment review) and Denise (a Done-For-You christening on Baby
+  Blue, form in, waiting for the encoder).
 - **Catalogue:** Basic / Standard / Signature packages for Wedding, Debut,
   Christening and Kids' Birthday, plus a generic fallback used by every other
   occasion; seven add-ons; three coupons (`LAUNCH20`, `REFER500`, one expired).

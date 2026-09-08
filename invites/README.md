@@ -241,6 +241,19 @@ It has its own `capiz` layout, whose shell border is drawn from the palette
 rather than supplied as artwork, so the design recolours with the customer's
 own accent instead of framing the page in a colour that no longer matches it.
 
+**Baby Blue** is the christening design, in the Baby Blue Theme at
+`/collections/babyblue`: sky and clouds with a dove and the church bell for
+the cover, blue and cream organza for the rest. Its `babyblue` layout lays one
+of the designer's ten grounds behind each page (`src/lib/design.ts` names
+them; `PageGround` trims each to its page, keeps a taller page's head and foot
+whole and stretches the band between, and brings a short page's foot in under
+the words). Two grounds are drawn pages — Our Story with six polaroid frames
+down a timeline, Baby Photos with four — whose frames take the client's
+photographs and whose writings are set live where the designer set hers
+(`src/lib/babyblue.ts` holds the measured slots), so staff and the client can
+change them. The christening's story is told in six milestones, the design's
+own to start.
+
 An **opening** is the short moving scene before the invitation. The guest taps
 once, it plays, and the invitation is underneath. `src/lib/openings.ts` is the
 catalogue:

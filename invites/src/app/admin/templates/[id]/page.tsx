@@ -5,7 +5,7 @@ import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
 import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
 import { OCCASION_SECTIONS, SECTION_BY_KEY } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
@@ -15,6 +15,11 @@ import { Flash, type FlashParams } from '../../flash';
 import { saveTemplateAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
+
+const GROUND_LABELS: Record<string, string> = {
+  cover: 'Cover and Bible verse', story: 'Our Story (drawn: six frames)', invitation: 'The Invitation', sponsors: 'Ninong and Ninang', babyphotos: 'Baby Photos (drawn: four frames)',
+  venue: 'The Venue', dresscode: 'Dress Code and Motif', program: 'Gift Request and Program', share: 'Snap and Share, Post Event Photos', closing: 'RSVP, Countdown, Assistance and Ending',
+};
 
 export default async function TemplateEditor({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<FlashParams> }) {
   await requireStaffPage('templates.edit');
@@ -30,8 +35,8 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   const words = wordsOf(t?.words);
   const art = artOf(t?.art);
   const look = t?.look && isLook(t.look) ? LOOK_BY_KEY[t.look] : undefined;
-  const wordRows: { key: LineKey | TitleKey; label: string; en: string; tl: string }[] = [
-    ...TITLE_KEYS.map((k) => ({ key: k, label: `Heading — ${TITLE_LABELS[k]}`, en: lookTitle(look, 'en', k) ?? '', tl: lookTitle(look, 'tl', k) ?? '' })),
+  const wordRows: { key: WordKey; label: string; en: string; tl: string }[] = [
+    ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}`, en: lookTitle(look, 'en', k) ?? '', tl: lookTitle(look, 'tl', k) ?? '' })),
     ...LINE_KEYS.map((k) => ({ key: k, label: LINE_LABELS[k], en: lookLine(look, 'en', k) ?? '', tl: lookLine(look, 'tl', k) ?? '' })),
   ];
   const tid = t?.id ?? 'new';
@@ -94,15 +99,18 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </details>
         <details className="card p-4 lg:col-span-2">
           <summary className="cursor-pointer font-semibold">Pictures</summary>
-          <p className="hint mt-1">The design’s own pictures, by URL — upload a file and its URL lands in the field, or paste one. Blank keeps the picture shipped with the layout. Backgrounds run down the page in this order, 1 to 7 then 5 and 6 over and over, and 8 is set last.</p>
+          <p className="hint mt-1">The design’s own pictures, by URL — upload a file and its URL lands in the field, or paste one. Blank keeps the picture shipped with the layout. {t?.layout === 'babyblue' ? 'Baby Blue lays one ground behind each page, named for the page it sits under; the story and the baby photos grounds are drawn with the frames the photographs go into, so a replacement must keep those where they are.' : 'Backgrounds run down the page in this order, 1 to 7 then 5 and 6 over and over, and 8 is set last.'}</p>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {Array.from({ length: 8 }, (_, i) => (
+            {t?.layout === 'babyblue' && BABYBLUE_GROUND_KEYS.map((k) => (
+              <UploadField key={`ground-${k}`} name={`art_ground_${k}`} label={`Ground — ${GROUND_LABELS[k] ?? k}`} defaultValue={art.grounds?.[k] ?? ''} placeholder={BABYBLUE_GROUNDS[k].url} templateId={tid} />
+            ))}
+            {t?.layout !== 'babyblue' && Array.from({ length: 8 }, (_, i) => (
               <UploadField key={`bg${i}`} name={`art_bg_${i + 1}`} label={`Background ${i + 1}${i === 7 ? ' — set last' : ''}`} defaultValue={art.backgrounds?.[i] ?? ''} placeholder={t?.layout === 'capiz' ? `/capiz/bg-${i + 1}.webp` : ''} templateId={tid} />
             ))}
-            {Array.from({ length: 8 }, (_, i) => (
+            {t?.layout !== 'babyblue' && Array.from({ length: 8 }, (_, i) => (
               <UploadField key={`night${i}`} name={`art_night_${i + 1}`} label={`Night background ${i + 1}`} defaultValue={art.night?.[i] ?? ''} templateId={tid} hint={i === 0 ? 'Shown in night mode. With none set, night darkens the day backgrounds instead.' : undefined} />
             ))}
-            <UploadField name="art_strand" label="Strand under the prenup photograph" defaultValue={art.strand ?? ''} placeholder={t?.layout === 'capiz' ? '/capiz/strand-b.webp' : ''} templateId={tid} hint="A wide picture with a transparent background." />
+            {t?.layout !== 'babyblue' && <UploadField name="art_strand" label="Strand under the prenup photograph" defaultValue={art.strand ?? ''} placeholder={t?.layout === 'capiz' ? '/capiz/strand-b.webp' : ''} templateId={tid} hint="A wide picture with a transparent background." />}
           </div>
         </details>
         <div className="lg:col-span-2"><button className="btn btn-primary" type="submit">{isNew ? 'Create template' : 'Save template'}</button></div>

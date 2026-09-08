@@ -810,7 +810,15 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * follows the column's width, so this is measured, not styled, and runs again
  * whenever the column or a page changes size.
  */
-export function PageGround({ ratio, order, last, backgrounds, night }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[] }) {
+/**
+ * Two ways to lay the ground. By number: the backgrounds in `order`, one per
+ * page, `last` under the final page (Capiz). By page: each page names its
+ * ground in `data-bg` and `grounds` gives that ground's file and its height as
+ * a multiple of the width (Baby Blue). `seam` is how far one ground dissolves
+ * into the next, as a share of the width — longer where the tones differ.
+ */
+type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string } };
+export function PageGround({ ratio, order, last, backgrounds, night, grounds, seam: seamShare = 0.24 }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[]; grounds?: Record<string, Ground>; seam?: number }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');
@@ -820,53 +828,108 @@ export function PageGround({ ratio, order, last, backgrounds, night }: { ratio: 
     let frame = 0;
     const lay = () => {
       const width = inv.clientWidth;
-      const bg = width * ratio;
-      if (!bg || !pages.length) return;
-      const seam = Math.round(width * 0.24);
-      const half = Math.round(seam / 2);
+      if (!width || !pages.length) return;
       const invTop = inv.getBoundingClientRect().top;
-      const segs: { n: number; top: number; height: number; foot: boolean }[] = [];
+      // how far the ground before dissolves into this page: the layout's share
+      // of the width, or the page's own (a drawn page keeps its top clear)
+      const seamOf = (p: HTMLElement) => Math.round(width * (p.dataset.seam ? Number(p.dataset.seam) : seamShare));
+      // the background by number — by night, the night one where the design has it
+      const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
+      const byNumber = (n: number) => (dark ? night?.[(n - 1) % backgrounds.length] : '') || backgrounds[(n - 1) % backgrounds.length];
+      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; seam: number; own?: Ground }[] = [];
       let k = 0;
       pages.forEach((p, i) => {
         const r = p.getBoundingClientRect();
         const top = r.top - invTop;
         const lastPage = i === pages.length - 1;
-        // A page up to a tenth taller than one background (with the seam it
-        // reaches into) stays on one, drawn a little larger; a longer page is
-        // split evenly over as many as it needs, each trimmed to its share.
-        const count = Math.max(1, Math.ceil((r.height + seam) / (bg * 1.1)));
+        const own = grounds && p.dataset.bg ? grounds[p.dataset.bg] : undefined;
+        const bg = width * (own ? own.ratio : ratio);
+        if (!bg) return;
+        const seam = seamOf(p);
+        // A page with a ground of its own always sits on that one ground,
+        // whatever its height. By number: a page up to a tenth taller than one
+        // background (with the seam it reaches into) stays on one, drawn a
+        // little larger; a longer page is split evenly over as many as it
+        // needs, each trimmed to its share.
+        const count = own ? 1 : Math.max(1, Math.ceil((r.height + seam) / (bg * 1.1)));
         const share = r.height / count;
         for (let j = 0; j < count; j++) {
           const foot = lastPage && j === count - 1;
-          segs.push({ n: foot ? last : order[Math.min(k++, order.length - 1)], top: top + j * share, height: share, foot });
+          const url = own ? own.url : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
+          segs.push({ url, bg, top: top + j * share, height: share, foot, seam, own });
         }
       });
-      while (ground.children.length > segs.length) ground.lastElementChild?.remove();
+      // the papers to draw: one per segment, and under a page shorter than its
+      // own ground, a second that brings the ground's foot in beneath the words
+      const papers: { className: string; top: number; height: number; seam: number; draw: (el: HTMLElement) => void }[] = [];
       segs.forEach((s, i) => {
+        const first = i === 0;
+        const final = i === segs.length - 1;
+        // reaches half its own seam up into the page before, and half the next one's down under the next
+        const half = Math.round(s.seam / 2);
+        const nextHalf = final ? 0 : Math.round(segs[i + 1].seam / 2);
+        const top = first ? s.top : s.top - half;
+        const bottom = final ? inv.scrollHeight : s.top + s.height + nextHalf;
+        const box = bottom - top;
+        const g = s.own;
+        const bgH = Math.round(s.bg);
+        if (g && g.slices && s.height < bgH * 0.96) {
+          // shorter than its ground: the foot of the picture comes in under the
+          // words, fading up from nothing, so the page ends the way the ground does
+          const footH = Math.round(g.ratio * width * 0.44);
+          const shown = Math.min(footH, Math.round(s.height * 0.55));
+          const foot = g.slices.foot;
+          papers.push({ className: 'inv-paper is-foot-art', top: s.top + s.height - shown, height: shown + nextHalf, seam: Math.round(shown * 0.7), draw: (el) => {
+            el.style.backgroundImage = `url("${foot}")`;
+            el.style.backgroundSize = '100% auto';
+            el.style.backgroundPosition = `center calc(100% - ${nextHalf}px)`;
+            el.style.backgroundRepeat = 'no-repeat';
+          } });
+        }
+        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: s.seam, draw: (el) => {
+        if (s.own) {
+          // A ground of the page's own, laid to the page's top edge (the paper
+          // starts half a seam above it). A page no taller than the ground shows
+          // it whole, its edge colours filling the strips beyond; a taller page
+          // keeps the ground's head and foot whole and stretches the band between.
+          const g = s.own;
+          const bgH = Math.round(s.bg);
+          const startY = first ? 0 : half;
+          const tall = s.height > bgH * 1.02;
+          if (tall && g.slices) {
+            el.style.backgroundImage = `url("${g.slices.top}"), url("${g.slices.foot}"), url("${g.slices.mid}")`;
+            el.style.backgroundSize = '100% auto, 100% auto, 100% 100%';
+            el.style.backgroundPosition = `center ${startY}px, center calc(100% - ${nextHalf}px), center top`;
+          } else {
+            el.style.backgroundImage = `url("${g.url}"), linear-gradient(to bottom, ${g.top} 0, ${g.top} ${startY}px, ${g.bottom} ${startY + bgH}px, ${g.bottom} 100%)`;
+            el.style.backgroundSize = `${tall ? `auto ${Math.round(s.height)}px` : '100% auto'}, 100% 100%`;
+            el.style.backgroundPosition = `center ${startY}px, center top`;
+          }
+          el.style.backgroundRepeat = 'no-repeat';
+        } else {
+          // taller than its background: drawn to the box's height, the sides trimmed
+          el.style.backgroundSize = box > s.bg ? 'auto 100%' : '100% auto';
+          el.style.backgroundPosition = '';
+          el.style.backgroundRepeat = '';
+          const src = `url("${s.url}")`;
+          if (el.style.backgroundImage !== src) el.style.backgroundImage = src;
+        }
+        } });
+      });
+      while (ground.children.length > papers.length) ground.lastElementChild?.remove();
+      papers.forEach((pp, i) => {
         let el = ground.children[i] as HTMLElement | undefined;
         if (!el) {
           el = document.createElement('div');
           ground.appendChild(el);
         }
-        const first = i === 0;
-        const final = i === segs.length - 1;
-        // reaches half a seam up into the page before and half a seam down under the next
-        const top = first ? s.top : s.top - half;
-        const bottom = final ? inv.scrollHeight : s.top + s.height + half;
-        const box = bottom - top;
-        el.className = `inv-paper${first ? ' is-first' : ''}${s.foot ? ' is-foot' : ''}`;
-        el.style.top = `${Math.round(top)}px`;
-        el.style.height = `${Math.round(box)}px`;
-        // taller than its background: drawn to the box's height, the sides trimmed
-        el.style.backgroundSize = box > bg ? 'auto 100%' : '100% auto';
-        el.style.setProperty('--seam', `${seam}px`);
-        // the background by number — by night, the night one where the design has it
-        const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
-        const url = (dark ? night?.[(s.n - 1) % backgrounds.length] : '') || backgrounds[(s.n - 1) % backgrounds.length];
-        const src = `url("${url}")`;
-        if (el.style.backgroundImage !== src) el.style.backgroundImage = src;
+        el.className = pp.className;
+        el.style.top = `${Math.round(pp.top)}px`;
+        el.style.height = `${Math.round(pp.height)}px`;
+        el.style.setProperty('--seam', `${pp.seam}px`);
+        pp.draw(el);
       });
-      ground.toggleAttribute('data-night-art', inv.dataset.mode === 'night' && Boolean(night?.length));
+      ground.toggleAttribute('data-night-art', dark);
     };
     const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(lay); };
     queue();
@@ -879,7 +942,7 @@ export function PageGround({ ratio, order, last, backgrounds, night }: { ratio: 
     window.addEventListener('load', queue);
     document.fonts?.ready.then(queue).catch(() => {});
     return () => { cancelAnimationFrame(frame); ro.disconnect(); mo.disconnect(); window.removeEventListener('load', queue); };
-  }, [ratio, order, last, backgrounds, night]);
+  }, [ratio, order, last, backgrounds, night, grounds, seamShare]);
   return <span ref={ref} hidden />;
 }
 

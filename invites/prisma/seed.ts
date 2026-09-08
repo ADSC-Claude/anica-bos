@@ -288,9 +288,58 @@ async function main() {
   });
   await prisma.dfyRevision.create({ data: { jobId: job.id, round: 0, authorId: encoder.id, authorName: encoder.name, byStaff: true, body: 'Hi Sofia! Got your details — starting on the layout now. Please send the rest of the 18 Roses when you can.' } });
 
+  // --- the christening demo: Lucas Andrei, on Baby Blue ------------------------
+  // The design's two drawn pages filled: six milestones with their photographs,
+  // six baby photographs (four in the frames, two on the page after), and every
+  // other page the Signature package carries.
+  {
+    const babyBlue = bySlug('baby-blue');
+    const day = addDays(new Date(), 60);
+    const dayKey = day.toISOString().slice(0, 10);
+    const c: Content = defaultContent('CHRISTENING', 'en');
+    Object.assign(c.cover!, {
+      childFull: 'Lucas Andrei Villanueva', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
+      date: dayKey, time: '10:00', introPreset: 'simple', intro: 'With hearts full of gratitude, Paolo and Denise invite you to the christening of their son.',
+      coverPhoto: '', opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
+    });
+    Object.assign(c.countdown!, { enabled: true, label: '' });
+    Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
+    Object.assign(c.reception!, { venue: 'Blue Leaf Cosmopolitan', address: '30th St cor. 8th Ave, Bonifacio Global City, Taguig', time: '12:00', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the venue.', photo: pic('blue-leaf', 1200, 800), note: '' });
+    Object.assign(c.sponsors!, {
+      ninongs: ['Mr. Rafael Villanueva', 'Engr. Marco Santos', 'Dr. Adrian Lim', 'Atty. Carlo Reyes', 'Mr. Joseph Tan', 'Mr. Miguel Garcia'].map((name) => ({ name })),
+      ninangs: ['Mrs. Patricia Villanueva', 'Ms. Camille Santos', 'Dr. Andrea Lim', 'Mrs. Nicole Reyes', 'Ms. Bianca Tan', 'Mrs. Erika Garcia'].map((name) => ({ name })),
+    });
+    Object.assign(c.dressCode!, { colors: ['powder-blue', 'sky-blue', 'white', 'ivory', 'dusty-blue'].map(swatchHex), paletteNote: 'Soft blues and whites, or anything close.' });
+    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Denise V.', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankDetails: '', registry: [] });
+    Object.assign(c.rsvp!, { deadline: addDays(day, -14).toISOString().slice(0, 10), showSeats: true, collectAttendees: true, askDietary: false, mealChoices: [], policy: 'none', policyText: '', notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 555 0142', reminderText: '' });
+    Object.assign(c.story!, { line: '', timeline: (c.story!.timeline as { title: string; text: string }[]).map((m, i) => ({ ...m, photo: pic(`lucas-story-${i + 1}`, 800, 800) })) });
+    Object.assign(c.gallery!, { line: '', photos: [1, 2, 3, 4, 5, 6].map((n) => ({ url: pic(`lucas-baby-${n}`, 900, 900), caption: n === 1 ? 'One month old' : n === 5 ? 'First smile' : '' })), note: '', videoUrl: '', videoTitle: '', close: '' });
+    Object.assign(c.program!, { items: [{ time: '10:00 AM', title: 'Christening Mass', note: 'Santuario de San Antonio Parish' }, { time: '12:00 PM', title: 'Lunch reception', note: 'Blue Leaf Cosmopolitan' }, { time: '1:30 PM', title: 'Cake and photos', note: 'With the ninongs and ninangs' }, { time: '2:30 PM', title: 'Games and giveaways', note: 'For the little guests' }], activities: '' });
+    Object.assign(c.social!, { hashtag: '#LucasAndreiIsBlessed', instagram: '', tiktok: '', facebook: '', unplugged: false, unpluggedText: '' });
+    Object.assign(c.contact!, { name: 'Denise', phone: '0917 555 0142', name2: 'Paolo', phone2: '0918 555 0143', email: '', messenger: '', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
+    Object.assign(c.photos!, { enabled: true, prompt: 'Share your photos from the christening', moderated: true });
+    Object.assign(c.guestbook!, { enabled: false, prompt: '', moderated: true });
+    Object.assign(c.closing!, { message: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.', signature: 'Paolo, Denise & Lucas', photo: '' });
+    const lucas = await prisma.invitation.create({
+      data: {
+        userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
+        content: c as never, eventAt: day, publishedAt: addDays(new Date(), -5), editsAllowed: -1, ogImageUrl: '',
+      },
+    });
+    const christSignature = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_COMPLETE' } });
+    const lucasOrder = await prisma.order.create({
+      data: {
+        reference: orderReference(), userId: maria.id, packageId: christSignature.id, invitationId: lucas.id, occasion: 'CHRISTENING', tier: 'COMPLETE', serviceMode: 'DIY',
+        subtotalCents: christSignature.priceCents, totalCents: christSignature.priceCents, status: 'ACTIVE', paidAt: addDays(new Date(), -12), activatedAt: addDays(new Date(), -12), createdAt: addDays(new Date(), -12),
+        items: { create: [{ kind: 'PACKAGE', code: 'CHRISTENING_COMPLETE', name: christSignature.name, amountCents: christSignature.priceCents, sortOrder: 0 }] },
+      },
+    });
+    await prisma.payment.create({ data: { reference: paymentReference(), orderId: lucasOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: lucasOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_demo_lucas', gatewayPaymentId: 'pay_demo_lucas', gatewayEventId: 'evt_demo_lucas', paidAt: addDays(new Date(), -12) } });
+  }
+
   // --- a christening order with a proof waiting for review ------------------
   const christBasic = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_BASIC' } });
-  const cloud = bySlug('little-cloud');
+  const cloud = bySlug('baby-blue');
   const christ = await prisma.invitation.create({ data: { userId: maria.id, templateId: cloud.id, occasion: 'CHRISTENING', tier: 'BASIC', title: "Baby Liam's Christening", slug: 'baby-liam-christening', status: 'DRAFT', content: defaultContent('CHRISTENING') as never, editsAllowed: 3 } });
   const christOrder = await prisma.order.create({
     data: {

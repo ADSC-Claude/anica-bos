@@ -306,6 +306,14 @@ over a poster whose artwork already says "you're invited" in its own hand.
 The guest page has had those guards since it was built (`LOAD_GRACE_MS`,
 `END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own.
 
+**Day and night is sold, not hidden.** Every paged design reads twice over:
+the same pages by daylight and after dark. The couple sets which one their
+invitation opens in — or lets it follow the guest's own clock, evening from
+six — and the guest may switch with the moon in the corner, their phone
+keeping the choice per invitation. That is now said on All designs
+(`app/templates/page.tsx`), because it is a reason to buy and nobody could
+have known it from the covers.
+
 **What is typed reaches both surfaces.** The card's words are `plateWords()`
 over the invitation's own cover fields — the monogram, the line, the names,
 the date and the words under it — so renaming the child in the builder renames

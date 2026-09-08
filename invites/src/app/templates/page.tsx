@@ -28,6 +28,13 @@ export default async function TemplatesPage() {
         <p className="eyebrow mt-4">Templates</p>
         <h1 className="display mt-1 text-4xl">All designs</h1>
         <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Each design is shown here by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen. Every package opens with The Letter — a sealed envelope that opens to say you are invited, then your invitation. The premium opening video made for a design, with your names on its card, is an add-on.</p>
+        {/* Every design is drawn twice over: the same pages by daylight and after
+            dark. The couple sets which one it opens in (Settings on their
+            invitation), or lets it follow the guest's own clock; the guest may
+            switch with the moon in the corner, and their phone remembers it. */}
+        <p className="mt-3 max-w-2xl text-[color:var(--color-ink-700)]">
+          <b>Day and night.</b> Every design reads both ways. You choose which one your invitation opens in, or let it follow your guest&apos;s own clock — evening after six — and your guest can switch with the moon in the corner while they read. Their phone remembers how they left it.
+        </p>
         {collections.length > 0 && (
           <section className="mt-8">
             <h2 className="display text-2xl">Browse by collection</h2>

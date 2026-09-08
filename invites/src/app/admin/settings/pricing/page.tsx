@@ -19,7 +19,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       <Flash {...sp} />
       <div className="card overflow-x-auto">
         <table className="data">
-          <thead><tr><th>Package</th><th>Name / tagline</th><th>Price ₱</th><th>+ DFY ₱</th><th>+ Priority ₱</th><th>Revisions</th><th>Validity days</th><th>Active</th><th /></tr></thead>
+          <thead><tr><th>Package</th><th>Name / tagline</th><th>Price ₱</th><th>+ DFY ₱</th><th>+ Priority ₱</th><th>Validity days</th><th>Active</th><th /></tr></thead>
           <tbody>
             {packages.map((p) => (
               <tr key={p.id}>
@@ -28,7 +28,6 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
                 <td><input form={`pkg-${p.id}`} name="price" type="number" step="0.01" defaultValue={p.priceCents / 100} className="field w-24" /></td>
                 <td><input form={`pkg-${p.id}`} name="dfyFee" type="number" step="0.01" defaultValue={p.dfyFeeCents / 100} className="field w-24" /></td>
                 <td><input form={`pkg-${p.id}`} name="conciergeFee" type="number" step="0.01" defaultValue={p.conciergeFeeCents / 100} className="field w-24" /></td>
-                <td><input form={`pkg-${p.id}`} name="edits" type="number" defaultValue={p.editsAfterPublish} className="field w-20" /></td>
                 <td><input form={`pkg-${p.id}`} name="validity" type="number" defaultValue={p.linkValidityDays} className="field w-20" /></td>
                 <td><input form={`pkg-${p.id}`} name="active" type="checkbox" defaultChecked={p.active} className="h-4 w-4" /></td>
                 <td><button form={`pkg-${p.id}`} className="btn btn-secondary btn-sm" type="submit">Save</button></td>

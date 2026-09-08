@@ -163,7 +163,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       const premiumOpening = order.items.some((it) => it.kind === 'ADDON' && it.code === PREMIUM_OPENING_CODE);
       await tx.invitation.update({
         where: { id: order.invitationId },
-        data: { editsAllowed: order.package.editsAfterPublish, ...(premiumOpening ? { premiumOpening: true } : {}) },
+        data: premiumOpening ? { premiumOpening: true } : {},
       });
     }
     if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {
@@ -258,7 +258,7 @@ export async function applyUpgrade(orderId: string) {
   if (!match) return;
   await prisma.$transaction([
     prisma.order.update({ where: { id: orderId }, data: { status: 'ACTIVE', paidAt: order.paidAt ?? new Date(), activatedAt: new Date() } }),
-    prisma.invitation.update({ where: { id: match[1] }, data: { tier: order.tier, editsAllowed: order.package.editsAfterPublish } }),
+    prisma.invitation.update({ where: { id: match[1] }, data: { tier: order.tier } }),
   ]);
   await notify(order.userId, `Upgraded to ${order.package.name}`, 'New sections are unlocked in your builder.', `/account/invitations/${match[1]}`);
 }

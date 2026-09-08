@@ -173,8 +173,8 @@ order `PENDING_PAYMENT → PAID → ACTIVE` → a `DfyJob` is created → the cu
 fills the intake form, or says they will send it via Messenger / Viber / Excel
 → an encoder is assigned and builds it in the builder → moves the job to
 *Preview sent* (customer gets a link by dashboard + email) → customer requests
-changes (rounds are counted) or approves → staff publishes → the customer keeps
-the builder for changes afterwards.
+changes (rounds are counted) or approves → staff publishes → the invitation is
+live, and closed to the customer: they read it, and ask us for any change.
 
 **There is one service, and it is not a choice.** `ServiceMode` still has three
 values and `serviceModeAvailable()` in `src/lib/pricing.ts` sells exactly one
@@ -195,8 +195,8 @@ sold under any of them names itself correctly in the admin, on a receipt and in
 a customer's history, and `DIY` stays the stored value for an order with no
 build behind it: an upgrade order, or an invitation staff made with no order at
 all. Nothing about the builder is removed either — encoders live in it, the
-intake form is generated from it, and a customer gets it once their invitation
-is published.
+intake form is generated from it, and a customer can read their own invitation
+in it once it is published — read, not change.
 
 Every write to an invitation goes through `src/lib/invitations.ts`; every
 read of it by a guest goes through `loadPublic()`. Drafts are visible only to
@@ -219,6 +219,16 @@ Because they are rows, changing the code does not change what a live database
 charges: `npm run db:pricing` applies the grid in `scripts/set-pricing.ts`
 (`-- --dry` to see it first), and that is the only thing that moves an existing
 catalogue to ₱2,500 / ₱4,000 / ₱6,000 with both service fees at zero.
+
+**Revisions happen before we publish.** The customer reads a preview, says what
+to change, and the rounds are counted on the `DfyJob` (`dfy.revisions`, fewer
+when the build was rushed). Publishing ends that conversation rather than
+starting a second one: `assertNotPublished()` in `src/lib/invitations.ts` closes
+a published invitation to its customer — words, photos, colours and design
+alike — and a change after that is ours to make, so staff are never gated by it.
+It is a rule, not an allowance: there is no number left to spend and no row an
+admin can raise to reopen one. `Package.editsAfterPublish` and the invitation's
+`editsAllowed` / `editsUsed` are retired columns, kept but never read.
 
 Service modes stack a fee on top of the package (`dfyFeeCents`,
 `conciergeFeeCents`). The arithmetic lives in one place, `src/lib/pricing.ts`,

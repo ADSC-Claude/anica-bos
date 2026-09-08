@@ -110,10 +110,10 @@ async function main() {
   // build is included in the base price. The columns stay for orders sold
   // under either mode. Keep these in step with scripts/set-pricing.ts, which
   // is what moves a live database.
-  const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
-    { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, edits: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
-    { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, edits: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+  const tiers: { tier: Tier; price: number; dfy: number; concierge: number; validity: number; tagline: string }[] = [
+    { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
+    { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
+    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -135,7 +135,8 @@ async function main() {
           priceCents: t.price,
           dfyFeeCents: t.dfy,
           conciergeFeeCents: t.concierge,
-          editsAfterPublish: t.edits,
+          // retired: revisions happen before publish, counted on the job
+          editsAfterPublish: 0,
           linkValidityDays: t.validity,
           sortOrder: sort++,
         },

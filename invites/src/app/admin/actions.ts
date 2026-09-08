@@ -224,13 +224,9 @@ export async function setTierAction(invitationId: string, back: string, fd: Form
   return run('invitations.edit', back, async (user) => {
     const tier = s(fd, 'tier') as Tier;
     if (!['BASIC', 'STANDARD', 'COMPLETE'].includes(tier)) throw new HttpError(400, 'Bad tier.');
-    // The revision count comes from the package being moved to, not from a
-    // second copy of the ladder here — this used to read 3-or-unlimited and
-    // would have gone stale the moment the packages changed.
-    const inv = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, select: { occasion: true } });
-    const target = await prisma.package.findFirst({ where: { tier, occasion: inv.occasion, active: true } })
-      ?? await prisma.package.findFirst({ where: { tier, occasion: null, active: true } });
-    await prisma.invitation.update({ where: { id: invitationId }, data: { tier, ...(target ? { editsAllowed: target.editsAfterPublish } : {}) } });
+    // The tier is all there is to move now: it used to carry a revision count
+    // across from the package, and revisions no longer outlive publishing.
+    await prisma.invitation.update({ where: { id: invitationId }, data: { tier } });
     await audit(user, { module: 'invitations', action: 'tier.set', entityType: 'Invitation', entityId: invitationId, summary: tier, sensitive: true });
     return `Tier set to ${tier}.`;
   });
@@ -337,7 +333,6 @@ export async function savePackageAction(packageId: string, back: string, fd: For
       priceCents: toCents(s(fd, 'price')),
       dfyFeeCents: toCents(s(fd, 'dfyFee')),
       conciergeFeeCents: toCents(s(fd, 'conciergeFee')),
-      editsAfterPublish: n(fd, 'edits', -1),
       linkValidityDays: n(fd, 'validity', 30),
       active: b(fd, 'active'),
     };

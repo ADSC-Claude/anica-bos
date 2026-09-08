@@ -35,7 +35,6 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
   const window = changeWindow(inv.eventAt);
-  const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);
   const upgrade = nextTier(inv.tier);
 
   return (
@@ -82,7 +81,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{dfy ? 'Our team publishes this once you approve the preview.' : 'When the details look right in the preview, publish to get your shareable link and QR.'}</p>
             )}
-            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} editsLeft={editsLeft} />}
+            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} />}
             {dfy && job && <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">Build status: {job.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/account/invitations/${inv.id}/dfy`} className="underline">open</Link></p>}
           </div>
 
@@ -126,7 +125,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
           {upgrade && (
             <div className="card p-4 text-sm">
               <p className="font-semibold">Need more?</p>
-              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and unlimited edits' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
+              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and a custom link' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
               <Link href={`/account/invitations/${inv.id}/upgrade`} className="btn btn-secondary btn-sm mt-2">See upgrade</Link>
             </div>
           )}

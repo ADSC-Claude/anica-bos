@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { publishAction, unpublishAction, toggleRsvpAction } from '@/app/account/actions';
 
-export function PublishControls({ invitationId, status, problems, rsvpClosed, editsLeft }: { invitationId: string; status: string; problems: string[]; rsvpClosed: boolean; editsLeft: number | null }) {
+export function PublishControls({ invitationId, status, problems, rsvpClosed }: { invitationId: string; status: string; problems: string[]; rsvpClosed: boolean }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
@@ -25,7 +25,6 @@ export function PublishControls({ invitationId, status, problems, rsvpClosed, ed
           <button type="button" className="btn btn-primary" disabled={pending || problems.length > 0} onClick={() => run(() => publishAction(invitationId).then((r) => (r.ok ? { ok: true } : r)))}>{pending ? 'Publishing…' : 'Publish invitation'}</button>
         )}
       </div>
-      {editsLeft !== null && status === 'PUBLISHED' && <p className="text-xs text-[color:var(--color-ink-500)]">{editsLeft} edit{editsLeft === 1 ? '' : 's'} left on your package.</p>}
       {error && <p role="alert" className="text-sm text-[color:var(--bad)]">{error}</p>}
     </div>
   );

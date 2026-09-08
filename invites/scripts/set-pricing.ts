@@ -1,5 +1,5 @@
 /**
- * Sets the price, fees and revision count on every package, and the queue-jump
+ * Sets the price and fees on every package, and the queue-jump
  * add-ons, to one
  * agreed grid.
  *
@@ -44,18 +44,17 @@ import { formatPeso } from '../src/lib/money';
  *
  * The columns stay so orders sold under either mode still reconcile.
  */
-const FEES: Record<Tier, { base: number; dfy: number; concierge: number; revisions: number }> = {
-  BASIC: { base: 2_500, dfy: 0, concierge: 0, revisions: 2 },
-  STANDARD: { base: 4_000, dfy: 0, concierge: 0, revisions: 4 },
-  COMPLETE: { base: 6_000, dfy: 0, concierge: 0, revisions: 6 },
+const FEES: Record<Tier, { base: number; dfy: number; concierge: number }> = {
+  BASIC: { base: 2_500, dfy: 0, concierge: 0 },
+  STANDARD: { base: 4_000, dfy: 0, concierge: 0 },
+  COMPLETE: { base: 6_000, dfy: 0, concierge: 0 },
 };
 
 /**
- * Revisions are counted after publish and cover the photos and the details.
- * The design is not among them — changeTemplate refuses once an invitation is
- * published — so there is no longer anything for the template-switch add-on to
- * sell, and it is deactivated rather than deleted: orders that bought one keep
- * their line item.
+ * Revisions are rounds of changes before we publish; nothing about a published
+ * invitation is the customer's to switch, so there is nothing for the
+ * template-switch add-on to sell. It is deactivated rather than deleted:
+ * orders that bought one keep their line item.
  */
 const RETIRED_ADDONS = ['TEMPLATE_SWITCH'];
 
@@ -104,16 +103,15 @@ async function main() {
     const priceCents = pesos(target.base);
     const dfyFeeCents = pesos(target.dfy);
     const conciergeFeeCents = pesos(target.concierge);
-    const editsAfterPublish = target.revisions;
-    if (p.priceCents === priceCents && p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.editsAfterPublish === editsAfterPublish) {
+    if (p.priceCents === priceCents && p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents) {
       console.info(`  ${p.code.padEnd(22)} ${col(p.priceCents)}   unchanged`);
       continue;
     }
 
-    console.info(`  ${p.code.padEnd(22)} base ${col(p.priceCents)} → ${col(priceCents)}   DFY ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}   rev ${String(p.editsAfterPublish).padStart(3)} → ${String(editsAfterPublish).padStart(2)}`);
+    console.info(`  ${p.code.padEnd(22)} base ${col(p.priceCents)} → ${col(priceCents)}   DFY ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}`);
     if (!dry) {
-      const before = { priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, editsAfterPublish: p.editsAfterPublish };
-      await prisma.package.update({ where: { id: p.id }, data: { priceCents, dfyFeeCents, conciergeFeeCents, editsAfterPublish } });
+      const before = { priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents };
+      await prisma.package.update({ where: { id: p.id }, data: { priceCents, dfyFeeCents, conciergeFeeCents } });
       // Price changes are `sensitive` wherever the admin makes them. A bulk
       // script that skipped the log would leave a gap in the only record of
       // who moved a price and when.
@@ -124,7 +122,7 @@ async function main() {
         entityId: p.id,
         summary: `${p.code} price and fees (set-pricing)`,
         before,
-        after: { priceCents, dfyFeeCents, conciergeFeeCents, editsAfterPublish },
+        after: { priceCents, dfyFeeCents, conciergeFeeCents },
         sensitive: true,
       });
     }

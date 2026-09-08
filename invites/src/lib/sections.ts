@@ -202,8 +202,10 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
   // How the photograph sits on a design whose ground is artwork (Capiz):
   // five settings, so a couple who wants their photo carried differently is
-  // one pick away rather than a design change. Blank is the veil.
-  select('photoStyle', 'How the photo sits', PHOTO_STYLES, { hint: 'On the Capiz design. Blank is the veil.' }),
+  // one pick away rather than a design change. Blank is the veil. Baby Blue
+  // carries the photograph too, always as the tucked card — the other four are
+  // drawn in Capiz's own paper and gold — so this picker does not reach it.
+  select('photoStyle', 'How the photo sits', PHOTO_STYLES, { hint: 'On the Capiz design. Blank is the veil. Baby Blue always tucks the photo in as a card.' }),
   textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: "Shown after the cover, on designs that carry one. Blank keeps the design's own verse.", staff: true }),
   text('verseRef', 'Its source', { placeholder: 'Colossians 3:14', staff: true }),
   text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.', staff: true }),

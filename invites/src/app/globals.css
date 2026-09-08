@@ -840,6 +840,29 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   margin-bottom: 1.6rem;
 }
 .inv-portrait[data-style='card'] img { aspect-ratio: 4 / 5; }
+/*
+ * Baby Blue's cover photograph: the same tucked card, in this design's own
+ * paper and ink.
+ *
+ * The width is capped against the screen's HEIGHT as well as its width, which
+ * the Capiz card has no need of. Capiz's cover is as tall as its artwork and a
+ * card simply sits on it; Baby Blue's cover is one screen of sky by
+ * construction, with the child's name centred in it and the verse waiting under
+ * the fold. A card sized off the width alone is 14rem tall on a tall phone and
+ * the same 14rem on a short one, where it pushes the name toward the fold and
+ * costs the cover the thing it was composed around. 20dvh keeps the card in
+ * proportion to the sky it is lying on, and clear of the daisies the ground
+ * draws into the top corner, which a short screen brings down to meet it.
+ */
+.inv[data-layout='babyblue'] .inv-portrait[data-style='card'] {
+  width: min(50%, 11.5rem, 20dvh);
+  padding: 0.4rem 0.4rem 1.4rem;
+  background: #fff;
+  /* the ink of this design is a dusty navy, and so is the shade it casts */
+  box-shadow: 0 16px 32px -18px rgba(74, 91, 122, 0.5), 0 1px 2px rgba(74, 91, 122, 0.12);
+  transform: rotate(-3deg);
+  margin: 0 auto min(4.5vw, 1.4rem);
+}
 .inv[data-paged] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;

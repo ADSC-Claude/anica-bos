@@ -203,14 +203,23 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // cover the way the other layouts do it. Capiz carries it one of five ways
   // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
   // framed above them as an arch, an oval, a medallion or a tucked card.
-  const portrait = format && layout === 'capiz' && photo;
+  //
+  // Baby Blue carries it one way, the tucked card. Its cover is a single
+  // screen of sky with the child's name in it, and of the five that is the one
+  // that sits on sky: the veil is a wash of Capiz's own paper, and the arch,
+  // the oval and the medallion are drawn in Capiz's gold. A card leaning above
+  // the name reads as a photograph somebody set down there, which is what this
+  // cover has room for. So the picker still belongs to Capiz, and a christening
+  // that names a style it cannot use gets the card rather than nothing.
+  const portrait = format && isPaged(layout) && photo;
+  const portraitStyle = layout === 'babyblue' ? 'card' : str(cover, 'photoStyle') || 'veil';
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
         {portrait && (
-          <figure className="inv-portrait" data-style={str(cover, 'photoStyle') || 'veil'}>
+          <figure className="inv-portrait" data-style={portraitStyle}>
             <img src={imageUrl(photo, IMAGE.hero)} alt="" />
           </figure>
         )}

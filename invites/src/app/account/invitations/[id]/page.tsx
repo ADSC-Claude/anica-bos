@@ -126,7 +126,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
           {upgrade && (
             <div className="card p-4 text-sm">
               <p className="font-semibold">Need more?</p>
-              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and unlimited edits' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
+              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and twice the revisions' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
               <Link href={`/account/invitations/${inv.id}/upgrade`} className="btn btn-secondary btn-sm mt-2">See upgrade</Link>
             </div>
           )}

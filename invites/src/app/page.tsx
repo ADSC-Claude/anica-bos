@@ -23,7 +23,7 @@ const FAQ = [
   { q: 'Do my guests need an app or an account?', a: 'No. The invitation is a link. It opens in Messenger, Viber, any browser, on any phone — no download, no sign-up. RSVP is one tap.' },
   { q: 'Can my lola open it?', a: 'That is exactly who we built it for. Big text, big buttons, loads fast on mobile data, and there is a “Download as image” button so you can forward a picture version to relatives who prefer that.' },
   { q: 'Can I print it?', a: 'Yes. Every invitation has a print view (Save as PDF from your phone or laptop) and a downloadable image with a QR code that opens the full invitation.' },
-  { q: 'Can I change details after publishing?', a: 'Standard and Signature packages include unlimited edits until the event. Basic includes three. Guests always see the latest version at the same link.' },
+  { q: 'Can I change details after publishing?', a: 'Your photos and details, yes — that is what a revision is. Basic includes 2, Standard 4, Signature 6, and guests always see the latest version at the same link. The design itself is settled once you publish, because your guests already have the link; message us if something about it is wrong.' },
   { q: 'How does Done-For-You work?', a: 'Pick a package, tick Done-For-You, pay. Then send us the details however is easiest — our intake form, Messenger, Viber or an Excel file. An encoder builds it in 2–3 working days, you review a preview, request changes (2 rounds included), approve, and we publish. You can still edit it yourself afterwards.' },
   { q: 'What is the refund policy?', a: 'Because each invitation is built to order, payments are non-refundable once published or once a Done-For-You build has started. If we cannot deliver, you get a full refund.' },
   { q: 'Is my guest list safe?', a: 'Guest lists are personal data. We collect only what an invitation needs, never sell or share it, and keep personal links unguessable. Your dashboard has a Your data page that downloads everything we hold about you and deletes all of it on request — in line with the Data Privacy Act of 2012.' },
@@ -90,7 +90,7 @@ export default async function Landing() {
           <h2 className="display mt-2 text-center text-3xl">Two ways to get there</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {[
-              { title: 'Do it yourself', sub: 'Instant, unlimited edits', steps: ['Pick a template and package, pay with GCash, Maya or card', 'Fill in a guided builder — names, entourage, venues, photos, RSVP — with a live phone preview', 'Publish and share your link and QR on Messenger, Viber or SMS'] },
+              { title: 'Do it yourself', sub: 'Instant, edit freely before you publish', steps: ['Pick a template and package, pay with GCash, Maya or card', 'Fill in a guided builder — names, entourage, venues, photos, RSVP — with a live phone preview', 'Publish and share your link and QR on Messenger, Viber or SMS'] },
               { title: 'Done-For-You', sub: 'We encode it · 2–3 working days', steps: ['Pick a package, tick Done-For-You, pay', 'Send the details by intake form, Messenger, Viber or Excel — photos and screenshots welcome', 'Review a preview on your phone, request tweaks, approve — we publish'] },
             ].map((flow) => (
               <div key={flow.title} className="card p-6">

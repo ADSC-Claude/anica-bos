@@ -97,6 +97,7 @@ const PHRASES = {
   'gift.gcash': { en: 'Send a gift via GCash', tl: 'Magpadala ng regalo sa GCash' },
   'gift.bank': { en: 'Bank details', tl: 'Bank details' },
   'gift.registry': { en: 'Registry', tl: 'Registry' },
+  'cover.follows': { en: 'Invitation to follow', tl: 'Susunod po ang paanyaya' },
   'rsvp.title': { en: 'RSVP', tl: 'RSVP' },
   'rsvp.lead': { en: 'Kindly confirm your attendance', tl: 'Paki-confirm po ang inyong pagdalo' },
   'rsvp.deadline': { en: 'on or before', tl: 'bago ang' },

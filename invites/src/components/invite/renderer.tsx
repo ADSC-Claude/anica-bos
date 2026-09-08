@@ -1683,9 +1683,57 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // The peek ends with Our Story, or with the cover where the design has no
   // story: the pages up to that one, then the way in.
   const peekEnd = (keys: string[]) => { const i = keys.indexOf('story'); return i < 0 ? 1 : i + 1; };
-  const body = format
-    ? pages()
-    : (peek ? order.slice(0, peekEnd(order)) : order).map((key) => section(key));
+  /**
+   * The Save the Date is one screen, not a shortened invitation.
+   *
+   * Pouring two sections through the paged machinery leaves the design's own
+   * holes: Capiz's cover page is 264% of the viewport wide on purpose, sized
+   * to hold the names at its head and the verse at its foot with the shells
+   * between, and a card carrying only names and a date falls through it. So
+   * the card is composed here instead — the design's art banded at the top and
+   * the foot, everything else centred between them, nothing to scroll.
+   */
+  // The design's own picture, if it has one. A design with no artwork keeps
+  // the palette and the type, which is a card too.
+  const stdArt = !saveTheDate ? '' : capiz ? art.backgrounds[0] : babyblue ? art.grounds.cover?.url ?? '' : '';
+
+  function saveTheDateCard() {
+    const cover = content.cover;
+    const monogram = str(cover, 'monogram');
+    const names = heroCopy(occasion, cover, lang).names;
+    const joiner = look?.joiner ?? '&';
+    // The design's own picture, banded head and foot. A design with no artwork
+    // of its own keeps the palette and the type, which is a card too.
+    return (
+      <div className="inv-std" key="std">
+        <div className="inv-std-body">
+          {monogram && <p className="inv-display inv-std-monogram">{monogram}</p>}
+          <p className="inv-eyebrow inv-std-eyebrow">{t(lang, 'cover.saveTheDate')}</p>
+          <h1 className="inv-names inv-std-names">
+            {names.map((n, i) => (
+              <span key={i}>
+                {i > 0 && (joiner === 'and' ? <span className="inv-amp" data-word="">{lang === 'tl' ? 'at' : 'and'}</span> : <span className="inv-amp">&amp;</span>)}
+                {n}
+              </span>
+            ))}
+          </h1>
+          {coverDate && <p className="inv-std-date">{dottedDate(coverDate)}</p>}
+          {eventAt && (
+            <div className="inv-std-count">
+              <Countdown target={eventAt.toISOString()} labels={[t(lang, 'countdown.days'), t(lang, 'countdown.hours'), t(lang, 'countdown.minutes'), t(lang, 'countdown.seconds')]} today={t(lang, 'countdown.today')} />
+            </div>
+          )}
+          <p className="inv-std-follow">{t(lang, 'cover.follows')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const body = saveTheDate
+    ? saveTheDateCard()
+    : format
+      ? pages()
+      : (peek ? order.slice(0, peekEnd(order)) : order).map((key) => section(key));
   const peekEndBlock = peek ? (
     <section key="peek-end" className="inv-section inv-peek">
       <p className="inv-eyebrow">{lang === 'tl' ? `Ang disenyong ${inv.template.name}` : `The ${inv.template.name} design`}</p>
@@ -1847,7 +1895,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   }
 
   return (
-    <div className="inv" data-layout={layout} data-paged={format ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} style={style} lang={lang}>
+    <div className="inv" data-layout={layout} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {preview && (

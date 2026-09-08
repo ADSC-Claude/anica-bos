@@ -4,6 +4,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { resolveDatabaseUrl } from '../src/lib/db-url';
+import { selfServe } from '../src/lib/pricing';
 
 const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
 let failures = 0;
@@ -19,7 +20,7 @@ async function main() {
   check('every ACTIVE order has a PAID payment or a zero total', orders.filter((o) => o.status === 'ACTIVE').every((o) => o.totalCents === 0 || o.payments.some((p) => p.status === 'PAID')));
   check('no PENDING_PAYMENT order has a PAID payment', orders.filter((o) => o.status === 'PENDING_PAYMENT').every((o) => !o.payments.some((p) => p.status === 'PAID')));
 
-  const dfyOrders = orders.filter((o) => o.serviceMode !== 'DIY' && o.status === 'ACTIVE');
+  const dfyOrders = orders.filter((o) => !selfServe(o.serviceMode) && o.status === 'ACTIVE');
   const jobs = await prisma.dfyJob.findMany();
   check('every active DFY order has a job', dfyOrders.every((o) => jobs.some((j) => j.orderId === o.id)), `${dfyOrders.length} orders, ${jobs.length} jobs`);
 

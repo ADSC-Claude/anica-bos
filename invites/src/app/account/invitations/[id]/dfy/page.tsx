@@ -3,13 +3,16 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { loadJobForCustomer, DFY_COLUMNS } from '@/lib/dfy';
+import { RUSH_CODE, PRIORITY_CODE } from '@/lib/pricing';
 import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, type Content } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type Content } from '@/lib/sections';
+import { galleryLimit } from '@/lib/tiers';
 import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
 import { invitationPath } from '@/lib/app-url';
+import { serviceModeLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,17 +43,24 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
       unlocked,
       minTier: sectionMinTier(d.key, inv.occasion),
       initial: { ...emptySection(fields), ...(existing[d.key] ?? {}), ...(intake.content?.[d.key] ?? {}) },
+      // a photo page drawn with frames holds so many, whatever the package
+      ...(d.key === 'gallery' ? { listLimits: { photos: Math.min(galleryLimit(inv.tier) === Infinity ? 200 : galleryLimit(inv.tier), photoFrames(inv.template.layout)) }, listHints: photoFramesHint(inv.template.layout) } : {}),
     };
   });
 
   const stage = DFY_COLUMNS.findIndex((c) => c.key === job.status);
   const canEditIntake = ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status);
   const left = job.revisionsAllowed - job.revisionsUsed;
+  // Whether this build was paid to be quick, which is what shortens the
+  // turnaround and, with it, the number of rounds there is room for.
+  const bought = (code: string) => job.order.items.some((it) => it.kind === 'ADDON' && it.code === code);
+  const priority = bought(PRIORITY_CODE);
+  const hurried = priority || bought(RUSH_CODE);
 
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
-      <PageHeader title={inv.order?.serviceMode === 'CONCIERGE' ? 'Full Concierge' : 'Done-For-You'} subtitle={<><DfyPill status={job.status} />{job.assignee ? ` · your encoder: ${job.assignee.name}` : ''}{job.dueAt && stage < 3 ? ` · preview due ${formatDate(job.dueAt)}` : ''}</>} />
+      <PageHeader title={serviceModeLabel(inv.order?.serviceMode ?? 'DFY')} subtitle={<><DfyPill status={job.status} />{job.assignee ? ` · your encoder: ${job.assignee.name}` : ''}{job.dueAt && stage < 3 ? ` · preview due ${formatDate(job.dueAt)}` : ''}</>} />
 
       <ol className="mb-6 flex flex-wrap gap-1 text-xs">
         {DFY_COLUMNS.map((c, i) => (
@@ -84,8 +94,9 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
             <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-2" size="sm" />
           </div>
           <div className="card p-4 text-xs text-[color:var(--color-ink-500)]">
-            <p>Turnaround: {inv.order?.serviceMode === 'CONCIERGE' ? `${s['concierge.turnaroundDays']} working days` : `${s['dfy.turnaroundDays']} working days`} from the time we receive your details.</p>
-            <p className="mt-1">Revisions: {job.revisionsAllowed} rounds included.</p>
+            <p>Turnaround: {hurried ? (priority ? `${s['concierge.turnaroundDays']} working days` : `${s['rush.turnaroundHours']} hours`) : `${s['dfy.turnaroundDays']} working days`} from the time we receive your details.</p>
+            <p className="mt-1">Revisions: {job.revisionsAllowed} round{job.revisionsAllowed === 1 ? '' : 's'} included.</p>
+            {hurried && <p className="mt-1">Fewer than usual, because you asked for it early: there is limited time to encode, so there is minimal chance to revise.</p>}
           </div>
         </aside>
       </div>

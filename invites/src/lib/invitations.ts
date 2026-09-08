@@ -27,6 +27,8 @@ import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
 import { LOOK_BY_KEY, BASE_LOOK, isLook, lookAllowed, type Look } from './looks';
+import { hasPremiumOpening } from './openings';
+import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
 import { selfServe } from './pricing';
@@ -175,11 +177,13 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   const deadline = rsvpDeadline(content);
   const title = displayTitle(invitation.occasion, content);
 
-  // Edits after publish are counted on the Basic tier.
+  // Revisions after publish: every package includes a fixed number, and each
+  // save of a section spends one. They cover the photos and the details — the
+  // design is frozen at publish (see changeTemplate).
   const published = invitation.status === 'PUBLISHED';
   const editsLeft = invitation.editsAllowed < 0 ? Infinity : invitation.editsAllowed - invitation.editsUsed;
   if (published && editsLeft <= 0) {
-    throw new HttpError(403, 'You have used all the edits included in your package. Upgrade for unlimited edits.');
+    throw new HttpError(403, `You have used all ${invitation.editsAllowed} revisions included in your package. Message us if something still needs changing.`);
   }
 
   const updated = await prisma.invitation.update({
@@ -239,6 +243,21 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
   const content = contentOf(invitation.content);
   content.theme = { ...(content.theme ?? {}), ...clean };
   return prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
+}
+
+/**
+ * Which of the design's premium openings this invitation plays.
+ *
+ * The add-on buys the premium opening; this only says which one, among the
+ * clips drawn for the design. A key from another theme is refused rather than
+ * stored, so no christening can end up behind a wedding's seal.
+ */
+export async function setPremiumOpening(user: SessionUser, invitationId: string, key: string) {
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true, order: { select: { serviceMode: true } } } });
+  assertOpenForChanges(user, invitation);
+  if (!hasPremiumOpening(invitation)) throw new HttpError(403, 'The premium opening is an add-on. Add it to your order and this choice opens up.');
+  if (!premiumOpeningAllowed(invitation.template, key)) throw new HttpError(400, 'That opening was not made for this design.');
+  return prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
 }
 
 /** The palette and fonts a page renders with: the template's, overridden by the customer's. */
@@ -321,6 +340,12 @@ export async function updateSettings(
 export async function changeTemplate(user: SessionUser, invitationId: string, templateId: string) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { order: { select: { serviceMode: true } } } });
   assertOpenForChanges(user, invitation);
+  // The design is settled at publish. A revision is the couple's own words and
+  // photographs; the template underneath them is not revisable, because guests
+  // have already opened the link and staff have already checked how it reads.
+  if (invitation.status === 'PUBLISHED' && user.role === 'CUSTOMER') {
+    throw new HttpError(403, 'Your design is set once your invitation is published. Your revisions cover your photos and details — message us if something about the design itself is wrong.');
+  }
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
   if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, `That design is only in the ${TIER_LABELS.COMPLETE} package.`);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
+import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
 import { OCCASION_KEYS } from '../src/lib/occasions';
 
 test('every occasion has a cover, an RSVP and a closing, and every section it lists is defined', () => {
@@ -12,6 +12,22 @@ test('every occasion has a cover, an RSVP and a closing, and every section it li
     assert.equal(sectionsFor(o).length, keys.filter((k) => sectionOffered(k)).length);
     for (const k of keys) assert.ok(fieldsFor(k, o).length > 0, `${o}.${k} has fields`);
   }
+});
+
+test('Basic gets a cover photo and no gallery; the gallery is named for the occasion', () => {
+  for (const o of OCCASION_KEYS) {
+    // The promise on the landing page is "1 cover photo" for Basic. That photo
+    // is the cover's, so every occasion must have one to give.
+    assert.ok(fieldsFor('cover', o).some((f) => f.key === 'coverPhoto'), `${o} cover has a photo`);
+    if (!OCCASION_SECTIONS[o].includes('gallery')) continue;
+    assert.equal(sectionUnlocked('gallery', o, 'BASIC'), false, `${o} gallery is locked on Basic`);
+    assert.equal(sectionUnlocked('gallery', o, 'STANDARD'), true, `${o} gallery opens on Standard`);
+    // "Prenup photos" on a christening would be nonsense.
+    assert.doesNotMatch(sectionLabel('gallery', o), o === 'WEDDING' ? /^$/ : /Prenup/, `${o} gallery label`);
+  }
+  assert.match(sectionLabel('gallery', 'WEDDING'), /Prenup/);
+  assert.match(sectionLabel('gallery', 'CHRISTENING'), /Baby/);
+  assert.match(sectionLabel('gallery', 'KIDS_BIRTHDAY'), /Celebrant/);
 });
 
 test('default content carries every section for the occasion, and nothing else', () => {

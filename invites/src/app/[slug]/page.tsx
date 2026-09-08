@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
-import { InvitationPage, invitationMetadata } from './shared';
+import { InvitationPage, PeekPage, invitationMetadata } from './shared';
 
 export const dynamic = 'force-dynamic';
 
-type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ wrong?: string }> };
+type Params = { params: Promise<{ slug: string }>; searchParams: Promise<{ wrong?: string; bare?: string; peek?: string }> };
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
@@ -12,6 +12,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function Page({ params, searchParams }: Params) {
   const { slug } = await params;
-  const { wrong } = await searchParams;
-  return <InvitationPage slug={slug} wrongPassword={wrong === '1'} />;
+  const { wrong, bare, peek } = await searchParams;
+  if (peek === '1') return <PeekPage slug={slug} />;
+  return <InvitationPage slug={slug} wrongPassword={wrong === '1'} bare={bare === '1'} />;
 }

@@ -62,6 +62,12 @@ export type Field = {
   /** list */
   item?: Field[];
   addLabel?: string;
+  /**
+   * list, checks: how many at most. text, textarea: how many characters —
+   * the fit, not a safety cap. Set per field in FIT below, so what the client
+   * types is what the template has room for; the form counts it down and the
+   * save cuts anything past it.
+   */
   max?: number;
   /** swatches: how many at least, asked at publish */
   min?: number;
@@ -563,7 +569,7 @@ const SECTION_DEFS: SectionDef[] = [
       occasion === 'CHRISTENING'
         ? [
             text('line', 'Line under the heading', { placeholder: 'e.g. A little prayer, a big answer.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-            list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6, hint: 'Six frames on the page, in this order. Name each moment your way; a frame with no photo stays empty.' }),
+            list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6 }),
           ]
         : [
             text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
@@ -577,11 +583,23 @@ const SECTION_DEFS: SectionDef[] = [
     label: 'Prenup photos & video',
     tl: 'Mga Larawan',
     description: 'Your photos with their captions, your video, and the lines written around them on the page.',
-    minTier: 'BASIC',
-    labelFor: { CHRISTENING: 'Baby photos', COMMUNION: 'Photos', KIDS_BIRTHDAY: 'Photos', BABY_SHOWER: 'Photos', MILESTONE_BIRTHDAY: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
+    /**
+     * Standard and up. Basic's one photo is the cover photo, which every
+     * occasion's cover carries and which is not counted against the gallery:
+     * the gallery page is a designed layout — one large photo, three under the
+     * arches, the rest in a mosaic — and a single photo cannot fill it. Better
+     * to give Basic the cover alone than three empty arches.
+     */
+    minTier: 'STANDARD',
+    /**
+     * Whose photos these are; the label above is the wedding's. Corporate and
+     * housewarming carry no gallery, so nothing falls back to "Prenup". The
+     * guest-facing heading stays "Gallery" whatever the occasion.
+     */
+    labelFor: { CHRISTENING: 'Baby photos', BABY_SHOWER: 'Baby photos', KIDS_BIRTHDAY: "Celebrant's photos", MILESTONE_BIRTHDAY: "Celebrant's photos", COMMUNION: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
     fields: () => [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo' }),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
@@ -744,7 +762,74 @@ const SECTION_DEFS: SectionDef[] = [
   },
 ];
 
-export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries(SECTION_DEFS.map((s) => [s.key, s])) as Record<SectionKey, SectionDef>;
+/**
+ * How many characters each writing has room for on the page.
+ *
+ * A name is set large in a script face across a phone; a milestone's title
+ * sits inside a drawn frame; a note under the palette is one or two lines.
+ * The client cannot see that while typing, so the limit tells them: the form
+ * counts it down and the save cuts anything past it. Keyed `section.field`,
+ * or `section.list.field` for a line inside a list row; anything not named
+ * gets the type's default. Tune here when a design gains or loses room.
+ */
+export const FIT_DEFAULT = { text: 80, textarea: 600 } as const;
+export const FIT: Record<string, number> = {
+  // the cover: names are the largest type on the page
+  'cover.brideFirst': 24, 'cover.groomFirst': 24, 'cover.celebrantFirst': 24, 'cover.partnerA': 24, 'cover.partnerB': 24,
+  'cover.brideFull': 48, 'cover.groomFull': 48, 'cover.celebrantFull': 48, 'cover.childFull': 48, 'cover.honoree': 48, 'cover.name': 48,
+  'cover.brideNick': 20, 'cover.groomNick': 20, 'cover.nickname': 20, 'cover.childNick': 20,
+  'cover.monogram': 6, 'cover.theme': 60, 'cover.momName': 40, 'cover.dadName': 40,
+  'cover.achievement': 80, 'cover.company': 60, 'cover.eventName': 60, 'cover.tagline': 80, 'cover.groupName': 60,
+  'cover.intro': 260, 'cover.verse': 240, 'cover.verseRef': 40, 'cover.interlude2': 60, 'cover.openingLine': 40, 'cover.openingLine2': 60,
+  // venues
+  'ceremony.venue': 60, 'ceremony.address': 110, 'ceremony.note': 160,
+  'reception.venue': 60, 'reception.address': 110, 'reception.note': 160, 'reception.parkingNote': 120,
+  // people
+  'parents.brideNote': 120, 'parents.groomNote': 120, 'parents.note': 120, 'parents.hosts.name': 48, 'parents.hosts.relation': 40,
+  'entourage.first': 40, 'entourage.second': 40, 'entourage.principalSponsors.ninong': 48, 'entourage.principalSponsors.ninang': 48,
+  'sponsors.ninongs.name': 48, 'sponsors.ninangs.name': 48,
+  'eighteen.treasures.item': 40, 'eighteen.treasures.relation': 40,
+  // dress code: lines under a heading, notes under the figures and the palette
+  'dressCode.attireText': 90, 'dressCode.gentsNote': 120, 'dressCode.ladiesNote': 120, 'dressCode.paletteNote': 100,
+  'dressCode.sponsorsAttire': 90, 'dressCode.entourageAttire': 90, 'dressCode.note': 200,
+  // gifts and RSVP
+  'gift.text': 320, 'gift.gcashName': 40, 'gift.gcashNumber': 24, 'gift.bankDetails': 300, 'gift.registry.label': 40,
+  'rsvp.policyText': 240, 'rsvp.note': 240, 'rsvp.contactPhone': 30, 'rsvp.reminderText': 300, 'rsvp.mealChoices.label': 30,
+  // the story: a christening's milestones sit in drawn frames, a wedding's run down a timeline
+  'story.line': 80, 'story.howWeMet': 600, 'story.proposal': 600,
+  'story.timeline.title': 28, 'story.timeline.text': 70, 'story.timeline.date': 24,
+  // photos
+  'gallery.line': 80, 'gallery.note': 90, 'gallery.videoTitle': 40, 'gallery.close': 60, 'gallery.photos.caption': 40,
+  'moment.line1': 40, 'moment.line2': 40, 'moment.line3': 40,
+  // the day
+  'program.items.time': 12, 'program.items.title': 40, 'program.items.note': 60,
+  'faq.items.q': 120, 'faq.items.a': 400,
+  'travel.hotels.name': 60, 'travel.hotels.address': 100, 'travel.hotels.note': 80,
+  'social.hashtag': 40, 'social.instagram': 60, 'social.tiktok': 60, 'social.facebook': 60, 'social.unpluggedText': 240,
+  'music.song': 80, 'guestbook.prompt': 120, 'photos.prompt': 120,
+  'closing.message': 320, 'closing.signature': 60, 'closing.line': 60,
+  'contact.name': 40, 'contact.name2': 40, 'contact.phone': 30, 'contact.phone2': 30, 'contact.email': 80, 'contact.messenger': 200, 'contact.chatNote': 120, 'contact.registrationNote': 240,
+  'speakers.items.name': 40, 'speakers.items.title': 60, 'speakers.items.topic': 80,
+};
+
+/** The room a writing has: its own entry in FIT, else the type's default. */
+export function fitOf(path: string, type: FieldType): number | undefined {
+  if (type !== 'text' && type !== 'textarea') return undefined;
+  return FIT[path] ?? FIT_DEFAULT[type];
+}
+
+/** Every writing in a section carries its limit, list rows included. A list's own `max` (how many rows) is left alone. */
+function withLimits(section: SectionKey, fields: Field[]): Field[] {
+  return fields.map((f) => {
+    if (f.type === 'list') return { ...f, item: (f.item ?? []).map((i) => (i.type === 'text' || i.type === 'textarea' ? { ...i, max: fitOf(`${section}.${f.key}.${i.key}`, i.type) } : i)) };
+    if (f.type === 'text' || f.type === 'textarea') return { ...f, max: fitOf(`${section}.${f.key}`, f.type) };
+    return f;
+  });
+}
+
+export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries(
+  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, s.fields(occasion)) }]),
+) as Record<SectionKey, SectionDef>;
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
@@ -783,6 +868,26 @@ export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
 export const PAGED_LAYOUTS = ['capiz', 'babyblue'] as const;
 export function isPaged(layout: string): boolean {
   return (PAGED_LAYOUTS as readonly string[]).includes(layout);
+}
+
+/**
+ * How many photographs a design's photo page holds, where the page is drawn
+ * with frames: Baby Blue's has four polaroids and that is the page. Any other
+ * design lays out however many the package allows.
+ */
+const LAYOUT_PHOTO_FRAMES: Record<string, number> = { babyblue: 4 };
+export function photoFrames(layout: string): number {
+  return LAYOUT_PHOTO_FRAMES[layout] ?? Infinity;
+}
+/**
+ * What the photos list says under itself on a design with frames, keyed by
+ * the list's field. Nothing: the client chose the design by its cover and can
+ * see the page as they fill it, so the form does not describe the page — the
+ * count beside the list says how many it holds.
+ */
+export function photoFramesHint(layout: string): Record<string, string> | undefined {
+  void layout;
+  return undefined;
 }
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
@@ -968,10 +1073,11 @@ function cleanUrl(v: unknown, path: string, issues: Issue[]): string {
 
 function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): unknown {
   switch (field.type) {
+    // cut to the room the page has for it (the field's fit), else the safety cap
     case 'text':
-      return cleanString(raw, LIMITS.text);
+      return cleanString(raw, field.max ?? LIMITS.text);
     case 'textarea':
-      return cleanString(raw, LIMITS.textarea);
+      return cleanString(raw, field.max ?? LIMITS.textarea);
     case 'date': {
       const s = cleanString(raw, 10);
       if (s && !/^\d{4}-\d{2}-\d{2}$/.test(s)) {

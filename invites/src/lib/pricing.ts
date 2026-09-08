@@ -1,4 +1,4 @@
-import type { DiscountType, ServiceMode } from '@prisma/client';
+import type { DiscountType, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
 
 /**
@@ -10,6 +10,7 @@ import { discountAmount } from './money';
 export type PackageLike = {
   code: string;
   name: string;
+  tier: Tier;
   priceCents: number;
   dfyFeeCents: number;
   conciergeFeeCents: number;
@@ -46,23 +47,103 @@ export type Quote = {
 };
 
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
-  { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder and publish it yourself — no hand-off, no waiting. It stays yours to change right up to the day.', turnaround: 'Instant', revisions: 'Unlimited before you publish; after, by package', intake: 'Builder' },
-  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '2–3 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
-  { key: 'CONCIERGE', label: 'Full Concierge', short: 'Concierge', blurb: 'We encode it and manage your guest list and RSVP follow-ups until the day.', turnaround: '3–5 working days + ongoing', revisions: '3 rounds', intake: 'Intake form + a short call' },
+  { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder and publish it yourself — no hand-off, no waiting, and no deadline before your event.', turnaround: 'Instant', revisions: 'Unlimited before you publish; after, the revisions in your package', intake: 'Builder' },
+  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '5 working days to a week', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
+  { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
 
 /**
  * Self-serve is DIY: the customer fills the builder, publishes it themselves
- * and keeps editing it, with no hand-off to our team and no closing date. The
- * other two modes are team-serviced — we encode, the customer approves, and
- * changes close three weeks out so the final touches can be made. An
- * invitation with no order at all (a seed, a staff draft) is self-serve.
+ * and keeps changing it, with no hand-off to our team and no closing date.
+ * Done-For-You is team-serviced — we encode, the customer approves, and their
+ * changes close three weeks out so the final touches can be made; so is the
+ * withdrawn Priority mode, for the orders already sold under it. An invitation
+ * with no order at all (a seed, a staff draft) is self-serve.
  */
 export function selfServe(mode: ServiceMode | null | undefined): boolean {
   return (mode ?? 'DIY') === 'DIY';
 }
 
-export function serviceFee(pkg: PackageLike, mode: ServiceMode): number {
+/**
+ * What a customer is told a mode is called. The pages that show it used to
+ * spell it out inline, so renaming a mode meant finding every ternary; read it
+ * from SERVICE_MODES instead, the way occasionLabel and TIER_LABELS work.
+ */
+export function serviceModeLabel(mode: ServiceMode): string {
+  return SERVICE_MODES.find((m) => m.key === mode)?.label ?? mode;
+}
+
+/**
+ * The two queue jumps. They are one product bought on top of Done-For-You:
+ * rush promises 24 hours, and priority two working days plus a revision round,
+ * because a Signature build carries too much to encode overnight.
+ */
+export const RUSH_CODE = 'RUSH';
+export const PRIORITY_CODE = 'PRIORITY';
+
+/**
+ * What each package may be sold with. Both rules are here, next to the
+ * arithmetic that reads them, because a rule enforced only in the checkout UI
+ * is not a rule: the wizard and the server both price through quote().
+ */
+
+/**
+ * Who fills in the details is now two answers, not three: the customer, or us.
+ * Speed is bought separately, on top, as the rush or priority add-on — the
+ * CONCIERGE mode used to be the way to buy it, and buying it that way meant
+ * giving up Done-For-You to get it, which is backwards.
+ *
+ * The mode is withdrawn rather than deleted: SERVICE_MODES still carries it so
+ * an order sold under it still names itself on the customer's page.
+ */
+export function serviceModeAvailable(mode: ServiceMode, _tier: Tier): boolean {
+  return mode !== 'CONCIERGE';
+}
+
+/**
+ * Which queue jump a tier is sold. Rush promises 24 hours and is Basic's and
+ * Standard's; priority promises two working days and is Signature's, because
+ * that build carries too much information to guarantee overnight. A tier is
+ * never offered both — they are the same purchase under two promises.
+ */
+export function addOnAvailable(code: string, tier: Tier): boolean {
+  if (code === RUSH_CODE) return tier !== 'COMPLETE';
+  if (code === PRIORITY_CODE) return tier === 'COMPLETE';
+  return true;
+}
+
+/**
+ * What rush costs on each tier it is sold on: jumping the queue ahead of a
+ * Standard build displaces more work than a Basic one.
+ *
+ * This is the one price not held on its row in the database, because AddOn
+ * carries a single priceCents and rush needs two. The row's own price is the
+ * fallback, so an add-on with no entry here still prices from the catalogue.
+ */
+const RUSH_BY_TIER: Partial<Record<Tier, number>> = { BASIC: 100_000, STANDARD: 150_000 };
+
+/**
+ * Preview rounds on a build that was paid to be quick. A round is a preview
+ * sent, read, replied to and worked through; there is no room for the ordinary
+ * two inside 24 hours on Basic, and promising them would mean missing the date
+ * the rush was bought for.
+ *
+ * It is a cap, never a bonus: a tier whose ordinary allowance is already lower
+ * keeps the lower number. Buying speed does not buy rounds.
+ */
+const RUSHED_ROUNDS: Record<Tier, number> = { BASIC: 1, STANDARD: 2, COMPLETE: 2 };
+
+export function revisionRounds(tier: Tier, rushed: boolean, ordinary: number): number {
+  return rushed ? Math.min(ordinary, RUSHED_ROUNDS[tier]) : ordinary;
+}
+
+export function addOnPrice(addOn: AddOnLike, tier: Tier): number {
+  if (addOn.code !== RUSH_CODE) return addOn.priceCents;
+  return RUSH_BY_TIER[tier] ?? addOn.priceCents;
+}
+
+export function serviceFee(pkg: Pick<PackageLike, 'tier' | 'dfyFeeCents' | 'conciergeFeeCents'>, mode: ServiceMode): number {
+  if (!serviceModeAvailable(mode, pkg.tier)) return 0;
   if (mode === 'DFY') return pkg.dfyFeeCents;
   if (mode === 'CONCIERGE') return pkg.conciergeFeeCents;
   return 0;
@@ -91,14 +172,16 @@ export function quote(input: {
 
   const fee = serviceFee(input.pkg, input.serviceMode);
   if (fee > 0) {
-    const label = SERVICE_MODES.find((m) => m.key === input.serviceMode)?.label ?? input.serviceMode;
+    const label = serviceModeLabel(input.serviceMode);
     items.push({ kind: 'SERVICE', code: `SERVICE_${input.serviceMode}`, name: `${label} service`, amountCents: fee });
   }
 
   let addOnsCents = 0;
   for (const a of input.addOns) {
-    items.push({ kind: 'ADDON', code: a.code, name: a.name, amountCents: a.priceCents });
-    addOnsCents += a.priceCents;
+    if (!addOnAvailable(a.code, input.pkg.tier)) continue;
+    const cents = addOnPrice(a, input.pkg.tier);
+    items.push({ kind: 'ADDON', code: a.code, name: a.name, amountCents: cents });
+    addOnsCents += cents;
   }
 
   const gross = input.pkg.priceCents + fee + addOnsCents;

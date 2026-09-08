@@ -26,6 +26,7 @@ export function Builder({
   initial,
   lang,
   listLimits,
+  listHints,
   editsLeft,
   lookKey,
   allLooks,
@@ -59,6 +60,8 @@ export function Builder({
   initial: SectionData;
   lang: Lang;
   listLimits: Record<string, number>;
+  /** a list's hint from the design, e.g. a photo page with a fixed number of frames */
+  listHints?: Record<string, string>;
   editsLeft: number | null;
 }) {
   const router = useRouter();
@@ -166,12 +169,12 @@ export function Builder({
             allDone ? (
               <Notice tone="ok">
                 Every section is marked Done{completedAt ? ` (${when(completedAt)})` : ''} — your invitation is ready to {status === 'PUBLISHED' ? 'share' : 'publish'}.
-                Open any section whenever you want to change something; it stays yours to edit right up to the day.
+                Open any section whenever you want to change something: nothing closes before your event.
               </Notice>
             ) : (
               <Notice tone="info">
                 Fill in each section and press <b>Done</b> when it is complete — it folds away and the next one opens ({doneCount} of {total} so far).
-                <b> Done is your own progress mark</b>: nothing is sent anywhere, and you can {status === 'PUBLISHED' ? 'keep changing a published invitation' : 'publish as soon as the cover is filled in'}.
+                <b> Done is your own progress mark</b>: nothing is sent anywhere, and you can {status === 'PUBLISHED' ? 'change a published invitation within the revisions your package includes' : 'publish as soon as the cover is filled in'}.
                 You can leave and come back any time; everything you save stays with your account.
               </Notice>
             )
@@ -206,7 +209,7 @@ export function Builder({
         ) : (
           <>
             <fieldset disabled={closed} className="min-w-0 border-0 p-0">
-              <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} />
+              <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
             </fieldset>
             {!closed && (
               <div className="sticky bottom-0 mt-6 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] py-3">

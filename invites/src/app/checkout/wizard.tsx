@@ -5,14 +5,14 @@ import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
-import { SERVICE_MODES, quote, type CouponLike } from '@/lib/pricing';
+import { SERVICE_MODES, quote, serviceFee, serviceModeAvailable, addOnAvailable, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
 import { invitationPath } from '@/lib/app-url';
 
 export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
-export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** a premium opening clip exists for this design, so the add-on can be bought with it */ premiumOpening: boolean };
+export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
 export type WizardProps = {
   packages: WizardPackage[];
@@ -27,7 +27,13 @@ const RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
 export function CheckoutWizard(p: WizardProps) {
   const [occasion, setOccasion] = useState<Occasion>((OCCASIONS.some((o) => o.key === p.initial.occasion) ? p.initial.occasion : 'WEDDING') as Occasion);
   const [tier, setTier] = useState<Tier>((TIERS.includes(p.initial.tier as Tier) ? p.initial.tier : 'STANDARD') as Tier);
-  const [mode, setMode] = useState<ServiceMode>((['DIY', 'DFY', 'CONCIERGE'].includes(p.initial.mode ?? '') ? p.initial.mode : 'DIY') as ServiceMode);
+  const [chosenMode, setMode] = useState<ServiceMode>((['DIY', 'DFY', 'CONCIERGE'].includes(p.initial.mode ?? '') ? p.initial.mode : 'DIY') as ServiceMode);
+  // Priority is Signature-only, and the tier is chosen on this same page: a
+  // customer who picks it and then steps down a tier would otherwise carry an
+  // invisible selection — its button is gone, but the order would still ask for
+  // it and be refused at checkout. So the mode in play is always one this tier
+  // can buy, and falls back to Done-For-You, which keeps "you do it for me".
+  const mode = serviceModeAvailable(chosenMode, tier) ? chosenMode : 'DFY';
   const [templateId, setTemplateId] = useState<string>(p.initial.template ?? '');
   // an add-on named in the link (the gallery's "with the premium opening") starts ticked
   const [addOns, setAddOns] = useState<string[]>(p.addOns.some((a) => a.code === p.initial.addon && a.quoted) ? [p.initial.addon as string] : []);
@@ -43,7 +49,7 @@ export function CheckoutWizard(p: WizardProps) {
   const templates = p.templates.filter((t) => t.occasion === occasion && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
   // the premium opening is sold per design: a design with no clip yet cannot carry it
-  const premiumOk = !template || template.premiumOpening;
+  const premiumOk = !template || template.premiumOpenings.length > 0;
   const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk));
   const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
 
@@ -128,8 +134,8 @@ export function CheckoutWizard(p: WizardProps) {
         <section>
           <h2 className="display mb-3 text-xl">3. Who fills in the details?</h2>
           <div className="grid gap-3 sm:grid-cols-3">
-            {SERVICE_MODES.map((m) => {
-              const fee = pkg ? (m.key === 'DFY' ? pkg.dfyFeeCents : m.key === 'CONCIERGE' ? pkg.conciergeFeeCents : 0) : 0;
+            {SERVICE_MODES.filter((m) => serviceModeAvailable(m.key, tier)).map((m) => {
+              const fee = pkg ? serviceFee(pkg, m.key) : 0;
               return (
                 <button key={m.key} type="button" onClick={() => setMode(m.key)} className={`card p-4 text-left ${mode === m.key ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={mode === m.key}>
                   <span className="block font-semibold">{m.label}</span>
@@ -156,7 +162,7 @@ export function CheckoutWizard(p: WizardProps) {
                   </div>
                   <div className="p-2">
                     <span className="block text-sm font-semibold">{tp.name}</span>
-                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? `${TIER_LABELS.COMPLETE} only` : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpening ? ' · premium opening add-on' : ''}</span>
+                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? `${TIER_LABELS.COMPLETE} only` : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpenings.length ? ' · premium opening add-on' : ''}</span>
                   </div>
                 </button>
               ))}
@@ -170,14 +176,16 @@ export function CheckoutWizard(p: WizardProps) {
           <h2 className="display mb-3 text-xl">5. Add-ons <span className="text-sm font-normal text-[color:var(--color-ink-500)]">(optional)</span></h2>
           <div className="space-y-2">
             {p.addOns.map((a) => {
-              const offered = a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk);
+              const offered = a.quoted && addOnAvailable(a.code, tier) && (a.code !== PREMIUM_OPENING_CODE || premiumOk);
               return (
               <label key={a.code} className={`card flex items-start gap-3 p-3 ${!offered ? 'opacity-70' : ''}`}>
                 <input type="checkbox" className="mt-1 h-4 w-4" disabled={!offered} checked={offered && addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">{a.name}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
-                  {a.code === PREMIUM_OPENING_CODE && template && !template.premiumOpening && <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>}
+                  {a.code === PREMIUM_OPENING_CODE && template && (template.premiumOpenings.length
+                    ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours in the builder.' : '.'}</span>
+                    : <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>)}
                 </span>
                 <span className="text-sm font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span>
               </label>

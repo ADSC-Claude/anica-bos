@@ -68,7 +68,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               ) : (
                 <p className="text-sm"><b>{doneCount} of {mine.length}</b> sections marked Done — your own progress mark, so you can publish before they all are. <Link href={`/account/invitations/${inv.id}/builder`} className="underline">Continue where you left off</Link>. Everything you save stays.</p>
               )}
-              <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">Your invitation stays yours to edit right up to the day{inv.expiresAt ? `, and the link stays live until ${formatDate(inv.expiresAt)}` : ''}.</p>
+              <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">Nothing closes before your event — this stays yours to change{inv.expiresAt ? `, and the link stays live until ${formatDate(inv.expiresAt)}` : ''}.</p>
             </div>
           )}
           <div className="card p-5">

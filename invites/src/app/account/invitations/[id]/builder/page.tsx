@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, customerFields, emptySection, type SectionKey } from '@/lib/sections';
+import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type SectionKey } from '@/lib/sections';
 import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
@@ -55,7 +55,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} selfServe={selfServe} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} selfServe={selfServe} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)) }} listHints={photoFramesHint(inv.template.layout)} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
     </>
   );
 }

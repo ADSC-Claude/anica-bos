@@ -17,6 +17,7 @@ import { notify } from '@/lib/notifications';
 import { isOccasion } from '@/lib/occasions';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
+import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
 import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
@@ -99,9 +100,11 @@ export async function dfyNotesAction(jobId: string, back: string, fd: FormData) 
   return run('dfy.edit', back, async (user) => { await updateJobNotes(user, jobId, s(fd, 'notes')); });
 }
 /**
- * Attach a premium opening made for this couple. Concierge work: the clip is
- * drawn for one invitation and overrides whatever its design ships with, and
- * counts as the premium opening whatever the package (see hasPremiumOpening).
+ * Attach a premium opening drawn for this couple: the clip is made for one
+ * invitation, overrides whatever its design ships with, and counts as the
+ * premium opening whatever the package (see hasPremiumOpening). It hangs off
+ * the job, so it is reachable on any Done-For-You or Priority order — the
+ * package and the add-on are not what gate it.
  *
  * The pair is stored together or not at all — a clip with no poster leaves the
  * guest on a blank screen while it buffers, which is worse than no opening.
@@ -221,7 +224,13 @@ export async function setTierAction(invitationId: string, back: string, fd: Form
   return run('invitations.edit', back, async (user) => {
     const tier = s(fd, 'tier') as Tier;
     if (!['BASIC', 'STANDARD', 'COMPLETE'].includes(tier)) throw new HttpError(400, 'Bad tier.');
-    await prisma.invitation.update({ where: { id: invitationId }, data: { tier, editsAllowed: tier === 'BASIC' ? 3 : -1 } });
+    // The revision count comes from the package being moved to, not from a
+    // second copy of the ladder here — this used to read 3-or-unlimited and
+    // would have gone stale the moment the packages changed.
+    const inv = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, select: { occasion: true } });
+    const target = await prisma.package.findFirst({ where: { tier, occasion: inv.occasion, active: true } })
+      ?? await prisma.package.findFirst({ where: { tier, occasion: null, active: true } });
+    await prisma.invitation.update({ where: { id: invitationId }, data: { tier, ...(target ? { editsAllowed: target.editsAfterPublish } : {}) } });
     await audit(user, { module: 'invitations', action: 'tier.set', entityType: 'Invitation', entityId: invitationId, summary: tier, sensitive: true });
     return `Tier set to ${tier}.`;
   });
@@ -236,6 +245,21 @@ export async function setPremiumOpeningAction(invitationId: string, back: string
     await prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpening: on } });
     await audit(user, { module: 'invitations', action: on ? 'premiumOpening.on' : 'premiumOpening.off', entityType: 'Invitation', entityId: invitationId, sensitive: true });
     return on ? 'Premium opening switched on.' : 'Premium opening switched off.';
+  });
+}
+/**
+ * Which of the design's premium openings this invitation plays. The customer
+ * picks their own in Settings; staff set it for a Done-For-You order, or when
+ * a couple asks over Messenger. A clip from another theme is refused.
+ */
+export async function setPremiumOpeningClipAction(invitationId: string, back: string, fd: FormData) {
+  return run('invitations.edit', back, async (user) => {
+    const key = s(fd, 'premiumOpeningKey');
+    const inv = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true } });
+    if (!premiumOpeningAllowed(inv.template, key)) throw new HttpError(400, 'That opening was not made for this design.');
+    await prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
+    await audit(user, { module: 'invitations', action: 'premiumOpening.clip', entityType: 'Invitation', entityId: invitationId });
+    return key ? `Opening set to ${PREMIUM_OPENING_BY_KEY[key]?.name ?? key}.` : 'Back to the design’s first opening.';
   });
 }
 export async function archiveInvitationAction(invitationId: string, back: string) {

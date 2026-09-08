@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { getSettings } from '@/lib/settings';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { toGalleryTemplate } from '@/lib/gallery';
+import { galleryWithPeeks } from '@/lib/peek';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { formatPesoShort } from '@/lib/money';
@@ -74,7 +74,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
         <section className="mt-12">
           <h2 className="display text-2xl">The designs</h2>
           <div className="mt-5">
-            <TemplateGallery collection={key} templates={templates.map(toGalleryTemplate)} premiumPriceCents={premium?.priceCents} />
+            <TemplateGallery collection={key} templates={await galleryWithPeeks(templates)} premiumPriceCents={premium?.priceCents} />
           </div>
           <ul className="mt-6 grid gap-2 sm:grid-cols-2">
             {templates.map((t) => (

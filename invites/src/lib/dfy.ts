@@ -36,7 +36,7 @@ const ORDER: DfyStatus[] = DFY_COLUMNS.map((c) => c.key);
 export async function loadJobForCustomer(user: SessionUser, invitationId: string) {
   const job = await prisma.dfyJob.findUnique({
     where: { invitationId },
-    include: { invitation: true, order: true, assignee: { select: { name: true } }, revisions: { orderBy: { createdAt: 'asc' } } },
+    include: { invitation: true, order: { include: { items: true } }, assignee: { select: { name: true } }, revisions: { orderBy: { createdAt: 'asc' } } },
   });
   if (!job || job.invitation.userId !== user.id) return null;
   return job;

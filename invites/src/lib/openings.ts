@@ -147,11 +147,11 @@ export const OPENINGS: OpeningDef[] = [
  * The cinematic opening is the illustrated one — a bow untying, panels drawing
  * back — and the only opening that loads a file. It is deliberately outside
  * the self-serve set: the clip is artwork somebody made, so it arrives with a
- * Done-For-You or Concierge order rather than from a dropdown.
+ * Done-For-You or Priority order rather than from a dropdown.
  *
  * It is still one shared clip per design, not a render per couple. The names,
  * date and countdown stay live text over the top, so a nickname changed at
- * 11pm reads correctly on the next reload. Only Concierge, where the artwork
+ * 11pm reads correctly on the next reload. Only Priority, where the artwork
  * itself is drawn for one couple, replaces the shared clip.
  */
 export const OPENING_BY_KEY: Record<OpeningKey, OpeningDef> = Object.fromEntries(

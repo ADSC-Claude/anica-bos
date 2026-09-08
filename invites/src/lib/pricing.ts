@@ -48,8 +48,17 @@ export type Quote = {
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
   { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder. Instant, unlimited edits.', turnaround: 'Instant', revisions: 'Unlimited (self-serve)', intake: 'Builder' },
   { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '2–3 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
-  { key: 'CONCIERGE', label: 'Full Concierge', short: 'Concierge', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
+  { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
+
+/**
+ * What a customer is told a mode is called. The pages that show it used to
+ * spell it out inline, so renaming a mode meant finding every ternary; read it
+ * from SERVICE_MODES instead, the way occasionLabel and TIER_LABELS work.
+ */
+export function serviceModeLabel(mode: ServiceMode): string {
+  return SERVICE_MODES.find((m) => m.key === mode)?.label ?? mode;
+}
 
 export function serviceFee(pkg: PackageLike, mode: ServiceMode): number {
   if (mode === 'DFY') return pkg.dfyFeeCents;
@@ -80,7 +89,7 @@ export function quote(input: {
 
   const fee = serviceFee(input.pkg, input.serviceMode);
   if (fee > 0) {
-    const label = SERVICE_MODES.find((m) => m.key === input.serviceMode)?.label ?? input.serviceMode;
+    const label = serviceModeLabel(input.serviceMode);
     items.push({ kind: 'SERVICE', code: `SERVICE_${input.serviceMode}`, name: `${label} service`, amountCents: fee });
   }
 

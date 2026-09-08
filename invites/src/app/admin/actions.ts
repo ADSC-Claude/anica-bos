@@ -99,7 +99,7 @@ export async function dfyNotesAction(jobId: string, back: string, fd: FormData) 
   return run('dfy.edit', back, async (user) => { await updateJobNotes(user, jobId, s(fd, 'notes')); });
 }
 /**
- * Attach a premium opening made for this couple. Concierge work: the clip is
+ * Attach a premium opening made for this couple. Priority work: the clip is
  * drawn for one invitation and overrides whatever its design ships with, and
  * counts as the premium opening whatever the package (see hasPremiumOpening).
  *

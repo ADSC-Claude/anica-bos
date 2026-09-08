@@ -6,6 +6,8 @@ import { parseCsv, toCsv } from './csv';
 import { hasFeature, TIER_LABELS } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
+import { contentOf } from './invitations';
+import { rows as sectionRows } from './sections';
 import type { SessionUser } from './auth';
 import type { Tier } from '@prisma/client';
 
@@ -163,9 +165,10 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
 export async function rsvpsCsv(invitationId: string): Promise<string> {
   const rsvps = await prisma.rsvp.findMany({ where: { invitationId }, include: { guest: true }, orderBy: { createdAt: 'desc' } });
   return toCsv(
-    ['Name', 'Response', 'Seats', 'Attendees', 'Meal', 'Dietary', 'Message', 'Phone', 'Email', 'Via personal link', 'Responded at'],
+    ['Name', 'Group', 'Response', 'Seats', 'Attendees', 'Meal', 'Dietary', 'Message', 'Phone', 'Email', 'Via personal link', 'Responded at'],
     rsvps.map((r) => [
       r.name,
+      r.groupName,
       r.response === 'ACCEPT' ? 'Accepted' : 'Declined',
       r.seats,
       Array.isArray(r.attendees) ? (r.attendees as string[]).join('; ') : '',
@@ -224,6 +227,81 @@ export async function checkIn(user: SessionUser, invitation: { id: string; tier:
     include: { table: true },
   });
   return { guest: updated, alreadyIn: Boolean(guest.checkedInAt) && !undo };
+}
+
+/**
+ * Everything the printed headcount sheet needs, in one pass.
+ *
+ * The sheet is handed to a caterer or a coordinator, so it answers their
+ * questions rather than the couple's: how many are coming, how many of each
+ * meal, which group each name belongs to, and who has still not replied.
+ *
+ * There are no tables or reserved seats here on purpose. Both come from the
+ * guest list manager, which is not part of any package yet (see
+ * FUTURE_FEATURES in src/lib/tiers.ts) — printing empty columns for them would
+ * promise a coordinator something the couple cannot fill in.
+ */
+export async function rsvpSheet(invitationId: string) {
+  const [rsvps, guests, summary, invitation] = await Promise.all([
+    prisma.rsvp.findMany({ where: { invitationId }, orderBy: [{ response: 'asc' }, { name: 'asc' }] }),
+    // Only ever populated on an invitation that came through the guest list
+    // manager. Kept so the sheet can still say who has not replied.
+    prisma.guest.findMany({ where: { invitationId }, include: { rsvps: { select: { id: true }, take: 1 } }, orderBy: { name: 'asc' } }),
+    rsvpSummary(invitationId),
+    prisma.invitation.findUnique({ where: { id: invitationId }, select: { content: true } }),
+  ]);
+
+  // The couple's own order — principal sponsors before the office, if that is
+  // how they wrote it. Alphabetical would put their ninongs behind everyone.
+  const order = sectionRows<{ label: string }>(contentOf(invitation?.content).rsvp, 'groups').map((g) => g.label);
+
+  type Row = { name: string; group: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
+  const rows: Row[] = rsvps.map((r) => ({
+    name: r.name,
+    group: r.groupName,
+    seats: r.response === 'ACCEPT' ? r.seats : 0,
+    meal: r.mealChoice,
+    dietary: r.dietary,
+    note: r.message,
+    state: r.response === 'ACCEPT' ? 'ACCEPT' : 'DECLINE',
+    attendees: Array.isArray(r.attendees) ? (r.attendees as string[]) : [],
+  }));
+
+  // Grouped only if the couple asked the question. Everyone who skipped it, and
+  // every reply from before they added the question, falls to the end under one
+  // heading rather than into a group of one.
+  const groups: { name: string; rows: Row[]; replies: number; seats: number }[] = [];
+  for (const r of rows) {
+    const name = r.group || 'Ungrouped';
+    let g = groups.find((x) => x.name === name);
+    if (!g) groups.push((g = { name, rows: [], replies: 0, seats: 0 }));
+    g.rows.push(r);
+    g.replies++;
+    g.seats += r.seats;
+  }
+  const rank = (name: string) => {
+    if (name === 'Ungrouped') return Number.MAX_SAFE_INTEGER;
+    const i = order.indexOf(name);
+    // A group the couple has since renamed or dropped still has its replies:
+    // they sit after the current list rather than vanishing off the sheet.
+    return i === -1 ? order.length : i;
+  };
+  groups.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  const grouped = groups.length > 1 || groups[0]?.name !== 'Ungrouped';
+
+  const meals = new Map<string, number>();
+  for (const r of rows) if (r.state === 'ACCEPT' && r.meal) meals.set(r.meal, (meals.get(r.meal) ?? 0) + Math.max(1, r.seats));
+
+  return {
+    groups,
+    /** Whether the group question was asked — a flat list reads better if not. */
+    grouped,
+    meals: [...meals.entries()].map(([meal, seats]) => ({ meal, seats })).sort((a, b) => b.seats - a.seats),
+    /** Invited but silent. Empty unless the invitation has a guest list. */
+    pending: guests.filter((g) => g.rsvps.length === 0).map((g) => g.name),
+    summary,
+    replies: rows.length,
+  };
 }
 
 export async function rsvpSummary(invitationId: string) {

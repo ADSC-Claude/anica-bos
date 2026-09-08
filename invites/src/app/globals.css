@@ -1827,3 +1827,64 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-paged][data-mode='night'] .inv-figure { filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
 .inv[data-paged][data-mode='night'] .inv-open[data-clip='capiz'] .inv-open-hint { color: #f1e9dd; }
 @media print { .inv-mode { display: none; } }
+
+/* ===========================================================================
+   The headcount sheet: /account/invitations/[id]/rsvps/print.
+   A working document, not a keepsake — it gets handed to a caterer, marked up
+   with a pen and left on a table. So: black on white, one column, generous
+   rows, and a tick box at the head of every line. Nothing here is decorative,
+   because every ounce of it costs somebody a printer cartridge. */
+.sheet { max-width: 46rem; margin: 0 auto; color: var(--color-ink-900); }
+.sheet-head { border-bottom: 2px solid var(--color-ink-900); padding-bottom: 0.75rem; }
+.sheet-eyebrow { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-500); }
+.sheet-title { font-size: 1.7rem; line-height: 1.15; font-weight: 600; margin-top: 0.15rem; }
+.sheet-sub { font-size: 0.85rem; color: var(--color-ink-500); margin-top: 0.2rem; }
+
+.sheet-figures { display: flex; flex-wrap: wrap; gap: 1.75rem; padding: 0.9rem 0; border-bottom: 1px solid var(--color-sand-200); }
+.sheet-figure { display: flex; flex-direction: column; }
+.sheet-figure-n { font-size: 1.35rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sheet-figure-lead .sheet-figure-n { font-size: 2.4rem; }
+.sheet-figure-l { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-500); }
+
+.sheet-block { margin-top: 1.4rem; break-inside: avoid; }
+.sheet-h2 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--color-ink-900); padding-bottom: 0.3rem; }
+.sheet-h2-n { font-weight: 400; letter-spacing: 0.04em; text-transform: none; color: var(--color-ink-500); font-size: 0.78rem; }
+
+.sheet-meals { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; margin-top: 0.55rem; font-size: 0.92rem; }
+.sheet-meal-n { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Fixed, so every group's table rules to the same columns — a coordinator
+   reads down the Coming column, not across one group at a time. */
+.sheet-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9rem; margin-top: 0.35rem; }
+.sheet-table th { text-align: left; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-500); font-weight: 500; padding: 0.35rem 0.5rem; }
+.sheet-table td { padding: 0.42rem 0.5rem; border-top: 1px solid var(--color-sand-200); vertical-align: top; }
+.sheet-num { width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-tick { width: 1.6rem; }
+.sheet-meal { width: 6.5rem; }
+.sheet-notes { width: 11rem; }
+.sheet-table td { overflow-wrap: anywhere; }
+/* Ticked off at the door with a pen. */
+.sheet-box { display: inline-block; width: 0.85rem; height: 0.85rem; border: 1px solid var(--color-ink-500); border-radius: 2px; }
+.sheet-with { display: block; font-size: 0.76rem; color: var(--color-ink-500); }
+.sheet-note { font-size: 0.78rem; color: var(--color-ink-500); }
+.sheet-out { color: var(--color-ink-500); }
+.sheet-out .sheet-box { visibility: hidden; }
+.sheet-pending { margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-ink-500); line-height: 1.6; }
+.sheet-empty { margin-top: 1.5rem; font-size: 0.9rem; color: var(--color-ink-500); }
+.sheet-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; margin-top: 1.75rem; padding-top: 0.5rem; border-top: 1px solid var(--color-sand-200); font-size: 0.68rem; color: var(--color-ink-500); }
+
+@media print {
+  @page { margin: 14mm; }
+  /* The account ground is a screen colour. Paper is paper. */
+  body:has(.sheet) { background: #fff; }
+  .sheet { max-width: none; }
+  /* Ink, on paper. The screen's warm greys go flat black so a coordinator's
+     office printer does not turn the notes to pale mush. */
+  .sheet, .sheet-title, .sheet-figure-n { color: #000; }
+  .sheet-eyebrow, .sheet-sub, .sheet-figure-l, .sheet-h2-n, .sheet-with, .sheet-note, .sheet-pending, .sheet-foot, .sheet-table th { color: #444; }
+  .sheet-head, .sheet-h2 { border-color: #000; }
+  .sheet-table td, .sheet-figures, .sheet-foot { border-color: #bbb; }
+  .sheet-box { border-color: #000; }
+  .sheet-table thead { display: table-header-group; }
+  .sheet-table tr { break-inside: avoid; }
+}

@@ -542,6 +542,7 @@ const SECTION_DEFS: SectionDef[] = [
       toggle('showSeats', 'Ask how many are coming'),
       toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
+      list('groups', 'Guest groups', [text('label', 'Group', { required: true, placeholder: 'e.g. Principal sponsors' })], { addLabel: 'Add a group', max: 12, hint: 'Ask each guest which set they belong to — Principal sponsors, Ninongs & ninangs, College friends, Office, Bride’s family. Your printed headcount sheet is grouped by these, so your coordinator knows who is who. Leave it empty to ask nothing.' }),
       list('mealChoices', `Meal choices (${TIER_LABELS.COMPLETE} package)`, [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
       textarea('policyText', 'Policy wording', { staff: true }),

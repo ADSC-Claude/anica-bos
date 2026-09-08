@@ -39,6 +39,7 @@ export const rsvpSchema = z.object({
   response: z.enum(['ACCEPT', 'DECLINE']),
   seats: z.coerce.number().int().min(0).max(20).optional(),
   attendees: z.array(z.string().trim().max(120)).max(20).optional(),
+  groupName: z.string().trim().max(60).optional(),
   mealChoice: z.string().trim().max(60).optional(),
   dietary: z.string().trim().max(500).optional(),
   message: z.string().trim().max(1000).optional(),
@@ -74,6 +75,11 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     seats = accepting ? 1 : 0;
   }
 
+  // Only a group the couple actually offers is kept — a made-up one would
+  // print on their headcount sheet.
+  const groups = rows<{ label: string }>(rsvpSection, 'groups').map((g) => g.label);
+  const groupName = input.groupName && groups.includes(input.groupName) ? input.groupName : '';
+
   const meal = input.mealChoice ?? '';
   const choices = rows<{ label: string }>(rsvpSection, 'mealChoices').map((m) => m.label);
   if (meal && hasFeature(invitation.tier, 'rsvp.meal') && choices.length && !choices.includes(meal)) throw new HttpError(400, 'Pick one of the meal choices.');
@@ -84,6 +90,7 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     guestId: guest?.id ?? null,
     name: input.name,
     response: input.response,
+    groupName,
     seats,
     attendees: attendees as never,
     mealChoice: hasFeature(invitation.tier, 'rsvp.meal') ? meal : '',

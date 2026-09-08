@@ -36,7 +36,7 @@ export type GuestForPage = {
   plusOneAllowed: boolean;
   token: string;
   table: { name: string } | null;
-  rsvps: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: unknown; mealChoice: string; dietary: string; message: string }[];
+  rsvps: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: unknown; mealChoice: string; dietary: string; message: string; groupName: string }[];
 };
 
 export type RenderProps = {
@@ -727,6 +727,9 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
   const policy = str(data, 'policy') !== 'none' ? str(data, 'policyText') : '';
   const existing = personal && guest?.rsvps[0] ? { ...guest.rsvps[0], attendees: Array.isArray(guest.rsvps[0].attendees) ? (guest.rsvps[0].attendees as string[]) : [] } : null;
   const mealChoices = hasFeature(inv.tier, 'rsvp.meal') ? rows<{ label: string }>(data, 'mealChoices').map((m) => m.label) : [];
+  // Every package asks this one: it costs the guest a tap and it is what turns
+  // the printed headcount sheet into something a coordinator can work from.
+  const groups = rows<{ label: string }>(data, 'groups').map((g) => g.label).filter(Boolean);
   const greeting = personal && guest ? guest.salutation || guest.name : '';
 
   return (
@@ -758,6 +761,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           askDietary={bool(data, 'askDietary')}
           askDepartment={bool(data, 'askDepartment')}
           mealChoices={mealChoices}
+          groups={groups}
           existing={existing}
           labels={{
             name: t(lang, 'rsvp.name'),
@@ -768,6 +772,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
             companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),
             dietary: t(lang, 'rsvp.dietary'),
+            group: t(lang, 'rsvp.group'),
             message: t(lang, 'rsvp.message', { hosts: hostsNoun }),
             phone: t(lang, 'rsvp.phone'),
             submit: t(lang, 'rsvp.submit'),

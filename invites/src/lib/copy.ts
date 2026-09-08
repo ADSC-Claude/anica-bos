@@ -110,6 +110,7 @@ const PHRASES = {
   'rsvp.companion': { en: 'Name of companion {n}', tl: 'Pangalan ng kasama {n}' },
   'rsvp.meal': { en: 'Meal choice', tl: 'Pagpipiliang pagkain' },
   'rsvp.dietary': { en: 'Allergies or dietary notes', tl: 'Allergy o iba pang paalala sa pagkain' },
+  'rsvp.group': { en: 'Which group are you from?', tl: 'Saang grupo po kayo?' },
   'rsvp.message': { en: 'A message for {hosts}', tl: 'Mensahe para sa {hosts}' },
   'rsvp.phone': { en: 'Mobile number (optional)', tl: 'Mobile number (optional)' },
   'rsvp.submit': { en: 'Send my response', tl: 'Ipadala' },

@@ -491,6 +491,9 @@ model Rsvp {
   guestId      String?
   name         String
   response     RsvpResponse
+  /// Which set they said they belong to: "Principal sponsors", "College
+  /// friends". Chosen from the list the couple writes on the RSVP section.
+  groupName    String       @default("")
   seats        Int          @default(1)
   attendees    Json
   mealChoice   String       @default("")

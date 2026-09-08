@@ -438,8 +438,9 @@ export type RsvpFormProps = {
   askDietary: boolean;
   askDepartment: boolean;
   mealChoices: string[];
-  existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: string[]; mealChoice: string; dietary: string; message: string } | null;
-  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department', string>;
+  groups: string[];
+  existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: string[]; mealChoice: string; dietary: string; message: string; groupName: string } | null;
+  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group', string>;
 };
 
 export function RsvpForm(p: RsvpFormProps) {
@@ -477,6 +478,7 @@ export function RsvpForm(p: RsvpFormProps) {
       response,
       seats: response === 'ACCEPT' ? seats : 0,
       attendees: response === 'ACCEPT' && seats > 1 ? [String(fd.get('name') ?? ''), ...companions.slice(0, seats - 1)] : [],
+      groupName: String(fd.get('groupName') ?? ''),
       mealChoice: String(fd.get('mealChoice') ?? ''),
       dietary: String(fd.get('dietary') ?? ''),
       message: String(fd.get('message') ?? ''),
@@ -512,6 +514,18 @@ export function RsvpForm(p: RsvpFormProps) {
           </button>
         ))}
       </div>
+
+      {p.groups.length > 0 && (
+        <div>
+          <label className="inv-label" htmlFor="rsvp-group">{p.labels.group}</label>
+          <select id="rsvp-group" name="groupName" className="inv-field" defaultValue={p.existing?.groupName ?? ''}>
+            <option value=""></option>
+            {p.groups.map((g) => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {response === 'ACCEPT' && p.showSeats && p.maxSeats > 1 && (
         <div>

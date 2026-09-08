@@ -1,7 +1,7 @@
 import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
-import { tierAtLeast } from './tiers';
+import { tierAtLeast, TIER_LABELS } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
@@ -538,11 +538,11 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'Deadline, what to ask, and the policy line.',
     minTier: 'BASIC',
     fields: (occasion) => [
-      date('deadline', 'RSVP deadline', { hint: 'The form closes after this date on the Complete tier.' }),
+      date('deadline', 'RSVP deadline', { hint: `The form closes after this date on the ${TIER_LABELS.COMPLETE} package.` }),
       toggle('showSeats', 'Ask how many are coming'),
       toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
-      list('mealChoices', 'Meal choices (Complete tier)', [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
+      list('mealChoices', `Meal choices (${TIER_LABELS.COMPLETE} package)`, [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
       textarea('policyText', 'Policy wording', { staff: true }),
       select('notePreset', 'RSVP note', RSVP_NOTE_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: RSVP_NOTE_PRESETS, presetTarget: 'note' }),
@@ -576,7 +576,7 @@ const SECTION_DEFS: SectionDef[] = [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      url('videoUrl', 'Video link (Complete tier)', { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
       text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],

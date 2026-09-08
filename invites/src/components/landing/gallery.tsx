@@ -13,9 +13,9 @@ import { OpeningPreview } from './opening-preview';
 
 export type { GalleryTemplate };
 
-/** "Complete only" for a design kept out of Basic and Standard; otherwise the lowest package it comes in. */
+/** "Signature only" for a design kept out of Basic and Standard; otherwise the lowest package it comes in. */
 export function packageLine(t: { premium: boolean; minTier: Tier }): string {
-  return t.premium ? 'Complete only' : t.minTier === 'BASIC' ? 'Basic & up' : `${TIER_LABELS[t.minTier]} & up`;
+  return t.premium ? `${TIER_LABELS.COMPLETE} only` : t.minTier === 'BASIC' ? 'Basic & up' : `${TIER_LABELS[t.minTier]} & up`;
 }
 
 export function TemplateGallery({ templates, compact = false, collection: fixedCollection, premiumPriceCents }: {

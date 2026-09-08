@@ -4,7 +4,10 @@ import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, opening
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES, templateData } from '../prisma/templates';
-import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder } from '../src/lib/sections';
+import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder, isPaged } from '../src/lib/sections';
+import { withWords } from '../src/lib/design';
+import { LOOK_BY_KEY } from '../src/lib/looks';
+import { STORY_SLOTS, PHOTO_SLOTS } from '../src/lib/babyblue';
 import { tierAtLeast } from '../src/lib/tiers';
 import { PALETTE_PRESETS } from '../src/lib/theme';
 
@@ -291,4 +294,49 @@ test('the Letter is the universal opening: on every design, in every package, an
   assert.equal(resolveOpening(base), 'universal');
   assert.equal(resolveOpening({ ...base, cinematic: true }), 'cinematic');
   assert.equal(resolveOpening({ ...base, chosen: 'none' }), 'none');
+});
+
+test('Baby Blue: a christening in its own collection, on its own pages, drawn in Romance with a christening’s words', () => {
+  const bb = TEMPLATES.find((t) => t.slug === 'baby-blue')!;
+  assert.ok(bb, 'the Baby Blue design is in the catalogue');
+  assert.equal(bb.occasion, 'CHRISTENING');
+  assert.equal(bb.layout, 'babyblue');
+  assert.equal(bb.collection, 'babyblue');
+  assert.equal(bb.minTier, 'BASIC', 'a Basic christening has a design');
+  assert.equal(bb.premium, false);
+  assert.equal(bb.look, 'romance');
+  assert.equal(bb.opening, 'universal');
+  assert.equal(bb.thumb, '/covers/baby-blue.jpg');
+  assert.equal(bb.words?.en?.['title:gallery'], 'Baby Photos');
+  assert.equal(bb.words?.en?.['title:sponsors'], 'Ninong & Ninang');
+  assert.equal(bb.words?.tl?.['title:story'], 'Ang Aming Kuwento');
+  assert.match(bb.words?.en?.verse ?? '', /Children are a gift/);
+  // the words reach the row, and so the sync
+  assert.deepEqual(templateData(bb, 0).words, bb.words);
+  // a heading and the line under it are different words now
+  const look = withWords(LOOK_BY_KEY.romance, bb.words!);
+  assert.equal(look?.titles.gallery?.en, 'Baby Photos');
+  assert.equal(look?.lines.gallery.en, 'Little moments, big love.');
+  // the pages, in the owner's order: cover, story, invitation, ninong and ninang, baby photos, venue, dress code, gift, program, snap and share, post-event photos, RSVP, countdown, assistance, ending
+  assert.deepEqual(sectionOrder('CHRISTENING', 'babyblue').slice(0, 15), ['cover', 'story', 'ceremony', 'sponsors', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'photos', 'rsvp', 'countdown', 'contact', 'closing']);
+  assert.ok(isPaged('babyblue') && isPaged('capiz') && !isPaged('classic'));
+});
+
+test('a christening tells its story in six milestones, the design’s own to start, the client’s to rename', () => {
+  const c = defaultContent('CHRISTENING');
+  const timeline = c.story?.timeline as { title: string; text: string; photo: string }[];
+  assert.equal(timeline.length, 6);
+  assert.equal(timeline[0].title, 'The Prayer');
+  assert.equal(timeline[5].title, 'Our Greatest Blessing');
+  assert.equal(timeline[0].photo, '');
+  const fields = fieldsFor('story', 'CHRISTENING');
+  const list = fields.find((f) => f.key === 'timeline')!;
+  assert.equal(list.max, 6, 'six frames on the page');
+  assert.ok(!fields.some((f) => f.key === 'howWeMet'), 'a christening has no proposal to tell');
+  assert.ok(fieldsFor('story', 'WEDDING').some((f) => f.key === 'howWeMet'));
+  // Our Story, Snap & Share and Assistance are a christening's now
+  for (const k of ['story', 'social', 'contact'] as const) assert.ok(OCCASION_SECTIONS.CHRISTENING.includes(k), k);
+  assert.equal(STORY_SLOTS.length, 6);
+  assert.equal(PHOTO_SLOTS.length, 4);
+  for (const s of [...STORY_SLOTS, ...PHOTO_SLOTS]) assert.ok(s.cx > 0 && s.cx < 100 && s.cy > 0 && s.cy < 100 && s.size > 20 && s.size < 35, JSON.stringify(s));
 });

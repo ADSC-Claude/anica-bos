@@ -894,24 +894,27 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-hero-body > p + p { margin-top: 0; }
 
 /* --- our story: a timeline with the photos scattered beside it --- */
-.inv-story { display: grid; grid-template-columns: 5.6rem 1fr; gap: 0 1.1rem; margin-top: 0; }
-.inv-story-photos { display: grid; gap: 0.8rem; align-content: start; padding-top: 0.4rem; }
-.inv-story-photos figure { margin: 0; }
-.inv-story-photos img { box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
-.inv-story-photos [data-frame='arch'] img { border-radius: 999px 999px 0.4rem 0.4rem; aspect-ratio: 3/4.6; }
-.inv-story-photos [data-frame='polaroid'] { background: #fffdf9; padding: 0.35rem 0.35rem 1.1rem; border-radius: 0.15rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.6); transform: rotate(-4deg); }
-.inv-story-photos [data-frame='polaroid'] img { border-radius: 0.1rem; aspect-ratio: 1; box-shadow: none; }
-.inv-story-photos [data-frame='polaroid'][data-tilt='r'] { transform: rotate(3.5deg); }
-.inv-story-photos [data-frame='circle'] img { border-radius: 999px; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--inv-accent) 45%, transparent); }
-.inv-story-photos [data-frame='plain'] img { border-radius: 0.3rem; aspect-ratio: 4/3; }
-.inv-story-line { position: relative; padding-left: 1.6rem; }
-.inv-story-line::before { content: ''; position: absolute; left: 0.28rem; top: 0.6rem; bottom: 0.6rem; width: 1px; background: color-mix(in srgb, var(--inv-accent) 70%, transparent); }
-.inv-story-line li { position: relative; list-style: none; margin: 0 0 0.8rem; }
-.inv-story-line li::before { content: ''; position: absolute; left: -1.6rem; top: 0.55rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--inv-bg); border: 1.5px solid var(--inv-accent); }
-.inv-story-line .y { font-family: var(--inv-display); font-size: 1.6rem; line-height: 1; color: var(--inv-ink); }
-.inv-story-line .t { font-family: var(--inv-display); font-style: italic; font-size: 1.15rem; color: var(--inv-ink); margin-top: 0.1rem; }
-.inv-story-line .x { font-size: 0.95rem; line-height: 1.5; color: var(--inv-ink); opacity: 0.85; margin-top: 0.45rem; max-width: 15rem; }
-.inv-story-line img { margin-top: 0.7rem; border-radius: 999px 999px 0.3rem 0.3rem; aspect-ratio: 3/3.6; max-width: 8.5rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
+/* One row per moment: the photograph in the left column, its year and words in
+   the right, so the two columns end together. The rule runs between them, and
+   the dot sits on it at the head of each moment. --inv-story-photo and the gap
+   are named because three things have to agree on where that line falls. */
+.inv-story { --inv-story-photo: 5.6rem; --inv-story-gap: 1.1rem; position: relative; margin-top: 0; padding: 0; list-style: none; }
+.inv-story::before { content: ''; position: absolute; left: calc(var(--inv-story-photo) + var(--inv-story-gap) + 0.275rem); top: 0.6rem; bottom: 0.6rem; width: 1px; background: color-mix(in srgb, var(--inv-accent) 70%, transparent); }
+.inv-story li { display: grid; grid-template-columns: var(--inv-story-photo) 1fr; gap: 0 var(--inv-story-gap); align-items: start; list-style: none; margin: 0 0 1rem; }
+.inv-story li:last-child { margin-bottom: 0; }
+.inv-story figure { margin: 0; }
+.inv-story figure img { box-shadow: 0 10px 24px -14px rgba(74,59,47,0.55); }
+.inv-story [data-frame='arch'] img { border-radius: 999px 999px 0.4rem 0.4rem; aspect-ratio: 3/4.6; }
+.inv-story [data-frame='polaroid'] { background: #fffdf9; padding: 0.35rem 0.35rem 1.1rem; border-radius: 0.15rem; box-shadow: 0 10px 24px -14px rgba(74,59,47,0.6); transform: rotate(-4deg); }
+.inv-story [data-frame='polaroid'] img { border-radius: 0.1rem; aspect-ratio: 1; box-shadow: none; }
+.inv-story [data-frame='polaroid'][data-tilt='r'] { transform: rotate(3.5deg); }
+.inv-story [data-frame='circle'] img { border-radius: 999px; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--inv-accent) 45%, transparent); }
+.inv-story [data-frame='plain'] img { border-radius: 0.3rem; aspect-ratio: 4/3; }
+.inv-story .w { position: relative; padding-left: 1.6rem; }
+.inv-story .w::before { content: ''; position: absolute; left: 0; top: 0.55rem; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: var(--inv-bg); border: 1.5px solid var(--inv-accent); }
+.inv-story .y { font-family: var(--inv-display); font-size: 1.6rem; line-height: 1; color: var(--inv-ink); }
+.inv-story .t { font-family: var(--inv-display); font-style: italic; font-size: 1.15rem; color: var(--inv-ink); margin-top: 0.1rem; }
+.inv-story .x { font-size: 0.95rem; line-height: 1.5; color: var(--inv-ink); opacity: 0.85; margin-top: 0.45rem; max-width: 15rem; }
 
 /* --- prenup strip --- */
 .inv-strip { display: grid; grid-template-columns: 1fr 1.08fr 1fr; gap: 0.5rem; align-items: center; }

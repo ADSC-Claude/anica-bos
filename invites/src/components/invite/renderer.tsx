@@ -839,6 +839,11 @@ const STORY_FRAMES = ['arch', 'polaroid', 'polaroid', 'plain', 'circle'] as cons
 function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionData; lang: Lang; title: string; tagline?: string; layout?: string; signoff?: { names: string; date: string } }) {
   const timeline = rows<{ date: string; title: string; text: string; photo: string }>(data, 'timeline');
   const beside = layout === 'capiz';
+  // arch, polaroid, polaroid, plain, circle — counted over the moments that
+  // have a photograph, so a moment without one does not spend a shape.
+  const shapes = new Map<number, (typeof STORY_FRAMES)[number]>();
+  timeline.forEach((m, i) => { if (m.photo) shapes.set(i, STORY_FRAMES[shapes.size % STORY_FRAMES.length]); });
+  const frameFor = (i: number) => shapes.get(i);
   return (
     <Section id="story" title={title} tagline={tagline}>
       {str(data, 'howWeMet') && (
@@ -854,26 +859,32 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
         </div>
       )}
       {timeline.length > 0 && beside && (
-        // The photographs run down one side in their own frames, the years
-        // down the other — the way an album is laid out, rather than a list.
-        <div className="inv-story">
-          <div className="inv-story-photos">
-            {timeline.filter((m) => m.photo).map((m, i) => (
-              <figure key={i} data-frame={STORY_FRAMES[i % STORY_FRAMES.length]} data-tilt={i % 2 ? 'r' : undefined}>
-                <img src={imageUrl(m.photo, IMAGE.story)} alt="" loading="lazy" />
-              </figure>
-            ))}
-          </div>
-          <ol className="inv-story-line">
-            {timeline.map((m, i) => (
-              <li key={i}>
+        // The photographs run down one side in their own frames, the years down
+        // the other — the way an album is laid out, rather than a list. Each
+        // moment is one row, so its photograph sits beside its own words: as two
+        // independent stacks the pictures outran the writing, three tall frames
+        // against three short lines, and the page ended on a photograph with
+        // nothing to say next to it.
+        <ol className="inv-story">
+          {timeline.map((m, i) => (
+            <li key={i}>
+              {m.photo ? (
+                <figure data-frame={frameFor(i)} data-tilt={i % 2 ? 'r' : undefined}>
+                  <img src={imageUrl(m.photo, IMAGE.story)} alt="" loading="lazy" />
+                </figure>
+              ) : (
+                // The column keeps its width so the years stay in one line
+                // whether or not a moment has a picture.
+                <span aria-hidden />
+              )}
+              <div className="w">
                 {m.date && <div className="y">{m.date}</div>}
                 <div className="t">{m.title}</div>
                 {m.text && <p className="x whitespace-pre-line">{m.text}</p>}
-              </li>
-            ))}
-          </ol>
-        </div>
+              </div>
+            </li>
+          ))}
+        </ol>
       )}
       {signoff && (
         <div className="inv-story-sign">

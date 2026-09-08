@@ -326,9 +326,11 @@ changed in the builder changes the writing in the opening too.
 **Each clip's words are set where that clip leaves room.** Capiz's card is
 narrow and upright, so its words are stacked down the middle of it. The Baby
 Blue bow opens a diamond of clear satin, measured off the clip's last frame at
-22%–56% of the frame, widest at 42%, with its axis two points right of the
+21%–55% of the frame, widest at 42%, with its axis two points right of the
 frame's middle — so the bow's words are set to that box, on that axis, and
-sized to fill it. The two surfaces show them in the same place: the gallery's
+sized to fill it. The owner marked the centre they wanted on their own phone,
+37.9% down the screen and 51.7% across; this box lands the writing's middle
+within a tenth of a point of it. The two surfaces show them in the same place: the gallery's
 9:16 phone crops 11.09% off each end of the 976:2120 frame, and the preview's
 box is the guest page's put through that crop. The name's size comes down as
 the name gets longer (`--plate-chars`, from `plateChars` in `lib/openings.ts`)

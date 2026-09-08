@@ -5,7 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
-import { premiumOpeningOf } from '@/lib/premium-openings';
+import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
@@ -145,6 +145,30 @@ function heroCopy(occasion: Occasion, cover: SectionData | undefined, lang: Lang
   }
 }
 
+/**
+ * The words a premium clip sets on its card as it opens: the monogram, the
+ * line over the names, the names, the joiner and the date. The guest page
+ * sets them from the couple's form; the gallery's preview sets them from the
+ * design's demo — the same function, so the sample a visitor watches reads
+ * exactly the way a guest's will, and changes to the demo's form show up in
+ * the preview without anybody retyping them.
+ */
+export type PlateWords = { monogram: string; line: string; names: string[]; and: string; date: string };
+export function plateWords(occasion: Occasion, content: Content, lang: Lang, look: Look | undefined, premium: PremiumOpening | null): PlateWords {
+  const cover = content.cover;
+  const names = heroCopy(occasion, cover, lang).names.filter(Boolean);
+  return {
+    monogram: str(cover, 'monogram'),
+    // The line over the names: the couple's own, else the design's cover line
+    // ("The christening of") where the clip's face has already said the guest
+    // is invited, else the opening's own.
+    line: str(cover, 'openingLine') || (premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || OPENING_BY_KEY.cinematic.line[lang],
+    names: names.length ? names : [displayTitle(occasion, content)],
+    and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
+    date: openingDate(str(cover, 'date')),
+  };
+}
+
 /** "08 · 24 · 2026" — the date set the way a card sets it. */
 function dottedDate(dateKey: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
@@ -166,11 +190,21 @@ function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyeb
   const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
   // the three lines under the place: the look's, or the couple's own where staff wrote them
   const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
+  // A paged design's ground is its artwork, so the photograph cannot fill the
+  // cover the way the other layouts do it. Capiz carries it one of five ways
+  // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
+  // framed above them as an arch, an oval, a medallion or a tucked card.
+  const portrait = format && layout === 'capiz' && photo;
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
+        {portrait && (
+          <figure className="inv-portrait" data-style={str(cover, 'photoStyle') || 'veil'}>
+            <img src={imageUrl(photo, IMAGE.hero)} alt="" />
+          </figure>
+        )}
         {/* Two groups, so a design can set the names apart from the rest —
             Capiz holds them between the two strands of its plate. */}
         <div className="inv-hero-names">
@@ -549,7 +583,8 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
   };
   const suits = chosen('gentsColors', 4, SUIT_COLORS);
   // a guest's gown is never white: a pale pick is deepened until it reads as its colour
-  const gowns = chosen('ladiesColors', 5, GOWN_COLORS).map(wearable);
+  // the motif's colours as the ladies wear them: deepened away from white at a wedding, as picked elsewhere
+  const gowns = chosen('ladiesColors', 5, GOWN_COLORS).map((c) => wearable(c, occasion));
   const gentsTicked = rows<string>(data, 'gentsItems');
   const ladiesTicked = rows<string>(data, 'ladiesItems');
   const gents = attireWords(gentsItems(occasion), gentsTicked, lang);
@@ -1588,23 +1623,25 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const plays = style === 'cinematic' && !universal;
     const clip = universal ? 'universal' : plays ? (premium?.key ?? (layout === 'capiz' ? 'capiz' : '')) : '';
     const wordsOnCard = plays && (premium ? Boolean(premium.words) : layout === 'capiz');
+    // the words as a premium card sets them — the gallery's preview sets the same
+    const plate = plateWords(occasion, content, lang, look, wordsOnCard ? premium : null);
     return {
       style,
       clip,
-      monogram: str(content.cover, 'monogram'),
+      monogram: plate.monogram,
       // A door, not a title page: this opening says only that an invitation is
       // here, and who it is from waits until it opens.
       // named the way the cover names them: the child by nickname, a couple by their first names
-      names: def.lineOnly && !wordsOnCard ? '' : heroCopy(occasion, content.cover, lang).names.join(' & ') || displayTitle(occasion, content),
+      names: def.lineOnly && !wordsOnCard ? '' : plate.names.join(' & '),
       // "08 · 24 · 26" — month, day, year, the way a date is set on a
       // card rather than written into a sentence.
-      date: def.lineOnly && !wordsOnCard ? '' : openingDate(coverDate),
-      // The line over the names on a premium clip's card: the design's own
-      // cover line ("The christening of") where the clip's face has already
-      // said "you are invited", else the opening's line.
+      date: def.lineOnly && !wordsOnCard ? '' : plate.date,
+      // The line over the names: the couple's own, the design's cover line on
+      // a premium card whose face has already said "you are invited", else
+      // this opening's own line.
       line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || def.line[lang],
       line2: str(content.cover, 'openingLine2'),
-      and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
+      and: plate.and,
       words: wordsOnCard,
       caps: Boolean(def.caps),
       photos,

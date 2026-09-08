@@ -74,7 +74,15 @@ async function wipe() {
   for (const t of tables) await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${t}" CASCADE`);
 }
 
-const pic = (seed: string, w = 900, h = 1200) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
+/**
+ * A stand-in photograph for the demo content. Not a stock photo: a demo that
+ * carries somebody else's pictures shows a visitor something that is not
+ * theirs and not ours, so every photograph a demo needs is the grey
+ * placeholder, in the shape the slot takes — a visitor reads it as "your
+ * photo goes here". The first argument names the slot for the reader of this
+ * file; the shape follows the width and height the slot was drawn for.
+ */
+const pic = (_seed: string, w = 900, h = 1200) => (w > h ? '/demo/placeholder-photo-wide.png' : w === h ? '/demo/placeholder-photo-square.png' : '/demo/placeholder-photo.png');
 
 async function main() {
   console.info('Clearing…');

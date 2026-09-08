@@ -149,6 +149,19 @@ const toggle = (key: string, label: string, extra: Partial<Field> = {}): Field =
 const number = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'number', ...extra });
 const person = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'person', ...extra });
 const select = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'select', options, ...extra });
+
+/**
+ * The ways a cover photograph sits on a design whose ground is artwork. Each
+ * is a `data-style` on `.inv-portrait` in globals.css; the veil is the
+ * default and what an empty choice means.
+ */
+export const PHOTO_STYLES: Option[] = [
+  { value: 'veil', label: 'Behind the names, veiled' },
+  { value: 'arch', label: 'Arched portrait, bronze frame' },
+  { value: 'oval', label: 'Oval, double line' },
+  { value: 'round', label: 'Round medallion' },
+  { value: 'card', label: 'A tucked photo card' },
+];
 const list = (key: string, label: string, item: Field[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'list', item, wide: true, ...extra });
 /** A row of things to tick; stored as the ticked values, in the options' order. */
 const checks = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'checks', options, wide: true, ...extra });
@@ -187,6 +200,10 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   }),
   textarea('intro', 'Intro wording', { placeholder: 'Together with their families…', staff: true }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
+  // How the photograph sits on a design whose ground is artwork (Capiz):
+  // five settings, so a couple who wants their photo carried differently is
+  // one pick away rather than a design change. Blank is the veil.
+  select('photoStyle', 'How the photo sits', PHOTO_STYLES, { hint: 'On the Capiz design. Blank is the veil.' }),
   textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: "Shown after the cover, on designs that carry one. Blank keeps the design's own verse.", staff: true }),
   text('verseRef', 'Its source', { placeholder: 'Colossians 3:14', staff: true }),
   text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.', staff: true }),

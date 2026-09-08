@@ -288,6 +288,11 @@ table.data tr:hover td {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #5b4a3b; text-align: center;
 }
+/* Each clip leaves its clear ground in a different place, and the preview's
+   phone is 9:16 where the clip's frame is taller, so the words are set per
+   clip: the bow's card is the ground the ribbons uncover, above the knot. */
+.gal-phone[data-clip='baby-blue-bow'] { background: #cfdff0; }
+.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; top: 6%; bottom: 34%; }
 .gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
 .gal-cover[data-show='true'] { opacity: 1; }
 .gal-preview-side { max-width: 20rem; color: #fff; }
@@ -733,6 +738,78 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv[data-paged] .inv-hero-names > .inv-display { font-size: 1.35rem; margin-bottom: 0.4rem; }
 .inv[data-paged] .inv-hero-details { margin-top: 1.6rem; }
+
+/*
+ * The couple's photograph on the Capiz cover. A paged design's ground is the
+ * artwork, so the photo cannot fill the cover the way the other layouts do
+ * it; it sits one of five ways (cover.photoStyle, PHOTO_STYLES in
+ * sections.ts). The veil is the default: the photo lies behind the names
+ * under a veil of the paper, its edges dissolving into the ground so the
+ * clusters and drapes around it are untouched. The other four frame it above
+ * the names — an arch in a thin bronze line, an oval with a double line, a
+ * round medallion in a ring, a photo card tucked under the drape.
+ */
+.inv[data-layout='capiz'] .inv-hero-body { position: relative; }
+.inv[data-layout='capiz'] .inv-hero-body > .inv-hero-names,
+.inv[data-layout='capiz'] .inv-hero-body > .inv-hero-details { position: relative; z-index: 1; }
+.inv-portrait { position: relative; margin: 0.2rem auto 1.7rem; z-index: 0; }
+.inv-portrait img { display: block; width: 100%; object-fit: cover; }
+.inv-portrait[data-style='veil'] {
+  position: absolute;
+  left: 50%;
+  top: -3.2rem;
+  translate: -50% 0;
+  width: 100vw;
+  max-width: 32rem;
+  height: 34rem;
+  margin: 0;
+  opacity: 0.72;
+  -webkit-mask-image: radial-gradient(ellipse 64% 58% at 50% 46%, #000 44%, rgba(0, 0, 0, 0.6) 68%, transparent 100%);
+  mask-image: radial-gradient(ellipse 64% 58% at 50% 46%, #000 44%, rgba(0, 0, 0, 0.6) 68%, transparent 100%);
+}
+.inv-portrait[data-style='veil'] img { height: 100%; object-position: center 28%; filter: saturate(0.85); }
+/* room for the couple above the names, so they are seen before they are read */
+.inv[data-layout='capiz'] .inv-hero-body:has(.inv-portrait[data-style='veil']) > .inv-hero-names { padding-top: 14rem; }
+.inv-portrait[data-style='arch'] {
+  width: min(66%, 15.5rem);
+  padding: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 75%, transparent);
+  border-radius: 999px 999px 0.9rem 0.9rem;
+  background: color-mix(in srgb, #fff 38%, transparent);
+  box-shadow: 0 22px 44px -26px rgba(70, 48, 22, 0.5);
+}
+.inv-portrait[data-style='arch'] img { aspect-ratio: 4 / 5; border-radius: 999px 999px 0.65rem 0.65rem; }
+.inv-portrait[data-style='oval'] {
+  width: min(60%, 14.5rem);
+  padding: 0.4rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 80%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 45%, transparent);
+  outline-offset: 5px;
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 22px 44px -26px rgba(70, 48, 22, 0.5);
+  margin-top: 0.4rem;
+}
+.inv-portrait[data-style='oval'] img { aspect-ratio: 3 / 4; border-radius: 50%; }
+.inv-portrait[data-style='round'] {
+  width: min(52%, 12.5rem);
+  padding: 0.45rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 85%, transparent);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.35), 0 0 0 6px color-mix(in srgb, var(--inv-accent, #b08d57) 35%, transparent), 0 20px 40px -24px rgba(70, 48, 22, 0.5);
+  margin-bottom: 1.5rem;
+}
+.inv-portrait[data-style='round'] img { aspect-ratio: 1 / 1; border-radius: 50%; }
+.inv-portrait[data-style='card'] {
+  width: min(58%, 14rem);
+  padding: 0.45rem 0.45rem 1.6rem;
+  border-radius: 2px;
+  background: #fbf7f0;
+  box-shadow: 0 14px 30px -14px rgba(70, 48, 22, 0.45), 0 1px 2px rgba(0, 0, 0, 0.08);
+  transform: rotate(-3.5deg);
+  margin-bottom: 1.6rem;
+}
+.inv-portrait[data-style='card'] img { aspect-ratio: 4 / 5; }
 .inv[data-paged] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;
@@ -1007,10 +1084,13 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    ground's own foot (the church, the clouds) comes in beneath the words.
    The ground is three phone-widths tall; shown whole it left a screen of
    empty sky between the names and the verse. */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 100vh; min-height: 100dvh; justify-content: flex-start; padding-top: min(10vw, 3.2rem); padding-bottom: min(14vw, 4.5rem); }
+/* The cover is the child's name in the sky, alone on the first screen; the
+   verse waits under the fold, on the church, and comes up on the first scroll
+   rather than sharing the screen with the name. */
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 0; justify-content: flex-start; padding-top: 0; padding-bottom: min(14vw, 4.5rem); }
 /* the names centred in the sky above the verse; a short screen grows the page rather than laying one over the other */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; justify-content: center; }
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: auto; padding-top: 1.5rem; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; min-height: 100vh; min-height: 100dvh; justify-content: center; padding: min(10vw, 3.2rem) 0 min(12vw, 3.6rem); box-sizing: border-box; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: 0; padding-top: 0.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
@@ -1325,8 +1405,12 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-open[data-clip='universal'] .inv-open-copy { display: none; }
 .inv-open[data-clip='universal'] .inv-open-hint { color: #7a6a5a; text-shadow: none; }
 .inv-open[data-clip='universal'] { background: #fcfcfc; }
-/* A wide screen shows the whole frame, letterboxed on the clip's own white; a phone fills it as usual. */
-@media (min-aspect-ratio: 9/16) {
+/* A phone fills the screen with the clip, whatever its browser's bars leave
+   of the height — a portrait viewport is never as tall as 9:16 once the
+   address bar is in, and letterboxing there is what reads as "not full
+   screen". Only a landscape screen shows the whole frame, letterboxed on the
+   clip's own white. */
+@media (min-aspect-ratio: 1/1) {
   .inv-open[data-clip='universal'] .inv-open-clip { object-fit: contain; }
 }
 /* The Blue Bow, the Baby Blue theme's premium opening. A satin bow with a tag
@@ -1341,8 +1425,21 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-open[data-clip='baby-blue-bow'] { background: #cfdff0; }
 /* its card is the clear ground the ribbons leave: the words in the design's blue */
 .inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; }
-@media (min-aspect-ratio: 9/16) {
+@media (min-aspect-ratio: 1/1) {
   .inv-open[data-clip='baby-blue-bow'] .inv-open-clip { object-fit: contain; }
+  /* letterboxed, the frame is as tall as the screen and no wider than that
+     needs: the words' box (below) follows it, so the type stays the frame's size */
+  .inv-open[data-clip='baby-blue-bow'] .inv-open-plate { width: calc(100vh * 976 / 2120); width: calc(100dvh * 976 / 2120); }
+}
+/* The bow's frame is 976 x 2120 — a phone's full screen rather than 9:16 —
+   so the box its words are placed in is that frame, drawn the way object-fit
+   cover draws it: as wide as the screen or as tall as it, whichever the frame
+   needs. On a phone the browser's bars crop the ribbon's ends, never the knot
+   or the clear ground. */
+.inv-open[data-clip='baby-blue-bow'] .inv-open-plate {
+  width: max(100%, calc(100vh * 976 / 2120));
+  width: max(100%, calc(100dvh * 976 / 2120));
+  aspect-ratio: 976 / 2120;
 }
 /* The card's box: the clip is object-fit cover, so this is the same box the
    clip is drawn in — as wide as the screen or as tall as it, whichever the

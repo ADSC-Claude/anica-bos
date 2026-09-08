@@ -133,7 +133,7 @@ export const OPENINGS: OpeningDef[] = [
     key: 'cinematic',
     name: 'Premium opening',
     tagline: 'An invitation that opens like a gift.',
-    description: 'Our premium designed opening video: a seal breaking, a card sliding out with your names and date on it. Made for one design at a time, and an add-on with any package.',
+    description: 'Our premium designed opening video, drawn for your design — a seal breaking, a bow untying. An add-on with any package; a theme with several is yours to choose from.',
     minTier: 'BASIC',
     photos: 0,
     line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
@@ -144,8 +144,8 @@ export const OPENINGS: OpeningDef[] = [
 ];
 
 /**
- * The premium opening is the illustrated one — a seal breaking, a card sliding
- * out — and one of the two openings that load a file. The Letter is the other:
+ * The premium opening is the illustrated one — a seal breaking, a bow untying
+ * — and one of the two openings that load a file. The Letter is the other:
  * the same stage, playing the one universal clip instead of the design's.
  *
  * It stays out of the builder's dropdown (staffOnly) because it is artwork
@@ -156,12 +156,16 @@ export const OPENINGS: OpeningDef[] = [
  * unlocks on any tier and any service mode, DIY included (activateOrder sets
  * premiumOpening, hasPremiumOpening reads it).
  *
- * What it plays is one shared clip per design, not a render per couple. The
- * names, date and countdown stay live text over the top, so a nickname changed
- * at 11pm reads correctly on the next reload. A clip drawn for one couple is
- * attached by staff against their job (dfyOpeningAction) and overrides the
- * design's — so it needs a DfyJob, which means a Done-For-You or Priority
- * order; a DIY customer who buys the add-on gets the design's shared clip.
+ * Which clip plays comes from the design's own catalogue in
+ * src/lib/premium-openings.ts: a theme's clips are offered to that theme's
+ * invitations and to no others, and a theme with several makes a choice.
+ *
+ * What it plays is a shared clip, not a render per couple. The names, date
+ * and countdown stay live text over the top, so a nickname changed at 11pm
+ * reads correctly on the next reload. A clip drawn for one couple is attached
+ * by staff against their job (dfyOpeningAction) and overrides the design's —
+ * so it needs a DfyJob, which means a Done-For-You order; a DIY customer who
+ * buys the add-on gets the design's shared clip.
  */
 export const OPENING_BY_KEY: Record<OpeningKey, OpeningDef> = Object.fromEntries(
   OPENINGS.map((o) => [o.key, o]),

@@ -4,11 +4,15 @@ import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, opening
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES, templateData } from '../prisma/templates';
-import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder, isPaged } from '../src/lib/sections';
+import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder, isPaged, FIT, FIT_DEFAULT, fitOf } from '../src/lib/sections';
+import { sectionAnchor } from '../src/lib/anchors';
+import { overlayIntake, intakeFilled, intakeRows } from '../src/lib/intake';
 import { withWords } from '../src/lib/design';
 import { LOOK_BY_KEY } from '../src/lib/looks';
 import { STORY_SLOTS, PHOTO_SLOTS } from '../src/lib/babyblue';
 import { tierAtLeast } from '../src/lib/tiers';
+import { PREMIUM_OPENINGS, premiumOpeningsFor, premiumOpeningOf, premiumOpeningAllowed, hasPremiumClip } from '../src/lib/premium-openings';
+import { existsSync } from 'node:fs';
 import { PALETTE_PRESETS } from '../src/lib/theme';
 
 test('the opening catalogue is complete and every key is declared', () => {
@@ -135,7 +139,7 @@ test('Capiz is the Filipiniana flagship and its opening is one it can reach', ()
   assert.equal(capiz.opening, 'universal');
   assert.equal(capiz.premium, false);
   assert.equal(capiz.minTier, 'STANDARD');
-  assert.ok(capiz.openingVideoUrl && capiz.openingPosterUrl, 'Capiz has a premium opening clip to add on');
+  assert.ok(hasPremiumClip({ slug: capiz.slug, collection: capiz.collection ?? '' }), 'Capiz has a premium opening clip to add on');
   assert.equal(capiz.thumb, '/covers/capiz.jpg', 'the gallery shows its cover, not the clip');
   const filipiniana = TEMPLATES.filter((t) => t.collection === 'filipiniana');
   assert.ok(filipiniana.length >= 1);
@@ -246,14 +250,18 @@ test('a design cannot name the cinematic opening into existence', () => {
 
 test('Capiz ships a cinematic clip, and every clip in the catalogue has its poster', () => {
   const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
-  assert.equal(capiz.openingVideoUrl, '/openings/capiz.mp4');
-  assert.equal(capiz.openingPosterUrl, '/openings/capiz-poster.jpg');
-  // A clip with no poster leaves the guest on a blank screen while it buffers,
-  // so templateData drops the clip rather than shipping it half-configured.
+  // The clip is the premium catalogue's now, and the design's row is written
+  // from it — so a design ships whatever was drawn for its theme.
+  const row = templateData(capiz, 0);
+  assert.equal(row.openingVideoUrl, '/openings/capiz.mp4');
+  assert.equal(row.openingPosterUrl, '/openings/capiz-poster.jpg');
+  // A clip named on the seed row instead — a design with no catalogue entry —
+  // still needs its poster: without one the guest sits on a blank screen while
+  // it buffers, so templateData drops the clip rather than ship it half-made.
   for (const t of TEMPLATES) {
     if (t.openingVideoUrl) assert.ok(t.openingPosterUrl, `${t.slug} has a poster for its clip`);
   }
-  const orphan = templateData({ ...capiz, openingPosterUrl: '' }, 0);
+  const orphan = templateData({ ...capiz, slug: 'not-in-the-catalogue', collection: '', openingVideoUrl: '/openings/x.mp4', openingPosterUrl: '' }, 0);
   assert.equal(orphan.openingVideoUrl, '', 'a clip without a poster is not shipped');
 });
 
@@ -339,4 +347,147 @@ test('a christening tells its story in six milestones, the design’s own to sta
   assert.equal(STORY_SLOTS.length, 6);
   assert.equal(PHOTO_SLOTS.length, 4);
   for (const s of [...STORY_SLOTS, ...PHOTO_SLOTS]) assert.ok(s.cx > 0 && s.cx < 100 && s.cy > 0 && s.cy < 100 && s.size > 20 && s.size < 35, JSON.stringify(s));
+});
+
+test('a design is offered its own theme’s premium openings and no other’s', () => {
+  const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
+  const babyBlue = TEMPLATES.find((t) => t.slug === 'baby-blue')!;
+  const design = (t: (typeof TEMPLATES)[number]) => ({ slug: t.slug, collection: t.collection ?? '' });
+
+  const forCapiz = premiumOpeningsFor(design(capiz));
+  const forBabyBlue = premiumOpeningsFor(design(babyBlue));
+  assert.deepEqual(forCapiz.map((o) => o.key), ['capiz']);
+  assert.deepEqual(forBabyBlue.map((o) => o.key), ['baby-blue-bow']);
+  // No clip is offered to both: a wedding's seal in front of a christening is
+  // the mistake this catalogue exists to prevent.
+  for (const clip of forCapiz) assert.ok(!forBabyBlue.includes(clip), `${clip.key} crosses themes`);
+
+  // A design with no clip drawn for it sells no add-on.
+  const plain = TEMPLATES.find((t) => t.slug === 'classic-ivory')!;
+  assert.equal(hasPremiumClip(design(plain)), false);
+  assert.equal(hasPremiumClip(design(babyBlue)), true);
+});
+
+test('every premium opening names a design, carries both files, and is unique', () => {
+  const keys = new Set<string>();
+  for (const clip of PREMIUM_OPENINGS) {
+    assert.ok(!keys.has(clip.key), `${clip.key} is declared twice`);
+    keys.add(clip.key);
+    assert.ok(clip.name && clip.tagline, `${clip.key} is named`);
+    // Both or neither: the poster is the whole closed screen until the guest
+    // taps, so a clip without one leaves them on a blank screen.
+    assert.ok(clip.video && clip.poster, `${clip.key} has a clip and a poster`);
+    for (const file of [clip.video, clip.poster]) {
+      assert.ok(existsSync(new URL(`../public${file}`, import.meta.url)), `${file} exists`);
+    }
+    // Somebody has to be offered it, or it is artwork nobody can buy.
+    assert.ok(clip.designs.length || clip.collections?.length, `${clip.key} names a design`);
+    const reachable = TEMPLATES.some((t) => premiumOpeningsFor({ slug: t.slug, collection: t.collection ?? '' }).includes(clip));
+    assert.ok(reachable, `${clip.key} reaches a design in the catalogue`);
+  }
+});
+
+test('a chosen opening that no longer fits the design falls back to the design’s own', () => {
+  const babyBlue = { slug: 'baby-blue', collection: 'babyblue' };
+  const capiz = { slug: 'capiz', collection: 'filipiniana' };
+  // Chosen and still theirs.
+  assert.equal(premiumOpeningOf(babyBlue, 'baby-blue-bow')?.key, 'baby-blue-bow');
+  // Chosen, then the couple switched design: they get their new design's clip,
+  // never the one drawn for the old one.
+  assert.equal(premiumOpeningOf(capiz, 'baby-blue-bow')?.key, 'capiz');
+  // Nothing chosen yet.
+  assert.equal(premiumOpeningOf(babyBlue, '')?.key, 'baby-blue-bow');
+  // A design with no clips has none to fall back to.
+  assert.equal(premiumOpeningOf({ slug: 'classic-ivory', collection: '' }, 'capiz'), null);
+  // What may be stored: the design's own, or blank for "the design's first".
+  assert.equal(premiumOpeningAllowed(babyBlue, 'baby-blue-bow'), true);
+  assert.equal(premiumOpeningAllowed(babyBlue, ''), true);
+  assert.equal(premiumOpeningAllowed(babyBlue, 'capiz'), false);
+});
+
+test('a design’s row carries its first premium opening, so the gallery previews it', () => {
+  const row = (slug: string) => templateData(TEMPLATES.find((t) => t.slug === slug)!, 0);
+  assert.equal(row('capiz').openingVideoUrl, '/openings/capiz.mp4');
+  assert.equal(row('capiz').openingPosterUrl, '/openings/capiz-poster.jpg');
+  assert.equal(row('baby-blue').openingVideoUrl, '/openings/baby-blue.mp4');
+  assert.equal(row('baby-blue').openingPosterUrl, '/openings/baby-blue-poster.jpg');
+  // A design with no clip carries none, and the checkout hides the add-on.
+  assert.equal(row('classic-ivory').openingVideoUrl, '');
+});
+
+test('every writing a client types carries the room the page has for it', () => {
+  const occasions = Object.keys(OCCASION_SECTIONS) as (keyof typeof OCCASION_SECTIONS)[];
+  let counted = 0;
+  for (const occasion of occasions) {
+    for (const key of OCCASION_SECTIONS[occasion]) {
+      for (const f of fieldsFor(key, occasion)) {
+        const writings = f.type === 'list' ? (f.item ?? []) : [f];
+        for (const w of writings) {
+          if (w.type !== 'text' && w.type !== 'textarea') continue;
+          counted++;
+          assert.ok(w.max && w.max > 0, `${occasion} ${key}.${f.key === w.key ? '' : f.key + '.'}${w.key} has a limit`);
+          // a text field is a line or two; a long one belongs in a textarea
+          if (w.type === 'text') assert.ok(w.max <= 300, `${key}.${w.key} text limit ${w.max} is a line, not an essay`);
+        }
+      }
+    }
+  }
+  assert.ok(counted > 100, `${counted} writings checked`);
+  // the ones sized by hand: a name set large in script, a milestone in a drawn frame
+  const cover = fieldsFor('cover', 'WEDDING');
+  assert.equal(cover.find((f) => f.key === 'brideFirst')?.max, FIT['cover.brideFirst']);
+  assert.equal(cover.find((f) => f.key === 'intro')?.max, FIT['cover.intro']);
+  const story = fieldsFor('story', 'CHRISTENING').find((f) => f.key === 'timeline')!;
+  assert.equal(story.item?.find((i) => i.key === 'title')?.max, FIT['story.timeline.title']);
+  // a list's own max is how many rows, and is not touched
+  assert.equal(story.max, 6);
+  // anything not named gets the type's default
+  assert.equal(fitOf('nowhere.nothing', 'text'), FIT_DEFAULT.text);
+  assert.equal(fitOf('nowhere.nothing', 'textarea'), FIT_DEFAULT.textarea);
+  assert.equal(fitOf('cover.intro', 'image'), undefined);
+});
+
+test('the save cuts a writing to its room, in a section and inside a list row', () => {
+  const cover = fieldsFor('cover', 'WEDDING');
+  const long = 'x'.repeat(500);
+  const { data } = cleanSection(cover, { brideFirst: long, intro: long });
+  assert.equal((data.brideFirst as string).length, FIT['cover.brideFirst']);
+  assert.equal((data.intro as string).length, FIT['cover.intro']);
+  const story = fieldsFor('story', 'CHRISTENING');
+  const rows = cleanSection(story, { timeline: [{ title: long, text: long, photo: '' }] }).data.timeline as { title: string; text: string }[];
+  assert.equal(rows[0].title.length, FIT['story.timeline.title']);
+  assert.equal(rows[0].text.length, FIT['story.timeline.text']);
+});
+
+test('every section has a place on the page for the encoder’s preview to land', () => {
+  for (const occasion of Object.keys(OCCASION_SECTIONS) as (keyof typeof OCCASION_SECTIONS)[]) {
+    for (const key of OCCASION_SECTIONS[occasion]) {
+      for (const layout of ['classic', 'capiz', 'babyblue']) {
+        const anchor = sectionAnchor(key, layout);
+        assert.match(anchor, /^[a-z-]+$/, `${key} on ${layout} anchors somewhere`);
+      }
+    }
+  }
+  assert.equal(sectionAnchor('gallery', 'babyblue'), 'baby-photos');
+  assert.equal(sectionAnchor('gallery', 'capiz'), 'gallery');
+  assert.equal(sectionAnchor('dressCode', 'classic'), 'dress-code');
+});
+
+test('the client’s answers lay over the form without wiping what they left blank', () => {
+  const current = { line: 'A little prayer, a big answer.', howWeMet: '', photo: '/uploads/ours.jpg' };
+  const intake = { line: '', howWeMet: 'At a friend’s wedding.', photo: '' };
+  assert.deepEqual(overlayIntake(current, intake), { line: 'A little prayer, a big answer.', howWeMet: 'At a friend’s wedding.', photo: '/uploads/ours.jpg' });
+  assert.deepEqual(overlayIntake(current, undefined), current);
+  const fields = fieldsFor('story', 'WEDDING');
+  assert.equal(intakeFilled(fields, intake), true);
+  assert.equal(intakeFilled(fields, { line: '', howWeMet: '' }), false);
+  assert.deepEqual(intakeRows(fields, intake).map((r) => r.label), ['How we met']);
+});
+
+test('a design names the demo a visitor may peek at, and the row carries it', () => {
+  const row = (slug: string) => templateData(TEMPLATES.find((t) => t.slug === slug)!, 0);
+  assert.equal(row('baby-blue').demoSlug, 'lucas-andrei-christening');
+  assert.equal(row('capiz').demoSlug, 'juan-and-maria');
+  // a design with no demo has no peek
+  assert.equal(row('classic-ivory').demoSlug, '');
 });

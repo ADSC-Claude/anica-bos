@@ -147,7 +147,7 @@ async function main() {
       // with the included opening; this is the designed clip made for a design.
       { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99900, sortOrder: 1 },
       { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 2 },
-      { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout for the lolas.', priceCents: 29900, sortOrder: 3 },
+      { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout, for guests who would rather hold it.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19900, active: false, sortOrder: 4 },
       { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Your Done-For-You build jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.', priceCents: 100000, sortOrder: 5 },
       // Signature's queue jump. Two days rather than one: a Signature build
@@ -293,6 +293,45 @@ async function main() {
   });
   await prisma.dfyRevision.create({ data: { jobId: job.id, round: 0, authorId: encoder.id, authorName: encoder.name, byStaff: true, body: 'Hi Sofia! Got your details — starting on the layout now. Please send the rest of the 18 Roses when you can.' } });
 
+  // --- a christening Done-For-You job on Baby Blue, the client's form in -------
+  // What the encoder's workspace opens on: every segment the client filled,
+  // word for word, copied into the invitation as saveIntake does on submit.
+  {
+    const babyBlue = bySlug('baby-blue');
+    const denise = await prisma.user.create({ data: { email: 'denise@example.com', name: 'Denise Reyes', role: 'CUSTOMER', phone: '0917 555 0188', passwordHash: hash } });
+    const christStandard = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_STANDARD' } });
+    const day = addDays(new Date(), 75);
+    const dayKey = day.toISOString().slice(0, 10);
+    const c: Content = defaultContent('CHRISTENING', 'en');
+    const intake: Content = {
+      cover: { childFull: 'Amara Sofia Reyes', childNick: 'Amara', birthDate: addDays(new Date(), -80).toISOString().slice(0, 10), date: dayKey, time: '09:30', introPreset: 'simple', intro: 'With grateful hearts, Paolo and Denise invite you to the christening of their daughter.' },
+      ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: 'https://maps.app.goo.gl/9x3b1QhF2kJmTq8s7', note: 'Kindly be seated by 9:15 AM.' },
+      reception: { venue: 'Ilustrado Restaurant', address: '744 Calle Real del Palacio, Intramuros, Manila', time: '11:30', parkingNote: 'Parking along Calle Real.' },
+      sponsors: { ninongs: ['Mr. Rafael Reyes', 'Engr. Marco dela Cruz', 'Dr. Adrian Lim', 'Mr. Joseph Tan'].map((name) => ({ name })), ninangs: ['Mrs. Patricia Reyes', 'Ms. Camille dela Cruz', 'Dr. Andrea Lim', 'Ms. Bianca Tan'].map((name) => ({ name })) },
+      story: { timeline: [['The Prayer', 'We asked, and we waited.'], ['The Wait', 'Nine months of hope.'], ['The Answer', 'She came on a Sunday morning.'], ['The Preparation', 'Tiny dresses, big dreams.'], ['The Arrival', 'Home at last.'], ['Our Greatest Blessing', 'You are so loved, Amara.']].map(([title, text], i) => ({ title, text, photo: pic(`amara-story-${i + 1}`, 800, 800) })) },
+      gallery: { photos: ['Day one', 'First bath', 'Sunday dress', 'With Lolo'].map((caption, i) => ({ url: pic(`amara-baby-${i + 1}`, 900, 900), caption })) },
+      dressCode: { attire: ['smartCasual'], colors: ['powder-blue', 'white', 'ivory'].map(swatchHex), paletteNote: 'Blues and whites, please.' },
+      rsvp: { deadline: addDays(day, -14).toISOString().slice(0, 10), contactPhone: '0917 555 0188' },
+      closing: { message: 'Thank you for celebrating this blessing with us.', signature: 'Paolo, Denise & Amara' },
+    };
+    for (const [key, data] of Object.entries(intake)) c[key as keyof Content] = { ...(c[key as keyof Content] ?? {}), ...data };
+    const amara = await prisma.invitation.create({ data: { userId: denise.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'STANDARD', title: "Amara's Christening", slug: 'amara-christening', status: 'DRAFT', content: c as never, eventAt: day, editsAllowed: -1 } });
+    const amaraOrder = await prisma.order.create({
+      data: {
+        reference: orderReference(), userId: denise.id, packageId: christStandard.id, invitationId: amara.id, occasion: 'CHRISTENING', tier: 'STANDARD', serviceMode: 'DFY',
+        subtotalCents: christStandard.priceCents, serviceFeeCents: christStandard.dfyFeeCents, totalCents: christStandard.priceCents + christStandard.dfyFeeCents, status: 'ACTIVE', paidAt: addDays(new Date(), -1), activatedAt: addDays(new Date(), -1), createdAt: addDays(new Date(), -1),
+        items: { create: [{ kind: 'PACKAGE', code: 'CHRISTENING_STANDARD', name: christStandard.name, amountCents: christStandard.priceCents, sortOrder: 0 }, { kind: 'SERVICE', code: 'SERVICE_DFY', name: 'Done-For-You service', amountCents: christStandard.dfyFeeCents, sortOrder: 1 }] },
+      },
+    });
+    await prisma.payment.create({ data: { reference: paymentReference(), orderId: amaraOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: amaraOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_amara', gatewayPaymentId: 'pay_amara', gatewayEventId: 'evt_amara', paidAt: addDays(new Date(), -1) } });
+    await prisma.dfyJob.create({
+      data: {
+        orderId: amaraOrder.id, invitationId: amara.id, status: 'INTAKE_RECEIVED', intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -1), dueAt: addDays(new Date(), 2), revisionsAllowed: 2,
+        intake: { method: 'FORM', notes: 'The four baby photos are in the order we want them. Please use her nickname on the cover.', content: intake } as never,
+      },
+    });
+  }
+
   // --- the christening demo: Lucas Andrei, on Baby Blue ------------------------
   // The design's two drawn pages filled: six milestones with their photographs,
   // six baby photographs (four in the frames, two on the page after), and every
@@ -318,7 +357,8 @@ async function main() {
     Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Denise V.', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankDetails: '', registry: [] });
     Object.assign(c.rsvp!, { deadline: addDays(day, -14).toISOString().slice(0, 10), showSeats: true, collectAttendees: true, askDietary: false, mealChoices: [], policy: 'none', policyText: '', notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 555 0142', reminderText: '' });
     Object.assign(c.story!, { line: '', timeline: (c.story!.timeline as { title: string; text: string }[]).map((m, i) => ({ ...m, photo: pic(`lucas-story-${i + 1}`, 800, 800) })) });
-    Object.assign(c.gallery!, { line: '', photos: [1, 2, 3, 4, 5, 6].map((n) => ({ url: pic(`lucas-baby-${n}`, 900, 900), caption: n === 1 ? 'One month old' : n === 5 ? 'First smile' : '' })), note: '', videoUrl: '', videoTitle: '', close: '' });
+    // four frames on the drawn page, each with a word on its polaroid
+    Object.assign(c.gallery!, { line: '', photos: ['One month old', 'First smile', 'Sunday best', 'With Lola'].map((caption, i) => ({ url: pic(`lucas-baby-${i + 1}`, 900, 900), caption })), note: '', videoUrl: '', videoTitle: '', close: '' });
     Object.assign(c.program!, { items: [{ time: '10:00 AM', title: 'Christening Mass', note: 'Santuario de San Antonio Parish' }, { time: '12:00 PM', title: 'Lunch reception', note: 'Blue Leaf Cosmopolitan' }, { time: '1:30 PM', title: 'Cake and photos', note: 'With the ninongs and ninangs' }, { time: '2:30 PM', title: 'Games and giveaways', note: 'For the little guests' }], activities: '' });
     Object.assign(c.social!, { hashtag: '#LucasAndreiIsBlessed', instagram: '', tiktok: '', facebook: '', unplugged: false, unpluggedText: '' });
     Object.assign(c.contact!, { name: 'Denise', phone: '0917 555 0142', name2: 'Paolo', phone2: '0918 555 0143', email: '', messenger: '', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
@@ -329,6 +369,8 @@ async function main() {
       data: {
         userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
         content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: 6, ogImageUrl: '',
+        // The theme's own premium opening: the blue bow unties and the ribbons sweep aside.
+        premiumOpening: true, premiumOpeningKey: 'baby-blue-bow',
       },
     });
     const christSignature = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_COMPLETE' } });
@@ -369,6 +411,7 @@ Seeded.
   Customers (${PASSWORD_SUPPLIED ? 'same password' : `password "${PASSWORD}"`}):
     maria@example.com             owns the demo "Juan & Maria" (Signature) and a pending christening order
     sofia@example.com             Done-For-You debut in progress
+    denise@example.com            Done-For-You christening on Baby Blue, form in, waiting for the encoder
 
   Demo invitation:  /juan-and-maria
   Personal guest link example:  /juan-and-maria/${guests[0].token}

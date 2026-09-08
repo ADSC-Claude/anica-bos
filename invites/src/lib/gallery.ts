@@ -28,6 +28,8 @@ export type GalleryTemplate = {
   /** The design's CSS variables and its Google Fonts sheet, so a preview can set words in its own faces. */
   vars: Record<string, string>;
   fontsUrl: string;
+  /** The demo a visitor may scroll from the opening to Our Story, where one exists on this design (src/lib/peek.ts). */
+  peekSlug: string;
 };
 
 export function toGalleryTemplate(t: Template): GalleryTemplate {
@@ -52,5 +54,6 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     openingPosterUrl: t.openingPosterUrl,
     vars: cssVars(p, fonts),
     fontsUrl: googleFontsUrl(fonts),
+    peekSlug: '',
   };
 }

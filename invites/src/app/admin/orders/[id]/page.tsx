@@ -93,7 +93,7 @@ export default async function OrderDetail({ params, searchParams }: { params: Pr
             <section className="card p-4 text-sm">
               <h2 className="mb-1 font-semibold">Invitation</h2>
               <p><Link href={`/admin/invitations/${order.invitation.id}`} className="underline">{order.invitation.title}</Link> · {order.invitation.status.toLowerCase()}</p>
-              {order.dfyJob && <p className="mt-1"><Link href={`/admin/dfy/${order.dfyJob.id}`} className="underline">DFY job</Link> · {order.dfyJob.status.toLowerCase().replace(/_/g, ' ')}</p>}
+              {order.dfyJob && <p className="mt-1"><Link href={`/admin/dfy/${order.dfyJob.id}`} className="underline">DFY job</Link> · {order.dfyJob.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/admin/dfy/${order.dfyJob.id}/encode`} className="underline">Encode</Link></p>}
             </section>
           )}
           {order.status === 'PENDING_PAYMENT' && (

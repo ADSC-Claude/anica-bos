@@ -71,6 +71,9 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
               <p className="text-sm font-semibold">{t.name} {t.featured && <span className="pill pill-info">Popular</span>}</p>
               <p className="text-xs text-[color:var(--color-ink-500)]">{OCCASIONS.find((o) => o.key === t.occasion)?.label} · {packageLine(t)}</p>
               <TemplateNote t={t} premiumPriceCents={premiumPriceCents} />
+              {t.peekSlug && (
+                <Link href={`/${t.peekSlug}?peek=1`} className="mt-2 block text-center text-xs text-[color:var(--color-plum-600)] underline">See it open, to Our Story</Link>
+              )}
               <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm mt-3 w-full">Choose this design</Link>
               {hasClip(t) && (
                 <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}&addon=${PREMIUM_OPENING_CODE}`} className="mt-1.5 block text-center text-xs text-[color:var(--color-ink-500)] underline">

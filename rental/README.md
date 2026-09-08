@@ -162,9 +162,17 @@ built — by design. The schema does not block any of them; see
 ## Default sign-ins
 
 The seed creates one account per role and prints them when it runs. All eight
-share a password that the seed prints, and every one is created with
-`mustChangePassword`, so the first sign-in cannot reach anything until it is
-changed.
+share one password.
+
+Against a **local** database — `localhost`, `127.0.0.1`, `::1`, `postgres` or
+`db` — that password is the demo one the seed prints, which is also written in
+this repository. Against any other host the seed refuses to run unless you give
+it one of your own in `SEED_PASSWORD` (12 characters or more), and it never
+prints that one:
+
+```bash
+SEED_PASSWORD='…' DATABASE_URL='<direct string>' npm run db:seed
+```
 
 | Email | Role |
 |---|---|
@@ -175,6 +183,11 @@ changed.
 | `ana@anicastays.ph` · `rosa@anicastays.ph` | Cleaners |
 | `inspect@anicastays.ph` | Inspector |
 | `fix@anicastays.ph` | Maintenance |
+
+Every account is created with `mustChangePassword`, but that flag is checked
+*after* sign-in: it decides where an authenticated session lands, not who may
+authenticate. Whoever signs in first is the one who chooses the new password —
+so change all eight yourself, before anyone else can reach the site.
 
 The login screen lists them in development and never in production.
 

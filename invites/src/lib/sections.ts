@@ -1194,20 +1194,29 @@ export function cleanSection(fields: Field[], raw: unknown): { data: SectionData
  * The couple can replace the whole list with their own; an occasion missing
  * from here asks nothing (a memorial does not sort its mourners, and a
  * corporate event asks for the department instead).
+ *
+ * Every celebration whose guests are the celebrant's peers carries their own
+ * friends as well as their classmates: a child's playmates from the street are
+ * not schoolmates, and the debutante's oldest friend may be in none of the 18s.
+ *
+ * Family and relative are both offered wherever either is. A tita or a cousin
+ * reads "family" as the immediate one and hesitates over it, and a guest who
+ * hesitates picks nothing — so the wider word sits right beside the narrow one
+ * and neither of them has to decide what counts.
  */
 export const GUEST_GROUP_PRESETS: Partial<Record<Occasion, string[]>> = {
-  WEDDING: ['Principal sponsor (Ninong / Ninang)', 'Entourage', "Bride's family", "Groom's family", "Bride's friend", "Groom's friend", 'Officemate'],
-  ENGAGEMENT: ["Bride-to-be's family", "Groom-to-be's family", "Bride-to-be's friend", "Groom-to-be's friend", 'Officemate'],
-  CHRISTENING: ['Ninong / Ninang', "Mommy's family", "Daddy's family", "Mommy's friend", "Daddy's friend", 'Family friend'],
-  COMMUNION: ['Ninong / Ninang', "Mommy's family", "Daddy's family", 'Classmate / schoolmate', 'Family friend'],
-  BABY_SHOWER: ["Mommy's family", "Daddy's family", "Mommy's friend", "Daddy's friend", 'Officemate'],
-  KIDS_BIRTHDAY: ["Celebrant's family", 'Ninong / Ninang', 'Classmate / schoolmate', "Mommy's friend", "Daddy's friend", 'Neighbour'],
-  MILESTONE_BIRTHDAY: ['Family', 'Ninong / Ninang', 'Friend', 'Officemate', 'Neighbour', 'Church / community'],
-  DEBUT: ['Family', '18 Roses', '18 Candles', '18 Treasures', 'Classmate / schoolmate', "Parents' guest"],
-  ANNIVERSARY: ['Family', 'Ninong / Ninang', 'Friend', 'Officemate', 'Church / community'],
-  GRADUATION: ['Family', 'Classmate / schoolmate', 'Teacher / professor', 'Family friend'],
-  HOUSEWARMING: ['Family', 'Friend', 'Officemate', 'Neighbour'],
-  REUNION: ['Family', 'Batchmate / classmate', 'Friend'],
+  WEDDING: ['Principal sponsor (Ninong / Ninang)', 'Entourage', "Bride's family", "Bride's relative", "Groom's family", "Groom's relative", "Bride's friend", "Groom's friend", 'Officemate'],
+  ENGAGEMENT: ["Bride-to-be's family", "Bride-to-be's relative", "Groom-to-be's family", "Groom-to-be's relative", "Bride-to-be's friend", "Groom-to-be's friend", 'Officemate'],
+  CHRISTENING: ['Ninong / Ninang', "Mommy's family", "Mommy's relative", "Daddy's family", "Daddy's relative", "Mommy's friend", "Daddy's friend", 'Family friend'],
+  COMMUNION: ['Ninong / Ninang', "Mommy's family", "Mommy's relative", "Daddy's family", "Daddy's relative", "Child's friend", 'Classmate / schoolmate', 'Family friend'],
+  BABY_SHOWER: ["Mommy's family", "Mommy's relative", "Daddy's family", "Daddy's relative", "Mommy's friend", "Daddy's friend", 'Officemate'],
+  KIDS_BIRTHDAY: ["Celebrant's family", "Celebrant's relative", 'Ninong / Ninang', "Celebrant's friend", 'Classmate / schoolmate', "Mommy's friend", "Daddy's friend", 'Neighbour'],
+  MILESTONE_BIRTHDAY: ['Family', 'Relative', 'Ninong / Ninang', 'Friend', 'Officemate', 'Neighbour', 'Church / community'],
+  DEBUT: ['Family', 'Relative', '18 Roses', '18 Candles', '18 Treasures', "Debutante's friend", 'Classmate / schoolmate', "Parents' guest"],
+  ANNIVERSARY: ['Family', 'Relative', 'Ninong / Ninang', 'Friend', 'Officemate', 'Church / community'],
+  GRADUATION: ['Family', 'Relative', "Graduate's friend", 'Classmate / schoolmate', 'Teacher / professor', 'Family friend'],
+  HOUSEWARMING: ['Family', 'Relative', 'Friend', 'Officemate', 'Neighbour'],
+  REUNION: ['Family', 'Relative', 'Batchmate / classmate', 'Friend'],
 };
 
 /**

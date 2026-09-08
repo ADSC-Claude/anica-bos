@@ -270,6 +270,32 @@ test('guests are offered their occasion\'s groups until the couple writes their 
   assert.deepEqual(guestGroups('CORPORATE', {}), []);
 });
 
+// A child, a debutante and a graduate all have friends who are not their
+// classmates — the kid from the next street, the friend from the old school.
+test('a celebration for a young guest of honour offers their own friends, not only their class', () => {
+  for (const occasion of ['KIDS_BIRTHDAY', 'COMMUNION', 'DEBUT', 'GRADUATION'] as const) {
+    const groups = guestGroups(occasion, {});
+    assert.ok(groups.some((g) => /classmate/i.test(g)), `${occasion} lists classmates`);
+    assert.ok(
+      groups.some((g) => /friend/i.test(g) && !/classmate/i.test(g) && !/family friend/i.test(g) && !/mommy|daddy/i.test(g)),
+      `${occasion} also lets the guest of honour's own friends say so`,
+    );
+  }
+});
+
+// "Family" reads as the immediate one, so a cousin skips it. Wherever a family
+// label is offered, the wider word is offered next to it.
+test('a relative can say so without having to call themselves family', () => {
+  for (const [occasion, groups] of Object.entries(GUEST_GROUP_PRESETS)) {
+    for (const g of groups) {
+      // "Family friend" is a friend of the family, not a family label.
+      if (!/family/i.test(g) || /family friend/i.test(g)) continue;
+      const sibling = g.replace(/family/i, (m) => (m[0] === 'F' ? 'Relative' : 'relative'));
+      assert.ok(groups.includes(sibling), `${occasion}: "${g}" has no "${sibling}" beside it`);
+    }
+  }
+});
+
 test('every preset group is a distinct, non-empty label', () => {
   for (const [occasion, groups] of Object.entries(GUEST_GROUP_PRESETS)) {
     assert.ok(groups.length >= 3, occasion);

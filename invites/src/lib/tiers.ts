@@ -77,11 +77,15 @@ export function hasFeature(tier: Tier, feature: FeatureKey): boolean {
   return tierAtLeast(tier, FEATURE_MIN_TIER[feature]);
 }
 
-/** How many gallery photos a tier may carry. Infinity for Complete. */
+/**
+ * How many gallery photos a tier may carry: none for Basic, ten for Standard,
+ * Infinity for Complete. Basic's "1 cover photo" in COMPARISON is the cover
+ * section's own photo, which is not a gallery row and is not counted here.
+ */
 export function galleryLimit(tier: Tier): number {
   if (hasFeature(tier, 'gallery.unlimited')) return Infinity;
   if (hasFeature(tier, 'gallery.10')) return 10;
-  return 1;
+  return 0;
 }
 
 /**

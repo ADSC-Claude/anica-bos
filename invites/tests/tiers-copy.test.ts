@@ -17,7 +17,7 @@ test('features unlock in order', () => {
   assert.equal(hasFeature('COMPLETE', 'rsvp.personalLinks'), true);
   assert.equal(hasFeature('STANDARD', 'slug.custom'), true);
   assert.equal(hasFeature('STANDARD', 'privacy.password'), false);
-  assert.equal(galleryLimit('BASIC'), 1);
+  assert.equal(galleryLimit('BASIC'), 0, 'Basic has no gallery — its one photo is the cover photo');
   assert.equal(galleryLimit('STANDARD'), 10);
   assert.equal(galleryLimit('COMPLETE'), Infinity);
   for (const row of COMPARISON) for (const tier of TIERS) assert.notEqual(row.cells[tier], undefined, `${row.label} ${tier}`);

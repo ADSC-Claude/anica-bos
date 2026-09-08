@@ -568,10 +568,30 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'gallery',
-    label: 'Prenup photos & video',
+    label: 'Photos & video',
     tl: 'Mga Larawan',
     description: 'Your photos with their captions, your video, and the lines written around them on the page.',
-    minTier: 'BASIC',
+    /**
+     * Standard and up. Basic's one photo is the cover photo, which every
+     * occasion's cover carries and which is not counted against the gallery:
+     * the gallery page is a designed layout — one large photo, three under the
+     * arches, the rest in a mosaic — and a single photo cannot fill it. Better
+     * to give Basic the cover alone than three empty arches.
+     */
+    minTier: 'STANDARD',
+    /** Whose photos these are. The guest-facing heading stays "Gallery". */
+    labelFor: {
+      WEDDING: 'Prenup photos & video',
+      ENGAGEMENT: 'Engagement photos & video',
+      DEBUT: "Debutante's photos & video",
+      CHRISTENING: "Baby's photos & video",
+      BABY_SHOWER: "Baby's photos & video",
+      KIDS_BIRTHDAY: "Celebrant's photos & video",
+      MILESTONE_BIRTHDAY: "Celebrant's photos & video",
+      GRADUATION: "Graduate's photos & video",
+      ANNIVERSARY: 'Our photos & video',
+      MEMORIAL: 'Photos in remembrance',
+    },
     fields: () => [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', hint: 'The first photo is the large one at the top of the page. The next three sit under the arches, each with its caption. Any more fill the mosaic.' }),

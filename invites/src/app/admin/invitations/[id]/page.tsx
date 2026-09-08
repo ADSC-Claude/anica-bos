@@ -10,7 +10,8 @@ import { formatDate, formatDateTime } from '@/lib/datetime';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PageHeader, BackLink, InvitationPill, Stat } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
-import { extendExpiryAction, setTierAction, setPremiumOpeningAction, archiveInvitationAction } from '../../actions';
+import { extendExpiryAction, setTierAction, setPremiumOpeningAction, setPremiumOpeningClipAction, archiveInvitationAction } from '../../actions';
+import { premiumOpeningsFor } from '@/lib/premium-openings';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,8 @@ export default async function AdminInvitation({ params, searchParams }: { params
   const summary = await rsvpSummary(inv.id);
   const back = `/admin/invitations/${inv.id}`;
   const editable = can(user.role, 'invitations.edit');
+  // The clips drawn for this invitation's design, and no other theme's.
+  const clips = premiumOpeningsFor(inv.template);
   return (
     <>
       <BackLink href="/admin/invitations">Invitations</BackLink>
@@ -57,6 +60,7 @@ export default async function AdminInvitation({ params, searchParams }: { params
             <form action={extendExpiryAction.bind(null, inv.id, back)} className="flex gap-1"><input name="days" type="number" defaultValue={30} className="field max-w-[6rem]" /><button className="btn btn-secondary btn-sm" type="submit">Extend link by days</button></form>
             <form action={setTierAction.bind(null, inv.id, back)} className="flex gap-1"><select name="tier" defaultValue={inv.tier} className="field max-w-[10rem]">{TIERS.map((t) => <option key={t} value={t}>{t}</option>)}</select><button className="btn btn-secondary btn-sm" type="submit">Transfer package</button></form>
             <form action={setPremiumOpeningAction.bind(null, inv.id, back)} className="flex gap-1"><select name="premiumOpening" defaultValue={inv.premiumOpening ? 'on' : 'off'} className="field max-w-[10rem]"><option value="off">Off</option><option value="on">On</option></select><button className="btn btn-secondary btn-sm" type="submit">Premium opening</button></form>
+            {clips.length > 1 && <form action={setPremiumOpeningClipAction.bind(null, inv.id, back)} className="flex gap-1"><select name="premiumOpeningKey" defaultValue={inv.premiumOpeningKey} className="field max-w-[14rem]">{clips.map((c) => <option key={c.key} value={c.key}>{c.name}</option>)}</select><button className="btn btn-secondary btn-sm" type="submit">Which opening</button></form>}
             <form action={archiveInvitationAction.bind(null, inv.id, back)}><button className="btn btn-danger btn-sm" type="submit">Archive (hides the link)</button></form>
           </section>
         )}

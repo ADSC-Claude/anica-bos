@@ -27,6 +27,8 @@ import { audit } from './audit';
 import type { Lang } from './copy';
 import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
 import { LOOK_BY_KEY, BASE_LOOK, isLook, lookAllowed, type Look } from './looks';
+import { hasPremiumOpening } from './openings';
+import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
 import { notifyStaff } from './notifications';
@@ -228,6 +230,21 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
   const content = contentOf(invitation.content);
   content.theme = { ...(content.theme ?? {}), ...clean };
   return prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
+}
+
+/**
+ * Which of the design's premium openings this invitation plays.
+ *
+ * The add-on buys the premium opening; this only says which one, among the
+ * clips drawn for the design. A key from another theme is refused rather than
+ * stored, so no christening can end up behind a wedding's seal.
+ */
+export async function setPremiumOpening(user: SessionUser, invitationId: string, key: string) {
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true } });
+  assertOpenForChanges(user, invitation);
+  if (!hasPremiumOpening(invitation)) throw new HttpError(403, 'The premium opening is an add-on. Add it to your order and this choice opens up.');
+  if (!premiumOpeningAllowed(invitation.template, key)) throw new HttpError(400, 'That opening was not made for this design.');
+  return prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
 }
 
 /** The palette and fonts a page renders with: the template's, overridden by the customer's. */

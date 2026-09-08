@@ -21,15 +21,17 @@ export type FieldsProps = {
   invitationId: string;
   /** Lists longer than this show a note (gallery limit per tier). */
   listLimits?: Record<string, number>;
+  /** A list's hint from the design, where the page has a fixed number of frames. */
+  listHints?: Record<string, string>;
 };
 
-export function SectionFields({ fields, value, onChange, lang, invitationId, listLimits = {} }: FieldsProps) {
+export function SectionFields({ fields, value, onChange, lang, invitationId, listLimits = {}, listHints = {} }: FieldsProps) {
   const set = (key: string, v: unknown) => onChange({ ...value, [key]: v });
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
         <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' || f.type === 'audio' ? 'sm:col-span-2' : ''}>
-          <FieldInput field={f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
+          <FieldInput field={listHints[f.key] ? { ...f, hint: listHints[f.key] } : f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
         </div>
       ))}
     </div>
@@ -49,6 +51,20 @@ function Label({ field, htmlFor }: { field: Field; htmlFor?: string }) {
 
 function Hint({ text }: { text?: string }) {
   return text ? <p className="hint">{text}</p> : null;
+}
+
+/**
+ * How much room is left: the page has so many characters' worth for this
+ * writing (Field.max, from FIT in sections.ts), and the count turns amber in
+ * the last stretch so nobody is surprised at the cut. Quiet until a third is
+ * used, so a short field does not nag.
+ */
+function Room({ field, value }: { field: Field; value: string }) {
+  if (!field.max) return null;
+  const used = value.length;
+  if (used < field.max / 3) return null;
+  const tight = used >= field.max * 0.85;
+  return <p className={`mt-0.5 text-right text-[11px] ${tight ? 'text-[color:var(--warn)]' : 'text-[color:var(--color-ink-500)]'}`} aria-live="polite">{used} / {field.max}{used >= field.max ? ' — that is all the room the page has' : ''}</p>;
 }
 
 function FieldInput({
@@ -83,8 +99,9 @@ function FieldInput({
       return (
         <div>
           <Label field={field} htmlFor={id} />
-          <input id={id} type={field.type === 'url' ? 'url' : field.type} className="field" value={String(value ?? '')} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />
+          <input id={id} type={field.type === 'url' ? 'url' : field.type} className="field" value={String(value ?? '')} placeholder={field.placeholder} maxLength={field.type === 'text' ? field.max : undefined} onChange={(e) => onChange(e.target.value)} />
           <Hint text={field.hint} />
+          {field.type === 'text' && <Room field={field} value={String(value ?? '')} />}
         </div>
       );
     case 'number':
@@ -99,8 +116,9 @@ function FieldInput({
       return (
         <div>
           <Label field={field} htmlFor={id} />
-          <textarea id={id} className="field" rows={3} value={String(value ?? '')} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />
+          <textarea id={id} className="field" rows={3} value={String(value ?? '')} placeholder={field.placeholder} maxLength={field.max} onChange={(e) => onChange(e.target.value)} />
           <Hint text={field.hint} />
+          <Room field={field} value={String(value ?? '')} />
         </div>
       );
     case 'toggle':
@@ -516,7 +534,7 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
       {value.length < max ? (
         <button type="button" className="btn btn-secondary btn-sm mt-2" onClick={() => onChange([...value, blank()])}>+ {field.addLabel ?? 'Add'}</button>
       ) : (
-        <p className="hint">Your package includes up to {max} here. Upgrade for more.</p>
+        <p className="hint">{limit !== undefined && limit < (field.max ?? 200) && limit <= 12 ? `The page holds ${max} here.` : `Your package includes up to ${max} here. Upgrade for more.`}</p>
       )}
       <Hint text={field.hint} />
     </div>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { collectionsPresent } from '@/lib/collections';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { TemplateGallery } from '@/components/landing/gallery';
-import { toGalleryTemplate } from '@/lib/gallery';
+import { galleryWithPeeks } from '@/lib/peek';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 
 export const metadata = { title: 'Templates', description: 'Digital invitation templates for weddings, debuts, christenings and birthdays in the Philippines.' };
@@ -45,7 +45,7 @@ export default async function TemplatesPage() {
           </section>
         )}
         <div className="mt-8">
-          <TemplateGallery templates={templates.map(toGalleryTemplate)} premiumPriceCents={premium?.priceCents} />
+          <TemplateGallery templates={await galleryWithPeeks(templates)} premiumPriceCents={premium?.priceCents} />
         </div>
       </main>
       <SiteFooter s={s} />

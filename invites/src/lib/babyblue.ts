@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 /**
  * The Baby Blue layout's drawn pages, measured off the designer's grounds.
  *
@@ -50,6 +51,24 @@ export const PHOTO_SLOTS: Slot[] = [
   { cx: 30.92, cy: 63.34, size: 27.3, tilt: -10.8 },
   { cx: 69.61, cy: 71.35, size: 27.7, tilt: 12 },
 ];
+/** Baby Photos is 941 × 1672: its height as a share of its width, for placing in cqw. */
+export const PHOTO_ASPECT = 1672 / 941;
+/**
+ * The polaroid's strip below its photo, where the client's caption is written
+ * in the design's script: how far below the photo's bottom edge the caption's
+ * centre sits, as a share of the ground's width. The frame leans, so the
+ * caption leans with it, placed along the frame's own axis.
+ */
+export const PHOTO_STRIP = { below: 4.3, width: 0.92 };
+
+export function captionStyle(slot: Slot, aspect = PHOTO_ASPECT): CSSProperties {
+  const t = (slot.tilt * Math.PI) / 180;
+  const d = slot.size / 2 + PHOTO_STRIP.below;
+  const x = slot.cx - d * Math.sin(t);
+  const y = slot.cy * aspect + d * Math.cos(t);
+  return { left: `${x}cqw`, top: `${y}cqw`, width: `${slot.size * PHOTO_STRIP.width}cqw`, transform: `translate(-50%, -50%) rotate(${slot.tilt}deg)` };
+}
+
 export const PHOTO_HEAD = { eyebrowTop: 9.4, titleTop: 12.6, lineTop: 20.5 };
 
 /** The style that puts a photo in its frame. */

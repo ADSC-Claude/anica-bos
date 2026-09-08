@@ -17,6 +17,7 @@ import { notify } from '@/lib/notifications';
 import { isOccasion } from '@/lib/occasions';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
+import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
 import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
@@ -244,6 +245,21 @@ export async function setPremiumOpeningAction(invitationId: string, back: string
     await prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpening: on } });
     await audit(user, { module: 'invitations', action: on ? 'premiumOpening.on' : 'premiumOpening.off', entityType: 'Invitation', entityId: invitationId, sensitive: true });
     return on ? 'Premium opening switched on.' : 'Premium opening switched off.';
+  });
+}
+/**
+ * Which of the design's premium openings this invitation plays. The customer
+ * picks their own in Settings; staff set it for a Done-For-You order, or when
+ * a couple asks over Messenger. A clip from another theme is refused.
+ */
+export async function setPremiumOpeningClipAction(invitationId: string, back: string, fd: FormData) {
+  return run('invitations.edit', back, async (user) => {
+    const key = s(fd, 'premiumOpeningKey');
+    const inv = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true } });
+    if (!premiumOpeningAllowed(inv.template, key)) throw new HttpError(400, 'That opening was not made for this design.');
+    await prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
+    await audit(user, { module: 'invitations', action: 'premiumOpening.clip', entityType: 'Invitation', entityId: invitationId });
+    return key ? `Opening set to ${PREMIUM_OPENING_BY_KEY[key]?.name ?? key}.` : 'Back to the design’s first opening.';
   });
 }
 export async function archiveInvitationAction(invitationId: string, back: string) {

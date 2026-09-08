@@ -12,7 +12,7 @@ import { invitationPath } from '@/lib/app-url';
 
 export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
-export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** a premium opening clip exists for this design, so the add-on can be bought with it */ premiumOpening: boolean };
+export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
 export type WizardProps = {
   packages: WizardPackage[];
@@ -49,7 +49,7 @@ export function CheckoutWizard(p: WizardProps) {
   const templates = p.templates.filter((t) => t.occasion === occasion && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
   // the premium opening is sold per design: a design with no clip yet cannot carry it
-  const premiumOk = !template || template.premiumOpening;
+  const premiumOk = !template || template.premiumOpenings.length > 0;
   const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk));
   const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
 
@@ -162,7 +162,7 @@ export function CheckoutWizard(p: WizardProps) {
                   </div>
                   <div className="p-2">
                     <span className="block text-sm font-semibold">{tp.name}</span>
-                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? `${TIER_LABELS.COMPLETE} only` : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpening ? ' · premium opening add-on' : ''}</span>
+                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? `${TIER_LABELS.COMPLETE} only` : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpenings.length ? ' · premium opening add-on' : ''}</span>
                   </div>
                 </button>
               ))}
@@ -183,7 +183,9 @@ export function CheckoutWizard(p: WizardProps) {
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">{a.name}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
-                  {a.code === PREMIUM_OPENING_CODE && template && !template.premiumOpening && <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>}
+                  {a.code === PREMIUM_OPENING_CODE && template && (template.premiumOpenings.length
+                    ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours in the builder.' : '.'}</span>
+                    : <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>)}
                 </span>
                 <span className="text-sm font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span>
               </label>

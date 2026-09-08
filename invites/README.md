@@ -266,7 +266,7 @@ catalogue:
 | The Drape | Every package | Hanging silk with the names on it, lifted away. |
 | The Seal | Every package | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
 | Photo Story | Every package | Three photos fanned like prints, sliding apart. |
-| Cinematic | The premium opening add-on | Embroidered panels tied with a silk bow. The bow unties, the panels draw back. |
+| Cinematic | The premium opening add-on | The clip drawn for the design: the Capiz seal breaking, or the Baby Blue bow untying and its ribbons sweeping aside. |
 
 **None of these is a video.** Every one is drawn by the browser from the
 couple's own palette, words and photos — a `<div>`, a CSS transition and, for
@@ -287,6 +287,19 @@ That holds for the six drawn openings. **The cinematic one is the exception,
 and it is deliberate.** Photoreal cloth — a silk bow untying, beadwork with
 raised shadow — cannot be drawn in CSS or in Lottie, which is vector. It is
 artwork somebody makes, so it is a file.
+
+Because it is artwork for one theme, it is not offered to every design.
+`src/lib/premium-openings.ts` is the catalogue: each clip names the designs it
+was drawn for, and the collection it belongs to so a theme's next design
+inherits it. An invitation is offered its own theme's clips and no others —
+Capiz has one, the Baby Blue Theme has the Blue Bow with more to come, and a
+christening is never shown a wedding's seal. A theme with more than one clip
+becomes a choice: the customer picks theirs under Settings once the add-on is
+on the order, staff can set it from the invitation's admin page, and the
+design's row carries the first as its default, which is what the gallery
+previews. Adding a clip is one entry in that file plus two files under
+`public/openings`; the checkout gate, the picker and the guest's page all read
+the catalogue.
 
 What makes it affordable is that the file is still shared. One clip per
 design, not per couple: the names never appear inside it, so the same few
@@ -413,6 +426,44 @@ APPROVED → PUBLISHED` on a kanban at `/admin/dfy`, with an SLA (`dueAt`, from
 the turnaround in Settings), an assignee, internal notes, a revision counter
 and a customer-facing thread. Overdue jobs are flagged red and nudge the queue
 daily. Reports show average intake-to-preview and preview-to-publish hours.
+
+### The encoder's workspace
+
+The client's form is already word for word and photo by segment, and it is
+copied into the invitation the moment they submit it (`saveIntake`). What an
+encoder adds is the fit: whether the intro sits on the cover, whether the
+prenup photos are in the right order, whether a milestone was written in the
+right box, whether the wording reads the way a guest should read it. **Encode**
+on a job (`/admin/dfy/<job>/encode`) is built for exactly that, in three
+columns:
+
+- the segments in the order the page shows them, with a mark for what the
+  client wrote (✎), what has been started and what has been checked off;
+- the client's own answers for the segment in hand beside the form for it
+  (every field, the fixed writings included), with one button to put their
+  answers into the form and, for any list of photographs, a strip of
+  thumbnails to reorder — the first is the large one at the top of a prenup
+  page;
+- the page itself, scrolled to that segment and reloaded on every save, so
+  the encoder sees what the words do before the client does. The preview
+  opens with `?bare=1`, which for a previewer drops the opening, the music and
+  the day-and-night toggle; a guest's link never does.
+
+Checking a segment off is the builder's Done mark, so the client's dashboard
+and the encoder's progress agree. Marking the job as encoding and sending the
+preview are one button each at the top.
+
+### How much a writing can hold
+
+Every text a client types has a limit sized to the page it lands on: a first
+name is set large in script across a phone, a milestone's title sits inside a
+drawn frame, a note under the palette is a line or two. `FIT` in
+`src/lib/sections.ts` holds the number per field (`cover.intro`,
+`story.timeline.title`, …), the type's default covers the rest, and every
+section's fields carry it as `max`. The form counts it down once a third is
+used and turns amber in the last stretch; the save cuts anything past it, in
+the builder, the intake and the workspace alike. When a design gains or loses
+room, the number changes in one place.
 
 ## Guest data and privacy
 

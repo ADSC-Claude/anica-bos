@@ -7,9 +7,12 @@ import { contentOf, resolveTheme } from '@/lib/invitations';
 import { hasFeature, TIER_LABELS } from '@/lib/tiers';
 import { PALETTE_PRESETS } from '@/lib/theme';
 import { LOOKS, looksFor } from '@/lib/looks';
+import { hasPremiumOpening, PREMIUM_OPENING_CODE } from '@/lib/openings';
+import { premiumOpeningsFor } from '@/lib/premium-openings';
+import { formatPeso } from '@/lib/money';
 import { displayHost } from '@/lib/app-url';
 import { PageHeader } from '@/components/ui';
-import { SettingsForm, ThemePicker, TemplatePicker } from './forms';
+import { SettingsForm, ThemePicker, TemplatePicker, OpeningPicker } from './forms';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +20,13 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const templates = await prisma.template.findMany({ where: { occasion: inv.occasion, published: true }, orderBy: { sortOrder: 'asc' } });
+  const [templates, premiumAddOn] = await Promise.all([
+    prisma.template.findMany({ where: { occasion: inv.occasion, published: true }, orderBy: { sortOrder: 'asc' } }),
+    prisma.addOn.findFirst({ where: { code: PREMIUM_OPENING_CODE, active: true } }),
+  ]);
+  // Only the clips drawn for this design, so a theme's openings are offered
+  // together and no other theme's ever is.
+  const clips = premiumOpeningsFor(inv.template);
   const content = contentOf(inv.content);
   const theme = resolveTheme(inv.template, content, inv.tier);
   const allowed = templates.filter((t) => (hasFeature(inv.tier, 'templates.premium') || !t.premium) && (hasFeature(inv.tier, 'templates.any') || t.minTier === 'BASIC'));
@@ -34,6 +43,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
         <div className="card p-5">
           <h2 className="mb-3 font-semibold">Colours &amp; fonts</h2>
           <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, lookKey: content.theme?.lookKey ?? '', mode: content.theme?.mode ?? 'day' }} tier={inv.tier} />
+        </div>
+        <div className="card p-5 lg:col-span-2">
+          <h2 className="mb-1 font-semibold">Opening</h2>
+          <p className="mb-3 text-sm text-[color:var(--color-ink-500)]">The short scene before your invitation. Every package includes The Letter; a design’s own premium opening is the add-on.</p>
+          <OpeningPicker invitationId={inv.id} current={inv.premiumOpeningKey} entitled={hasPremiumOpening(inv)} price={premiumAddOn ? formatPeso(premiumAddOn.priceCents) : ''} clips={clips.map((c) => ({ key: c.key, name: c.name, tagline: c.tagline, poster: c.poster }))} />
         </div>
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold">Template</h2>

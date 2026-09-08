@@ -38,8 +38,10 @@ export type OpeningProps = {
   /** "cinematic" only: the clip, and the still shown until it plays. */
   video: string;
   poster: string;
-  /** Which clip, when the words belong on it rather than over its closed face — "capiz" (on the card) or "universal" (beneath the envelope). */
+  /** Which clip is playing, for its own styling — "capiz" or "universal". */
   clip: string;
+  /** The couple's words are set on the clip as it ends (a premium clip, on its card). The Letter carries none. */
+  words?: boolean;
   /** The word set between two names on the card — "and", "at" or "&" — the look's, the same as the cover. */
   and?: string;
   /** "Tap to open". */
@@ -121,6 +123,12 @@ const NO_JS = '.inv-open{display:none !important}';
 const CARD_WORDS_AT = 0.9;
 /** How long the card holds with the words on it before the page fades in. */
 const CARD_HOLD_MS = 1800;
+/** A clip's length when the browser has not said — every clip we ship runs about this long. */
+const CLIP_FALLBACK_SECONDS = 4;
+/** How long a tapped clip may take to start before the reveal goes on without it. */
+const LOAD_GRACE_MS = 8000;
+/** How long past a clip's expected end the reveal waits for `ended` before going on without it. */
+const END_GRACE_MS = 1500;
 
 /** "Maria & Juan" as the two names and the word between them; anything else as one line. */
 function cardNames(names: string, and: string): ReactNode {
@@ -243,24 +251,35 @@ export function Shell({
       setOpen(true);
       return;
     }
-    // A guest who asked for less motion gets the poster — the same artwork,
-    // standing still — and a plain fade when they tap. The clip never plays.
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      setOpen(true);
-      return;
-    }
     // The card the clip opens onto is blank in the file: on a clip that sets
     // the couple's words on it, they come up as the card settles, stay long
     // enough to read, and then the page fades in over them. On any other clip
     // the page comes up as the clip reaches its last moments, with no hold on
-    // an empty card; `ended` is the fallback if timing misses.
-    const words = Boolean(opening.clip);
+    // an empty card.
+    const words = Boolean(opening.words);
     let done = false;
+    let ending = false;
     const finish = () => {
       if (done) return;
       done = true;
       setOpen(true);
     };
+    // The words are never skipped. Whatever the clip does — plays to the end,
+    // stalls, refuses, or is left out for a guest who asked for less motion —
+    // they come up, hold to be read, and then the page fades in.
+    const close = () => {
+      if (done || ending) return;
+      ending = true;
+      if (!words) return finish();
+      setPlate(true);
+      window.setTimeout(finish, CARD_HOLD_MS);
+    };
+    // A guest who asked for less motion gets the poster — the same artwork,
+    // standing still — with the words on it, and the fade. The clip never plays.
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      close();
+      return;
+    }
     const onTime = () => {
       if (!video.duration) return;
       const left = video.duration - video.currentTime;
@@ -274,20 +293,32 @@ export function Shell({
       }
     };
     video.addEventListener('timeupdate', onTime);
+    video.addEventListener('ended', close, { once: true });
+    // A clip that will not play — an unsupported codec, a file that 404s, a
+    // browser that refuses — must not strand the guest on a screen that never
+    // opens, so the reveal happens anyway, words first.
+    video.addEventListener('error', close, { once: true });
+    // A second clock beside the clip's own events, because a phone can play a
+    // clip and still be stingy with them: from the moment it actually starts,
+    // the words are due at the clip's last stretch and the reveal is due just
+    // past its end. A clip that never starts is given up on after a grace.
+    let started = false;
+    const loadGuard = window.setTimeout(() => {
+      if (!started) close();
+    }, LOAD_GRACE_MS);
     video.addEventListener(
-      'ended',
+      'playing',
       () => {
-        if (!words) return finish();
-        setPlate(true);
-        window.setTimeout(finish, CARD_HOLD_MS);
+        if (started) return;
+        started = true;
+        window.clearTimeout(loadGuard);
+        const expected = (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : CLIP_FALLBACK_SECONDS) * 1000;
+        if (words) window.setTimeout(() => setPlate(true), Math.max(0, expected - CARD_WORDS_AT * 1000));
+        window.setTimeout(close, expected + END_GRACE_MS);
       },
       { once: true },
     );
-    // A clip that will not play — an unsupported codec, a file that 404s, a
-    // browser that refuses — must not strand the guest on a screen that never
-    // opens, so the reveal happens anyway.
-    video.addEventListener('error', finish, { once: true });
-    void video.play().catch(finish);
+    void video.play().catch(close);
   };
 
   return (
@@ -311,12 +342,11 @@ export function Shell({
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
             </div>
-            {opening.clip && (
+            {opening.words && (
               <div className="inv-open-plate" data-show={plate} aria-hidden>
                 <div>
-                  {/* the Letter's own card says "you're invited to" — only the names and date follow it */}
-                  {opening.monogram && opening.clip !== 'universal' && <p className="inv-plate-mono">{opening.monogram}</p>}
-                  {opening.line && opening.clip !== 'universal' && <p className="inv-plate-eyebrow">{opening.line}</p>}
+                  {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
+                  {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
                   {opening.names && <p className="inv-plate-names">{cardNames(opening.names, opening.and || '&')}</p>}
                   {opening.date && <p className="inv-plate-date">{opening.date}</p>}
                   {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}

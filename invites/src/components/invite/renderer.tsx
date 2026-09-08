@@ -160,8 +160,8 @@ function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyeb
   // sentence that does the inviting waits for the invitation block.
   const place = content.ceremony && str(content.ceremony, 'venue') ? content.ceremony : content.reception;
   const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
-  // the Moment's three lines: the couple's own, else the look's
-  const momentLines = format && !str(content.moment, 'backdrop') ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
+  // the three lines under the place: the look's, or the couple's own where staff wrote them
+  const momentLines = format ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
@@ -1324,7 +1324,6 @@ const STRIP_ORDER = [1, 2, 3, 4, 5, 6, 7, ...Array.from({ length: 24 }, (_, i) =
 
 const CAPIZ_PAGES: PageDef[] = [
   { key: 'cover', sections: ['cover', 'verse'] },
-  { key: 'moment', sections: ['moment'] },
   { key: 'story', sections: ['story'] },
   { key: 'invitation', sections: ['ceremony'] },
   { key: 'entourage', sections: ['entourage'] },
@@ -1470,11 +1469,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const style = universal ? 'cinematic' : key;
     const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);
     const photos = [coverImage(content), ...gallery].filter(Boolean).slice(0, def.photos);
-    // A clip that says nothing itself carries the words as it ends: on the
-    // Capiz card as it opens, or beneath the Letter's envelope — rather than
-    // over the closed face.
+    // Which clip is playing, for its own styling. Only a premium clip carries
+    // the couple's words — on the Capiz card as it opens. The Letter, the
+    // opening every package includes, carries no writing at all: it plays and
+    // the invitation follows, and the names wait for the cover.
     const clip = universal ? 'universal' : style === 'cinematic' && layout === 'capiz' ? 'capiz' : '';
-    const wordsOnCard = Boolean(clip);
+    const wordsOnCard = clip === 'capiz';
     return {
       style,
       clip,
@@ -1488,6 +1488,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       line: str(content.cover, 'openingLine') || def.line[lang],
       line2: str(content.cover, 'openingLine2'),
       and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
+      words: wordsOnCard,
       caps: Boolean(def.caps),
       photos,
       video: universal ? UNIVERSAL_OPENING.video : style === 'cinematic' ? assets.video : '',
@@ -1613,8 +1614,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'faq':
         return <Faq key={key} data={data} lang={lang} />;
       case 'moment':
-        // on the format the three lines are on the cover, so without a photograph there is no page
-        return format && !str(data, 'backdrop') ? null : <Moment key={key} data={data} format={format} fallback={[1, 2, 3].map((n) => line(`moment${n}` as LineKey) || '')} />;
+        // retired on the format: the three lines are on the cover, and there is no page between the verse and the story
+        return format ? null : <Moment key={key} data={data} format={format} fallback={[1, 2, 3].map((n) => line(`moment${n}` as LineKey) || '')} />;
       case 'travel':
         return <Travel key={key} data={data} lang={lang} />;
       case 'social':

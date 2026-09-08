@@ -66,7 +66,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
         <section className="mt-10">
           <h2 className="display text-2xl">The opening</h2>
           <p className="mt-1 max-w-2xl text-[color:var(--color-ink-700)]">
-            Every package opens with The Letter: a sealed envelope your guest taps once, a card that says you are invited, then your names and date, and the invitation underneath.
+            Every package opens with The Letter: a sealed envelope your guest taps once, a card that says you are invited, then the invitation underneath.
             {withClip.length > 0 && ` The premium opening video, made for ${withClip.map((t) => t.name).join(' and ')}, is an add-on${premium ? ` at ${formatPesoShort(premium.priceCents)}` : ''} — a seal breaking, a card sliding out with your names on it.`}
           </p>
         </section>

@@ -294,9 +294,9 @@ table.data tr:hover td {
 .gal-phone[data-clip='baby-blue-bow'] { background: #cfdff0; }
 /* The same words on the same part of the artwork as the guest page gets: the
    phone is 9:16 and the clip is 976:2120, so `cover` shaves 11.09% of the
-   phone's height off each end of the frame — the guest page's box of 22%..56%
+   phone's height off each end of the frame — the guest page's box of 21%..55%
    of the frame is this one, put through p = 1.22182f − 11.091. */
-.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 16%; bottom: 43%; }
+.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 14.5%; bottom: 44%; }
 /* The card the words go on when the clip could not play at all — a phone in
    low power mode refuses autoplay, a slow line has not finished the file, a
    browser will not decode it. The poster cannot stand in: both posters carry
@@ -1482,8 +1482,10 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* The diamond the ribbons open is not quite centred on the frame: its axis
    runs about two points right of the middle, and its widest row is at 42% of
    the frame. The box is set on that axis rather than the frame's, or the
-   eyebrow's first letter ends up on the satin. */
-.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 22%; bottom: 44%; }
+   eyebrow's first letter ends up on the satin. The owner marked the centre
+   they wanted on a phone — 37.9% down the screen, 51.7% across — and this box
+   puts the writing's middle at 38.0% and 52%. */
+.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 21%; bottom: 45%; }
 /* The type is shared between the two surfaces because the clip fills the
    width of both, so a size in cqw lands the same on each; only the boxes
    above differ, because the preview's 9:16 phone crops the frame's head and

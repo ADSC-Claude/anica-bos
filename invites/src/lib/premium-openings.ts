@@ -21,6 +21,12 @@ export type PremiumOpening = {
   name: string;
   /** The one line under the name. */
   tagline: string;
+  /**
+   * What happens in the clip, told to a visitor watching the preview: "the
+   * seal parts, the card slides out with your names and date set on it".
+   * Continues "As your guest sees it: …".
+   */
+  blurb: string;
   video: string;
   poster: string;
   /** The designs it was drawn for, by slug. */
@@ -49,6 +55,7 @@ export const PREMIUM_OPENINGS: PremiumOpening[] = [
     key: 'capiz',
     name: 'The Capiz Seal',
     tagline: 'A bronze seal breaks and the card slides out with your names on it.',
+    blurb: 'the seal parts, the card slides out with your names and date set on it, and your invitation fades in beneath',
     video: '/openings/capiz.mp4',
     poster: '/openings/capiz-poster.jpg',
     designs: ['capiz'],
@@ -61,6 +68,7 @@ export const PREMIUM_OPENINGS: PremiumOpening[] = [
     key: 'baby-blue-bow',
     name: 'The Blue Bow',
     tagline: 'A satin bow with a tag, untied — the ribbons sweep aside.',
+    blurb: "the bow unties, the ribbons sweep aside, your child's name and the date come up on the clear ground they leave, and your invitation fades in beneath",
     video: '/openings/baby-blue.mp4',
     poster: '/openings/baby-blue-poster.jpg',
     designs: ['baby-blue'],

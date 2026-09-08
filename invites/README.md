@@ -240,12 +240,20 @@ ahead of the designs.
 It has its own `capiz` layout, whose shell border is drawn from the palette
 rather than supplied as artwork, so the design recolours with the customer's
 own accent instead of framing the page in a colour that no longer matches it.
-A couple's cover photo is not laid behind the words the way the other layouts
-do it — the ground is the artwork — but set as an arched portrait in a thin
-bronze frame under the clusters and above the names, the way a printed card
-carries the couple. The Juan & Maria demo carries the grey photo placeholder
-(`public/demo/placeholder-photo.png`) in that frame, so a visitor sees where
-their own photograph goes rather than somebody else's.
+A couple's cover photo cannot fill the cover the way the other layouts do it —
+the ground is the artwork — so it lies behind the names under a veil of the
+paper, its edges dissolving into the ground, with the clusters and drapes
+untouched around it (`.inv-portrait`).
+
+Every photograph a demo needs is the grey placeholder in `public/demo/`, in
+the shape the slot takes (portrait, square, wide): a demo that carried stock
+photographs showed a visitor pictures that were nobody's, and the placeholder
+reads as "your photo goes here". The seed's `pic()` hands it out.
+
+The gallery's premium-opening preview sets the words on the clip's card from
+the design's demo, with the same `plateWords` the guest page uses — rename
+the child in the demo's form and the preview follows — and describes each clip
+from its catalogue entry (`blurb`).
 
 **Baby Blue** is the christening design, in the Baby Blue Theme at
 `/collections/babyblue`: sky and clouds with a dove and the church bell for

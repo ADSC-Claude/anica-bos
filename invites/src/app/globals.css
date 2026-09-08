@@ -288,6 +288,11 @@ table.data tr:hover td {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #5b4a3b; text-align: center;
 }
+/* Each clip leaves its clear ground in a different place, and the preview's
+   phone is 9:16 where the clip's frame is taller, so the words are set per
+   clip: the bow's card is the ground the ribbons uncover, above the knot. */
+.gal-phone[data-clip='baby-blue-bow'] { background: #cfdff0; }
+.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; top: 6%; bottom: 34%; }
 .gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
 .gal-cover[data-show='true'] { opacity: 1; }
 .gal-preview-side { max-width: 20rem; color: #fff; }
@@ -736,27 +741,37 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 
 /*
  * The couple's photograph on the Capiz cover. A paged design's ground is the
- * artwork, so the photo is not laid behind the words the way the other layouts
- * do it: it is an arched portrait in a thin bronze frame, set under the
- * clusters and above the names, the way a printed card carries the couple.
- * The arch is a half circle on a four-by-five photograph.
+ * artwork, so the photo cannot fill the cover the way the other layouts do
+ * it: it lies behind the names under a veil of the paper — a print on vellum,
+ * its edges dissolving into the ground so the clusters and drapes around it
+ * are untouched — and the words sit on it in the design's ink.
  */
+.inv[data-layout='capiz'] .inv-hero-body { position: relative; }
+.inv[data-layout='capiz'] .inv-hero-body > .inv-hero-names,
+.inv[data-layout='capiz'] .inv-hero-body > .inv-hero-details { position: relative; z-index: 1; }
 .inv-portrait {
-  width: min(66%, 15.5rem);
-  margin: 0 auto 1.8rem;
-  padding: 0.3rem;
-  border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 75%, transparent);
-  border-radius: 999px 999px 0.9rem 0.9rem;
-  background: color-mix(in srgb, #fff 38%, transparent);
-  box-shadow: 0 22px 44px -26px rgba(70, 48, 22, 0.5);
+  position: absolute;
+  left: 50%;
+  top: -2.2rem;
+  translate: -50% 0;
+  width: min(118%, 26rem);
+  height: 27rem;
+  margin: 0;
+  z-index: 0;
+  opacity: 0.62;
+  -webkit-mask-image: radial-gradient(ellipse 58% 56% at 50% 46%, #000 38%, rgba(0, 0, 0, 0.55) 62%, transparent 100%);
+  mask-image: radial-gradient(ellipse 58% 56% at 50% 46%, #000 38%, rgba(0, 0, 0, 0.55) 62%, transparent 100%);
 }
 .inv-portrait img {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 5;
+  height: 100%;
   object-fit: cover;
-  border-radius: 999px 999px 0.65rem 0.65rem;
+  object-position: center 30%;
+  filter: saturate(0.85);
 }
+/* room for the veil above the names, so the couple is seen before they are read */
+.inv[data-layout='capiz'] .inv-hero-body:has(.inv-portrait) > .inv-hero-names { padding-top: 9.5rem; }
 .inv[data-paged] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;
@@ -1031,10 +1046,13 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    ground's own foot (the church, the clouds) comes in beneath the words.
    The ground is three phone-widths tall; shown whole it left a screen of
    empty sky between the names and the verse. */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 100vh; min-height: 100dvh; justify-content: flex-start; padding-top: min(10vw, 3.2rem); padding-bottom: min(14vw, 4.5rem); }
+/* The cover is the child's name in the sky, alone on the first screen; the
+   verse waits under the fold, on the church, and comes up on the first scroll
+   rather than sharing the screen with the name. */
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 0; justify-content: flex-start; padding-top: 0; padding-bottom: min(14vw, 4.5rem); }
 /* the names centred in the sky above the verse; a short screen grows the page rather than laying one over the other */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; justify-content: center; }
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: auto; padding-top: 1.5rem; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; min-height: 100vh; min-height: 100dvh; justify-content: center; padding: min(10vw, 3.2rem) 0 min(12vw, 3.6rem); box-sizing: border-box; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: 0; padding-top: 0.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }

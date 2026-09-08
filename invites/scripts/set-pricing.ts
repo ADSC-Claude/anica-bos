@@ -1,5 +1,6 @@
 /**
- * Sets the service-mode fees on every package, and the rush add-on, to one
+ * Sets the price, fees and revision count on every package, and the queue-jump
+ * add-ons, to one
  * agreed grid.
  *
  * The seed can only run against an empty database, and the admin table is
@@ -36,10 +37,10 @@ import { formatPeso } from '../src/lib/money';
  * speed is bought as the rush or priority add-on instead — and the column stays
  * only so orders sold under that mode still reconcile.
  */
-const FEES: Record<Tier, { dfy: number; concierge: number; revisions: number }> = {
-  BASIC: { dfy: 500, concierge: 0, revisions: 2 },
-  STANDARD: { dfy: 1_200, concierge: 0, revisions: 4 },
-  COMPLETE: { dfy: 2_000, concierge: 0, revisions: 6 },
+const FEES: Record<Tier, { base: number; dfy: number; concierge: number; revisions: number }> = {
+  BASIC: { base: 2_000, dfy: 500, concierge: 0, revisions: 2 },
+  STANDARD: { base: 3_000, dfy: 1_200, concierge: 0, revisions: 4 },
+  COMPLETE: { base: 4_000, dfy: 2_000, concierge: 0, revisions: 6 },
 };
 
 /**
@@ -58,7 +59,22 @@ const RETIRED_ADDONS = ['TEMPLATE_SWITCH'];
  * src/lib/pricing.ts decides which tier is offered which; addOnPrice charges
  * rush 1,500 on Standard, which is the one price not held on its own row.
  */
-const ADDON_PRICES: Record<string, number> = { RUSH: 1_000, PRIORITY: 2_000 };
+const ADDONS: { code: string; price: number; name: string; description: string; sortOrder: number }[] = [
+  {
+    code: 'RUSH',
+    price: 1_000,
+    name: 'Rush publish (24 hours)',
+    description: 'Your Done-For-You build jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.',
+    sortOrder: 5,
+  },
+  {
+    code: 'PRIORITY',
+    price: 2_000,
+    name: 'Priority (2 working days)',
+    description: 'Your Done-For-You build is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
+    sortOrder: 6,
+  },
+];
 
 const dry = process.argv.includes('--dry');
 const pesos = (n: number) => Math.round(n * 100);
@@ -78,18 +94,19 @@ async function main() {
     // and price that tier wrong for months.
     if (!target) throw new Error(`No fees defined for tier ${p.tier} (package ${p.code}). Add it to FEES.`);
 
+    const priceCents = pesos(target.base);
     const dfyFeeCents = pesos(target.dfy);
     const conciergeFeeCents = pesos(target.concierge);
     const editsAfterPublish = target.revisions;
-    if (p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.editsAfterPublish === editsAfterPublish) {
-      console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)}   ${' '.repeat(11)}   ${col(p.conciergeFeeCents)}   ${' '.repeat(11)}  unchanged`);
+    if (p.priceCents === priceCents && p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.editsAfterPublish === editsAfterPublish) {
+      console.info(`  ${p.code.padEnd(22)} ${col(p.priceCents)}   unchanged`);
       continue;
     }
 
-    console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}   ${col(p.conciergeFeeCents)} → ${col(conciergeFeeCents)}   revisions ${String(p.editsAfterPublish).padStart(3)} → ${String(editsAfterPublish).padStart(2)}`);
+    console.info(`  ${p.code.padEnd(22)} base ${col(p.priceCents)} → ${col(priceCents)}   DFY ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}   rev ${String(p.editsAfterPublish).padStart(3)} → ${String(editsAfterPublish).padStart(2)}`);
     if (!dry) {
-      const before = { dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, editsAfterPublish: p.editsAfterPublish };
-      await prisma.package.update({ where: { id: p.id }, data: { dfyFeeCents, conciergeFeeCents, editsAfterPublish } });
+      const before = { priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, editsAfterPublish: p.editsAfterPublish };
+      await prisma.package.update({ where: { id: p.id }, data: { priceCents, dfyFeeCents, conciergeFeeCents, editsAfterPublish } });
       // Price changes are `sensitive` wherever the admin makes them. A bulk
       // script that skipped the log would leave a gap in the only record of
       // who moved a price and when.
@@ -98,20 +115,32 @@ async function main() {
         action: 'package.update',
         entityType: 'Package',
         entityId: p.id,
-        summary: `${p.code} service fees (set-pricing)`,
+        summary: `${p.code} price and fees (set-pricing)`,
         before,
-        after: { dfyFeeCents, conciergeFeeCents, editsAfterPublish },
+        after: { priceCents, dfyFeeCents, conciergeFeeCents, editsAfterPublish },
         sensitive: true,
       });
     }
     changed++;
   }
 
-  for (const [code, price] of Object.entries(ADDON_PRICES)) {
+  for (const spec of ADDONS) {
+    const { code } = spec;
     const a = await prisma.addOn.findUnique({ where: { code } });
-    const cents = pesos(price);
+    const cents = pesos(spec.price);
+    // Priority is new, so a database seeded before it has no row to update.
+    // Creating it is the difference between a run that finishes and a
+    // catalogue that still cannot sell the thing the code offers.
     if (!a) {
-      console.info(`\n  ${code.padEnd(22)} not in the catalogue — skipped.`);
+      console.info(`  ${code.padEnd(22)} ${col(cents).trim().padStart(11)}   created`);
+      if (!dry) {
+        const made = await prisma.addOn.create({ data: { code, name: spec.name, description: spec.description, priceCents: cents, sortOrder: spec.sortOrder } });
+        await audit(null, {
+          module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: made.id,
+          summary: `${code} created (set-pricing)`, after: { priceCents: cents }, sensitive: true,
+        });
+      }
+      changed++;
       continue;
     }
     if (a.priceCents === cents && a.active) {

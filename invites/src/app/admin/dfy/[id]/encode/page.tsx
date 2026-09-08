@@ -80,6 +80,7 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
       <Flash {...sp} />
       {!job.intakeSubmittedAt && <p className="mb-4 rounded-lg bg-[color:var(--color-sand-100)] p-3 text-sm">The client has not submitted their form yet. Anything they sent by chat goes straight into the segments here.</p>}
       <Workspace
+        key={current}
         jobId={job.id}
         invitationId={inv.id}
         slug={inv.slug}

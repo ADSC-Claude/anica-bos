@@ -241,22 +241,12 @@ table.data tr:hover td {
   aspect-ratio: 9 / 19;
   border-radius: 2.25rem;
   border: 10px solid #1f1d1a;
+  /* the screen starts under the bezel's top, where a phone's browser bar sits; nothing of the page hides behind a notch */
+  padding-top: 22px;
   background: #1f1d1a;
   box-shadow: 0 30px 60px -20px rgba(31, 29, 26, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.2);
   overflow: hidden;
   position: relative;
-}
-.phone::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 38%;
-  height: 22px;
-  background: #1f1d1a;
-  border-radius: 0 0 14px 14px;
-  z-index: 2;
 }
 .phone iframe,
 .phone > .screen {
@@ -1017,10 +1007,10 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    ground's own foot (the church, the clouds) comes in beneath the words.
    The ground is three phone-widths tall; shown whole it left a screen of
    empty sky between the names and the verse. */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 100vh; min-height: 100dvh; justify-content: center; padding-top: min(12vw, 3.8rem); padding-bottom: min(12vw, 3.8rem); }
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; }
-/* the verse sits at the foot of the screen, on the clouds, whatever the names above it need */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { position: absolute; left: 0; right: 0; bottom: min(16vw, 5.1rem); margin: 0; padding-top: 0; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 100vh; min-height: 100dvh; justify-content: flex-start; padding-top: min(10vw, 3.2rem); padding-bottom: min(14vw, 4.5rem); }
+/* the names centred in the sky above the verse; a short screen grows the page rather than laying one over the other */
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 1 0 auto; justify-content: center; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: auto; padding-top: 1.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }

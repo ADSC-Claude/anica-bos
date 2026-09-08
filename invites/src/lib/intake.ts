@@ -9,6 +9,9 @@ import type { Field, SectionData } from './sections';
 export function renderValue(field: Field, v: unknown): string {
   if (v == null || v === '') return '';
   if (field.type === 'toggle') return v ? 'Yes' : 'No';
+  // a photograph or a song is a file: say so rather than print its address
+  if (field.type === 'image') return 'photo';
+  if (field.type === 'audio') return 'song file';
   if (field.type === 'person') {
     const p = v as { title: string; name: string; deceased: boolean };
     return p.name ? `${p.title} ${p.name}${p.deceased ? ' †' : ''}`.trim() : '';

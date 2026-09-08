@@ -32,15 +32,15 @@ import { formatPeso } from '../src/lib/money';
  * Pesos, by tier. COMPLETE is the tier sold as "Signature" — the enum name
  * predates the label and is not worth a migration to rename.
  *
- * Assisted is sold on Signature alone, so the other two carry no fee for it.
+ * Priority is sold on Signature alone, so the other two carry no fee for it.
  * Zero here is bookkeeping, not the gate: serviceModeAvailable in
  * src/lib/pricing.ts is what withdraws the mode, because a zero fee on its own
  * would render as "Included" and give the mode away instead.
  */
-const FEES: Record<Tier, { dfy: number; assisted: number; revisions: number }> = {
-  BASIC: { dfy: 500, assisted: 0, revisions: 2 },
-  STANDARD: { dfy: 1_200, assisted: 0, revisions: 4 },
-  COMPLETE: { dfy: 2_000, assisted: 2_000, revisions: 6 },
+const FEES: Record<Tier, { dfy: number; priority: number; revisions: number }> = {
+  BASIC: { dfy: 500, priority: 0, revisions: 2 },
+  STANDARD: { dfy: 1_200, priority: 0, revisions: 4 },
+  COMPLETE: { dfy: 2_000, priority: 2_000, revisions: 6 },
 };
 
 /**
@@ -69,7 +69,7 @@ async function main() {
   if (packages.length === 0) throw new Error('No packages in the database. Run the seed first.');
 
   let changed = 0;
-  console.info(`\n${'package'.padEnd(24)} ${'DFY'.padStart(11)} → ${'new'.padStart(11)}   ${'Assisted'.padStart(11)} → ${'new'.padStart(11)}`);
+  console.info(`\n${'package'.padEnd(24)} ${'DFY'.padStart(11)} → ${'new'.padStart(11)}   ${'Priority'.padStart(11)} → ${'new'.padStart(11)}`);
 
   for (const p of packages) {
     const target = FEES[p.tier];
@@ -79,7 +79,7 @@ async function main() {
     if (!target) throw new Error(`No fees defined for tier ${p.tier} (package ${p.code}). Add it to FEES.`);
 
     const dfyFeeCents = pesos(target.dfy);
-    const conciergeFeeCents = pesos(target.assisted);
+    const conciergeFeeCents = pesos(target.priority);
     const editsAfterPublish = target.revisions;
     if (p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.editsAfterPublish === editsAfterPublish) {
       console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)}   ${' '.repeat(11)}   ${col(p.conciergeFeeCents)}   ${' '.repeat(11)}  unchanged`);

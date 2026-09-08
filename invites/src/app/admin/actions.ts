@@ -102,7 +102,7 @@ export async function dfyNotesAction(jobId: string, back: string, fd: FormData) 
  * Attach a premium opening drawn for this couple: the clip is made for one
  * invitation, overrides whatever its design ships with, and counts as the
  * premium opening whatever the package (see hasPremiumOpening). It hangs off
- * the job, so it is reachable on any Done-For-You or Assisted order — the
+ * the job, so it is reachable on any Done-For-You or Priority order — the
  * package and the add-on are not what gate it.
  *
  * The pair is stored together or not at all — a clip with no poster leaves the

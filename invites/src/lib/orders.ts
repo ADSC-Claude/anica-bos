@@ -49,7 +49,7 @@ export async function buildQuote(input: {
 }): Promise<Quote & { pkg: Awaited<ReturnType<typeof packageFor>>; addOns: { id: string; code: string; name: string; priceCents: number }[]; couponId?: string }> {
   const pkg = await packageFor(input.occasion, input.tier);
   // quote() already declines to price a mode this tier cannot buy, but silence
-  // is the wrong answer on the way in: a client asking for Assisted on Basic is
+  // is the wrong answer on the way in: a client asking for Priority on Basic is
   // out of step with the catalogue, and would otherwise be handed a Basic order
   // it did not ask for.
   if (!serviceModeAvailable(input.serviceMode, pkg.tier)) {

@@ -49,7 +49,7 @@ export type Quote = {
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
   { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder. Instant, unlimited edits.', turnaround: 'Instant', revisions: 'Unlimited (self-serve)', intake: 'Builder' },
   { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '2–3 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
-  { key: 'CONCIERGE', label: 'Assisted', short: 'Assisted', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
+  { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
 
 /**
@@ -71,7 +71,7 @@ export const RUSH_CODE = 'RUSH';
  */
 
 /**
- * Assisted is sold on Signature alone — it is the tier whose build is large
+ * Priority is sold on Signature alone — it is the tier whose build is large
  * enough for the extra round and the call to be worth paying for.
  *
  * Gating it matters more than zeroing the fee would: a zero fee renders as
@@ -88,6 +88,21 @@ export function serviceModeAvailable(mode: ServiceMode, tier: Tier): boolean {
  */
 export function addOnAvailable(code: string, tier: Tier): boolean {
   return code !== RUSH_CODE || tier !== 'COMPLETE';
+}
+
+/**
+ * What rush costs on each tier it is sold on: jumping the queue ahead of a
+ * Standard build displaces more work than a Basic one.
+ *
+ * This is the one price not held on its row in the database, because AddOn
+ * carries a single priceCents and rush needs two. The row's own price is the
+ * fallback, so an add-on with no entry here still prices from the catalogue.
+ */
+const RUSH_BY_TIER: Partial<Record<Tier, number>> = { BASIC: 100_000, STANDARD: 150_000 };
+
+export function addOnPrice(addOn: AddOnLike, tier: Tier): number {
+  if (addOn.code !== RUSH_CODE) return addOn.priceCents;
+  return RUSH_BY_TIER[tier] ?? addOn.priceCents;
 }
 
 export function serviceFee(pkg: Pick<PackageLike, 'tier' | 'dfyFeeCents' | 'conciergeFeeCents'>, mode: ServiceMode): number {
@@ -127,8 +142,9 @@ export function quote(input: {
   let addOnsCents = 0;
   for (const a of input.addOns) {
     if (!addOnAvailable(a.code, input.pkg.tier)) continue;
-    items.push({ kind: 'ADDON', code: a.code, name: a.name, amountCents: a.priceCents });
-    addOnsCents += a.priceCents;
+    const cents = addOnPrice(a, input.pkg.tier);
+    items.push({ kind: 'ADDON', code: a.code, name: a.name, amountCents: cents });
+    addOnsCents += cents;
   }
 
   const gross = input.pkg.priceCents + fee + addOnsCents;

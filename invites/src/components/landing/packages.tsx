@@ -18,7 +18,7 @@ const HIGHLIGHTS: Record<Tier, string[]> = {
 
 export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns: AddOnCard[] }) {
   const [mode, setMode] = useState<ServiceMode>('DIY');
-  // serviceFee answers 0 for a mode the tier cannot buy, so an Assisted card
+  // serviceFee answers 0 for a mode the tier cannot buy, so an Priority card
   // for Basic shows the package price rather than a fee it cannot be sold.
   const fee = (p: PackageCard) => serviceFee(p, mode);
   const unavailable = (p: PackageCard) => !serviceModeAvailable(mode, p.tier);

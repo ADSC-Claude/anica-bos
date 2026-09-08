@@ -107,9 +107,9 @@ async function main() {
 
   // --- packages (§4) --------------------------------------------------------
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
-    { tier: 'BASIC', price: 99900, dfy: 50000, concierge: 0, edits: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
-    { tier: 'STANDARD', price: 199900, dfy: 120000, concierge: 0, edits: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 349900, dfy: 200000, concierge: 200000, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+    { tier: 'BASIC', price: 200000, dfy: 50000, concierge: 0, edits: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
+    { tier: 'STANDARD', price: 300000, dfy: 120000, concierge: 0, edits: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
+    { tier: 'COMPLETE', price: 400000, dfy: 200000, concierge: 200000, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -128,7 +128,7 @@ async function main() {
           tier: t.tier,
           name: `${op.label} ${TIER_LABELS[t.tier]}`,
           tagline: t.tagline,
-          priceCents: Math.round((t.price * op.scale) / 100) * 100,
+          priceCents: t.price,
           dfyFeeCents: t.dfy,
           conciergeFeeCents: t.concierge,
           editsAfterPublish: t.edits,

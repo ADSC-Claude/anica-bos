@@ -28,7 +28,7 @@ export function CheckoutWizard(p: WizardProps) {
   const [occasion, setOccasion] = useState<Occasion>((OCCASIONS.some((o) => o.key === p.initial.occasion) ? p.initial.occasion : 'WEDDING') as Occasion);
   const [tier, setTier] = useState<Tier>((TIERS.includes(p.initial.tier as Tier) ? p.initial.tier : 'STANDARD') as Tier);
   const [chosenMode, setMode] = useState<ServiceMode>((['DIY', 'DFY', 'CONCIERGE'].includes(p.initial.mode ?? '') ? p.initial.mode : 'DIY') as ServiceMode);
-  // Assisted is Signature-only, and the tier is chosen on this same page: a
+  // Priority is Signature-only, and the tier is chosen on this same page: a
   // customer who picks it and then steps down a tier would otherwise carry an
   // invisible selection — its button is gone, but the order would still ask for
   // it and be refused at checkout. So the mode in play is always one this tier

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { plateWords } from '../src/components/invite/renderer';
+import { plateChars } from '../src/lib/openings';
 import { LOOK_BY_KEY } from '../src/lib/looks';
 import { withWords, wordsOf } from '../src/lib/design';
 import { PREMIUM_OPENING_BY_KEY } from '../src/lib/premium-openings';
@@ -34,4 +35,20 @@ test('the couple\'s own opening line wins over the design\'s', () => {
   const content = { cover: { childNick: 'Amara', date: '2026-11-22', openingLine: 'Come celebrate with us' } } as unknown as Content;
   const w = plateWords('CHRISTENING', content, 'en', LOOK_BY_KEY.romance, PREMIUM_OPENING_BY_KEY['baby-blue-bow']);
   assert.equal(w.line, 'Come celebrate with us');
+});
+
+/**
+ * The bow's name is set to fill the clear ground the ribbons leave, so its
+ * size comes down as the name gets longer. This is the number the CSS divides
+ * by: the longest line of the names, never below the floor.
+ */
+test('the card sizes its name by the longest line', () => {
+  assert.equal(plateChars(['Lucas']), 5);
+  assert.equal(plateChars(['Maria', 'Juan']), 5);
+  assert.equal(plateChars(['Juan Sebastian']), 14);
+  // a nickname shorter than the floor is still set at the floor, not blown up
+  assert.equal(plateChars(['Bea']), 5);
+  assert.equal(plateChars([]), 5);
+  // whitespace is not a letter
+  assert.equal(plateChars(['  Sebastian  ']), 9);
 });

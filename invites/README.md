@@ -295,6 +295,28 @@ the design's demo, with the same `plateWords` the guest page uses — rename
 the child in the demo's form and the preview follows — and describes each clip
 from its catalogue entry (`blurb`).
 
+**The card's writing is never a beat you have to catch.** The preview plays
+the clip, brings the words up on the card, holds them, lets the invitation's
+cover fade in beneath as a guest gets it — and then comes back to the card and
+rests there, because the writing is what the visitor opened it to read. And
+when a clip will not play at all — a phone in low power mode refuses autoplay
+outright, a slow line has not finished the file, a browser will not decode it
+— the words come up anyway, on a card in the design's own colours rather than
+over a poster whose artwork already says "you're invited" in its own hand.
+The guest page has had those guards since it was built (`LOAD_GRACE_MS`,
+`END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own.
+
+**Each clip's words are set where that clip leaves room.** Capiz's card is
+narrow and upright, so its words are stacked down the middle of it. The Baby
+Blue bow opens a diamond of clear satin, measured off the clip's last frame at
+22%–56% of the frame, widest at 42%, with its axis two points right of the
+frame's middle — so the bow's words are set to that box, on that axis, and
+sized to fill it. The two surfaces show them in the same place: the gallery's
+9:16 phone crops 11.09% off each end of the 976:2120 frame, and the preview's
+box is the guest page's put through that crop. The name's size comes down as
+the name gets longer (`--plate-chars`, from `plateChars` in `lib/openings.ts`)
+so "Juan Sebastian" keeps the same clearance from the satin that "Lucas" has.
+
 **A snippet says nothing about what is under it.** A design's peek
 (`/<demo slug>?peek=1`) runs from the opening to Our Story and ends with the
 design's name, the way in, and the way back — never a line explaining which

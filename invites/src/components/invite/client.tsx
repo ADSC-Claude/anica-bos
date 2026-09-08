@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { plateChars } from '@/lib/openings';
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
@@ -347,7 +348,7 @@ export function Shell({
                 <div>
                   {opening.monogram && <p className="inv-plate-mono">{opening.monogram}</p>}
                   {opening.line && <p className="inv-plate-eyebrow">{opening.line}</p>}
-                  {opening.names && <p className="inv-plate-names">{cardNames(opening.names, opening.and || '&')}</p>}
+                  {opening.names && <p className="inv-plate-names" style={{ ['--plate-chars' as string]: plateChars(opening.names.split(' & ')) }}>{cardNames(opening.names, opening.and || '&')}</p>}
                   {opening.date && <p className="inv-plate-date">{opening.date}</p>}
                   {opening.line2 && <p className="inv-plate-line2">{opening.line2}</p>}
                 </div>

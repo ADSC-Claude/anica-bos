@@ -906,8 +906,25 @@ export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
   return [...listed, ...base.filter((k) => !listed.includes(k))];
 }
 
-export function sectionsFor(occasion: Occasion): SectionDef[] {
-  return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
+/**
+ * A Save the Date says who, when, and roughly where — and stops. It goes out
+ * months ahead, when the couple has a date and little else; asking them for an
+ * entourage or a gift note they cannot answer yet is how a card sits unsent.
+ */
+export const SAVE_THE_DATE_SECTIONS: readonly SectionKey[] = ['cover', 'countdown'];
+
+/** The cover's opening controls, which a Save the Date has no use for. */
+const OPENING_FIELDS = new Set(['opening', 'openingLine', 'openingLine2', 'envelope']);
+
+export function sectionsFor(occasion: Occasion, saveTheDate = false): SectionDef[] {
+  const keys = saveTheDate ? OCCASION_SECTIONS[occasion].filter((k) => SAVE_THE_DATE_SECTIONS.includes(k)) : OCCASION_SECTIONS[occasion];
+  return keys.map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
+}
+
+/** Whether this invitation carries the section at all. */
+export function sectionOnCard(key: SectionKey, occasion: Occasion, saveTheDate: boolean): boolean {
+  if (!OCCASION_SECTIONS[occasion].includes(key)) return false;
+  return !saveTheDate || SAVE_THE_DATE_SECTIONS.includes(key);
 }
 
 /** Whether a section is part of what is offered today. */
@@ -949,8 +966,11 @@ export function keepStaffFields(fields: Field[], before: SectionData | undefined
   return data;
 }
 
-export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier): Field[] {
-  const fields = SECTION_BY_KEY[key].fields(occasion);
+export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier, saveTheDate = false): Field[] {
+  // A Save the Date is read on sight — the renderer plays no opening on one,
+  // so the three controls for it would be levers connected to nothing.
+  const all = SECTION_BY_KEY[key].fields(occasion);
+  const fields = saveTheDate && key === 'cover' ? all.filter((f) => !OPENING_FIELDS.has(f.key)) : all;
   if (!tier) return fields;
   return fields.map((f) =>
     f.options?.some((o) => o.lockedTier)

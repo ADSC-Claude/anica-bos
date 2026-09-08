@@ -173,7 +173,7 @@ export function Builder({
           <h2 className="display text-2xl">{section?.label} {isDone && <span className="pill pill-ok align-middle text-xs">Done</span>}</h2>
           <p className="text-sm text-[color:var(--color-ink-500)]">{section?.description}</p>
           {editsLeft !== null && status === 'PUBLISHED' && (
-            <p className="mt-1 text-xs text-[color:var(--warn)]">{editsLeft} edit{editsLeft === 1 ? '' : 's'} left after publishing on your package. Each save counts as one.</p>
+            <p className="mt-1 text-xs text-[color:var(--warn)]">{editsLeft} revision{editsLeft === 1 ? '' : 's'} left after publishing on your package. Each save counts as one.</p>
           )}
         </header>
         {isDone && !editing ? (

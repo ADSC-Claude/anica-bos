@@ -21,7 +21,8 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   if (inv.order && inv.order.status !== 'ACTIVE' && inv.order.status !== 'PAID') redirect(`/checkout/pay/${inv.order.reference}`);
 
   const content = contentOf(inv.content);
-  const defs = sectionsFor(inv.occasion);
+  const std = Boolean(inv.saveTheDateOfId);
+  const defs = sectionsFor(inv.occasion, std);
   const sections = defs.map((d) => ({
     key: d.key,
     label: sectionLabel(d.key, inv.occasion),
@@ -32,7 +33,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   }));
   const current = (sections.find((s) => s.key === section && s.unlocked)?.key ?? sections.find((s) => s.unlocked)!.key) as SectionKey;
   // the fixed writings are ours: staff editing for the customer see them, the customer does not
-  const fields = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier) : customerFields(fieldsFor(current, inv.occasion, inv.tier));
+  const fields = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier, std) : customerFields(fieldsFor(current, inv.occasion, inv.tier, std));
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);

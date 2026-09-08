@@ -74,6 +74,13 @@ const ADDONS: { code: string; price: number; name: string; description: string; 
     description: 'Your Done-For-You build is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
     sortOrder: 6,
   },
+  {
+    code: 'SAVE_THE_DATE',
+    price: 299,
+    name: 'Save the Date card',
+    description: 'A second card on the same design, with its own link, for sending months ahead. Your names, your date and your cover photo — the venue, the programme and the RSVP wait for the invitation itself. It publishes on its own, so announcing early does not spend the revisions on your invitation.',
+    sortOrder: 2,
+  },
 ];
 
 const dry = process.argv.includes('--dry');

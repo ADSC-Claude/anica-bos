@@ -3,7 +3,7 @@ import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
-import { guestGroups, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -151,10 +151,14 @@ function dottedDate(dateKey: string): string {
   return m ? `${m[2]} · ${m[3]} · ${m[1]}` : '';
 }
 
-function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; eyebrow?: string }) {
+function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; saveTheDate?: boolean; eyebrow?: string }) {
   const cover = content.cover;
   const copy = heroCopy(occasion, cover, lang);
-  const eyebrow = lookEyebrow ?? (layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow);
+  // A Save the Date says so above the names, over anything the design or the
+  // look would otherwise put there — that line is the whole point of the card.
+  const eyebrow = saveTheDate
+    ? t(lang, 'cover.saveTheDate')
+    : lookEyebrow ?? (layout === 'capiz' && occasion === 'WEDDING' ? t(lang, 'cover.invited') : copy.eyebrow);
   const photo = str(cover, 'coverPhoto') || str(cover, 'logo');
   const date = str(cover, 'date');
   const time = str(cover, 'time');
@@ -1545,9 +1549,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
   const templateSections = new Set(inv.template.sections);
+  // A Save the Date carries the couple, the date and nothing after it.
+  const saveTheDate = Boolean(inv.saveTheDateOfId);
 
   const visible = (key: SectionKey) =>
-    OCCASION_SECTIONS[occasion].includes(key) &&
+    sectionOnCard(key, occasion, saveTheDate) &&
     sectionOffered(key) &&
     (templateSections.size === 0 || templateSections.has(key)) &&
     sectionUnlocked(key, occasion, inv.tier) &&
@@ -1570,7 +1576,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // still wins over both (openingAssets).
     const premium = premiumOpeningOf(inv.template, inv.premiumOpeningKey);
     const assets = openingAssets(inv, premium ? { openingVideoUrl: premium.video, openingPosterUrl: premium.poster } : inv.template);
-    const key = print || bare
+    // A Save the Date is read on sight. Deleting the couple's chosen opening
+    // when the card is created is not enough: the design's own opening would
+    // still play, and an envelope to be torn open is the invitation's moment,
+    // not this one's.
+    const key = print || bare || saveTheDate
       ? 'none'
       : resolveOpening({
           chosen: str(content.cover, 'opening'),
@@ -1690,7 +1700,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} eyebrow={look ? line('cover') : undefined} />;
+        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
           <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>

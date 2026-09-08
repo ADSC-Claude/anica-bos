@@ -427,9 +427,16 @@ model Invitation {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id])
-  template Template @relation(fields: [templateId], references: [id])
-  order    Order?
+  /// A Save the Date announces the invitation it hangs off: the same couple,
+  /// the same design, its own link and its own publish clock. It is bought as
+  /// an add-on and has no order of its own. Null on an ordinary invitation.
+  saveTheDateOfId String?  @unique
+
+  user          User        @relation(fields: [userId], references: [id])
+  template      Template    @relation(fields: [templateId], references: [id])
+  order         Order?
+  saveTheDateOf Invitation? @relation("SaveTheDate", fields: [saveTheDateOfId], references: [id], onDelete: Cascade)
+  saveTheDate   Invitation? @relation("SaveTheDate")
 
   guests    Guest[]
   rsvps     Rsvp[]

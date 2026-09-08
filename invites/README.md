@@ -304,7 +304,10 @@ outright, a slow line has not finished the file, a browser will not decode it
 — the words come up anyway, on a card in the design's own colours rather than
 over a poster whose artwork already says "you're invited" in its own hand.
 The guest page has had those guards since it was built (`LOAD_GRACE_MS`,
-`END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own.
+`END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own,
+and the guest page now has the card too (`.inv-open-still`): its words used to
+land on the poster, where the Capiz seal's own "YOU'RE INVITED" printed
+through the couple's.
 
 **Day and night is sold, not hidden.** Every paged design reads twice over:
 the same pages by daylight and after dark. The couple sets which one their
@@ -334,7 +337,12 @@ within a tenth of a point of it. The two surfaces show them in the same place: t
 9:16 phone crops 11.09% off each end of the 976:2120 frame, and the preview's
 box is the guest page's put through that crop. The name's size comes down as
 the name gets longer (`--plate-chars`, from `plateChars` in `lib/openings.ts`)
-so "Juan Sebastian" keeps the same clearance from the satin that "Lucas" has.
+so "Juan Sebastian" keeps the same clearance from the satin that "Lucas" has:
+the divisor is what sets how wide a long name runs, and it is scored against
+"Maximilian", not the demo's five letters. Sideways the clip is letterboxed
+and the words' box is letterboxed with it — the media query has to sit BELOW
+the unconditional rule, because the two weigh the same and while it sat above
+it never applied, which left the box four times the screen's width.
 
 **A snippet says nothing about what is under it.** A design's peek
 (`/<demo slug>?peek=1`) runs from the opening to Our Story and ends with the

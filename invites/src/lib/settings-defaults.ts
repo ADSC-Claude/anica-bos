@@ -46,7 +46,6 @@ export const DEFAULT_SETTINGS = {
   // --- service levels ---
   /** The ordinary Done-For-You promise: five working days to a week. */
   'dfy.turnaroundDays': 7,
-  'dfy.revisions': 2,
   /**
    * Priority, the Signature queue jump: two working days. Its revision rounds
    * are not here — a rushed build's rounds are capped by tier in pricing.ts,
@@ -58,7 +57,7 @@ export const DEFAULT_SETTINGS = {
 
   // --- policies shown on the site ---
   'policy.refund':
-    'Because every invitation is built to order, payments are non-refundable once your invitation has been published or your Done-For-You build has started. If we cannot deliver, you get a full refund.',
+    'Because every invitation is built to order, payments are non-refundable once your invitation has been published or once our team has started building it. If we cannot deliver, you get a full refund.',
   'policy.privacy':
     'Guest lists are personal data. We collect only what an invitation needs, never share it, and delete it on request — in line with the Data Privacy Act of 2012 (RA 10173).',
 

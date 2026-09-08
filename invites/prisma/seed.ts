@@ -114,12 +114,14 @@ async function main() {
   });
 
   // --- packages (§4) --------------------------------------------------------
-  // `concierge` is zero throughout: that mode is withdrawn and speed is bought
-  // as the rush or priority add-on. The column stays for orders sold under it.
-  const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
-    { tier: 'BASIC', price: 200000, dfy: 50000, concierge: 0, edits: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
-    { tier: 'STANDARD', price: 300000, dfy: 120000, concierge: 0, edits: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 400000, dfy: 200000, concierge: 0, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+  // Both fee columns are zero: both modes they priced are withdrawn, and the
+  // build is included in the base price. The columns stay for orders sold
+  // under either mode. Keep these in step with scripts/set-pricing.ts, which
+  // is what moves a live database.
+  const tiers: { tier: Tier; price: number; dfy: number; concierge: number; rounds: number; validity: number; tagline: string }[] = [
+    { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, rounds: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
+    { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, rounds: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
+    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -141,7 +143,7 @@ async function main() {
           priceCents: t.price,
           dfyFeeCents: t.dfy,
           conciergeFeeCents: t.concierge,
-          editsAfterPublish: t.edits,
+          revisionRounds: t.rounds,
           linkValidityDays: t.validity,
           sortOrder: sort++,
         },
@@ -157,10 +159,10 @@ async function main() {
       { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout, for guests who would rather hold it.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19900, active: false, sortOrder: 4 },
-      { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Your Done-For-You build jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.', priceCents: 100000, sortOrder: 5 },
+      { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.', priceCents: 100000, sortOrder: 5 },
       // Signature's queue jump. Two days rather than one: a Signature build
       // carries too much to encode overnight, so this is what we can commit to.
-      { code: 'PRIORITY', name: 'Priority (2 working days)', description: 'Your Done-For-You build is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.', priceCents: 200000, sortOrder: 6 },
+      { code: 'PRIORITY', name: 'Priority (2 working days)', description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.', priceCents: 200000, sortOrder: 6 },
       { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99900, sortOrder: 6 },
       { code: 'SMS_PACK', name: 'SMS reminder blast (credit pack)', description: 'RSVP reminders by text. Priced per pack — ask us.', priceCents: 0, quoted: false, sortOrder: 7 },
     ],
@@ -288,13 +290,13 @@ async function main() {
     data: {
       reference: orderReference(), userId: sofia.id, packageId: debutStandard.id, invitationId: debut.id, occasion: 'DEBUT', tier: 'STANDARD', serviceMode: 'DFY',
       subtotalCents: debutStandard.priceCents, serviceFeeCents: debutStandard.dfyFeeCents, totalCents: debutStandard.priceCents + debutStandard.dfyFeeCents, status: 'ACTIVE', paidAt: addDays(new Date(), -3), activatedAt: addDays(new Date(), -3), createdAt: addDays(new Date(), -3),
-      items: { create: [{ kind: 'PACKAGE', code: 'DEBUT_STANDARD', name: debutStandard.name, amountCents: debutStandard.priceCents, sortOrder: 0 }, { kind: 'SERVICE', code: 'SERVICE_DFY', name: 'Done-For-You service', amountCents: debutStandard.dfyFeeCents, sortOrder: 1 }] },
+      items: { create: [{ kind: 'PACKAGE', code: 'DEBUT_STANDARD', name: debutStandard.name, amountCents: debutStandard.priceCents, sortOrder: 0 }, { kind: 'SERVICE', code: 'SERVICE_DFY', name: 'Encoding service', amountCents: debutStandard.dfyFeeCents, sortOrder: 1 }] },
     },
   });
   await prisma.payment.create({ data: { reference: paymentReference(), orderId: debutOrder.id, provider: 'MANUAL', status: 'PAID', amountCents: debutOrder.totalCents, channel: 'GCash', payerName: 'Sofia Villanueva', payerReference: '1234567890', proofUrl: pic('proof-1', 600, 1000), reviewedById: support.id, reviewedAt: addDays(new Date(), -3), paidAt: addDays(new Date(), -3) } });
   const job = await prisma.dfyJob.create({
     data: {
-      orderId: debutOrder.id, invitationId: debut.id, status: 'ENCODING', assigneeId: encoder.id, intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -2), dueAt: addDays(new Date(), 1), revisionsAllowed: 2,
+      orderId: debutOrder.id, invitationId: debut.id, status: 'ENCODING', assigneeId: encoder.id, intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -2), dueAt: addDays(new Date(), 1), revisionsAllowed: 4,
       intake: { method: 'FORM', notes: 'Theme is Enchanted Garden — lots of greenery and fairy lights. 18 Roses list is on the Viber message I sent.', content: { cover: debutContent.cover, reception: debutContent.reception, eighteen: { roses: [{ name: 'Papa', relation: 'Father' }, { name: 'Kuya Marco', relation: 'Brother' }, { name: 'Tito Jun', relation: 'Uncle' }] } } } as never,
       internalNotes: 'Waiting on the full 18 Roses list — customer said she will send it by Viber tonight.',
     },
@@ -328,13 +330,13 @@ async function main() {
       data: {
         reference: orderReference(), userId: denise.id, packageId: christStandard.id, invitationId: amara.id, occasion: 'CHRISTENING', tier: 'STANDARD', serviceMode: 'DFY',
         subtotalCents: christStandard.priceCents, serviceFeeCents: christStandard.dfyFeeCents, totalCents: christStandard.priceCents + christStandard.dfyFeeCents, status: 'ACTIVE', paidAt: addDays(new Date(), -1), activatedAt: addDays(new Date(), -1), createdAt: addDays(new Date(), -1),
-        items: { create: [{ kind: 'PACKAGE', code: 'CHRISTENING_STANDARD', name: christStandard.name, amountCents: christStandard.priceCents, sortOrder: 0 }, { kind: 'SERVICE', code: 'SERVICE_DFY', name: 'Done-For-You service', amountCents: christStandard.dfyFeeCents, sortOrder: 1 }] },
+        items: { create: [{ kind: 'PACKAGE', code: 'CHRISTENING_STANDARD', name: christStandard.name, amountCents: christStandard.priceCents, sortOrder: 0 }, { kind: 'SERVICE', code: 'SERVICE_DFY', name: 'Encoding service', amountCents: christStandard.dfyFeeCents, sortOrder: 1 }] },
       },
     });
     await prisma.payment.create({ data: { reference: paymentReference(), orderId: amaraOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: amaraOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_amara', gatewayPaymentId: 'pay_amara', gatewayEventId: 'evt_amara', paidAt: addDays(new Date(), -1) } });
     await prisma.dfyJob.create({
       data: {
-        orderId: amaraOrder.id, invitationId: amara.id, status: 'INTAKE_RECEIVED', intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -1), dueAt: addDays(new Date(), 2), revisionsAllowed: 2,
+        orderId: amaraOrder.id, invitationId: amara.id, status: 'INTAKE_RECEIVED', intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -1), dueAt: addDays(new Date(), 2), revisionsAllowed: 4,
         intake: { method: 'FORM', notes: 'The four baby photos are in the order we want them. Please use her nickname on the cover.', content: intake } as never,
       },
     });

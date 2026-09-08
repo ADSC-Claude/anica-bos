@@ -47,7 +47,8 @@ export type Quote = {
 };
 
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
-  { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder. Instant, unlimited edits.', turnaround: 'Instant', revisions: 'Unlimited (self-serve)', intake: 'Builder' },
+  // Withdrawn. Kept so an order sold under it still names itself; nothing shows its blurb.
+  { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'The customer filled in the builder themselves.', turnaround: 'Instant', revisions: 'None', intake: 'Builder' },
   { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '5 working days to a week', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
   { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
@@ -76,17 +77,28 @@ export const PRIORITY_CODE = 'PRIORITY';
  */
 
 /**
- * Who fills in the details is now two answers, not three: the customer, or us.
- * Speed is bought separately, on top, as the rush or priority add-on — the
- * CONCIERGE mode used to be the way to buy it, and buying it that way meant
- * giving up Done-For-You to get it, which is backwards.
+ * Who fills in the details is no longer a question: we do, on every order.
  *
- * The mode is withdrawn rather than deleted: SERVICE_MODES still carries it so
- * an order sold under it still names itself on the customer's page.
+ * Both other modes are withdrawn. CONCIERGE went when speed became the rush or
+ * priority add-on, because buying it as a mode meant giving up Done-For-You to
+ * get it, which is backwards. DIY went because there was nothing behind it:
+ * src/lib/sections.ts generates the builder's forms and the intake form from
+ * one definition, so the two products differed only in who typed — and a
+ * customer who bought the service and then filled the same form in has paid a
+ * fee to do the work themselves. One product, one price, and the customer
+ * fills in a form while we build the invitation.
+ *
+ * Withdrawn is not deleted: SERVICE_MODES still carries all three so an order
+ * sold under any of them still names itself on the customer's page, and DIY
+ * stays the stored value for an order with no build behind it at all — an
+ * upgrade order, or an invitation staff made with no order at all.
  */
 export function serviceModeAvailable(mode: ServiceMode, _tier: Tier): boolean {
-  return mode !== 'CONCIERGE';
+  return mode === 'DFY';
 }
+
+/** What every new order is sold as, now that the mode is not a choice. */
+export const DEFAULT_SERVICE_MODE: ServiceMode = 'DFY';
 
 /**
  * Which queue jump a tier is sold. Rush promises 24 hours and is Basic's and

@@ -56,6 +56,25 @@ export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: D
 }
 
 /**
+ * Revisions happen before we publish. The customer reviews a preview, tells us
+ * what to change, and those rounds are counted on the job; publishing is the
+ * end of that conversation, not the start of a second one. An invitation
+ * guests are already opening is not edited underneath them by the person who
+ * asked for it — a half-finished save would be live on somebody's phone.
+ *
+ * So a published invitation is closed to its customer, and it is a rule rather
+ * than an allowance: there is no number of changes left to spend, and no row
+ * an admin can raise to reopen one by accident. Staff are never gated, because
+ * after publish a change is ours to make — that is what "message us" means.
+ */
+export function assertNotPublished(user: SessionUser, invitation: { status: string }) {
+  if (user.role !== 'CUSTOMER') return;
+  if (invitation.status === 'PUBLISHED') {
+    throw new HttpError(403, 'Your invitation is already live, so changes to it are ours to make. Message us on Messenger or Viber and we will sort it out.');
+  }
+}
+
+/**
  * Slugs live at the site root, so this list is not a nicety: a slug equal to a
  * top-level route is shadowed by that route and the invitation becomes
  * unreachable — a couple called "Terms" would lose their page to the terms
@@ -138,6 +157,7 @@ export function unlocked(invitation: { order: { status: string } | null }): bool
 export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown, opts: { done?: boolean } = {}) {
   const invitation = await prisma.invitation.findUnique({ where: { id: invitationId }, include: { order: { select: { status: true } } } });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
+  assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
   if (!OCCASION_SECTIONS[invitation.occasion].includes(key)) throw new HttpError(400, 'That section does not belong to this occasion.');
   if (!sectionUnlocked(key, invitation.occasion, invitation.tier)) {
@@ -166,15 +186,6 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   const deadline = rsvpDeadline(content);
   const title = displayTitle(invitation.occasion, content);
 
-  // Revisions after publish: every package includes a fixed number, and each
-  // save of a section spends one. They cover the photos and the details — the
-  // design is frozen at publish (see changeTemplate).
-  const published = invitation.status === 'PUBLISHED';
-  const editsLeft = invitation.editsAllowed < 0 ? Infinity : invitation.editsAllowed - invitation.editsUsed;
-  if (published && editsLeft <= 0) {
-    throw new HttpError(403, `You have used all ${invitation.editsAllowed} revisions included in your package. Message us if something still needs changing.`);
-  }
-
   const updated = await prisma.invitation.update({
     where: { id: invitationId },
     data: {
@@ -183,7 +194,6 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
       eventAt: eventAt ?? undefined,
       rsvpDeadline: deadline ?? undefined,
       ogImageUrl: coverImage(content),
-      ...(published ? { editsUsed: { increment: 1 } } : {}),
     },
   });
   if (completed) {
@@ -196,6 +206,7 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
 /** Reopen (or close) one section without touching what it holds. Counts as no edit. */
 export async function setSectionDone(user: SessionUser, invitationId: string, key: SectionKey, done: boolean) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
   const content = contentOf(invitation.content);
   content.progress = withDone(content.progress, key, done);
@@ -205,6 +216,7 @@ export async function setSectionDone(user: SessionUser, invitationId: string, ke
 
 export async function updateTheme(user: SessionUser, invitationId: string, theme: ThemeOverride) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
   const clean: ThemeOverride = {};
   // Colours are every package's: the presets and the picker alike.
@@ -326,13 +338,8 @@ export async function updateSettings(
 
 export async function changeTemplate(user: SessionUser, invitationId: string, templateId: string) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
-  // The design is settled at publish. A revision is the couple's own words and
-  // photographs; the template underneath them is not revisable, because guests
-  // have already opened the link and staff have already checked how it reads.
-  if (invitation.status === 'PUBLISHED' && user.role === 'CUSTOMER') {
-    throw new HttpError(403, 'Your design is set once your invitation is published. Your revisions cover your photos and details — message us if something about the design itself is wrong.');
-  }
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
   if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, `That design is only in the ${TIER_LABELS.COMPLETE} package.`);
@@ -363,7 +370,6 @@ export async function publish(user: SessionUser, invitationId: string) {
       eventAt: eventAt ?? undefined,
       expiresAt,
       ogImageUrl: coverImage(content),
-      editsAllowed: invitation.order?.package.editsAfterPublish ?? invitation.editsAllowed,
     },
   });
   await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published ${invitationPath(updated.slug)}` });

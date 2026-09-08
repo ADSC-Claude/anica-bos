@@ -22,14 +22,17 @@ test('features unlock in order', () => {
   assert.equal(galleryLimit('COMPLETE'), Infinity);
   for (const row of COMPARISON) for (const tier of TIERS) assert.notEqual(row.cells[tier], undefined, `${row.label} ${tier}`);
 
-  // Revisions cover the photos and details after publish; the design does not
-  // change once the link is out, so no tier may claim it does.
-  const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions after publish'));
-  assert.ok(revisions, 'the table names the revision allowance');
-  assert.deepEqual([revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE], ['2', '4', '6']);
-  const design = COMPARISON.find((r) => r.label === 'Design changes after publish');
-  assert.ok(design, 'and says the design is settled');
-  for (const tier of TIERS) assert.equal(design!.cells[tier], false, tier);
+  // Revisions are rounds of changes before we publish — after it, an
+  // invitation guests are already opening is ours to change, not the
+  // customer's, so the table must not promise them a number they can spend.
+  const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions'));
+  assert.ok(revisions, 'the table names the revision rounds');
+  assert.ok(revisions!.label.includes('before we publish'), 'and says when they happen');
+  assert.deepEqual([revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE], ['2 rounds', '4 rounds', '6 rounds'], 'a bigger package buys more of them');
+  const after = COMPARISON.find((r) => r.label.startsWith('Changes after publishing'));
+  assert.ok(after, 'and says what happens after');
+  assert.deepEqual([after!.cells.BASIC, after!.cells.STANDARD, after!.cells.COMPLETE], ['Message us', 'Message us', 'Message us']);
+  assert.ok(after!.label.includes('design'), 'and that the design is in that, not exempt from it');
 });
 
 test('every phrase exists in both languages and substitutes variables', () => {

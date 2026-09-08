@@ -3,14 +3,14 @@
 A mobile-first platform where customers in the Philippines buy a templated
 **digital invitation** — a shareable link plus QR — for a wedding, debut,
 christening, birthday or any of fourteen occasions, pay **once** in ₱ via
-GCash / Maya / card / bank transfer, and either build it themselves or have
-our team encode it (**Done-For-You**).
+GCash / Maya / card / bank transfer, and tell us the details — **we build it**
+and they approve it before a guest sees it.
 
 Four surfaces, one backend:
 
 | Surface | Path | What it does |
 |---|---|---|
-| Public site | `/` | Landing page, template gallery, packages with a DIY / DFY toggle, comparison table, FAQ, live demo |
+| Public site | `/` | Landing page, template gallery, packages, comparison table, FAQ, live demo |
 | Customer dashboard | `/account` | Checkout, builder with live phone preview, publish & share (QR, Messenger, Viber, WhatsApp, SMS), guest list with per-guest links, RSVP dashboard, seating, QR check-in, guestbook, DFY intake and revisions |
 | Guest page | `/juan-and-maria` and `/juan-and-maria/<token>` | The invitation itself: no login, no app, works inside the Messenger and Viber browsers, one-tap RSVP, add-to-calendar, Maps & Waze, download as image, print / PDF |
 | Admin | `/admin` | Orders & payments (PayMongo webhook + manual proof review), DFY kanban, templates, customers, invitations, coupons, support inbox, reports, settings (pricing editor, payment accounts, copy, staff, audit trail) |
@@ -168,18 +168,35 @@ or a single spent credit.
 
 ## How it works
 
-**DIY:** Landing → checkout (occasion → package → service mode → template →
-add-ons → coupon) → pay → order `PENDING_PAYMENT → PAID → ACTIVE` → builder
-unlocks → sections with a progress bar and tier-locked sections shown with an
-*Upgrade* badge → live preview (phone / desktop) → publish → share.
+Landing → checkout (occasion → package → template → add-ons → coupon) → pay →
+order `PENDING_PAYMENT → PAID → ACTIVE` → a `DfyJob` is created → the customer
+fills the intake form, or says they will send it via Messenger / Viber / Excel
+→ an encoder is assigned and builds it in the builder → moves the job to
+*Preview sent* (customer gets a link by dashboard + email) → customer requests
+changes (rounds are counted) or approves → staff publishes → the invitation is
+live, and closed to the customer: they read it, and ask us for any change.
 
-**Done-For-You:** same checkout with DFY ticked → pay → a `DfyJob` is created
-→ the customer fills the intake form (the same fields as the builder, in one
-page), or says they will send it via Messenger / Viber / Excel → an encoder is
-assigned, builds it in the same builder → moves the job to *Preview sent*
-(customer gets a link by dashboard + email) → customer requests changes
-(rounds are counted) or approves → staff publishes → the customer can still
-edit afterwards.
+**There is one service, and it is not a choice.** `ServiceMode` still has three
+values and `serviceModeAvailable()` in `src/lib/pricing.ts` sells exactly one
+of them, the way a withdrawn mode has been handled here before:
+
+- `CONCIERGE` went when speed became the rush and priority add-ons — buying it
+  as a mode meant giving up Done-For-You to get it, which is backwards.
+- `DIY` went because there was nothing behind it. `src/lib/sections.ts`
+  generates the builder's forms *and* the intake form from one definition, so
+  the two products differed only in who typed; a customer who bought the
+  service and then filled in the same form had paid a fee to do the work
+  themselves. The build is now included in the base price
+  (₱2,500 / ₱4,000 / ₱6,000), which is what a Done-For-You order came to
+  before.
+
+Withdrawn is not deleted. `SERVICE_MODES` still carries all three so an order
+sold under any of them names itself correctly in the admin, on a receipt and in
+a customer's history, and `DIY` stays the stored value for an order with no
+build behind it: an upgrade order, or an invitation staff made with no order at
+all. Nothing about the builder is removed either — encoders live in it, the
+intake form is generated from it, and a customer can read their own invitation
+in it once it is published — read, not change.
 
 Every write to an invitation goes through `src/lib/invitations.ts`; every
 read of it by a guest goes through `loadPublic()`. Drafts are visible only to
@@ -197,6 +214,25 @@ Prices are rows, not code (`Package`, `AddOn`), editable at
 `/admin/settings/pricing`. A `Package` row with `occasion = null` is the
 fallback for occasions without their own pricing. Orders snapshot the quote
 at purchase; a later price change never moves money already agreed.
+
+Because they are rows, changing the code does not change what a live database
+charges: `npm run db:pricing` applies the grid in `scripts/set-pricing.ts`
+(`-- --dry` to see it first), and that is the only thing that moves an existing
+catalogue to ₱2,500 / ₱4,000 / ₱6,000 with both service fees at zero.
+
+**Revisions happen before we publish.** The customer reads a preview, says what
+to change, and the rounds are counted on the `DfyJob`. How many is the
+package's: `Package.revisionRounds`, 2 / 4 / 6 by tier, capped lower when the
+build was rushed (`revisionRounds()` — there is no room for four rounds of
+back-and-forth inside 24 hours). Publishing ends that conversation rather than
+starting a second one: `assertNotPublished()` in `src/lib/invitations.ts` closes
+a published invitation to its customer — words, photos, colours and design
+alike — and a change after that is ours to make, so staff are never gated by it.
+It is a rule, not an allowance: there is no number left to spend and no row an
+admin can raise to reopen one. The invitation's `editsAllowed` / `editsUsed`
+are retired columns, kept but never read; the package column that fed them was
+renamed to `revisionRounds` and now buys rounds before publishing instead,
+which is what the numbers in it always described best.
 
 Service modes stack a fee on top of the package (`dfyFeeCents`,
 `conciergeFeeCents`). The arithmetic lives in one place, `src/lib/pricing.ts`,

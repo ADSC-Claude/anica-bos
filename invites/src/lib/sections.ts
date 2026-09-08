@@ -704,9 +704,9 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'The song that plays behind the page as the invitation opens, from the moment you choose.',
     minTier: 'STANDARD',
     fields: () => [
-      text('song', 'Your song', { placeholder: 'e.g. Ikaw — Yeng Constantino, or a Spotify / YouTube link', hint: 'The title and artist, or paste a link from Spotify or YouTube. Our team prepares the background music from it: a song cannot stream from Spotify or YouTube behind a page, so we make it a file that plays as the invitation opens.', wide: true }),
+      text('song', 'Your song', { placeholder: 'e.g. Ikaw — Yeng Constantino, or a Spotify / YouTube link', hint: 'The title and artist, or paste a link from Spotify or YouTube. A song cannot stream from Spotify or YouTube behind a page, so what plays is a file — we make it from whatever you name here.', wide: true }),
       offset('start', 'Start the song at', { hint: 'Minutes and seconds into the song, to skip a long intro. The music starts here every time it plays.' }),
-      audio('url', 'Your own audio file (optional)', { hint: 'If you already have the song as an MP3 or M4A, up to 20 MB, upload it here. Otherwise our team adds it.' }),
+      audio('url', 'Your own audio file (optional)', { hint: 'Only if you already have the song as an MP3 or M4A, up to 20 MB. You do not need to: naming it above is enough, and we prepare the file.' }),
     ],
   },
   {

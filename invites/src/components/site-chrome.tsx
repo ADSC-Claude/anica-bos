@@ -61,7 +61,7 @@ export function SiteFooter({ s }: { s: Settings }) {
             <li><Link href="/templates" className="hover:underline">Templates</Link></li>
             <li><Link href="/#packages" className="hover:underline">Packages & pricing</Link></li>
             <li><Link href="/demo" className="hover:underline">Live demo</Link></li>
-            <li><Link href="/checkout?mode=DFY" className="hover:underline">Done-For-You</Link></li>
+            <li><Link href="/#how" className="hover:underline">How it works</Link></li>
           </ul>
         </div>
         <div className="text-sm">

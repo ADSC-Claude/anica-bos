@@ -241,9 +241,12 @@ It has its own `capiz` layout, whose shell border is drawn from the palette
 rather than supplied as artwork, so the design recolours with the customer's
 own accent instead of framing the page in a colour that no longer matches it.
 A couple's cover photo cannot fill the cover the way the other layouts do it —
-the ground is the artwork — so it lies behind the names under a veil of the
-paper, its edges dissolving into the ground, with the clusters and drapes
-untouched around it (`.inv-portrait`).
+the ground is the artwork — so it sits one of five ways, chosen on the cover
+form (`photoStyle`, `PHOTO_STYLES` in `sections.ts`, one `data-style` each on
+`.inv-portrait`): behind the names under a veil of the paper (the default),
+or framed above them as an arch in a bronze line, an oval with a double line,
+a round medallion, or a photo card tucked under the drape. A couple who wants
+their photo carried differently is one pick away.
 
 Every photograph a demo needs is the grey placeholder in `public/demo/`, in
 the shape the slot takes (portrait, square, wide): a demo that carried stock

@@ -39,15 +39,20 @@ const GIRLS_KINDS: Record<string, string[]> = { partyDress: ['girl'], sundayDres
 const FALLBACK: Record<Drawing['group'], string> = { gents: 'suit', ladies: 'long', boys: 'boySmart', girls: 'girl' };
 
 /**
- * A guest's gown is never white. The garment's middle tone becomes the colour
- * picked and its highlights stay white, so a pale colour — ivory, cream, a
- * light champagne — comes out as white satin on the page even though nobody
- * chose white. A lady's colour lighter than two-thirds is deepened to
- * two-thirds, hue and saturation kept, so champagne stays champagne and a
- * blush stays a blush, only deep enough to read as cloth of that colour. The
- * gentlemen are left alone — a cream barong is a cream barong.
+ * A guest's gown is never white — at a wedding. The garment's middle tone
+ * becomes the colour picked and its highlights stay white, so a pale colour —
+ * ivory, cream, a light champagne — would come out as white satin on the page
+ * even though nobody chose white. At a wedding a lady's colour lighter than
+ * two-thirds is deepened to two-thirds, hue kept, so champagne stays champagne
+ * and a blush stays a blush, only deep enough to read as cloth of that colour;
+ * a near-white (white, ivory, cream) has almost no colour of its own, so it is
+ * deepened as a soft neutral rather than saturated into a mustard or a grey
+ * nobody picked. At a christening or a birthday white and ivory are worn, and
+ * the motif's colours go on the gowns as they are. The gentlemen are left
+ * alone everywhere — a cream barong is a cream barong.
  */
-export function wearable(hex: string): string {
+export function wearable(hex: string, occasion: string = 'WEDDING'): string {
+  if (occasion !== 'WEDDING') return hex;
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!m) return hex;
   const n = parseInt(m[1], 16);
@@ -55,14 +60,23 @@ export function wearable(hex: string): string {
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   const l = (max + min) / 2;
   const d = max - min;
-  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+  let s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
   const cap = 0.66;
   if (l <= cap) return hex;
+  // A near-white's saturation is an artefact of how little colour it has:
+  // #fff3dc reads as ivory, not as the deep yellow its hue and saturation
+  // would make at two-thirds. Fade the saturation with the colour's own
+  // chroma, so ivory deepens to champagne; pure white has no hue at all, so
+  // it is given a faint warm one and comes out a champagne satin, not grey.
+  s = Math.min(s, d * 1.6);
   let h = 0;
   if (d) {
     if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
     else if (max === g) h = ((b - r) / d + 2) / 6;
     else h = ((r - g) / d + 4) / 6;
+  } else {
+    h = 38 / 360;
+    s = 0.14;
   }
   const l2 = cap;
   const q = l2 < 0.5 ? l2 * (1 + s) : l2 + s - l2 * s;

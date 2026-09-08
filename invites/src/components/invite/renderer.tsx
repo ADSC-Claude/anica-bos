@@ -191,9 +191,9 @@ function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyeb
   // the three lines under the place: the look's, or the couple's own where staff wrote them
   const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
   // A paged design's ground is its artwork, so the photograph cannot fill the
-  // cover the way the other layouts do it. Capiz lays it behind the names
-  // under a veil of the paper — a print on vellum, the clusters and drapes
-  // untouched around it — so the couple is there and the words still read.
+  // cover the way the other layouts do it. Capiz carries it one of five ways
+  // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
+  // framed above them as an arch, an oval, a medallion or a tucked card.
   const portrait = format && layout === 'capiz' && photo;
   return (
     <header className="inv-hero" id="top">
@@ -201,7 +201,7 @@ function Hero({ occasion, content, lang, layout, format, look, eyebrow: lookEyeb
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
         {portrait && (
-          <figure className="inv-portrait">
+          <figure className="inv-portrait" data-style={str(cover, 'photoStyle') || 'veil'}>
             <img src={imageUrl(photo, IMAGE.hero)} alt="" />
           </figure>
         )}
@@ -583,7 +583,8 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
   };
   const suits = chosen('gentsColors', 4, SUIT_COLORS);
   // a guest's gown is never white: a pale pick is deepened until it reads as its colour
-  const gowns = chosen('ladiesColors', 5, GOWN_COLORS).map(wearable);
+  // the motif's colours as the ladies wear them: deepened away from white at a wedding, as picked elsewhere
+  const gowns = chosen('ladiesColors', 5, GOWN_COLORS).map((c) => wearable(c, occasion));
   const gentsTicked = rows<string>(data, 'gentsItems');
   const ladiesTicked = rows<string>(data, 'ladiesItems');
   const gents = attireWords(gentsItems(occasion), gentsTicked, lang);

@@ -1319,6 +1319,19 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 @media (min-aspect-ratio: 9/16) {
   .inv-open[data-clip='universal'] .inv-open-clip { object-fit: contain; }
 }
+/* The Blue Bow, the Baby Blue theme's premium opening. A satin bow with a tag
+   that already says a guest is invited; it unties and the ribbons sweep aside,
+   so no words of the couple's go on it and the cover says whose day it is.
+   The frame is taller than a phone's, so a wide screen letterboxes it on the
+   ribbon's own pale blue. */
+.inv-open[data-clip='baby-blue-bow']::before,
+.inv-open[data-clip='baby-blue-bow']::after,
+.inv-open[data-clip='baby-blue-bow'] .inv-open-copy { display: none; }
+.inv-open[data-clip='baby-blue-bow'] .inv-open-hint { color: #4a5b7a; text-shadow: none; }
+.inv-open[data-clip='baby-blue-bow'] { background: #cfdff0; }
+@media (min-aspect-ratio: 9/16) {
+  .inv-open[data-clip='baby-blue-bow'] .inv-open-clip { object-fit: contain; }
+}
 /* The card's box: the clip is object-fit cover, so this is the same box the
    clip is drawn in — as wide as the screen or as tall as it, whichever the
    9:16 frame needs — and the words are placed in it by fractions of the frame. */

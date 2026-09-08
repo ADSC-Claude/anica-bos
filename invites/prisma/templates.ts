@@ -2,6 +2,7 @@ import type { Occasion, Tier } from '@prisma/client';
 import { PALETTE_PRESETS, FONT_PRESETS } from '../src/lib/theme';
 import type { LookKey } from '../src/lib/looks';
 import type { DesignWords } from '../src/lib/design';
+import { premiumOpeningsFor } from '../src/lib/premium-openings';
 
 /**
  * Every design the shop sells, as data.
@@ -33,9 +34,11 @@ export type TemplateSeed = {
   /** src/lib/openings.ts. Blank means the design opens with nothing. */
   opening?: string;
   /**
-   * A cinematic opening's shared clip and its poster. Both or neither: the
-   * poster is the whole closed screen until the guest taps, so a clip without
-   * one leaves them on a blank screen while it buffers.
+   * A cinematic opening's shared clip and its poster, for a design whose clip
+   * is not in the premium catalogue. Both or neither: the poster is the whole
+   * closed screen until the guest taps, so a clip without one leaves them on a
+   * blank screen while it buffers. A design named in src/lib/premium-openings.ts
+   * takes its clip from there instead — see templateData.
    */
   openingVideoUrl?: string;
   openingPosterUrl?: string;
@@ -89,7 +92,7 @@ export const TEMPLATES: TemplateSeed[] = [
       },
     },
   },
-  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', openingVideoUrl: '/openings/capiz.mp4', openingPosterUrl: '/openings/capiz-poster.jpg', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg' },
+  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg' },
   { slug: 'classic-ivory', name: 'Classic Ivory', occasion: 'WEDDING', minTier: 'BASIC', layout: 'classic', collection: '', opening: 'universal', palette: pal('ivory'), fonts: fonts('serif'), featured: true, description: 'Full-bleed photo, serif names, sage and gold.', thumb: pic('classic-ivory') , retired: true },
   { slug: 'garden-botanical', name: 'Garden Botanical', occasion: 'WEDDING', minTier: 'BASIC', layout: 'garden', collection: 'garden', opening: 'universal', palette: pal('emerald'), fonts: fonts('serif'), featured: true, description: 'Arched photo, emerald and ivory. Tagaytay energy.', thumb: pic('garden-botanical') , retired: true },
   { slug: 'modern-minimal', name: 'Modern Minimal', occasion: 'WEDDING', minTier: 'STANDARD', layout: 'modern', collection: '', opening: 'universal', palette: pal('mono'), fonts: fonts('modern'), featured: false, description: 'Uppercase sans, black and white, lots of air.', thumb: pic('modern-minimal') , retired: true },
@@ -107,6 +110,10 @@ export const TEMPLATES: TemplateSeed[] = [
 
 /** The Prisma payload for one row. `sortOrder` is its position in the list. */
 export function templateData(t: TemplateSeed, sortOrder: number) {
+  // The design's default premium opening: the first clip the catalogue lists
+  // for it. It is what the gallery previews and what an invitation plays
+  // before its owner picks another, so adding a clip there is enough.
+  const clip = premiumOpeningsFor({ slug: t.slug, collection: t.collection ?? '' })[0];
   return {
     slug: t.slug,
     name: t.name,
@@ -116,8 +123,8 @@ export function templateData(t: TemplateSeed, sortOrder: number) {
     layout: t.layout,
     collection: t.collection ?? '',
     opening: t.opening ?? '',
-    openingVideoUrl: t.openingPosterUrl ? t.openingVideoUrl ?? '' : '',
-    openingPosterUrl: t.openingPosterUrl ?? '',
+    openingVideoUrl: clip ? clip.video : t.openingPosterUrl ? t.openingVideoUrl ?? '' : '',
+    openingPosterUrl: clip ? clip.poster : t.openingPosterUrl ?? '',
     palette: t.palette as never,
     fonts: t.fonts as never,
     look: t.look ?? '',

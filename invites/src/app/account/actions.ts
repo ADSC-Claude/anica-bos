@@ -6,7 +6,7 @@ import type { Privacy } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
-import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone} from '@/lib/invitations';
+import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
 import { addGuest, updateGuest, deleteGuest, importGuests, saveTable, deleteTable, assignTable, checkIn, type GuestInput } from '@/lib/guests';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
@@ -79,6 +79,16 @@ export async function themeAction(invitationId: string, theme: ThemeOverride) {
   return action(async () => {
     await ownInvitation(user, invitationId);
     await updateTheme(user, invitationId, theme);
+    refresh(invitationId);
+  });
+}
+
+/** Which of the design's premium openings plays, once the add-on is theirs. */
+export async function premiumOpeningAction(invitationId: string, key: string) {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    await setPremiumOpening(user, invitationId, key);
     refresh(invitationId);
   });
 }

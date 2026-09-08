@@ -133,7 +133,7 @@ export const OPENINGS: OpeningDef[] = [
     key: 'cinematic',
     name: 'Premium opening',
     tagline: 'An invitation that opens like a gift.',
-    description: 'Our premium designed opening video: a seal breaking, a card sliding out with your names and date on it. Made for one design at a time, and an add-on with any package.',
+    description: 'Our premium designed opening video, drawn for your design — a seal breaking, a bow untying. An add-on with any package; a theme with several is yours to choose from.',
     minTier: 'BASIC',
     photos: 0,
     line: { en: 'You are invited', tl: 'Ikaw ay inaanyayahan' },
@@ -146,13 +146,15 @@ export const OPENINGS: OpeningDef[] = [
 /**
  * The cinematic opening is the illustrated one — a bow untying, panels drawing
  * back — and the only opening that loads a file. It is deliberately outside
- * the self-serve set: the clip is artwork somebody made, so it arrives with a
- * Done-For-You or Concierge order rather than from a dropdown.
+ * the self-serve set: the clip is artwork somebody made, so it is bought as an
+ * add-on rather than picked from a dropdown, and which clip plays comes from
+ * the design's own catalogue in src/lib/premium-openings.ts — a theme's clips
+ * are offered to that theme's invitations and to no others.
  *
- * It is still one shared clip per design, not a render per couple. The names,
- * date and countdown stay live text over the top, so a nickname changed at
- * 11pm reads correctly on the next reload. Only Concierge, where the artwork
- * itself is drawn for one couple, replaces the shared clip.
+ * They are shared clips, not a render per couple. The names, date and
+ * countdown stay live text over the top, so a nickname changed at 11pm reads
+ * correctly on the next reload. Only Concierge, where the artwork itself is
+ * drawn for one couple, replaces the shared clip.
  */
 export const OPENING_BY_KEY: Record<OpeningKey, OpeningDef> = Object.fromEntries(
   OPENINGS.map((o) => [o.key, o]),

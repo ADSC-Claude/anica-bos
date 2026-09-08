@@ -9,6 +9,8 @@ import { withWords } from '../src/lib/design';
 import { LOOK_BY_KEY } from '../src/lib/looks';
 import { STORY_SLOTS, PHOTO_SLOTS } from '../src/lib/babyblue';
 import { tierAtLeast } from '../src/lib/tiers';
+import { PREMIUM_OPENINGS, premiumOpeningsFor, premiumOpeningOf, premiumOpeningAllowed, hasPremiumClip } from '../src/lib/premium-openings';
+import { existsSync } from 'node:fs';
 import { PALETTE_PRESETS } from '../src/lib/theme';
 
 test('the opening catalogue is complete and every key is declared', () => {
@@ -135,7 +137,7 @@ test('Capiz is the Filipiniana flagship and its opening is one it can reach', ()
   assert.equal(capiz.opening, 'universal');
   assert.equal(capiz.premium, false);
   assert.equal(capiz.minTier, 'STANDARD');
-  assert.ok(capiz.openingVideoUrl && capiz.openingPosterUrl, 'Capiz has a premium opening clip to add on');
+  assert.ok(hasPremiumClip({ slug: capiz.slug, collection: capiz.collection ?? '' }), 'Capiz has a premium opening clip to add on');
   assert.equal(capiz.thumb, '/covers/capiz.jpg', 'the gallery shows its cover, not the clip');
   const filipiniana = TEMPLATES.filter((t) => t.collection === 'filipiniana');
   assert.ok(filipiniana.length >= 1);
@@ -246,14 +248,18 @@ test('a design cannot name the cinematic opening into existence', () => {
 
 test('Capiz ships a cinematic clip, and every clip in the catalogue has its poster', () => {
   const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
-  assert.equal(capiz.openingVideoUrl, '/openings/capiz.mp4');
-  assert.equal(capiz.openingPosterUrl, '/openings/capiz-poster.jpg');
-  // A clip with no poster leaves the guest on a blank screen while it buffers,
-  // so templateData drops the clip rather than shipping it half-configured.
+  // The clip is the premium catalogue's now, and the design's row is written
+  // from it — so a design ships whatever was drawn for its theme.
+  const row = templateData(capiz, 0);
+  assert.equal(row.openingVideoUrl, '/openings/capiz.mp4');
+  assert.equal(row.openingPosterUrl, '/openings/capiz-poster.jpg');
+  // A clip named on the seed row instead — a design with no catalogue entry —
+  // still needs its poster: without one the guest sits on a blank screen while
+  // it buffers, so templateData drops the clip rather than ship it half-made.
   for (const t of TEMPLATES) {
     if (t.openingVideoUrl) assert.ok(t.openingPosterUrl, `${t.slug} has a poster for its clip`);
   }
-  const orphan = templateData({ ...capiz, openingPosterUrl: '' }, 0);
+  const orphan = templateData({ ...capiz, slug: 'not-in-the-catalogue', collection: '', openingVideoUrl: '/openings/x.mp4', openingPosterUrl: '' }, 0);
   assert.equal(orphan.openingVideoUrl, '', 'a clip without a poster is not shipped');
 });
 
@@ -339,4 +345,70 @@ test('a christening tells its story in six milestones, the design’s own to sta
   assert.equal(STORY_SLOTS.length, 6);
   assert.equal(PHOTO_SLOTS.length, 4);
   for (const s of [...STORY_SLOTS, ...PHOTO_SLOTS]) assert.ok(s.cx > 0 && s.cx < 100 && s.cy > 0 && s.cy < 100 && s.size > 20 && s.size < 35, JSON.stringify(s));
+});
+
+test('a design is offered its own theme’s premium openings and no other’s', () => {
+  const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
+  const babyBlue = TEMPLATES.find((t) => t.slug === 'baby-blue')!;
+  const design = (t: (typeof TEMPLATES)[number]) => ({ slug: t.slug, collection: t.collection ?? '' });
+
+  const forCapiz = premiumOpeningsFor(design(capiz));
+  const forBabyBlue = premiumOpeningsFor(design(babyBlue));
+  assert.deepEqual(forCapiz.map((o) => o.key), ['capiz']);
+  assert.deepEqual(forBabyBlue.map((o) => o.key), ['baby-blue-bow']);
+  // No clip is offered to both: a wedding's seal in front of a christening is
+  // the mistake this catalogue exists to prevent.
+  for (const clip of forCapiz) assert.ok(!forBabyBlue.includes(clip), `${clip.key} crosses themes`);
+
+  // A design with no clip drawn for it sells no add-on.
+  const plain = TEMPLATES.find((t) => t.slug === 'classic-ivory')!;
+  assert.equal(hasPremiumClip(design(plain)), false);
+  assert.equal(hasPremiumClip(design(babyBlue)), true);
+});
+
+test('every premium opening names a design, carries both files, and is unique', () => {
+  const keys = new Set<string>();
+  for (const clip of PREMIUM_OPENINGS) {
+    assert.ok(!keys.has(clip.key), `${clip.key} is declared twice`);
+    keys.add(clip.key);
+    assert.ok(clip.name && clip.tagline, `${clip.key} is named`);
+    // Both or neither: the poster is the whole closed screen until the guest
+    // taps, so a clip without one leaves them on a blank screen.
+    assert.ok(clip.video && clip.poster, `${clip.key} has a clip and a poster`);
+    for (const file of [clip.video, clip.poster]) {
+      assert.ok(existsSync(new URL(`../public${file}`, import.meta.url)), `${file} exists`);
+    }
+    // Somebody has to be offered it, or it is artwork nobody can buy.
+    assert.ok(clip.designs.length || clip.collections?.length, `${clip.key} names a design`);
+    const reachable = TEMPLATES.some((t) => premiumOpeningsFor({ slug: t.slug, collection: t.collection ?? '' }).includes(clip));
+    assert.ok(reachable, `${clip.key} reaches a design in the catalogue`);
+  }
+});
+
+test('a chosen opening that no longer fits the design falls back to the design’s own', () => {
+  const babyBlue = { slug: 'baby-blue', collection: 'babyblue' };
+  const capiz = { slug: 'capiz', collection: 'filipiniana' };
+  // Chosen and still theirs.
+  assert.equal(premiumOpeningOf(babyBlue, 'baby-blue-bow')?.key, 'baby-blue-bow');
+  // Chosen, then the couple switched design: they get their new design's clip,
+  // never the one drawn for the old one.
+  assert.equal(premiumOpeningOf(capiz, 'baby-blue-bow')?.key, 'capiz');
+  // Nothing chosen yet.
+  assert.equal(premiumOpeningOf(babyBlue, '')?.key, 'baby-blue-bow');
+  // A design with no clips has none to fall back to.
+  assert.equal(premiumOpeningOf({ slug: 'classic-ivory', collection: '' }, 'capiz'), null);
+  // What may be stored: the design's own, or blank for "the design's first".
+  assert.equal(premiumOpeningAllowed(babyBlue, 'baby-blue-bow'), true);
+  assert.equal(premiumOpeningAllowed(babyBlue, ''), true);
+  assert.equal(premiumOpeningAllowed(babyBlue, 'capiz'), false);
+});
+
+test('a design’s row carries its first premium opening, so the gallery previews it', () => {
+  const row = (slug: string) => templateData(TEMPLATES.find((t) => t.slug === slug)!, 0);
+  assert.equal(row('capiz').openingVideoUrl, '/openings/capiz.mp4');
+  assert.equal(row('capiz').openingPosterUrl, '/openings/capiz-poster.jpg');
+  assert.equal(row('baby-blue').openingVideoUrl, '/openings/baby-blue.mp4');
+  assert.equal(row('baby-blue').openingPosterUrl, '/openings/baby-blue-poster.jpg');
+  // A design with no clip carries none, and the checkout hides the add-on.
+  assert.equal(row('classic-ivory').openingVideoUrl, '');
 });

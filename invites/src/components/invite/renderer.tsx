@@ -5,6 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
+import { premiumOpeningOf } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
@@ -1536,7 +1537,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    * ships with none — a Save the Date wants to be read, not unwrapped.
    */
   function openingProps() {
-    const assets = openingAssets(inv, inv.template);
+    // Which of the design's premium clips plays: the one this invitation
+    // chose, else the design's first. A clip encoded for this couple alone
+    // still wins over both (openingAssets).
+    const premium = premiumOpeningOf(inv.template, inv.premiumOpeningKey);
+    const assets = openingAssets(inv, premium ? { openingVideoUrl: premium.video, openingPosterUrl: premium.poster } : inv.template);
     const key = print || bare
       ? 'none'
       : resolveOpening({
@@ -1557,8 +1562,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // the couple's words — on the Capiz card as it opens. The Letter, the
     // opening every package includes, carries no writing at all: it plays and
     // the invitation follows, and the names wait for the cover.
-    const clip = universal ? 'universal' : style === 'cinematic' && layout === 'capiz' ? 'capiz' : '';
-    const wordsOnCard = clip === 'capiz';
+    // The clip's own styling and whether it carries the couple's words are the
+    // clip's to say, not the layout's — two clips for one design may differ.
+    const plays = style === 'cinematic' && !universal;
+    const clip = universal ? 'universal' : plays ? (premium?.key ?? (layout === 'capiz' ? 'capiz' : '')) : '';
+    const wordsOnCard = plays && (premium ? Boolean(premium.words) : layout === 'capiz');
     return {
       style,
       clip,

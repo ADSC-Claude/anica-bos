@@ -266,7 +266,7 @@ catalogue:
 | The Drape | Every package | Hanging silk with the names on it, lifted away. |
 | The Seal | Every package | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
 | Photo Story | Every package | Three photos fanned like prints, sliding apart. |
-| Cinematic | The premium opening add-on | Embroidered panels tied with a silk bow. The bow unties, the panels draw back. |
+| Cinematic | The premium opening add-on | The clip drawn for the design: the Capiz seal breaking, or the Baby Blue bow untying and its ribbons sweeping aside. |
 
 **None of these is a video.** Every one is drawn by the browser from the
 couple's own palette, words and photos — a `<div>`, a CSS transition and, for
@@ -287,6 +287,19 @@ That holds for the six drawn openings. **The cinematic one is the exception,
 and it is deliberate.** Photoreal cloth — a silk bow untying, beadwork with
 raised shadow — cannot be drawn in CSS or in Lottie, which is vector. It is
 artwork somebody makes, so it is a file.
+
+Because it is artwork for one theme, it is not offered to every design.
+`src/lib/premium-openings.ts` is the catalogue: each clip names the designs it
+was drawn for, and the collection it belongs to so a theme's next design
+inherits it. An invitation is offered its own theme's clips and no others —
+Capiz has one, the Baby Blue Theme has the Blue Bow with more to come, and a
+christening is never shown a wedding's seal. A theme with more than one clip
+becomes a choice: the customer picks theirs under Settings once the add-on is
+on the order, staff can set it from the invitation's admin page, and the
+design's row carries the first as its default, which is what the gallery
+previews. Adding a clip is one entry in that file plus two files under
+`public/openings`; the checkout gate, the picker and the guest's page all read
+the catalogue.
 
 What makes it affordable is that the file is still shared. One clip per
 design, not per couple: the names never appear inside it, so the same few

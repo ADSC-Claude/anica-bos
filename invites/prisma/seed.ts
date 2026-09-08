@@ -324,6 +324,8 @@ async function main() {
       data: {
         userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
         content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: -1, ogImageUrl: '',
+        // The theme's own premium opening: the blue bow unties and the ribbons sweep aside.
+        premiumOpening: true, premiumOpeningKey: 'baby-blue-bow',
       },
     });
     const christSignature = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_COMPLETE' } });

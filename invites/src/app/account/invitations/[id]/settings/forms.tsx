@@ -6,7 +6,7 @@ import { useState, useTransition } from 'react';
 import type { Tier } from '@prisma/client';
 import type { Palette } from '@/lib/theme';
 import { TIER_LABELS } from '@/lib/tiers';
-import { settingsAction, themeAction, templateAction } from '@/app/account/actions';
+import { settingsAction, themeAction, templateAction, premiumOpeningAction } from '@/app/account/actions';
 
 function useRun() {
   const [pending, start] = useTransition();
@@ -129,6 +129,51 @@ export function ThemePicker(p: { invitationId: string; palettes: { key: string; 
           <button type="button" className="btn btn-secondary" disabled={pending} onClick={() => run(() => themeAction(p.invitationId, { mode: mode as ThemeMode }), mode === 'night' ? 'Night it is.' : mode === 'auto' ? 'By the clock.' : 'Day it is.')}>Apply</button>
         </div>
       </div>
+      <Msg />
+    </div>
+  );
+}
+
+/**
+ * Which premium opening plays, among the clips drawn for this design. Only the
+ * design's own are offered: a Capiz seal in front of a christening would read
+ * as a mistake. One clip and there is nothing to choose — the card says which
+ * one they get.
+ */
+export function OpeningPicker(p: { invitationId: string; current: string; entitled: boolean; price: string; clips: { key: string; name: string; tagline: string; poster: string }[] }) {
+  const { pending, run, Msg } = useRun();
+  const chosen = p.clips.some((c) => c.key === p.current) ? p.current : p.clips[0]?.key ?? '';
+  if (!p.clips.length) {
+    return <p className="text-sm text-[color:var(--color-ink-500)]">No premium opening has been drawn for this design yet. Yours opens with The Letter, the opening every package includes.</p>;
+  }
+  if (!p.entitled) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-[color:var(--color-ink-500)]">The premium opening is an add-on{p.price ? ` (${p.price})` : ''}. Your invitation opens with The Letter until it is added.</p>
+        <ul className="text-sm">{p.clips.map((c) => <li key={c.key}>· <b>{c.name}</b> — {c.tagline}</li>)}</ul>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      {p.clips.length === 1 ? (
+        <p className="text-sm">Your invitation opens with <b>{p.clips[0].name}</b> — {p.clips[0].tagline}</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {p.clips.map((c) => (
+            <button key={c.key} type="button" disabled={pending} onClick={() => run(() => premiumOpeningAction(p.invitationId, c.key), `Opening: ${c.name}`)} className={`card overflow-hidden text-left disabled:opacity-50 ${chosen === c.key ? 'ring-2 ring-[color:var(--color-plum-600)]' : ''}`}>
+              <span className="block aspect-[9/16] overflow-hidden bg-[color:var(--color-sand-100)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={c.poster} alt="" className="h-full w-full object-cover" loading="lazy" />
+              </span>
+              <span className="block p-2">
+                <span className="block text-sm font-semibold">{c.name}</span>
+                <span className="block text-xs text-[color:var(--color-ink-500)]">{c.tagline}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       <Msg />
     </div>
   );

@@ -407,6 +407,12 @@ model Invitation {
   /// by staff. Without it the design's clip is not played and the guest gets
   /// the opening every package includes.
   premiumOpening   Boolean         @default(false)
+  /// Which of the design's premium openings this invitation plays. A theme may
+  /// have several clips and the customer picks among them (see
+  /// src/lib/premium-openings.ts); blank means the design's first. A key that
+  /// no longer fits the design — after a design change — falls back to that
+  /// first one rather than playing another theme's artwork.
+  premiumOpeningKey String         @default("")
   editsUsed    Int              @default(0)
   /// -1 means unlimited until the event.
   editsAllowed Int              @default(3)

@@ -221,14 +221,18 @@ charges: `npm run db:pricing` applies the grid in `scripts/set-pricing.ts`
 catalogue to ₱2,500 / ₱4,000 / ₱6,000 with both service fees at zero.
 
 **Revisions happen before we publish.** The customer reads a preview, says what
-to change, and the rounds are counted on the `DfyJob` (`dfy.revisions`, fewer
-when the build was rushed). Publishing ends that conversation rather than
+to change, and the rounds are counted on the `DfyJob`. How many is the
+package's: `Package.revisionRounds`, 2 / 4 / 6 by tier, capped lower when the
+build was rushed (`revisionRounds()` — there is no room for four rounds of
+back-and-forth inside 24 hours). Publishing ends that conversation rather than
 starting a second one: `assertNotPublished()` in `src/lib/invitations.ts` closes
 a published invitation to its customer — words, photos, colours and design
 alike — and a change after that is ours to make, so staff are never gated by it.
 It is a rule, not an allowance: there is no number left to spend and no row an
-admin can raise to reopen one. `Package.editsAfterPublish` and the invitation's
-`editsAllowed` / `editsUsed` are retired columns, kept but never read.
+admin can raise to reopen one. The invitation's `editsAllowed` / `editsUsed`
+are retired columns, kept but never read; the package column that fed them was
+renamed to `revisionRounds` and now buys rounds before publishing instead,
+which is what the numbers in it always described best.
 
 Service modes stack a fee on top of the package (`dfyFeeCents`,
 `conciergeFeeCents`). The arithmetic lives in one place, `src/lib/pricing.ts`,

@@ -148,11 +148,11 @@ model Package {
   /// Stacked on top when the customer chooses Full Concierge. That mode is
   /// withdrawn; the column is kept for the same reason.
   conciergeFeeCents Int
-  /// Retired. Revisions are rounds of changes before we publish, counted on
-  /// DfyJob; publishing closes an invitation to its customer rather than
-  /// starting an allowance. Nothing reads this — see assertNotPublished in
-  /// src/lib/invitations.ts — and the pricing screen no longer offers it.
-  editsAfterPublish Int
+  /// How many rounds of changes the customer gets on the preview before we
+  /// publish: 2, 4 and 6 by tier. Rush and priority cap it lower — there is no
+  /// room for four rounds inside 24 hours — see revisionRounds() in
+  /// src/lib/pricing.ts. Nothing is revisable after publish.
+  revisionRounds    Int
   /// How long the link stays live after the event date.
   linkValidityDays  Int
   active            Boolean   @default(true)

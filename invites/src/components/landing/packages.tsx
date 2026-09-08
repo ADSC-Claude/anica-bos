@@ -4,13 +4,13 @@ import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { SERVICE_MODES, DEFAULT_SERVICE_MODE } from '@/lib/pricing';
 import { formatPesoShort } from '@/lib/money';
 
-export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; editsAfterPublish: number; linkValidityDays: number };
+export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number; linkValidityDays: number };
 export type AddOnCard = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
 
 const HIGHLIGHTS: Record<Tier, string[]> = {
-  BASIC: ['1 design from the Basic set', 'Your own colours, set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form', 'We build it for you · link valid 30 days after the event'],
-  STANDARD: ['Any template, 3 font styles to choose from', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', 'Gallery up to 10 photos + background music', 'RSVP dashboard + Excel export · custom link', 'We build it for you · link valid 6 months after the event'],
-  COMPLETE: ['Signature-only designs, all 5 font styles', 'Everything in Standard', 'Per-guest personalised links with reserved seats', 'Guest list manager, seating chart, QR check-in', 'Meal choice, plus-one control, auto-close RSVP', 'Program, travel tips, guestbook, unlimited gallery + video', 'Password option · priority support · link valid 1 year after the event'],
+  BASIC: ['1 design from the Basic set', 'Your own colours, set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form', 'We build it for you, with 2 rounds of changes before we publish', 'Link valid 30 days after the event'],
+  STANDARD: ['Any template, 3 font styles to choose from', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', 'Gallery up to 10 photos + background music', 'RSVP dashboard + Excel export · custom link', 'We build it for you, with 4 rounds of changes before we publish', 'Link valid 6 months after the event'],
+  COMPLETE: ['Signature-only designs, all 5 font styles', 'Everything in Standard', 'Per-guest personalised links with reserved seats', 'Guest list manager, seating chart, QR check-in', 'Meal choice, plus-one control, auto-close RSVP', 'Program, travel tips, guestbook, unlimited gallery + video', 'We build it for you, with 6 rounds of changes before we publish', 'Password option · priority support · link valid 1 year after the event'],
 };
 
 export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns: AddOnCard[] }) {

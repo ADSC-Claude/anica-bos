@@ -5,12 +5,12 @@ import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
-import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, type CouponLike } from '@/lib/pricing';
+import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
 import { invitationPath } from '@/lib/app-url';
 
-export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
+export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
 export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
@@ -52,6 +52,11 @@ export function CheckoutWizard(p: WizardProps) {
   const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
 
   const modeInfo = SERVICE_MODES.find((m) => m.key === mode)!;
+  // Rounds are the package's, and buying speed spends some of them: there is no
+  // room for four rounds of back-and-forth inside 24 hours, so rush caps them.
+  const rushed = chosenAddOns.some((a) => a.code === RUSH_CODE || a.code === PRIORITY_CODE);
+  const rounds = pkg ? revisionRounds(tier, rushed, pkg.revisionRounds) : 0;
+  const roundsLabel = `${rounds} round${rounds === 1 ? '' : 's'}`;
 
   async function applyCoupon() {
     setCouponError('');
@@ -135,7 +140,7 @@ export function CheckoutWizard(p: WizardProps) {
             {[
               { title: 'You tell us the details', body: 'Fill in one form — names, entourage, venues, photos, RSVP. Or send them over Messenger, Viber or an Excel file if that is easier.' },
               { title: 'We build it', body: `Our team encodes and lays out your invitation. ${modeInfo.turnaround}.` },
-              { title: 'You approve, we publish', body: `A preview on your phone, ${modeInfo.revisions.toLowerCase()} of changes, then your link and QR go live.` },
+              { title: 'You approve, we publish', body: `A preview on your phone, ${roundsLabel} of changes, then your link and QR go live.` },
             ].map((step, i) => (
               <li key={step.title} className="card p-4">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--color-plum-600)] text-sm font-semibold text-white">{i + 1}</span>
@@ -244,7 +249,7 @@ export function CheckoutWizard(p: WizardProps) {
               <dl className="mt-3 space-y-1 text-xs text-[color:var(--color-ink-700)]">
                 <div className="flex justify-between"><dt>Design</dt><dd>{template?.name ?? '— pick one —'}</dd></div>
                 <div className="flex justify-between"><dt>We build it</dt><dd>{modeInfo.turnaround}</dd></div>
-                <div className="flex justify-between"><dt>Changes before publishing</dt><dd>{modeInfo.revisions}</dd></div>
+                <div className="flex justify-between"><dt>Changes before publishing</dt><dd>{roundsLabel}{rushed && rounds < pkg.revisionRounds ? ' (rushed)' : ''}</dd></div>
               </dl>
             </>
           ) : (

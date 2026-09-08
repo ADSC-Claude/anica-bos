@@ -28,6 +28,7 @@ test('features unlock in order', () => {
   const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions'));
   assert.ok(revisions, 'the table names the revision rounds');
   assert.ok(revisions!.label.includes('before we publish'), 'and says when they happen');
+  assert.deepEqual([revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE], ['2 rounds', '4 rounds', '6 rounds'], 'a bigger package buys more of them');
   const after = COMPARISON.find((r) => r.label.startsWith('Changes after publishing'));
   assert.ok(after, 'and says what happens after');
   assert.deepEqual([after!.cells.BASIC, after!.cells.STANDARD, after!.cells.COMPLETE], ['Message us', 'Message us', 'Message us']);

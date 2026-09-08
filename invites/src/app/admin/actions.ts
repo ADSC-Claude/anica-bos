@@ -333,6 +333,7 @@ export async function savePackageAction(packageId: string, back: string, fd: For
       priceCents: toCents(s(fd, 'price')),
       dfyFeeCents: toCents(s(fd, 'dfyFee')),
       conciergeFeeCents: toCents(s(fd, 'conciergeFee')),
+      revisionRounds: n(fd, 'rounds', 2),
       linkValidityDays: n(fd, 'validity', 30),
       active: b(fd, 'active'),
     };

@@ -185,7 +185,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
           invitationId: order.invitationId,
           status: 'NEW',
           dueAt: addDays(now, days),
-          revisionsAllowed: revisionRounds(order.tier, priority || rush, s['dfy.revisions']),
+          revisionsAllowed: revisionRounds(order.tier, priority || rush, order.package.revisionRounds),
         },
       });
     }

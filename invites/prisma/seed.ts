@@ -110,10 +110,10 @@ async function main() {
   // build is included in the base price. The columns stay for orders sold
   // under either mode. Keep these in step with scripts/set-pricing.ts, which
   // is what moves a live database.
-  const tiers: { tier: Tier; price: number; dfy: number; concierge: number; validity: number; tagline: string }[] = [
-    { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
-    { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+  const tiers: { tier: Tier; price: number; dfy: number; concierge: number; rounds: number; validity: number; tagline: string }[] = [
+    { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, rounds: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
+    { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, rounds: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
+    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -135,8 +135,7 @@ async function main() {
           priceCents: t.price,
           dfyFeeCents: t.dfy,
           conciergeFeeCents: t.concierge,
-          // retired: revisions happen before publish, counted on the job
-          editsAfterPublish: 0,
+          revisionRounds: t.rounds,
           linkValidityDays: t.validity,
           sortOrder: sort++,
         },
@@ -289,7 +288,7 @@ async function main() {
   await prisma.payment.create({ data: { reference: paymentReference(), orderId: debutOrder.id, provider: 'MANUAL', status: 'PAID', amountCents: debutOrder.totalCents, channel: 'GCash', payerName: 'Sofia Villanueva', payerReference: '1234567890', proofUrl: pic('proof-1', 600, 1000), reviewedById: support.id, reviewedAt: addDays(new Date(), -3), paidAt: addDays(new Date(), -3) } });
   const job = await prisma.dfyJob.create({
     data: {
-      orderId: debutOrder.id, invitationId: debut.id, status: 'ENCODING', assigneeId: encoder.id, intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -2), dueAt: addDays(new Date(), 1), revisionsAllowed: 2,
+      orderId: debutOrder.id, invitationId: debut.id, status: 'ENCODING', assigneeId: encoder.id, intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -2), dueAt: addDays(new Date(), 1), revisionsAllowed: 4,
       intake: { method: 'FORM', notes: 'Theme is Enchanted Garden — lots of greenery and fairy lights. 18 Roses list is on the Viber message I sent.', content: { cover: debutContent.cover, reception: debutContent.reception, eighteen: { roses: [{ name: 'Papa', relation: 'Father' }, { name: 'Kuya Marco', relation: 'Brother' }, { name: 'Tito Jun', relation: 'Uncle' }] } } } as never,
       internalNotes: 'Waiting on the full 18 Roses list — customer said she will send it by Viber tonight.',
     },
@@ -329,7 +328,7 @@ async function main() {
     await prisma.payment.create({ data: { reference: paymentReference(), orderId: amaraOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: amaraOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_amara', gatewayPaymentId: 'pay_amara', gatewayEventId: 'evt_amara', paidAt: addDays(new Date(), -1) } });
     await prisma.dfyJob.create({
       data: {
-        orderId: amaraOrder.id, invitationId: amara.id, status: 'INTAKE_RECEIVED', intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -1), dueAt: addDays(new Date(), 2), revisionsAllowed: 2,
+        orderId: amaraOrder.id, invitationId: amara.id, status: 'INTAKE_RECEIVED', intakeMethod: 'FORM', intakeSubmittedAt: addDays(new Date(), -1), dueAt: addDays(new Date(), 2), revisionsAllowed: 4,
         intake: { method: 'FORM', notes: 'The four baby photos are in the order we want them. Please use her nickname on the cover.', content: intake } as never,
       },
     });

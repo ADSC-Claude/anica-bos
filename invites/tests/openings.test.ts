@@ -4,7 +4,7 @@ import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, opening
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES, templateData } from '../prisma/templates';
-import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS } from '../src/lib/sections';
+import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder } from '../src/lib/sections';
 import { tierAtLeast } from '../src/lib/tiers';
 import { PALETTE_PRESETS } from '../src/lib/theme';
 
@@ -198,13 +198,16 @@ test('every painted scene is somewhere in the Philippines, and declared once', (
   assert.equal(isBackdrop('lakecomo'), false);
 });
 
-test('the moment section is editable end to end, and skips a memorial', () => {
+test('the moment section is retired: hidden from the form, off the Capiz pages, its lines kept on the cover', () => {
   const fields = fieldsFor('moment', 'WEDDING');
   const keys = fields.map((f) => f.key);
-  // The photo, the fallback scene, the frame and all three lines are fields —
-  // nothing on this section is fixed copy.
   assert.deepEqual(keys, ['backdrop', 'preset', 'frame', 'line1', 'line2', 'line3']);
-  assert.ok(OCCASION_SECTIONS.WEDDING.includes('moment'));
+  assert.ok(OCCASION_SECTIONS.WEDDING.includes('moment'), 'the slot stays so old content is kept, not lost');
+  assert.equal(SECTION_BY_KEY.moment.hidden, true, 'but it is not offered');
+  assert.equal(sectionOffered('moment'), false);
+  assert.ok(!sectionsFor('WEDDING').some((d) => d.key === 'moment'), 'the builder does not list it');
+  assert.ok(!sectionOrder('WEDDING', 'capiz').slice(0, 2).includes('moment'), 'Capiz goes from the cover straight to the story');
+  assert.deepEqual(sectionOrder('WEDDING', 'capiz').slice(0, 2), ['cover', 'story']);
   assert.ok(!OCCASION_SECTIONS.MEMORIAL.includes('moment'), 'a scenic view is the wrong register for a memorial');
   const { data, issues } = cleanSection(fields, {
     backdrop: 'https://cdn/theirs.jpg', preset: 'elnido', frame: 'arch',

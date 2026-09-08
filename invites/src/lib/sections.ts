@@ -605,6 +605,9 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'moment',
+    // Retired: the framed view between the verse and the story is not in the
+    // plan. The cover carries the three lines; the page and its form are gone.
+    hidden: true,
     label: 'The moment',
     tl: 'Ang Sandali',
     description: 'A framed view — your own photo behind the arch, or a painted Philippine scene when a photo would fight the design.',
@@ -760,7 +763,7 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
  * occasion order after the ones that are.
  */
 export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
-  capiz: ['cover', 'moment', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+  capiz: ['cover', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
 };
 
 export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {

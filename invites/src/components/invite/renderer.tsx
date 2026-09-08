@@ -591,7 +591,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.boys' : 'dressCode.gents')}</p>
           <div className="inv-dress">
-            {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} id={`dress-gent-${i}`} width={widthOf(d)} />)}
+            {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} width={widthOf(d)} />)}
           </div>
           {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
           {gentsNote && <p className="inv-wear-note">{gentsNote}</p>}
@@ -599,7 +599,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
         <div className="inv-wear">
           <p className="inv-eyebrow inv-wear-head">{t(lang, kids ? 'dressCode.girls' : 'dressCode.ladies')}</p>
           <div className="inv-dress">
-            {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} id={`dress-lady-${i}`} width={widthOf(d)} />)}
+            {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} width={widthOf(d)} />)}
           </div>
           {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
           {ladiesNote && <p className="inv-wear-note">{ladiesNote}</p>}

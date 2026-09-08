@@ -4,36 +4,36 @@
  *
  * Each drawing is two images (`src/lib/attire-art.ts`): the garment as its
  * shading alone — grey, its middle tone at exactly half — and the rest as
- * drawn (face, hair, shirt, tie, shoes, bag), laid over it. The garment is
- * coloured by an SVG gradient map: a component transfer that sends black to
- * black, the middle tone to the chosen colour and white to white, so the
- * folds, the sheen and the shadows of the drawing survive in any colour, a
- * black suit and an ivory gown alike.
+ * drawn (face, hair, shirt, tie, shoes, bag), laid over it.
+ *
+ * The garment is coloured in three layers, with CSS every browser has: a flat
+ * fill of the chosen colour cut to the garment's silhouette by the shading's
+ * own alpha (a mask), the shading itself blended over it in hard light, and
+ * the fixed parts on top. Hard light sends the shading's black to black, its
+ * middle tone to the colour and its white to white — the folds, the sheen and
+ * the shadows of the drawing survive in any colour, a black suit and an ivory
+ * gown alike. It used to be an SVG filter on the image; Safari does not apply
+ * those to images, and left the garments out.
  */
+import type { CSSProperties } from 'react';
 import type { Drawing } from '@/lib/attire-art';
 
-function channels(hex: string): [number, number, number] {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return [0.5, 0.5, 0.5];
-  const n = parseInt(m[1], 16);
-  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
-}
-
-export function Drawn({ drawing, color, id, width }: { drawing: Drawing; color: string; id: string; /** the figure's width, a CSS length; the height follows the drawing's shape */ width?: string }) {
-  const [r, g, b] = channels(color);
-  const table = (c: number) => `0 ${c.toFixed(4)} 1`;
+export function Drawn({ drawing, color, width }: { drawing: Drawing; color: string; /** the figure's width, a CSS length; the height follows the drawing's shape */ width?: string }) {
+  const shade = `/attire/${drawing.id}-shade.webp`;
+  // the silhouette: the shading's alpha as a mask over the flat colour (prefixed for the Safari versions that still need it)
+  const mask: CSSProperties = {
+    background: color,
+    WebkitMaskImage: `url(${shade})`,
+    maskImage: `url(${shade})`,
+    WebkitMaskSize: '100% 100%',
+    maskSize: '100% 100%',
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+  };
   return (
     <span className="inv-figure" style={{ aspectRatio: `${drawing.w} / ${drawing.h}`, width }}>
-      <svg width="0" height="0" aria-hidden focusable="false" style={{ position: 'absolute' }}>
-        <filter id={id} colorInterpolationFilters="sRGB">
-          <feComponentTransfer>
-            <feFuncR type="table" tableValues={table(r)} />
-            <feFuncG type="table" tableValues={table(g)} />
-            <feFuncB type="table" tableValues={table(b)} />
-          </feComponentTransfer>
-        </filter>
-      </svg>
-      <img src={`/attire/${drawing.id}-shade.webp`} alt="" className="inv-figure-cloth" style={{ filter: `url(#${id})` }} loading="lazy" decoding="async" />
+      <span className="inv-figure-color" style={mask} aria-hidden />
+      <img src={shade} alt="" className="inv-figure-cloth" loading="lazy" decoding="async" />
       <img src={`/attire/${drawing.id}-fixed.webp`} alt="" className="inv-figure-rest" loading="lazy" decoding="async" />
     </span>
   );

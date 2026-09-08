@@ -63,7 +63,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             <div className="card p-5">
               <h2 className="mb-2 font-semibold">Your form</h2>
               {complete ? (
-                <p className="text-sm">✓ Every section is marked Done{content.progress?.completedAt ? ` (${formatDate(content.progress.completedAt)})` : ''}. Our team has your invitation.</p>
+                <p className="text-sm">✓ Every section is marked Done{content.progress?.completedAt ? ` (${formatDate(new Date(content.progress.completedAt))})` : ''}. Our team has your invitation.</p>
               ) : (
                 <p className="text-sm"><b>{doneCount} of {mine.length}</b> sections marked Done. Our team starts on your invitation only once every section is Done — <Link href={`/account/invitations/${inv.id}/builder`} className="underline">continue where you left off</Link>. Everything you save stays.</p>
               )}

@@ -409,6 +409,7 @@ function ChecksInput({ field, value, onChange, sibling }: { field: Field; value:
     onChange(all.map((o) => o.value).filter((x) => next.includes(x)));
   };
   const short = min > 0 && value.length > 0 && value.length < min;
+  const over = value.length > max;
   return (
     <div>
       <Label field={field} />
@@ -425,8 +426,8 @@ function ChecksInput({ field, value, onChange, sibling }: { field: Field; value:
         })}
       </div>
       {(min > 0 || max < Infinity) && (
-        <p className={`mt-1 text-xs ${short ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
-          {value.length} of {min > 0 && max < Infinity ? `${min}–${max}` : max < Infinity ? `up to ${max}` : `at least ${min}`}{short ? ` · pick at least ${min}` : value.length >= max ? ' · full' : ''}
+        <p className={`mt-1 text-xs ${short || over ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
+          {value.length} of {min > 0 && max < Infinity ? `${min}–${max}` : max < Infinity ? `up to ${max}` : `at least ${min}`}{short ? ` · pick at least ${min}` : over ? ` · untick ${value.length - max} — only the first ${max} are kept` : value.length >= max ? ' · full' : ''}
           {field.dependsOn && picked.length > 0 && fit.length >= 3 ? ' · showing what suits your dress code' : ''}
         </p>
       )}

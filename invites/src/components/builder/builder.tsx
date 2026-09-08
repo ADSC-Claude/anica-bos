@@ -71,6 +71,8 @@ export function Builder({
   const isDone = done.includes(current);
   const closed = Boolean(window?.closed);
   const allDone = total > 0 && doneCount >= total;
+  // the dates come over the wire as ISO strings; formatDate wants a Date for those
+  const when = (iso: string) => formatDate(new Date(iso));
 
   /** Save; with markDone the section is marked Done, folded, and the next section still open comes up. */
   function save(goNext = false, markDone = false) {
@@ -145,14 +147,14 @@ export function Builder({
       <section>
         <div className="mb-4 space-y-2">
           {closed && window ? (
-            <Notice tone="warn">Changes closed on {formatDate(window.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {formatDate(window.finalAt)}. Message us for anything urgent.</Notice>
+            <Notice tone="warn">Changes closed on {when(window.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(window.finalAt)}. Message us for anything urgent.</Notice>
           ) : allDone ? (
-            <Notice tone="ok">Every section is marked Done{completedAt ? ` (${formatDate(completedAt)})` : ''} — our team has your invitation. You can still open a section to change something{window ? ` until ${formatDate(window.closesAt)}` : ''}.</Notice>
+            <Notice tone="ok">Every section is marked Done{completedAt ? ` (${when(completedAt)})` : ''} — our team has your invitation. You can still open a section to change something{window ? ` until ${when(window.closesAt)}` : ''}.</Notice>
           ) : (
             <Notice tone="info">
               Fill in each section and press <b>Done</b> when it is complete — it folds away and the next one opens. <b>Our team starts on your invitation only once every section is marked Done</b> ({doneCount} of {total} so far).
               You can leave and come back any time; everything you save stays with your account.
-              {window && <> Changes close on <b>{formatDate(window.closesAt)}</b>, three weeks before your event; our team finishes the final touches by {formatDate(window.finalAt)}.</>}
+              {window && <> Changes close on <b>{when(window.closesAt)}</b>, three weeks before your event; our team finishes the final touches by {when(window.finalAt)}.</>}
             </Notice>
           )}
         </div>

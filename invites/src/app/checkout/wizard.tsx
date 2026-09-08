@@ -5,12 +5,12 @@ import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
-import { SERVICE_MODES, quote, serviceFee, serviceModeAvailable, addOnAvailable, type CouponLike } from '@/lib/pricing';
+import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
 import { invitationPath } from '@/lib/app-url';
 
-export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
+export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
 export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
@@ -18,7 +18,7 @@ export type WizardProps = {
   packages: WizardPackage[];
   addOns: WizardAddOn[];
   templates: WizardTemplate[];
-  initial: { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string; addon?: string };
+  initial: { occasion?: string; tier?: string; template?: string; coupon?: string; addon?: string };
   demoSlug: string;
 };
 
@@ -27,13 +27,11 @@ const RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
 export function CheckoutWizard(p: WizardProps) {
   const [occasion, setOccasion] = useState<Occasion>((OCCASIONS.some((o) => o.key === p.initial.occasion) ? p.initial.occasion : 'WEDDING') as Occasion);
   const [tier, setTier] = useState<Tier>((TIERS.includes(p.initial.tier as Tier) ? p.initial.tier : 'STANDARD') as Tier);
-  const [chosenMode, setMode] = useState<ServiceMode>((['DIY', 'DFY', 'CONCIERGE'].includes(p.initial.mode ?? '') ? p.initial.mode : 'DIY') as ServiceMode);
-  // Priority is Signature-only, and the tier is chosen on this same page: a
-  // customer who picks it and then steps down a tier would otherwise carry an
-  // invisible selection — its button is gone, but the order would still ask for
-  // it and be refused at checkout. So the mode in play is always one this tier
-  // can buy, and falls back to Done-For-You, which keeps "you do it for me".
-  const mode = serviceModeAvailable(chosenMode, tier) ? chosenMode : 'DFY';
+  // There is one service and it is not a choice: we build every invitation.
+  // A ?mode= left in an old link or a bookmark is ignored rather than honoured
+  // — the server decides the mode now, and a withdrawn one must not be able to
+  // price a page differently from the order it produces.
+  const mode = DEFAULT_SERVICE_MODE;
   const [templateId, setTemplateId] = useState<string>(p.initial.template ?? '');
   // an add-on named in the link (the gallery's "with the premium opening") starts ticked
   const [addOns, setAddOns] = useState<string[]>(p.addOns.some((a) => a.code === p.initial.addon && a.quoted) ? [p.initial.addon as string] : []);
@@ -54,6 +52,11 @@ export function CheckoutWizard(p: WizardProps) {
   const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
 
   const modeInfo = SERVICE_MODES.find((m) => m.key === mode)!;
+  // Rounds are the package's, and buying speed spends some of them: there is no
+  // room for four rounds of back-and-forth inside 24 hours, so rush caps them.
+  const rushed = chosenAddOns.some((a) => a.code === RUSH_CODE || a.code === PRIORITY_CODE);
+  const rounds = pkg ? revisionRounds(tier, rushed, pkg.revisionRounds) : 0;
+  const roundsLabel = `${rounds} round${rounds === 1 ? '' : 's'}`;
 
   async function applyCoupon() {
     setCouponError('');
@@ -78,7 +81,7 @@ export function CheckoutWizard(p: WizardProps) {
       return;
     }
     start(async () => {
-      const res = await placeOrderAction({ occasion, tier, serviceMode: mode, templateId: template.id, addOnCodes: chosenAddOns.map((a) => a.code), couponCode: coupon?.code, language, notes });
+      const res = await placeOrderAction({ occasion, tier, templateId: template.id, addOnCodes: chosenAddOns.map((a) => a.code), couponCode: coupon?.code, language, notes });
       if (res && !res.ok) setError(res.error);
     });
   }
@@ -130,22 +133,23 @@ export function CheckoutWizard(p: WizardProps) {
           </details>
         </section>
 
-        {/* 3 — service mode */}
+        {/* 3 — what the package includes; not a choice any more */}
         <section>
-          <h2 className="display mb-3 text-xl">3. Who fills in the details?</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {SERVICE_MODES.filter((m) => serviceModeAvailable(m.key, tier)).map((m) => {
-              const fee = pkg ? serviceFee(pkg, m.key) : 0;
-              return (
-                <button key={m.key} type="button" onClick={() => setMode(m.key)} className={`card p-4 text-left ${mode === m.key ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={mode === m.key}>
-                  <span className="block font-semibold">{m.label}</span>
-                  <span className="block text-sm text-[color:var(--color-ink-700)]">{fee ? `+ ${formatPesoShort(fee)}` : 'Included'}</span>
-                  <span className="mt-1 block text-xs text-[color:var(--color-ink-500)]">{m.blurb}</span>
-                  <span className="mt-1 block text-xs text-[color:var(--color-ink-500)]">Turnaround: {m.turnaround} · Revisions: {m.revisions}</span>
-                </button>
-              );
-            })}
-          </div>
+          <h2 className="display mb-3 text-xl">3. What happens after you pay</h2>
+          <ol className="grid gap-3 sm:grid-cols-3">
+            {[
+              { title: 'You tell us the details', body: 'Fill in one form — names, entourage, venues, photos, RSVP. Or send them over Messenger, Viber or an Excel file if that is easier.' },
+              { title: 'We build it', body: `Our team encodes and lays out your invitation. ${modeInfo.turnaround}.` },
+              { title: 'You approve, we publish', body: `A preview on your phone, ${roundsLabel} of changes, then your link and QR go live.` },
+            ].map((step, i) => (
+              <li key={step.title} className="card p-4">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--color-plum-600)] text-sm font-semibold text-white">{i + 1}</span>
+                <span className="mt-2 block text-sm font-semibold">{step.title}</span>
+                <span className="mt-1 block text-xs text-[color:var(--color-ink-500)]">{step.body}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">Included in every package — there is no separate encoding fee.</p>
         </section>
 
         {/* 4 — template */}
@@ -244,8 +248,8 @@ export function CheckoutWizard(p: WizardProps) {
               <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">One-time payment. No subscription. Link valid until well after the event.</p>
               <dl className="mt-3 space-y-1 text-xs text-[color:var(--color-ink-700)]">
                 <div className="flex justify-between"><dt>Design</dt><dd>{template?.name ?? '— pick one —'}</dd></div>
-                <div className="flex justify-between"><dt>Service</dt><dd>{modeInfo.label}</dd></div>
-                <div className="flex justify-between"><dt>Turnaround</dt><dd>{modeInfo.turnaround}</dd></div>
+                <div className="flex justify-between"><dt>We build it</dt><dd>{modeInfo.turnaround}</dd></div>
+                <div className="flex justify-between"><dt>Changes before publishing</dt><dd>{roundsLabel}{rushed && rounds < pkg.revisionRounds ? ' (rushed)' : ''}</dd></div>
               </dl>
             </>
           ) : (

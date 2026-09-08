@@ -142,11 +142,17 @@ model Package {
   tagline           String    @default("")
   priceCents        Int
   /// Stacked on top of the package when the customer chooses Done-For-You.
+  /// Zero since the build was folded into the base price; kept so orders sold
+  /// with a separate fee still reconcile.
   dfyFeeCents       Int
-  /// Stacked on top when the customer chooses Full Concierge.
+  /// Stacked on top when the customer chooses Full Concierge. That mode is
+  /// withdrawn; the column is kept for the same reason.
   conciergeFeeCents Int
-  /// -1 means unlimited until the event.
-  editsAfterPublish Int
+  /// How many rounds of changes the customer gets on the preview before we
+  /// publish: 2, 4 and 6 by tier. Rush and priority cap it lower — there is no
+  /// room for four rounds inside 24 hours — see revisionRounds() in
+  /// src/lib/pricing.ts. Nothing is revisable after publish.
+  revisionRounds    Int
   /// How long the link stays live after the event date.
   linkValidityDays  Int
   active            Boolean   @default(true)
@@ -177,47 +183,47 @@ model AddOn {
 /// are the CSS variables it is themed with; `sections` lists which section keys
 /// it lays out (everything else in the content is ignored, not lost).
 model Template {
-  id           String   @id @default(cuid())
-  slug         String   @unique
-  name         String
-  occasion     Occasion
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  occasion         Occasion
   /// The lowest tier that may use this design.
-  minTier      Tier     @default(BASIC)
+  minTier          Tier     @default(BASIC)
   /// Premium designs are Complete-only regardless of minTier.
-  premium      Boolean  @default(false)
-  description  String   @default("")
-  thumbnailUrl String   @default("")
-  layout       String   @default("classic")
+  premium          Boolean  @default(false)
+  description      String   @default("")
+  thumbnailUrl     String   @default("")
+  layout           String   @default("classic")
   /// Colour family shown as a strip in the gallery. See src/lib/collections.ts. "" means it belongs to none.
-  collection   String   @default("")
+  collection       String   @default("")
   /// The opening this design ships with. The customer may override it. See src/lib/openings.ts.
-  opening      String   @default("")
+  opening          String   @default("")
   /// A cinematic opening's shared assets: the clip that plays on tap and the
   /// still shown in its place until it does. One pair per design, served to
   /// every customer on it — never rendered per couple.
-  openingVideoUrl  String @default("")
-  openingPosterUrl String @default("")
+  openingVideoUrl  String   @default("")
+  openingPosterUrl String   @default("")
   /// The slug of the invitation that shows this design off: a visitor may
   /// scroll it from the opening to Our Story (the peek) before choosing the
   /// design, whatever its status. Blank means no peek is offered.
-  demoSlug         String @default("")
-  palette      Json
-  fonts        Json
+  demoSlug         String   @default("")
+  palette          Json
+  fonts            Json
   /// The look this design is set in — its faces and the lines under its
   /// headings. See src/lib/looks.ts. Blank means the `fonts` column alone.
-  look         String   @default("")
+  look             String   @default("")
   /// The words the design writes over its look's, per language:
   /// {"en": {"gallery": "…"}, "tl": {…}}. See src/lib/design.ts.
-  words        Json     @default("{}")
+  words            Json     @default("{}")
   /// The design's own pictures, by URL — its backgrounds by day and by night,
   /// its strand. Blank falls back to the files shipped with the layout. See src/lib/design.ts.
-  art          Json     @default("{}")
-  sections     String[]
-  featured     Boolean  @default(false)
-  published    Boolean  @default(true)
-  sortOrder    Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  art              Json     @default("{}")
+  sections         String[]
+  featured         Boolean  @default(false)
+  published        Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   invitations Invitation[]
 
@@ -383,49 +389,52 @@ enum Privacy {
 }
 
 model Invitation {
-  id           String           @id @default(cuid())
-  userId       String
-  templateId   String
-  occasion     Occasion
-  tier         Tier
+  id                String           @id @default(cuid())
+  userId            String
+  templateId        String
+  occasion          Occasion
+  tier              Tier
   /// "Juan & Maria" — used in the dashboard, page title and OG preview.
-  title        String
-  slug         String           @unique
-  status       InvitationStatus @default(DRAFT)
-  privacy      Privacy          @default(PUBLIC)
-  passwordHash String?
+  title             String
+  slug              String           @unique
+  status            InvitationStatus @default(DRAFT)
+  privacy           Privacy          @default(PUBLIC)
+  passwordHash      String?
   /// Section data keyed by section key. See src/lib/sections.ts.
-  content      Json
+  content           Json
   /// en | tl — which phrasing the guest page uses for its fixed labels.
-  language     String           @default("en")
-  eventAt      DateTime?
+  language          String           @default("en")
+  eventAt           DateTime?
   /// The link stops resolving after this. Set from the package on publish.
-  expiresAt    DateTime?
-  ogImageUrl   String           @default("")
+  expiresAt         DateTime?
+  ogImageUrl        String           @default("")
   /// A cinematic opening encoded for this couple alone, overriding the
   /// design's shared one. Staff set these on a Done-For-You or Concierge
   /// order; they are not customer content and never pass through the builder.
-  openingVideoUrl  String          @default("")
-  openingPosterUrl String          @default("")
+  openingVideoUrl   String           @default("")
+  openingPosterUrl  String           @default("")
   /// The premium opening video add-on, bought with the order or switched on
   /// by staff. Without it the design's clip is not played and the guest gets
   /// the opening every package includes.
-  premiumOpening   Boolean         @default(false)
+  premiumOpening    Boolean          @default(false)
   /// Which of the design's premium openings this invitation plays. A theme may
   /// have several clips and the customer picks among them (see
   /// src/lib/premium-openings.ts); blank means the design's first. A key that
   /// no longer fits the design — after a design change — falls back to that
   /// first one rather than playing another theme's artwork.
-  premiumOpeningKey String         @default("")
-  editsUsed    Int              @default(0)
-  /// -1 means unlimited until the event.
-  editsAllowed Int              @default(3)
-  publishedAt  DateTime?
-  viewCount    Int              @default(0)
-  rsvpDeadline DateTime?
-  rsvpClosed   Boolean          @default(false)
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  premiumOpeningKey String           @default("")
+  /// Retired, both of them: they counted a customer's saves after publish
+  /// against an allowance from the package. Revisions happen before we
+  /// publish now, so nothing spends or reads these; they are kept rather than
+  /// dropped so the history of an invitation sold under the old rule survives.
+  editsUsed         Int              @default(0)
+  editsAllowed      Int              @default(3)
+  publishedAt       DateTime?
+  viewCount         Int              @default(0)
+  rsvpDeadline      DateTime?
+  rsvpClosed        Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   user     User     @relation(fields: [userId], references: [id])
   template Template @relation(fields: [templateId], references: [id])
@@ -621,9 +630,9 @@ model DfyJob {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  invitation Invitation   @relation(fields: [invitationId], references: [id], onDelete: Cascade)
-  assignee   User?        @relation("DfyAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  invitation Invitation    @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  assignee   User?         @relation("DfyAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   revisions  DfyRevision[]
 
   @@index([status, dueAt])

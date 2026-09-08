@@ -33,7 +33,7 @@ export async function saveSectionAction(invitationId: string, key: SectionKey, d
     await ownInvitation(user, invitationId);
     const result = await saveSection(user, invitationId, key, data, opts);
     refresh(invitationId);
-    return { issues: result.issues, slug: result.invitation.slug, editsUsed: result.invitation.editsUsed, editsAllowed: result.invitation.editsAllowed, done: result.done, completedAt: result.completedAt };
+    return { issues: result.issues, slug: result.invitation.slug, done: result.done, completedAt: result.completedAt };
   });
 }
 

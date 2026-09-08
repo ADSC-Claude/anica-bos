@@ -155,3 +155,46 @@ test('a preview pointed at production’s schema is refused, and nothing else is
   assert.equal(previewOnProductionSchema({ VERCEL_ENV: 'production', DATABASE_SCHEMA: 'invites' }), false);
   assert.equal(previewOnProductionSchema({ DATABASE_SCHEMA: 'invites' }), false);
 });
+
+test('a production build refuses a schema production does not serve', async () => {
+  const { productionOffProductionSchema } = await import('../scripts/db-url.mjs');
+  const live = (over: Record<string, string | undefined> = {}) => ({ VERCEL_ENV: 'production', ...over });
+
+  assert.equal(productionOffProductionSchema(live({ DATABASE_SCHEMA: 'invites' })), false, 'the schema it owns');
+  assert.equal(
+    productionOffProductionSchema(live()),
+    true,
+    'no schema is `public` — the spa’s, in the same database, and the reason this rule exists',
+  );
+  assert.equal(
+    productionOffProductionSchema(live({ DATABASE_SCHEMA: 'invites_preview' })),
+    true,
+    'the preview’s schema is not production’s either',
+  );
+  assert.equal(
+    productionOffProductionSchema(live({ DATABASE_SCHEMA: 'invites_live', PRODUCTION_DATABASE_SCHEMA: 'invites_live' })),
+    false,
+    'production may move, so long as it says so',
+  );
+
+  // A preview has the other rule, and a local build is nobody's production.
+  assert.equal(productionOffProductionSchema({ VERCEL_ENV: 'preview' }), false);
+  assert.equal(productionOffProductionSchema({}), false);
+});
+
+// The two rules are a pair: whatever the environment, exactly one of them owns
+// the question, and neither leaves a build free to migrate a schema nobody
+// named. A future edit that loosens one should fail here rather than in a
+// migration log.
+test('every deployed build is covered by one guard or the other', async () => {
+  const { previewOnProductionSchema, productionOffProductionSchema } = await import('../scripts/db-url.mjs');
+
+  for (const VERCEL_ENV of ['preview', 'production']) {
+    for (const DATABASE_SCHEMA of [undefined, 'public', 'invites', 'invites_preview']) {
+      const env = { VERCEL_ENV, DATABASE_SCHEMA };
+      const safe = !previewOnProductionSchema(env) && !productionOffProductionSchema(env);
+      const wanted = VERCEL_ENV === 'preview' ? DATABASE_SCHEMA !== 'invites' : DATABASE_SCHEMA === 'invites';
+      assert.equal(safe, wanted, `${VERCEL_ENV} + ${DATABASE_SCHEMA ?? '(unset)'}`);
+    }
+  }
+});

@@ -71,3 +71,29 @@ export function previewOnProductionSchema(env = process.env) {
   const production = env.PRODUCTION_DATABASE_SCHEMA || 'invites';
   return (env.DATABASE_SCHEMA || 'public') === production;
 }
+
+/**
+ * Whether a production build is pointed at a schema production does not serve.
+ *
+ * The mirror of the rule above, and the half it was missing. An hour after the
+ * preview guard was written, DATABASE_SCHEMA was scoped to Preview by editing
+ * the one all-environments row rather than adding a second — which left
+ * Production naming no schema at all. The next production build fell through
+ * to `public`: the spa's schema, in the same database, and it ran the
+ * invitations' first migration there. Postgres refused it at CREATE TYPE
+ * "Role", because the spa owns a Role, so the transaction rolled back and
+ * nothing was created. What survived was a failed-migration row in the spa's
+ * own ledger, which stops the spa deploying until somebody deletes it by hand.
+ *
+ * Nothing about that is specific to this pair of apps. Two schemas in one
+ * database and a variable that can be edited to mean neither of them is
+ * enough. So a production build states which schema it is for, or it does not
+ * build — and an empty DATABASE_SCHEMA is a statement of `public`, which for
+ * this app is always somebody else's.
+ */
+/** @param {Record<string, string | undefined>} [env] */
+export function productionOffProductionSchema(env = process.env) {
+  if (env.VERCEL_ENV !== 'production') return false;
+  const production = env.PRODUCTION_DATABASE_SCHEMA || 'invites';
+  return (env.DATABASE_SCHEMA || 'public') !== production;
+}

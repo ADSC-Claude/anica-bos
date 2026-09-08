@@ -10,7 +10,12 @@
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { describeDatabaseUrl, resolveDatabaseUrl, previewOnProductionSchema } from './db-url.mjs';
+import {
+  describeDatabaseUrl,
+  resolveDatabaseUrl,
+  previewOnProductionSchema,
+  productionOffProductionSchema,
+} from './db-url.mjs';
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -249,6 +254,21 @@ if (previewOnProductionSchema()) {
       '  name). The first preview build creates the schema and migrates it; run the seed once to fill\n' +
       '  the catalogue. If a preview genuinely has its own database and reuses the name, set\n' +
       '  PRODUCTION_DATABASE_SCHEMA to whatever production actually uses.',
+  );
+}
+
+// And the same refusal the other way round. A production build that names no
+// schema is not pointed at nothing; it is pointed at `public`, which in this
+// database belongs to the spa. See productionOffProductionSchema for the hour
+// that rule cost.
+if (productionOffProductionSchema()) {
+  fail(
+    `This is a production build, and it is pointed at "${process.env.DATABASE_SCHEMA || 'public'}" — not "${process.env.PRODUCTION_DATABASE_SCHEMA || 'invites'}", the schema production serves.`,
+    'Building would migrate somebody else\'s schema in the same database. In Vercel → Settings →\n' +
+      '  Environment Variables, set DATABASE_SCHEMA for Production back to the schema this app owns.\n' +
+      '  Scope the preview\'s own value to Preview alone rather than editing this one, so the two\n' +
+      '  environments cannot be changed by the same edit. If production really has moved schema, set\n' +
+      '  PRODUCTION_DATABASE_SCHEMA to the new name so this check knows what it is checking against.',
   );
 }
 

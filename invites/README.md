@@ -16,8 +16,10 @@ Four surfaces, one backend:
 | Admin | `/admin` | Orders & payments (PayMongo webhook + manual proof review), DFY kanban, templates, customers, invitations, coupons, support inbox, reports, settings (pricing editor, payment accounts, copy, staff, audit trail) |
 
 Same toolchain as the ANICA spa and rental apps in this repository, and
-otherwise entirely separate from them: its own database, its own Vercel
-project, no shared code or rows.
+otherwise separate from them: its own Vercel project, no shared code, no
+shared rows. Not its own database, though — it is its own **schema**,
+`invites`, inside the Postgres the spa also uses, and the distance between
+those two facts is one environment variable. See step 6 of [Deployment](#deployment).
 
 ---
 
@@ -603,6 +605,18 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    production's schema, so this cannot quietly come undone; if a preview ever
    has a genuinely separate database that reuses the name, set
    `PRODUCTION_DATABASE_SCHEMA` to whatever production actually uses.
+
+   **Add that variable; do not edit the existing one.** Rescoping the single
+   all-environments row to Preview is the same edit as deleting Production's
+   schema, and Production without a schema is not pointed at nothing — it is
+   pointed at `public`, which in this database is the spa's. That happened: the
+   next production build ran the invitations' first migration in the spa's
+   schema, Postgres refused it at `CREATE TYPE "Role"` because the spa owns a
+   `Role`, the transaction rolled back with nothing created, and the failed row
+   Prisma leaves behind sat in the spa's migration ledger blocking *its*
+   deployments until somebody deleted it. `scripts/build.mjs` now refuses a
+   production build pointed anywhere but production's own schema, which is the
+   same rule as the preview one read from the other side.
 7. **Seed** the production database once, then sign in as the Owner, change
    the passwords, and replace the demo's placeholder photos and the sample
    testimonials on the landing page.

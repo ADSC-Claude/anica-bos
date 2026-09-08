@@ -25,7 +25,7 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
   return (
     <div>
       <div className="mx-auto mb-6 flex w-fit rounded-full border border-[color:var(--color-sand-300)] bg-white p-1 text-sm" role="tablist" aria-label="Service mode">
-        {SERVICE_MODES.map((m) => (
+        {SERVICE_MODES.filter((m) => serviceModeAvailable(m.key, 'BASIC')).map((m) => (
           <button key={m.key} role="tab" aria-selected={mode === m.key} type="button" onClick={() => setMode(m.key)} className={`rounded-full px-4 py-2 ${mode === m.key ? 'bg-[color:var(--color-plum-600)] text-white' : ''}`}>{m.label}</button>
         ))}
       </div>

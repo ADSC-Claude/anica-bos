@@ -32,15 +32,14 @@ import { formatPeso } from '../src/lib/money';
  * Pesos, by tier. COMPLETE is the tier sold as "Signature" — the enum name
  * predates the label and is not worth a migration to rename.
  *
- * Priority is sold on Signature alone, so the other two carry no fee for it.
- * Zero here is bookkeeping, not the gate: serviceModeAvailable in
- * src/lib/pricing.ts is what withdraws the mode, because a zero fee on its own
- * would render as "Included" and give the mode away instead.
+ * conciergeFeeCents is zero on every tier. The mode it priced is withdrawn —
+ * speed is bought as the rush or priority add-on instead — and the column stays
+ * only so orders sold under that mode still reconcile.
  */
-const FEES: Record<Tier, { dfy: number; priority: number; revisions: number }> = {
-  BASIC: { dfy: 500, priority: 0, revisions: 2 },
-  STANDARD: { dfy: 1_200, priority: 0, revisions: 4 },
-  COMPLETE: { dfy: 2_000, priority: 2_000, revisions: 6 },
+const FEES: Record<Tier, { dfy: number; concierge: number; revisions: number }> = {
+  BASIC: { dfy: 500, concierge: 0, revisions: 2 },
+  STANDARD: { dfy: 1_200, concierge: 0, revisions: 4 },
+  COMPLETE: { dfy: 2_000, concierge: 0, revisions: 6 },
 };
 
 /**
@@ -53,12 +52,13 @@ const FEES: Record<Tier, { dfy: number; priority: number; revisions: number }> =
 const RETIRED_ADDONS = ['TEMPLATE_SWITCH'];
 
 /**
- * Rush is a queue jump on a Done-For-You job, priced against the DFY fee. It is
- * sold on Basic and Standard only (addOnAvailable), so this is a Standard-sized
- * jump, not a Signature-sized one.
+ * The queue jumps, in pesos. Rush is Basic's and Standard's and promises 24
+ * hours; priority is Signature's and promises two working days, because that
+ * build carries too much to encode overnight. addOnAvailable in
+ * src/lib/pricing.ts decides which tier is offered which; addOnPrice charges
+ * rush 1,500 on Standard, which is the one price not held on its own row.
  */
-const RUSH_CODE = 'RUSH';
-const RUSH_PRICE = 1_000;
+const ADDON_PRICES: Record<string, number> = { RUSH: 1_000, PRIORITY: 2_000 };
 
 const dry = process.argv.includes('--dry');
 const pesos = (n: number) => Math.round(n * 100);
@@ -79,7 +79,7 @@ async function main() {
     if (!target) throw new Error(`No fees defined for tier ${p.tier} (package ${p.code}). Add it to FEES.`);
 
     const dfyFeeCents = pesos(target.dfy);
-    const conciergeFeeCents = pesos(target.priority);
+    const conciergeFeeCents = pesos(target.concierge);
     const editsAfterPublish = target.revisions;
     if (p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.editsAfterPublish === editsAfterPublish) {
       console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)}   ${' '.repeat(11)}   ${col(p.conciergeFeeCents)}   ${' '.repeat(11)}  unchanged`);
@@ -107,25 +107,24 @@ async function main() {
     changed++;
   }
 
-  const rush = await prisma.addOn.findUnique({ where: { code: RUSH_CODE } });
-  const rushCents = pesos(RUSH_PRICE);
-  if (!rush) {
-    console.info(`\n  no ${RUSH_CODE} add-on — skipped.`);
-  } else if (rush.priceCents === rushCents) {
-    console.info(`\n  ${RUSH_CODE.padEnd(22)} ${col(rush.priceCents)}   unchanged`);
-  } else {
-    console.info(`\n  ${RUSH_CODE.padEnd(22)} ${col(rush.priceCents)} → ${col(rushCents)}`);
+  for (const [code, price] of Object.entries(ADDON_PRICES)) {
+    const a = await prisma.addOn.findUnique({ where: { code } });
+    const cents = pesos(price);
+    if (!a) {
+      console.info(`\n  ${code.padEnd(22)} not in the catalogue — skipped.`);
+      continue;
+    }
+    if (a.priceCents === cents && a.active) {
+      console.info(`  ${code.padEnd(22)} ${col(a.priceCents)}   unchanged`);
+      continue;
+    }
+    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}`);
     if (!dry) {
-      await prisma.addOn.update({ where: { id: rush.id }, data: { priceCents: rushCents } });
+      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active: true } });
       await audit(null, {
-        module: 'settings',
-        action: 'addon.save',
-        entityType: 'AddOn',
-        entityId: rush.id,
-        summary: `${RUSH_CODE} price (set-pricing)`,
-        before: { priceCents: rush.priceCents },
-        after: { priceCents: rushCents },
-        sensitive: true,
+        module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
+        summary: `${code} price (set-pricing)`,
+        before: { priceCents: a.priceCents, active: a.active }, after: { priceCents: cents, active: true }, sensitive: true,
       });
     }
     changed++;

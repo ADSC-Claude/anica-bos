@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, serviceModeAvailable, SERVICE_MODES, type Quote } from './pricing';
+import { quote, serviceModeAvailable, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, type Quote } from './pricing';
 import { TIER_LABELS } from './tiers';
 import { createDraft } from './invitations';
 import { audit } from './audit';
@@ -162,15 +162,25 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       });
     }
     if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {
-      const concierge = order.serviceMode === 'CONCIERGE';
-      const days = concierge ? s['concierge.turnaroundDays'] : s['dfy.turnaroundDays'];
+      // Speed is bought as an add-on now, so the promise comes from the order's
+      // line items rather than from how the order was encoded. Priority is two
+      // working days and an extra revision round; rush is hours, so it rounds
+      // to a day rather than pretending the board can hold fractions.
+      const bought = (code: string) => order.items.some((it) => it.kind === 'ADDON' && it.code === code);
+      const priority = bought(PRIORITY_CODE);
+      const rush = bought(RUSH_CODE);
+      const days = priority
+        ? s['concierge.turnaroundDays']
+        : rush
+          ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
+          : s['dfy.turnaroundDays'];
       await tx.dfyJob.create({
         data: {
           orderId,
           invitationId: order.invitationId,
           status: 'NEW',
           dueAt: addDays(now, days),
-          revisionsAllowed: concierge ? s['concierge.revisions'] : s['dfy.revisions'],
+          revisionsAllowed: priority ? s['concierge.revisions'] : s['dfy.revisions'],
         },
       });
     }

@@ -48,7 +48,7 @@ export type Quote = {
 
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
   { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'You fill in a guided builder. Instant, unlimited edits.', turnaround: 'Instant', revisions: 'Unlimited (self-serve)', intake: 'Builder' },
-  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '2–3 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
+  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '5 working days to a week', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
   { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
 
@@ -61,8 +61,13 @@ export function serviceModeLabel(mode: ServiceMode): string {
   return SERVICE_MODES.find((m) => m.key === mode)?.label ?? mode;
 }
 
-/** Rush jumps the Done-For-You queue. */
+/**
+ * The two queue jumps. They are one product bought on top of Done-For-You:
+ * rush promises 24 hours, and priority two working days plus a revision round,
+ * because a Signature build carries too much to encode overnight.
+ */
 export const RUSH_CODE = 'RUSH';
+export const PRIORITY_CODE = 'PRIORITY';
 
 /**
  * What each package may be sold with. Both rules are here, next to the
@@ -71,23 +76,28 @@ export const RUSH_CODE = 'RUSH';
  */
 
 /**
- * Priority is sold on Signature alone — it is the tier whose build is large
- * enough for the extra round and the call to be worth paying for.
+ * Who fills in the details is now two answers, not three: the customer, or us.
+ * Speed is bought separately, on top, as the rush or priority add-on — the
+ * CONCIERGE mode used to be the way to buy it, and buying it that way meant
+ * giving up Done-For-You to get it, which is backwards.
  *
- * Gating it matters more than zeroing the fee would: a zero fee renders as
- * "Included" in the wizard, which would give away the mode rather than
- * withdraw it.
+ * The mode is withdrawn rather than deleted: SERVICE_MODES still carries it so
+ * an order sold under it still names itself on the customer's page.
  */
-export function serviceModeAvailable(mode: ServiceMode, tier: Tier): boolean {
-  return mode !== 'CONCIERGE' || tier === 'COMPLETE';
+export function serviceModeAvailable(mode: ServiceMode, _tier: Tier): boolean {
+  return mode !== 'CONCIERGE';
 }
 
 /**
- * Rush is sold on Basic and Standard alone. It buys a place at the front of
- * the queue, and a Signature build is too big to promise that on.
+ * Which queue jump a tier is sold. Rush promises 24 hours and is Basic's and
+ * Standard's; priority promises two working days and is Signature's, because
+ * that build carries too much information to guarantee overnight. A tier is
+ * never offered both — they are the same purchase under two promises.
  */
 export function addOnAvailable(code: string, tier: Tier): boolean {
-  return code !== RUSH_CODE || tier !== 'COMPLETE';
+  if (code === RUSH_CODE) return tier !== 'COMPLETE';
+  if (code === PRIORITY_CODE) return tier === 'COMPLETE';
+  return true;
 }
 
 /**

@@ -106,10 +106,12 @@ async function main() {
   });
 
   // --- packages (§4) --------------------------------------------------------
+  // `concierge` is zero throughout: that mode is withdrawn and speed is bought
+  // as the rush or priority add-on. The column stays for orders sold under it.
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
     { tier: 'BASIC', price: 200000, dfy: 50000, concierge: 0, edits: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
     { tier: 'STANDARD', price: 300000, dfy: 120000, concierge: 0, edits: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 400000, dfy: 200000, concierge: 200000, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+    { tier: 'COMPLETE', price: 400000, dfy: 200000, concierge: 0, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -147,7 +149,10 @@ async function main() {
       { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout for the lolas.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19900, active: false, sortOrder: 4 },
-      { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Done-For-You jumps the queue. Basic and Standard only.', priceCents: 100000, sortOrder: 5 },
+      { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Your Done-For-You build jumps the queue and is published within 24 hours instead of the usual five days to a week. Basic and Standard.', priceCents: 100000, sortOrder: 5 },
+      // Signature's queue jump. Two days rather than one: a Signature build
+      // carries too much to encode overnight, so this is what we can commit to.
+      { code: 'PRIORITY', name: 'Priority (2 working days)', description: 'Your Done-For-You build is finished in two working days instead of the usual five to a week, with an extra revision round. Signature only.', priceCents: 200000, sortOrder: 6 },
       { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99900, sortOrder: 6 },
       { code: 'SMS_PACK', name: 'SMS reminder blast (credit pack)', description: 'RSVP reminders by text. Priced per pack — ask us.', priceCents: 0, quoted: false, sortOrder: 7 },
     ],

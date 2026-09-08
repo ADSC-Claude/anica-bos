@@ -25,7 +25,6 @@ test('a DIY quote is the package alone', () => {
 
 test('service modes stack their fee on top of the package', () => {
   assert.equal(serviceFee(pkg, 'DFY'), 120000);
-  assert.equal(serviceFee(signature, 'CONCIERGE'), 200000);
   // 3,000 package + 1,200 Done-For-You + 1,500 rush on Standard.
   const q = quote({ pkg, serviceMode: 'DFY', addOns: [{ code: 'RUSH', name: 'Rush', priceCents: 100000 }] });
   assert.equal(q.addOnsCents, 150000, 'rush is priced for the tier, not from the row');
@@ -61,21 +60,37 @@ test('a fixed coupon never takes the total below zero', () => {
   assert.equal(q.discountCents, 99900);
 });
 
-test('Priority is Signature-only, and is withdrawn rather than given away', () => {
-  assert.equal(serviceModeAvailable('CONCIERGE', 'COMPLETE'), true);
-  for (const t of ['BASIC', 'STANDARD'] as const) {
+test('the Concierge mode is withdrawn, on every tier', () => {
+  // Speed is bought on top of Done-For-You now, as the rush or priority add-on.
+  // Selling it as a mode meant giving up Done-For-You to get it.
+  for (const t of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
     assert.equal(serviceModeAvailable('CONCIERGE', t), false, t);
     // Not merely unpriced: a zero fee reads as "Included" in the wizard, so the
-    // quote must not carry a SERVICE line for a tier that cannot buy the mode.
-    const q = quote({ pkg: { ...pkg, tier: t }, serviceMode: 'CONCIERGE', addOns: [] });
+    // quote must not carry a SERVICE line for a mode nobody can buy.
+    const q = quote({ pkg: { ...signature, tier: t }, serviceMode: 'CONCIERGE', addOns: [] });
     assert.equal(q.serviceFeeCents, 0, t);
     assert.deepEqual(q.items.map((i) => i.kind), ['PACKAGE'], t);
-  }
-  // DIY and Done-For-You are sold on every tier.
-  for (const t of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
+    // The two that are sold stay sold.
     assert.equal(serviceModeAvailable('DIY', t), true, t);
     assert.equal(serviceModeAvailable('DFY', t), true, t);
   }
+});
+
+test('the queue jump is rush below Signature and priority on it', () => {
+  const rush = { code: 'RUSH', name: 'Rush', priceCents: 100000 };
+  const priority = { code: 'PRIORITY', name: 'Priority', priceCents: 200000 };
+  // A tier is offered one or the other, never both: they are one purchase.
+  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE'].map((t) => addOnAvailable('RUSH', t as never)), [true, true, false]);
+  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE'].map((t) => addOnAvailable('PRIORITY', t as never)), [false, false, true]);
+
+  // Signature, done for them, wanted early: 4,000 + 2,000 + 2,000.
+  const sig = quote({ pkg: signature, serviceMode: 'DFY', addOns: [priority] });
+  assert.equal(sig.totalCents, 800000);
+  assert.equal(sig.items.map((i) => i.kind).join(','), 'PACKAGE,SERVICE,ADDON');
+
+  // and the jump the tier is not sold is dropped rather than charged
+  assert.equal(quote({ pkg: signature, serviceMode: 'DFY', addOns: [rush] }).addOnsCents, 0);
+  assert.equal(quote({ pkg, serviceMode: 'DFY', addOns: [priority] }).addOnsCents, 0);
 });
 
 test('Rush is Basic and Standard only, and is dropped from a Signature quote', () => {

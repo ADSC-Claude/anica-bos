@@ -177,6 +177,14 @@ test('a lady\'s garment is never white: pale colours are deepened, colours are k
   const blush = wearable('#d9a9a9');
   assert.ok(light(blush) <= 0.67 && blush.slice(1, 3) > blush.slice(3, 5) && blush.slice(3, 5) === blush.slice(5, 7), `blush deepens but stays pink: ${blush}`);
   assert.equal(wearable('not a colour'), 'not a colour');
+  // a near-white deepens as a neutral at a wedding, never into a mustard or a grey nobody picked
+  const ivory = wearable('#fff3dc');
+  const chroma = (hex: string) => { const n = parseInt(hex.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; return (Math.max(...c) - Math.min(...c)) / 255; };
+  assert.ok(light(ivory) <= 0.67 && chroma(ivory) < 0.2, `ivory deepens to champagne, not mustard: ${ivory}`);
+  // at a christening or a birthday the motif's colours go on the gowns as picked — white and ivory are worn
+  assert.equal(wearable('#ffffff', 'CHRISTENING'), '#ffffff');
+  assert.equal(wearable('#fff3dc', 'KIDS_BIRTHDAY'), '#fff3dc');
+  assert.notEqual(wearable('#ffffff', 'WEDDING'), '#ffffff');
   // the rows share one height: the smaller of what either affords, capped
   const gown = { id: 'g', group: 'ladies' as const, kind: 'long', w: 40, h: 100 };
   const wide = { id: 'w', group: 'girls' as const, kind: 'girl', w: 100, h: 100 };
@@ -357,4 +365,12 @@ test('a Save the Date cover drops the opening controls, and an ordinary one keep
   assert.deepEqual(keys(true), keys(false).filter((k) => !['opening', 'openingLine', 'openingLine2'].includes(k)));
   // And only the cover is filtered — the countdown has no opening to lose.
   assert.deepEqual(fieldsFor('countdown', 'WEDDING', 'COMPLETE', true), fieldsFor('countdown', 'WEDDING', 'COMPLETE'));
+});
+
+test('the cover offers five ways the photo sits, the veil first', async () => {
+  const { fieldsFor, PHOTO_STYLES } = await import('../src/lib/sections');
+  const f = fieldsFor('cover', 'WEDDING', 'COMPLETE').find((x) => x.key === 'photoStyle');
+  assert.ok(f && f.type === 'select');
+  assert.deepEqual(f!.options!.map((o) => o.value), ['veil', 'arch', 'oval', 'round', 'card']);
+  assert.equal(PHOTO_STYLES[0].value, 'veil');
 });

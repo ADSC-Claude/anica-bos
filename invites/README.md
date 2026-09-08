@@ -240,6 +240,23 @@ ahead of the designs.
 It has its own `capiz` layout, whose shell border is drawn from the palette
 rather than supplied as artwork, so the design recolours with the customer's
 own accent instead of framing the page in a colour that no longer matches it.
+A couple's cover photo cannot fill the cover the way the other layouts do it —
+the ground is the artwork — so it sits one of five ways, chosen on the cover
+form (`photoStyle`, `PHOTO_STYLES` in `sections.ts`, one `data-style` each on
+`.inv-portrait`): behind the names under a veil of the paper (the default),
+or framed above them as an arch in a bronze line, an oval with a double line,
+a round medallion, or a photo card tucked under the drape. A couple who wants
+their photo carried differently is one pick away.
+
+Every photograph a demo needs is the grey placeholder in `public/demo/`, in
+the shape the slot takes (portrait, square, wide): a demo that carried stock
+photographs showed a visitor pictures that were nobody's, and the placeholder
+reads as "your photo goes here". The seed's `pic()` hands it out.
+
+The gallery's premium-opening preview sets the words on the clip's card from
+the design's demo, with the same `plateWords` the guest page uses — rename
+the child in the demo's form and the preview follows — and describes each clip
+from its catalogue entry (`blurb`).
 
 **Baby Blue** is the christening design, in the Baby Blue Theme at
 `/collections/babyblue`: sky and clouds with a dove and the church bell for

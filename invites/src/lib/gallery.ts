@@ -1,6 +1,8 @@
 import type { Template } from '@prisma/client';
 import { paletteFrom, fontsFrom, cssVars, googleFontsUrl } from './theme';
 import { LOOK_BY_KEY, isLook } from './looks';
+import { premiumOpeningsFor } from './premium-openings';
+import type { PlateWords } from '@/components/invite/renderer';
 
 /**
  * What a gallery card needs. The landing page and the templates page both
@@ -30,6 +32,15 @@ export type GalleryTemplate = {
   fontsUrl: string;
   /** The demo a visitor may scroll from the opening to Our Story, where one exists on this design (src/lib/peek.ts). */
   peekSlug: string;
+  /** The design's premium clip, by key, with what happens in it — for the preview's styling and its one sentence. */
+  clip: { key: string; blurb: string } | null;
+  /**
+   * The words the preview sets on the clip's card: the design's demo's own,
+   * read from its form (src/lib/peek.ts), so the sample reads the way a
+   * guest's will. Null where the design has no demo; the preview then shows
+   * its stock sample.
+   */
+  sample: PlateWords | null;
 };
 
 export function toGalleryTemplate(t: Template): GalleryTemplate {
@@ -55,5 +66,7 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     vars: cssVars(p, fonts),
     fontsUrl: googleFontsUrl(fonts),
     peekSlug: '',
+    clip: (() => { const c = premiumOpeningsFor({ slug: t.slug, collection: t.collection }) [0]; return c ? { key: c.key, blurb: c.blurb } : null; })(),
+    sample: null,
   };
 }

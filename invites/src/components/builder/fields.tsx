@@ -51,6 +51,20 @@ function Hint({ text }: { text?: string }) {
   return text ? <p className="hint">{text}</p> : null;
 }
 
+/**
+ * How much room is left: the page has so many characters' worth for this
+ * writing (Field.max, from FIT in sections.ts), and the count turns amber in
+ * the last stretch so nobody is surprised at the cut. Quiet until a third is
+ * used, so a short field does not nag.
+ */
+function Room({ field, value }: { field: Field; value: string }) {
+  if (!field.max) return null;
+  const used = value.length;
+  if (used < field.max / 3) return null;
+  const tight = used >= field.max * 0.85;
+  return <p className={`mt-0.5 text-right text-[11px] ${tight ? 'text-[color:var(--warn)]' : 'text-[color:var(--color-ink-500)]'}`} aria-live="polite">{used} / {field.max}{used >= field.max ? ' — that is all the room the page has' : ''}</p>;
+}
+
 function FieldInput({
   field,
   value,
@@ -83,8 +97,9 @@ function FieldInput({
       return (
         <div>
           <Label field={field} htmlFor={id} />
-          <input id={id} type={field.type === 'url' ? 'url' : field.type} className="field" value={String(value ?? '')} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />
+          <input id={id} type={field.type === 'url' ? 'url' : field.type} className="field" value={String(value ?? '')} placeholder={field.placeholder} maxLength={field.type === 'text' ? field.max : undefined} onChange={(e) => onChange(e.target.value)} />
           <Hint text={field.hint} />
+          {field.type === 'text' && <Room field={field} value={String(value ?? '')} />}
         </div>
       );
     case 'number':
@@ -99,8 +114,9 @@ function FieldInput({
       return (
         <div>
           <Label field={field} htmlFor={id} />
-          <textarea id={id} className="field" rows={3} value={String(value ?? '')} placeholder={field.placeholder} onChange={(e) => onChange(e.target.value)} />
+          <textarea id={id} className="field" rows={3} value={String(value ?? '')} placeholder={field.placeholder} maxLength={field.max} onChange={(e) => onChange(e.target.value)} />
           <Hint text={field.hint} />
+          <Room field={field} value={String(value ?? '')} />
         </div>
       );
     case 'toggle':

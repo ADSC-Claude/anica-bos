@@ -4,7 +4,8 @@ import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { DFY_COLUMNS } from '@/lib/dfy';
-import { sectionsFor, sectionLabel, fieldsFor, type Content, type Field } from '@/lib/sections';
+import { sectionsFor, sectionLabel, fieldsFor, type Content } from '@/lib/sections';
+import { renderValue } from '@/lib/intake';
 import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, DfyPill, BackLink } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
@@ -12,18 +13,6 @@ import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExte
 import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
-
-function renderValue(field: Field, v: unknown): string {
-  if (v == null || v === '') return '';
-  if (field.type === 'toggle') return v ? 'Yes' : 'No';
-  if (field.type === 'person') { const p = v as { title: string; name: string; deceased: boolean }; return p.name ? `${p.title} ${p.name}${p.deceased ? ' †' : ''}`.trim() : ''; }
-  if (field.type === 'colors') return (v as string[]).join(', ');
-  // Show what the customer picked, not the key we store it under — an encoder
-  // reading an intake should see "The Seal", not "seal".
-  if (field.type === 'select') return field.options?.find((o) => o.value === v)?.label ?? String(v);
-  if (field.type === 'list') return (v as Record<string, unknown>[]).map((row) => (field.item ?? []).map((f) => renderValue(f, row[f.key])).filter(Boolean).join(' · ')).join('\n');
-  return String(v);
-}
 
 export default async function DfyJobPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<FlashParams> }) {
   const user = await requireStaffPage('dfy.view');
@@ -44,13 +33,13 @@ export default async function DfyJobPage({ params, searchParams }: { params: Pro
     <>
       <BackLink href="/admin/dfy">DFY queue</BackLink>
       <PageHeader title={job.invitation.title} subtitle={<><DfyPill status={job.status} /> · {job.order.reference} · {job.order.package.name} · {job.order.serviceMode} · {job.order.user.name} ({job.order.user.email}{job.order.user.phone && `, ${job.order.user.phone}`})</>}
-        actions={<><Link href={`/account/invitations/${job.invitationId}/builder`} className="btn btn-primary btn-sm">Open builder</Link><a href={`${invitationPath(job.invitation.slug)}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a></>} />
+        actions={<>{canEdit && <Link href={`/admin/dfy/${job.id}/encode`} className="btn btn-primary btn-sm">Encode</Link>}<Link href={`/account/invitations/${job.invitationId}/builder`} className="btn btn-secondary btn-sm">Builder</Link><a href={`${invitationPath(job.invitation.slug)}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a></>} />
       <Flash {...sp} />
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
           <section className="card p-4">
             <h2 className="mb-2 font-semibold">Customer intake {intake.method && <span className="pill pill-muted ml-1">via {intake.method.toLowerCase()}</span>}{job.intakeSubmittedAt && <span className="ml-2 text-xs font-normal text-[color:var(--color-ink-500)]">submitted {formatDateTime(job.intakeSubmittedAt)}</span>}</h2>
-            {!job.intakeSubmittedAt && <p className="text-sm text-[color:var(--color-ink-500)]">Not submitted yet. If the customer sent details by chat, encode them straight into the builder.</p>}
+            {!job.intakeSubmittedAt && <p className="text-sm text-[color:var(--color-ink-500)]">Not submitted yet. If the customer sent details by chat, put them in through <Link href={`/admin/dfy/${job.id}/encode`} className="underline">Encode</Link>.</p>}
             {intake.notes && <p className="mb-3 whitespace-pre-line rounded-lg bg-[color:var(--color-sand-100)] p-3 text-sm">{intake.notes}</p>}
             {intake.content && (
               <div className="space-y-3">

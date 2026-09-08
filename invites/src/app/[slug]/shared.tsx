@@ -87,7 +87,12 @@ export function ExpiredNotice({ invitation }: { invitation: PublicInvitation }) 
   );
 }
 
-export async function InvitationPage({ slug, token, print = false, wrongPassword = false }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean }) {
+/**
+ * `bare` drops the opening, the music and the day-and-night toggle: the page
+ * as a page, for staff working on it beside a form. Only a previewer (the
+ * owner or staff) gets it; a guest's link always opens the way it was made.
+ */
+export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean }) {
   const { invitation, guest, previewer, locked } = await resolveInvitation(slug, token);
   if (locked) return <PasswordGate slug={slug} token={token} error={wrongPassword} />;
   const live = invitation.status === 'PUBLISHED' && !invitation.expired;
@@ -95,5 +100,5 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
   if (invitation.expired && !previewer) return <ExpiredNotice invitation={invitation} />;
   if (live && !previewer && !print) await recordView(invitation.id);
   const s = await getSettings();
-  return <Invitation invitation={invitation} guest={guest} preview={!live} print={print} businessName={s['business.name']} />;
+  return <Invitation invitation={invitation} guest={guest} preview={!live} print={print} bare={bare && previewer} businessName={s['business.name']} />;
 }

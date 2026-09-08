@@ -4,7 +4,9 @@ import { OPENINGS, OPENING_KEYS, OPENING_BY_KEY, isOpening, openingName, opening
 import { COLLECTIONS, COLLECTION_KEYS, collectionsPresent, isCollection } from '../src/lib/collections';
 import { BACKDROPS, availableBackdrops, isBackdrop, resolveBackdrop } from '../src/lib/backdrops';
 import { TEMPLATES, templateData } from '../prisma/templates';
-import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder, isPaged } from '../src/lib/sections';
+import { fieldsFor, cleanSection, defaultContent, OCCASION_SECTIONS, SECTION_BY_KEY, sectionOffered, sectionsFor, sectionOrder, isPaged, FIT, FIT_DEFAULT, fitOf } from '../src/lib/sections';
+import { sectionAnchor } from '../src/lib/anchors';
+import { overlayIntake, intakeFilled, intakeRows } from '../src/lib/intake';
 import { withWords } from '../src/lib/design';
 import { LOOK_BY_KEY } from '../src/lib/looks';
 import { STORY_SLOTS, PHOTO_SLOTS } from '../src/lib/babyblue';
@@ -411,4 +413,73 @@ test('a design’s row carries its first premium opening, so the gallery preview
   assert.equal(row('baby-blue').openingPosterUrl, '/openings/baby-blue-poster.jpg');
   // A design with no clip carries none, and the checkout hides the add-on.
   assert.equal(row('classic-ivory').openingVideoUrl, '');
+});
+
+test('every writing a client types carries the room the page has for it', () => {
+  const occasions = Object.keys(OCCASION_SECTIONS) as (keyof typeof OCCASION_SECTIONS)[];
+  let counted = 0;
+  for (const occasion of occasions) {
+    for (const key of OCCASION_SECTIONS[occasion]) {
+      for (const f of fieldsFor(key, occasion)) {
+        const writings = f.type === 'list' ? (f.item ?? []) : [f];
+        for (const w of writings) {
+          if (w.type !== 'text' && w.type !== 'textarea') continue;
+          counted++;
+          assert.ok(w.max && w.max > 0, `${occasion} ${key}.${f.key === w.key ? '' : f.key + '.'}${w.key} has a limit`);
+          // a text field is a line or two; a long one belongs in a textarea
+          if (w.type === 'text') assert.ok(w.max <= 300, `${key}.${w.key} text limit ${w.max} is a line, not an essay`);
+        }
+      }
+    }
+  }
+  assert.ok(counted > 100, `${counted} writings checked`);
+  // the ones sized by hand: a name set large in script, a milestone in a drawn frame
+  const cover = fieldsFor('cover', 'WEDDING');
+  assert.equal(cover.find((f) => f.key === 'brideFirst')?.max, FIT['cover.brideFirst']);
+  assert.equal(cover.find((f) => f.key === 'intro')?.max, FIT['cover.intro']);
+  const story = fieldsFor('story', 'CHRISTENING').find((f) => f.key === 'timeline')!;
+  assert.equal(story.item?.find((i) => i.key === 'title')?.max, FIT['story.timeline.title']);
+  // a list's own max is how many rows, and is not touched
+  assert.equal(story.max, 6);
+  // anything not named gets the type's default
+  assert.equal(fitOf('nowhere.nothing', 'text'), FIT_DEFAULT.text);
+  assert.equal(fitOf('nowhere.nothing', 'textarea'), FIT_DEFAULT.textarea);
+  assert.equal(fitOf('cover.intro', 'image'), undefined);
+});
+
+test('the save cuts a writing to its room, in a section and inside a list row', () => {
+  const cover = fieldsFor('cover', 'WEDDING');
+  const long = 'x'.repeat(500);
+  const { data } = cleanSection(cover, { brideFirst: long, intro: long });
+  assert.equal((data.brideFirst as string).length, FIT['cover.brideFirst']);
+  assert.equal((data.intro as string).length, FIT['cover.intro']);
+  const story = fieldsFor('story', 'CHRISTENING');
+  const rows = cleanSection(story, { timeline: [{ title: long, text: long, photo: '' }] }).data.timeline as { title: string; text: string }[];
+  assert.equal(rows[0].title.length, FIT['story.timeline.title']);
+  assert.equal(rows[0].text.length, FIT['story.timeline.text']);
+});
+
+test('every section has a place on the page for the encoder’s preview to land', () => {
+  for (const occasion of Object.keys(OCCASION_SECTIONS) as (keyof typeof OCCASION_SECTIONS)[]) {
+    for (const key of OCCASION_SECTIONS[occasion]) {
+      for (const layout of ['classic', 'capiz', 'babyblue']) {
+        const anchor = sectionAnchor(key, layout);
+        assert.match(anchor, /^[a-z-]+$/, `${key} on ${layout} anchors somewhere`);
+      }
+    }
+  }
+  assert.equal(sectionAnchor('gallery', 'babyblue'), 'baby-photos');
+  assert.equal(sectionAnchor('gallery', 'capiz'), 'gallery');
+  assert.equal(sectionAnchor('dressCode', 'classic'), 'dress-code');
+});
+
+test('the client’s answers lay over the form without wiping what they left blank', () => {
+  const current = { line: 'A little prayer, a big answer.', howWeMet: '', photo: '/uploads/ours.jpg' };
+  const intake = { line: '', howWeMet: 'At a friend’s wedding.', photo: '' };
+  assert.deepEqual(overlayIntake(current, intake), { line: 'A little prayer, a big answer.', howWeMet: 'At a friend’s wedding.', photo: '/uploads/ours.jpg' });
+  assert.deepEqual(overlayIntake(current, undefined), current);
+  const fields = fieldsFor('story', 'WEDDING');
+  assert.equal(intakeFilled(fields, intake), true);
+  assert.equal(intakeFilled(fields, { line: '', howWeMet: '' }), false);
+  assert.deepEqual(intakeRows(fields, intake).map((r) => r.label), ['How we met']);
 });

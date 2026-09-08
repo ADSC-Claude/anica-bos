@@ -7,6 +7,7 @@ import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFill
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
 import { LOOKS } from '@/lib/looks';
+import { changeWindow, doneSections } from '@/lib/progress';
 import { InvitationPill } from '@/components/ui';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,9 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
   const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);
+  const done = doneSections(content.progress);
+  const w = changeWindow(inv.eventAt);
+  const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
 
   return (
     <>
@@ -46,7 +50,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: limit === Infinity ? 200 : limit }} editsLeft={editsLeft} lookKey={content.theme?.lookKey ?? ''} looks={LOOKS.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} />
     </>
   );
 }

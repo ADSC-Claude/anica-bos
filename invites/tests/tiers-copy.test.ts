@@ -21,6 +21,15 @@ test('features unlock in order', () => {
   assert.equal(galleryLimit('STANDARD'), 10);
   assert.equal(galleryLimit('COMPLETE'), Infinity);
   for (const row of COMPARISON) for (const tier of TIERS) assert.notEqual(row.cells[tier], undefined, `${row.label} ${tier}`);
+
+  // Revisions cover the photos and details after publish; the design does not
+  // change once the link is out, so no tier may claim it does.
+  const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions after publish'));
+  assert.ok(revisions, 'the table names the revision allowance');
+  assert.deepEqual([revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE], ['2', '4', '6']);
+  const design = COMPARISON.find((r) => r.label === 'Design changes after publish');
+  assert.ok(design, 'and says the design is settled');
+  for (const tier of TIERS) assert.equal(design!.cells[tier], false, tier);
 });
 
 test('every phrase exists in both languages and substitutes variables', () => {

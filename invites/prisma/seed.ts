@@ -107,9 +107,9 @@ async function main() {
 
   // --- packages (§4) --------------------------------------------------------
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
-    { tier: 'BASIC', price: 99900, dfy: 50000, concierge: 250000, edits: 3, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
-    { tier: 'STANDARD', price: 199900, dfy: 80000, concierge: 250000, edits: -1, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 349900, dfy: 120000, concierge: 250000, edits: -1, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+    { tier: 'BASIC', price: 99900, dfy: 50000, concierge: 0, edits: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
+    { tier: 'STANDARD', price: 199900, dfy: 120000, concierge: 0, edits: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
+    { tier: 'COMPLETE', price: 349900, dfy: 200000, concierge: 200000, edits: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -146,8 +146,8 @@ async function main() {
       { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99900, sortOrder: 1 },
       { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout for the lolas.', priceCents: 29900, sortOrder: 3 },
-      { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing (Basic tier).', priceCents: 19900, sortOrder: 4 },
-      { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Done-For-You jumps the queue.', priceCents: 49900, sortOrder: 5 },
+      { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19900, active: false, sortOrder: 4 },
+      { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Done-For-You jumps the queue. Basic and Standard only.', priceCents: 100000, sortOrder: 5 },
       { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99900, sortOrder: 6 },
       { code: 'SMS_PACK', name: 'SMS reminder blast (credit pack)', description: 'RSVP reminders by text. Priced per pack — ask us.', priceCents: 0, quoted: false, sortOrder: 7 },
     ],
@@ -226,7 +226,7 @@ async function main() {
   const demo = await prisma.invitation.create({
     data: {
       userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
-      content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: -1, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
+      content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: 6, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
       // the demo bought the premium opening, so the Capiz clip plays on it
       premiumOpening: true,
     },
@@ -270,7 +270,7 @@ async function main() {
   const debutContent = defaultContent('DEBUT', 'en');
   Object.assign(debutContent.cover!, { celebrantFirst: 'Sofia', celebrantFull: 'Sofia Andrea Villanueva', theme: 'Enchanted Garden', date: addDays(new Date(), 40).toISOString().slice(0, 10), time: '18:00', intro: 'You are invited to celebrate as Sofia turns eighteen.', coverPhoto: pic('sofia-cover', 900, 1200), envelope: true });
   Object.assign(debutContent.reception!, { venue: 'Fernwood Gardens', address: 'Quezon City', time: '18:00' });
-  const debut = await prisma.invitation.create({ data: { userId: sofia.id, templateId: blush.id, occasion: 'DEBUT', tier: 'STANDARD', title: "Sofia's 18th", slug: 'sofia-turns-18', status: 'DRAFT', content: debutContent as never, eventAt: addDays(new Date(), 40), editsAllowed: -1, ogImageUrl: pic('sofia-cover', 900, 1200) } });
+  const debut = await prisma.invitation.create({ data: { userId: sofia.id, templateId: blush.id, occasion: 'DEBUT', tier: 'STANDARD', title: "Sofia's 18th", slug: 'sofia-turns-18', status: 'DRAFT', content: debutContent as never, eventAt: addDays(new Date(), 40), editsAllowed: 4, ogImageUrl: pic('sofia-cover', 900, 1200) } });
   const debutOrder = await prisma.order.create({
     data: {
       reference: orderReference(), userId: sofia.id, packageId: debutStandard.id, invitationId: debut.id, occasion: 'DEBUT', tier: 'STANDARD', serviceMode: 'DFY',
@@ -323,7 +323,7 @@ async function main() {
     const lucas = await prisma.invitation.create({
       data: {
         userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
-        content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: -1, ogImageUrl: '',
+        content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: 6, ogImageUrl: '',
       },
     });
     const christSignature = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_COMPLETE' } });
@@ -340,7 +340,7 @@ async function main() {
   // --- a christening order with a proof waiting for review ------------------
   const christBasic = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_BASIC' } });
   const cloud = bySlug('baby-blue');
-  const christ = await prisma.invitation.create({ data: { userId: maria.id, templateId: cloud.id, occasion: 'CHRISTENING', tier: 'BASIC', title: "Baby Liam's Christening", slug: 'baby-liam-christening', status: 'DRAFT', content: defaultContent('CHRISTENING') as never, editsAllowed: 3 } });
+  const christ = await prisma.invitation.create({ data: { userId: maria.id, templateId: cloud.id, occasion: 'CHRISTENING', tier: 'BASIC', title: "Baby Liam's Christening", slug: 'baby-liam-christening', status: 'DRAFT', content: defaultContent('CHRISTENING') as never, editsAllowed: 2 } });
   const christOrder = await prisma.order.create({
     data: {
       reference: orderReference(), userId: maria.id, packageId: christBasic.id, invitationId: christ.id, occasion: 'CHRISTENING', tier: 'BASIC', serviceMode: 'DIY', subtotalCents: christBasic.priceCents, totalCents: christBasic.priceCents, status: 'PENDING_PAYMENT',

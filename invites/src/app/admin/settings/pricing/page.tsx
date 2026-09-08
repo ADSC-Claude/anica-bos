@@ -19,7 +19,7 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       <Flash {...sp} />
       <div className="card overflow-x-auto">
         <table className="data">
-          <thead><tr><th>Package</th><th>Name / tagline</th><th>Price ₱</th><th>+ DFY ₱</th><th>+ Assisted ₱</th><th>Edits (-1 = ∞)</th><th>Validity days</th><th>Active</th><th /></tr></thead>
+          <thead><tr><th>Package</th><th>Name / tagline</th><th>Price ₱</th><th>+ DFY ₱</th><th>+ Assisted ₱</th><th>Revisions</th><th>Validity days</th><th>Active</th><th /></tr></thead>
           <tbody>
             {packages.map((p) => (
               <tr key={p.id}>

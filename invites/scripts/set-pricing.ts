@@ -37,11 +37,20 @@ import { formatPeso } from '../src/lib/money';
  * src/lib/pricing.ts is what withdraws the mode, because a zero fee on its own
  * would render as "Included" and give the mode away instead.
  */
-const FEES: Record<Tier, { dfy: number; assisted: number }> = {
-  BASIC: { dfy: 500, assisted: 0 },
-  STANDARD: { dfy: 1_200, assisted: 0 },
-  COMPLETE: { dfy: 2_000, assisted: 2_000 },
+const FEES: Record<Tier, { dfy: number; assisted: number; revisions: number }> = {
+  BASIC: { dfy: 500, assisted: 0, revisions: 2 },
+  STANDARD: { dfy: 1_200, assisted: 0, revisions: 4 },
+  COMPLETE: { dfy: 2_000, assisted: 2_000, revisions: 6 },
 };
+
+/**
+ * Revisions are counted after publish and cover the photos and the details.
+ * The design is not among them — changeTemplate refuses once an invitation is
+ * published — so there is no longer anything for the template-switch add-on to
+ * sell, and it is deactivated rather than deleted: orders that bought one keep
+ * their line item.
+ */
+const RETIRED_ADDONS = ['TEMPLATE_SWITCH'];
 
 /**
  * Rush is a queue jump on a Done-For-You job, priced against the DFY fee. It is
@@ -71,15 +80,16 @@ async function main() {
 
     const dfyFeeCents = pesos(target.dfy);
     const conciergeFeeCents = pesos(target.assisted);
-    if (p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents) {
+    const editsAfterPublish = target.revisions;
+    if (p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.editsAfterPublish === editsAfterPublish) {
       console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)}   ${' '.repeat(11)}   ${col(p.conciergeFeeCents)}   ${' '.repeat(11)}  unchanged`);
       continue;
     }
 
-    console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}   ${col(p.conciergeFeeCents)} → ${col(conciergeFeeCents)}`);
+    console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}   ${col(p.conciergeFeeCents)} → ${col(conciergeFeeCents)}   revisions ${String(p.editsAfterPublish).padStart(3)} → ${String(editsAfterPublish).padStart(2)}`);
     if (!dry) {
-      const before = { dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents };
-      await prisma.package.update({ where: { id: p.id }, data: { dfyFeeCents, conciergeFeeCents } });
+      const before = { dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, editsAfterPublish: p.editsAfterPublish };
+      await prisma.package.update({ where: { id: p.id }, data: { dfyFeeCents, conciergeFeeCents, editsAfterPublish } });
       // Price changes are `sensitive` wherever the admin makes them. A bulk
       // script that skipped the log would leave a gap in the only record of
       // who moved a price and when.
@@ -90,7 +100,7 @@ async function main() {
         entityId: p.id,
         summary: `${p.code} service fees (set-pricing)`,
         before,
-        after: { dfyFeeCents, conciergeFeeCents },
+        after: { dfyFeeCents, conciergeFeeCents, editsAfterPublish },
         sensitive: true,
       });
     }
@@ -121,7 +131,25 @@ async function main() {
     changed++;
   }
 
-  console.info(`\n${dry ? 'Would change' : 'Changed'} ${changed} of ${packages.length + (rush ? 1 : 0)} rows.\n`);
+  for (const code of RETIRED_ADDONS) {
+    const a = await prisma.addOn.findUnique({ where: { code } });
+    if (!a) continue;
+    if (!a.active) {
+      console.info(`  ${code.padEnd(22)} already withdrawn`);
+      continue;
+    }
+    console.info(`  ${code.padEnd(22)} withdrawn (the design is settled at publish)`);
+    if (!dry) {
+      await prisma.addOn.update({ where: { id: a.id }, data: { active: false } });
+      await audit(null, {
+        module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
+        summary: `${code} withdrawn (set-pricing)`, before: { active: true }, after: { active: false }, sensitive: true,
+      });
+    }
+    changed++;
+  }
+
+  console.info(`\n${dry ? 'Would change' : 'Changed'} ${changed} row(s).\n`);
 }
 
 main()

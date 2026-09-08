@@ -22,7 +22,7 @@ export const COLLECTIONS: CollectionInfo[] = [
   { key: 'blush', label: 'The Blush Collection', tagline: 'Soft pink, champagne and gold.', swatch: ['#fbf4f2', '#e7cfc9', '#d3b06c'] },
   { key: 'garden', label: 'The Garden Collection', tagline: 'Sage, olive and emerald for a Tagaytay afternoon.', swatch: ['#f5f8f5', '#c3d0be', '#1e5c47'] },
   { key: 'midnight', label: 'The Midnight Collection', tagline: 'Navy, black and champagne for an evening reception.', swatch: ['#1f2a3d', '#3b4a63', '#c8ad7f'] },
-  { key: 'filipiniana', label: 'The Filipiniana Collection', tagline: 'Capiz, piña and gold. For a wedding that looks like home.', swatch: ['#f6f1e6', '#c9a24a', '#233b8a'] },
+  { key: 'filipiniana', label: 'Filipino Theme', tagline: 'Capiz, piña and gold. For a wedding that looks like home.', swatch: ['#f6f1e6', '#c9a24a', '#233b8a'] },
 ];
 
 export const COLLECTION_BY_KEY: Record<string, CollectionInfo> = Object.fromEntries(

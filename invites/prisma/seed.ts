@@ -323,7 +323,7 @@ async function main() {
     const lucas = await prisma.invitation.create({
       data: {
         userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
-        content: c as never, eventAt: day, publishedAt: addDays(new Date(), -5), editsAllowed: -1, ogImageUrl: '',
+        content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: -1, ogImageUrl: '',
       },
     });
     const christSignature = await prisma.package.findUniqueOrThrow({ where: { code: 'CHRISTENING_COMPLETE' } });

@@ -3,7 +3,7 @@ import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
-import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
@@ -729,7 +729,9 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
   const mealChoices = hasFeature(inv.tier, 'rsvp.meal') ? rows<{ label: string }>(data, 'mealChoices').map((m) => m.label) : [];
   // Every package asks this one: it costs the guest a tap and it is what turns
   // the printed headcount sheet into something a coordinator can work from.
-  const groups = rows<{ label: string }>(data, 'groups').map((g) => g.label).filter(Boolean);
+  // A couple who wrote no list gets their occasion's — sponsors, the bride's
+  // side, the groom's side — rather than no question at all.
+  const groups = guestGroups(inv.occasion, data);
   const greeting = personal && guest ? guest.salutation || guest.name : '';
 
   return (

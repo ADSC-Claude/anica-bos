@@ -7,7 +7,7 @@ import { hasFeature, TIER_LABELS } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
-import { rows as sectionRows } from './sections';
+import { guestGroups } from './sections';
 import type { SessionUser } from './auth';
 import type { Tier } from '@prisma/client';
 
@@ -248,12 +248,12 @@ export async function rsvpSheet(invitationId: string) {
     // manager. Kept so the sheet can still say who has not replied.
     prisma.guest.findMany({ where: { invitationId }, include: { rsvps: { select: { id: true }, take: 1 } }, orderBy: { name: 'asc' } }),
     rsvpSummary(invitationId),
-    prisma.invitation.findUnique({ where: { id: invitationId }, select: { content: true } }),
+    prisma.invitation.findUnique({ where: { id: invitationId }, select: { content: true, occasion: true } }),
   ]);
 
   // The couple's own order — principal sponsors before the office, if that is
   // how they wrote it. Alphabetical would put their ninongs behind everyone.
-  const order = sectionRows<{ label: string }>(contentOf(invitation?.content).rsvp, 'groups').map((g) => g.label);
+  const order = invitation ? guestGroups(invitation.occasion, contentOf(invitation.content).rsvp) : [];
 
   type Row = { name: string; group: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
   const rows: Row[] = rsvps.map((r) => ({

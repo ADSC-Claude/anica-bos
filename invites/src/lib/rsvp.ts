@@ -8,7 +8,7 @@ import { hasFeature } from './tiers';
 import { notify } from './notifications';
 import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
-import { str, rows, bool } from './sections';
+import { str, rows, bool, guestGroups } from './sections';
 import { contentOf } from './invitations';
 
 /**
@@ -77,7 +77,7 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
 
   // Only a group the couple actually offers is kept — a made-up one would
   // print on their headcount sheet.
-  const groups = rows<{ label: string }>(rsvpSection, 'groups').map((g) => g.label);
+  const groups = guestGroups(invitation.occasion, rsvpSection);
   const groupName = input.groupName && groups.includes(input.groupName) ? input.groupName : '';
 
   const meal = input.mealChoice ?? '';

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, type SectionKey } from '../src/lib/sections';
+import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, guestGroups, GUEST_GROUP_PRESETS, type SectionKey } from '../src/lib/sections';
 import { OCCASION_KEYS } from '../src/lib/occasions';
 
 test('every occasion has a cover, an RSVP and a closing, and every section it lists is defined', () => {
@@ -246,4 +246,35 @@ test('the fixed writings are ours: off the client’s form, and kept through a c
   assert.deepEqual(closing, ['photo', 'signature']);
   // and staff editing for the customer see everything
   assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'message' && f.staff));
+});
+
+test('guests are offered their occasion\'s groups until the couple writes their own', () => {
+  // Nothing filled in: the standard list for the occasion, so a couple who
+  // never opens the field still gets a headcount sheet worth printing.
+  assert.deepEqual(guestGroups('WEDDING', undefined), GUEST_GROUP_PRESETS.WEDDING);
+  assert.ok(guestGroups('WEDDING', {}).includes('Principal sponsor (Ninong / Ninang)'));
+  assert.ok(guestGroups('CHRISTENING', {}).includes('Ninong / Ninang'));
+  assert.ok(guestGroups('KIDS_BIRTHDAY', {}).includes('Classmate / schoolmate'));
+
+  // Their own list replaces it whole — no merging, no leftovers.
+  const own = { groups: [{ label: "Lola's side" }, { label: 'Basketball team' }] };
+  assert.deepEqual(guestGroups('WEDDING', own), ["Lola's side", 'Basketball team']);
+
+  // Blank rows are not groups, and the toggle silences the question outright.
+  assert.deepEqual(guestGroups('WEDDING', { groups: [{ label: '  ' }] }), GUEST_GROUP_PRESETS.WEDDING);
+  assert.deepEqual(guestGroups('WEDDING', { ...own, hideGroups: true }), []);
+
+  // A memorial does not sort its mourners; a corporate event asks for the
+  // department instead.
+  assert.deepEqual(guestGroups('MEMORIAL', {}), []);
+  assert.deepEqual(guestGroups('CORPORATE', {}), []);
+});
+
+test('every preset group is a distinct, non-empty label', () => {
+  for (const [occasion, groups] of Object.entries(GUEST_GROUP_PRESETS)) {
+    assert.ok(groups.length >= 3, occasion);
+    assert.equal(new Set(groups).size, groups.length, occasion);
+    for (const g of groups) assert.equal(g, g.trim(), occasion);
+    for (const g of groups) assert.ok(g.length > 0 && g.length <= 60, `${occasion}: ${g}`);
+  }
 });

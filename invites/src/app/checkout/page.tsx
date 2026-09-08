@@ -10,7 +10,7 @@ import { CheckoutWizard } from './wizard';
 export const metadata = { title: 'Create your invitation', robots: { index: false } };
 export const dynamic = 'force-dynamic';
 
-type Search = { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string };
+type Search = { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string; addon?: string };
 
 export default async function CheckoutPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
@@ -38,7 +38,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, priceCents: a.priceCents, quoted: a.quoted }))}
         templates={templates.map((t) => {
           const pal = paletteFrom(t.palette);
-          return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, minTier: t.minTier, premium: t.premium, thumbnailUrl: t.thumbnailUrl, description: t.description, palette: { bg: pal.bg, accent: pal.accent, accent2: pal.accent2 } };
+          return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, minTier: t.minTier, premium: t.premium, thumbnailUrl: t.thumbnailUrl, description: t.description, palette: { bg: pal.bg, accent: pal.accent, accent2: pal.accent2 }, premiumOpening: Boolean(t.openingVideoUrl && t.openingPosterUrl) };
         })}
         initial={sp}
         demoSlug={s['site.demoSlug']}

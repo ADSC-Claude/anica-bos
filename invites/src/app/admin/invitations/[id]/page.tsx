@@ -10,7 +10,7 @@ import { formatDate, formatDateTime } from '@/lib/datetime';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PageHeader, BackLink, InvitationPill, Stat } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
-import { extendExpiryAction, setTierAction, archiveInvitationAction } from '../../actions';
+import { extendExpiryAction, setTierAction, setPremiumOpeningAction, archiveInvitationAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +56,7 @@ export default async function AdminInvitation({ params, searchParams }: { params
             <h2 className="font-semibold">Support actions</h2>
             <form action={extendExpiryAction.bind(null, inv.id, back)} className="flex gap-1"><input name="days" type="number" defaultValue={30} className="field max-w-[6rem]" /><button className="btn btn-secondary btn-sm" type="submit">Extend link by days</button></form>
             <form action={setTierAction.bind(null, inv.id, back)} className="flex gap-1"><select name="tier" defaultValue={inv.tier} className="field max-w-[10rem]">{TIERS.map((t) => <option key={t} value={t}>{t}</option>)}</select><button className="btn btn-secondary btn-sm" type="submit">Transfer package</button></form>
+            <form action={setPremiumOpeningAction.bind(null, inv.id, back)} className="flex gap-1"><select name="premiumOpening" defaultValue={inv.premiumOpening ? 'on' : 'off'} className="field max-w-[10rem]"><option value="off">Off</option><option value="on">On</option></select><button className="btn btn-secondary btn-sm" type="submit">Premium opening</button></form>
             <form action={archiveInvitationAction.bind(null, inv.id, back)}><button className="btn btn-danger btn-sm" type="submit">Archive (hides the link)</button></form>
           </section>
         )}

@@ -6,12 +6,18 @@ import { collectionsPresent } from '@/lib/collections';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { TemplateGallery } from '@/components/landing/gallery';
 import { toGalleryTemplate } from '@/lib/gallery';
+import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 
 export const metadata = { title: 'Templates', description: 'Digital invitation templates for weddings, debuts, christenings and birthdays in the Philippines.' };
 export const dynamic = 'force-dynamic';
 
 export default async function TemplatesPage() {
-  const [s, session, templates] = await Promise.all([getSettings(), getSession(), prisma.template.findMany({ where: { published: true }, orderBy: [{ occasion: 'asc' }, { featured: 'desc' }, { sortOrder: 'asc' }] })]);
+  const [s, session, templates, premium] = await Promise.all([
+    getSettings(),
+    getSession(),
+    prisma.template.findMany({ where: { published: true }, orderBy: [{ occasion: 'asc' }, { featured: 'desc' }, { sortOrder: 'asc' }] }),
+    prisma.addOn.findFirst({ where: { code: PREMIUM_OPENING_CODE, active: true } }),
+  ]);
   const collections = collectionsPresent(templates.map((t) => t.collection));
   return (
     <>
@@ -19,7 +25,7 @@ export default async function TemplatesPage() {
       <main className="mx-auto max-w-6xl px-5 py-12">
         <p className="eyebrow">Templates</p>
         <h1 className="display mt-1 text-4xl">All designs</h1>
-        <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Each design is shown here by its opening — the moving scene your guest sees first. Tap one to watch it. The full invitation is unveiled for our clients once they have chosen. Standard unlocks every design; Complete adds premium designs and custom colours.</p>
+        <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Each design is shown here by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen. Every package opens with a short moving scene; the premium opening video made for a design is an add-on.</p>
         {collections.length > 0 && (
           <section className="mt-8">
             <h2 className="display text-2xl">Browse by collection</h2>
@@ -39,7 +45,7 @@ export default async function TemplatesPage() {
           </section>
         )}
         <div className="mt-8">
-          <TemplateGallery templates={templates.map(toGalleryTemplate)} />
+          <TemplateGallery templates={templates.map(toGalleryTemplate)} premiumPriceCents={premium?.priceCents} />
         </div>
       </main>
       <SiteFooter s={s} />

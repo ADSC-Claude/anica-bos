@@ -301,7 +301,7 @@ export async function changeTemplate(user: SessionUser, invitationId: string, te
   assertOpenForChanges(user, invitation);
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
-  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, 'Premium designs are included in the Complete tier.');
+  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, 'That design is only in the Complete package.');
   if (!hasFeature(invitation.tier, 'templates.any') && template.minTier !== 'BASIC') throw new HttpError(403, 'The Basic tier includes designs from the Basic set. Upgrade to choose any template.');
   await prisma.invitation.update({ where: { id: invitationId }, data: { templateId } });
   await audit(user, { module: 'invitations', action: 'template.change', entityType: 'Invitation', entityId: invitationId, summary: `Switched to ${template.name}` });

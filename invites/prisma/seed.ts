@@ -108,7 +108,7 @@ async function main() {
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; edits: number; validity: number; tagline: string }[] = [
     { tier: 'BASIC', price: 99900, dfy: 50000, concierge: 250000, edits: 3, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
     { tier: 'STANDARD', price: 199900, dfy: 80000, concierge: 250000, edits: -1, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 349900, dfy: 120000, concierge: 250000, edits: -1, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and premium designs.' },
+    { tier: 'COMPLETE', price: 349900, dfy: 120000, concierge: 250000, edits: -1, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Complete-only designs.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -140,12 +140,10 @@ async function main() {
 
   await prisma.addOn.createMany({
     data: [
-      { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 1 },
-      // Priced on request until the turnaround is known: it is design time,
-      // not a switch, so quoting a flat number before the first one is made
-      // would be a guess printed on a public page.
-      { code: 'CINEMATIC', name: 'Cinematic opening (Done-For-You)', description: 'A filmed cover that opens as your guest taps — a seal breaking, panels drawing back, drawn by our designers for your motif. On Complete with Done-For-You or Concierge.', priceCents: 0, sortOrder: 4 },
-      { code: 'ENVELOPE', name: 'Animated opening', description: 'The Drape, The Seal, The Curtain, Photo Story or The Line — a short moving scene before the invitation. Guests tap to open. Included free on the demo so you can see it.', priceCents: 19900, sortOrder: 2 },
+      // The premium opening video, at the starting price: every package opens
+      // with the included opening; this is the designed clip made for a design.
+      { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99900, sortOrder: 1 },
+      { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout for the lolas.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing (Basic tier).', priceCents: 19900, sortOrder: 4 },
       { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Done-For-You jumps the queue.', priceCents: 49900, sortOrder: 5 },
@@ -228,6 +226,8 @@ async function main() {
     data: {
       userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
       content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: -1, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
+      // the demo bought the premium opening, so the Capiz clip plays on it
+      premiumOpening: true,
     },
   });
   const weddingComplete = await prisma.package.findUniqueOrThrow({ where: { code: 'WEDDING_COMPLETE' } });

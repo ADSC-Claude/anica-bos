@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
+import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
 import { SERVICE_MODES, quote, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
@@ -11,13 +12,13 @@ import { invitationPath } from '@/lib/app-url';
 
 export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
-export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string } };
+export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** a premium opening clip exists for this design, so the add-on can be bought with it */ premiumOpening: boolean };
 
 export type WizardProps = {
   packages: WizardPackage[];
   addOns: WizardAddOn[];
   templates: WizardTemplate[];
-  initial: { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string };
+  initial: { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string; addon?: string };
   demoSlug: string;
 };
 
@@ -28,7 +29,8 @@ export function CheckoutWizard(p: WizardProps) {
   const [tier, setTier] = useState<Tier>((TIERS.includes(p.initial.tier as Tier) ? p.initial.tier : 'STANDARD') as Tier);
   const [mode, setMode] = useState<ServiceMode>((['DIY', 'DFY', 'CONCIERGE'].includes(p.initial.mode ?? '') ? p.initial.mode : 'DIY') as ServiceMode);
   const [templateId, setTemplateId] = useState<string>(p.initial.template ?? '');
-  const [addOns, setAddOns] = useState<string[]>([]);
+  // an add-on named in the link (the gallery's "with the premium opening") starts ticked
+  const [addOns, setAddOns] = useState<string[]>(p.addOns.some((a) => a.code === p.initial.addon && a.quoted) ? [p.initial.addon as string] : []);
   const [couponCode, setCouponCode] = useState(p.initial.coupon ?? '');
   const [coupon, setCoupon] = useState<CouponLike | null>(null);
   const [couponError, setCouponError] = useState('');
@@ -38,11 +40,13 @@ export function CheckoutWizard(p: WizardProps) {
   const [pending, start] = useTransition();
 
   const pkg = useMemo(() => p.packages.find((x) => x.occasion === occasion && x.tier === tier) ?? p.packages.find((x) => x.occasion === null && x.tier === tier), [p.packages, occasion, tier]);
-  const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted);
-  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
-
   const templates = p.templates.filter((t) => t.occasion === occasion && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
+  // the premium opening is sold per design: a design with no clip yet cannot carry it
+  const premiumOk = !template || template.premiumOpening;
+  const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk));
+  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
+
   const modeInfo = SERVICE_MODES.find((m) => m.key === mode)!;
 
   async function applyCoupon() {
@@ -68,7 +72,7 @@ export function CheckoutWizard(p: WizardProps) {
       return;
     }
     start(async () => {
-      const res = await placeOrderAction({ occasion, tier, serviceMode: mode, templateId: template.id, addOnCodes: addOns, couponCode: coupon?.code, language, notes });
+      const res = await placeOrderAction({ occasion, tier, serviceMode: mode, templateId: template.id, addOnCodes: chosenAddOns.map((a) => a.code), couponCode: coupon?.code, language, notes });
       if (res && !res.ok) setError(res.error);
     });
   }
@@ -147,12 +151,12 @@ export function CheckoutWizard(p: WizardProps) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {templates.map((tp) => (
                 <button key={tp.id} type="button" onClick={() => setTemplateId(tp.id)} className={`card overflow-hidden text-left ${templateId === tp.id ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={templateId === tp.id}>
-                  <div className="aspect-[4/5] w-full" style={{ background: tp.thumbnailUrl ? `center/cover url(${tp.thumbnailUrl})` : `linear-gradient(160deg, ${tp.palette.bg}, ${tp.palette.accent2})` }}>
+                  <div className="aspect-[9/16] w-full" style={{ background: tp.thumbnailUrl ? `top/cover url(${tp.thumbnailUrl})` : `linear-gradient(160deg, ${tp.palette.bg}, ${tp.palette.accent2})` }}>
                     {!tp.thumbnailUrl && <div className="flex h-full items-end p-3"><span className="display text-lg" style={{ color: tp.palette.accent }}>{tp.name}</span></div>}
                   </div>
                   <div className="p-2">
                     <span className="block text-sm font-semibold">{tp.name}</span>
-                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? 'Premium · Complete' : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}</span>
+                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? 'Complete only' : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpening ? ' · premium opening add-on' : ''}</span>
                   </div>
                 </button>
               ))}
@@ -165,16 +169,20 @@ export function CheckoutWizard(p: WizardProps) {
         <section>
           <h2 className="display mb-3 text-xl">5. Add-ons <span className="text-sm font-normal text-[color:var(--color-ink-500)]">(optional)</span></h2>
           <div className="space-y-2">
-            {p.addOns.map((a) => (
-              <label key={a.code} className={`card flex items-start gap-3 p-3 ${!a.quoted ? 'opacity-70' : ''}`}>
-                <input type="checkbox" className="mt-1 h-4 w-4" disabled={!a.quoted} checked={addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />
+            {p.addOns.map((a) => {
+              const offered = a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk);
+              return (
+              <label key={a.code} className={`card flex items-start gap-3 p-3 ${!offered ? 'opacity-70' : ''}`}>
+                <input type="checkbox" className="mt-1 h-4 w-4" disabled={!offered} checked={offered && addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">{a.name}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
+                  {a.code === PREMIUM_OPENING_CODE && template && !template.premiumOpening && <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>}
                 </span>
                 <span className="text-sm font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span>
               </label>
-            ))}
+              );
+            })}
           </div>
         </section>
 

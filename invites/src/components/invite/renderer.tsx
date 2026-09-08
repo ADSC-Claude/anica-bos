@@ -4,7 +4,7 @@ import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import { OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
-import { OPENING_BY_KEY, resolveOpening, openingAssets } from '@/lib/openings';
+import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening } from '@/lib/openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
@@ -1461,7 +1461,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           templateDefault: inv.template.opening,
           legacyEnvelope: bool(content.cover, 'envelope'),
           tier: inv.tier,
-          cinematic: Boolean(assets.video),
+          cinematic: Boolean(assets.video) && hasPremiumOpening(inv),
         });
     const def = OPENING_BY_KEY[style];
     const gallery = rows<{ url: string }>(content.gallery, 'photos').map((r) => r.url).filter(Boolean);

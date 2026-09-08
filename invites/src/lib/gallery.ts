@@ -21,7 +21,7 @@ export type GalleryTemplate = {
   featured: boolean;
   collection: string;
   opening: string;
-  /** The cinematic opening's clip and still — what the public sees of the design. */
+  /** The premium opening's clip and still — the add-on a design with them can sell. */
   openingVideoUrl: string;
   openingPosterUrl: string;
 };

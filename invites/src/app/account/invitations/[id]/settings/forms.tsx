@@ -138,8 +138,8 @@ export function TemplatePicker(p: { invitationId: string; currentId: string; tem
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {p.templates.map((t) => (
           <button key={t.id} type="button" disabled={pending || t.id === p.currentId} onClick={() => run(() => templateAction(p.invitationId, t.id), `Switched to ${t.name}.`)} className={`card overflow-hidden text-left ${t.id === p.currentId ? 'ring-2 ring-[color:var(--color-plum-600)]' : ''}`}>
-            <div className="aspect-[4/5] bg-[color:var(--color-sand-100)]">{t.thumbnailUrl && <img src={t.thumbnailUrl} alt="" className="h-full w-full object-cover" />}</div>
-            <div className="p-2 text-sm"><span className="block font-semibold">{t.name}</span><span className="block text-xs text-[color:var(--color-ink-500)]">{t.premium ? 'Premium · ' : ''}{t.layout}</span></div>
+            <div className="aspect-[9/16] bg-[color:var(--color-sand-100)]">{t.thumbnailUrl && <img src={t.thumbnailUrl} alt="" className="h-full w-full object-cover object-top" />}</div>
+            <div className="p-2 text-sm"><span className="block font-semibold">{t.name}</span><span className="block text-xs text-[color:var(--color-ink-500)]">{t.premium ? 'Complete only · ' : ''}{t.layout}</span></div>
           </button>
         ))}
       </div>

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { prisma } from './db';
+import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
 import { quote, type Quote } from './pricing';
@@ -133,7 +134,7 @@ export async function createOrder(
 export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' | 'free' | 'admin') {
   const order = await prisma.order.findUniqueOrThrow({
     where: { id: orderId },
-    include: { user: true, package: true, invitation: true, dfyJob: true },
+    include: { user: true, package: true, invitation: true, dfyJob: true, items: true },
   });
   if (order.status === 'ACTIVE') return order;
   if (order.status === 'CANCELLED' || order.status === 'REFUNDED') throw new HttpError(400, 'That order is closed.');
@@ -144,9 +145,11 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
   await prisma.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { status: 'ACTIVE', paidAt: order.paidAt ?? now, activatedAt: now } });
     if (order.invitationId) {
+      // the premium opening add-on, bought with this order, unlocks the design's clip
+      const premiumOpening = order.items.some((it) => it.kind === 'ADDON' && it.code === PREMIUM_OPENING_CODE);
       await tx.invitation.update({
         where: { id: order.invitationId },
-        data: { editsAllowed: order.package.editsAfterPublish },
+        data: { editsAllowed: order.package.editsAfterPublish, ...(premiumOpening ? { premiumOpening: true } : {}) },
       });
     }
     if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {

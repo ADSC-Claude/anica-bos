@@ -295,6 +295,16 @@ table.data tr:hover td {
 .gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; top: 18%; bottom: 48%; }
 .gal-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 600ms ease; }
 .gal-cover[data-show='true'] { opacity: 1; }
+/* the cross that closes the preview, in the corner of the dimmed screen the
+   whole time — a visitor who has seen enough of a snippet should not have to
+   look for the way out */
+.gal-close {
+  position: fixed; top: 1rem; right: 1rem; z-index: 61;
+  width: 2.6rem; height: 2.6rem; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.35); background: rgba(0, 0, 0, 0.45); color: #fff;
+  display: grid; place-items: center; font-size: 1.35rem; line-height: 1;
+}
+.gal-close:hover { background: rgba(0, 0, 0, 0.72); }
 .gal-preview-side { max-width: 20rem; color: #fff; }
 .gal-preview-side .eyebrow { color: rgba(255, 255, 255, 0.7); }
 
@@ -1003,9 +1013,25 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-hero-lines p { text-transform: uppercase; letter-spacing: 0.3em; text-indent: 0.3em; font-size: 0.74rem; line-height: 1.95; }
 .inv-scroll { margin-top: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 0.32em; text-indent: 0.32em; font-size: 0.58rem; color: var(--inv-muted); }
 .inv-scroll::after { content: ''; display: block; width: 1px; height: 2.4rem; margin: 0.45rem auto 0; background: var(--inv-accent2); }
-/* the peek's end: the design's name and the way in, on the ground where Our Story left off */
+/* the peek's end: the design's name, the way in and the way back, on the ground where Our Story left off */
 .inv-peek { text-align: center; padding-top: 2.5rem; padding-bottom: 3.5rem; }
-.inv-peek .inv-peek-line { max-width: 22rem; margin: 0.8rem auto 1.6rem; font-size: 0.95rem; line-height: 1.6; color: var(--inv-ink); }
+.inv-peek .inv-btn { margin-top: 0.9rem; }
+.inv-peek-back { margin-top: 1.1rem; font-size: 0.8rem; }
+.inv-peek-back a { color: var(--inv-muted); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--inv-muted) 45%, transparent); }
+.inv-peek-back a:hover { color: var(--inv-ink); }
+/* The way out of a peek, on every design: the arrow steps back where the
+   visitor came from, the cross closes the design. Both sit above the opening,
+   so nobody is held by a clip they have seen enough of. */
+.inv-peek-controls { position: fixed; left: 0; right: 0; top: 0; z-index: 55; display: flex; justify-content: space-between; padding: 0.85rem 1rem; pointer-events: none; }
+.inv-peek-btn {
+  pointer-events: auto; width: 2.6rem; height: 2.6rem; border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.14); background: rgba(255, 255, 255, 0.86); color: #2f2b28;
+  display: grid; place-items: center; font-size: 1.2rem; line-height: 1; text-decoration: none;
+  box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px);
+}
+.inv-peek-btn:hover { background: #fff; transform: translateY(-1px); }
+/* the day-and-night switch steps down a row, so the cross has the corner */
+.inv[data-peek] .inv-mode { top: 4.2rem; }
 .inv-verse { text-align: center; }
 .inv-page > .inv-verse { padding-top: 0.5rem; padding-bottom: 0.5rem; }
 .inv-verse-text { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.88rem; line-height: 1.8; color: var(--inv-ink); max-width: 22rem; margin: 0 auto; }

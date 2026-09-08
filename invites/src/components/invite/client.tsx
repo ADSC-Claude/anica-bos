@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
@@ -1025,5 +1025,32 @@ export function ModeToggle({ mode, slug, dayLabel, nightLabel }: { mode: string;
     <button ref={ref} type="button" className="inv-mode no-print" onClick={flip} aria-label={night ? dayLabel : nightLabel} title={night ? dayLabel : nightLabel}>
       {night ? '☀' : '☾'}
     </button>
+  );
+}
+
+/**
+ * The way out of a design's peek. Two signs, because they mean two things:
+ * the arrow steps back to wherever the visitor came from, and the cross
+ * closes the peek and leaves them at the designs. They sit above the opening
+ * too, so nobody is held by a clip they have seen enough of.
+ */
+export function PeekControls({ href, backLabel, closeLabel }: { href: string; backLabel: string; closeLabel: string }) {
+  const step = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    if (typeof window === 'undefined' || window.history.length <= 1) return;
+    try {
+      if (!document.referrer || new URL(document.referrer).origin !== window.location.origin) return;
+    } catch {
+      // a referrer we cannot read is not one we can step back to
+      return;
+    }
+    e.preventDefault();
+    window.history.back();
+  };
+  return (
+    <div className="inv-peek-controls no-print">
+      <a href={href} className="inv-peek-btn" onClick={step} aria-label={backLabel} title={backLabel}>←</a>
+      <a href={href} className="inv-peek-btn" aria-label={closeLabel} title={closeLabel}>×</a>
+    </div>
   );
 }

@@ -7,6 +7,7 @@ import { catalogue } from '@/lib/orders';
 import { paletteFrom } from '@/lib/theme';
 import { premiumOpeningsFor } from '@/lib/premium-openings';
 import { CheckoutWizard } from './wizard';
+import { BackArrow } from '@/components/back';
 
 export const metadata = { title: 'Create your invitation', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
+      <div className="mb-4"><BackArrow href="/templates" label="Back to the designs" /></div>
       <div className="mb-6 flex items-center justify-between">
         <Link href="/" className="display text-xl">{s['business.name']}</Link>
         <p className="text-sm text-[color:var(--color-ink-500)]">Signed in as {session.name} · <Link href="/account" className="underline">My invitations</Link></p>

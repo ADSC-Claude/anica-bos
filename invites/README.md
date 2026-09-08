@@ -295,6 +295,23 @@ the design's demo, with the same `plateWords` the guest page uses — rename
 the child in the demo's form and the preview follows — and describes each clip
 from its catalogue entry (`blurb`).
 
+**A snippet says nothing about what is under it.** A design's peek
+(`/<demo slug>?peek=1`) runs from the opening to Our Story and ends with the
+design's name, the way in, and the way back — never a line explaining which
+pages the visitor is not being shown. Every design we add works this way: the
+catalogue is where the pages are described, and a snippet that has to explain
+itself is a snippet that is not doing its job.
+
+**Every movement has a way out.** A page a visitor stepped into carries a back
+sign, and anything that covers the screen carries a cross that closes it. The
+peek gets both, fixed above the opening so nobody is held by a clip they have
+seen enough of (`PeekControls`): the arrow steps back through their own
+history when they came from a page of ours, and falls back to `/templates`
+when they landed on the link cold. The premium-opening preview keeps its cross
+in the corner of the dimmed screen the whole time, beside Escape and a click
+on the backdrop. `BackArrow` (`src/components/back.tsx`) is the same arrow for
+ordinary pages: all designs, a collection, checkout, signing up, the policies.
+
 **Baby Blue** is the christening design, in the Baby Blue Theme at
 `/collections/babyblue`: sky and clouds with a dove and the church bell for
 the cover, blue and cream organza for the rest. Its `babyblue` layout lays one

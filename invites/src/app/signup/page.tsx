@@ -21,6 +21,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <SignupForm next={next} />
       </div>
       <p className="mt-6 text-center text-xs text-[color:var(--color-ink-500)]">Google and Facebook sign-in are on the roadmap — for now, email works everywhere, including inside the Messenger browser.</p>
+      <Link href="/" className="mt-4 text-center text-sm text-[color:var(--color-plum-600)] hover:underline">← Back to the website</Link>
     </main>
   );
 }

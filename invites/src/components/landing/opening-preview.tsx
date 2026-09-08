@@ -52,6 +52,8 @@ export function OpeningPreview({ t, priceCents, onClose }: { t: GalleryTemplate;
   const blurb = t.clip?.blurb ?? 'the card opens with your names and date set on it, and your invitation fades in beneath';
   return createPortal(
     <div className="gal-preview" role="dialog" aria-modal="true" aria-label={`The premium opening of ${t.name}`} onClick={onClose}>
+      {/* the cross in the corner: the way out of a snippet, in reach the whole time */}
+      <button type="button" className="gal-close" onClick={onClose} aria-label={`Close the preview of ${t.name}`} title="Close">×</button>
       <div className="gal-preview-body" onClick={(e) => e.stopPropagation()}>
         {/* the design's own faces, so the sample words are set the way the couple's will be */}
         <link rel="stylesheet" href={t.fontsUrl} precedence="default" />

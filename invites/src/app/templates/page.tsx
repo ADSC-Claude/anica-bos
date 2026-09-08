@@ -7,6 +7,7 @@ import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrom
 import { TemplateGallery } from '@/components/landing/gallery';
 import { galleryWithPeeks } from '@/lib/peek';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
+import { BackArrow } from '@/components/back';
 
 export const metadata = { title: 'Templates', description: 'Digital invitation templates for weddings, debuts, christenings and birthdays in the Philippines.' };
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,8 @@ export default async function TemplatesPage() {
     <>
       <SiteHeader s={s} signedIn={Boolean(session)} />
       <main className="mx-auto max-w-6xl px-5 py-12">
-        <p className="eyebrow">Templates</p>
+        <BackArrow href="/" label="Back" />
+        <p className="eyebrow mt-4">Templates</p>
         <h1 className="display mt-1 text-4xl">All designs</h1>
         <p className="mt-2 max-w-2xl text-[color:var(--color-ink-700)]">Each design is shown here by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen. Every package opens with The Letter — a sealed envelope that opens to say you are invited, then your invitation. The premium opening video made for a design, with your names on its card, is an add-on.</p>
         {collections.length > 0 && (

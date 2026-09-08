@@ -3,6 +3,7 @@ import { requireCustomerPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS } from '@/lib/tiers';
+import { serviceModeLabel } from '@/lib/pricing';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader, InvitationPill, OrderPill, Empty, Money } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -57,7 +58,7 @@ export default async function AccountHome() {
                       <h2 className="display truncate text-lg">{inv.title}</h2>
                       <InvitationPill status={inv.status} />
                     </div>
-                    <p className="text-xs text-[color:var(--color-ink-500)]">{occasionLabel(inv.occasion)} · {TIER_LABELS[inv.tier]}{dfy ? ` · ${inv.order?.serviceMode === 'CONCIERGE' ? 'Concierge' : 'Done-For-You'}` : ''}{inv.eventAt ? ` · ${formatDate(inv.eventAt)}` : ''}</p>
+                    <p className="text-xs text-[color:var(--color-ink-500)]">{occasionLabel(inv.occasion)} · {TIER_LABELS[inv.tier]}{dfy && inv.order ? ` · ${serviceModeLabel(inv.order.serviceMode)}` : ''}{inv.eventAt ? ` · ${formatDate(inv.eventAt)}` : ''}</p>
                     <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">{inv.viewCount} views · {inv._count.rsvps} RSVPs{inv._count.guests ? ` · ${inv._count.guests} guests` : ''}</p>
                     {!active && inv.order && <p className="mt-1 text-xs"><OrderPill status={inv.order.status} /> <Link href={`/checkout/pay/${inv.order.reference}`} className="underline">Pay to unlock</Link></p>}
                   </div>

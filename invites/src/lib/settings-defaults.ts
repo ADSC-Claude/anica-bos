@@ -44,10 +44,16 @@ export const DEFAULT_SETTINGS = {
   'orders.unpaidExpiryDays': 7,
 
   // --- service levels ---
-  'dfy.turnaroundDays': 3,
+  /** The ordinary Done-For-You promise: five working days to a week. */
+  'dfy.turnaroundDays': 7,
   'dfy.revisions': 2,
-  'concierge.turnaroundDays': 5,
-  'concierge.revisions': 3,
+  /**
+   * Priority, the Signature queue jump: two working days. Its revision rounds
+   * are not here — a rushed build's rounds are capped by tier in pricing.ts,
+   * because buying speed reduces the rounds rather than setting them.
+   */
+  'concierge.turnaroundDays': 2,
+  /** Rush, the Basic and Standard queue jump. */
   'rush.turnaroundHours': 24,
 
   // --- policies shown on the site ---

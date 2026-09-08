@@ -6,6 +6,7 @@ import { occasionLabel } from '@/lib/occasions';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader } from '@/components/ui';
 import { Flash, type FlashParams } from '../flash';
+import { serviceModeLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +35,7 @@ export default async function DfyBoard({ searchParams }: { searchParams: Promise
                   return (
                     <Link key={j.id} href={`/admin/dfy/${j.id}`} className={`card block p-3 text-sm hover:bg-[color:var(--color-sand-100)] ${late ? 'border-[color:var(--bad)]' : ''}`}>
                       <p className="font-semibold">{j.invitation.title}</p>
-                      <p className="text-xs text-[color:var(--color-ink-500)]">{j.order.reference} · {occasionLabel(j.invitation.occasion)} · {j.order.tier}{j.order.serviceMode === 'CONCIERGE' ? ' · Concierge' : ''}</p>
+                      <p className="text-xs text-[color:var(--color-ink-500)]">{j.order.reference} · {occasionLabel(j.invitation.occasion)} · {j.order.tier}{j.order.serviceMode === 'CONCIERGE' ? ` · ${serviceModeLabel('CONCIERGE')}` : ''}</p>
                       <p className="text-xs text-[color:var(--color-ink-500)]">{j.order.user.name}</p>
                       <p className="mt-1 flex justify-between text-xs"><span>{j.assignee?.name ?? <i>unassigned</i>}</span><span className={late ? 'text-[color:var(--bad)]' : ''}>{j.dueAt ? `due ${formatDate(j.dueAt, 'short')}` : ''}</span></p>
                       {j.revisionsUsed > 0 && <p className="text-xs text-[color:var(--color-ink-500)]">Revision {j.revisionsUsed}/{j.revisionsAllowed}</p>}

@@ -13,6 +13,7 @@
     "db:deploy": "node scripts/migrate.mjs",
     "db:templates": "tsx scripts/sync-templates.ts",
     "db:seed": "tsx --conditions=react-server prisma/seed.ts",
+    "db:pricing": "tsx --conditions=react-server scripts/set-pricing.ts",
     "db:reset": "prisma migrate reset --force --skip-seed && npm run db:seed",
     "jobs:daily": "tsx --conditions=react-server scripts/run-jobs.ts daily",
     "verify": "tsx --conditions=react-server scripts/verify-integrity.ts",

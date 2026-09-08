@@ -33,7 +33,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         <p className="text-sm text-[color:var(--color-ink-500)]">Signed in as {session.name} · <Link href="/account" className="underline">My invitations</Link></p>
       </div>
       <h1 className="display mb-1 text-3xl">Create your invitation</h1>
-      <p className="mb-8 text-[color:var(--color-ink-700)]">Six quick choices, then pay with GCash, Maya, a card, or a bank transfer.</p>
+      <p className="mb-8 text-[color:var(--color-ink-700)]">A few quick choices, then pay with GCash, Maya, a card, or a bank transfer. You send us the details afterwards.</p>
       <CheckoutWizard
         packages={packages.map((p) => ({ code: p.code, name: p.name, tagline: p.tagline, occasion: p.occasion, tier: p.tier, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents }))}
         addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, priceCents: a.priceCents, quoted: a.quoted }))}

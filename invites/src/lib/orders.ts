@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, serviceModeAvailable, revisionRounds, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, type Quote } from './pricing';
+import { quote, serviceModeAvailable, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, type Quote } from './pricing';
 import { TIER_LABELS } from './tiers';
 import { createDraft } from './invitations';
 import { audit } from './audit';
@@ -63,12 +63,17 @@ export async function buildQuote(input: {
   return { ...q, pkg, addOns, couponId: coupon && !q.couponError ? coupon.id : undefined };
 }
 
+/**
+ * A new order is always the one product we sell: we build it. The mode is not
+ * taken from the browser at all — there is nothing for a customer to choose,
+ * and a withdrawn mode arriving in a payload should never be able to open an
+ * order that skips the queue.
+ */
 export async function createOrder(
   user: SessionUser,
   input: {
     occasion: Occasion;
     tier: Tier;
-    serviceMode: ServiceMode;
     templateId: string;
     addOnCodes: string[];
     couponCode?: string;
@@ -76,7 +81,7 @@ export async function createOrder(
     notes?: string;
   },
 ) {
-  const q = await buildQuote(input);
+  const q = await buildQuote({ ...input, serviceMode: DEFAULT_SERVICE_MODE });
   if (q.couponError) throw new HttpError(400, q.couponError);
 
   const invitation = await createDraft({
@@ -96,7 +101,7 @@ export async function createOrder(
       invitationId: invitation.id,
       occasion: input.occasion,
       tier: input.tier,
-      serviceMode: input.serviceMode,
+      serviceMode: DEFAULT_SERVICE_MODE,
       subtotalCents: q.subtotalCents,
       addOnsCents: q.addOnsCents,
       serviceFeeCents: q.serviceFeeCents,
@@ -231,6 +236,9 @@ export async function createUpgradeOrder(user: SessionUser, invitationId: string
       packageId: target.id,
       occasion: invitation.occasion,
       tier,
+      // Not a sold mode any more — here it is the stored value for "no build
+      // attached", which is what an upgrade is: it raises the tier on an
+      // invitation we have already made, so activateOrder opens no new job.
       serviceMode: 'DIY',
       subtotalCents: diff,
       totalCents: diff,

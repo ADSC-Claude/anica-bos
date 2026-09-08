@@ -33,14 +33,21 @@ import { formatPeso } from '../src/lib/money';
  * Pesos, by tier. COMPLETE is the tier sold as "Signature" — the enum name
  * predates the label and is not worth a migration to rename.
  *
- * conciergeFeeCents is zero on every tier. The mode it priced is withdrawn —
- * speed is bought as the rush or priority add-on instead — and the column stays
- * only so orders sold under that mode still reconcile.
+ * Both fee columns are zero, because both modes they priced are withdrawn.
+ * Concierge went when speed became the rush or priority add-on. Do-it-yourself
+ * went because there was never anything behind it: the intake form and the
+ * builder are generated from the same definition, so a customer filling the
+ * form was already doing the work and paying a fee for the privilege. Now
+ * there is one product — we build it — and the base price carries it:
+ * 2,500 / 4,000 / 6,000, which is what a Done-For-You order came to before,
+ * give or take the 200 knocked off Standard to round it.
+ *
+ * The columns stay so orders sold under either mode still reconcile.
  */
 const FEES: Record<Tier, { base: number; dfy: number; concierge: number; revisions: number }> = {
-  BASIC: { base: 2_000, dfy: 500, concierge: 0, revisions: 2 },
-  STANDARD: { base: 3_000, dfy: 1_200, concierge: 0, revisions: 4 },
-  COMPLETE: { base: 4_000, dfy: 2_000, concierge: 0, revisions: 6 },
+  BASIC: { base: 2_500, dfy: 0, concierge: 0, revisions: 2 },
+  STANDARD: { base: 4_000, dfy: 0, concierge: 0, revisions: 4 },
+  COMPLETE: { base: 6_000, dfy: 0, concierge: 0, revisions: 6 },
 };
 
 /**
@@ -64,14 +71,14 @@ const ADDONS: { code: string; price: number; name: string; description: string; 
     code: 'RUSH',
     price: 1_000,
     name: 'Rush publish (24 hours)',
-    description: 'Your Done-For-You build jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.',
+    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.',
     sortOrder: 5,
   },
   {
     code: 'PRIORITY',
     price: 2_000,
     name: 'Priority (2 working days)',
-    description: 'Your Done-For-You build is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
+    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
     sortOrder: 6,
   },
 ];
@@ -143,17 +150,24 @@ async function main() {
       changed++;
       continue;
     }
-    if (a.priceCents === cents && a.active) {
+    // The wording is reconciled too, not just the money. A description is what
+    // the customer reads on the checkout card, and these ones named a service
+    // mode that no longer exists — a run that fixed the price and left "your
+    // Done-For-You build" on the row would leave the catalogue lying.
+    const wordingSame = a.name === spec.name && a.description === spec.description;
+    if (a.priceCents === cents && a.active && wordingSame) {
       console.info(`  ${code.padEnd(22)} ${col(a.priceCents)}   unchanged`);
       continue;
     }
-    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}`);
+    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}${wordingSame ? '' : '   + wording'}`);
     if (!dry) {
-      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active: true } });
+      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active: true, name: spec.name, description: spec.description } });
       await audit(null, {
         module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
-        summary: `${code} price (set-pricing)`,
-        before: { priceCents: a.priceCents, active: a.active }, after: { priceCents: cents, active: true }, sensitive: true,
+        summary: `${code} price and wording (set-pricing)`,
+        before: { priceCents: a.priceCents, active: a.active, name: a.name, description: a.description },
+        after: { priceCents: cents, active: true, name: spec.name, description: spec.description },
+        sensitive: true,
       });
     }
     changed++;

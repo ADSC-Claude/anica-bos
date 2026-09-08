@@ -13,7 +13,6 @@ import { HttpError } from '@/lib/errors';
 const placeSchema = z.object({
   occasion: z.enum(OCCASION_KEYS as [string, ...string[]]),
   tier: z.enum(['BASIC', 'STANDARD', 'COMPLETE']),
-  serviceMode: z.enum(['DIY', 'DFY', 'CONCIERGE']),
   templateId: z.string().min(1, 'Pick a template.'),
   addOnCodes: z.array(z.string().max(40)).max(12).default([]),
   couponCode: z.string().max(40).optional(),

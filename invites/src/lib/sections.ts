@@ -565,6 +565,14 @@ const SECTION_DEFS: SectionDef[] = [
       toggle('showSeats', 'Ask how many are coming'),
       toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
+      list('groups', 'Guest groups', [text('label', 'Group', { required: true, placeholder: 'e.g. Principal sponsor (Ninong / Ninang)' })], {
+        addLabel: 'Add a group',
+        max: 12,
+        hint: (GUEST_GROUP_PRESETS[occasion]?.length
+          ? `Guests pick one of these when they RSVP, and your printed headcount sheet is grouped by them. Leave it blank and we ask the standard list for this occasion: ${GUEST_GROUP_PRESETS[occasion]!.join(' · ')}. Write your own here to replace it.`
+          : 'Guests pick one of these when they RSVP, and your printed headcount sheet is grouped by them. Leave it blank to ask nothing.'),
+      }),
+      toggle('hideGroups', 'Skip the group question'),
       list('mealChoices', `Meal choices (${TIER_LABELS.COMPLETE} package)`, [text('label', 'Choice', { required: true, placeholder: 'e.g. Chicken' })], { addLabel: 'Add a choice', max: 8, hint: 'Up to eight, in your own words — Beef, Chicken, Pork, Fish, Vegetarian, Vegan, Halal, Kids’ meal, or the dishes themselves.' }),
       select('policy', 'Policy', [{ value: 'none', label: 'No policy line' }, ...POLICY_PRESETS.map((p) => ({ value: p.key, label: p.label }))], { presets: POLICY_PRESETS, presetTarget: 'policyText' }),
       textarea('policyText', 'Policy wording', { staff: true }),
@@ -915,8 +923,25 @@ export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
   return [...listed, ...base.filter((k) => !listed.includes(k))];
 }
 
-export function sectionsFor(occasion: Occasion): SectionDef[] {
-  return OCCASION_SECTIONS[occasion].map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
+/**
+ * A Save the Date says who, when, and roughly where — and stops. It goes out
+ * months ahead, when the couple has a date and little else; asking them for an
+ * entourage or a gift note they cannot answer yet is how a card sits unsent.
+ */
+export const SAVE_THE_DATE_SECTIONS: readonly SectionKey[] = ['cover', 'countdown'];
+
+/** The cover's opening controls, which a Save the Date has no use for. */
+const OPENING_FIELDS = new Set(['opening', 'openingLine', 'openingLine2', 'envelope']);
+
+export function sectionsFor(occasion: Occasion, saveTheDate = false): SectionDef[] {
+  const keys = saveTheDate ? OCCASION_SECTIONS[occasion].filter((k) => SAVE_THE_DATE_SECTIONS.includes(k)) : OCCASION_SECTIONS[occasion];
+  return keys.map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
+}
+
+/** Whether this invitation carries the section at all. */
+export function sectionOnCard(key: SectionKey, occasion: Occasion, saveTheDate: boolean): boolean {
+  if (!OCCASION_SECTIONS[occasion].includes(key)) return false;
+  return !saveTheDate || SAVE_THE_DATE_SECTIONS.includes(key);
 }
 
 /** Whether a section is part of what is offered today. */
@@ -958,8 +983,11 @@ export function keepStaffFields(fields: Field[], before: SectionData | undefined
   return data;
 }
 
-export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier): Field[] {
-  const fields = SECTION_BY_KEY[key].fields(occasion);
+export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier, saveTheDate = false): Field[] {
+  // A Save the Date is read on sight — the renderer plays no opening on one,
+  // so the three controls for it would be levers connected to nothing.
+  const all = SECTION_BY_KEY[key].fields(occasion);
+  const fields = saveTheDate && key === 'cover' ? all.filter((f) => !OPENING_FIELDS.has(f.key)) : all;
   if (!tier) return fields;
   return fields.map((f) =>
     f.options?.some((o) => o.lockedTier)
@@ -1195,6 +1223,49 @@ export function cleanSection(fields: Field[], raw: unknown): { data: SectionData
 }
 
 /** What stops an invitation from being published. */
+/**
+ * The group a guest says they belong to, offered as a pull-down on the RSVP.
+ * Every occasion gets a set in the words Filipino guests actually use, so a
+ * couple who fills in nothing still gets a useful headcount sheet — sponsors
+ * counted apart from officemates, the mother's side apart from the father's.
+ * The couple can replace the whole list with their own; an occasion missing
+ * from here asks nothing (a memorial does not sort its mourners, and a
+ * corporate event asks for the department instead).
+ *
+ * Every celebration whose guests are the celebrant's peers carries their own
+ * friends as well as their classmates: a child's playmates from the street are
+ * not schoolmates, and the debutante's oldest friend may be in none of the 18s.
+ *
+ * Family and relative are both offered wherever either is. A tita or a cousin
+ * reads "family" as the immediate one and hesitates over it, and a guest who
+ * hesitates picks nothing — so the wider word sits right beside the narrow one
+ * and neither of them has to decide what counts.
+ */
+export const GUEST_GROUP_PRESETS: Partial<Record<Occasion, string[]>> = {
+  WEDDING: ['Principal sponsor (Ninong / Ninang)', 'Entourage', "Bride's family", "Bride's relative", "Groom's family", "Groom's relative", "Bride's friend", "Groom's friend", 'Officemate'],
+  ENGAGEMENT: ["Bride-to-be's family", "Bride-to-be's relative", "Groom-to-be's family", "Groom-to-be's relative", "Bride-to-be's friend", "Groom-to-be's friend", 'Officemate'],
+  CHRISTENING: ['Ninong / Ninang', "Mommy's family", "Mommy's relative", "Daddy's family", "Daddy's relative", "Mommy's friend", "Daddy's friend", 'Family friend'],
+  COMMUNION: ['Ninong / Ninang', "Mommy's family", "Mommy's relative", "Daddy's family", "Daddy's relative", "Child's friend", 'Classmate / schoolmate', 'Family friend'],
+  BABY_SHOWER: ["Mommy's family", "Mommy's relative", "Daddy's family", "Daddy's relative", "Mommy's friend", "Daddy's friend", 'Officemate'],
+  KIDS_BIRTHDAY: ["Celebrant's family", "Celebrant's relative", 'Ninong / Ninang', "Celebrant's friend", 'Classmate / schoolmate', "Mommy's friend", "Daddy's friend", 'Neighbour'],
+  MILESTONE_BIRTHDAY: ['Family', 'Relative', 'Ninong / Ninang', 'Friend', 'Officemate', 'Neighbour', 'Church / community'],
+  DEBUT: ['Family', 'Relative', '18 Roses', '18 Candles', '18 Treasures', "Debutante's friend", 'Classmate / schoolmate', "Parents' guest"],
+  ANNIVERSARY: ['Family', 'Relative', 'Ninong / Ninang', 'Friend', 'Officemate', 'Church / community'],
+  GRADUATION: ['Family', 'Relative', "Graduate's friend", 'Classmate / schoolmate', 'Teacher / professor', 'Family friend'],
+  HOUSEWARMING: ['Family', 'Relative', 'Friend', 'Officemate', 'Neighbour'],
+  REUNION: ['Family', 'Relative', 'Batchmate / classmate', 'Friend'],
+};
+
+/**
+ * The groups this invitation offers its guests: the couple's own list if they
+ * wrote one, otherwise their occasion's. Empty means the question is not asked.
+ */
+export function guestGroups(occasion: Occasion, rsvp: SectionData | undefined): string[] {
+  if (bool(rsvp, 'hideGroups')) return [];
+  const own = rows<{ label: string }>(rsvp, 'groups').map((g) => g.label.trim()).filter(Boolean);
+  return own.length ? own : (GUEST_GROUP_PRESETS[occasion] ?? []);
+}
+
 export function publishProblems(occasion: Occasion, content: Content): string[] {
   const problems: string[] = [];
   const cover = content.cover ?? {};

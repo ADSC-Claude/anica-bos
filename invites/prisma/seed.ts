@@ -155,7 +155,7 @@ async function main() {
       // The premium opening video, at the starting price: every package opens
       // with the included opening; this is the designed clip made for a design.
       { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99900, sortOrder: 1 },
-      { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A separate mini-invite with its own link, sent months ahead.', priceCents: 29900, sortOrder: 2 },
+      { code: 'SAVE_THE_DATE', name: 'Save the Date card', description: 'A second card on the same design, with its own link, for sending months ahead. Your names, your date and your cover photo — the venue, the programme and the RSVP wait for the invitation itself.', priceCents: 29900, sortOrder: 2 },
       { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout, for guests who would rather hold it.', priceCents: 29900, sortOrder: 3 },
       { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19900, active: false, sortOrder: 4 },
       { code: 'RUSH', name: 'Rush publish (24 hours)', description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.', priceCents: 100000, sortOrder: 5 },

@@ -49,7 +49,7 @@ export function CheckoutWizard(p: WizardProps) {
   // the premium opening is sold per design: a design with no clip yet cannot carry it
   const premiumOk = !template || template.premiumOpenings.length > 0;
   const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk));
-  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
+  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, occasion, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, occasion, coupon]);
 
   const modeInfo = SERVICE_MODES.find((m) => m.key === mode)!;
   // Rounds are the package's, and buying speed spends some of them: there is no
@@ -180,7 +180,7 @@ export function CheckoutWizard(p: WizardProps) {
           <h2 className="display mb-3 text-xl">5. Add-ons <span className="text-sm font-normal text-[color:var(--color-ink-500)]">(optional)</span></h2>
           <div className="space-y-2">
             {p.addOns.map((a) => {
-              const offered = a.quoted && addOnAvailable(a.code, tier) && (a.code !== PREMIUM_OPENING_CODE || premiumOk);
+              const offered = a.quoted && addOnAvailable(a.code, tier, occasion) && (a.code !== PREMIUM_OPENING_CODE || premiumOk);
               return (
               <label key={a.code} className={`card flex items-start gap-3 p-3 ${!offered ? 'opacity-70' : ''}`}>
                 <input type="checkbox" className="mt-1 h-4 w-4" disabled={!offered} checked={offered && addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />

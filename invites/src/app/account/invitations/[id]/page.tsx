@@ -21,17 +21,22 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const [summary, recent, job] = await Promise.all([
+  const [summary, recent, job, pair] = await Promise.all([
     rsvpSummary(inv.id),
     prisma.rsvp.findMany({ where: { invitationId: inv.id }, orderBy: { updatedAt: 'desc' }, take: 5 }),
     prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true } }),
+    // The other half of the pair, whichever half this is.
+    inv.saveTheDateOfId
+      ? prisma.invitation.findUnique({ where: { id: inv.saveTheDateOfId }, select: { id: true, title: true, slug: true, status: true } })
+      : prisma.invitation.findUnique({ where: { saveTheDateOfId: inv.id }, select: { id: true, title: true, slug: true, status: true } }),
   ]);
   const active = !inv.order || inv.order.status === 'ACTIVE' || inv.order.status === 'PAID';
   const dfy = inv.order?.serviceMode && inv.order.serviceMode !== 'DIY';
   const url = invitationUrl(inv.slug);
   const content = contentOf(inv.content);
   const problems = publishProblems(inv.occasion, content);
-  const mine = sectionsFor(inv.occasion).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier)).map((d) => d.key);
+  const saveTheDate = Boolean(inv.saveTheDateOfId);
+  const mine = sectionsFor(inv.occasion, saveTheDate).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier)).map((d) => d.key);
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
   const window = changeWindow(inv.eventAt);
@@ -81,17 +86,25 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{dfy ? 'Our team publishes this once you approve the preview.' : 'When the details look right in the preview, publish to get your shareable link and QR.'}</p>
             )}
-            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} />}
+            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
             {dfy && job && <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">Build status: {job.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/account/invitations/${inv.id}/dfy`} className="underline">open</Link></p>}
           </div>
 
+          {saveTheDate ? (
+            <div className="grid grid-cols-2 gap-3">
+              <Stat label="Page views" value={inv.viewCount} />
+              <Stat label="Sections" value={`${doneCount} of ${mine.length}`} />
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Page views" value={inv.viewCount} />
             <Stat label="Accepted" value={summary.accepted} hint={`${summary.seats} seat${summary.seats === 1 ? '' : 's'} confirmed`} />
             <Stat label="Declined" value={summary.declined} />
             {hasFeature(inv.tier, 'guests.manager') ? <Stat label="No response" value={summary.pending} hint={`of ${summary.guests} on your list`} /> : <Stat label="Responses" value={summary.accepted + summary.declined} />}
           </div>
+          )}
 
+          {!saveTheDate && (
           <div className="card p-5">
             <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Latest RSVPs</h2><Link href={`/account/invitations/${inv.id}/rsvps`} className="text-sm underline">See all</Link></div>
             {recent.length === 0 ? <p className="text-sm text-[color:var(--color-ink-500)]">No responses yet. Share the link to start collecting.</p> : (
@@ -102,6 +115,22 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               </ul>
             )}
           </div>
+          )}
+
+          {pair && (
+            <div className="card p-5">
+              <h2 className="mb-2 font-semibold">{saveTheDate ? 'The invitation this announces' : 'Your Save the Date'}</h2>
+              <p className="text-sm">
+                {saveTheDate
+                  ? 'This card goes out first. The full invitation is a separate link, published on its own — nothing you do here spends its revisions.'
+                  : 'A second card on the same design, with its own link, for sending months ahead. It carries your names and the date and nothing else.'}
+              </p>
+              <p className="mt-2 text-sm">
+                <Link href={`/account/invitations/${pair.id}`} className="underline">{pair.title}</Link>
+                <span className="text-[color:var(--color-ink-500)]"> · {pair.status === 'PUBLISHED' ? 'published' : pair.status.toLowerCase()}</span>
+              </p>
+            </div>
+          )}
         </div>
 
         <aside className="space-y-3">
@@ -109,11 +138,13 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             <p className="eyebrow mb-2 px-2">Manage</p>
             {[
               { href: `/account/invitations/${inv.id}/builder`, label: 'Builder', show: !dfy || inv.status === 'PUBLISHED' || job?.status === 'PUBLISHED' },
-              { href: `/account/invitations/${inv.id}/rsvps`, label: 'RSVP responses', show: true },
-              { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: featureOffered('guests.manager'), locked: !hasFeature(inv.tier, 'guests.manager') },
-              { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: featureOffered('checkin'), locked: !hasFeature(inv.tier, 'checkin') },
-              { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: true, locked: !hasFeature(inv.tier, 'guestbook') },
-              { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: true, locked: !hasFeature(inv.tier, 'photoSharing') },
+              // A Save the Date collects nothing: no RSVP, no guestbook, no
+              // photographs. Those all belong to the invitation it announces.
+              { href: `/account/invitations/${inv.id}/rsvps`, label: 'RSVP responses', show: !saveTheDate },
+              { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: !saveTheDate && featureOffered('guests.manager'), locked: !hasFeature(inv.tier, 'guests.manager') },
+              { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: !saveTheDate && featureOffered('checkin'), locked: !hasFeature(inv.tier, 'checkin') },
+              { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: !saveTheDate, locked: !hasFeature(inv.tier, 'guestbook') },
+              { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: !saveTheDate, locked: !hasFeature(inv.tier, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },
               { href: `/account/invitations/${inv.id}/dfy`, label: 'Your details & preview', show: Boolean(dfy) },
             ].filter((l) => l.show).map((l) => (
@@ -122,7 +153,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               </Link>
             ))}
           </nav>
-          {upgrade && (
+          {upgrade && !saveTheDate && (
             <div className="card p-4 text-sm">
               <p className="font-semibold">Need more?</p>
               <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and a custom link' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
@@ -130,7 +161,9 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             </div>
           )}
           <div className="card p-4 text-xs text-[color:var(--color-ink-500)]">
-            Order {inv.order?.reference ?? '—'} · {inv.order ? <Link href={`/account/orders/${inv.order.id}`} className="underline">receipt</Link> : 'no order'}
+            {saveTheDate && pair
+              ? <>Bought with <Link href={`/account/invitations/${pair.id}`} className="underline">{pair.title}</Link> — its order covers this card.</>
+              : <>Order {inv.order?.reference ?? '—'} · {inv.order ? <Link href={`/account/orders/${inv.order.id}`} className="underline">receipt</Link> : 'no order'}</>}
           </div>
         </aside>
       </div>

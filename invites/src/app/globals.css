@@ -881,11 +881,19 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* --- gallery collage --- */
 
 /* --- countdown, bare --- */
-.inv[data-paged] .inv-count { max-width: 22rem; gap: 0; }
-.inv[data-paged] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.1rem 0; }
-.inv[data-paged] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
-.inv[data-paged] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
-.inv[data-paged] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
+/* The drawn designs count the days in their own hand: no boxes, hairlines
+   between, the ink of the page. The Save the Date is not a paged design but
+   it is drawn on the same paper, so it counts the same way. */
+.inv[data-paged] .inv-count,
+.inv[data-card] .inv-count { max-width: 22rem; gap: 0; }
+.inv[data-paged] .inv-count > div,
+.inv[data-card] .inv-count > div { background: none; border: 0; border-radius: 0; padding: 0.1rem 0; }
+.inv[data-paged] .inv-count > div + div,
+.inv[data-card] .inv-count > div + div { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 30%, transparent); }
+.inv[data-paged] .inv-count b,
+.inv[data-card] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
+.inv[data-paged] .inv-count span,
+.inv[data-card] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
 
 /* --- social brand row --- */
 .inv-brand { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1.1rem; }
@@ -1983,3 +1991,157 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-paged][data-mode='night'] .inv-figure { filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
 .inv[data-paged][data-mode='night'] .inv-open[data-clip='capiz'] .inv-open-hint { color: #f1e9dd; }
 @media print { .inv-mode { display: none; } }
+
+/* ===========================================================================
+   The headcount sheet: /account/invitations/[id]/rsvps/print.
+   A working document, not a keepsake — it gets handed to a caterer, marked up
+   with a pen and left on a table. So: black on white, one column, generous
+   rows, and a tick box at the head of every line. Nothing here is decorative,
+   because every ounce of it costs somebody a printer cartridge. */
+.sheet { max-width: 46rem; margin: 0 auto; color: var(--color-ink-900); }
+.sheet-head { border-bottom: 2px solid var(--color-ink-900); padding-bottom: 0.75rem; }
+.sheet-eyebrow { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-500); }
+.sheet-title { font-size: 1.7rem; line-height: 1.15; font-weight: 600; margin-top: 0.15rem; }
+.sheet-sub { font-size: 0.85rem; color: var(--color-ink-500); margin-top: 0.2rem; }
+
+.sheet-figures { display: flex; flex-wrap: wrap; gap: 1.75rem; padding: 0.9rem 0; border-bottom: 1px solid var(--color-sand-200); }
+.sheet-figure { display: flex; flex-direction: column; }
+.sheet-figure-n { font-size: 1.35rem; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sheet-figure-lead .sheet-figure-n { font-size: 2.4rem; }
+.sheet-figure-l { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-500); }
+
+.sheet-block { margin-top: 1.4rem; break-inside: avoid; }
+.sheet-h2 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem; font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; border-bottom: 1px solid var(--color-ink-900); padding-bottom: 0.3rem; }
+.sheet-h2-n { font-weight: 400; letter-spacing: 0.04em; text-transform: none; color: var(--color-ink-500); font-size: 0.78rem; }
+
+.sheet-meals { display: flex; flex-wrap: wrap; gap: 0.4rem 1.6rem; margin-top: 0.55rem; font-size: 0.92rem; }
+.sheet-meal-n { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Fixed, so every group's table rules to the same columns — a coordinator
+   reads down the Coming column, not across one group at a time. */
+.sheet-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.9rem; margin-top: 0.35rem; }
+.sheet-table th { text-align: left; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-500); font-weight: 500; padding: 0.35rem 0.5rem; }
+.sheet-table td { padding: 0.42rem 0.5rem; border-top: 1px solid var(--color-sand-200); vertical-align: top; }
+.sheet-num { width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-tick { width: 1.6rem; }
+.sheet-meal { width: 6.5rem; }
+.sheet-notes { width: 11rem; }
+.sheet-table td { overflow-wrap: anywhere; }
+/* Ticked off at the door with a pen. */
+.sheet-box { display: inline-block; width: 0.85rem; height: 0.85rem; border: 1px solid var(--color-ink-500); border-radius: 2px; }
+.sheet-with { display: block; font-size: 0.76rem; color: var(--color-ink-500); }
+.sheet-note { font-size: 0.78rem; color: var(--color-ink-500); }
+.sheet-out { color: var(--color-ink-500); }
+.sheet-out .sheet-box { visibility: hidden; }
+.sheet-pending { margin-top: 0.5rem; font-size: 0.85rem; color: var(--color-ink-500); line-height: 1.6; }
+.sheet-empty { margin-top: 1.5rem; font-size: 0.9rem; color: var(--color-ink-500); }
+.sheet-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; margin-top: 1.75rem; padding-top: 0.5rem; border-top: 1px solid var(--color-sand-200); font-size: 0.68rem; color: var(--color-ink-500); }
+
+@media print {
+  @page { margin: 14mm; }
+  /* The account ground is a screen colour. Paper is paper. */
+  body:has(.sheet) { background: #fff; }
+  .sheet { max-width: none; }
+  /* Ink, on paper. The screen's warm greys go flat black so a coordinator's
+     office printer does not turn the notes to pale mush. */
+  .sheet, .sheet-title, .sheet-figure-n { color: #000; }
+  .sheet-eyebrow, .sheet-sub, .sheet-figure-l, .sheet-h2-n, .sheet-with, .sheet-note, .sheet-pending, .sheet-foot, .sheet-table th { color: #444; }
+  .sheet-head, .sheet-h2 { border-color: #000; }
+  .sheet-table td, .sheet-figures, .sheet-foot { border-color: #bbb; }
+  .sheet-box { border-color: #000; }
+  .sheet-table thead { display: table-header-group; }
+  .sheet-table tr { break-inside: avoid; }
+}
+
+/* ===========================================================================
+   The Save the Date: one screen, not a shortened invitation.
+
+   The paged designs size their pages to a painted sheet — Capiz's cover is
+   264% of the viewport wide, holding the names at its head and the verse at
+   its foot with the shells between. A card carrying only names and a date
+   falls straight through that, which is why it is composed on its own here:
+   the design's artwork banded at the head and the foot, the words centred
+   between them, and nothing to scroll to. */
+/* The card and the footer under it are the whole page: one viewport, so the
+   download and print buttons are on the card rather than a scroll below it.
+   The paper is laid on the page rather than the card, so the two are one
+   sheet with no seam where the card ends. */
+.inv[data-card] {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-image: var(--std-art, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.inv[data-card] > footer { position: relative; z-index: 1; padding-bottom: min(6vw, 1.5rem); }
+.inv-std {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: min(9vw, 2.5rem) min(6vw, 1.75rem) min(4vw, 1rem);
+}
+/* The same picture twice over that paper: its head at the top of the page,
+   its foot at the very bottom — pseudo-elements on the page rather than the
+   card, so the drawn clusters reach past the footer instead of stopping on a
+   line above it. `100% auto` keeps the artwork at its own proportions, so
+   each band carries the cluster as drawn rather than a stretched crop, and
+   each is masked at its inner edge to dissolve into the paper. */
+.inv[data-card]::before,
+.inv[data-card]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background-image: var(--std-art, none);
+  background-repeat: no-repeat;
+  background-size: 100% auto;
+  pointer-events: none;
+}
+.inv[data-card] { position: relative; }
+.inv[data-card]::before {
+  top: 0;
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+.inv[data-card]::after {
+  bottom: 0;
+  background-position: center bottom;
+  -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 55%, transparent 100%);
+}
+
+.inv-std-body { position: relative; z-index: 1; text-align: center; max-width: 32rem; }
+.inv-std-monogram { font-size: clamp(1.5rem, 6vw, 2rem); line-height: 1; opacity: 0.9; }
+.inv-std-eyebrow { margin-top: 0.6rem; opacity: 0.85; }
+.inv-std-names { margin-top: 0.9rem; }
+.inv-std-date { margin-top: 1.4rem; font-size: clamp(0.95rem, 3.6vw, 1.2rem); letter-spacing: 0.28em; }
+.inv-std-count { margin-top: 1.6rem; transform: scale(0.82); transform-origin: top center; }
+/* Four words across a phone: the tracking that suits the invitation's wider
+   column runs them into each other here. Written at the card's own weight so
+   it outranks the shared drawn-design rule above. */
+.inv[data-card] .inv-std-count .inv-count span { letter-spacing: 0.06em; font-size: 0.5rem; }
+@media (min-width: 480px) {
+  .inv[data-card] .inv-std-count .inv-count span { letter-spacing: 0.2em; font-size: 0.6rem; }
+}
+.inv-std-follow { margin-top: 1.5rem; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.72; }
+
+/* Short screens: the bands close in and the countdown gives way first — the
+   names and the date are the card. */
+@media (max-height: 700px) {
+  .inv[data-card]::before, .inv[data-card]::after { height: 30%; }
+  .inv-std-count { transform: scale(0.72); margin-top: 1.1rem; }
+  .inv-std-date { margin-top: 1rem; }
+  .inv-std-follow { margin-top: 1rem; }
+}
+
+@media print {
+  .inv[data-card] { min-height: 0; }
+  .inv-std { min-height: 0; padding: 2rem 1rem; }
+  .inv-std-count { display: none; }
+}

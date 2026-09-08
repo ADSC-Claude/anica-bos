@@ -144,17 +144,28 @@ export const OPENINGS: OpeningDef[] = [
 ];
 
 /**
- * The cinematic opening is the illustrated one — a bow untying, panels drawing
- * back — and the only opening that loads a file. It is deliberately outside
- * the self-serve set: the clip is artwork somebody made, so it is bought as an
- * add-on rather than picked from a dropdown, and which clip plays comes from
- * the design's own catalogue in src/lib/premium-openings.ts — a theme's clips
- * are offered to that theme's invitations and to no others.
+ * The premium opening is the illustrated one — a seal breaking, a bow untying
+ * — and one of the two openings that load a file. The Letter is the other:
+ * the same stage, playing the one universal clip instead of the design's.
  *
- * They are shared clips, not a render per couple. The names, date and
- * countdown stay live text over the top, so a nickname changed at 11pm reads
- * correctly on the next reload. Only Concierge, where the artwork itself is
- * drawn for one couple, replaces the shared clip.
+ * It stays out of the builder's dropdown (staffOnly) because it is artwork
+ * somebody drew rather than a stage the browser composes — offering it before
+ * a clip exists would promise what the invitation has not got. That is the
+ * only thing keeping it out. It is NOT gated by package or by who does the
+ * encoding: the PREMIUM_OPENING add-on is on sale to every order, so it
+ * unlocks on any tier and any service mode, DIY included (activateOrder sets
+ * premiumOpening, hasPremiumOpening reads it).
+ *
+ * Which clip plays comes from the design's own catalogue in
+ * src/lib/premium-openings.ts: a theme's clips are offered to that theme's
+ * invitations and to no others, and a theme with several makes a choice.
+ *
+ * What it plays is a shared clip, not a render per couple. The names, date
+ * and countdown stay live text over the top, so a nickname changed at 11pm
+ * reads correctly on the next reload. A clip drawn for one couple is attached
+ * by staff against their job (dfyOpeningAction) and overrides the design's —
+ * so it needs a DfyJob, which means a Done-For-You order; a DIY customer who
+ * buys the add-on gets the design's shared clip.
  */
 export const OPENING_BY_KEY: Record<OpeningKey, OpeningDef> = Object.fromEntries(
   OPENINGS.map((o) => [o.key, o]),

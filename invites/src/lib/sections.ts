@@ -583,8 +583,20 @@ const SECTION_DEFS: SectionDef[] = [
     label: 'Prenup photos & video',
     tl: 'Mga Larawan',
     description: 'Your photos with their captions, your video, and the lines written around them on the page.',
-    minTier: 'BASIC',
-    labelFor: { CHRISTENING: 'Baby photos', COMMUNION: 'Photos', KIDS_BIRTHDAY: 'Photos', BABY_SHOWER: 'Photos', MILESTONE_BIRTHDAY: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
+    /**
+     * Standard and up. Basic's one photo is the cover photo, which every
+     * occasion's cover carries and which is not counted against the gallery:
+     * the gallery page is a designed layout — one large photo, three under the
+     * arches, the rest in a mosaic — and a single photo cannot fill it. Better
+     * to give Basic the cover alone than three empty arches.
+     */
+    minTier: 'STANDARD',
+    /**
+     * Whose photos these are; the label above is the wedding's. Corporate and
+     * housewarming carry no gallery, so nothing falls back to "Prenup". The
+     * guest-facing heading stays "Gallery" whatever the occasion.
+     */
+    labelFor: { CHRISTENING: 'Baby photos', BABY_SHOWER: 'Baby photos', KIDS_BIRTHDAY: "Celebrant's photos", MILESTONE_BIRTHDAY: "Celebrant's photos", COMMUNION: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
     fields: () => [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo' }),

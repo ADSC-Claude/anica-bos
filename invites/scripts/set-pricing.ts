@@ -31,14 +31,23 @@ import { formatPeso } from '../src/lib/money';
 /**
  * Pesos, by tier. COMPLETE is the tier sold as "Signature" — the enum name
  * predates the label and is not worth a migration to rename.
+ *
+ * Assisted is sold on Signature alone, so the other two carry no fee for it.
+ * Zero here is bookkeeping, not the gate: serviceModeAvailable in
+ * src/lib/pricing.ts is what withdraws the mode, because a zero fee on its own
+ * would render as "Included" and give the mode away instead.
  */
-const FEES: Record<Tier, { dfy: number; concierge: number }> = {
-  BASIC: { dfy: 500, concierge: 2_000 },
-  STANDARD: { dfy: 1_200, concierge: 3_000 },
-  COMPLETE: { dfy: 2_000, concierge: 4_000 },
+const FEES: Record<Tier, { dfy: number; assisted: number }> = {
+  BASIC: { dfy: 500, assisted: 0 },
+  STANDARD: { dfy: 1_200, assisted: 0 },
+  COMPLETE: { dfy: 2_000, assisted: 2_000 },
 };
 
-/** Rush is a queue jump on a DFY job, so it is priced against the DFY fee. */
+/**
+ * Rush is a queue jump on a Done-For-You job, priced against the DFY fee. It is
+ * sold on Basic and Standard only (addOnAvailable), so this is a Standard-sized
+ * jump, not a Signature-sized one.
+ */
 const RUSH_CODE = 'RUSH';
 const RUSH_PRICE = 1_000;
 
@@ -51,7 +60,7 @@ async function main() {
   if (packages.length === 0) throw new Error('No packages in the database. Run the seed first.');
 
   let changed = 0;
-  console.info(`\n${'package'.padEnd(24)} ${'DFY'.padStart(11)} → ${'new'.padStart(11)}   ${'Concierge'.padStart(11)} → ${'new'.padStart(11)}`);
+  console.info(`\n${'package'.padEnd(24)} ${'DFY'.padStart(11)} → ${'new'.padStart(11)}   ${'Assisted'.padStart(11)} → ${'new'.padStart(11)}`);
 
   for (const p of packages) {
     const target = FEES[p.tier];
@@ -61,7 +70,7 @@ async function main() {
     if (!target) throw new Error(`No fees defined for tier ${p.tier} (package ${p.code}). Add it to FEES.`);
 
     const dfyFeeCents = pesos(target.dfy);
-    const conciergeFeeCents = pesos(target.concierge);
+    const conciergeFeeCents = pesos(target.assisted);
     if (p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents) {
       console.info(`  ${p.code.padEnd(22)} ${col(p.dfyFeeCents)}   ${' '.repeat(11)}   ${col(p.conciergeFeeCents)}   ${' '.repeat(11)}  unchanged`);
       continue;

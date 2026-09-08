@@ -4,7 +4,8 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, type Quote } from './pricing';
+import { quote, serviceModeAvailable, SERVICE_MODES, type Quote } from './pricing';
+import { TIER_LABELS } from './tiers';
 import { createDraft } from './invitations';
 import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
@@ -47,6 +48,14 @@ export async function buildQuote(input: {
   couponCode?: string;
 }): Promise<Quote & { pkg: Awaited<ReturnType<typeof packageFor>>; addOns: { id: string; code: string; name: string; priceCents: number }[]; couponId?: string }> {
   const pkg = await packageFor(input.occasion, input.tier);
+  // quote() already declines to price a mode this tier cannot buy, but silence
+  // is the wrong answer on the way in: a client asking for Assisted on Basic is
+  // out of step with the catalogue, and would otherwise be handed a Basic order
+  // it did not ask for.
+  if (!serviceModeAvailable(input.serviceMode, pkg.tier)) {
+    const label = SERVICE_MODES.find((m) => m.key === input.serviceMode)?.label ?? input.serviceMode;
+    throw new HttpError(400, `${label} is not offered on ${TIER_LABELS[pkg.tier]}.`);
+  }
   const codes = Array.from(new Set(input.addOnCodes)).slice(0, 12);
   const addOns = codes.length ? await prisma.addOn.findMany({ where: { code: { in: codes }, active: true, quoted: true } }) : [];
   const coupon = input.couponCode?.trim() ? await prisma.coupon.findUnique({ where: { code: input.couponCode.trim().toUpperCase() } }) : undefined;

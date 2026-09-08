@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { ServiceMode, Tier } from '@prisma/client';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
-import { SERVICE_MODES, serviceModeLabel } from '@/lib/pricing';
+import { SERVICE_MODES, serviceModeLabel, serviceFee, serviceModeAvailable } from '@/lib/pricing';
 import { formatPesoShort } from '@/lib/money';
 
 export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; editsAfterPublish: number; linkValidityDays: number };
@@ -18,7 +18,10 @@ const HIGHLIGHTS: Record<Tier, string[]> = {
 
 export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns: AddOnCard[] }) {
   const [mode, setMode] = useState<ServiceMode>('DIY');
-  const fee = (p: PackageCard) => (mode === 'DFY' ? p.dfyFeeCents : mode === 'CONCIERGE' ? p.conciergeFeeCents : 0);
+  // serviceFee answers 0 for a mode the tier cannot buy, so an Assisted card
+  // for Basic shows the package price rather than a fee it cannot be sold.
+  const fee = (p: PackageCard) => serviceFee(p, mode);
+  const unavailable = (p: PackageCard) => !serviceModeAvailable(mode, p.tier);
   return (
     <div>
       <div className="mx-auto mb-6 flex w-fit rounded-full border border-[color:var(--color-sand-300)] bg-white p-1 text-sm" role="tablist" aria-label="Service mode">
@@ -37,10 +40,10 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
               {popular && <span className="pill pill-info absolute -top-3 left-6">Most popular</span>}
               <p className="eyebrow">{TIER_LABELS[t]}</p>
               <p className="display mt-2 text-4xl">{formatPesoShort(p.priceCents + fee(p))}</p>
-              <p className="text-xs text-[color:var(--color-ink-500)]">{fee(p) ? `${formatPesoShort(p.priceCents)} package + ${formatPesoShort(fee(p))} ${serviceModeLabel(mode)}` : 'one-time · no subscription'}</p>
+              <p className="text-xs text-[color:var(--color-ink-500)]">{unavailable(p) ? `${serviceModeLabel(mode)} is on ${TIER_LABELS.COMPLETE} only` : fee(p) ? `${formatPesoShort(p.priceCents)} package + ${formatPesoShort(fee(p))} ${serviceModeLabel(mode)}` : 'one-time · no subscription'}</p>
               <p className="mt-2 text-sm text-[color:var(--color-ink-700)]">{p.tagline}</p>
               <ul className="mt-4 flex-1 space-y-1.5 text-sm">{HIGHLIGHTS[t].map((h) => <li key={h} className="flex gap-2"><span aria-hidden className="text-[color:var(--color-plum-600)]">✓</span>{h}</li>)}</ul>
-              <Link href={`/checkout?tier=${t}&mode=${mode}`} className={`btn mt-5 ${popular ? 'btn-primary' : 'btn-secondary'}`}>{mode === 'DIY' ? 'Start building' : 'Let us do it'}</Link>
+              <Link href={`/checkout?tier=${t}&mode=${unavailable(p) ? 'DFY' : mode}`} className={`btn mt-5 ${popular ? 'btn-primary' : 'btn-secondary'}`}>{mode === 'DIY' ? 'Start building' : 'Let us do it'}</Link>
             </article>
           );
         })}

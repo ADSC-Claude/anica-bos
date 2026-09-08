@@ -1,4 +1,4 @@
-import type { DiscountType, ServiceMode } from '@prisma/client';
+import type { DiscountType, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
 
 /**
@@ -10,6 +10,7 @@ import { discountAmount } from './money';
 export type PackageLike = {
   code: string;
   name: string;
+  tier: Tier;
   priceCents: number;
   dfyFeeCents: number;
   conciergeFeeCents: number;
@@ -60,7 +61,37 @@ export function serviceModeLabel(mode: ServiceMode): string {
   return SERVICE_MODES.find((m) => m.key === mode)?.label ?? mode;
 }
 
-export function serviceFee(pkg: PackageLike, mode: ServiceMode): number {
+/** Rush jumps the Done-For-You queue. */
+export const RUSH_CODE = 'RUSH';
+
+/**
+ * What each package may be sold with. Both rules are here, next to the
+ * arithmetic that reads them, because a rule enforced only in the checkout UI
+ * is not a rule: the wizard and the server both price through quote().
+ */
+
+/**
+ * Assisted is sold on Signature alone — it is the tier whose build is large
+ * enough for the extra round and the call to be worth paying for.
+ *
+ * Gating it matters more than zeroing the fee would: a zero fee renders as
+ * "Included" in the wizard, which would give away the mode rather than
+ * withdraw it.
+ */
+export function serviceModeAvailable(mode: ServiceMode, tier: Tier): boolean {
+  return mode !== 'CONCIERGE' || tier === 'COMPLETE';
+}
+
+/**
+ * Rush is sold on Basic and Standard alone. It buys a place at the front of
+ * the queue, and a Signature build is too big to promise that on.
+ */
+export function addOnAvailable(code: string, tier: Tier): boolean {
+  return code !== RUSH_CODE || tier !== 'COMPLETE';
+}
+
+export function serviceFee(pkg: Pick<PackageLike, 'tier' | 'dfyFeeCents' | 'conciergeFeeCents'>, mode: ServiceMode): number {
+  if (!serviceModeAvailable(mode, pkg.tier)) return 0;
   if (mode === 'DFY') return pkg.dfyFeeCents;
   if (mode === 'CONCIERGE') return pkg.conciergeFeeCents;
   return 0;
@@ -95,6 +126,7 @@ export function quote(input: {
 
   let addOnsCents = 0;
   for (const a of input.addOns) {
+    if (!addOnAvailable(a.code, input.pkg.tier)) continue;
     items.push({ kind: 'ADDON', code: a.code, name: a.name, amountCents: a.priceCents });
     addOnsCents += a.priceCents;
   }

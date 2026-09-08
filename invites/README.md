@@ -339,7 +339,9 @@ box is the guest page's put through that crop. The name's size comes down as
 the name gets longer (`--plate-chars`, from `plateChars` in `lib/openings.ts`)
 so "Juan Sebastian" keeps the same clearance from the satin that "Lucas" has:
 the divisor is what sets how wide a long name runs, and it is scored against
-"Maximilian", not the demo's five letters. Sideways the clip is letterboxed
+"Maximilian", not the demo's five letters. The cap and the divisor move
+together — the owner asked for the writing a little smaller, and dropping only
+the cap would have left a long name bigger than a short one. Sideways the clip is letterboxed
 and the words' box is letterboxed with it — the media query has to sit BELOW
 the unconditional rule, because the two weigh the same and while it sat above
 it never applied, which left the box four times the screen's width.

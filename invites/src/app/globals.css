@@ -1495,13 +1495,13 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    couple's own words in lib/openings.ts), so a long one keeps clear of the
    satin instead of running under it. */
 .inv-open[data-clip='baby-blue-bow'] .inv-plate-eyebrow,
-.gal-phone[data-clip='baby-blue-bow'] .inv-plate-eyebrow { font-size: 3.8vw; font-size: 3.8cqw; letter-spacing: 0.2em; text-indent: 0.2em; }
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-eyebrow { font-size: 3.4vw; font-size: 3.4cqw; letter-spacing: 0.2em; text-indent: 0.2em; }
 .inv-open[data-clip='baby-blue-bow'] .inv-plate-names,
-.gal-phone[data-clip='baby-blue-bow'] .inv-plate-names { font-size: 20vw; font-size: min(29cqw, calc(170cqw / var(--plate-chars, 9))); margin-top: 2.2vh; margin-top: 2.2cqh; }
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-names { font-size: 18vw; font-size: min(26cqw, calc(153cqw / var(--plate-chars, 9))); margin-top: 2.2vh; margin-top: 2.2cqh; }
 .inv-open[data-clip='baby-blue-bow'] .inv-plate-date,
-.gal-phone[data-clip='baby-blue-bow'] .inv-plate-date { font-size: 5.4vw; font-size: 5.4cqw; margin-top: 2.6vh; margin-top: 2.6cqh; }
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-date { font-size: 4.9vw; font-size: 4.9cqw; margin-top: 2.6vh; margin-top: 2.6cqh; }
 .inv-open[data-clip='baby-blue-bow'] .inv-plate-line2,
-.gal-phone[data-clip='baby-blue-bow'] .inv-plate-line2 { font-size: 3vw; font-size: 3cqw; margin-top: 2.2vh; margin-top: 2.2cqh; }
+.gal-phone[data-clip='baby-blue-bow'] .inv-plate-line2 { font-size: 2.7vw; font-size: 2.7cqw; margin-top: 2.2vh; margin-top: 2.2cqh; }
 /* The bow's frame is 976 x 2120 — a phone's full screen rather than 9:16 —
    so the box its words are placed in is that frame, drawn the way object-fit
    cover draws it: as wide as the screen or as tall as it, whichever the frame

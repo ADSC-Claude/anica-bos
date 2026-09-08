@@ -4,7 +4,7 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, serviceModeAvailable, saveTheDateOffered, revisionRounds, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
+import { quote, serviceModeAvailable, saveTheDateOffered, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
 import { TIER_LABELS } from './tiers';
 import { createDraft, createSaveTheDate } from './invitations';
 import { audit } from './audit';
@@ -63,12 +63,17 @@ export async function buildQuote(input: {
   return { ...q, pkg, addOns, couponId: coupon && !q.couponError ? coupon.id : undefined };
 }
 
+/**
+ * A new order is always the one product we sell: we build it. The mode is not
+ * taken from the browser at all — there is nothing for a customer to choose,
+ * and a withdrawn mode arriving in a payload should never be able to open an
+ * order that skips the queue.
+ */
 export async function createOrder(
   user: SessionUser,
   input: {
     occasion: Occasion;
     tier: Tier;
-    serviceMode: ServiceMode;
     templateId: string;
     addOnCodes: string[];
     couponCode?: string;
@@ -76,7 +81,7 @@ export async function createOrder(
     notes?: string;
   },
 ) {
-  const q = await buildQuote(input);
+  const q = await buildQuote({ ...input, serviceMode: DEFAULT_SERVICE_MODE });
   if (q.couponError) throw new HttpError(400, q.couponError);
 
   const invitation = await createDraft({
@@ -96,7 +101,7 @@ export async function createOrder(
       invitationId: invitation.id,
       occasion: input.occasion,
       tier: input.tier,
-      serviceMode: input.serviceMode,
+      serviceMode: DEFAULT_SERVICE_MODE,
       subtotalCents: q.subtotalCents,
       addOnsCents: q.addOnsCents,
       serviceFeeCents: q.serviceFeeCents,
@@ -158,7 +163,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       const premiumOpening = order.items.some((it) => it.kind === 'ADDON' && it.code === PREMIUM_OPENING_CODE);
       await tx.invitation.update({
         where: { id: order.invitationId },
-        data: { editsAllowed: order.package.editsAfterPublish, ...(premiumOpening ? { premiumOpening: true } : {}) },
+        data: premiumOpening ? { premiumOpening: true } : {},
       });
     }
     if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {
@@ -180,7 +185,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
           invitationId: order.invitationId,
           status: 'NEW',
           dueAt: addDays(now, days),
-          revisionsAllowed: revisionRounds(order.tier, priority || rush, s['dfy.revisions']),
+          revisionsAllowed: revisionRounds(order.tier, priority || rush, order.package.revisionRounds),
         },
       });
     }
@@ -239,6 +244,9 @@ export async function createUpgradeOrder(user: SessionUser, invitationId: string
       packageId: target.id,
       occasion: invitation.occasion,
       tier,
+      // Not a sold mode any more — here it is the stored value for "no build
+      // attached", which is what an upgrade is: it raises the tier on an
+      // invitation we have already made, so activateOrder opens no new job.
       serviceMode: 'DIY',
       subtotalCents: diff,
       totalCents: diff,
@@ -258,7 +266,7 @@ export async function applyUpgrade(orderId: string) {
   if (!match) return;
   await prisma.$transaction([
     prisma.order.update({ where: { id: orderId }, data: { status: 'ACTIVE', paidAt: order.paidAt ?? new Date(), activatedAt: new Date() } }),
-    prisma.invitation.update({ where: { id: match[1] }, data: { tier: order.tier, editsAllowed: order.package.editsAfterPublish } }),
+    prisma.invitation.update({ where: { id: match[1] }, data: { tier: order.tier } }),
   ]);
   await notify(order.userId, `Upgraded to ${order.package.name}`, 'New sections are unlocked in your builder.', `/account/invitations/${match[1]}`);
 }

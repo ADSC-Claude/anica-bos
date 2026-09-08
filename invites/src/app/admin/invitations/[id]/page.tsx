@@ -49,7 +49,6 @@ export default async function AdminInvitation({ params, searchParams }: { params
             <dt className="text-[color:var(--color-ink-500)]">Event</dt><dd>{formatDate(inv.eventAt, 'weekday') || '—'}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Published</dt><dd>{inv.publishedAt ? formatDateTime(inv.publishedAt) : '—'}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Expires</dt><dd>{inv.expiresAt ? formatDateTime(inv.expiresAt) : '—'}</dd>
-            <dt className="text-[color:var(--color-ink-500)]">Edits</dt><dd>{inv.editsAllowed < 0 ? 'unlimited' : `${inv.editsUsed} / ${inv.editsAllowed}`}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Order</dt><dd>{inv.order ? <Link href={`/admin/orders/${inv.order.id}`} className="underline">{inv.order.reference}</Link> : '—'}</dd>
             <dt className="text-[color:var(--color-ink-500)]">DFY</dt><dd>{inv.dfyJob ? <Link href={`/admin/dfy/${inv.dfyJob.id}`} className="underline">{inv.dfyJob.status.toLowerCase().replace(/_/g, ' ')}</Link> : '—'}</dd>
           </dl>

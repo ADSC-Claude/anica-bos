@@ -13,7 +13,7 @@ export default async function NotificationsPage() {
   return (
     <>
       <PageHeader title="Notifications" actions={<form action={markReadAction}><button type="submit" className="btn btn-secondary btn-sm">Mark all read</button></form>} />
-      {items.length === 0 ? <Empty>Nothing yet. RSVPs, payment confirmations and DFY updates show up here.</Empty> : (
+      {items.length === 0 ? <Empty>Nothing yet. RSVPs, payment confirmations and updates on your build show up here.</Empty> : (
         <ul className="card divide-y divide-[color:var(--color-sand-100)]">
           {items.map((n) => (
             <li key={n.id} className={`p-4 ${n.readAt ? '' : 'bg-[color:var(--color-sand-100)]'}`}>

@@ -12,7 +12,6 @@ import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
 import { invitationPath } from '@/lib/app-url';
-import { serviceModeLabel } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +59,7 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
-      <PageHeader title={serviceModeLabel(inv.order?.serviceMode ?? 'DFY')} subtitle={<><DfyPill status={job.status} />{job.assignee ? ` · your encoder: ${job.assignee.name}` : ''}{job.dueAt && stage < 3 ? ` · preview due ${formatDate(job.dueAt)}` : ''}</>} />
+      <PageHeader title="Your details &amp; preview" subtitle={<><DfyPill status={job.status} />{job.assignee ? ` · your encoder: ${job.assignee.name}` : ''}{job.dueAt && stage < 3 ? ` · preview due ${formatDate(job.dueAt)}` : ''}</>} />
 
       <ol className="mb-6 flex flex-wrap gap-1 text-xs">
         {DFY_COLUMNS.map((c, i) => (

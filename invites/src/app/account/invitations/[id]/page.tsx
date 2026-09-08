@@ -40,7 +40,6 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
   const window = changeWindow(inv.eventAt);
-  const editsLeft = inv.editsAllowed < 0 ? null : Math.max(0, inv.editsAllowed - inv.editsUsed);
   const upgrade = nextTier(inv.tier);
 
   return (
@@ -52,7 +51,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
         actions={
           <>
             {active && !dfy && <Link href={`/account/invitations/${inv.id}/builder`} className="btn btn-primary">Edit invitation</Link>}
-            {active && dfy && <Link href={`/account/invitations/${inv.id}/dfy`} className="btn btn-primary">Done-For-You</Link>}
+            {active && dfy && <Link href={`/account/invitations/${inv.id}/dfy`} className="btn btn-primary">Your details &amp; preview</Link>}
             <a href={`${invitationPath(inv.slug)}?preview=1`} target="_blank" rel="noopener" className="btn btn-secondary">Preview</a>
           </>
         }
@@ -87,8 +86,8 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{dfy ? 'Our team publishes this once you approve the preview.' : 'When the details look right in the preview, publish to get your shareable link and QR.'}</p>
             )}
-            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} editsLeft={editsLeft} rsvp={!saveTheDate} />}
-            {dfy && job && <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">DFY status: {job.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/account/invitations/${inv.id}/dfy`} className="underline">open</Link></p>}
+            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
+            {dfy && job && <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">Build status: {job.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/account/invitations/${inv.id}/dfy`} className="underline">open</Link></p>}
           </div>
 
           {saveTheDate ? (
@@ -147,7 +146,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: !saveTheDate, locked: !hasFeature(inv.tier, 'guestbook') },
               { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: !saveTheDate, locked: !hasFeature(inv.tier, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },
-              { href: `/account/invitations/${inv.id}/dfy`, label: 'Done-For-You', show: Boolean(dfy) },
+              { href: `/account/invitations/${inv.id}/dfy`, label: 'Your details & preview', show: Boolean(dfy) },
             ].filter((l) => l.show).map((l) => (
               <Link key={l.href} href={l.locked ? `/account/invitations/${inv.id}/upgrade` : l.href} className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-[color:var(--color-sand-100)]">
                 {l.label}{l.locked && <span className="pill pill-warn">Upgrade</span>}
@@ -157,7 +156,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
           {upgrade && !saveTheDate && (
             <div className="card p-4 text-sm">
               <p className="font-semibold">Need more?</p>
-              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and twice the revisions' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
+              <p className="text-[color:var(--color-ink-700)]">Upgrade to {TIER_LABELS[upgrade]} for {upgrade === 'STANDARD' ? 'entourage, gallery, gift QR, music and a custom link' : 'per-guest links, program, guestbook, guest photos and more'}. Pay only the difference.</p>
               <Link href={`/account/invitations/${inv.id}/upgrade`} className="btn btn-secondary btn-sm mt-2">See upgrade</Link>
             </div>
           )}

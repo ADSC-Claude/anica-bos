@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quote, couponProblem, serviceFee, serviceModeAvailable, addOnAvailable, addOnPrice, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
+import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
 import { discountAmount, formatPeso, formatPesoShort, toCents } from '../src/lib/money';
 
 const pkg: PackageLike = { code: 'WEDDING_STANDARD', name: 'Wedding Standard', tier: 'STANDARD', priceCents: 300000, dfyFeeCents: 120000, conciergeFeeCents: 0 };
@@ -16,7 +16,7 @@ test('money is integer centavos and formats the Filipino way', () => {
   assert.equal(discountAmount(199900, 'PERCENT', 20), 39980);
 });
 
-test('a DIY quote is the package alone', () => {
+test('a quote with no service fee is the package alone', () => {
   const q = quote({ pkg, serviceMode: 'DIY', addOns: [] });
   assert.equal(q.totalCents, 300000);
   assert.equal(q.serviceFeeCents, 0);
@@ -60,20 +60,23 @@ test('a fixed coupon never takes the total below zero', () => {
   assert.equal(q.discountCents, 99900);
 });
 
-test('the Concierge mode is withdrawn, on every tier', () => {
-  // Speed is bought on top of Done-For-You now, as the rush or priority add-on.
-  // Selling it as a mode meant giving up Done-For-You to get it.
+test('one service is sold; the other two modes are withdrawn on every tier', () => {
   for (const t of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
-    assert.equal(serviceModeAvailable('CONCIERGE', t), false, t);
-    // Not merely unpriced: a zero fee reads as "Included" in the wizard, so the
-    // quote must not carry a SERVICE line for a mode nobody can buy.
-    const q = quote({ pkg: { ...signature, tier: t }, serviceMode: 'CONCIERGE', addOns: [] });
-    assert.equal(q.serviceFeeCents, 0, t);
-    assert.deepEqual(q.items.map((i) => i.kind), ['PACKAGE'], t);
-    // The two that are sold stay sold.
-    assert.equal(serviceModeAvailable('DIY', t), true, t);
+    // We build every invitation. Concierge went when speed became the rush or
+    // priority add-on; DIY went because the builder and the intake form are
+    // generated from one definition, so it sold the customer their own work.
     assert.equal(serviceModeAvailable('DFY', t), true, t);
+    assert.equal(serviceModeAvailable('CONCIERGE', t), false, t);
+    assert.equal(serviceModeAvailable('DIY', t), false, t);
+    // Not merely unpriced: a zero fee reads as "Included" in the wizard, so a
+    // quote must not carry a SERVICE line for a mode nobody can buy.
+    for (const withdrawn of ['CONCIERGE', 'DIY'] as const) {
+      const q = quote({ pkg: { ...signature, tier: t }, serviceMode: withdrawn, addOns: [] });
+      assert.equal(q.serviceFeeCents, 0, `${t} ${withdrawn}`);
+      assert.deepEqual(q.items.map((i) => i.kind), ['PACKAGE'], `${t} ${withdrawn}`);
+    }
   }
+  assert.equal(DEFAULT_SERVICE_MODE, 'DFY', 'and it is what a new order is stamped with');
 });
 
 test('the queue jump is rush below Signature and priority on it', () => {

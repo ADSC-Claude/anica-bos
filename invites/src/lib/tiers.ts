@@ -156,8 +156,8 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Guestbook / well-wishes wall', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Link', cells: { BASIC: '/juan-and-maria', STANDARD: '+ custom slug', COMPLETE: '+ password / private option' } },
-  { label: 'Revisions after publish (photos and details)', cells: { BASIC: '2', STANDARD: '4', COMPLETE: '6' } },
-  { label: 'Design changes after publish', cells: { BASIC: false, STANDARD: false, COMPLETE: false } },
+  { label: 'Revisions (rounds of changes before we publish)', cells: { BASIC: '2 rounds', STANDARD: '4 rounds', COMPLETE: '6 rounds' } },
+  { label: 'Changes after publishing (design included)', cells: { BASIC: 'Message us', STANDARD: 'Message us', COMPLETE: 'Message us' } },
   { label: 'Link validity', cells: { BASIC: 'Event + 30 days', STANDARD: 'Event + 6 months', COMPLETE: 'Event + 1 year' } },
   { label: 'Support', cells: { BASIC: 'Email', STANDARD: 'Messenger / Viber', COMPLETE: 'Priority + 1 free design tweak' } },
 ];

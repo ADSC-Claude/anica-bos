@@ -26,7 +26,6 @@ export function Builder({
   lang,
   listLimits,
   listHints,
-  editsLeft,
   lookKey,
   allLooks,
   tier,
@@ -55,7 +54,6 @@ export function Builder({
   listLimits: Record<string, number>;
   /** a list's hint from the design, e.g. a photo page with a fixed number of frames */
   listHints?: Record<string, string>;
-  editsLeft: number | null;
 }) {
   const router = useRouter();
   const [value, setValue] = useState<SectionData>(initial);
@@ -76,7 +74,10 @@ export function Builder({
   const nextOpen = sections.find((s) => s.unlocked && !done.includes(s.key) && s.key !== current);
   const section = sections[index];
   const isDone = done.includes(current);
-  const closed = Boolean(window?.closed);
+  // Two things close the form to a customer: publishing (revisions happen
+  // before it, so there is nothing left to spend) and the three-week window.
+  const live = status === 'PUBLISHED';
+  const closed = live || Boolean(window?.closed);
   const allDone = total > 0 && doneCount >= total;
   // the dates come over the wire as ISO strings; formatDate wants a Date for those
   const when = (iso: string) => formatDate(new Date(iso));
@@ -156,7 +157,12 @@ export function Builder({
 
       <section className="min-w-0">
         <div className="mb-4 space-y-2">
-          {closed && window ? (
+          {live ? (
+            <Notice tone="info">
+              Your invitation is live, so this is how it stands rather than something to change here.
+              Revisions happen before we publish; anything that still needs fixing is ours to do — message us on Messenger or Viber and we will sort it out.
+            </Notice>
+          ) : closed && window ? (
             <Notice tone="warn">Changes closed on {when(window.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(window.finalAt)}. Message us for anything urgent.</Notice>
           ) : allDone ? (
             <Notice tone="ok">Every section is marked Done{completedAt ? ` (${when(completedAt)})` : ''} — our team has your invitation. You can still open a section to change something{window ? ` until ${when(window.closesAt)}` : ''}.</Notice>
@@ -172,9 +178,6 @@ export function Builder({
         <header className="mb-4">
           <h2 className="display text-2xl">{section?.label} {isDone && <span className="pill pill-ok align-middle text-xs">Done</span>}</h2>
           <p className="text-sm text-[color:var(--color-ink-500)]">{section?.description}</p>
-          {editsLeft !== null && status === 'PUBLISHED' && (
-            <p className="mt-1 text-xs text-[color:var(--warn)]">{editsLeft} revision{editsLeft === 1 ? '' : 's'} left after publishing on your package. Each save counts as one.</p>
-          )}
         </header>
         {isDone && !editing ? (
           <div className="card flex flex-wrap items-center justify-between gap-3 p-4">

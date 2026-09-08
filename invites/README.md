@@ -280,10 +280,30 @@ own accent instead of framing the page in a colour that no longer matches it.
 A couple's cover photo cannot fill the cover the way the other layouts do it —
 the ground is the artwork — so it sits one of five ways, chosen on the cover
 form (`photoStyle`, `PHOTO_STYLES` in `sections.ts`, one `data-style` each on
-`.inv-portrait`): behind the names under a veil of the paper (the default),
-or framed above them as an arch in a bronze line, an oval with a double line,
-a round medallion, or a photo card tucked under the drape. A couple who wants
-their photo carried differently is one pick away.
+`.inv-portrait`): behind the names under a veil of the paper, or framed above
+them as an arch in a bronze line, an oval with a double line, a round
+medallion, or a photo card tucked under the drape. A couple who wants their
+photo carried differently is one pick away.
+
+Both paged designs carry it, each in its own light. Capiz's frames are drawn
+in its gold and its default is the veil; Baby Blue's are drawn in its soft
+blue, its shade is navy rather than brown, its default is the tucked card, and
+every frame is capped against the screen's height as well as its width,
+because its cover is one screen of sky by construction and a frame sized off
+the width alone pushes the child's name toward the fold on a short phone. Its
+veil needs its own mask too: Capiz's fades to 64% of the box, which is wider
+than the box, so its edges never reach transparent — invisible on painted
+paper, a panel with corners on clean sky.
+
+The choice is made from pictures, not words. The cover's picker (`styles`, a
+field type of its own, drawn in `builder/fields.tsx`) shows each option as a
+little page with the words on it and the frame the photograph would sit in —
+nothing is loaded to draw them, they are boxes and radii. The first tile is
+the blank value, meaning whatever the design was drawn to do, and the second
+is no photograph at all: a client who does not want one on the cover picks it
+like any other look rather than hunting for a switch. Turning it off does not
+throw the photograph away — it stays the link preview in Messenger and Viber,
+and the first picture on the photos page.
 
 Every photograph a demo needs is the grey placeholder in `public/demo/`, in
 the shape the slot takes (portrait, square, wide): a demo that carried stock

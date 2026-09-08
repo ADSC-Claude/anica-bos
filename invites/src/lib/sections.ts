@@ -40,6 +40,8 @@ export type FieldType =
   /** a moment in a song, stored as seconds, picked as minutes and seconds */
   | 'offset'
   | 'select'
+  /** a select made of pictures: each option drawn as what it does to the page */
+  | 'styles'
   | 'colors'
   /** colours picked from the named palette (src/lib/palette.ts); stored as hex like 'colors' */
   | 'swatches'
@@ -149,15 +151,27 @@ const toggle = (key: string, label: string, extra: Partial<Field> = {}): Field =
 const number = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'number', ...extra });
 const person = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'person', ...extra });
 const select = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'select', options, ...extra });
+/** A select the client can see: every option drawn, including the one that shows no photograph at all. */
+const styles = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'styles', options, wide: true, ...extra });
 
 /**
  * The ways a cover photograph sits on a design whose ground is artwork. Each
  * is a `data-style` on `.inv-portrait` in globals.css; the veil is the
  * default and what an empty choice means.
  */
+/**
+ * The cover photograph, and the ways it can sit — the first of which is not to.
+ *
+ * "None" is an option here rather than a switch beside the picker because a
+ * client deciding this is choosing between pictures, and "no photograph on the
+ * cover" is one of the pictures. Turning it off does not throw the photograph
+ * away: it is still the design's link preview in Messenger and Viber, and still
+ * the first picture on the photos page.
+ */
 export const PHOTO_STYLES: Option[] = [
-  { value: 'veil', label: 'Behind the names, veiled' },
-  { value: 'arch', label: 'Arched portrait, bronze frame' },
+  { value: 'none', label: 'No photograph' },
+  { value: 'veil', label: 'Veiled behind the names' },
+  { value: 'arch', label: 'Arched portrait' },
   { value: 'oval', label: 'Oval, double line' },
   { value: 'round', label: 'Round medallion' },
   { value: 'card', label: 'A tucked photo card' },
@@ -200,12 +214,14 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   }),
   textarea('intro', 'Intro wording', { placeholder: 'Together with their families…', staff: true }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
-  // How the photograph sits on a design whose ground is artwork (Capiz):
-  // five settings, so a couple who wants their photo carried differently is
-  // one pick away rather than a design change. Blank is the veil. Baby Blue
-  // carries the photograph too, always as the tucked card — the other four are
-  // drawn in Capiz's own paper and gold — so this picker does not reach it.
-  select('photoStyle', 'How the photo sits', PHOTO_STYLES, { hint: 'On the Capiz design. Blank is the veil. Baby Blue always tucks the photo in as a card.' }),
+  // How the photograph sits on a design whose ground is artwork, and whether it
+  // sits there at all. Six pictures rather than a list of words, because this is
+  // a choice about a look and nobody can pick a look from the phrase "oval,
+  // double line". Left alone, each design uses its own: the veil on Capiz, the
+  // tucked card on Baby Blue.
+  styles('photoStyle', 'The photograph on the cover', PHOTO_STYLES, {
+    hint: 'On the designs whose pages are drawn artwork — Capiz and Baby Blue. Left alone, each uses the one it was drawn for. Choosing none keeps your photo as the link preview and on the photos page; it just stays off the cover.',
+  }),
   textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: "Shown after the cover, on designs that carry one. Blank keeps the design's own verse.", staff: true }),
   text('verseRef', 'Its source', { placeholder: 'Colossians 3:14', staff: true }),
   text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.', staff: true }),
@@ -1161,6 +1177,7 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
     }
     case 'toggle':
       return raw === true || raw === 'true' || raw === 'on' || raw === 1;
+    case 'styles':
     case 'select': {
       const s = cleanString(raw, 60);
       if (s && field.options && !field.options.some((o) => o.value === s)) {
@@ -1291,7 +1308,7 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
 export function sectionFilled(key: SectionKey, occasion: Occasion, data: SectionData | undefined): boolean {
   if (!data) return false;
   const fields = fieldsFor(key, occasion);
-  const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select');
+  const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
   if (meaningful.length === 0) return true;
   return meaningful.some((f) => {
     const v = data[f.key];

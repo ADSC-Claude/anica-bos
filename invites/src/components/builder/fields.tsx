@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
 import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
@@ -175,6 +175,8 @@ function FieldInput({
       return <ColorsInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
     case 'swatches':
       return <SwatchesInput field={field} value={Array.isArray(value) ? (value as string[]) : []} onChange={onChange} />;
+    case 'styles':
+      return <StylesInput field={field} value={String(value ?? '')} onChange={onChange} />;
     case 'checks':
       return <ChecksInput field={field} value={Array.isArray(value) ? (value as string[]) : typeof value === 'string' && value ? [value] : []} onChange={onChange} sibling={sibling} />;
     case 'person':
@@ -182,6 +184,89 @@ function FieldInput({
     case 'list':
       return <ListInput field={field} value={Array.isArray(value) ? (value as Record<string, unknown>[]) : []} onChange={onChange} lang={lang} invitationId={invitationId} limit={limit} />;
   }
+}
+
+/**
+ * A select whose options are pictures of themselves.
+ *
+ * The cover photograph's treatments cannot be chosen from a list of words —
+ * "oval, double line" tells a client nothing about what their invitation will
+ * look like, and the one that matters most, having no photograph on the cover
+ * at all, does not read as a choice when it is an empty entry in a dropdown.
+ * So each option is drawn: a little page with the words on it and the frame the
+ * option would put the photograph in. Nothing is loaded to draw them; they are
+ * boxes and radii, so they cost nothing and cannot 404.
+ *
+ * The first tile is the blank value, which is what an untouched invitation
+ * holds and means "whatever this design was drawn to do" — the select this
+ * replaces offered the same thing as a dash.
+ */
+function StylesInput({ field, value, onChange }: { field: Field; value: string; onChange: (v: string) => void }) {
+  const options = field.options?.some((o) => o.value === '') ? field.options : [{ value: '', label: "The design's own" }, ...(field.options ?? [])];
+  return (
+    <div>
+      <Label field={field} />
+      <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 [&>button]:min-w-0">
+        {options.map((o) => {
+          const on = value === o.value;
+          return (
+            <button
+              key={o.value || 'default'}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(o.value)}
+              // min-w-0: a grid item's default min-width is its content, so a
+              // two-word label would push the tile past its column and over
+              // the next one.
+              className={`min-w-0 rounded-xl border p-1.5 text-left transition ${on ? 'border-[color:var(--color-ink-700)] bg-[color:var(--color-sand-100)] shadow-sm' : 'border-[color:var(--color-sand-200)] hover:border-[color:var(--color-sand-300)]'}`}
+            >
+              <StyleThumb kind={o.value} />
+              <span className="mt-1 block break-words text-[11px] leading-tight text-[color:var(--color-ink-700)]">{o.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** One option, drawn: a page, the words on it, and where the photograph goes. */
+function StyleThumb({ kind }: { kind: string }) {
+  // the page's own colours, close enough to a pale design ground to read as one
+  const ink = 'var(--color-ink-500)';
+  const photo = 'color-mix(in srgb, var(--color-ink-500) 38%, transparent)';
+  const line = (w: string) => <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: ink, opacity: 0.55, margin: '0 auto' }} />;
+  const frame: Record<string, CSSProperties> = {
+    arch: { width: '58%', aspectRatio: '4 / 5', borderRadius: '999px 999px 3px 3px' },
+    oval: { width: '52%', aspectRatio: '3 / 4', borderRadius: '50%', outline: `1px solid ${ink}`, outlineOffset: 2 },
+    round: { width: '46%', aspectRatio: '1 / 1', borderRadius: '50%' },
+    card: { width: '48%', aspectRatio: '4 / 5', borderRadius: 2, transform: 'rotate(-4deg)', boxShadow: '0 2px 4px rgba(0,0,0,0.18)' },
+  };
+  return (
+    <span
+      aria-hidden
+      className="relative flex w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]"
+      style={{ aspectRatio: '3 / 5', padding: '10% 8%' }}
+    >
+      {kind === 'veil' && (
+        <span
+          style={{
+            position: 'absolute', left: '50%', top: '42%', translate: '-50% -50%', width: '96%', height: '62%',
+            background: photo, borderRadius: '50%', filter: 'blur(5px)', opacity: 0.85,
+          }}
+        />
+      )}
+      {kind === '' && (
+        <span style={{ width: '52%', aspectRatio: '4 / 5', border: `1px dashed ${ink}`, borderRadius: 4, opacity: 0.5, marginBottom: 4 }} />
+      )}
+      {frame[kind] && <span style={{ background: photo, marginBottom: 4, ...frame[kind] }} />}
+      <span className="relative w-full">
+        {line('62%')}
+        <span style={{ display: 'block', height: 5 }} />
+        {line('44%')}
+      </span>
+    </span>
+  );
 }
 
 function ImageInput({ field, value, onChange, invitationId }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string }) {

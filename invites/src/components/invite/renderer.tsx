@@ -204,15 +204,17 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
   // framed above them as an arch, an oval, a medallion or a tucked card.
   //
-  // Baby Blue carries it one way, the tucked card. Its cover is a single
-  // screen of sky with the child's name in it, and of the five that is the one
-  // that sits on sky: the veil is a wash of Capiz's own paper, and the arch,
-  // the oval and the medallion are drawn in Capiz's gold. A card leaning above
-  // the name reads as a photograph somebody set down there, which is what this
-  // cover has room for. So the picker still belongs to Capiz, and a christening
-  // that names a style it cannot use gets the card rather than nothing.
-  const portrait = format && isPaged(layout) && photo;
-  const portraitStyle = layout === 'babyblue' ? 'card' : str(cover, 'photoStyle') || 'veil';
+  // Baby Blue carries all five as well, in its own light: the frames are drawn
+  // in var(--inv-accent), which is this design's soft blue rather than Capiz's
+  // gold, and globals.css gives each one a shade of navy and a size that keeps
+  // the one-screen cover. Its own default is the tucked card, which is the one
+  // that reads most like a photograph somebody set down on the sky.
+  // Left alone, each design uses the treatment it was drawn for; "none" is the
+  // client saying they want the cover to be the design alone. The photograph
+  // they uploaded is still the link preview and still opens the photos page —
+  // this decides the cover and nothing else.
+  const portraitStyle = str(cover, 'photoStyle') || (layout === 'babyblue' ? 'card' : 'veil');
+  const portrait = format && isPaged(layout) && photo && portraitStyle !== 'none';
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}

@@ -112,9 +112,12 @@ export function Builder({
     });
   }
 
+  // One column on a phone, three on a desk. Every column is min-w-0: the
+  // section pills are a row that scrolls sideways on a phone, and without it
+  // their full width would set the page's, zooming the whole form out.
   return (
-    <div className="grid gap-6 lg:grid-cols-[14rem_1fr_22rem]">
-      <nav aria-label="Sections" className="lg:sticky lg:top-4 lg:self-start">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[14rem_minmax(0,1fr)_22rem]">
+      <nav aria-label="Sections" className="min-w-0 lg:sticky lg:top-4 lg:self-start">
         <div className="mb-2 flex items-center justify-between text-xs text-[color:var(--color-ink-500)]">
           <span>{doneCount} of {total} sections done</span>
           <span>{Math.round((doneCount / Math.max(1, total)) * 100)}%</span>
@@ -144,7 +147,7 @@ export function Builder({
         </ul>
       </nav>
 
-      <section>
+      <section className="min-w-0">
         <div className="mb-4 space-y-2">
           {closed && window ? (
             <Notice tone="warn">Changes closed on {when(window.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(window.finalAt)}. Message us for anything urgent.</Notice>
@@ -195,7 +198,7 @@ export function Builder({
         )}
       </section>
 
-      <aside className="lg:sticky lg:top-4 lg:self-start">
+      <aside className="min-w-0 lg:sticky lg:top-4 lg:self-start">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--color-ink-500)]">Live preview</p>
           <div className="flex gap-1 text-xs">

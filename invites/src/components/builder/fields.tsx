@@ -188,8 +188,8 @@ function ImageInput({ field, value, onChange, invitationId }: { field: Field; va
       <Label field={field} />
       <div className="flex items-start gap-3">
         {value ? <img src={value} alt="" className="h-20 w-20 rounded-lg border border-[color:var(--color-sand-200)] object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[color:var(--color-sand-300)] text-xs text-[color:var(--color-ink-500)]">No photo</div>}
-        <div className="flex-1 space-y-2">
-          <input ref={input} type="file" accept="image/*" className="field text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        <div className="min-w-0 flex-1 space-y-2">
+          <input ref={input} type="file" accept="image/*" className="field max-w-full text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
           <input type="url" className="field text-xs" placeholder="…or paste an image link" value={value.startsWith('/uploads/') ? '' : value} onChange={(e) => onChange(e.target.value)} />
           {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>Remove</button>}
           {busy && <p className="hint">Uploading…</p>}

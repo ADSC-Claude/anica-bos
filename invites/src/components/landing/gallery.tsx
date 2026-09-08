@@ -9,6 +9,7 @@ import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { formatPesoShort } from '@/lib/money';
+import { OpeningPreview } from './opening-preview';
 
 export type { GalleryTemplate };
 
@@ -65,7 +66,7 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {shown.map((t) => (
           <article key={t.id} className="card group overflow-hidden">
-            <CoverCard t={t} />
+            <CoverCard t={t} premiumPriceCents={premiumPriceCents} />
             <div className="p-3">
               <p className="text-sm font-semibold">{t.name} {t.featured && <span className="pill pill-info">Popular</span>}</p>
               <p className="text-xs text-[color:var(--color-ink-500)]">{OCCASIONS.find((o) => o.key === t.occasion)?.label} · {packageLine(t)}</p>
@@ -96,20 +97,13 @@ function hasClip(t: GalleryTemplate): boolean {
  * lands on, the shape of a phone, so the card reads as the invitation and not
  * as a square swatch. The pages under the cover are unveiled for the customer
  * after they choose. A design that has a premium opening clip carries a small
- * pill on the cover; a tap plays the clip in the card, sound and all, since
- * the tap is the gesture that allows it, and the cover is back when it ends.
+ * pill on the cover; a tap opens the preview — the clip at phone size with
+ * the sample words on the card and the cover fading in, as a guest gets it.
  * A design with no cover image yet shows its name on its palette.
  */
-function CoverCard({ t }: { t: GalleryTemplate }) {
-  const [playing, setPlaying] = useState(false);
+function CoverCard({ t, premiumPriceCents }: { t: GalleryTemplate; premiumPriceCents?: number }) {
+  const [preview, setPreview] = useState(false);
   const clip = hasClip(t);
-  if (playing && clip) {
-    return (
-      <div className="relative aspect-[9/16] overflow-hidden bg-black">
-        <video src={t.openingVideoUrl} poster={t.openingPosterUrl} className="absolute inset-0 h-full w-full object-cover" autoPlay playsInline controls onEnded={() => setPlaying(false)} />
-      </div>
-    );
-  }
   return (
     <div className="relative aspect-[9/16] overflow-hidden" style={{ background: `linear-gradient(160deg, ${t.palette.bg} 0%, ${t.palette.accent2} 100%)` }}>
       {t.thumbnailUrl ? (
@@ -123,11 +117,12 @@ function CoverCard({ t }: { t: GalleryTemplate }) {
         </div>
       )}
       {clip && (
-        <button type="button" onClick={() => setPlaying(true)} className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white shadow backdrop-blur transition hover:bg-black/75" aria-label={`Watch the premium opening of ${t.name}`}>
+        <button type="button" onClick={() => setPreview(true)} className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white shadow backdrop-blur transition hover:bg-black/75" aria-label={`Watch the premium opening of ${t.name}`}>
           <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
           Premium opening
         </button>
       )}
+      {preview && clip && <OpeningPreview t={t} priceCents={premiumPriceCents} onClose={() => setPreview(false)} />}
     </div>
   );
 }

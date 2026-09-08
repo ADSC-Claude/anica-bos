@@ -160,7 +160,7 @@ export const OPENINGS: OpeningDef[] = [
  * names, date and countdown stay live text over the top, so a nickname changed
  * at 11pm reads correctly on the next reload. A clip drawn for one couple is
  * attached by staff against their job (dfyOpeningAction) and overrides the
- * design's — so it needs a DfyJob, which means a Done-For-You or Priority
+ * design's — so it needs a DfyJob, which means a Done-For-You or Assisted
  * order; a DIY customer who buys the add-on gets the design's shared clip.
  */
 export const OPENING_BY_KEY: Record<OpeningKey, OpeningDef> = Object.fromEntries(

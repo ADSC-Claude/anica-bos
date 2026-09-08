@@ -68,8 +68,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <div className="grid grid-cols-2 gap-2">
             <Field label="DFY turnaround (working days)" name="dfy.turnaroundDays" type="number" defaultValue={s['dfy.turnaroundDays']} />
             <Field label="DFY revision rounds" name="dfy.revisions" type="number" defaultValue={s['dfy.revisions']} />
-            <Field label="Priority turnaround (days)" name="concierge.turnaroundDays" type="number" defaultValue={s['concierge.turnaroundDays']} />
-            <Field label="Priority revision rounds" name="concierge.revisions" type="number" defaultValue={s['concierge.revisions']} />
+            <Field label="Assisted turnaround (days)" name="concierge.turnaroundDays" type="number" defaultValue={s['concierge.turnaroundDays']} />
+            <Field label="Assisted revision rounds" name="concierge.revisions" type="number" defaultValue={s['concierge.revisions']} />
             <Field label="Rush publish (hours)" name="rush.turnaroundHours" type="number" defaultValue={s['rush.turnaroundHours']} />
           </div>
           <Save keys={SERVICE} />

@@ -4,6 +4,7 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { listGuests } from '@/lib/guests';
 import { hasFeature } from '@/lib/tiers';
+import { seatsHeld, replyState } from '@/lib/seats';
 import { PageHeader } from '@/components/ui';
 import { CheckInDesk } from './desk';
 
@@ -19,7 +20,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
       <PageHeader title="Event-day check-in" subtitle="Scan a guest's QR with any camera app, paste the link here, or search by name. Works on a phone at the door." />
-      <CheckInDesk invitationId={inv.id} guests={guests.map((g) => ({ id: g.id, name: g.name, groupName: g.groupName, seats: g.rsvps[0]?.response === 'ACCEPT' ? g.rsvps[0].seats : g.seatsAllotted, table: g.table?.name ?? '', checkedIn: Boolean(g.checkedInAt), token: g.token }))} />
+      <CheckInDesk invitationId={inv.id} guests={guests.map((g) => ({ id: g.id, name: g.name, groupName: g.groupName, seats: seatsHeld(g.seatsAllotted, g.rsvps[0]), state: replyState(g.rsvps[0]), table: g.table?.name ?? '', checkedIn: Boolean(g.checkedInAt), token: g.token }))} />
     </>
   );
 }

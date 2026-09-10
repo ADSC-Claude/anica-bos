@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
 import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
 import { addGuest, updateGuest, deleteGuest, importGuests, saveTable, deleteTable, assignTable, checkIn, type GuestInput } from '@/lib/guests';
+import { seatsHeld, replyState } from '@/lib/seats';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
@@ -216,7 +217,11 @@ export async function checkInAction(invitationId: string, tokenOrId: string, und
     const inv = await ownInvitation(user, invitationId);
     const r = await checkIn(user, inv, tokenOrId.trim().split('/').pop() ?? '', undo);
     refresh(invitationId);
-    return { name: r.guest.name, table: r.guest.table?.name ?? '', alreadyIn: r.alreadyIn, seats: r.guest.seatsAllotted };
+    // seatsAllotted was reported here regardless of the reply, so the door was
+    // told the number set aside rather than the number confirmed: a guest
+    // offered three places who is bringing one had three laid for them, and a
+    // guest who declined and came anyway had their full allotment.
+    return { name: r.guest.name, table: r.guest.table?.name ?? '', alreadyIn: r.alreadyIn, seats: seatsHeld(r.guest.seatsAllotted, r.guest.rsvps[0]), state: replyState(r.guest.rsvps[0]) };
   });
 }
 

@@ -221,10 +221,12 @@ export async function checkIn(user: SessionUser, invitation: { id: string; tier:
   if (!hasFeature(invitation.tier, 'checkin')) throw new HttpError(403, `QR check-in is included in the ${TIER_LABELS.COMPLETE} package.`);
   const guest = await prisma.guest.findFirst({ where: { invitationId: invitation.id, OR: [{ token: tokenOrId }, { id: tokenOrId }] }, include: { table: true } });
   if (!guest) throw new HttpError(404, 'No guest matches that code.');
+  // The reply comes back with them: what the desk announces is the seats they
+  // confirmed, not the seats set aside, and it says whether they declined.
   const updated = await prisma.guest.update({
     where: { id: guest.id },
     data: undo ? { checkedInAt: null, checkedInBy: '' } : { checkedInAt: guest.checkedInAt ?? new Date(), checkedInBy: user.name },
-    include: { table: true },
+    include: { table: true, rsvps: { orderBy: { updatedAt: 'desc' }, take: 1 } },
   });
   return { guest: updated, alreadyIn: Boolean(guest.checkedInAt) && !undo };
 }

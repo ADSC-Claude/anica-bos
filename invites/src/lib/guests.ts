@@ -7,6 +7,7 @@ import { hasFeature, TIER_LABELS } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
+import { attendeesOf, attendeeLine, type Attendee } from './attendees';
 import { guestGroups } from './sections';
 import { replyIdentity } from './names';
 import type { SessionUser } from './auth';
@@ -187,7 +188,7 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
         g.email,
         r ? (r.response === 'ACCEPT' ? 'Accepted' : 'Declined') : 'No response',
         r?.response === 'ACCEPT' ? r.seats : 0,
-        r ? (Array.isArray(r.attendees) ? (r.attendees as string[]).join('; ') : '') : '',
+        r ? attendeesOf(r.attendees).map((a) => attendeeLine(a)).join('; ') : '',
         r?.mealChoice ?? '',
         r?.dietary ?? '',
         r?.message ?? '',
@@ -209,7 +210,7 @@ export async function rsvpsCsv(invitationId: string): Promise<string> {
       r.groupName,
       r.response === 'ACCEPT' ? 'Accepted' : 'Declined',
       r.seats,
-      Array.isArray(r.attendees) ? (r.attendees as string[]).join('; ') : '',
+      attendeesOf(r.attendees).map((a) => attendeeLine(a)).join('; '),
       r.mealChoice,
       r.dietary,
       r.message,
@@ -312,7 +313,7 @@ export async function rsvpSheet(invitationId: string) {
   // how they wrote it. Alphabetical would put their ninongs behind everyone.
   const order = invitation ? guestGroups(invitation.occasion, contentOf(invitation.content).rsvp) : [];
 
-  type Row = { name: string; alias: string; group: string; table: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
+  type Row = { name: string; alias: string; group: string; table: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: Attendee[] };
   const rows: Row[] = rsvps.map((r) => ({
     // The couple's name for them, not whatever they typed over it — see
     // src/lib/names.ts. A coordinator holding this beside the seating plan has
@@ -325,7 +326,7 @@ export async function rsvpSheet(invitationId: string) {
     dietary: r.dietary,
     note: r.message,
     state: r.response === 'ACCEPT' ? 'ACCEPT' : 'DECLINE',
-    attendees: Array.isArray(r.attendees) ? (r.attendees as string[]) : [],
+    attendees: attendeesOf(r.attendees),
   }));
 
   // Grouped only if the couple asked the question. Everyone who skipped it, and

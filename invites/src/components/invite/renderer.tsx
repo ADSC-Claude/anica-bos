@@ -8,6 +8,7 @@ import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVE
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
+import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
@@ -857,7 +858,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
   if (personal && guest) note = note.replace('{n}', String(seatsCap)).replace('{date}', deadline ? formatDate(deadline) : '');
   else note = stripReservedSentence(note).replace('{date}', deadline ? formatDate(deadline) : '');
   const policy = str(data, 'policy') !== 'none' ? str(data, 'policyText') : '';
-  const existing = personal && guest?.rsvps[0] ? { ...guest.rsvps[0], attendees: Array.isArray(guest.rsvps[0].attendees) ? (guest.rsvps[0].attendees as string[]) : [] } : null;
+  const existing = personal && guest?.rsvps[0] ? { ...guest.rsvps[0], attendees: attendeesOf(guest.rsvps[0].attendees) } : null;
   const mealChoices = hasFeature(inv.tier, 'rsvp.meal') ? rows<{ label: string }>(data, 'mealChoices').map((m) => m.label) : [];
   // Every package asks this one: it costs the guest a tap and it is what turns
   // the printed headcount sheet into something a coordinator can work from.
@@ -898,11 +899,14 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           groups={groups}
           defaultGroup={personal && guest ? guest.groupName : ''}
           existing={existing}
+          relations={RELATIONS.map((r) => ({ value: r, label: relationLabel(r, lang) }))}
           labels={{
             name: t(lang, 'rsvp.name'),
             accept: t(lang, 'rsvp.accept'),
             decline: t(lang, 'rsvp.decline'),
             seats: t(lang, 'rsvp.seats'),
+            relation: t(lang, 'rsvp.relation'),
+            relationBlank: t(lang, 'rsvp.relationBlank'),
             companions: t(lang, 'rsvp.companions'),
             companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { plateChars } from '@/lib/openings';
+import type { Attendee } from '@/lib/attendees';
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
@@ -466,8 +467,10 @@ export type RsvpFormProps = {
    * field blank here.
    */
   defaultGroup?: string;
-  existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: string[]; mealChoice: string; dietary: string; message: string; groupName: string } | null;
-  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group', string>;
+  existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: Attendee[]; mealChoice: string; dietary: string; message: string; groupName: string } | null;
+  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group' | 'relation' | 'relationBlank', string>;
+  /** The relationships on offer, already in the guest's language. */
+  relations: { value: string; label: string }[];
 };
 
 export function RsvpForm(p: RsvpFormProps) {
@@ -475,10 +478,16 @@ export function RsvpForm(p: RsvpFormProps) {
   const [seats, setSeats] = useState(p.existing?.seats || Math.min(p.maxSeats, 1));
   // The people the guest is bringing. What is saved is the whole party, the
   // guest first, so an earlier answer is read back without their own name.
-  const [companions, setCompanions] = useState<string[]>(() => {
+  const [companions, setCompanions] = useState<Attendee[]>(() => {
     const saved = p.existing?.attendees ?? [];
-    return saved[0] && saved[0] === p.defaultName ? saved.slice(1) : saved;
+    return saved[0] && saved[0].name === p.defaultName ? saved.slice(1) : saved;
   });
+  const setCompanion = (i: number, patch: Partial<Attendee>) =>
+    setCompanions((a) => {
+      const n = [...a];
+      n[i] = { ...{ name: '', relation: '' }, ...n[i], ...patch };
+      return n;
+    });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -504,7 +513,12 @@ export function RsvpForm(p: RsvpFormProps) {
       name: String(fd.get('name') ?? ''),
       response,
       seats: response === 'ACCEPT' ? seats : 0,
-      attendees: response === 'ACCEPT' && seats > 1 ? [String(fd.get('name') ?? ''), ...companions.slice(0, seats - 1)] : [],
+      // The guest heads their own party and is nobody's plus one, so they go in
+      // without a relationship; the rest carry what was picked beside the name.
+      attendees:
+        response === 'ACCEPT' && seats > 1
+          ? [{ name: String(fd.get('name') ?? ''), relation: '' }, ...companions.slice(0, seats - 1).filter((c) => c.name.trim())]
+          : [],
       groupName: String(fd.get('groupName') ?? ''),
       mealChoice: String(fd.get('mealChoice') ?? ''),
       dietary: String(fd.get('dietary') ?? ''),
@@ -571,9 +585,36 @@ export function RsvpForm(p: RsvpFormProps) {
       {response === 'ACCEPT' && p.collectAttendees && seats > 1 && (
         <div>
           <span className="inv-label">{p.labels.companions}</span>
-          <div className="space-y-2">
+          <div className="space-y-4">
             {Array.from({ length: seats - 1 }, (_, i) => (
-              <input key={i} className="inv-field" placeholder={p.labels.companion.replace('{n}', String(i + 1))} value={companions[i] ?? ''} autoComplete="off" onChange={(e) => setCompanions((a) => { const n = [...a]; n[i] = e.target.value; return n; })} />
+              /*
+               * Stacked, not side by side. This card is the width of a phone
+               * whatever it is opened on — a hair under 300px — and a name and
+               * a pull-down sharing that leaves too little of each. The
+               * relationship sits directly under the name it belongs to, and
+               * the pairs are spaced apart so it is plain which goes with which.
+               */
+              <div key={i} className="space-y-1">
+                <input
+                  className="inv-field"
+                  placeholder={p.labels.companion.replace('{n}', String(i + 1))}
+                  value={companions[i]?.name ?? ''}
+                  autoComplete="off"
+                  aria-label={p.labels.companion.replace('{n}', String(i + 1))}
+                  onChange={(e) => setCompanion(i, { name: e.target.value })}
+                />
+                <select
+                  className="inv-field"
+                  value={companions[i]?.relation ?? ''}
+                  aria-label={p.labels.relation}
+                  onChange={(e) => setCompanion(i, { relation: e.target.value })}
+                >
+                  <option value="">{p.labels.relationBlank}</option>
+                  {p.relations.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
             ))}
           </div>
         </div>

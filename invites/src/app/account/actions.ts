@@ -207,6 +207,33 @@ export async function importGuestFileAction(invitationId: string, form: FormData
   });
 }
 
+/**
+ * A spreadsheet read into rows, for the repeatable parts of an invitation —
+ * the sponsors, the programme, the FAQ, the moments in a story.
+ *
+ * It returns the grid rather than saving anything. The section forms hold their
+ * own edits until the customer saves the section, and an upload that wrote
+ * straight through would be the one change on the page that could not be undone
+ * by walking away. Parsing is here rather than in the browser because reading
+ * an .xlsx wants Node's inflate.
+ */
+export async function parseSheetAction(invitationId: string, form: FormData) {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    const file = form.get('file');
+    if (!(file instanceof File) || file.size === 0) throw new HttpError(400, 'Choose a file first.');
+    if (file.size > 5_000_000) throw new HttpError(400, 'That file is larger than 5 MB — is it the right one?');
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (!looksLikeXlsx(bytes)) return parseCsv(bytes.toString('utf8'));
+    try {
+      return readXlsx(bytes);
+    } catch {
+      throw new HttpError(400, 'That looks like a spreadsheet but could not be read. Save it as CSV and try again.');
+    }
+  });
+}
+
 export async function importGuestsAction(invitationId: string, text: string) {
   const user = await requireUser();
   return action(async () => {

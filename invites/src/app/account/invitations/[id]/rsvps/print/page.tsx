@@ -105,6 +105,7 @@ export default async function RsvpPrintPage({ params }: { params: Promise<{ id: 
                     <td className="sheet-tick"><span className="sheet-box" /></td>
                     <td>
                       {r.name}
+                      {r.alias && <span className="sheet-with">replied as {r.alias}</span>}
                       {!showSeats && r.state === 'DECLINE' && <span className="sheet-with">Cannot make it</span>}
                       {r.attendees.length > 1 && <span className="sheet-with">with {r.attendees.slice(1).filter(Boolean).join(', ')}</span>}
                     </td>

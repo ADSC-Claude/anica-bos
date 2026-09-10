@@ -8,6 +8,7 @@ import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
 import { guestGroups } from './sections';
+import { replyIdentity } from './names';
 import type { SessionUser } from './auth';
 import type { Tier } from '@prisma/client';
 
@@ -165,9 +166,10 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
 export async function rsvpsCsv(invitationId: string): Promise<string> {
   const rsvps = await prisma.rsvp.findMany({ where: { invitationId }, include: { guest: true }, orderBy: { createdAt: 'desc' } });
   return toCsv(
-    ['Name', 'Group', 'Response', 'Seats', 'Attendees', 'Meal', 'Dietary', 'Message', 'Phone', 'Email', 'Via personal link', 'Responded at'],
+    ['Name', 'Replied as', 'Group', 'Response', 'Seats', 'Attendees', 'Meal', 'Dietary', 'Message', 'Phone', 'Email', 'Via personal link', 'Responded at'],
     rsvps.map((r) => [
-      r.name,
+      replyIdentity(r.name, r.guest?.name).name,
+      replyIdentity(r.name, r.guest?.name).alias,
       r.groupName,
       r.response === 'ACCEPT' ? 'Accepted' : 'Declined',
       r.seats,
@@ -255,7 +257,7 @@ export async function rsvpSheet(invitationId: string) {
   const [rsvps, guests, summary, invitation] = await Promise.all([
     prisma.rsvp.findMany({
       where: { invitationId },
-      include: { guest: { select: { table: { select: { name: true } } } } },
+      include: { guest: { select: { name: true, table: { select: { name: true } } } } },
       orderBy: [{ response: 'asc' }, { name: 'asc' }],
     }),
     // Only ever populated on an invitation that came through the guest list
@@ -274,9 +276,12 @@ export async function rsvpSheet(invitationId: string) {
   // how they wrote it. Alphabetical would put their ninongs behind everyone.
   const order = invitation ? guestGroups(invitation.occasion, contentOf(invitation.content).rsvp) : [];
 
-  type Row = { name: string; group: string; table: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
+  type Row = { name: string; alias: string; group: string; table: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
   const rows: Row[] = rsvps.map((r) => ({
-    name: r.name,
+    // The couple's name for them, not whatever they typed over it — see
+    // src/lib/names.ts. A coordinator holding this beside the seating plan has
+    // to be able to find the same person on both.
+    ...replyIdentity(r.name, r.guest?.name),
     group: r.groupName,
     table: r.guest?.table?.name ?? '',
     seats: r.response === 'ACCEPT' ? r.seats : 0,
@@ -307,6 +312,9 @@ export async function rsvpSheet(invitationId: string) {
     return i === -1 ? order.length : i;
   };
   groups.sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  // The query ordered by the typed name; the sheet prints the couple's. Sort by
+  // what a reader's eye will follow down the page.
+  for (const g of groups) g.rows.sort((x, y) => x.name.localeCompare(y.name));
   const grouped = groups.length > 1 || groups[0]?.name !== 'Ungrouped';
 
   const meals = new Map<string, number>();

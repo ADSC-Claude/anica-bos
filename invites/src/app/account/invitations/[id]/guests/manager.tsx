@@ -1,20 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
+import { seatsHeld } from '@/lib/seats';
 import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, saveTableAction, deleteTableAction, assignTableAction } from '@/app/account/actions';
 
 type Guest = { id: string; name: string; salutation: string; groupName: string; seatsAllotted: number; plusOneAllowed: boolean; phone: string; email: string; notes: string; token: string; tableId: string | null; checkedIn: boolean; response: { response: 'ACCEPT' | 'DECLINE'; seats: number } | null };
 type Table = { id: string; name: string; capacity: number };
 
-/**
- * How many seats a guest is holding at their table.
- *
- * Before they answer, the seats the couple set aside — that is the number to
- * plan against. Once they accept, what they actually confirmed. Once they
- * decline, nothing: they used to keep their allotment, so a table of ten with
- * two regrets still read as full and the couple could not give the places away.
- */
-const seatsHeld = (g: Guest) => (g.response ? (g.response.response === 'ACCEPT' ? g.response.seats : 0) : g.seatsAllotted);
+const guestSeats = (g: Guest) => seatsHeld(g.seatsAllotted, g.response);
 
 export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating, tables, guests }: { invitationId: string; slug: string; baseUrl: string; reminder: string; canSeating: boolean; tables: Table[]; guests: Guest[] }) {
   const [pending, start] = useTransition();
@@ -38,7 +31,7 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
     });
 
   const at = (tableId: string) => guests.filter((g) => g.tableId === tableId);
-  const held = (tableId: string) => at(tableId).reduce((n, g) => n + seatsHeld(g), 0);
+  const tableSeats = (tableId: string) => at(tableId).reduce((n, g) => n + guestSeats(g), 0);
   const unseated = guests.filter((g) => !g.tableId);
 
   const link = (g: Guest) => `${baseUrl}/${g.token}`;
@@ -141,7 +134,7 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
                 <input type="hidden" name="id" value={t.id} />
                 <input name="name" defaultValue={t.name} className="field min-h-0 w-28 py-1 text-sm" />
                 <input name="capacity" type="number" defaultValue={t.capacity} className="field min-h-0 w-16 py-1 text-sm" />
-                <span className={`text-xs ${held(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{held(t.id)}/{t.capacity}</span>
+                <span className={`text-xs ${tableSeats(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{tableSeats(t.id)}/{t.capacity}</span>
                 <button type="submit" className="btn btn-ghost btn-sm">Save</button>
                 <button type="button" className="btn btn-ghost btn-sm text-[color:var(--bad)]" onClick={() => run(() => deleteTableAction(invitationId, t.id))}>✕</button>
               </form>
@@ -172,7 +165,7 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
               <div key={t.id} className="rounded-xl border border-[color:var(--color-sand-200)] p-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="font-semibold">{t.name}</span>
-                  <span className={`text-xs ${held(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{held(t.id)}/{t.capacity} seats</span>
+                  <span className={`text-xs ${tableSeats(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{tableSeats(t.id)}/{t.capacity} seats</span>
                 </div>
                 {at(t.id).length === 0 ? (
                   <p className="mt-2 text-sm text-[color:var(--color-ink-500)]">Nobody here yet.</p>

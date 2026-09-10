@@ -659,11 +659,17 @@ export function RsvpForm(p: RsvpFormProps) {
       )}
 
       {/*
-        * Both required, and both carry a line saying what they are for.
-        * They are the only two things asked here that are not about the day
-        * itself, so a guest who is not told why reads them as the form being
-        * nosy. They are also the whole of the couple's reach: a reminder text
-        * and a confirmation e-mail have nowhere to go without them.
+        * The number is required; the address is taken if it is offered.
+        *
+        * The address is not marked optional, and that is deliberate rather than
+        * an oversight: "(optional)" beside a field is read as "skip me", and a
+        * guest who skips it costs the couple the only way of reaching them that
+        * is not a text message. It is asked plainly instead, and a guest who has
+        * no address simply carries on — nothing stops them.
+        *
+        * Both carry a line saying what they are for. They are the only two
+        * things asked here that are not about the day itself, so a guest who is
+        * not told why reads them as the form being nosy.
         */}
       <div>
         <label className="inv-label" htmlFor="rsvp-phone">{p.labels.phone}</label>
@@ -673,7 +679,7 @@ export function RsvpForm(p: RsvpFormProps) {
 
       <div>
         <label className="inv-label" htmlFor="rsvp-email">{p.labels.email}</label>
-        <input id="rsvp-email" name="email" type="email" className="inv-field" inputMode="email" autoComplete="email" required defaultValue={p.existing?.email ?? ''} />
+        <input id="rsvp-email" name="email" type="email" className="inv-field" inputMode="email" autoComplete="email" defaultValue={p.existing?.email ?? ''} />
         <p className="inv-muted mt-1 text-xs">{p.labels.emailHint}</p>
       </div>
 

@@ -4,9 +4,10 @@ import { rsvpSchema } from '../src/lib/rsvp';
 import { guestTemplateCsv } from '../src/lib/guests';
 import { parseCsv } from '../src/lib/csv';
 
-// A mobile number and an e-mail address are the couple's only reach: a
-// reminder text and a confirmation have nowhere to go without them, and the
-// SMS and e-mail add-ons are sold on the assumption they exist.
+// A mobile number and an e-mail address are the couple's only reach, and the
+// SMS and e-mail add-ons are sold on the assumption they exist. The number is
+// required; the address is taken if it is offered — but it is never labelled
+// optional, because "(optional)" beside a field is read as "skip me".
 const reply = (over: Record<string, unknown> = {}) => ({
   slug: 'juan-and-maria',
   name: 'Maria Santos',
@@ -21,19 +22,28 @@ test('a reply carries a number and an address', () => {
   assert.equal(rsvpSchema.safeParse(reply()).success, true);
 });
 
-test('a reply with neither is refused', () => {
-  for (const missing of [{ phone: '' }, { email: '' }, { phone: '', email: '' }]) {
+test('a reply with no number is refused', () => {
+  for (const missing of [{ phone: '' }, { phone: undefined }]) {
     assert.equal(rsvpSchema.safeParse(reply(missing)).success, false, JSON.stringify(missing));
   }
 });
 
-test('the refusal says which one is missing, in words a guest can act on', () => {
-  const r = rsvpSchema.safeParse(reply({ email: '' }));
+test('the refusal says what is missing, in words a guest can act on', () => {
+  const r = rsvpSchema.safeParse(reply({ phone: '' }));
   assert.equal(r.success, false);
-  assert.match(r.error!.issues[0].message, /e-mail/i);
+  assert.match(r.error!.issues[0].message, /mobile number/i);
 });
 
-test('an address that is not one is refused', () => {
+// A guest with no address, or no wish to leave one, still gets to reply. The
+// headcount is worth more than the address.
+test('a reply with no address stands', () => {
+  for (const none of [{ email: '' }, { email: undefined }, { email: '   ' }]) {
+    assert.equal(rsvpSchema.safeParse(reply(none)).success, true, JSON.stringify(none));
+  }
+});
+
+// Blank is a decision; four characters and no @ is a typo.
+test('an address that is not one is still refused', () => {
   for (const bad of ['maria', 'maria@', '@example.com', 'maria example.com']) {
     assert.equal(rsvpSchema.safeParse(reply({ email: bad })).success, false, bad);
   }

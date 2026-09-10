@@ -453,6 +453,24 @@ table.data tr:hover td {
   grid-template-columns: 1fr 1fr;
   gap: 1rem 1.5rem;
 }
+/*
+ * The wedding party, in matched pairs: the groom's side and the bride's on the
+ * same line, so a guest reads across as well as down. Each row's two cells sit
+ * to the top of it, or a long list on one side would centre its opposite number
+ * against nothing.
+ *
+ * The rule down the middle is drawn on the whole block rather than on each
+ * cell, which is what .inv-two does. Per-cell it would come out as one short
+ * stroke per row with gaps between them; here it is one line the height of the
+ * party, however many rows there happen to be.
+ */
+.inv-pairs {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.75rem 1.5rem;
+  align-items: start;
+}
 .inv-names {
   font-size: clamp(2.5rem, 12vw, 4.5rem);
   line-height: 1;
@@ -686,6 +704,13 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-list { gap: 0.15rem; font-size: 1.05rem; }
 .inv[data-paged] .inv-two { gap: 1.25rem 1.25rem; align-items: start; }
 .inv[data-paged] .inv-two > * + * { border-left: 1px solid color-mix(in srgb, var(--inv-ink) 25%, transparent); }
+.inv[data-paged] .inv-pairs::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  border-left: 1px solid color-mix(in srgb, var(--inv-ink) 25%, transparent);
+}
 
 /* --- cards, buttons, fields --- */
 .inv[data-paged] .inv-card {

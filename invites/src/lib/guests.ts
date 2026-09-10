@@ -74,8 +74,16 @@ export async function deleteGuest(invitation: { id: string }, guestId: string) {
  * name, group, seats, phone.
  */
 export async function importGuests(invitation: { id: string; tier: Tier }, text: string): Promise<{ added: number; skipped: number }> {
+  return importGuestRows(invitation, parseCsv(text));
+}
+
+/**
+ * The same import, from rows already parsed — a pasted range, a CSV, or the
+ * first sheet of a workbook. Everything that knows which column is which lives
+ * here, so a new way in only has to produce rows.
+ */
+export async function importGuestRows(invitation: { id: string; tier: Tier }, rows: string[][]): Promise<{ added: number; skipped: number }> {
   requireGuestManager(invitation.tier);
-  const rows = parseCsv(text);
   if (rows.length === 0) return { added: 0, skipped: 0 };
 
   const header = rows[0].map((h) => h.toLowerCase());
@@ -117,6 +125,34 @@ export async function importGuests(invitation: { id: string; tier: Tier }, text:
   }
   if (data.length) await prisma.guest.createMany({ data });
   return { added, skipped };
+}
+
+/**
+ * The blank a couple fills in.
+ *
+ * It is the importer's own column names in its own order, so a file that comes
+ * back is a file that reads: the header row is what `importGuestRows` matches
+ * on, and the example row shows the shape of each column rather than describing
+ * it. Their own group names go underneath, because "Group" means nothing until
+ * you know which words this invitation offers.
+ *
+ * CSV rather than a workbook, and deliberately: Excel and Google Sheets both
+ * open it by double-click, and whichever of the two they save it back as, the
+ * upload reads it.
+ */
+export function guestTemplateCsv(groups: string[]): string {
+  const rows = [
+    ['Mr. & Mrs. Dela Cruz', groups[0] ?? "Bride's family", '2', '0917 123 4567', 'Tito Ben & Tita Let'],
+    ['Ninong Fred', groups[1] ?? 'Principal sponsors', '1', '', 'Ninong Fred'],
+  ];
+  const notes = [
+    [],
+    ['Delete these two example rows before you send this back.'],
+    ['Seats is how many places you are setting aside for that name — a couple is 2.'],
+    ['Greeting is how the invitation addresses them: "Dear ___". Leave it blank to use the name.'],
+    groups.length ? ['Group can be any of:', ...groups] : ['Group can be any word you like — it is how the headcount sheet is sorted.'],
+  ];
+  return toCsv(['Name', 'Group', 'Seats', 'Phone', 'Greeting'], [...rows, ...notes]);
 }
 
 export async function listGuests(invitationId: string) {

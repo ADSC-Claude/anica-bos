@@ -12,6 +12,7 @@ import {
   fieldsFor,
   keepStaffFields,
   publishProblems,
+  readForward,
   rsvpDeadline,
   sectionUnlocked,
   coverImage,
@@ -101,7 +102,9 @@ export const RESERVED_SLUGS = new Set([
 ]);
 
 export function contentOf(raw: unknown): StoredContent {
-  return (raw && typeof raw === 'object' ? raw : {}) as StoredContent;
+  // readForward, not a cast alone: a section whose shape changed since this
+  // invitation was saved is read into the shape the spec now names.
+  return readForward((raw && typeof raw === 'object' ? raw : {}) as StoredContent);
 }
 
 export async function slugAvailable(slug: string, exceptId?: string): Promise<boolean> {

@@ -31,6 +31,9 @@ export default async function RsvpPrintPage({ params }: { params: Promise<{ id: 
   // A couple who never asked how many are coming gets a column of 1s, which is
   // worse than no column at all.
   const showSeats = bool(content.rsvp, 'showSeats');
+  // Only once somebody is actually seated. rsvpSheet works this out; the sheet
+  // never prints a column of dashes for a seating plan nobody drew.
+  const showTables = sheet.seated;
   const where = [venue, time && formatTime(time)].filter(Boolean).join(' · ');
 
   return (
@@ -90,6 +93,7 @@ export default async function RsvpPrintPage({ params }: { params: Promise<{ id: 
                 <tr>
                   <th className="sheet-tick"><span className="sr-only">Arrived</span></th>
                   <th>Name</th>
+                  {showTables && <th className="sheet-seat">Table</th>}
                   {showSeats && <th className="sheet-num">Coming</th>}
                   {showMeals && <th className="sheet-meal">Meal</th>}
                   {showMeals && <th className="sheet-notes">Notes</th>}
@@ -104,6 +108,7 @@ export default async function RsvpPrintPage({ params }: { params: Promise<{ id: 
                       {!showSeats && r.state === 'DECLINE' && <span className="sheet-with">Cannot make it</span>}
                       {r.attendees.length > 1 && <span className="sheet-with">with {r.attendees.slice(1).filter(Boolean).join(', ')}</span>}
                     </td>
+                    {showTables && <td className="sheet-seat">{r.table || '—'}</td>}
                     {showSeats && <td className="sheet-num">{r.state === 'ACCEPT' ? r.seats : '—'}</td>}
                     {showMeals && <td className="sheet-meal">{r.meal}</td>}
                     {showMeals && <td className="sheet-notes sheet-note">{r.dietary}</td>}
@@ -121,7 +126,15 @@ export default async function RsvpPrintPage({ params }: { params: Promise<{ id: 
             Still waiting on
             <span className="sheet-h2-n">{sheet.pending.length} {sheet.pending.length === 1 ? 'guest' : 'guests'}</span>
           </h2>
-          <p className="sheet-pending">{sheet.pending.join(' · ')}</p>
+          <p className="sheet-pending">
+            {sheet.pending.map((g, i) => (
+              <span key={`${g.name}-${i}`}>
+                {i > 0 && ' · '}
+                {g.name}
+                {showTables && g.table && <span className="sheet-note"> ({g.table})</span>}
+              </span>
+            ))}
+          </p>
         </section>
       )}
 

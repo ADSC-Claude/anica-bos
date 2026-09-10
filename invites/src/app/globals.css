@@ -2079,6 +2079,7 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .sheet-num { width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sheet-tick { width: 1.6rem; }
 .sheet-meal { width: 6.5rem; }
+.sheet-seat { width: 7.5rem; }
 .sheet-notes { width: 11rem; }
 .sheet-table td { overflow-wrap: anywhere; }
 /* Ticked off at the door with a pen. */

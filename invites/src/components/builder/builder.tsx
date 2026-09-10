@@ -204,7 +204,7 @@ export function Builder({
             */}
             {hidesWhenEmpty && !section?.filled && !isDone && (
               <p className="mb-3 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] px-3 py-2 text-xs text-[color:var(--color-ink-700)]">
-                Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all. That is fine — you can send it without this part and ask us to add it later.
+                Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all, and that is a perfectly good choice. If you decide you would like it after publishing, we will gladly add it, and it will be counted as one revision round — so it is worth settling now if you can.
               </p>
             )}
             <fieldset disabled={closed} className="min-w-0 border-0 p-0">

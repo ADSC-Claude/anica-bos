@@ -11,7 +11,7 @@ import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
 import { contentOf } from '@/lib/invitations';
 import { publishProblems, sectionsFor, sectionUnlocked, sectionLabel, blankSections, skippedSections } from '@/lib/sections';
-import { changeWindow, doneSections } from '@/lib/progress';
+import { changeWindow, doneSections, scheduleAdvice, PROCESSING_DAYS } from '@/lib/progress';
 import { PageHeader, InvitationPill, Stat, Notice } from '@/components/ui';
 import { PublishControls, ShareBox } from './controls';
 
@@ -24,12 +24,17 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const [summary, recent, job, pair] = await Promise.all([
     rsvpSummary(inv.id),
     prisma.rsvp.findMany({ where: { invitationId: inv.id }, orderBy: { updatedAt: 'desc' }, take: 5 }),
-    prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true } }),
+    prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true, revisionsAllowed: true, revisionsUsed: true } }),
     // The other half of the pair, whichever half this is.
     inv.saveTheDateOfId
       ? prisma.invitation.findUnique({ where: { id: inv.saveTheDateOfId }, select: { id: true, title: true, slug: true, status: true } })
       : prisma.invitation.findUnique({ where: { saveTheDateOfId: inv.id }, select: { id: true, title: true, slug: true, status: true } }),
   ]);
+  // How many revision rounds they have, so the notes can name a real number
+  // rather than a vague warning: the job's allowance where one exists, else
+  // what their package carries.
+  const pkgRounds = inv.order ? (await prisma.order.findUnique({ where: { id: inv.order.id }, select: { package: { select: { revisionRounds: true } } } }))?.package?.revisionRounds : undefined;
+  const rounds = job?.revisionsAllowed ?? pkgRounds ?? undefined;
   const active = !inv.order || inv.order.status === 'ACTIVE' || inv.order.status === 'PAID';
   const dfy = inv.order?.serviceMode && inv.order.serviceMode !== 'DIY';
   const url = invitationUrl(inv.slug);
@@ -43,6 +48,13 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const mine = sectionsFor(inv.occasion, saveTheDate).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier)).map((d) => d.key);
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
+  // Their own dates, counted back from the day they said they would send it out.
+  const sendOutRaw = String((content.cover as Record<string, unknown> | undefined)?.sendOut ?? '');
+  const schedule = scheduleAdvice(sendOutRaw ? new Date(sendOutRaw) : null);
+  // The spare photographs they sent us, which live in their account rather
+  // than on the page: this is where they see that we have them.
+  const extraPhotos = (Array.isArray((content.extras as Record<string, unknown> | undefined)?.photos) ? ((content.extras as Record<string, unknown>).photos as Record<string, unknown>[]) : [])
+    .filter((r) => typeof r?.url === 'string' && r.url);
   const window = changeWindow(inv.eventAt);
   const upgrade = nextTier(inv.tier);
 
@@ -80,6 +92,62 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               )}
             </div>
           )}
+          {/*
+            Their dates, in dates. A customer thinks in one day, the one they
+            send the link out on; everything else is arithmetic they should not
+            have to do. Filled in, this says the two dates that matter and
+            whether there is still room. Blank, it asks for the one date, and
+            says why we want it.
+          */}
+          {active && (
+            <div className="card p-5">
+              <h2 className="mb-2 font-semibold">Your dates</h2>
+              {schedule ? (
+                <>
+                  <p className="text-sm">
+                    You plan to send this out on <b>{formatDate(schedule.sendOut, 'weekday')}</b>.
+                    {' '}Your final form is best with us by <b>{formatDate(schedule.comfortableBy)}</b>, and by <b>{formatDate(schedule.finalBy)}</b> at the latest.
+                  </p>
+                  <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">
+                    We take about {PROCESSING_DAYS} days to build the first version once your form is final. The two weeks after that are yours, for the revisions your package includes{rounds ? ` (${rounds})` : ''}.
+                  </p>
+                  {schedule.late ? (
+                    <div className="mt-2"><Notice tone="warn">That day is very close. Message us before you publish and we will tell you honestly what we can promise, and whether a rush is worth it.</Notice></div>
+                  ) : schedule.tight ? (
+                    <div className="mt-2"><Notice tone="warn">Your form is due with us within the week to hold that date comfortably. Publishing sooner leaves more room for revisions.</Notice></div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm">
+                  Tell us the day you plan to send this out to your guests, in <Link href={`/account/invitations/${inv.id}/builder?section=cover`} className="underline">the Cover section</Link>, and we will show your dates here. As a guide: your final form about a month before that day, about {PROCESSING_DAYS} days for us to build it, and the two weeks after that for your revisions.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/*
+            The spare photographs. They are not on the invitation and are not
+            meant to be; they sit here so a customer can see that we have them
+            and we can reach for one when a page has room.
+          */}
+          {extraPhotos.length > 0 && (
+            <div className="card p-5">
+              <h2 className="mb-1 font-semibold">Extra photos you sent us</h2>
+              <p className="text-xs text-[color:var(--color-ink-500)]">
+                {extraPhotos.length} photo{extraPhotos.length === 1 ? '' : 's'} kept with your invitation. These are not on your page; we place one only if a design has room for it or you ask us to. <Link href={`/account/invitations/${inv.id}/builder?section=extras`} className="underline">Add or remove</Link>.
+              </p>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {extraPhotos.slice(0, 12).map((r, i) => (
+                  <li key={String(r.url)} className="w-20">
+                    <img src={String(r.url)} alt={typeof r.caption === 'string' && r.caption ? r.caption : `Extra photo ${i + 1}`} className="h-20 w-20 rounded-lg border border-[color:var(--color-sand-200)] object-cover" loading="lazy" />
+                    {typeof r.caption === 'string' && r.caption && <span className="mt-0.5 block truncate text-[10px] text-[color:var(--color-ink-500)]" title={r.caption}>{r.caption}</span>}
+                  </li>
+                ))}
+              </ul>
+              {extraPhotos.length > 12 && <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">and {extraPhotos.length - 12} more.</p>}
+            </div>
+          )}
+
           <div className="card p-5">
             <h2 className="mb-2 font-semibold">Publish & share</h2>
             {inv.status === 'PUBLISHED' ? (
@@ -90,7 +158,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{dfy ? 'Our team publishes this once you approve the preview.' : 'When the details look right in the preview, publish to get your shareable link and QR.'}</p>
             )}
-            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} blanks={blanks} skipped={skipped} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
+            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} blanks={blanks} skipped={skipped} rounds={rounds} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
             {dfy && job && <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">Build status: {job.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/account/invitations/${inv.id}/dfy`} className="underline">open</Link></p>}
           </div>
 

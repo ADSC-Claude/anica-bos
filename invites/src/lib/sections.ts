@@ -223,6 +223,16 @@ function eventBlock(opts: { venueLabel: string; withDate?: boolean; withSeated?:
 const COVER_COMMON = (occasion: Occasion): Field[] => [
   date('date', 'Event date', { required: true }),
   time('time', 'Start time', { required: true }),
+  /**
+   * Not for the page: for the calendar. A customer thinks in one date, the day
+   * they send the link out, and everything we do is counted back from it. The
+   * hint says the arithmetic in plain words rather than making them work it
+   * out, and their own page shows it as real dates once this is filled in.
+   */
+  date('sendOut', 'When you plan to send this out', {
+    hint: 'Not shown to your guests. It is how we plan your dates: your final form about a month before that day, a week for us to build it, and the two weeks after that for your revisions. Three weeks ahead is the latest we can promise comfortably.',
+    wide: true,
+  }),
   select('introPreset', 'Intro line', INTRO_PRESETS.map((p) => ({ value: p.key, label: p.label })), {
     presets: INTRO_PRESETS,
     presetTarget: 'intro',

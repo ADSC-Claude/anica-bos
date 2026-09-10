@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { seatsHeld } from '@/lib/seats';
-import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, saveTableAction, deleteTableAction, assignTableAction } from '@/app/account/actions';
+import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, importGuestFileAction, saveTableAction, deleteTableAction, assignTableAction } from '@/app/account/actions';
 
 type Guest = { id: string; name: string; salutation: string; groupName: string; seatsAllotted: number; plusOneAllowed: boolean; phone: string; email: string; notes: string; token: string; tableId: string | null; checkedIn: boolean; response: { response: 'ACCEPT' | 'DECLINE'; seats: number } | null };
 type Table = { id: string; name: string; capacity: number };
@@ -61,10 +61,33 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
       </div>
 
       {showImport && (
-        <form className="card p-4" onSubmit={(e) => { e.preventDefault(); const text = String(new FormData(e.currentTarget).get('text') ?? ''); run(() => importGuestsAction(invitationId, text), (d) => { const r = d as { added: number; skipped: number }; setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`); setShowImport(false); }); }}>
-          <p className="text-sm">Paste rows from Excel or Google Sheets. Columns: <b>Name, Group, Seats, Phone</b> (a header row is fine; <i>Salutation</i> is optional).</p>
-          <textarea name="text" className="field mt-2 font-mono text-xs" rows={6} placeholder={'Name\tGroup\tSeats\tPhone\nMr. & Mrs. Dela Cruz\tBride\'s family\t2\t0917…'} required />
-          <button type="submit" className="btn btn-primary mt-2" disabled={pending}>Import</button>
+        <form className="card p-4" onSubmit={(e) => { e.preventDefault(); const text = String(new FormData(e.currentTarget).get('text') ?? ''); if (!text.trim()) return; run(() => importGuestsAction(invitationId, text), (d) => { const r = d as { added: number; skipped: number }; setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`); setShowImport(false); }); }}>
+          <p className="text-sm">Columns: <b>Name, Group, Seats, Phone</b> (a header row is fine; <i>Greeting</i> is optional). <a href={`/account/invitations/${invitationId}/guest-template.csv`} className="underline">Download the blank list</a> — fill it in, then send it back below.</p>
+          <label className="label mt-3">Upload the file</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="field text-sm"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const form = new FormData();
+                form.set('file', file);
+                e.target.value = '';
+                run(() => importGuestFileAction(invitationId, form), (d) => {
+                  const r = d as { added: number; skipped: number };
+                  setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`);
+                  setShowImport(false);
+                });
+              }}
+            />
+            <span className="text-xs text-[color:var(--color-ink-500)]">Excel (.xlsx) or CSV. The workbook is read as it is — no need to save it as CSV first.</span>
+          </div>
+
+          <label className="label mt-4">Or paste the rows</label>
+          <textarea name="text" className="field font-mono text-xs" rows={5} placeholder={'Name\tGroup\tSeats\tPhone\nMr. & Mrs. Dela Cruz\tBride\'s family\t2\t0917…'} />
+          <button type="submit" className="btn btn-secondary mt-2" disabled={pending}>Import pasted rows</button>
         </form>
       )}
 

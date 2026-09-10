@@ -7,7 +7,9 @@ import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
 import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
-import { addGuest, updateGuest, deleteGuest, importGuests, saveTable, deleteTable, assignTable, checkIn, type GuestInput } from '@/lib/guests';
+import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, saveTable, deleteTable, assignTable, checkIn, type GuestInput } from '@/lib/guests';
+import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
+import { parseCsv } from '@/lib/csv';
 import { seatsHeld, replyState } from '@/lib/seats';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
@@ -171,6 +173,37 @@ export async function deleteGuestAction(invitationId: string, guestId: string) {
     const inv = await ownInvitation(user, invitationId);
     await deleteGuest(inv, guestId);
     refresh(invitationId);
+  });
+}
+
+/**
+ * A guest list as a file: the workbook they keep it in, or the CSV either
+ * spreadsheet saves. Reading the workbook matters because saving as CSV is the
+ * step people miss, and the upload that follows looks like it simply failed.
+ */
+export async function importGuestFileAction(invitationId: string, form: FormData) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    const file = form.get('file');
+    if (!(file instanceof File) || file.size === 0) throw new HttpError(400, 'Choose a file first.');
+    if (file.size > 5_000_000) throw new HttpError(400, 'That file is larger than 5 MB. A guest list of 2,000 names is far smaller — is it the right file?');
+
+    const bytes = Buffer.from(await file.arrayBuffer());
+    let rows: string[][];
+    if (looksLikeXlsx(bytes)) {
+      try {
+        rows = readXlsx(bytes);
+      } catch {
+        throw new HttpError(400, 'That looks like a spreadsheet but could not be read. Save it as CSV and try again.');
+      }
+    } else {
+      rows = parseCsv(bytes.toString('utf8'));
+    }
+
+    const r = await importGuestRows(inv, rows);
+    refresh(invitationId);
+    return r;
   });
 }
 

@@ -8,6 +8,7 @@ import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVE
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature } from '@/lib/tiers';
+import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
@@ -36,6 +37,8 @@ export type GuestForPage = {
   id: string;
   name: string;
   salutation: string;
+  /** The couple's own tag for them — "Principal sponsors", "Mommy's side". */
+  groupName: string;
   seatsAllotted: number;
   plusOneAllowed: boolean;
   token: string;
@@ -454,6 +457,28 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
   );
 }
 
+/**
+ * One side of the entourage as a column of its own, and nothing at all if
+ * nobody on that side was named.
+ */
+type Named = { title: string; items: string[] };
+const anyNamed = (of: Named[]) => of.some((s) => s.items.some(nonEmpty));
+
+/**
+ * One half of a row — everything on that side of the family who stands at this
+ * point in the procession. An empty one is still a cell, because dropping it
+ * would let the side below slide up into the gap and break the pairing.
+ */
+function Half({ of }: { of: Named[] }) {
+  return (
+    <div className="space-y-6">
+      {of.map((s) => (
+        <NameList key={s.title} title={s.title} items={s.items} />
+      ))}
+    </div>
+  );
+}
+
 function NameList({ title, items }: { title: string; items: string[] }) {
   const clean = items.filter(nonEmpty);
   if (!clean.length) return null;
@@ -471,9 +496,68 @@ function NameList({ title, items }: { title: string; items: string[] }) {
 
 function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: Lang; tagline?: string; title?: string }) {
   const principal = rows<{ ninong: string; ninang: string }>(data, 'principalSponsors').filter((p) => p.ninong || p.ninang);
-  const secondary = rows<{ role: string; first: string; second: string }>(data, 'secondarySponsors').filter((p) => p.first || p.second);
+  const secondary = rows<{ role: string; roleOther: string; first: string; second: string }>(data, 'secondarySponsors').filter((p) => p.first || p.second);
   const namesOf = (k: string) => rows<{ name: string }>(data, k).map((r) => r.name);
-  const honor = str(data, 'honorTitle') === 'matron' ? t(lang, 'entourage.matronOfHonor') : t(lang, 'entourage.maidOfHonor');
+  // Maids and matrons are the same standing under two names, so they are one
+  // list to fill in and two headings to read — each printed only if it is used,
+  // and each plural only when there is more than one under it.
+  const honors = rows<{ title: string; name: string }>(data, 'honors').filter((h) => nonEmpty(h.name));
+  const maids = honors.filter((h) => h.title !== 'matron').map((h) => h.name);
+  const matrons = honors.filter((h) => h.title === 'matron').map((h) => h.name);
+  const bestMen = namesOf('bestMen').filter(nonEmpty);
+
+  /**
+   * The wedding party in matched pairs: the groom's people down the left, the
+   * bride's down the right, and the two who answer each other on the same line.
+   * Groomsmen sit beside bridesmaids, the juniors beside the juniors, the little
+   * groom beside the little bride, so a guest reads across as well as down.
+   * Left and right follow the ninong and ninang printed above them.
+   *
+   * A cell holds however many headings that side has at that point in the
+   * procession, which is what lets the matron of honour keep her own space under
+   * the maid rather than being pushed into the next row, and the three bearers
+   * stand together opposite the flower girls.
+   *
+   * The rows are declared rather than flowed, because flowing them was the bug:
+   * an empty heading anywhere disappeared, everything below shifted up a place,
+   * and the sides swapped for the rest of the section.
+   */
+  const one = (k: string) => [str(data, k)];
+  const rowsOfTwo: { groom: Named[]; bride: Named[] }[] = [
+    {
+      groom: [{ title: t(lang, bestMen.length > 1 ? 'entourage.bestMen' : 'entourage.bestMan'), items: bestMen }],
+      bride: [
+        { title: t(lang, maids.length > 1 ? 'entourage.maidsOfHonor' : 'entourage.maidOfHonor'), items: maids },
+        { title: t(lang, matrons.length > 1 ? 'entourage.matronsOfHonor' : 'entourage.matronOfHonor'), items: matrons },
+      ],
+    },
+    {
+      groom: [{ title: t(lang, 'entourage.groomsmen'), items: namesOf('groomsmen') }],
+      bride: [{ title: t(lang, 'entourage.bridesmaids'), items: namesOf('bridesmaids') }],
+    },
+    {
+      groom: [{ title: t(lang, 'entourage.juniorGroomsmen'), items: namesOf('juniorGroomsmen') }],
+      bride: [{ title: t(lang, 'entourage.juniorBridesmaids'), items: namesOf('juniorBridesmaids') }],
+    },
+    {
+      groom: [{ title: t(lang, 'entourage.littleGroom'), items: one('littleGroom') }],
+      bride: [{ title: t(lang, 'entourage.littleBride'), items: one('littleBride') }],
+    },
+    {
+      groom: [
+        { title: t(lang, 'entourage.ringBearer'), items: one('ringBearer') },
+        { title: t(lang, 'entourage.coinBearer'), items: one('coinBearer') },
+        { title: t(lang, 'entourage.bibleBearer'), items: one('bibleBearer') },
+      ],
+      bride: [{ title: t(lang, 'entourage.flowerGirls'), items: namesOf('flowerGirls') }],
+    },
+  ];
+  // A row nobody stands in is not a row; a row with only one side keeps its
+  // empty cell, so the pairing below it still holds.
+  const pairs = rowsOfTwo.filter((r) => anyNamed(r.groom) || anyNamed(r.bride));
+  // A whole side missing is a wedding with no counterparts to line up — one
+  // column down the middle rather than a column with a gap beside it.
+  const both = pairs.some((r) => anyNamed(r.groom)) && pairs.some((r) => anyNamed(r.bride));
   return (
     <Section id="entourage" title={title ?? t(lang, 'entourage.title')} tagline={tagline}>
       <div className="space-y-8">
@@ -498,7 +582,9 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
             <div className="inv-list">
               {secondary.map((p, i) => (
                 <p key={i}>
-                  <span className="inv-muted text-xs uppercase tracking-widest">{t(lang, (`entourage.${p.role || 'candle'}`) as 'entourage.candle')}</span>
+                  <span className="inv-muted text-xs uppercase tracking-widest">
+                    {p.role === 'other' ? p.roleOther : t(lang, (`entourage.${p.role || 'candle'}`) as 'entourage.candle')}
+                  </span>
                   <br />
                   {[p.first, p.second].filter(Boolean).join(' & ')}
                 </p>
@@ -506,20 +592,20 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
             </div>
           </div>
         )}
-        <div className="inv-two">
-          <NameList title={t(lang, 'entourage.bestMan')} items={[str(data, 'bestMan')]} />
-          <NameList title={honor} items={[str(data, 'maidOfHonor')]} />
-          <NameList title={t(lang, 'entourage.groomsmen')} items={namesOf('groomsmen')} />
-          <NameList title={t(lang, 'entourage.bridesmaids')} items={namesOf('bridesmaids')} />
-          <NameList title={t(lang, 'entourage.juniorGroomsmen')} items={namesOf('juniorGroomsmen')} />
-          <NameList title={t(lang, 'entourage.juniorBridesmaids')} items={namesOf('juniorBridesmaids')} />
-          <NameList title={t(lang, 'entourage.littleGroom')} items={[str(data, 'littleGroom')]} />
-          <NameList title={t(lang, 'entourage.littleBride')} items={[str(data, 'littleBride')]} />
-          <NameList title={t(lang, 'entourage.ringBearer')} items={[str(data, 'ringBearer')]} />
-          <NameList title={t(lang, 'entourage.coinBearer')} items={[str(data, 'coinBearer')]} />
-          <NameList title={t(lang, 'entourage.bibleBearer')} items={[str(data, 'bibleBearer')]} />
-          <NameList title={t(lang, 'entourage.flowerGirls')} items={namesOf('flowerGirls')} />
-        </div>
+        {both ? (
+          <div className="inv-pairs">
+            {pairs.map((r, i) => (
+              <Fragment key={i}>
+                <Half of={r.groom} />
+                <Half of={r.bride} />
+              </Fragment>
+            ))}
+          </div>
+        ) : (
+          // Nobody to pair with: one column, and the empty halves gone rather
+          // than left behind as the gaps where a second side would have been.
+          <Half of={pairs.flatMap((r) => [...r.groom, ...r.bride])} />
+        )}
         {str(data, 'officiant') && <NameList title={t(lang, 'entourage.officiant')} items={[str(data, 'officiant')]} />}
       </div>
     </Section>
@@ -783,7 +869,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
   if (personal && guest) note = note.replace('{n}', String(seatsCap)).replace('{date}', deadline ? formatDate(deadline) : '');
   else note = stripReservedSentence(note).replace('{date}', deadline ? formatDate(deadline) : '');
   const policy = str(data, 'policy') !== 'none' ? str(data, 'policyText') : '';
-  const existing = personal && guest?.rsvps[0] ? { ...guest.rsvps[0], attendees: Array.isArray(guest.rsvps[0].attendees) ? (guest.rsvps[0].attendees as string[]) : [] } : null;
+  const existing = personal && guest?.rsvps[0] ? { ...guest.rsvps[0], attendees: attendeesOf(guest.rsvps[0].attendees) } : null;
   const mealChoices = hasFeature(inv.tier, 'rsvp.meal') ? rows<{ label: string }>(data, 'mealChoices').map((m) => m.label) : [];
   // Every package asks this one: it costs the guest a tap and it is what turns
   // the printed headcount sheet into something a coordinator can work from.
@@ -822,12 +908,17 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           askDepartment={bool(data, 'askDepartment')}
           mealChoices={mealChoices}
           groups={groups}
+          defaultGroup={personal && guest ? guest.groupName : ''}
           existing={existing}
+          relations={RELATIONS.map((r) => ({ value: r, label: relationLabel(r, lang) }))}
           labels={{
             name: t(lang, 'rsvp.name'),
             accept: t(lang, 'rsvp.accept'),
             decline: t(lang, 'rsvp.decline'),
             seats: t(lang, 'rsvp.seats'),
+            relation: t(lang, 'rsvp.relation'),
+            relationBlank: t(lang, 'rsvp.relationBlank'),
+            relationName: t(lang, 'rsvp.relationName'),
             companions: t(lang, 'rsvp.companions'),
             companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),
@@ -866,6 +957,11 @@ const STORY_FRAMES = ['arch', 'polaroid', 'polaroid', 'plain', 'circle'] as cons
 function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionData; lang: Lang; title: string; tagline?: string; layout?: string; signoff?: { names: string; date: string } }) {
   const timeline = rows<{ date: string; title: string; text: string; photo: string }>(data, 'timeline');
   const beside = layout === 'capiz';
+  // arch, polaroid, polaroid, plain, circle — counted over the moments that
+  // have a photograph, so a moment without one does not spend a shape.
+  const shapes = new Map<number, (typeof STORY_FRAMES)[number]>();
+  timeline.forEach((m, i) => { if (m.photo) shapes.set(i, STORY_FRAMES[shapes.size % STORY_FRAMES.length]); });
+  const frameFor = (i: number) => shapes.get(i);
   return (
     <Section id="story" title={title} tagline={tagline}>
       {str(data, 'howWeMet') && (
@@ -881,26 +977,32 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
         </div>
       )}
       {timeline.length > 0 && beside && (
-        // The photographs run down one side in their own frames, the years
-        // down the other — the way an album is laid out, rather than a list.
-        <div className="inv-story">
-          <div className="inv-story-photos">
-            {timeline.filter((m) => m.photo).map((m, i) => (
-              <figure key={i} data-frame={STORY_FRAMES[i % STORY_FRAMES.length]} data-tilt={i % 2 ? 'r' : undefined}>
-                <img src={imageUrl(m.photo, IMAGE.story)} alt="" loading="lazy" />
-              </figure>
-            ))}
-          </div>
-          <ol className="inv-story-line">
-            {timeline.map((m, i) => (
-              <li key={i}>
+        // The photographs run down one side in their own frames, the years down
+        // the other — the way an album is laid out, rather than a list. Each
+        // moment is one row, so its photograph sits beside its own words: as two
+        // independent stacks the pictures outran the writing, three tall frames
+        // against three short lines, and the page ended on a photograph with
+        // nothing to say next to it.
+        <ol className="inv-story">
+          {timeline.map((m, i) => (
+            <li key={i}>
+              {m.photo ? (
+                <figure data-frame={frameFor(i)} data-tilt={i % 2 ? 'r' : undefined}>
+                  <img src={imageUrl(m.photo, IMAGE.story)} alt="" loading="lazy" />
+                </figure>
+              ) : (
+                // The column keeps its width so the years stay in one line
+                // whether or not a moment has a picture.
+                <span aria-hidden />
+              )}
+              <div className="w">
                 {m.date && <div className="y">{m.date}</div>}
                 <div className="t">{m.title}</div>
                 {m.text && <p className="x whitespace-pre-line">{m.text}</p>}
-              </li>
-            ))}
-          </ol>
-        </div>
+              </div>
+            </li>
+          ))}
+        </ol>
       )}
       {signoff && (
         <div className="inv-story-sign">

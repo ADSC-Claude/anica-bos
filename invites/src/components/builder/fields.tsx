@@ -5,6 +5,9 @@ import type { Field, Person, SectionData } from '@/lib/sections';
 import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
+import { listToGrid, gridToList, sheetFilename } from '@/lib/sheet';
+import { toCsv } from '@/lib/csv';
+import { parseSheetAction } from '@/app/account/actions';
 
 /**
  * The form engine. One component renders any section from its field spec,
@@ -617,6 +620,84 @@ function Examples({ field, lang, onUse }: { field: Field; lang: Lang; onUse: (v:
   );
 }
 
+/**
+ * The same list as a spreadsheet, out and back.
+ *
+ * Eighteen pairs of ninongs and ninangs is eighteen pairs of boxes and a lot of
+ * scrolling, and it is a list the family almost certainly already keeps in
+ * Excel. Down comes what is filled in — headers alone if nothing is — and back
+ * comes whatever they send: the workbook itself, or the CSV either spreadsheet
+ * saves.
+ *
+ * It replaces the rows rather than appending, because the file is the list: a
+ * second upload of a corrected file should leave what the file says, not twice
+ * what it says. Nothing is saved until the section is, so a mistaken upload is
+ * undone by leaving the page.
+ */
+function ListSheet({ field, value, onChange, invitationId, max }: { field: Field; value: Record<string, unknown>[]; onChange: (v: unknown) => void; invitationId: string; max: number }) {
+  const item = field.item ?? [];
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  if (item.length === 0) return null;
+
+  function download() {
+    const [header, ...body] = listToGrid(item, value);
+    const csv = toCsv(header, body);
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = sheetFilename(field.label);
+    // In the document, or the click is ignored and no file arrives. Revoking is
+    // left to the next tick for the same reason: the download has to start
+    // first, and it starts after this function returns.
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
+  async function upload(file: File) {
+    setBusy(true);
+    setNote('');
+    try {
+      const form = new FormData();
+      form.set('file', file);
+      const r = await parseSheetAction(invitationId, form);
+      if (!r.ok) throw new Error(r.error ?? 'That file could not be read.');
+      const rows = gridToList(item, r.data as string[][], max);
+      if (rows.length === 0) throw new Error('No rows in that file. Is the first row the column names?');
+      onChange(rows);
+      setNote(`${rows.length} row${rows.length === 1 ? '' : 's'} read.`);
+    } catch (e) {
+      setNote((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    // shrink-0 and nowrap together: on a phone the label is what gives way, not
+    // the buttons — "↓ Sheet" broken over two lines reads as two controls.
+    <span className="flex shrink-0 items-center gap-1 text-xs">
+      {note && <span className="text-[color:var(--color-ink-500)]">{note}</span>}
+      <button type="button" className="btn btn-ghost btn-sm whitespace-nowrap" onClick={download} title="Download this list as a spreadsheet">↓ Sheet</button>
+      <button type="button" className="btn btn-ghost btn-sm whitespace-nowrap" onClick={() => input.current?.click()} disabled={busy} title="Replace this list from a spreadsheet">{busy ? '…' : '↑ Sheet'}</button>
+      <input
+        ref={input}
+        type="file"
+        hidden
+        accept=".csv,.tsv,.txt,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f) void upload(f);
+        }}
+      />
+    </span>
+  );
+}
+
 function ListInput({ field, value, onChange, lang, invitationId, limit }: { field: Field; value: Record<string, unknown>[]; onChange: (v: unknown) => void; lang: Lang; invitationId: string; limit?: number }) {
   const item = field.item ?? [];
   const max = Math.min(field.max ?? 200, limit ?? 200);
@@ -633,7 +714,10 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
     <div>
       <div className="flex items-end justify-between gap-2">
         <Label field={field} />
-        <span className="text-xs text-[color:var(--color-ink-500)]">{value.length}{Number.isFinite(max) && max < 200 ? ` / ${max}` : ''}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[color:var(--color-ink-500)]">{value.length}{Number.isFinite(max) && max < 200 ? ` / ${max}` : ''}</span>
+          <ListSheet field={field} value={value} onChange={onChange} invitationId={invitationId} max={max} />
+        </div>
       </div>
       <div className="space-y-2">
         {value.map((row, i) => (

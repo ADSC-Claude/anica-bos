@@ -6,16 +6,29 @@ import { prisma } from '@/lib/db';
 import { rsvpSummary } from '@/lib/guests';
 import { hasFeature } from '@/lib/tiers';
 import { formatDateTime } from '@/lib/datetime';
+import { replyIdentity } from '@/lib/names';
 import { PageHeader, Stat, Empty } from '@/components/ui';
 import { RsvpToggle } from './toggle';
+import { companionsOf, attendeeLine } from '@/lib/attendees';
 
 export const dynamic = 'force-dynamic';
+
+/** A reply's name as the couple should read it: theirs, with what the guest typed beside it. */
+function NameCell({ name, alias, group, personal }: { name: string; alias: string; group: string; personal: boolean }) {
+  const under = [group, alias && `replied as ${alias}`, personal ? 'personal link' : ''].filter(Boolean).join(' · ');
+  return (
+    <td>
+      {name}
+      {under && <span className="block text-xs text-[color:var(--color-ink-500)]">{under}</span>}
+    </td>
+  );
+}
 
 export default async function RsvpsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, updatedAt: true, guestId: true }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
+  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, updatedAt: true, guestId: true, guest: { select: { name: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
   const dashboard = hasFeature(inv.tier, 'rsvp.dashboard');
   return (
     <>
@@ -36,10 +49,12 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
             <tbody>
               {rsvps.map((r) => (
                 <tr key={r.id}>
-                  <td>{r.name}{(r.groupName || r.guestId) && <span className="block text-xs text-[color:var(--color-ink-500)]">{[r.groupName, r.guestId ? 'personal link' : ''].filter(Boolean).join(' · ')}</span>}</td>
+                  <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} personal={Boolean(r.guestId)} />
                   <td><span className={`pill ${r.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{r.response === 'ACCEPT' ? 'Accepted' : 'Declined'}</span></td>
                   <td>{r.response === 'ACCEPT' ? r.seats : '—'}</td>
-                  <td className="text-xs">{Array.isArray(r.attendees) ? (r.attendees as string[]).join(', ') : ''}</td>
+                  {/* Each companion with what they are to the guest, which is the
+                      part that decides whether they sit at the same table. */}
+                  <td className="text-xs">{companionsOf(r.attendees).map((a) => attendeeLine(a)).join(', ')}</td>
                   {dashboard && <><td>{r.mealChoice}</td><td className="text-xs">{r.dietary}</td></>}
                   <td className="max-w-xs text-xs">{r.message}</td>
                   <td className="text-xs">{[r.phone, r.email].filter(Boolean).join(' · ')}</td>

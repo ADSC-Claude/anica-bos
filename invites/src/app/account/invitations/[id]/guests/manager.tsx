@@ -1,10 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, saveTableAction, deleteTableAction, assignTableAction } from '@/app/account/actions';
+import { seatsHeld } from '@/lib/seats';
+import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, importGuestFileAction, saveTableAction, deleteTableAction, assignTableAction } from '@/app/account/actions';
 
 type Guest = { id: string; name: string; salutation: string; groupName: string; seatsAllotted: number; plusOneAllowed: boolean; phone: string; email: string; notes: string; token: string; tableId: string | null; checkedIn: boolean; response: { response: 'ACCEPT' | 'DECLINE'; seats: number } | null };
-type Table = { id: string; name: string; capacity: number; seated: number };
+type Table = { id: string; name: string; capacity: number };
+
+const guestSeats = (g: Guest) => seatsHeld(g.seatsAllotted, g.response);
 
 export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating, tables, guests }: { invitationId: string; slug: string; baseUrl: string; reminder: string; canSeating: boolean; tables: Table[]; guests: Guest[] }) {
   const [pending, start] = useTransition();
@@ -26,6 +29,10 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
       if (!r.ok) setError(r.error ?? 'Something went wrong.');
       else done?.(r.data);
     });
+
+  const at = (tableId: string) => guests.filter((g) => g.tableId === tableId);
+  const tableSeats = (tableId: string) => at(tableId).reduce((n, g) => n + guestSeats(g), 0);
+  const unseated = guests.filter((g) => !g.tableId);
 
   const link = (g: Guest) => `${baseUrl}/${g.token}`;
   async function copy(text: string, id: string) {
@@ -54,10 +61,33 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
       </div>
 
       {showImport && (
-        <form className="card p-4" onSubmit={(e) => { e.preventDefault(); const text = String(new FormData(e.currentTarget).get('text') ?? ''); run(() => importGuestsAction(invitationId, text), (d) => { const r = d as { added: number; skipped: number }; setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`); setShowImport(false); }); }}>
-          <p className="text-sm">Paste rows from Excel or Google Sheets. Columns: <b>Name, Group, Seats, Phone</b> (a header row is fine; <i>Salutation</i> is optional).</p>
-          <textarea name="text" className="field mt-2 font-mono text-xs" rows={6} placeholder={'Name\tGroup\tSeats\tPhone\nMr. & Mrs. Dela Cruz\tBride\'s family\t2\t0917…'} required />
-          <button type="submit" className="btn btn-primary mt-2" disabled={pending}>Import</button>
+        <form className="card p-4" onSubmit={(e) => { e.preventDefault(); const text = String(new FormData(e.currentTarget).get('text') ?? ''); if (!text.trim()) return; run(() => importGuestsAction(invitationId, text), (d) => { const r = d as { added: number; skipped: number }; setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`); setShowImport(false); }); }}>
+          <p className="text-sm">Columns: <b>Name, Group, Seats, Phone</b> (a header row is fine; <i>Greeting</i> is optional). <a href={`/account/invitations/${invitationId}/guest-template.csv`} className="underline">Download the blank list</a> — fill it in, then send it back below.</p>
+          <label className="label mt-3">Upload the file</label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="field text-sm"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const form = new FormData();
+                form.set('file', file);
+                e.target.value = '';
+                run(() => importGuestFileAction(invitationId, form), (d) => {
+                  const r = d as { added: number; skipped: number };
+                  setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`);
+                  setShowImport(false);
+                });
+              }}
+            />
+            <span className="text-xs text-[color:var(--color-ink-500)]">Excel (.xlsx) or CSV. The workbook is read as it is — no need to save it as CSV first.</span>
+          </div>
+
+          <label className="label mt-4">Or paste the rows</label>
+          <textarea name="text" className="field font-mono text-xs" rows={5} placeholder={'Name\tGroup\tSeats\tPhone\nMr. & Mrs. Dela Cruz\tBride\'s family\t2\t0917…'} />
+          <button type="submit" className="btn btn-secondary mt-2" disabled={pending}>Import pasted rows</button>
         </form>
       )}
 
@@ -119,14 +149,15 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
 
       {canSeating && (
         <div className="card p-4">
-          <h2 className="mb-2 font-semibold">Tables</h2>
+          <h2 className="font-semibold">Tables</h2>
+          <p className="mb-2 text-sm text-[color:var(--color-ink-500)]">Optional — skip this if you are not doing assigned seating. Nothing on your invitation changes until you seat somebody.</p>
           <div className="flex flex-wrap gap-2">
             {tables.map((t) => (
               <form key={t.id} className="flex items-center gap-1 rounded-xl border border-[color:var(--color-sand-200)] p-2 text-sm" onSubmit={(e) => { e.preventDefault(); run(() => saveTableAction(invitationId, new FormData(e.currentTarget))); }}>
                 <input type="hidden" name="id" value={t.id} />
                 <input name="name" defaultValue={t.name} className="field min-h-0 w-28 py-1 text-sm" />
                 <input name="capacity" type="number" defaultValue={t.capacity} className="field min-h-0 w-16 py-1 text-sm" />
-                <span className={`text-xs ${t.seated > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{t.seated}/{t.capacity}</span>
+                <span className={`text-xs ${tableSeats(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{tableSeats(t.id)}/{t.capacity}</span>
                 <button type="submit" className="btn btn-ghost btn-sm">Save</button>
                 <button type="button" className="btn btn-ghost btn-sm text-[color:var(--bad)]" onClick={() => run(() => deleteTableAction(invitationId, t.id))}>✕</button>
               </form>
@@ -137,6 +168,70 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
               <button type="submit" className="btn btn-secondary btn-sm" disabled={pending}>+ Table</button>
             </form>
           </div>
+        </div>
+
+      )}
+
+      {/*
+        The plan read the other way round. The list above answers "where is this
+        guest sitting"; a couple laying out a room asks "who is at this table",
+        and could only get that by reading every row. Whoever has no table yet
+        is the work still to do, so they are last and they carry the dropdown —
+        the seating gets finished from the place that shows what is unfinished.
+      */}
+      {canSeating && tables.length > 0 && (
+        <div className="card p-4">
+          <h2 className="font-semibold">Seating plan</h2>
+          <p className="mb-3 text-sm text-[color:var(--color-ink-500)]">Seats count what each guest confirmed once they reply, and what you set aside for them before that. Someone who cannot come frees their places.</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {tables.map((t) => (
+              <div key={t.id} className="rounded-xl border border-[color:var(--color-sand-200)] p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold">{t.name}</span>
+                  <span className={`text-xs ${tableSeats(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{tableSeats(t.id)}/{t.capacity} seats</span>
+                </div>
+                {at(t.id).length === 0 ? (
+                  <p className="mt-2 text-sm text-[color:var(--color-ink-500)]">Nobody here yet.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {at(t.id).map((g) => (
+                      <li key={g.id} className="flex items-baseline justify-between gap-2">
+                        <span className={g.response?.response === 'DECLINE' ? 'text-[color:var(--color-ink-500)] line-through' : undefined}>
+                          {g.name}
+                          {g.groupName && <span className="ml-1 text-xs text-[color:var(--color-ink-500)]">{g.groupName}</span>}
+                        </span>
+                        <span className="shrink-0 text-xs text-[color:var(--color-ink-500)]">
+                          {g.response?.response === 'DECLINE' ? 'not coming' : g.response ? `${g.response.seats}` : `${g.seatsAllotted} held`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {unseated.length > 0 && (
+            <div className="mt-4 rounded-xl border border-dashed border-[color:var(--color-sand-200)] p-3">
+              <p className="text-sm font-semibold">Not seated yet <span className="font-normal text-[color:var(--color-ink-500)]">· {unseated.length} {unseated.length === 1 ? 'guest' : 'guests'}</span></p>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {unseated.map((g) => (
+                  <li key={g.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className={g.response?.response === 'DECLINE' ? 'text-[color:var(--color-ink-500)] line-through' : undefined}>{g.name}</span>
+                    <select
+                      aria-label={`Seat ${g.name}`}
+                      className="field min-h-0 w-32 shrink-0 py-1 text-xs"
+                      value=""
+                      onChange={(e) => run(() => assignTableAction(invitationId, g.id, e.target.value || null))}
+                    >
+                      <option value="">Seat at…</option>
+                      {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
       <p className="text-xs text-[color:var(--color-ink-500)]">Links look like {baseUrl.replace(slug, slug)}/… — each one is private to its guest. Do not post them in a group chat; use the general link for that.</p>

@@ -10,6 +10,7 @@ import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
 import { str, rows, bool, guestGroups } from './sections';
 import { contentOf } from './invitations';
+import { attendeesOf } from './attendees';
 
 /**
  * The public writes: an RSVP and a guestbook entry. No login, so the defences
@@ -38,7 +39,15 @@ export const rsvpSchema = z.object({
   name: z.string().trim().min(1, 'Please tell us your name.').max(120),
   response: z.enum(['ACCEPT', 'DECLINE']),
   seats: z.coerce.number().int().min(0).max(20).optional(),
-  attendees: z.array(z.string().trim().max(120)).max(20).optional(),
+  /**
+   * The party, the guest first. Objects carry the relationship each companion
+   * is to the guest; a bare string is still accepted because an older page
+   * still open in somebody's browser will send one.
+   */
+  attendees: z
+    .array(z.union([z.string().trim().max(120), z.object({ name: z.string().trim().max(120), relation: z.string().trim().max(20).optional() })]))
+    .max(20)
+    .optional(),
   groupName: z.string().trim().max(60).optional(),
   mealChoice: z.string().trim().max(60).optional(),
   dietary: z.string().trim().max(500).optional(),
@@ -75,16 +84,28 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     seats = accepting ? 1 : 0;
   }
 
-  // Only a group the couple actually offers is kept — a made-up one would
-  // print on their headcount sheet.
+  // Only a group the couple actually offers is kept — a made-up one would print
+  // on their headcount sheet. What is posted therefore has to survive that
+  // check, and what does not falls back to the couple's own tag for this guest.
+  //
+  // Their tag is the better evidence anyway: they know which side a tita is
+  // from, and a guest choosing off a list is guessing. It is also the only
+  // answer available in two ordinary cases — a couple who tagged the guest list
+  // with words they never offered on the form, and a couple who hid the
+  // question entirely. Both used to reach the headcount sheet ungrouped while
+  // the answer sat on the guest row unread. A guest can still overrule it, but
+  // only with a group the couple offers.
   const groups = guestGroups(invitation.occasion, rsvpSection);
-  const groupName = input.groupName && groups.includes(input.groupName) ? input.groupName : '';
+  const offered = input.groupName && groups.includes(input.groupName) ? input.groupName : '';
+  const groupName = offered || guest?.groupName || '';
 
   const meal = input.mealChoice ?? '';
   const choices = rows<{ label: string }>(rsvpSection, 'mealChoices').map((m) => m.label);
   if (meal && hasFeature(invitation.tier, 'rsvp.meal') && choices.length && !choices.includes(meal)) throw new HttpError(400, 'Pick one of the meal choices.');
 
-  const attendees = (input.attendees ?? []).map((a) => a.trim()).filter(Boolean).slice(0, seats || 1);
+  // Normalised on the way in, so what is stored is one shape whatever the page
+  // sent, and a relationship nobody offers is dropped rather than kept.
+  const attendees = attendeesOf(input.attendees ?? []).slice(0, seats || 1);
   const data = {
     invitationId: invitation.id,
     guestId: guest?.id ?? null,

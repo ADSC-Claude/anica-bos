@@ -449,12 +449,18 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
  * One side of the entourage as a column of its own, and nothing at all if
  * nobody on that side was named.
  */
-function Side({ of }: { of: { title: string; items: string[] }[] }) {
-  const kept = of.filter((s) => s.items.some(nonEmpty));
-  if (!kept.length) return null;
+type Named = { title: string; items: string[] };
+const anyNamed = (of: Named[]) => of.some((s) => s.items.some(nonEmpty));
+
+/**
+ * One half of a row — everything on that side of the family who stands at this
+ * point in the procession. An empty one is still a cell, because dropping it
+ * would let the side below slide up into the gap and break the pairing.
+ */
+function Half({ of }: { of: Named[] }) {
   return (
     <div className="space-y-6">
-      {kept.map((s) => (
+      {of.map((s) => (
         <NameList key={s.title} title={s.title} items={s.items} />
       ))}
     </div>
@@ -489,40 +495,57 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
   const bestMen = namesOf('bestMen').filter(nonEmpty);
 
   /**
-   * Two columns that mean something: the groom's people down one side, the
-   * bride's down the other, each in the order they stand. Left and right follow
-   * the ninong and ninang printed above them, so a guest who has read that far
-   * already knows which side to look down.
+   * The wedding party in matched pairs: the groom's people down the left, the
+   * bride's down the right, and the two who answer each other on the same line.
+   * Groomsmen sit beside bridesmaids, the juniors beside the juniors, the little
+   * groom beside the little bride, so a guest reads across as well as down.
+   * Left and right follow the ninong and ninang printed above them.
    *
-   * They used to flow one after another into the same grid, which meant an odd
-   * number anywhere above swapped every pair below it — the matron of honour
-   * came to rest beside the groomsmen, and a guest looking for the bride's
-   * people found them in whichever column the arithmetic happened to leave.
+   * A cell holds however many headings that side has at that point in the
+   * procession, which is what lets the matron of honour keep her own space under
+   * the maid rather than being pushed into the next row, and the three bearers
+   * stand together opposite the flower girls.
    *
-   * The bearers go with the men and the flower girls with the women, which is
-   * where they walk.
+   * The rows are declared rather than flowed, because flowing them was the bug:
+   * an empty heading anywhere disappeared, everything below shifted up a place,
+   * and the sides swapped for the rest of the section.
    */
   const one = (k: string) => [str(data, k)];
-  const groomSide = [
-    { title: t(lang, bestMen.length > 1 ? 'entourage.bestMen' : 'entourage.bestMan'), items: bestMen },
-    { title: t(lang, 'entourage.groomsmen'), items: namesOf('groomsmen') },
-    { title: t(lang, 'entourage.juniorGroomsmen'), items: namesOf('juniorGroomsmen') },
-    { title: t(lang, 'entourage.littleGroom'), items: one('littleGroom') },
-    { title: t(lang, 'entourage.ringBearer'), items: one('ringBearer') },
-    { title: t(lang, 'entourage.coinBearer'), items: one('coinBearer') },
-    { title: t(lang, 'entourage.bibleBearer'), items: one('bibleBearer') },
+  const rowsOfTwo: { groom: Named[]; bride: Named[] }[] = [
+    {
+      groom: [{ title: t(lang, bestMen.length > 1 ? 'entourage.bestMen' : 'entourage.bestMan'), items: bestMen }],
+      bride: [
+        { title: t(lang, maids.length > 1 ? 'entourage.maidsOfHonor' : 'entourage.maidOfHonor'), items: maids },
+        { title: t(lang, matrons.length > 1 ? 'entourage.matronsOfHonor' : 'entourage.matronOfHonor'), items: matrons },
+      ],
+    },
+    {
+      groom: [{ title: t(lang, 'entourage.groomsmen'), items: namesOf('groomsmen') }],
+      bride: [{ title: t(lang, 'entourage.bridesmaids'), items: namesOf('bridesmaids') }],
+    },
+    {
+      groom: [{ title: t(lang, 'entourage.juniorGroomsmen'), items: namesOf('juniorGroomsmen') }],
+      bride: [{ title: t(lang, 'entourage.juniorBridesmaids'), items: namesOf('juniorBridesmaids') }],
+    },
+    {
+      groom: [{ title: t(lang, 'entourage.littleGroom'), items: one('littleGroom') }],
+      bride: [{ title: t(lang, 'entourage.littleBride'), items: one('littleBride') }],
+    },
+    {
+      groom: [
+        { title: t(lang, 'entourage.ringBearer'), items: one('ringBearer') },
+        { title: t(lang, 'entourage.coinBearer'), items: one('coinBearer') },
+        { title: t(lang, 'entourage.bibleBearer'), items: one('bibleBearer') },
+      ],
+      bride: [{ title: t(lang, 'entourage.flowerGirls'), items: namesOf('flowerGirls') }],
+    },
   ];
-  const brideSide = [
-    { title: t(lang, maids.length > 1 ? 'entourage.maidsOfHonor' : 'entourage.maidOfHonor'), items: maids },
-    { title: t(lang, matrons.length > 1 ? 'entourage.matronsOfHonor' : 'entourage.matronOfHonor'), items: matrons },
-    { title: t(lang, 'entourage.bridesmaids'), items: namesOf('bridesmaids') },
-    { title: t(lang, 'entourage.juniorBridesmaids'), items: namesOf('juniorBridesmaids') },
-    { title: t(lang, 'entourage.littleBride'), items: one('littleBride') },
-    { title: t(lang, 'entourage.flowerGirls'), items: namesOf('flowerGirls') },
-  ];
-  const filled = (side: typeof groomSide) => side.some((s) => s.items.some(nonEmpty));
-  // One side alone is a column down the middle, not a column with a gap beside it.
-  const both = filled(groomSide) && filled(brideSide);
+  // A row nobody stands in is not a row; a row with only one side keeps its
+  // empty cell, so the pairing below it still holds.
+  const pairs = rowsOfTwo.filter((r) => anyNamed(r.groom) || anyNamed(r.bride));
+  // A whole side missing is a wedding with no counterparts to line up — one
+  // column down the middle rather than a column with a gap beside it.
+  const both = pairs.some((r) => anyNamed(r.groom)) && pairs.some((r) => anyNamed(r.bride));
   return (
     <Section id="entourage" title={title ?? t(lang, 'entourage.title')} tagline={tagline}>
       <div className="space-y-8">
@@ -557,10 +580,20 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
             </div>
           </div>
         )}
-        <div className={both ? 'inv-two' : 'space-y-6'}>
-          <Side of={groomSide} />
-          <Side of={brideSide} />
-        </div>
+        {both ? (
+          <div className="inv-pairs">
+            {pairs.map((r, i) => (
+              <Fragment key={i}>
+                <Half of={r.groom} />
+                <Half of={r.bride} />
+              </Fragment>
+            ))}
+          </div>
+        ) : (
+          // Nobody to pair with: one column, and the empty halves gone rather
+          // than left behind as the gaps where a second side would have been.
+          <Half of={pairs.flatMap((r) => [...r.groom, ...r.bride])} />
+        )}
         {str(data, 'officiant') && <NameList title={t(lang, 'entourage.officiant')} items={[str(data, 'officiant')]} />}
       </div>
     </Section>

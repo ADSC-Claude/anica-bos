@@ -445,6 +445,22 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
   );
 }
 
+/**
+ * One side of the entourage as a column of its own, and nothing at all if
+ * nobody on that side was named.
+ */
+function Side({ of }: { of: { title: string; items: string[] }[] }) {
+  const kept = of.filter((s) => s.items.some(nonEmpty));
+  if (!kept.length) return null;
+  return (
+    <div className="space-y-6">
+      {kept.map((s) => (
+        <NameList key={s.title} title={s.title} items={s.items} />
+      ))}
+    </div>
+  );
+}
+
 function NameList({ title, items }: { title: string; items: string[] }) {
   const clean = items.filter(nonEmpty);
   if (!clean.length) return null;
@@ -471,6 +487,42 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
   const maids = honors.filter((h) => h.title !== 'matron').map((h) => h.name);
   const matrons = honors.filter((h) => h.title === 'matron').map((h) => h.name);
   const bestMen = namesOf('bestMen').filter(nonEmpty);
+
+  /**
+   * Two columns that mean something: the groom's people down one side, the
+   * bride's down the other, each in the order they stand. Left and right follow
+   * the ninong and ninang printed above them, so a guest who has read that far
+   * already knows which side to look down.
+   *
+   * They used to flow one after another into the same grid, which meant an odd
+   * number anywhere above swapped every pair below it — the matron of honour
+   * came to rest beside the groomsmen, and a guest looking for the bride's
+   * people found them in whichever column the arithmetic happened to leave.
+   *
+   * The bearers go with the men and the flower girls with the women, which is
+   * where they walk.
+   */
+  const one = (k: string) => [str(data, k)];
+  const groomSide = [
+    { title: t(lang, bestMen.length > 1 ? 'entourage.bestMen' : 'entourage.bestMan'), items: bestMen },
+    { title: t(lang, 'entourage.groomsmen'), items: namesOf('groomsmen') },
+    { title: t(lang, 'entourage.juniorGroomsmen'), items: namesOf('juniorGroomsmen') },
+    { title: t(lang, 'entourage.littleGroom'), items: one('littleGroom') },
+    { title: t(lang, 'entourage.ringBearer'), items: one('ringBearer') },
+    { title: t(lang, 'entourage.coinBearer'), items: one('coinBearer') },
+    { title: t(lang, 'entourage.bibleBearer'), items: one('bibleBearer') },
+  ];
+  const brideSide = [
+    { title: t(lang, maids.length > 1 ? 'entourage.maidsOfHonor' : 'entourage.maidOfHonor'), items: maids },
+    { title: t(lang, matrons.length > 1 ? 'entourage.matronsOfHonor' : 'entourage.matronOfHonor'), items: matrons },
+    { title: t(lang, 'entourage.bridesmaids'), items: namesOf('bridesmaids') },
+    { title: t(lang, 'entourage.juniorBridesmaids'), items: namesOf('juniorBridesmaids') },
+    { title: t(lang, 'entourage.littleBride'), items: one('littleBride') },
+    { title: t(lang, 'entourage.flowerGirls'), items: namesOf('flowerGirls') },
+  ];
+  const filled = (side: typeof groomSide) => side.some((s) => s.items.some(nonEmpty));
+  // One side alone is a column down the middle, not a column with a gap beside it.
+  const both = filled(groomSide) && filled(brideSide);
   return (
     <Section id="entourage" title={title ?? t(lang, 'entourage.title')} tagline={tagline}>
       <div className="space-y-8">
@@ -505,20 +557,9 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
             </div>
           </div>
         )}
-        <div className="inv-two">
-          <NameList title={t(lang, bestMen.length > 1 ? 'entourage.bestMen' : 'entourage.bestMan')} items={bestMen} />
-          <NameList title={t(lang, maids.length > 1 ? 'entourage.maidsOfHonor' : 'entourage.maidOfHonor')} items={maids} />
-          <NameList title={t(lang, matrons.length > 1 ? 'entourage.matronsOfHonor' : 'entourage.matronOfHonor')} items={matrons} />
-          <NameList title={t(lang, 'entourage.groomsmen')} items={namesOf('groomsmen')} />
-          <NameList title={t(lang, 'entourage.bridesmaids')} items={namesOf('bridesmaids')} />
-          <NameList title={t(lang, 'entourage.juniorGroomsmen')} items={namesOf('juniorGroomsmen')} />
-          <NameList title={t(lang, 'entourage.juniorBridesmaids')} items={namesOf('juniorBridesmaids')} />
-          <NameList title={t(lang, 'entourage.littleGroom')} items={[str(data, 'littleGroom')]} />
-          <NameList title={t(lang, 'entourage.littleBride')} items={[str(data, 'littleBride')]} />
-          <NameList title={t(lang, 'entourage.ringBearer')} items={[str(data, 'ringBearer')]} />
-          <NameList title={t(lang, 'entourage.coinBearer')} items={[str(data, 'coinBearer')]} />
-          <NameList title={t(lang, 'entourage.bibleBearer')} items={[str(data, 'bibleBearer')]} />
-          <NameList title={t(lang, 'entourage.flowerGirls')} items={namesOf('flowerGirls')} />
+        <div className={both ? 'inv-two' : 'space-y-6'}>
+          <Side of={groomSide} />
+          <Side of={brideSide} />
         </div>
         {str(data, 'officiant') && <NameList title={t(lang, 'entourage.officiant')} items={[str(data, 'officiant')]} />}
       </div>

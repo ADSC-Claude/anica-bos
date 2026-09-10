@@ -15,7 +15,7 @@ import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
 import { setPhotoApproval, deleteGuestPhoto } from '@/lib/photos';
-import { planReminders, sendReminders } from '@/lib/reminders';
+import { planReminders, sendReminders, planEmailReminders, sendEmailReminders } from '@/lib/reminders';
 import { eraseCustomer } from '@/lib/privacy';
 import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
@@ -338,6 +338,38 @@ export async function sendRemindersAction(invitationId: string, everyone: boolea
     const inv = await ownInvitation(user, invitationId);
     if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const outcome = await sendReminders(inv, { everyone });
+    refresh(invitationId);
+    return outcome;
+  });
+}
+
+// --- e-mail reminders -------------------------------------------------------
+
+/**
+ * The same two steps as the text blast, and deliberately so: free is not the
+ * same as harmless, and two hundred guests reading a mistake is two hundred
+ * guests either way.
+ */
+export async function previewEmailRemindersAction(invitationId: string, everyone: boolean) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    const plan = await planEmailReminders(inv, { everyone });
+    return {
+      count: plan.send.length,
+      sample: plan.send[0] ? `${plan.send[0].subject}\n\n${plan.send[0].body}` : '',
+      skipped: plan.skipped,
+    };
+  });
+}
+
+export async function sendEmailRemindersAction(invitationId: string, everyone: boolean) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    const outcome = await sendEmailReminders(inv, { everyone });
     refresh(invitationId);
     return outcome;
   });

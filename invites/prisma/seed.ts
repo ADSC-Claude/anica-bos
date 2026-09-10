@@ -259,13 +259,16 @@ async function main() {
   await prisma.payment.create({ data: { reference: paymentReference(), orderId: demoOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: demoOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_demo', gatewayPaymentId: 'pay_demo', gatewayEventId: 'evt_demo', paidAt: addDays(new Date(), -25) } });
 
   const tables = await Promise.all(['Table 1 — Family', 'Table 2 — Ninongs & Ninangs', 'Table 3 — College friends', 'Table 4 — Office'].map((name, i) => prisma.seatingTable.create({ data: { invitationId: demo.id, name, capacity: 10, sortOrder: i } })));
+  // A guest list as one really arrives: everybody has a mobile, most have an
+  // address, and Lola Nena has none. The gap is deliberate — it is what makes
+  // the e-mail blast's "no address" line visible before anyone relies on it.
   const guestRows = [
-    ['Mr. & Mrs. Roberto Santos', 'Mr. & Mrs. Santos', "Bride's family", 2, 0], ['Engr. Danilo & Mrs. Rosario Cruz', 'Ninong Danny & Ninang Rose', 'Principal sponsors', 2, 1], ['Camille Ramos', 'Camille', 'College friends', 1, 2],
-    ['Rafael Mendoza', 'Raf', 'College friends', 2, 2], ['Kevin & Nicole Tan', 'Kevin & Nicole', 'Office', 2, 3], ['Bianca Torres', 'Bianca', 'College friends', 1, 2], ['Atty. Federico & Dr. Milagros Bautista', 'Ninong Fred & Ninang Mila', 'Principal sponsors', 2, 1], ['Lola Nena Santos', 'Lola Nena', "Bride's family", 1, 0],
+    ['Mr. & Mrs. Roberto Santos', 'Mr. & Mrs. Santos', "Bride's family", 2, 0, 'roberto.santos@example.com'], ['Engr. Danilo & Mrs. Rosario Cruz', 'Ninong Danny & Ninang Rose', 'Principal sponsors', 2, 1, 'danilo.cruz@example.com'], ['Camille Ramos', 'Camille', 'College friends', 1, 2, 'camille.ramos@example.com'],
+    ['Rafael Mendoza', 'Raf', 'College friends', 2, 2, 'raf.mendoza@example.com'], ['Kevin & Nicole Tan', 'Kevin & Nicole', 'Office', 2, 3, 'kevin.tan@example.com'], ['Bianca Torres', 'Bianca', 'College friends', 1, 2, 'bianca.torres@example.com'], ['Atty. Federico & Dr. Milagros Bautista', 'Ninong Fred & Ninang Mila', 'Principal sponsors', 2, 1, 'fred.bautista@example.com'], ['Lola Nena Santos', 'Lola Nena', "Bride's family", 1, 0, ''],
   ] as const;
   const guests = [];
-  for (const [name, salutation, groupName, seats, table] of guestRows) {
-    guests.push(await prisma.guest.create({ data: { invitationId: demo.id, name, salutation, groupName, seatsAllotted: seats, plusOneAllowed: groupName === 'College friends', token: guestToken(), tableId: tables[table].id, phone: '0917 000 0000' } }));
+  for (const [name, salutation, groupName, seats, table, email] of guestRows) {
+    guests.push(await prisma.guest.create({ data: { invitationId: demo.id, name, salutation, groupName, seatsAllotted: seats, plusOneAllowed: groupName === 'College friends', token: guestToken(), tableId: tables[table].id, phone: '0917 000 0000', email } }));
   }
   const rsvpRows = [[0, 'ACCEPT', 2, ['Roberto Santos', 'Carmen Santos'], 'Beef'], [1, 'ACCEPT', 2, ['Danilo Cruz', 'Rosario Cruz'], 'Fish'], [2, 'ACCEPT', 1, ['Camille Ramos'], 'Vegetarian'], [3, 'DECLINE', 0, [], ''], [5, 'ACCEPT', 1, ['Bianca Torres'], 'Beef']] as const;
   for (const [gi, response, seats, attendees, meal] of rsvpRows) {

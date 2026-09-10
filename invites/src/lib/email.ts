@@ -12,6 +12,25 @@ import { appUrl } from './app-url';
 
 export type SendResult = { ok: boolean; status: 'sent' | 'logged' | 'failed'; error?: string };
 
+/**
+ * An address as something worth sending to, or null.
+ *
+ * The mirror of phMobile in sms.ts, and here for the same reason: a guest list
+ * is typed by hand and a couple writes an address every which way, with a
+ * stray space, a name wrapped in angle brackets, a capital letter. Deciding
+ * once, here, beats deciding it at the several places a blast could start.
+ *
+ * The check is deliberately shallow — one @, something either side, a dot in
+ * the domain. Whether anybody reads it is the mail server's answer, not ours,
+ * and a stricter rule would refuse real addresses to prevent nothing.
+ */
+export function mailable(raw: string): string | null {
+  const inner = (raw ?? '').trim().match(/<([^>]+)>\s*$/)?.[1];
+  const address = (inner ?? raw ?? '').trim().toLowerCase();
+  if (!address || address.length > 120) return null;
+  return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(address) ? address : null;
+}
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;

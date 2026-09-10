@@ -20,7 +20,7 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
   const [copied, setCopied] = useState('');
 
   const groups = useMemo(() => Array.from(new Set(guests.map((g) => g.groupName).filter(Boolean))).sort(), [guests]);
-  const visible = guests.filter((g) => (!group || g.groupName === group) && (!filter || `${g.name} ${g.salutation} ${g.phone}`.toLowerCase().includes(filter.toLowerCase())));
+  const visible = guests.filter((g) => (!group || g.groupName === group) && (!filter || `${g.name} ${g.salutation} ${g.phone} ${g.email}`.toLowerCase().includes(filter.toLowerCase())));
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string; data?: unknown }>, done?: (d: unknown) => void) =>
     start(async () => {
@@ -121,7 +121,7 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
             {visible.length === 0 && <tr><td colSpan={7} className="text-center text-[color:var(--color-ink-500)]">No guests yet. Add one or import a list.</td></tr>}
             {visible.map((g) => (
               <tr key={g.id}>
-                <td><button type="button" className="text-left font-medium underline-offset-2 hover:underline" onClick={() => setEditing(g)}>{g.name}</button>{g.salutation && <span className="block text-xs text-[color:var(--color-ink-500)]">Dear {g.salutation}</span>}{g.phone && <span className="block text-xs text-[color:var(--color-ink-500)]">{g.phone}</span>}</td>
+                <td><button type="button" className="text-left font-medium underline-offset-2 hover:underline" onClick={() => setEditing(g)}>{g.name}</button>{g.salutation && <span className="block text-xs text-[color:var(--color-ink-500)]">Dear {g.salutation}</span>}{(g.phone || g.email) && <span className="block text-xs text-[color:var(--color-ink-500)]">{[g.phone, g.email].filter(Boolean).join(' · ')}</span>}</td>
                 <td>{g.groupName}</td>
                 <td>{g.seatsAllotted}{g.plusOneAllowed ? ' +1' : ''}</td>
                 <td>{g.response ? <span className={`pill ${g.response.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{g.response.response === 'ACCEPT' ? `Yes · ${g.response.seats}` : 'No'}</span> : <span className="pill pill-muted">Waiting</span>}{g.checkedIn && <span className="pill pill-info ml-1">In</span>}</td>

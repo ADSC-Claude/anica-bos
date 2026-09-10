@@ -907,6 +907,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
             seats: t(lang, 'rsvp.seats'),
             relation: t(lang, 'rsvp.relation'),
             relationBlank: t(lang, 'rsvp.relationBlank'),
+            relationName: t(lang, 'rsvp.relationName'),
             companions: t(lang, 'rsvp.companions'),
             companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),

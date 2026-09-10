@@ -114,6 +114,7 @@ const PHRASES = {
   'rsvp.companion': { en: 'Name of companion {n}', tl: 'Pangalan ng kasama {n}' },
   'rsvp.relation': { en: 'Relationship to you', tl: 'Ano sila sa iyo' },
   'rsvp.relationBlank': { en: 'Please choose', tl: 'Pumili po' },
+  'rsvp.relationName': { en: 'Their name', tl: 'Pangalan niya' },
   // What the companion is to the guest bringing them, not to the couple.
   'rsvp.rel.spouse': { en: 'Spouse', tl: 'Asawa' },
   'rsvp.rel.partner': { en: 'Partner', tl: 'Partner' },

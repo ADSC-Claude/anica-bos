@@ -468,7 +468,7 @@ export type RsvpFormProps = {
    */
   defaultGroup?: string;
   existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: Attendee[]; mealChoice: string; dietary: string; message: string; groupName: string } | null;
-  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group' | 'relation' | 'relationBlank', string>;
+  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group' | 'relation' | 'relationBlank' | 'relationName', string>;
   /** The relationships on offer, already in the guest's language. */
   relations: { value: string; label: string }[];
 };
@@ -588,32 +588,44 @@ export function RsvpForm(p: RsvpFormProps) {
           <div className="space-y-4">
             {Array.from({ length: seats - 1 }, (_, i) => (
               /*
-               * Stacked, not side by side. This card is the width of a phone
-               * whatever it is opened on — a hair under 300px — and a name and
-               * a pull-down sharing that leaves too little of each. The
-               * relationship sits directly under the name it belongs to, and
-               * the pairs are spaced apart so it is plain which goes with which.
+               * One pair of boxes per seat past the guest's own: who they are,
+               * then who they are. The relationship is asked first and the name
+               * follows it, because "my yaya" is the thing a guest knows
+               * immediately and the spelling of her name is what they pause
+               * over — and a row that is still blank shows one box rather than
+               * two, so four companions do not read as eight empty fields.
+               *
+               * The name also shows whenever there is already a name to show.
+               * A reply saved before this question existed carries names and no
+               * relationships, and hiding those behind a pull-down they never
+               * answered would lose them from the form.
+               *
+               * Stacked, not side by side: this card is the width of a phone
+               * whatever it is opened on, a hair under 300px, and two boxes
+               * sharing that leaves too little of each.
                */
               <div key={i} className="space-y-1">
-                <input
-                  className="inv-field"
-                  placeholder={p.labels.companion.replace('{n}', String(i + 1))}
-                  value={companions[i]?.name ?? ''}
-                  autoComplete="off"
-                  aria-label={p.labels.companion.replace('{n}', String(i + 1))}
-                  onChange={(e) => setCompanion(i, { name: e.target.value })}
-                />
                 <select
                   className="inv-field"
                   value={companions[i]?.relation ?? ''}
                   aria-label={p.labels.relation}
                   onChange={(e) => setCompanion(i, { relation: e.target.value })}
                 >
-                  <option value="">{p.labels.relationBlank}</option>
+                  <option value="">{p.labels.companion.replace('{n}', String(i + 1))}</option>
                   {p.relations.map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
+                {(companions[i]?.relation || companions[i]?.name) && (
+                  <input
+                    className="inv-field"
+                    placeholder={p.labels.relationName}
+                    value={companions[i]?.name ?? ''}
+                    autoComplete="off"
+                    aria-label={p.labels.relationName}
+                    onChange={(e) => setCompanion(i, { name: e.target.value })}
+                  />
+                )}
               </div>
             ))}
           </div>

@@ -48,9 +48,7 @@ export type FeatureKey =
   | 'guestbook'
   | 'photoSharing'
   | 'slug.custom'
-  | 'privacy.password'
-  | 'support.chat'
-  | 'support.priority';
+  | 'privacy.password';
 
 export const FEATURE_MIN_TIER: Record<FeatureKey, Tier> = {
   'templates.any': 'STANDARD',
@@ -82,8 +80,6 @@ export const FEATURE_MIN_TIER: Record<FeatureKey, Tier> = {
   photoSharing: 'COMPLETE',
   'slug.custom': 'STANDARD',
   'privacy.password': 'COMPLETE',
-  'support.chat': 'STANDARD',
-  'support.priority': 'COMPLETE',
 };
 
 export function hasFeature(tier: Tier, feature: FeatureKey): boolean {
@@ -166,7 +162,6 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Revisions (rounds of changes before we publish)', cells: { BASIC: '2 rounds', STANDARD: '4 rounds', COMPLETE: '6 rounds' } },
   { label: 'Changes after publishing (design included)', cells: { BASIC: 'Message us', STANDARD: 'Message us', COMPLETE: 'Message us' } },
   { label: 'Link validity', cells: { BASIC: 'Event + 30 days', STANDARD: 'Event + 6 months', COMPLETE: 'Event + 1 year' } },
-  { label: 'Support', cells: { BASIC: 'Email', STANDARD: 'Messenger / Viber', COMPLETE: 'Priority + 1 free design tweak' } },
 ];
 
 /** What the landing page, checkout and upgrade page show. */

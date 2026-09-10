@@ -236,19 +236,34 @@ export async function checkIn(user: SessionUser, invitation: { id: string; tier:
  * questions rather than the couple's: how many are coming, how many of each
  * meal, which group each name belongs to, and who has still not replied.
  *
- * There are no tables or reserved seats here yet. Both come from the guest
- * list manager, which Signature now sells, so the reason for leaving them out
- * has changed: it is no longer that a couple cannot fill them in, it is that
- * this sheet is built from Rsvp rows and a table assignment lives on Guest,
- * which the two are only joined through a token. A coordinator holding a
- * seating chart wants that column; adding it means joining the two here first.
+ * The table each name is seated at is one of those questions, so the reply is
+ * read through Rsvp.guestId to the guest and their table. That link exists
+ * only for a reply that arrived on a personal link: somebody who answered
+ * through the invitation's public link is a name with no seat, and so is a
+ * guest the couple never assigned. Both read "—" rather than a blank, so the
+ * column says "not seated" instead of looking like a printing fault.
+ *
+ * `seated` says whether to print the column at all. It is false until at least
+ * one name on this sheet actually has a table — not merely when a table
+ * exists — because an empty column promises a coordinator a seating plan that
+ * nobody has drawn. It is the same rule the sheet already applies to seats and
+ * meals: a question the couple was never asked gets no column.
  */
 export async function rsvpSheet(invitationId: string) {
   const [rsvps, guests, summary, invitation] = await Promise.all([
-    prisma.rsvp.findMany({ where: { invitationId }, orderBy: [{ response: 'asc' }, { name: 'asc' }] }),
+    prisma.rsvp.findMany({
+      where: { invitationId },
+      include: { guest: { select: { table: { select: { name: true } } } } },
+      orderBy: [{ response: 'asc' }, { name: 'asc' }],
+    }),
     // Only ever populated on an invitation that came through the guest list
-    // manager. Kept so the sheet can still say who has not replied.
-    prisma.guest.findMany({ where: { invitationId }, include: { rsvps: { select: { id: true }, take: 1 } }, orderBy: { name: 'asc' } }),
+    // manager. Kept so the sheet can still say who has not replied — and where
+    // they would have sat, which is what a coordinator chasing them wants.
+    prisma.guest.findMany({
+      where: { invitationId },
+      include: { rsvps: { select: { id: true }, take: 1 }, table: { select: { name: true } } },
+      orderBy: { name: 'asc' },
+    }),
     rsvpSummary(invitationId),
     prisma.invitation.findUnique({ where: { id: invitationId }, select: { content: true, occasion: true } }),
   ]);
@@ -257,10 +272,11 @@ export async function rsvpSheet(invitationId: string) {
   // how they wrote it. Alphabetical would put their ninongs behind everyone.
   const order = invitation ? guestGroups(invitation.occasion, contentOf(invitation.content).rsvp) : [];
 
-  type Row = { name: string; group: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
+  type Row = { name: string; group: string; table: string; seats: number; meal: string; dietary: string; note: string; state: 'ACCEPT' | 'DECLINE'; attendees: string[] };
   const rows: Row[] = rsvps.map((r) => ({
     name: r.name,
     group: r.groupName,
+    table: r.guest?.table?.name ?? '',
     seats: r.response === 'ACCEPT' ? r.seats : 0,
     meal: r.mealChoice,
     dietary: r.dietary,
@@ -300,7 +316,9 @@ export async function rsvpSheet(invitationId: string) {
     grouped,
     meals: [...meals.entries()].map(([meal, seats]) => ({ meal, seats })).sort((a, b) => b.seats - a.seats),
     /** Invited but silent. Empty unless the invitation has a guest list. */
-    pending: guests.filter((g) => g.rsvps.length === 0).map((g) => g.name),
+    pending: guests.filter((g) => g.rsvps.length === 0).map((g) => ({ name: g.name, table: g.table?.name ?? '' })),
+    /** Whether any name on this sheet has a table — see the note above. */
+    seated: rows.some((r) => r.table) || guests.some((g) => g.rsvps.length === 0 && g.table),
     summary,
     replies: rows.length,
   };

@@ -8,7 +8,7 @@ import { galleryWithPeeks } from '@/lib/peek';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { formatPesoShort } from '@/lib/money';
-import { occasionLabel } from '@/lib/occasions';
+import { occasionLabel, templateOccasions } from '@/lib/occasions';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
 import { TemplateGallery } from '@/components/landing/gallery';
 import { BackArrow } from '@/components/back';
@@ -41,7 +41,7 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
   const { info, templates } = found;
   // The designs here with a premium opening clip of their own to add on.
   const withClip = templates.filter((t) => t.openingVideoUrl && t.openingPosterUrl);
-  const occasions = [...new Set(templates.map((t) => t.occasion))];
+  const occasions = [...new Set(templates.flatMap((t) => templateOccasions(t)))];
   // Only collections that have a design of their own — a link to an empty one
   // would 404.
   const others = collectionsPresent((await prisma.template.findMany({ where: { published: true }, select: { collection: true } })).map((t) => t.collection)).filter((c) => c.key !== key);

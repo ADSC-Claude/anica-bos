@@ -33,12 +33,15 @@ export function Builder({
   done: doneInitial,
   completedAt,
   window,
+  hidesWhenEmpty = false,
 }: {
   invitationId: string;
   /** The sections the couple has marked Done, when the form was completed, and when changes close. */
   done: SectionKey[];
   completedAt: string | null;
   window: { closesAt: string; finalAt: string; closed: boolean } | null;
+  /** True where leaving this section empty means the part simply does not appear on the invitation. */
+  hidesWhenEmpty?: boolean;
   slug: string;
   status: string;
   /** The look the page is set in ('' for the design's own) and the looks to choose from. */
@@ -191,6 +194,19 @@ export function Builder({
           </div>
         ) : (
           <>
+            {/*
+              Said before it happens, not after. A part left empty is a choice
+              a customer is allowed to make — some couples have no story page
+              to write and no programme to give — and the invitation is shorter
+              for it. What is not allowed is finding that out from the finished
+              page, so the form says plainly what an empty section means here,
+              and that it can still be added afterwards.
+            */}
+            {hidesWhenEmpty && !section?.filled && !isDone && (
+              <p className="mb-3 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] px-3 py-2 text-xs text-[color:var(--color-ink-700)]">
+                Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all, and that is a perfectly good choice. If you decide you would like it after publishing, we will gladly add it, and it will be counted as one revision round — so it is worth settling now if you can.
+              </p>
+            )}
             <fieldset disabled={closed} className="min-w-0 border-0 p-0">
               <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
             </fieldset>

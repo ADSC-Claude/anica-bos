@@ -3,9 +3,40 @@
 import { useState, useTransition } from 'react';
 import { publishAction, unpublishAction, toggleRsvpAction } from '@/app/account/actions';
 
-export function PublishControls({ invitationId, status, problems, rsvpClosed, rsvp = true }: { invitationId: string; status: string; problems: string[]; rsvpClosed: boolean; rsvp?: boolean }) {
+/**
+ * Publish, and what publishing with gaps means.
+ *
+ * `problems` are the few things an invitation cannot go out without — the
+ * names, the date — and they hold the button. `blanks` are the parts left
+ * empty, which are allowed: a customer with no story to tell should not be
+ * held at the door by a box they will never fill. But nothing vanishes as a
+ * surprise, so the blanks are named, the parts that will not appear are said
+ * plainly, and the customer ticks once to say send it anyway. What they ticked
+ * is passed to the server and kept on the invitation, so whoever works on it
+ * next knows those gaps were a decision.
+ *
+ * And it says what publishing costs. Adding a part afterwards is work
+ * somebody does by hand on a finished page, which is exactly what a revision
+ * round is for, so it uses one. Said before the button rather than after it:
+ * a customer who learns the price afterwards was not asked, they were
+ * charged. Said politely, and without discouraging them from asking.
+ */
+export function PublishControls({ invitationId, status, problems, blanks = [], skipped = [], rounds, rsvpClosed, rsvp = true }: {
+  invitationId: string;
+  status: string;
+  problems: string[];
+  /** The sections left empty, by their label, and the keys behind them. */
+  blanks?: { key: string; label: string }[];
+  /** Of those, the ones that will simply not appear on the invitation. */
+  skipped?: string[];
+  /** How many revision rounds their package carries, so the note can name them. */
+  rounds?: number;
+  rsvpClosed: boolean;
+  rsvp?: boolean;
+}) {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
       setError('');
@@ -15,6 +46,24 @@ export function PublishControls({ invitationId, status, problems, rsvpClosed, rs
   return (
     <div className="mt-3 space-y-2">
       {problems.length > 0 && status !== 'PUBLISHED' && <ul className="text-xs text-[color:var(--warn)]">{problems.map((p) => <li key={p}>• {p}</li>)}</ul>}
+      {status !== 'PUBLISHED' && problems.length === 0 && blanks.length > 0 && (
+        <div className="rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] p-3">
+          <p className="text-sm font-semibold">{blanks.length} part{blanks.length === 1 ? '' : 's'} still empty</p>
+          <p className="mt-1 text-xs text-[color:var(--color-ink-700)]">
+            You can send it like this. {skipped.length > 0 ? `These will simply not appear on your invitation: ${skipped.join(', ')}.` : 'Nothing will be missing from the page.'}
+          </p>
+          <p className="mt-1.5 text-xs text-[color:var(--color-ink-700)]">
+            Please treat this as your final version. If you decide you would like one of these parts after publishing, we will gladly add it for you, and it will be counted as {rounds ? `one of your ${rounds} revision rounds` : 'one revision round'}. Deciding now costs you nothing.
+          </p>
+          <ul className="mt-2 grid gap-0.5 text-xs text-[color:var(--color-ink-700)] sm:grid-cols-2">
+            {blanks.map((b) => <li key={b.key}>• {b.label}</li>)}
+          </ul>
+          <label className="mt-2 flex items-start gap-2 text-xs">
+            <input type="checkbox" className="mt-0.5 h-4 w-4" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+            <span>Send my invitation with these left blank. I know what will not show.</span>
+          </label>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {status === 'PUBLISHED' ? (
           <>
@@ -23,7 +72,7 @@ export function PublishControls({ invitationId, status, problems, rsvpClosed, rs
             {rsvp && <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => run(() => toggleRsvpAction(invitationId, !rsvpClosed))}>{rsvpClosed ? 'Reopen RSVP' : 'Close RSVP'}</button>}
           </>
         ) : (
-          <button type="button" className="btn btn-primary" disabled={pending || problems.length > 0} onClick={() => run(() => publishAction(invitationId).then((r) => (r.ok ? { ok: true } : r)))}>{pending ? 'Publishing…' : 'Publish invitation'}</button>
+          <button type="button" className="btn btn-primary" disabled={pending || problems.length > 0 || (blanks.length > 0 && !accepted)} onClick={() => run(() => publishAction(invitationId, blanks.map((b) => b.key)).then((r) => (r.ok ? { ok: true } : r)))}>{pending ? 'Publishing…' : 'Publish invitation'}</button>
         )}
       </div>
       {error && <p role="alert" className="text-sm text-[color:var(--bad)]">{error}</p>}

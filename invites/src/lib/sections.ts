@@ -2,7 +2,9 @@ import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast, TIER_LABELS } from './tiers';
-import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES, type Lang, type Preset } from './copy';
+import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
+  PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
+  type Lang, type Preset } from './copy';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
 import { parseStart } from './song';
@@ -40,6 +42,8 @@ export type FieldType =
   /** a moment in a song, stored as seconds, picked as minutes and seconds */
   | 'offset'
   | 'select'
+  /** a select made of pictures: each option drawn as what it does to the page */
+  | 'styles'
   | 'colors'
   /** colours picked from the named palette (src/lib/palette.ts); stored as hex like 'colors' */
   | 'swatches'
@@ -59,6 +63,13 @@ export type Field = {
   /** select: picking an option copies its text into this sibling field */
   presets?: Preset[];
   presetTarget?: string;
+  /**
+   * text, textarea: ready-made wording offered beside the box, one tap to use
+   * and then edit. Only ever on a field the customer writes themselves: a
+   * staff field carries none, because an encoder filling twenty boxes does
+   * not need three suggestions on each.
+   */
+  examples?: Preset[];
   /** list */
   item?: Field[];
   addLabel?: string;
@@ -114,7 +125,8 @@ export type SectionKey =
   | 'closing'
   | 'speakers'
   | 'family'
-  | 'contact';
+  | 'contact'
+  | 'extras';
 
 export type SectionData = Record<string, unknown>;
 export type Content = Partial<Record<SectionKey, SectionData>>;
@@ -130,6 +142,12 @@ export type SectionDef = {
   labelFor?: Partial<Record<Occasion, string>>;
   /** Built, but not offered yet: not in the builder, not on the page. */
   hidden?: true;
+  /**
+   * Never counted as missing. An extra the customer may leave alone for ever:
+   * it is not in the "still needs" list, it never holds up a publish, and
+   * nothing on the invitation depends on it.
+   */
+  optional?: true;
   fields: (occasion: Occasion) => Field[];
 };
 
@@ -149,15 +167,27 @@ const toggle = (key: string, label: string, extra: Partial<Field> = {}): Field =
 const number = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'number', ...extra });
 const person = (key: string, label: string, extra: Partial<Field> = {}): Field => ({ key, label, type: 'person', ...extra });
 const select = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'select', options, ...extra });
+/** A select the client can see: every option drawn, including the one that shows no photograph at all. */
+const styles = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'styles', options, wide: true, ...extra });
 
 /**
  * The ways a cover photograph sits on a design whose ground is artwork. Each
  * is a `data-style` on `.inv-portrait` in globals.css; the veil is the
  * default and what an empty choice means.
  */
+/**
+ * The cover photograph, and the ways it can sit — the first of which is not to.
+ *
+ * "None" is an option here rather than a switch beside the picker because a
+ * client deciding this is choosing between pictures, and "no photograph on the
+ * cover" is one of the pictures. Turning it off does not throw the photograph
+ * away: it is still the design's link preview in Messenger and Viber, and still
+ * the first picture on the photos page.
+ */
 export const PHOTO_STYLES: Option[] = [
-  { value: 'veil', label: 'Behind the names, veiled' },
-  { value: 'arch', label: 'Arched portrait, bronze frame' },
+  { value: 'none', label: 'No photograph' },
+  { value: 'veil', label: 'Veiled behind the names' },
+  { value: 'arch', label: 'Arched portrait' },
   { value: 'oval', label: 'Oval, double line' },
   { value: 'round', label: 'Round medallion' },
   { value: 'card', label: 'A tucked photo card' },
@@ -213,6 +243,16 @@ function eventBlock(opts: { venueLabel: string; withDate?: boolean; withSeated?:
 const COVER_COMMON = (occasion: Occasion): Field[] => [
   date('date', 'Event date', { required: true }),
   time('time', 'Start time', { required: true }),
+  /**
+   * Not for the page: for the calendar. A customer thinks in one date, the day
+   * they send the link out, and everything we do is counted back from it. The
+   * hint says the arithmetic in plain words rather than making them work it
+   * out, and their own page shows it as real dates once this is filled in.
+   */
+  date('sendOut', 'When you plan to send this out', {
+    hint: 'Not shown to your guests. It is how we plan your dates: your final form about a month before that day, a week for us to build it, and the two weeks after that for your revisions. Three weeks ahead is the latest we can promise comfortably.',
+    wide: true,
+  }),
   select('introPreset', 'Intro line', INTRO_PRESETS.map((p) => ({ value: p.key, label: p.label })), {
     presets: INTRO_PRESETS,
     presetTarget: 'intro',
@@ -220,10 +260,18 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
   }),
   textarea('intro', 'Intro wording', { placeholder: 'Together with their families…', staff: true }),
   image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
-  // How the photograph sits on a design whose ground is artwork (Capiz):
-  // five settings, so a couple who wants their photo carried differently is
-  // one pick away rather than a design change. Blank is the veil.
-  select('photoStyle', 'How the photo sits', PHOTO_STYLES, { hint: 'On the Capiz design. Blank is the veil.' }),
+  // The cover asks for a portrait, because a phone is a portrait. A design
+  // with a wide frame — a band across a page, a strip above the words — needs
+  // a landscape one, and cropping the portrait to it cuts off the faces.
+  image('bannerPhoto', 'Wide photo', { hint: 'Landscape. Used by designs that carry a wide frame or a band across a page; the cover photo above stays portrait.' }),
+  // How the photograph sits on a design whose ground is artwork, and whether it
+  // sits there at all. Six pictures rather than a list of words, because this is
+  // a choice about a look and nobody can pick a look from the phrase "oval,
+  // double line". Left alone, each design uses its own: the veil on Capiz, the
+  // tucked card on Baby Blue.
+  styles('photoStyle', 'The photograph on the cover', PHOTO_STYLES, {
+    hint: 'On the designs whose pages are drawn artwork — Capiz and Baby Blue. Left alone, each uses the one it was drawn for. Choosing none keeps your photo as the link preview and on the photos page; it just stays off the cover.',
+  }),
   textarea('verse', 'A verse or quote', { placeholder: '“And above all these things put on love, which binds everything together in perfect harmony.”', hint: "Shown after the cover, on designs that carry one. Blank keeps the design's own verse.", staff: true }),
   text('verseRef', 'Its source', { placeholder: 'Colossians 3:14', staff: true }),
   text('interlude2', 'Script line after the venue', { placeholder: 'Nature. Wellness. Forever ours.', staff: true }),
@@ -519,7 +567,12 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Ninong at Ninang',
     description: 'Two columns, as many rows as you need.',
     minTier: 'STANDARD',
-    fields: () => [names('ninongs', 'Ninongs'), names('ninangs', 'Ninangs')],
+    fields: () => [
+      names('ninongs', 'Ninongs'),
+      names('ninangs', 'Ninangs'),
+      image('groupPhoto', 'Photo of the ninongs and ninangs together'),
+      textarea('blessing', 'Their blessing or prayer', { examples: SPONSORS_BLESSING_EXAMPLES, hint: 'A few words from the godparents, in your own wording or one of the examples.', wide: true }),
+    ],
   },
   {
     key: 'eighteen',
@@ -617,18 +670,21 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'How you met, the proposal, and a timeline with its photos — and the line under the heading.',
     minTier: 'STANDARD',
     labelFor: { MILESTONE_BIRTHDAY: 'Their story', ANNIVERSARY: 'Our story so far' },
-    fields: (occasion) =>
-      occasion === 'CHRISTENING'
-        ? [
-            text('line', 'Line under the heading', { placeholder: 'e.g. A little prayer, a big answer.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-            list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6 }),
-          ]
-        : [
-            text('line', 'Line under the heading', { placeholder: 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-            textarea('howWeMet', 'How we met'),
-            textarea('proposal', 'The proposal'),
-            list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
-          ],
+    fields: (occasion) => {
+      const line = text('line', 'Line under the heading', { placeholder: occasion === 'CHRISTENING' ? 'e.g. A little prayer, a big answer.' : 'e.g. English', hint: "Blank keeps the design's own line.", wide: true, staff: true });
+      if (occasion === 'CHRISTENING' || occasion === 'BABY_SHOWER' || occasion === 'COMMUNION') {
+        return [
+          line,
+          list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6 }),
+        ];
+      }
+      return [
+        line,
+        textarea('howWeMet', 'How we met', { examples: HOW_WE_MET_EXAMPLES }),
+        textarea('proposal', 'The proposal', { examples: PROPOSAL_EXAMPLES }),
+        list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
+      ];
+    },
   },
   {
     key: 'gallery',
@@ -649,11 +705,36 @@ const SECTION_DEFS: SectionDef[] = [
      * guest-facing heading stays "Gallery" whatever the occasion.
      */
     labelFor: { CHRISTENING: 'Baby photos', BABY_SHOWER: 'Baby photos', KIDS_BIRTHDAY: "Celebrant's photos", MILESTONE_BIRTHDAY: "Celebrant's photos", COMMUNION: 'Photos', DEBUT: 'Photos & video', ANNIVERSARY: 'Photos & video', ENGAGEMENT: 'Photos', GRADUATION: 'Photos', REUNION: 'Photos', MEMORIAL: 'Photos' },
-    fields: () => [
+    fields: (occasion) => [
       text('line', 'Line under the heading', { placeholder: 'e.g. Moments we\'ll always cherish', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo' }),
+      /**
+       * Twelve at most. A design promises what it shows: a mosaic laid out for
+       * a dozen photographs is a designed page, and the thirtieth photograph
+       * has nowhere to go but a scrolling heap. The extras section at the end
+       * of the form takes the rest, for us to place if a page has room.
+       */
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', max: 12 }),
+      // A baby's first year, one photograph a month, as a christening or a
+      // first birthday card runs it.
+      ...(occasion === 'CHRISTENING' || occasion === 'KIDS_BIRTHDAY'
+        ? [list('months', 'Month by month', [text('label', 'Which month', { required: true, placeholder: 'e.g. 1 month' }), image('url', 'Photo', { required: true })], { addLabel: 'Add a month', max: 12, hint: 'Up to twelve — the first year, one photo a month. Designs with a month-by-month page use these.' })]
+        : []),
+      // Two childhood photographs side by side, the way a printed card runs
+      // them: the couple as children, or the debutante alone. A design draws
+      // them as a pair, so the pair is what is asked for. They sit with the
+      // photographs rather than in Our Story, because a debut has no Our Story
+      // block and a pair of pictures asked for in a section that does not
+      // exist is a pair of pictures nobody is ever asked for.
+      ...(occasion === 'WEDDING' || occasion === 'DEBUT'
+        ? [list('little', occasion === 'WEDDING' ? 'When we were little' : 'When I was little', [image('url', 'Photo', { required: true }), text('caption', 'Whose it is', { placeholder: occasion === 'WEDDING' ? 'e.g. Maria, 4 years old' : 'e.g. 3 years old' })], { addLabel: 'Add a childhood photo', max: 2, hint: occasion === 'WEDDING' ? 'Two: one of each of you.' : 'Up to two.' })]
+        : []),
+      image('familyPhoto', 'A family photo'),
+      image('parentsPhoto', "A photo of the parents"),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
       url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      // A second clip, for a spoken message rather than a montage: a
+      // grandparent who cannot travel, a maid of honour's greeting.
+      url('messageVideoUrl', 'A message video link', { hint: 'A second clip, for a spoken message. Same links: YouTube, Vimeo or a public Facebook video.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
       text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],
@@ -771,8 +852,22 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Pagtatapos',
     description: 'A photo, a thank-you, your signature, and the line above your names.',
     minTier: 'BASIC',
-    fields: () => [
+    fields: (occasion) => [
       image('photo', 'Closing photo (above the message)'),
+      textarea('parentsMessage', 'A message from the parents', { examples: PARENTS_MESSAGE_EXAMPLES, hint: 'Your own words to your guests. Shown on designs that carry a message here.', wide: true }),
+      /**
+       * A dedication to the one being celebrated, and the debutante's own note
+       * to the room. Both live on the closing page, which every occasion
+       * carries in every package — Our Story is a Standard section a debut, a
+       * first communion and a children's party do not have at all, so a
+       * dedication put there would never be asked for.
+       */
+      ...(['CHRISTENING', 'COMMUNION', 'KIDS_BIRTHDAY', 'MILESTONE_BIRTHDAY', 'BABY_SHOWER'].includes(occasion)
+        ? [textarea('dedication', occasion === 'MILESTONE_BIRTHDAY' ? 'A dedication to the celebrant' : 'A dedication to the child', { examples: DEDICATION_EXAMPLES, hint: 'Your own words, or one of the examples to start from.', wide: true })]
+        : []),
+      ...(occasion === 'DEBUT'
+        ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true })]
+        : []),
       textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
       text('signature', 'Signed', { placeholder: 'Juan & Maria' }),
       text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line.", staff: true }),
@@ -812,6 +907,33 @@ const SECTION_DEFS: SectionDef[] = [
       textarea('registrationNote', 'Registration note', { staff: true }),
     ],
   },
+  /**
+   * The last block, and the only one that shows nothing by itself.
+   *
+   * A design asks for what it has room for: six frames, four frames, one
+   * cover portrait. A customer often has more — the photograph they could not
+   * choose between, the one their mother wants included, a clip from the
+   * prenup shoot. Asking for those up front would bury the photographs the
+   * design actually needs under a pile of maybes, so they are asked for last
+   * and kept apart: they sit in the customer's own account, we can see them,
+   * and we place one only if a page has room for it or they ask us to.
+   *
+   * `optional` keeps it out of the "still needs" list for ever: a customer who
+   * never opens it has not left anything unfinished.
+   */
+  {
+    key: 'extras',
+    label: 'Extra photos & notes',
+    tl: 'Iba Pang Larawan',
+    description: 'Anything else you would like us to have. Nothing here shows on your invitation unless we place it, or you ask us to.',
+    minTier: 'BASIC',
+    optional: true,
+    fields: () => [
+      list('photos', 'Extra photos', [image('url', 'Photo', { required: true }), text('caption', 'What it is', { placeholder: 'e.g. with Lola, Christmas 2024' })], { addLabel: 'Add a photo', max: 30, hint: 'Kept in your account for us to draw on. Up to thirty.' }),
+      url('videoUrl', 'Another video link'),
+      textarea('note', 'Anything we should know', { placeholder: 'e.g. please use the second photo on the cover if it fits, and the church is hard to find from the north gate.', wide: true }),
+    ],
+  },
 ];
 
 /**
@@ -844,7 +966,7 @@ export const FIT: Record<string, number> = {
   'entourage.secondarySponsors.first': 40, 'entourage.secondarySponsors.second': 40, 'entourage.secondarySponsors.roleOther': 24,
   'entourage.principalSponsors.ninong': 48, 'entourage.principalSponsors.ninang': 48,
   'entourage.bestMen.name': 48, 'entourage.honors.name': 48,
-  'sponsors.ninongs.name': 48, 'sponsors.ninangs.name': 48,
+  'sponsors.ninongs.name': 48, 'sponsors.ninangs.name': 48, 'sponsors.blessing': 240,
   'eighteen.treasures.item': 40, 'eighteen.treasures.relation': 40,
   // dress code: lines under a heading, notes under the figures and the palette
   'dressCode.attireText': 90, 'dressCode.gentsNote': 120, 'dressCode.ladiesNote': 120, 'dressCode.paletteNote': 100,
@@ -853,10 +975,10 @@ export const FIT: Record<string, number> = {
   'gift.text': 320, 'gift.gcashName': 40, 'gift.gcashNumber': 24, 'gift.bankDetails': 300, 'gift.registry.label': 40,
   'rsvp.policyText': 240, 'rsvp.note': 240, 'rsvp.contactPhone': 30, 'rsvp.reminderText': 300, 'rsvp.mealChoices.label': 30,
   // the story: a christening's milestones sit in drawn frames, a wedding's run down a timeline
-  'story.line': 80, 'story.howWeMet': 600, 'story.proposal': 600,
+  'story.line': 80, 'story.howWeMet': 600, 'story.proposal': 600, 
   'story.timeline.title': 28, 'story.timeline.text': 70, 'story.timeline.date': 24,
   // photos
-  'gallery.line': 80, 'gallery.note': 90, 'gallery.videoTitle': 40, 'gallery.close': 60, 'gallery.photos.caption': 40,
+  'gallery.line': 80, 'gallery.note': 90, 'gallery.months.label': 20, 'gallery.little.caption': 40, 'gallery.videoTitle': 40, 'gallery.close': 60, 'gallery.photos.caption': 40,
   'moment.line1': 40, 'moment.line2': 40, 'moment.line3': 40,
   // the day
   'program.items.time': 12, 'program.items.title': 40, 'program.items.note': 60,
@@ -864,7 +986,8 @@ export const FIT: Record<string, number> = {
   'travel.hotels.name': 60, 'travel.hotels.address': 100, 'travel.hotels.note': 80,
   'social.hashtag': 40, 'social.instagram': 60, 'social.tiktok': 60, 'social.facebook': 60, 'social.unpluggedText': 240,
   'music.song': 80, 'guestbook.prompt': 120, 'photos.prompt': 120,
-  'closing.message': 320, 'closing.signature': 60, 'closing.line': 60,
+  'closing.message': 320, 'closing.parentsMessage': 240, 'closing.dedication': 240, 'closing.debutNote': 320, 'closing.signature': 60, 'closing.line': 60,
+  'extras.note': 300, 'extras.photos.caption': 40,
   'contact.name': 40, 'contact.name2': 40, 'contact.phone': 30, 'contact.phone2': 30, 'contact.email': 80, 'contact.messenger': 200, 'contact.chatNote': 120, 'contact.registrationNote': 240,
   'speakers.items.name': 40, 'speakers.items.title': 60, 'speakers.items.topic': 80,
 };
@@ -890,20 +1013,20 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
-  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing'],
-  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing'],
-  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing'],
-  KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing'],
-  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
-  BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
-  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing'],
-  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'moment', 'faq', 'photos', 'closing'],
-  GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing'],
-  COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'photos', 'closing'],
-  CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'photos', 'closing'],
-  HOUSEWARMING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'rsvp', 'gift', 'faq', 'photos', 'closing'],
-  REUNION: ['cover', 'countdown', 'parents', 'reception', 'program', 'rsvp', 'gallery', 'faq', 'contact', 'photos', 'closing'],
-  MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'photos', 'closing'],
+  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing', 'extras'],
+  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing', 'extras'],
+  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing', 'extras'],
+  KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing', 'extras'],
+  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing', 'extras'],
+  BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing', 'extras'],
+  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing', 'extras'],
+  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'moment', 'faq', 'photos', 'closing', 'extras'],
+  GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing', 'extras'],
+  COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'photos', 'closing', 'extras'],
+  CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'photos', 'closing', 'extras'],
+  HOUSEWARMING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'rsvp', 'gift', 'faq', 'photos', 'closing', 'extras'],
+  REUNION: ['cover', 'countdown', 'parents', 'reception', 'program', 'rsvp', 'gallery', 'faq', 'contact', 'photos', 'closing', 'extras'],
+  MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'photos', 'closing', 'extras'],
 };
 
 /** The sections a customer can fill for this occasion — the hidden ones left out. */
@@ -979,6 +1102,38 @@ export function sectionOnCard(key: SectionKey, occasion: Occasion, saveTheDate: 
 /** Whether a section is part of what is offered today. */
 export function sectionOffered(key: SectionKey): boolean {
   return !SECTION_BY_KEY[key].hidden;
+}
+
+/**
+ * The sections a customer has been offered and has left empty.
+ *
+ * Nothing here is an error. A couple with no story to tell, no program and no
+ * FAQ has a shorter invitation, which is a choice and not a mistake, and the
+ * form says so rather than filling the gap in silence. `optional` sections
+ * (the extras at the end) are never counted: a customer who never opens them
+ * has not left anything undone.
+ */
+export function blankSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false): SectionKey[] {
+  return sectionsFor(occasion, saveTheDate)
+    .filter((d) => !d.optional && sectionUnlocked(d.key, occasion, tier) && !sectionFilled(d.key, occasion, content[d.key]))
+    .map((d) => d.key);
+}
+
+/**
+ * The sections that, left blank, simply will not appear on the invitation.
+ *
+ * Three do appear whatever happens, so they are left out: the cover, which is
+ * the invitation; the RSVP, whose form is its content; and the countdown,
+ * whose only content is its switch. A blank one of those is not a page that
+ * vanishes, so telling a customer it would vanish would be untrue.
+ */
+export function skippedSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false): SectionKey[] {
+  return blankSections(occasion, content, tier, saveTheDate).filter((k) => !sectionAlwaysShows(k));
+}
+
+/** True for the three sections that appear even with nothing in them: the cover, the RSVP form and the countdown's switch. */
+export function sectionAlwaysShows(key: SectionKey): boolean {
+  return key === 'cover' || key === 'rsvp' || key === 'countdown';
 }
 
 export function sectionLabel(key: SectionKey, occasion: Occasion): string {
@@ -1191,6 +1346,7 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
     }
     case 'toggle':
       return raw === true || raw === 'true' || raw === 'on' || raw === 1;
+    case 'styles':
     case 'select': {
       const s = cleanString(raw, 60);
       if (s && field.options && !field.options.some((o) => o.value === s)) {
@@ -1321,7 +1477,7 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
 export function sectionFilled(key: SectionKey, occasion: Occasion, data: SectionData | undefined): boolean {
   if (!data) return false;
   const fields = fieldsFor(key, occasion);
-  const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select');
+  const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
   if (meaningful.length === 0) return true;
   return meaningful.some((f) => {
     const v = data[f.key];

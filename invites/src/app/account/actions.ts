@@ -105,11 +105,11 @@ export async function templateAction(invitationId: string, templateId: string) {
   });
 }
 
-export async function publishAction(invitationId: string) {
+export async function publishAction(invitationId: string, acceptedBlanks?: string[]) {
   const user = await requireUser();
   return action(async () => {
     await ownInvitation(user, invitationId);
-    const inv = await publish(user, invitationId);
+    const inv = await publish(user, invitationId, acceptedBlanks);
     refresh(invitationId);
     return inv.slug;
   });

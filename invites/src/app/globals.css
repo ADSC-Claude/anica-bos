@@ -797,8 +797,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /*
  * The couple's photograph on the Capiz cover. A paged design's ground is the
  * artwork, so the photo cannot fill the cover the way the other layouts do
- * it; it sits one of five ways (cover.photoStyle, PHOTO_STYLES in
- * sections.ts). The veil is the default: the photo lies behind the names
+ * it; it sits one of five ways, or none at all when the client would rather
+ * the cover were the design alone (cover.photoStyle, PHOTO_STYLES in
+ * sections.ts). The veil is Capiz's default: the photo lies behind the names
  * under a veil of the paper, its edges dissolving into the ground so the
  * clusters and drapes around it are untouched. The other four frame it above
  * the names — an arch in a thin bronze line, an oval with a double line, a
@@ -865,6 +866,67 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   margin-bottom: 1.6rem;
 }
 .inv-portrait[data-style='card'] img { aspect-ratio: 4 / 5; }
+/*
+ * The same five on Baby Blue, in this design's own light.
+ *
+ * Three things differ from Capiz, and each of them is the ground's doing.
+ *
+ * One: every frame is capped against the screen's HEIGHT as well as its width.
+ * Capiz's cover is as tall as its artwork, so a frame simply sits on it. Baby
+ * Blue's is one screen of sky by construction, with the child's name centred in
+ * it and the verse waiting under the fold, so a frame sized off the width alone
+ * is the same 15rem on a 600px screen as on a 932px one — where it pushes the
+ * name toward the fold and crowds the daisies the ground draws into the corner.
+ *
+ * Two: the shade. Capiz's frames are lit warm and drop a brown shadow; the ink
+ * of this design is a dusty navy and so is the shade it casts. The borders need
+ * no such rule: they are drawn in var(--inv-accent), which is Capiz's gold on
+ * Capiz and this design's soft blue here, so they recoloured themselves.
+ *
+ * Three: the veil's mask has to close. Capiz's fades from its centre to 64% of
+ * the box's width, which is wider than the box, so it never reaches transparent
+ * and its edges sit at about a third alpha. On Capiz's painted paper that is
+ * invisible. On clean sky it is a panel with corners. This one reaches nothing
+ * at 46% and dissolves into the clouds.
+ */
+.inv[data-layout='babyblue'] .inv-hero-body { position: relative; }
+.inv[data-layout='babyblue'] .inv-hero-body > .inv-hero-names,
+.inv[data-layout='babyblue'] .inv-hero-body > .inv-hero-details { position: relative; z-index: 1; }
+.inv[data-layout='babyblue'] .inv-portrait[data-style='veil'] {
+  top: 0;
+  translate: -50% -14%;
+  width: min(100%, 20rem);
+  max-width: none;
+  height: min(46dvh, 21rem);
+  opacity: 0.62;
+  -webkit-mask-image: radial-gradient(46% 42% at 50% 44%, #000 34%, rgba(0, 0, 0, 0.5) 66%, transparent 100%);
+  mask-image: radial-gradient(46% 42% at 50% 44%, #000 34%, rgba(0, 0, 0, 0.5) 66%, transparent 100%);
+}
+.inv[data-layout='babyblue'] .inv-portrait[data-style='veil'] img { object-position: center 30%; filter: saturate(0.78) brightness(1.05); }
+/* the name sits over the wash's lower half, where the sky comes back */
+.inv[data-layout='babyblue'] .inv-hero-body:has(.inv-portrait[data-style='veil']) > .inv-hero-names { padding-top: min(22dvh, 9rem); }
+.inv[data-layout='babyblue'] .inv-portrait[data-style='arch'] {
+  width: min(66%, 15.5rem, 21dvh);
+  background: color-mix(in srgb, #fff 55%, transparent);
+  box-shadow: 0 22px 44px -26px rgba(74, 91, 122, 0.5);
+}
+.inv[data-layout='babyblue'] .inv-portrait[data-style='oval'] {
+  width: min(60%, 14.5rem, 20dvh);
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 22px 44px -26px rgba(74, 91, 122, 0.5);
+}
+.inv[data-layout='babyblue'] .inv-portrait[data-style='round'] {
+  width: min(52%, 12.5rem, 24dvh);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.55), 0 0 0 6px color-mix(in srgb, var(--inv-accent, #8fb0d8) 40%, transparent), 0 20px 40px -24px rgba(74, 91, 122, 0.5);
+}
+.inv[data-layout='babyblue'] .inv-portrait[data-style='card'] {
+  width: min(50%, 11.5rem, 20dvh);
+  padding: 0.4rem 0.4rem 1.4rem;
+  background: #fff;
+  box-shadow: 0 16px 32px -18px rgba(74, 91, 122, 0.5), 0 1px 2px rgba(74, 91, 122, 0.12);
+  transform: rotate(-3deg);
+  margin: 0 auto min(4.5vw, 1.4rem);
+}
 .inv[data-paged] .inv-amp {
   font-family: var(--inv-script);
   font-style: normal;

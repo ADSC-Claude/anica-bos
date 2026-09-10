@@ -10,7 +10,13 @@ import { addDays } from './datetime';
  * by two weeks before — the last week is kept clear. Pure functions, so the
  * page, the server and the tests share one reading of the dates.
  */
-export type Progress = { done?: string[]; completedAt?: string };
+export type Progress = {
+  done?: string[];
+  completedAt?: string;
+  /** The sections the customer agreed to publish empty, and when they agreed. */
+  sentBlank?: string[];
+  sentBlankAt?: string;
+};
 
 export const CLOSE_DAYS = 21;
 export const FINAL_DAYS = 14;
@@ -34,6 +40,56 @@ export function doneSections(progress: Progress | undefined): SectionKey[] {
 export function withDone(progress: Progress | undefined, key: SectionKey, done: boolean): Progress {
   const current = doneSections(progress).filter((k) => k !== key);
   return { ...(progress ?? {}), done: done ? [...current, key] : current };
+}
+
+/**
+ * The schedule, counted back from the day the invitation goes out.
+ *
+ * A customer thinks in one date: the day they send the link to their guests.
+ * We work back from it. The form has to be final before anybody can start,
+ * a first version takes about a week, and the fortnight after that is for the
+ * revisions that actually make it theirs. Squeeze that fortnight and the
+ * revisions are the thing that gets squeezed, so the form is asked for three
+ * weeks ahead at the latest and a month ahead by preference.
+ *
+ * Calendar days, not working days: a customer counts on a calendar, and a
+ * promise made in working days is a promise they have to translate.
+ */
+export const PROCESSING_DAYS = 7;
+/** The latest a final form can reach us and still leave room for revisions. */
+export const FINAL_FORM_DAYS = 21;
+/** What we ask for by preference, so nothing is rushed. */
+export const COMFORTABLE_DAYS = 30;
+
+export type Schedule = {
+  sendOut: Date;
+  /** The latest the final form should reach us. */
+  finalBy: Date;
+  /** The date we would rather have it by. */
+  comfortableBy: Date;
+  /** When a first version would be ready if the form were final today. */
+  readyIfFinalisedNow: Date;
+  daysToSendOut: number;
+  /** The form is due within the week, or is already due. */
+  tight: boolean;
+  /** There is no longer room for the week of work plus revisions. */
+  late: boolean;
+};
+
+export function scheduleAdvice(sendOut: Date | null | undefined, now = new Date()): Schedule | null {
+  if (!sendOut || Number.isNaN(sendOut.getTime())) return null;
+  const day = 24 * 60 * 60 * 1000;
+  const daysToSendOut = Math.ceil((sendOut.getTime() - now.getTime()) / day);
+  const finalBy = addDays(sendOut, -FINAL_FORM_DAYS);
+  return {
+    sendOut,
+    finalBy,
+    comfortableBy: addDays(sendOut, -COMFORTABLE_DAYS),
+    readyIfFinalisedNow: addDays(now, PROCESSING_DAYS),
+    daysToSendOut,
+    tight: daysToSendOut <= FINAL_FORM_DAYS + 7,
+    late: daysToSendOut < PROCESSING_DAYS,
+  };
 }
 
 /** True once every section the couple has is marked Done. */

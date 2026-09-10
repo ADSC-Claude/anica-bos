@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { Tier } from '@prisma/client';
+import type { Occasion, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
 import type { GalleryTemplate } from '@/lib/gallery';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
@@ -18,24 +18,38 @@ export function packageLine(t: { premium: boolean; minTier: Tier }): string {
   return t.premium ? `${TIER_LABELS.COMPLETE} only` : t.minTier === 'BASIC' ? 'Basic & up' : `${TIER_LABELS[t.minTier]} & up`;
 }
 
-export function TemplateGallery({ templates, compact = false, collection: fixedCollection, premiumPriceCents }: {
+/**
+ * "Wedding", or "Wedding · Anniversary", or "Anniversary +2 more": every
+ * occasion a design is offered for, kept to one short line, and led by the
+ * occasion being browsed so a visitor on the anniversary page reads
+ * "Anniversary" first.
+ */
+function occasionsLine(t: GalleryTemplate, first?: string): string {
+  const keys = first && t.occasions.includes(first as Occasion) ? [first, ...t.occasions.filter((k) => k !== first)] : t.occasions;
+  const labels = keys.map((k) => OCCASIONS.find((o) => o.key === k)?.label ?? k);
+  return labels.length <= 2 ? labels.join(' · ') : `${labels[0]} +${labels.length - 1} more`;
+}
+
+export function TemplateGallery({ templates, compact = false, collection: fixedCollection, occasion: fixedOccasion, premiumPriceCents }: {
   templates: GalleryTemplate[];
   compact?: boolean;
   collection?: string;
+  /** A gallery already scoped to one occasion (the occasion page) hides the occasion buttons and links the checkout to it. */
+  occasion?: Occasion;
   /** The premium opening add-on's price, for the line on a design that has one. */
   premiumPriceCents?: number;
 }) {
-  const [occasion, setOccasion] = useState<string>('');
+  const [occasion, setOccasion] = useState<string>(fixedOccasion ?? '');
   const [tier, setTier] = useState<string>('');
   // A gallery already scoped to one collection (the collection page) hides the
   // collection buttons — there is nothing to switch to.
   const [collection, setCollection] = useState<string>('');
-  const occasionsPresent = OCCASIONS.filter((o) => templates.some((t) => t.occasion === o.key));
+  const occasionsPresent = fixedOccasion ? [] : OCCASIONS.filter((o) => templates.some((t) => t.occasions.includes(o.key)));
   const collections = fixedCollection ? [] : collectionsPresent(templates.map((t) => t.collection));
   const rank: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
   const visible = templates.filter(
     (t) =>
-      (!occasion || t.occasion === occasion) &&
+      (!occasion || t.occasions.includes(occasion as Occasion)) &&
       (!collection || t.collection === collection) &&
       (!tier || (t.premium ? tier === 'COMPLETE' : rank[t.minTier] <= rank[tier as Tier])),
   );
@@ -43,10 +57,12 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
   return (
     <div>
       <div className="mb-4 flex flex-wrap gap-2">
+        {!fixedOccasion && (
         <div className="flex flex-wrap gap-1">
           <button type="button" onClick={() => setOccasion('')} className={`btn btn-sm ${occasion === '' ? 'btn-primary' : 'btn-secondary'}`}>All occasions</button>
           {occasionsPresent.map((o) => <button key={o.key} type="button" onClick={() => setOccasion(o.key)} className={`btn btn-sm ${occasion === o.key ? 'btn-primary' : 'btn-secondary'}`}>{o.label}</button>)}
         </div>
+        )}
         {collections.length > 0 && (
           <div className="flex flex-wrap gap-1">
             <button type="button" onClick={() => setCollection('')} className={`btn btn-sm ${collection === '' ? 'btn-primary' : 'btn-secondary'}`}>All colours</button>
@@ -64,25 +80,29 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
         </select>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {shown.map((t) => (
+        {shown.map((t) => {
+          // the checkout opens on the occasion being browsed, else the design's home one
+          const occ = (occasion || t.occasion) as Occasion;
+          return (
           <article key={t.id} className="card group overflow-hidden">
             <CoverCard t={t} premiumPriceCents={premiumPriceCents} />
             <div className="p-3">
               <p className="text-sm font-semibold">{t.name} {t.featured && <span className="pill pill-info">Popular</span>}</p>
-              <p className="text-xs text-[color:var(--color-ink-500)]">{OCCASIONS.find((o) => o.key === t.occasion)?.label} · {packageLine(t)}</p>
+              <p className="text-xs text-[color:var(--color-ink-500)]">{occasionsLine(t, occasion)} · {packageLine(t)}</p>
               <TemplateNote t={t} premiumPriceCents={premiumPriceCents} />
               {t.peekSlug && (
                 <Link href={`/${t.peekSlug}?peek=1`} className="mt-2 block text-center text-xs text-[color:var(--color-plum-600)] underline">See it open, to Our Story</Link>
               )}
-              <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm mt-3 w-full">Choose this design</Link>
+              <Link href={`/checkout?occasion=${occ}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}`} className="btn btn-primary btn-sm mt-3 w-full">Choose this design</Link>
               {hasClip(t) && (
-                <Link href={`/checkout?occasion=${t.occasion}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}&addon=${PREMIUM_OPENING_CODE}`} className="mt-1.5 block text-center text-xs text-[color:var(--color-ink-500)] underline">
+                <Link href={`/checkout?occasion=${occ}&template=${t.id}${t.premium ? '&tier=COMPLETE' : ''}&addon=${PREMIUM_OPENING_CODE}`} className="mt-1.5 block text-center text-xs text-[color:var(--color-ink-500)] underline">
                   Choose it with the premium opening
                 </Link>
               )}
             </div>
           </article>
-        ))}
+          );
+        })}
         {shown.length === 0 && <p className="col-span-full text-sm text-[color:var(--color-ink-500)]">No designs yet for that filter — message us and we will build one.</p>}
       </div>
       {compact && visible.length > 8 && <p className="mt-4 text-center"><Link href="/templates" className="btn btn-secondary">See all {visible.length} designs</Link></p>}

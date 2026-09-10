@@ -50,6 +50,15 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Field label="Name" name="name" defaultValue={t?.name} required />
           <Field label="Slug" name="slug" defaultValue={t?.slug} hint="Lowercase, dashes. Used in URLs and the gallery." />
           <Select label="Occasion" name="occasion" defaultValue={occasion} options={OCCASIONS.map((o) => ({ value: o.key, label: o.label }))} hint="Changing the occasion changes which sections apply — save, then tick sections again." />
+          <div>
+            <p className="label">Also offered for</p>
+            <div className="grid grid-cols-2 gap-1 text-sm">
+              {OCCASIONS.map((o) => (
+                <label key={o.key} className="flex items-center gap-2"><input type="checkbox" name={`occ_${o.key}`} defaultChecked={t?.occasions.includes(o.key) ?? false} className="h-4 w-4" />{o.label}</label>
+              ))}
+            </div>
+            <p className="hint">A design can suit more than one occasion. Tick the others it should show under on the site and in the checkout; the occasion above is always included, and its sections are what you tick below.</p>
+          </div>
           <Select label="Lowest tier" name="minTier" defaultValue={t?.minTier ?? 'BASIC'} options={TIERS.map((x) => ({ value: x, label: x }))} />
           <Select label="Collection" name="collection" defaultValue={t?.collection ?? ''} options={[{ value: '', label: '— none —' }, ...COLLECTIONS.map((c) => ({ value: c.key, label: c.label }))]} hint="The colour family this design is shown under in the gallery." />
           <Select label="Opening" name="opening" defaultValue={t?.opening ?? ''} options={[{ value: '', label: '— none —' }, ...OPENINGS.filter((o) => o.key !== 'none').map((o) => ({ value: o.key, label: `${o.name} — ${o.tagline}` }))]} hint="What this design opens with when the customer has not picked one. Their choice always wins." />

@@ -206,14 +206,25 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // cover the way the other layouts do it. Capiz carries it one of five ways
   // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
   // framed above them as an arch, an oval, a medallion or a tucked card.
-  const portrait = format && layout === 'capiz' && photo;
+  //
+  // Baby Blue carries all five as well, in its own light: the frames are drawn
+  // in var(--inv-accent), which is this design's soft blue rather than Capiz's
+  // gold, and globals.css gives each one a shade of navy and a size that keeps
+  // the one-screen cover. Its own default is the tucked card, which is the one
+  // that reads most like a photograph somebody set down on the sky.
+  // Left alone, each design uses the treatment it was drawn for; "none" is the
+  // client saying they want the cover to be the design alone. The photograph
+  // they uploaded is still the link preview and still opens the photos page —
+  // this decides the cover and nothing else.
+  const portraitStyle = str(cover, 'photoStyle') || (layout === 'babyblue' ? 'card' : 'veil');
+  const portrait = format && isPaged(layout) && photo && portraitStyle !== 'none';
   return (
     <header className="inv-hero" id="top">
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
         {portrait && (
-          <figure className="inv-portrait" data-style={str(cover, 'photoStyle') || 'veil'}>
+          <figure className="inv-portrait" data-style={portraitStyle}>
             <img src={imageUrl(photo, IMAGE.hero)} alt="" />
           </figure>
         )}
@@ -1697,7 +1708,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const visible = (key: SectionKey) =>
     sectionOnCard(key, occasion, saveTheDate) &&
     sectionOffered(key) &&
-    (templateSections.size === 0 || templateSections.has(key)) &&
+    // the design's ticks were made against its home occasion; a section that
+    // occasion does not have (an anniversary's, on a design ticked for weddings
+    // too) is offered the way the invitation's occasion offers it
+    (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key)) &&
     sectionUnlocked(key, occasion, inv.tier) &&
     // the countdown's only content is its switch; the label is the look's to supply
     (key === 'rsvp' || key === 'cover' || key === 'countdown' || sectionFilled(key, occasion, content[key]));

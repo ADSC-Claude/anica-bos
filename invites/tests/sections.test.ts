@@ -250,9 +250,10 @@ test('the fixed writings are ours: off the client’s form, and kept through a c
   const cover = customerFields(fieldsFor('cover', 'WEDDING')).map((f) => f.key);
   assert.ok(cover.includes('introPreset') && cover.includes('coverPhoto') && cover.includes('date'));
   for (const k of ['intro', 'verse', 'verseRef', 'interlude2']) assert.ok(!cover.includes(k), k);
-  // the closing keeps the photo and the signature for the client; the thank-you and the line above the names are ours
+  // the closing keeps the photo, the parents' own message and the signature for
+  // the client; the thank-you and the line above the names are ours
   const closing = customerFields(fieldsFor('closing', 'WEDDING')).map((f) => f.key);
-  assert.deepEqual(closing, ['photo', 'signature']);
+  assert.deepEqual(closing, ['photo', 'parentsMessage', 'signature']);
   // and staff editing for the customer see everything
   assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'message' && f.staff));
 });
@@ -367,10 +368,21 @@ test('a Save the Date cover drops the opening controls, and an ordinary one keep
   assert.deepEqual(fieldsFor('countdown', 'WEDDING', 'COMPLETE', true), fieldsFor('countdown', 'WEDDING', 'COMPLETE'));
 });
 
-test('the cover offers five ways the photo sits, the veil first', async () => {
+test('the cover offers the five ways the photo sits, and not having one at all', async () => {
   const { fieldsFor, PHOTO_STYLES } = await import('../src/lib/sections');
   const f = fieldsFor('cover', 'WEDDING', 'COMPLETE').find((x) => x.key === 'photoStyle');
-  assert.ok(f && f.type === 'select');
-  assert.deepEqual(f!.options!.map((o) => o.value), ['veil', 'arch', 'oval', 'round', 'card']);
-  assert.equal(PHOTO_STYLES[0].value, 'veil');
+  // Drawn, not listed: a client picks a look by seeing it.
+  assert.ok(f && f.type === 'styles');
+  assert.deepEqual(f!.options!.map((o) => o.value), ['none', 'veil', 'arch', 'oval', 'round', 'card']);
+  // Turning the cover photograph off is the first thing offered, and is an
+  // option among the pictures rather than a switch somewhere else.
+  assert.equal(PHOTO_STYLES[0].value, 'none');
+});
+
+test('a photo style on its own does not make the cover a filled section', async () => {
+  const { sectionFilled } = await import('../src/lib/sections');
+  // An appearance choice is not content: picking a frame must not report the
+  // cover as started, the same way a toggle or a select does not.
+  assert.equal(sectionFilled('cover', 'CHRISTENING', { photoStyle: 'card' }), false);
+  assert.equal(sectionFilled('cover', 'CHRISTENING', { photoStyle: 'card', childFull: 'Lucas Andrei' }), true);
 });

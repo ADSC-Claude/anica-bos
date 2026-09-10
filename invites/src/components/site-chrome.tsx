@@ -14,6 +14,7 @@ import type { Settings } from '@/lib/settings-defaults';
  */
 const NAV = [
   { href: '/#templates', label: 'Templates' },
+  { href: '/occasions', label: 'By occasion' },
   { href: '/#packages', label: 'Packages' },
   { href: '/#how', label: 'How it works' },
   { href: '/#faq', label: 'FAQ' },
@@ -59,6 +60,7 @@ export function SiteFooter({ s }: { s: Settings }) {
           <p className="mb-2 font-semibold">Product</p>
           <ul className="space-y-1">
             <li><Link href="/templates" className="hover:underline">Templates</Link></li>
+            <li><Link href="/occasions" className="hover:underline">Designs by occasion</Link></li>
             <li><Link href="/#packages" className="hover:underline">Packages & pricing</Link></li>
             <li><Link href="/demo" className="hover:underline">Live demo</Link></li>
             <li><Link href="/#how" className="hover:underline">How it works</Link></li>

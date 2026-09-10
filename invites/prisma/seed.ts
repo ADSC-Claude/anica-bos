@@ -333,7 +333,7 @@ async function main() {
     Object.assign(c.cover!, {
       childFull: 'Lucas Andrei Villanueva', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
       date: dayKey, time: '10:00', introPreset: 'simple', intro: 'With hearts full of gratitude, Paolo and Denise invite you to the christening of their son.',
-      coverPhoto: '', opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
+      coverPhoto: pic('lucas-cover', 900, 1200), opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
     });
     Object.assign(c.countdown!, { enabled: true, label: '' });
     Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });

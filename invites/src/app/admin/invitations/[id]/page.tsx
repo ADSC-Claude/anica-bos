@@ -12,6 +12,8 @@ import { PageHeader, BackLink, InvitationPill, Stat } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
 import { extendExpiryAction, setTierAction, setPremiumOpeningAction, setPremiumOpeningClipAction, archiveInvitationAction } from '../../actions';
 import { premiumOpeningsFor } from '@/lib/premium-openings';
+import { contentOf } from '@/lib/invitations';
+import { scheduleAdvice } from '@/lib/progress';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +28,16 @@ export default async function AdminInvitation({ params, searchParams }: { params
   const editable = can(user.role, 'invitations.edit');
   // The clips drawn for this invitation's design, and no other theme's.
   const clips = premiumOpeningsFor(inv.template);
+  const content = contentOf(inv.content);
+  // The day they said they would send it out, and the spare photographs they
+  // gave us. Both are theirs and neither is on the page: this is where the
+  // person doing the work finds them.
+  const sendOutRaw = String((content.cover as Record<string, unknown> | undefined)?.sendOut ?? '');
+  const schedule = scheduleAdvice(sendOutRaw ? new Date(sendOutRaw) : null);
+  const extraPhotos = (Array.isArray((content.extras as Record<string, unknown> | undefined)?.photos) ? ((content.extras as Record<string, unknown>).photos as Record<string, unknown>[]) : [])
+    .filter((r) => typeof r?.url === 'string' && r.url);
+  const extraNote = String((content.extras as Record<string, unknown> | undefined)?.note ?? '');
+  const extraVideo = String((content.extras as Record<string, unknown> | undefined)?.videoUrl ?? '');
   return (
     <>
       <BackLink href="/admin/invitations">Invitations</BackLink>
@@ -47,6 +59,7 @@ export default async function AdminInvitation({ params, searchParams }: { params
             <dt className="text-[color:var(--color-ink-500)]">Privacy</dt><dd>{inv.privacy.toLowerCase()}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Language</dt><dd>{inv.language}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Event</dt><dd>{formatDate(inv.eventAt, 'weekday') || '—'}</dd>
+            <dt className="text-[color:var(--color-ink-500)]">Sends out</dt><dd>{schedule ? <>{formatDate(schedule.sendOut, 'weekday')} · <span className={schedule.late ? 'text-[color:var(--bad)]' : schedule.tight ? 'text-[color:var(--warn)]' : ''}>form due {formatDate(schedule.finalBy)}</span></> : '—'}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Published</dt><dd>{inv.publishedAt ? formatDateTime(inv.publishedAt) : '—'}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Expires</dt><dd>{inv.expiresAt ? formatDateTime(inv.expiresAt) : '—'}</dd>
             <dt className="text-[color:var(--color-ink-500)]">Order</dt><dd>{inv.order ? <Link href={`/admin/orders/${inv.order.id}`} className="underline">{inv.order.reference}</Link> : '—'}</dd>
@@ -64,6 +77,26 @@ export default async function AdminInvitation({ params, searchParams }: { params
           </section>
         )}
       </div>
+      {(extraPhotos.length > 0 || extraNote || extraVideo) && (
+        <section className="card mt-4 p-4 text-sm">
+          <h2 className="mb-1 font-semibold">Extras from the customer</h2>
+          <p className="text-xs text-[color:var(--color-ink-500)]">Not on their invitation. Theirs to offer, ours to place where a page has room.</p>
+          {extraPhotos.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {extraPhotos.map((r, i) => (
+                <li key={String(r.url)} className="w-24">
+                  <a href={String(r.url)} target="_blank" rel="noopener">
+                    <img src={String(r.url)} alt={typeof r.caption === 'string' && r.caption ? r.caption : `Extra photo ${i + 1}`} className="h-24 w-24 rounded-lg border border-[color:var(--color-sand-200)] object-cover" loading="lazy" />
+                  </a>
+                  {typeof r.caption === 'string' && r.caption && <span className="mt-0.5 block truncate text-[10px] text-[color:var(--color-ink-500)]" title={r.caption}>{r.caption}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+          {extraVideo && <p className="mt-2 text-xs">Video: <a href={extraVideo} target="_blank" rel="noopener" className="underline break-all">{extraVideo}</a></p>}
+          {extraNote && <p className="mt-2 whitespace-pre-line text-xs text-[color:var(--color-ink-700)]"><b>Their note:</b> {extraNote}</p>}
+        </section>
+      )}
     </>
   );
 }

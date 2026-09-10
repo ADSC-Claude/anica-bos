@@ -233,6 +233,143 @@ export const INTRO_PRESETS: Preset[] = [
   },
 ];
 
+/**
+ * Ready-made wording for the writings the customer does themselves — not the
+ * fixed lines a design carries, which are ours. A blank page is the hardest
+ * thing to fill in, so each of these fields offers three examples: one tap
+ * puts the words in the box, and the customer edits them or writes over them.
+ * Every one has a Tagalog reading, chosen by the invitation's language.
+ *
+ * These are only ever attached to fields a customer fills. A staff-only field
+ * carries none: the encoder is filling twenty of them at a time and does not
+ * need three suggestions on each.
+ */
+export const PARENTS_MESSAGE_EXAMPLES: Preset[] = [
+  {
+    key: 'carried',
+    label: 'Your love carried this family',
+    en: 'Thank you for standing with us as we raise her. Your love has carried this family further than you know.',
+    tl: 'Salamat sa paninindigan ninyo sa amin habang pinapalaki namin siya. Ang pagmamahal ninyo ang nagdala sa pamilyang ito nang higit sa inaasahan.',
+  },
+  {
+    key: 'prayed',
+    label: 'We prayed, and you prayed with us',
+    en: 'We prayed for this day, and you prayed with us. Thank you for every kindness, small and large.',
+    tl: 'Idinasal namin ang araw na ito, at kasama namin kayong nanalangin. Salamat sa bawat kabutihan, maliit at malaki.',
+  },
+  {
+    key: 'fuller',
+    label: 'Our home is fuller because of you',
+    en: 'Our home is fuller because of the people in it. Thank you for being part of ours.',
+    tl: 'Mas buo ang tahanan namin dahil sa mga taong naroon. Salamat sa pagiging bahagi ng amin.',
+  },
+];
+
+export const SPONSORS_BLESSING_EXAMPLES: Preset[] = [
+  {
+    key: 'keep',
+    label: 'May the Lord bless you and keep you',
+    en: 'May the Lord bless you and keep you; may His face shine upon you all the days of your life.',
+    tl: 'Pagpalain at ingatan ka ng Panginoon; magliwanag ang Kanyang mukha sa iyo sa lahat ng araw ng buhay mo.',
+  },
+  {
+    key: 'promise',
+    label: 'We promise to guide you',
+    en: 'We promise to guide you, to pray for you, and to be there whenever you need us.',
+    tl: 'Nangangako kaming gagabayan ka, ipagdadasal ka, at nariyan kapag kailangan mo kami.',
+  },
+  {
+    key: 'wisdom',
+    label: 'May you grow in wisdom and kindness',
+    en: 'May you grow in wisdom and in kindness, and may you always know how loved you are.',
+    tl: 'Lumago ka nawa sa karunungan at kabutihan, at malaman mo lagi kung gaano ka kamahal.',
+  },
+];
+
+export const DEDICATION_EXAMPLES: Preset[] = [
+  {
+    key: 'prayedFor',
+    label: 'You were prayed for',
+    en: 'To our little one: you were prayed for long before you were here. This day is our thanksgiving.',
+    tl: 'Sa aming munting anghel: ipinagdasal ka namin bago ka pa dumating. Ang araw na ito ang aming pasasalamat.',
+  },
+  {
+    key: 'yourName',
+    label: 'Every hope has your name',
+    en: 'For you, anak — every hope we have ever had now has your name on it.',
+    tl: 'Para sa iyo, anak — ang bawat pangarap naming hawak ngayon ay may pangalan mo na.',
+  },
+  {
+    key: 'family',
+    label: 'You made us a family',
+    en: 'You made us a family. Everything after this is yours to grow into.',
+    tl: 'Ikaw ang gumawa sa amin na isang pamilya. Ang lahat pagkatapos nito ay sa iyo na lalakihan.',
+  },
+];
+
+export const DEBUTANTE_NOTE_EXAMPLES: Preset[] = [
+  {
+    key: 'stillTheGirl',
+    label: 'Eighteen years, and still your girl',
+    en: 'Eighteen years, and I am still the girl who needed all of you. Thank you for raising me, for the lessons and for the patience. Tonight I dance with the people who made me.',
+    tl: 'Labingwalong taon, at ako pa rin ang batang nangangailangan sa inyong lahat. Salamat sa pagpapalaki sa akin, sa mga aral at sa pagtitiyaga. Ngayong gabi, sumasayaw ako kasama ang mga taong gumawa sa akin.',
+  },
+  {
+    key: 'sacrifice',
+    label: 'To my parents, and to my friends',
+    en: 'To my parents: thank you for every sacrifice I only understood later. To my friends: thank you for the noise and for the joy. This night is ours.',
+    tl: 'Sa mga magulang ko: salamat sa bawat sakripisyong naunawaan ko lang nang huli. Sa mga kaibigan ko: salamat sa ingay at sa saya. Sa ating lahat ang gabing ito.',
+  },
+  {
+    key: 'whatComesNext',
+    label: 'Whatever comes next',
+    en: 'I am not sure what comes next, only that I want to meet it the way all of you taught me: kindly, and with my whole heart.',
+    tl: 'Hindi ko alam ang susunod, alam ko lang na gusto kong salubungin ito sa paraang itinuro ninyo sa akin: may kabutihan, at buong-buo ang puso.',
+  },
+];
+
+export const HOW_WE_MET_EXAMPLES: Preset[] = [
+  {
+    key: 'work',
+    label: 'At work, by the coffee machine',
+    en: 'We met at work, at the coffee machine on the fourteenth floor, and neither of us remembers who spoke first. What we do remember is that the conversation did not stop for three hours.',
+    tl: 'Sa trabaho kami nagkakilala, sa coffee machine sa ikalabing-apat na palapag, at wala sa aming dalawa ang nakakaalala kung sino ang nagsimulang magsalita. Ang natatandaan namin, hindi tumigil ang usapan sa loob ng tatlong oras.',
+  },
+  {
+    key: 'birthday',
+    label: "A friend's birthday, one duet",
+    en: "A friend's birthday, a crowded videoke room, one duet nobody asked for. We have been singing badly together ever since.",
+    tl: 'Kaarawan ng kaibigan, siksikan sa videoke, isang duet na walang humiling. Mula noon, sabay na kaming kumakanta nang wala sa tono.',
+  },
+  {
+    key: 'app',
+    label: 'Matched on a Tuesday',
+    en: 'We matched on an app on a Tuesday and had our first date that Friday. He was late. She waited.',
+    tl: 'Nag-match kami sa app noong Martes at nagkita sa unang beses noong Biyernes. Nahuli siya. Naghintay siya.',
+  },
+];
+
+export const PROPOSAL_EXAMPLES: Preset[] = [
+  {
+    key: 'kitchen',
+    label: 'In the kitchen, on a normal Sunday',
+    en: 'He asked in the kitchen, in the middle of a normal Sunday, with the rice still cooking. She said yes before he had finished the sentence.',
+    tl: 'Sa kusina siya nagtanong, sa gitna ng ordinaryong Linggo, habang nagsasaing pa. Sinagot niya ng oo bago pa matapos ang tanong.',
+  },
+  {
+    key: 'trip',
+    label: 'A quiet trip, a ring in his bag',
+    en: 'It was supposed to be a quiet weekend in Batangas. There was a ring in his bag the whole time and he could not sleep.',
+    tl: 'Dapat ay tahimik lang na weekend sa Batangas. May singsing sa bag niya sa buong panahon at hindi siya makatulog.',
+  },
+  {
+    key: 'balcony',
+    label: 'No fireworks, no crowd',
+    en: 'No fireworks, no crowd. Just the two of us on the balcony and a question we both already knew the answer to.',
+    tl: 'Walang fireworks, walang maraming tao. Kaming dalawa lang sa balkonahe at isang tanong na alam na namin ang sagot.',
+  },
+];
+
 export const GIFT_PRESETS: Preset[] = [
   {
     key: 'presence',

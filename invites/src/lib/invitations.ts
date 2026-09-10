@@ -23,6 +23,7 @@ import {
   sectionOnCard,
   sectionOffered,
 } from './sections';
+import { templateSuits } from './occasions';
 import { hasFeature, TIER_LABELS } from './tiers';
 import { saveTheDateOffered } from './pricing';
 import { isStaff, can } from './rbac';
@@ -91,7 +92,7 @@ export function assertNotPublished(user: SessionUser, invitation: { status: stri
  */
 export const RESERVED_SLUGS = new Set([
   // Directories under src/app.
-  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks',
+  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks', 'occasions',
   'privacy', 'refund-policy', 'signup', 'templates', 'terms',
   // Files under src/app that serve their own path.
   'robots.txt', 'sitemap.xml', 'favicon.ico',
@@ -134,7 +135,7 @@ export async function createDraft(args: {
 }) {
   const template = await prisma.template.findUnique({ where: { id: args.templateId } });
   if (!template || !template.published) throw new HttpError(400, 'That template is not available.');
-  if (template.occasion !== args.occasion) throw new HttpError(400, 'That template is for a different occasion.');
+  if (!templateSuits(template, args.occasion)) throw new HttpError(400, 'That template is for a different occasion.');
 
   const language = args.language ?? 'en';
   const content = defaultContent(args.occasion, language);
@@ -418,7 +419,20 @@ export async function changeTemplate(user: SessionUser, invitationId: string, te
   await audit(user, { module: 'invitations', action: 'template.change', entityType: 'Invitation', entityId: invitationId, summary: `Switched to ${template.name}` });
 }
 
-export async function publish(user: SessionUser, invitationId: string) {
+/**
+ * Publishing with blanks is allowed, and recorded.
+ *
+ * A customer who has not written their story, has no program and does not want
+ * an FAQ has a shorter invitation, and waiting for boxes they will never fill
+ * is how an invitation misses its own event. So the required cover fields still
+ * hold a publish (there is no invitation without names and a date), and
+ * everything else may be sent empty — but the customer is shown exactly which
+ * parts are blank and what will not appear, and the sections they agreed to
+ * send that way are written into their own progress record, so the team
+ * working on it afterwards can see what was left on purpose rather than
+ * chasing it.
+ */
+export async function publish(user: SessionUser, invitationId: string, acceptedBlanks?: string[]) {
   const invitation = await prisma.invitation.findUniqueOrThrow({
     where: { id: invitationId },
     // A Save the Date has no order of its own — it was bought as an add-on on
@@ -437,6 +451,9 @@ export async function publish(user: SessionUser, invitationId: string) {
   const validityDays = (invitation.order ?? invitation.saveTheDateOf?.order)?.package.linkValidityDays ?? 30;
   const expiresAt = eventAt ? addDays(eventAt, validityDays) : addDays(new Date(), validityDays);
 
+  const blanks = (acceptedBlanks ?? []).filter((k) => typeof k === 'string').slice(0, 40);
+  const progress = blanks.length ? { ...(content.progress ?? {}), sentBlank: blanks, sentBlankAt: new Date().toISOString() } : content.progress;
+
   const updated = await prisma.invitation.update({
     where: { id: invitationId },
     data: {
@@ -445,9 +462,10 @@ export async function publish(user: SessionUser, invitationId: string) {
       eventAt: eventAt ?? undefined,
       expiresAt,
       ogImageUrl: coverImage(content),
+      ...(blanks.length ? { content: { ...content, progress } as never } : {}),
     },
   });
-  await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published ${invitationPath(updated.slug)}` });
+  await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published ${invitationPath(updated.slug)}${blanks.length ? ` — sent with ${blanks.length} section${blanks.length === 1 ? '' : 's'} left blank` : ''}` });
   return updated;
 }
 

@@ -101,6 +101,7 @@ function FieldInput({
           <Label field={field} htmlFor={id} />
           <input id={id} type={field.type === 'url' ? 'url' : field.type} className="field" value={String(value ?? '')} placeholder={field.placeholder} maxLength={field.type === 'text' ? field.max : undefined} onChange={(e) => onChange(e.target.value)} />
           <Hint text={field.hint} />
+          <Examples field={field} lang={lang} onUse={onChange} />
           {field.type === 'text' && <Room field={field} value={String(value ?? '')} />}
         </div>
       );
@@ -118,6 +119,7 @@ function FieldInput({
           <Label field={field} htmlFor={id} />
           <textarea id={id} className="field" rows={3} value={String(value ?? '')} placeholder={field.placeholder} maxLength={field.max} onChange={(e) => onChange(e.target.value)} />
           <Hint text={field.hint} />
+          <Examples field={field} lang={lang} onUse={onChange} />
           <Room field={field} value={String(value ?? '')} />
         </div>
       );
@@ -576,6 +578,41 @@ function PersonInput({ field, value, onChange }: { field: Field; value: Person; 
       <label className="mt-1 flex items-center gap-2 text-xs text-[color:var(--color-ink-500)]">
         <input type="checkbox" className="h-3.5 w-3.5" checked={value.deceased} onChange={(e) => onChange({ ...value, deceased: e.target.checked })} /> The late († shown)
       </label>
+    </div>
+  );
+}
+
+/**
+ * Ready-made wording, for the writings a customer does themselves.
+ *
+ * A blank box is the hardest thing to fill in, and "How we met" is a blank box
+ * with a lifetime in it. Three examples sit under the field; one tap puts the
+ * words in and the cursor stays theirs, so it reads as a place to start rather
+ * than as words we put in their mouth. The Tagalog reading is used when the
+ * invitation is in Tagalog, so an example never arrives in the wrong language.
+ *
+ * Nothing renders where a field carries no examples, which is every field we
+ * fill for a customer: an encoder working through twenty boxes does not need
+ * three suggestions on each of them.
+ */
+function Examples({ field, lang, onUse }: { field: Field; lang: Lang; onUse: (v: string) => void }) {
+  if (!field.examples?.length) return null;
+  return (
+    <div className="mt-1.5">
+      <p className="text-[11px] text-[color:var(--color-ink-500)]">Need a starting point? Tap one and edit it.</p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {field.examples.map((e) => (
+          <button
+            key={e.key}
+            type="button"
+            className="btn btn-secondary btn-sm max-w-full whitespace-normal text-left text-[11px] leading-snug"
+            title={lang === 'tl' ? e.tl : e.en}
+            onClick={() => onUse(lang === 'tl' ? e.tl : e.en)}
+          >
+            {e.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

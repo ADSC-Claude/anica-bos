@@ -10,7 +10,13 @@ import { addDays } from './datetime';
  * by two weeks before — the last week is kept clear. Pure functions, so the
  * page, the server and the tests share one reading of the dates.
  */
-export type Progress = { done?: string[]; completedAt?: string };
+export type Progress = {
+  done?: string[];
+  completedAt?: string;
+  /** The sections the customer agreed to publish empty, and when they agreed. */
+  sentBlank?: string[];
+  sentBlankAt?: string;
+};
 
 export const CLOSE_DAYS = 21;
 export const FINAL_DAYS = 14;

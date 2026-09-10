@@ -10,7 +10,7 @@ import { formatDate, formatDateTime } from '@/lib/datetime';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
 import { contentOf } from '@/lib/invitations';
-import { publishProblems, sectionsFor, sectionUnlocked } from '@/lib/sections';
+import { publishProblems, sectionsFor, sectionUnlocked, sectionLabel, blankSections, skippedSections } from '@/lib/sections';
 import { changeWindow, doneSections } from '@/lib/progress';
 import { PageHeader, InvitationPill, Stat, Notice } from '@/components/ui';
 import { PublishControls, ShareBox } from './controls';
@@ -36,6 +36,10 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const content = contentOf(inv.content);
   const problems = publishProblems(inv.occasion, content);
   const saveTheDate = Boolean(inv.saveTheDateOfId);
+  // What is empty, and which of those parts would simply not appear. Named for
+  // the customer at the moment they press Publish, never hidden from them.
+  const blanks = blankSections(inv.occasion, content, inv.tier, saveTheDate).map((k) => ({ key: k, label: sectionLabel(k, inv.occasion) }));
+  const skipped = skippedSections(inv.occasion, content, inv.tier, saveTheDate).map((k) => sectionLabel(k, inv.occasion));
   const mine = sectionsFor(inv.occasion, saveTheDate).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier)).map((d) => d.key);
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
@@ -86,7 +90,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{dfy ? 'Our team publishes this once you approve the preview.' : 'When the details look right in the preview, publish to get your shareable link and QR.'}</p>
             )}
-            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
+            {active && !dfy && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} blanks={blanks} skipped={skipped} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
             {dfy && job && <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">Build status: {job.status.toLowerCase().replace(/_/g, ' ')} · <Link href={`/account/invitations/${inv.id}/dfy`} className="underline">open</Link></p>}
           </div>
 

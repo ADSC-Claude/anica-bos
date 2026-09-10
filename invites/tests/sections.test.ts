@@ -250,9 +250,10 @@ test('the fixed writings are ours: off the client’s form, and kept through a c
   const cover = customerFields(fieldsFor('cover', 'WEDDING')).map((f) => f.key);
   assert.ok(cover.includes('introPreset') && cover.includes('coverPhoto') && cover.includes('date'));
   for (const k of ['intro', 'verse', 'verseRef', 'interlude2']) assert.ok(!cover.includes(k), k);
-  // the closing keeps the photo and the signature for the client; the thank-you and the line above the names are ours
+  // the closing keeps the photo, the parents' own message and the signature for
+  // the client; the thank-you and the line above the names are ours
   const closing = customerFields(fieldsFor('closing', 'WEDDING')).map((f) => f.key);
-  assert.deepEqual(closing, ['photo', 'signature']);
+  assert.deepEqual(closing, ['photo', 'parentsMessage', 'signature']);
   // and staff editing for the customer see everything
   assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'message' && f.staff));
 });

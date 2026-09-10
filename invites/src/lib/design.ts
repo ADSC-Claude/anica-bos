@@ -1,5 +1,11 @@
+import { z } from 'zod';
 import type { Lang } from './copy';
 import type { Look, LineKey, TitleKey } from './looks';
+import type { SectionKey } from './sections';
+import {
+  STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
+  type Slot,
+} from './babyblue';
 
 /**
  * What a design's encoder can change without a release: the words it writes
@@ -145,7 +151,7 @@ export function withWords(look: Look | undefined, words: DesignWords): Look | un
  * as a multiple of its width. Six are tall and narrow, four the shape of a
  * phone; the page machinery trims each to the page it sits behind.
  */
-export type Ground = {
+export type PictureGround = {
   url: string;
   /** height as a multiple of the width */
   ratio: number;
@@ -159,9 +165,26 @@ export type Ground = {
    * the ground's own height.
    */
   slices?: { top: string; foot: string; mid: string };
+  /** the same picture by night, when the design has one */
+  night?: string;
 };
+
+/**
+ * A page with no artwork behind it: a plain colour, either one of the
+ * palette's six roles (so night mode keeps working) or a colour picked from
+ * the colour book. Nothing to upload, nothing for a guest to download.
+ */
+export type ColourGround = {
+  color: ColorRole | string;
+  /** drawn pages only: height as a multiple of the width. One screen is 1.777. */
+  ratio?: number;
+};
+export type ColorRole = 'bg' | 'surface' | 'ink' | 'muted' | 'accent' | 'accent2';
+export type Ground = PictureGround | ColourGround;
+export const isPicture = (g: Ground): g is PictureGround => typeof (g as PictureGround).url === 'string';
+
 const slices = (key: string) => ({ top: `/babyblue/${key}-top.webp`, foot: `/babyblue/${key}-foot.webp`, mid: `/babyblue/${key}-mid.webp` });
-export const BABYBLUE_GROUNDS: Record<string, Ground> = {
+export const BABYBLUE_GROUNDS: Record<string, PictureGround> = {
   cover: { url: '/babyblue/cover.webp', ratio: 2.989, top: '#b4c3d5', bottom: '#d5cbc5', slices: slices('cover') },
   story: { url: '/babyblue/story.webp', ratio: 2.989, top: '#e3e0dd', bottom: '#c4cbd3' },
   invitation: { url: '/babyblue/invitation.webp', ratio: 1.777, top: '#cbdbec', bottom: '#c1d4e8', slices: slices('invitation') },
@@ -180,3 +203,459 @@ export const CAPIZ_DEFAULT_ART: Required<Pick<DesignArt, 'backgrounds' | 'strand
   backgrounds: Array.from({ length: 8 }, (_, i) => `/capiz/bg-${i + 1}.webp`),
   strand: '/capiz/strand-b.webp',
 };
+
+// ---------------------------------------------------------------------------
+// The design document
+//
+// A design's pages, the ground under each one, and the photo frames and
+// writings placed on the drawn ones, as data rather than as constants in the
+// renderer. `Template.design` holds what guests see and `Template.designDraft`
+// what the studio is editing; an empty column means "the layout's built-in",
+// which is `builtinDesign(layout)` below — the same numbers the code has
+// always used, compiled from the same constants, so nothing moves the day the
+// columns land.
+//
+// Every measurement is a share of the page: x and w of its WIDTH, y of its
+// HEIGHT, exactly the convention `Slot` uses (src/lib/babyblue.ts).
+// ---------------------------------------------------------------------------
+
+/** A section on a page. Two are not sections: the verse, and the clip that no frame can hold. */
+export type PageSectionKey = SectionKey | 'verse' | 'gallery-video';
+
+export type DesignDoc = {
+  v: 1;
+  pages: PageSpec[];
+  /** the ground under a page the map does not name (today: the venue's, for Baby Blue) */
+  overflowGround?: Ground;
+  /** the colour of the column itself behind every page; blank means the palette's bg */
+  paper?: string;
+  /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
+  surround?: string;
+};
+
+export type PageSpec = {
+  /** becomes data-page and the scroll anchor */
+  key: string;
+  label?: { en: string; tl?: string };
+  sections: PageSectionKey[];
+  ground?: Ground;
+  /** how long the dissolve into this page is, as a share of the width */
+  seam?: number;
+  /** a drawn page: its height is the ground's ratio times its width, and its elements are placed */
+  drawn?: true;
+  /** the public peek stops after this page */
+  peekEnd?: true;
+  elements?: Element[];
+};
+
+export type Anchor = 'centre' | 'top';
+
+type Base = {
+  id: string;
+  /**
+   * Left, as a share of the page's width. Left out means "whatever the
+   * stylesheet says": the two Baby Blue headings are `left: 6%; right: 6%` in
+   * CSS and carry a top and nothing else, and boxing them in would move the
+   * words. The studio fills x and w in the moment she drags one.
+   */
+  x?: number;
+  /** Top, as a share of the page's height. */
+  y: number;
+  /** Width, as a share of the page's width. */
+  w?: number;
+  anchor?: Anchor;
+  rotate?: number;
+  z?: number;
+  opacity?: number;
+  hidden?: 'never' | 'whenEmpty';
+  /** marked Ask the customer: its bound field becomes a question on this design's form */
+  ask?: boolean;
+  /** what an asked-for frame or box shows when the customer leaves it empty */
+  ifEmpty?: { piece: string } | 'leave';
+  /** phase 4 */
+  motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
+  /** the id of a photo this element follows when that photo is moved */
+  attachTo?: string;
+};
+
+/**
+ * Where an answer is read from. `index` walks a list field; `skipEmpty` says
+ * the list is read the way the photographs page reads it — the rows that have
+ * something in them, in order — rather than the way the story page reads its
+ * timeline, which is row by row including the blanks.
+ */
+export type FieldRef = { section: string; field: string; index?: number; sub?: string; skipEmpty?: true };
+
+/** One text source. A line tries its sources in order and shows the first that has something. */
+export type Source =
+  | { bind: FieldRef }
+  | { word: WordKey }
+  | { copy: string }
+  | { fixed: { en: string; tl?: string } };
+
+export type LineRole = 'title' | 'sub' | 'eyebrow' | 'script' | 'label-title' | 'label-text' | 'caption' | 'body';
+
+export type Line = {
+  role: LineRole;
+  sources: Source[];
+  align?: 'left' | 'center' | 'right';
+  /** in cqw, so it scales with the column; blank means the role's own size */
+  size?: number;
+  color?: 'ink' | 'muted' | 'accent' | 'accent2';
+};
+
+export type PhotoEl = Base & {
+  kind: 'photo';
+  /** height over width of the frame; 1 is the square .inv-bb-slot */
+  aspect?: number;
+  bind: FieldRef | { asset: string };
+  /** the words read out to someone who cannot see the picture */
+  alt?: FieldRef;
+  crop?: { x: number; y: number; w: number; h: number };
+  frame?: 'none' | 'thin' | 'polaroid';
+  mask?: 'none' | 'circle' | 'arch';
+  /** a moving picture: never re-encoded, never sent through imageUrl() */
+  animated?: boolean;
+};
+
+export type TextEl = Base & {
+  kind: 'text';
+  /** picks the wrapper: .inv-bb-head, .inv-bb-label, .inv-bb-caption, .inv-bb-text */
+  block: 'head' | 'label' | 'caption' | 'free';
+  lines: Line[];
+  backing?: 'none' | 'shadow' | 'scrim';
+  face?: 'display' | 'names' | 'script' | 'body';
+  size?: number;
+  weight?: number;
+  tracking?: number;
+  /** the letters this box holds, measured from the box and the face: the form's cap for what it asks */
+  room?: number;
+  /** the design's own line is offered to the customer as an example under their box */
+  offerLine?: boolean;
+};
+
+export type VideoEl = Base & { kind: 'video'; url: string; poster: string; aspect?: number; loop?: boolean };
+export type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };
+export type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: string; stroke?: string; strokeWidth?: number; radius?: number; h?: number };
+
+export type Element = PhotoEl | TextEl | VideoEl | AnimEl | ShapeEl;
+
+/** The wrapper class each kind of text block is drawn in. */
+export const BLOCK_CLASS: Record<TextEl['block'], string> = {
+  head: 'inv-bb-head', label: 'inv-bb-label', caption: 'inv-bb-caption', free: 'inv-bb-text',
+};
+/** The class each line inside a block is drawn in. A caption's own line adds nothing. */
+export const LINE_CLASS: Record<LineRole, string> = {
+  title: 'inv-title', sub: 'inv-bb-sub', eyebrow: 'inv-bb-eyebrow', script: 'inv-bb-script',
+  'label-title': 't', 'label-text': 'x', caption: '', body: 'inv-bb-body',
+};
+/** A title and a script are headings; everything else is a paragraph. */
+export const LINE_TAG: Record<LineRole, 'h2' | 'p'> = {
+  title: 'h2', script: 'h2', sub: 'p', eyebrow: 'p', 'label-title': 'p', 'label-text': 'p', caption: 'p', body: 'p',
+};
+
+/**
+ * Where an element sits, in the units the drawn pages have always used. This
+ * is the one function that turns the document into CSS, and what it produces
+ * for Baby Blue is asserted equal to `slotStyle`, `labelStyle` and
+ * `captionStyle` in tests/design.test.ts, to the last decimal.
+ */
+export function elementStyle(el: Element): Record<string, string> {
+  const st: Record<string, string> = {};
+  if (el.x !== undefined) st.left = `${el.x}%`;
+  st.top = `${el.y}%`;
+  if (el.w !== undefined) st.width = `${el.w}%`;
+  const anchor = el.anchor ?? (el.kind === 'text' ? 'top' : 'centre');
+  const parts: string[] = [];
+  if (el.x !== undefined) parts.push(anchor === 'centre' ? 'translate(-50%, -50%)' : 'translateX(-50%)');
+  if (el.rotate) parts.push(`rotate(${el.rotate}deg)`);
+  if (parts.length) st.transform = parts.join(' ');
+  if (el.opacity !== undefined && el.opacity !== 1) st.opacity = String(el.opacity);
+  if (el.z !== undefined) st.zIndex = String(el.z);
+  return st;
+}
+
+// ---------------------------------------------------------------------------
+// Reading the column
+// ---------------------------------------------------------------------------
+
+const KEY = /^[a-z][a-z0-9-]{0,30}$/;
+const FIELD = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
+const zColour = z.string().min(1).max(60);
+const zPictureGround = z.object({
+  url: z.string().min(1).max(500), ratio: z.number().positive().max(40),
+  top: zColour, bottom: zColour,
+  slices: z.object({ top: z.string(), foot: z.string(), mid: z.string() }).optional(),
+  night: z.string().max(500).optional(),
+}).strict();
+const zColourGround = z.object({ color: zColour, ratio: z.number().positive().max(40).optional() }).strict();
+const zGround = z.union([zPictureGround, zColourGround]);
+
+const zFieldRef = z.object({
+  section: z.string().regex(FIELD), field: z.string().regex(FIELD),
+  index: z.number().int().min(0).max(199).optional(), sub: z.string().regex(FIELD).optional(),
+  skipEmpty: z.literal(true).optional(),
+}).strict();
+const zSource = z.union([
+  z.object({ bind: zFieldRef }).strict(),
+  z.object({ word: z.string().max(60) }).strict(),
+  z.object({ copy: z.string().max(60) }).strict(),
+  z.object({ fixed: z.object({ en: z.string().max(600), tl: z.string().max(600).optional() }).strict() }).strict(),
+]);
+const zLine = z.object({
+  role: z.enum(['title', 'sub', 'eyebrow', 'script', 'label-title', 'label-text', 'caption', 'body']),
+  sources: z.array(zSource).min(1).max(6),
+  align: z.enum(['left', 'center', 'right']).optional(),
+  size: z.number().positive().max(40).optional(),
+  color: z.enum(['ink', 'muted', 'accent', 'accent2']).optional(),
+}).strict();
+
+const zBase = {
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/),
+  x: z.number().min(-50).max(150).optional(),
+  y: z.number().min(-50).max(150),
+  w: z.number().positive().max(200).optional(),
+  anchor: z.enum(['centre', 'top']).optional(),
+  rotate: z.number().min(-180).max(180).optional(),
+  z: z.number().int().min(-50).max(50).optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  hidden: z.enum(['never', 'whenEmpty']).optional(),
+  ask: z.boolean().optional(),
+  ifEmpty: z.union([z.object({ piece: z.string().max(80) }).strict(), z.literal('leave')]).optional(),
+  motion: z.object({
+    enter: z.enum(['none', 'fade', 'rise', 'drift']).optional(),
+    idle: z.enum(['none', 'float', 'sway']).optional(),
+    delay: z.number().min(0).max(2000).optional(),
+  }).strict().optional(),
+  attachTo: z.string().max(41).optional(),
+};
+const zElement = z.union([
+  z.object({
+    ...zBase, kind: z.literal('photo'), aspect: z.number().positive().max(10).optional(),
+    bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
+    alt: zFieldRef.optional(),
+    crop: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).strict().optional(),
+    frame: z.enum(['none', 'thin', 'polaroid']).optional(),
+    mask: z.enum(['none', 'circle', 'arch']).optional(),
+    animated: z.boolean().optional(),
+  }).strict(),
+  z.object({
+    ...zBase, kind: z.literal('text'), block: z.enum(['head', 'label', 'caption', 'free']),
+    lines: z.array(zLine).min(1).max(8),
+    backing: z.enum(['none', 'shadow', 'scrim']).optional(),
+    face: z.enum(['display', 'names', 'script', 'body']).optional(),
+    size: z.number().positive().max(40).optional(),
+    weight: z.number().int().min(100).max(900).optional(),
+    tracking: z.number().min(-0.05).max(0.4).optional(),
+    room: z.number().int().min(1).max(2000).optional(),
+    offerLine: z.boolean().optional(),
+  }).strict(),
+  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional() }).strict(),
+  z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
+  z.object({ ...zBase, kind: z.literal('shape'), shape: z.enum(['rect', 'ellipse', 'line']), fill: zColour.optional(), stroke: zColour.optional(), strokeWidth: z.number().min(0).max(40).optional(), radius: z.number().min(0).max(100).optional(), h: z.number().min(0).max(200).optional() }).strict(),
+]);
+const zPage = z.object({
+  key: z.string().regex(KEY),
+  label: z.object({ en: z.string().max(60), tl: z.string().max(60).optional() }).strict().optional(),
+  sections: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(30),
+  ground: zGround.optional(),
+  seam: z.number().min(0).max(1).optional(),
+  drawn: z.literal(true).optional(),
+  peekEnd: z.literal(true).optional(),
+}).strict();
+const zDoc = z.object({
+  v: z.literal(1),
+  overflowGround: zGround.optional(),
+  paper: zColour.optional(),
+  surround: zColour.optional(),
+}).strict();
+
+/**
+ * The column as a document, with a list of what would not read.
+ *
+ * Unlike `artOf` this does not quietly coerce. A page or an element that does
+ * not parse is dropped and named, so the studio can refuse to autosave a
+ * draft it cannot round-trip and say which piece it lost. An empty column
+ * (every design today) means the layout's built-in.
+ */
+export function designOf(raw: unknown, layout: string): { doc: DesignDoc | null; dropped: string[] } {
+  if (!isRecord(raw) || Object.keys(raw).length === 0) return { doc: builtinDesign(layout), dropped: [] };
+  const dropped: string[] = [];
+  const { pages: rawPages, ...rest } = raw as Record<string, unknown>;
+  const head = zDoc.safeParse(rest);
+  if (!head.success || !Array.isArray(rawPages)) return { doc: null, dropped: ['the document itself'] };
+  const pages: PageSpec[] = [];
+  for (const [i, p] of rawPages.entries()) {
+    if (!isRecord(p)) { dropped.push(`page ${i + 1}`); continue; }
+    const { elements: rawEls, ...pageRest } = p;
+    const page = zPage.safeParse(pageRest);
+    if (!page.success) { dropped.push(`page ${i + 1}${typeof p.key === 'string' ? ` (${p.key})` : ''}`); continue; }
+    const spec = page.data as PageSpec;
+    if (rawEls !== undefined) {
+      if (!Array.isArray(rawEls)) { dropped.push(`the elements on ${spec.key}`); }
+      else {
+        const els: Element[] = [];
+        for (const [j, e] of rawEls.entries()) {
+          const el = zElement.safeParse(e);
+          if (!el.success) { dropped.push(`element ${j + 1} on ${spec.key}${isRecord(e) && typeof e.id === 'string' ? ` (${e.id})` : ''}`); continue; }
+          els.push(el.data as Element);
+        }
+        if (els.length) spec.elements = els;
+      }
+    }
+    pages.push(spec);
+  }
+  return { doc: { ...(head.data as Omit<DesignDoc, 'pages'>), pages }, dropped };
+}
+
+// ---------------------------------------------------------------------------
+// The built-in: Baby Blue, compiled from the constants the renderer uses
+// ---------------------------------------------------------------------------
+
+/**
+ * The pages of a layout whose pages each have a ground of their own, in the
+ * order the owner set. Lived in the renderer until the document needed to be
+ * compiled from it; the renderer still walks this list for Capiz and for
+ * every design whose column is empty.
+ */
+export type PageDef = {
+  key: string;
+  sections: (SectionKey | 'verse')[];
+  /** the ground under the page, by its key in BABYBLUE_GROUNDS */
+  bg?: string;
+  /** how long the dissolve into this page is, as a share of the width */
+  seam?: number;
+  /**
+   * A drawn page: its ground carries frames and writings at fixed places, so
+   * it must sit exactly on the page. The dissolve into it lies wholly below
+   * its top edge and is short, so its own header comes up on clean ground.
+   */
+  drawn?: boolean;
+};
+
+/**
+ * The Baby Blue pages: the cover with the verse, the story, the invitation,
+ * ninong and ninang, the baby photos, the venue, the dress code, the gift
+ * request with the program, snap and share with the post-event photos, and
+ * the last page with the RSVP, the countdown, the assistance and the ending.
+ * The two drawn pages keep their tops clear of the dissolve.
+ */
+export const BABYBLUE_PAGES: PageDef[] = [
+  { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
+  { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
+  { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
+  { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
+  { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
+  { key: 'venue', bg: 'venue', sections: ['reception'] },
+  { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
+  { key: 'program', bg: 'program', sections: ['gift', 'program'] },
+  { key: 'share', bg: 'share', sections: ['social', 'photos'] },
+  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
+];
+/** The ground a page the map does not name gets, for a layout that names them. */
+export const BABYBLUE_OVERFLOW = 'venue';
+
+/**
+ * Baby Blue as a document.
+ *
+ * Every number here is read from the constants the renderer draws with — no
+ * number is retyped — so the document and the code cannot drift apart. The
+ * six story frames and the four polaroids are painted into the grounds, which
+ * is why every frame is `frame: 'none'`; the words that were erased from
+ * those grounds are the text blocks, each one holding its lines in flow the
+ * way `.inv-bb-head` and `.inv-bb-label` do.
+ */
+function babyblueDesign(): DesignDoc {
+  const g = (key: string): Ground => ({ ...BABYBLUE_GROUNDS[key] });
+  const photoRatio = BABYBLUE_GROUNDS.babyphotos.ratio;
+
+  const frame = (id: string, s: Slot, bind: FieldRef, alt?: FieldRef): PhotoEl => ({
+    id, kind: 'photo', x: s.cx, y: s.cy, w: s.size, anchor: 'centre', rotate: s.tilt,
+    aspect: 1, frame: 'none', bind, ...(alt ? { alt } : {}),
+  });
+
+  const storyHead: TextEl = {
+    id: 'story-head', kind: 'text', block: 'head', y: STORY_HEAD.titleTop, anchor: 'top',
+    lines: [
+      { role: 'title', sources: [{ word: titleWord('story') }, { copy: 'story.title' }] },
+      { role: 'sub', sources: [{ bind: { section: 'story', field: 'line' } }, { word: 'story' }] },
+    ],
+  };
+  const storyLabels: TextEl[] = STORY_LABELS.map((l, i) => ({
+    id: `story-label-${i + 1}`, kind: 'text', block: 'label', x: l.cx, y: l.top, w: l.width, anchor: 'top',
+    hidden: 'whenEmpty',
+    lines: [
+      { role: 'label-title', sources: [{ bind: { section: 'story', field: 'timeline', index: i, sub: 'title' } }] },
+      { role: 'label-text', sources: [{ bind: { section: 'story', field: 'timeline', index: i, sub: 'text' } }] },
+    ],
+  }));
+
+  const photosHead: TextEl = {
+    id: 'photos-head', kind: 'text', block: 'head', y: PHOTO_HEAD.eyebrowTop, anchor: 'top',
+    lines: [
+      // written in English only, as the page has always been
+      { role: 'eyebrow', sources: [{ fixed: { en: 'Share', tl: '' } }] },
+      { role: 'script', sources: [{ word: titleWord('gallery') }, { copy: 'gallery.title' }] },
+      { role: 'sub', sources: [{ bind: { section: 'gallery', field: 'line' } }, { word: 'gallery' }] },
+    ],
+  };
+  /**
+   * The caption on the polaroid's strip. `captionStyle` works it out in cqw —
+   * a share of the page's WIDTH — because the polaroid's geometry is measured
+   * along the frame's own tilted axis. The document holds y as a share of the
+   * page's HEIGHT like everything else, and on a drawn page the height is the
+   * ground's ratio times the width, so dividing by that ratio is the same
+   * place to the last decimal.
+   */
+  const captions: TextEl[] = PHOTO_SLOTS.map((s, i) => {
+    const rad = (s.tilt * Math.PI) / 180;
+    const away = s.size / 2 + PHOTO_STRIP.below;
+    return {
+      id: `photos-caption-${i + 1}`, kind: 'text', block: 'caption', anchor: 'centre',
+      x: s.cx - away * Math.sin(rad),
+      y: (s.cy * PHOTO_ASPECT + away * Math.cos(rad)) / photoRatio,
+      w: s.size * PHOTO_STRIP.width,
+      rotate: s.tilt,
+      hidden: 'whenEmpty',
+      lines: [{ role: 'caption', sources: [{ bind: { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: true } }] }],
+    };
+  });
+
+  const elementsFor = (key: string): Element[] | undefined => {
+    if (key === 'story') return [storyHead, ...STORY_SLOTS.map((s, i) => frame(`story-photo-${i + 1}`, s, { section: 'story', field: 'timeline', index: i, sub: 'photo' })), ...storyLabels];
+    if (key === 'baby-photos') {
+      const photoFrames = PHOTO_SLOTS.map((s, i) => frame(
+        `photos-photo-${i + 1}`, s,
+        { section: 'gallery', field: 'photos', index: i, sub: 'url', skipEmpty: true },
+        { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: true },
+      ));
+      return [photosHead, ...photoFrames.flatMap((f, i) => [f, captions[i]])];
+    }
+    return undefined;
+  };
+
+  const pages: PageSpec[] = [];
+  for (const def of BABYBLUE_PAGES) {
+    const spec: PageSpec = { key: def.key, sections: [...def.sections] };
+    if (def.bg) spec.ground = g(def.bg);
+    if (def.seam !== undefined) spec.seam = def.seam;
+    if (def.drawn) spec.drawn = true;
+    // the peek is a snippet: it stops after Our Story, by the page's name
+    if (def.key === 'story') spec.peekEnd = true;
+    const els = elementsFor(def.key);
+    if (els) spec.elements = els;
+    pages.push(spec);
+    // a clip has no frame to sit in, so it takes a page of its own after the photographs
+    if (def.key === 'baby-photos') pages.push({ key: 'baby-photos-more', sections: ['gallery-video'], ground: g(BABYBLUE_OVERFLOW) });
+  }
+  return { v: 1, pages, overflowGround: g(BABYBLUE_OVERFLOW) };
+}
+
+/**
+ * The document a design with an empty column renders from: the layout's own
+ * pages, exactly as the code draws them today. Capiz keeps its own list in
+ * the renderer until phase 0's second commit moves it here too.
+ */
+export function builtinDesign(layout: string): DesignDoc | null {
+  return layout === 'babyblue' ? babyblueDesign() : null;
+}

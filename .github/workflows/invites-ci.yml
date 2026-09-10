@@ -71,6 +71,13 @@ jobs:
       - name: Test
         run: npm test
 
+      # `npm test` runs under --conditions=react-server, where `server-only`
+      # resolves to an empty module and importing it passes. What the studio
+      # draws with has to load in a browser too, so it is tested without that
+      # condition, which is the only way that import can fail the build.
+      - name: Test what the browser loads
+        run: npm run test:client
+
       # The production build script, not `build:local` — it is the thing that
       # applies the migrations, and it is the thing that broke in production.
       - name: Build

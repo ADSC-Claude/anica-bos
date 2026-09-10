@@ -14,7 +14,7 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, BABYBLUE_PAGES, type PageDef } from '@/lib/design';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '@/lib/babyblue';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
@@ -1547,22 +1547,6 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * of the one before, and a spray of shell cut from the designs lies across the
  * join (PageGround measures the pages and lays all of it).
  */
-type PageDef = {
-  key: string;
-  sections: (SectionKey | 'verse')[];
-  /** the ground under the page, for a layout that names them (src/lib/design.ts) */
-  bg?: string;
-  /** how long the dissolve into this page is, as a share of the width */
-  seam?: number;
-  /**
-   * A drawn page: its ground carries frames and writings at fixed places, so
-   * it must sit exactly on the page. The dissolve into it lies wholly below
-   * its top edge and is short, so its own header comes up on clean ground.
-   * Any other page lets its ground start half a seam up, inside the page
-   * before, so the two pictures cross halfway across the join.
-   */
-  drawn?: boolean;
-};
 /** The backgrounds' height as a multiple of their width. */
 export const CAPIZ_BG_RATIO = 2.645;
 /** The order of the backgrounds down the invitation, long enough for any; 8 is set last. */
@@ -1583,27 +1567,8 @@ const CAPIZ_PAGES: PageDef[] = [
   { key: 'rsvp', sections: ['rsvp'] },
   { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
 ];
-
-/**
- * The Baby Blue pages, each on its own ground, in the order the owner set:
- * the cover with the verse, the story, the invitation, ninong and ninang, the
- * baby photos, the venue, the dress code, the gift request with the program,
- * snap and share with the post-event photos, and the last page with the RSVP,
- * the countdown, the assistance and the ending. The two drawn pages keep
- * their tops clear of the dissolve.
- */
-const BABYBLUE_PAGES: PageDef[] = [
-  { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
-  { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
-  { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
-  { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
-  { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
-  { key: 'venue', bg: 'venue', sections: ['reception'] },
-  { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
-  { key: 'program', bg: 'program', sections: ['gift', 'program'] },
-  { key: 'share', bg: 'share', sections: ['social', 'photos'] },
-  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
-];
+// Baby Blue's pages live in src/lib/design.ts, beside the document they are
+// compiled into: BABYBLUE_PAGES, imported above.
 
 /** Which line icon a program entry gets, from the words in its title. */
 function programIcon(title: string): string {

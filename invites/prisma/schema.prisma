@@ -220,6 +220,19 @@ model Template {
   /// The design's own pictures, by URL — its backgrounds by day and by night,
   /// its strand. Blank falls back to the files shipped with the layout. See src/lib/design.ts.
   art              Json     @default("{}")
+  /// The design document a guest's page is drawn from: its pages, the ground
+  /// under each one, and the photo frames and writings placed on the drawn
+  /// ones. `{}` means "the layout's built-in", which is what every design
+  /// carries today, so an empty column renders exactly as the code does. See
+  /// src/lib/design.ts.
+  design           Json     @default("{}")
+  /// The studio's working copy of that document. Nothing a guest sees comes
+  /// from here: it is published into `design` when the owner is happy with it.
+  designDraft      Json     @default("{}")
+  /// Bumped on every draft save. Two people editing the same draft each hold
+  /// the revision they loaded, so the second save is refused rather than
+  /// silently overwriting the first.
+  designDraftRev   Int      @default(0)
   sections         String[]
   featured         Boolean  @default(false)
   published        Boolean  @default(true)
@@ -228,6 +241,7 @@ model Template {
   updatedAt        DateTime @updatedAt
 
   invitations Invitation[]
+  media       Media[]
 
   @@index([occasion, published, sortOrder])
   @@index([collection, published, sortOrder])
@@ -565,6 +579,11 @@ enum MediaKind {
   GUEST_PHOTO
   /// The couple's own song file, from the Music section.
   AUDIO
+  /// A design's own picture, uploaded in the studio: a page's ground, a piece
+  /// from the library, a thumbnail. Belongs to a template, never to a couple.
+  DESIGN_IMAGE
+  /// A design's own clip, uploaded in the studio.
+  DESIGN_VIDEO
   OTHER
 }
 
@@ -572,6 +591,9 @@ model Media {
   id           String    @id @default(cuid())
   userId       String?
   invitationId String?
+  /// Set for a design's own upload (DESIGN_IMAGE, DESIGN_VIDEO), which belongs
+  /// to the template rather than to any one couple.
+  templateId   String?
   kind         MediaKind @default(OTHER)
   url          String
   storagePath  String
@@ -584,13 +606,22 @@ model Media {
   sortOrder    Int       @default(0)
   /// Set for public uploads only, so an abusive connection can be rate limited.
   ip           String    @default("")
+  /// Read from the file on upload, never typed: a ground's height as a share
+  /// of its width is what places every element on a drawn page, and a clip's
+  /// length is what the studio warns about.
+  width        Int?
+  height       Int?
+  bytes        Int?
+  durationMs   Int?
   createdAt    DateTime  @default(now())
 
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   invitation Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  template   Template?   @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@index([invitationId, kind, sortOrder])
   @@index([invitationId, kind, approved, createdAt])
+  @@index([templateId, kind, sortOrder])
   @@index([ip, createdAt])
 }
 

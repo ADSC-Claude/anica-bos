@@ -15,6 +15,23 @@ const STATE: Record<G['state'], { label: string; pill: string } | null> = {
   declined: { label: 'Declined', pill: 'pill-bad' },
 };
 
+/**
+ * What the desk announces when somebody is let in.
+ *
+ * One sentence per case rather than a greeting with a clause bolted onto the
+ * end of it. "Welcome, Rafael Mendoza! had declined" is what bolting it on
+ * reads like: an exclamation, then a lowercase remark about a different
+ * subject. A decline is not a welcome with a footnote — the exception is the
+ * whole message, so it drops the greeting and reads as the flag it is.
+ */
+function greet(d: { name: string; seats: number; state: G['state']; table: string }) {
+  const where = d.table ? ` · ${d.table}` : '';
+  const seats = `${d.seats} seat${d.seats === 1 ? '' : 's'}`;
+  if (d.state === 'declined') return `${d.name} — declined, no seats held${where}`;
+  if (d.state === 'waiting') return `Welcome, ${d.name}! ${seats} held, no reply yet${where}`;
+  return `Welcome, ${d.name}! ${seats}${where}`;
+}
+
 export function CheckInDesk({ invitationId, guests }: { invitationId: string; guests: G[] }) {
   const [pending, start] = useTransition();
   const [q, setQ] = useState('');
@@ -25,7 +42,7 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
   const run = (key: string, undo = false) =>
     start(async () => {
       const r = await checkInAction(invitationId, key, undo);
-      setLast(r.ok ? { ok: true, text: undo ? `${r.data.name} checked out.` : r.data.alreadyIn ? `${r.data.name} was already checked in.` : `Welcome, ${r.data.name}! ${r.data.state === 'declined' ? 'had declined — no seats held' : `${r.data.seats} seat${r.data.seats === 1 ? '' : 's'}`}${r.data.table ? ` · ${r.data.table}` : ''}` } : { ok: false, text: r.error });
+      setLast(r.ok ? { ok: true, text: undo ? `${r.data.name} checked out.` : r.data.alreadyIn ? `${r.data.name} was already checked in.` : greet(r.data) } : { ok: false, text: r.error });
       setQ('');
     });
 

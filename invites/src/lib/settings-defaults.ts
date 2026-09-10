@@ -72,6 +72,15 @@ export const DEFAULT_SETTINGS = {
     'Hi {{customerName}},\n\n{{guestName}} just responded to {{invitationTitle}}: {{response}} ({{seats}} seat(s)).\n\nSee all responses: {{appUrl}}/account/invitations/{{invitationId}}/rsvps\n\n— {{businessName}}',
   'sms.rsvpReminder':
     'Hi {{guestName}}! {{hosts}} would love to know if you can make it on {{eventDate}}. Please RSVP here: {{link}}',
+  /**
+   * The same reminder by e-mail, and longer on purpose: a text is charged by
+   * the segment and reads on a lock screen, while an e-mail is free and read
+   * in an inbox beside a hundred others. So it says who it is from in the
+   * subject, and the body has room to name the day and the place.
+   */
+  'email.rsvpReminderSubject': 'RSVP for {{hosts}} — {{eventDate}}',
+  'email.rsvpReminder':
+    'Hi {{guestName}},\n\n{{hosts}} would love to know if you can make it on {{eventDate}}.\n\nYour invitation, and the RSVP, are here:\n{{link}}\n\nThe link is yours — it already knows your name and the seats set aside for you, so there is nothing to look up.\n\nSee you soon!\n{{hosts}}',
   /** Semaphore sender ID. Blank uses the account default. */
   'sms.senderName': '',
 

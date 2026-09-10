@@ -183,49 +183,49 @@ model AddOn {
 /// are the CSS variables it is themed with; `sections` lists which section keys
 /// it lays out (everything else in the content is ignored, not lost).
 model Template {
-  id               String   @id @default(cuid())
-  slug             String   @unique
+  id               String     @id @default(cuid())
+  slug             String     @unique
   name             String
   occasion         Occasion
   // Also offered for these occasions, on top of the home `occasion` above. Empty means the home one only.
   occasions        Occasion[] @default([])
   /// The lowest tier that may use this design.
-  minTier          Tier     @default(BASIC)
+  minTier          Tier       @default(BASIC)
   /// Premium designs are Complete-only regardless of minTier.
-  premium          Boolean  @default(false)
-  description      String   @default("")
-  thumbnailUrl     String   @default("")
-  layout           String   @default("classic")
+  premium          Boolean    @default(false)
+  description      String     @default("")
+  thumbnailUrl     String     @default("")
+  layout           String     @default("classic")
   /// Colour family shown as a strip in the gallery. See src/lib/collections.ts. "" means it belongs to none.
-  collection       String   @default("")
+  collection       String     @default("")
   /// The opening this design ships with. The customer may override it. See src/lib/openings.ts.
-  opening          String   @default("")
+  opening          String     @default("")
   /// A cinematic opening's shared assets: the clip that plays on tap and the
   /// still shown in its place until it does. One pair per design, served to
   /// every customer on it — never rendered per couple.
-  openingVideoUrl  String   @default("")
-  openingPosterUrl String   @default("")
+  openingVideoUrl  String     @default("")
+  openingPosterUrl String     @default("")
   /// The slug of the invitation that shows this design off: a visitor may
   /// scroll it from the opening to Our Story (the peek) before choosing the
   /// design, whatever its status. Blank means no peek is offered.
-  demoSlug         String   @default("")
+  demoSlug         String     @default("")
   palette          Json
   fonts            Json
   /// The look this design is set in — its faces and the lines under its
   /// headings. See src/lib/looks.ts. Blank means the `fonts` column alone.
-  look             String   @default("")
+  look             String     @default("")
   /// The words the design writes over its look's, per language:
   /// {"en": {"gallery": "…"}, "tl": {…}}. See src/lib/design.ts.
-  words            Json     @default("{}")
+  words            Json       @default("{}")
   /// The design's own pictures, by URL — its backgrounds by day and by night,
   /// its strand. Blank falls back to the files shipped with the layout. See src/lib/design.ts.
-  art              Json     @default("{}")
+  art              Json       @default("{}")
   sections         String[]
-  featured         Boolean  @default(false)
-  published        Boolean  @default(true)
-  sortOrder        Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  featured         Boolean    @default(false)
+  published        Boolean    @default(true)
+  sortOrder        Int        @default(0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   invitations Invitation[]
 
@@ -441,7 +441,7 @@ model Invitation {
   /// A Save the Date announces the invitation it hangs off: the same couple,
   /// the same design, its own link and its own publish clock. It is bought as
   /// an add-on and has no order of its own. Null on an ordinary invitation.
-  saveTheDateOfId String?  @unique
+  saveTheDateOfId String? @unique
 
   user          User        @relation(fields: [userId], references: [id])
   template      Template    @relation(fields: [templateId], references: [id])
@@ -458,6 +458,7 @@ model Invitation {
   dfyJob    DfyJob?
   messages  SupportMessage[]
   texts     SmsMessage[]
+  emails    EmailMessage[]
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
@@ -484,10 +485,11 @@ model Guest {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  invitation Invitation    @relation(fields: [invitationId], references: [id], onDelete: Cascade)
-  table      SeatingTable? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  invitation Invitation     @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  table      SeatingTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
   rsvps      Rsvp[]
   texts      SmsMessage[]
+  emails     EmailMessage[]
 
   @@index([invitationId, groupName])
 }
@@ -711,6 +713,29 @@ model SmsMessage {
   @@index([guestId, createdAt])
 }
 
+/// One e-mail sent to one guest, kept for the same two reasons as SmsMessage:
+/// a blast should be able to say what it did, and the next blast has to know
+/// who it has already written to today.
+model EmailMessage {
+  id           String    @id @default(cuid())
+  invitationId String
+  guestId      String?
+  to           String
+  subject      String
+  body         String
+  status       SmsStatus @default(LOGGED)
+  error        String    @default("")
+  createdAt    DateTime  @default(now())
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?     @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([invitationId, createdAt])
+  @@index([guestId, createdAt])
+}
+
+/// Shared with EmailMessage: sent, written to the log because no key is set,
+/// or refused. The three outcomes are the same whichever gateway carried it.
 enum SmsStatus {
   SENT
   LOGGED

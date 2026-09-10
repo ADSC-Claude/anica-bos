@@ -9,7 +9,7 @@ import { invitationUrl } from '@/lib/app-url';
 import { PageHeader, Stat } from '@/components/ui';
 import { GuestManager } from './manager';
 import { Reminders } from './reminders';
-import { recentTexts } from '@/lib/reminders';
+import { recentTexts, recentEmails } from '@/lib/reminders';
 import { formatDateTime } from '@/lib/datetime';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,16 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   if (!hasFeature(inv.tier, 'guests.manager')) redirect(`/account/invitations/${inv.id}/upgrade`);
-  const [guests, tables, summary, texts] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10)]);
+  const [guests, tables, summary, texts, emails] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10), recentEmails(inv.id, 10)]);
+  // Newest first across both, then the ten that matter. Each carries the word
+  // for how it travelled, which is the only thing the list needs to keep them
+  // apart.
+  const sent = [
+    ...texts.map((t) => ({ ...t, channel: 'text' as const })),
+    ...emails.map((e) => ({ ...e, channel: 'e-mail' as const })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 10);
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
@@ -30,17 +39,27 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
         <Stat label="Declined" value={summary.declined} />
         <Stat label="No response" value={summary.pending} tone={summary.pending ? 'warn' : undefined} />
       </div>
-      <Reminders invitationId={inv.id} live={Boolean(process.env.SEMAPHORE_API_KEY)} />
+      {/* Both channels, side by side. A couple picks by what they have on the
+          list: a number for the titas, an address for the ninong in Dubai. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Reminders invitationId={inv.id} live={Boolean(process.env.SEMAPHORE_API_KEY)} />
+        <Reminders invitationId={inv.id} live={Boolean(process.env.RESEND_API_KEY)} channel="email" />
+      </div>
 
-      {texts.length > 0 && (
+      {/* One list, both channels, newest first — what a couple wants to know is
+          "has this guest been chased", not which wire it went down. Each line
+          says which anyway, because a text that failed and an e-mail that
+          failed want different second attempts. */}
+      {sent.length > 0 && (
         <details className="card mt-4 p-4 text-sm">
-          <summary className="cursor-pointer font-semibold">Recent reminders ({texts.length})</summary>
+          <summary className="cursor-pointer font-semibold">Recent reminders ({sent.length})</summary>
           <ul className="mt-3 divide-y divide-[color:var(--color-sand-100)]">
-            {texts.map((t) => (
+            {sent.map((t) => (
               <li key={t.id} className="py-2">
                 <span className="font-medium">{t.guest?.name ?? t.to}</span>{' '}
                 <span className="text-[color:var(--color-ink-500)]">
-                  · {formatDateTime(t.createdAt)} · {t.status === 'SENT' ? 'sent' : t.status === 'LOGGED' ? 'logged (no SMS key)' : `failed — ${t.error}`}
+                  · {t.channel} · {formatDateTime(t.createdAt)} ·{' '}
+                  {t.status === 'SENT' ? 'sent' : t.status === 'LOGGED' ? 'logged (no key set)' : `failed — ${t.error}`}
                 </span>
               </li>
             ))}

@@ -161,6 +161,28 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     ? await prisma.rsvp.update({ where: { id: existing.id }, data })
     : await prisma.rsvp.create({ data });
 
+  // What a guest tells us about themselves goes back on their own row, because
+  // that is the row a blast reads. Two copies of the same details on file and
+  // only one of them read is how a couple ends up buying an SMS add-on for a
+  // list the system believes has no numbers in it.
+  //
+  // The reply wins over what the couple typed: a guest is the authority on
+  // their own number, and theirs is the more recent of the two. Blank never
+  // wins — leaving a field empty is not a correction.
+  //
+  // input.email rather than data.email, because the corporate form packs a
+  // department into the address it stores, and a department has no business on
+  // a mailing list.
+  if (guest) {
+    const phone = (input.phone ?? '').trim();
+    const email = (input.email ?? '').trim();
+    const patch = {
+      ...(phone && phone !== guest.phone ? { phone } : {}),
+      ...(email && email !== guest.email ? { email } : {}),
+    };
+    if (Object.keys(patch).length) await prisma.guest.update({ where: { id: guest.id }, data: patch });
+  }
+
   // Tell the host, but not on every edit of the same response.
   if (!existing) {
     const owner = await prisma.user.findUnique({ where: { id: invitation.userId } });

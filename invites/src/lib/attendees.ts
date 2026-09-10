@@ -20,20 +20,39 @@ import { t, type Lang } from './copy';
 /**
  * The relationships offered, in the order they are shown.
  *
- * Ordered by how close the person sits rather than alphabetically: the ones
- * who share the guest's table first, the ones who often do not last. "Other"
- * is the honest end of any list this short.
+ * Ordered by how close the person sits rather than alphabetically, and grouped
+ * so a guest scrolling a phone finds their answer near the ones like it: who
+ * they came with, then family closest-first, then the people they chose, then
+ * the people who came to attend them and are often fed apart. "Other" is the
+ * honest end of any list.
+ *
+ * Cousin, in-law and pamangkin are named rather than swept into "relative"
+ * because at a Filipino wedding they are the commonest companions of all, and
+ * a couple laying out tables seats a pinsan differently from a tita. Fiancé
+ * sits between partner and spouse for the same reason: the family already
+ * treats them as one of theirs.
  */
 export const RELATIONS = [
+  // The one they arrived with.
   'spouse',
+  'fiance',
   'partner',
+  // Family, closest first.
   'child',
   'parent',
+  'grandparent',
   'sibling',
+  'inlaw',
+  'cousin',
+  'nephew',
   'relative',
+  // The people they chose rather than were born to.
   'friend',
+  'neighbour',
   'colleague',
+  // The people who came to attend them, and who are often fed apart.
   'helper',
+  'caregiver',
   'driver',
   'other',
 ] as const;

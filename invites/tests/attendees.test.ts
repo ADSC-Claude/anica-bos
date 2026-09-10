@@ -65,6 +65,21 @@ test('a companion reads as a name and what they are', () => {
   assert.equal(attendeeLine({ name: 'Juan Santos', relation: '' }), 'Juan Santos', 'no brackets around nothing');
 });
 
+test('the list is grouped, not alphabetical, so like sits beside like', () => {
+  const at = (r: string) => RELATIONS.indexOf(r as (typeof RELATIONS)[number]);
+  assert.ok(at('fiance') > at('spouse') && at('fiance') < at('partner'), 'a fiancé stands between a partner and a spouse');
+  assert.ok(at('cousin') < at('relative'), 'a pinsan is named before the catch-all that would swallow them');
+  assert.ok(at('inlaw') < at('relative') && at('nephew') < at('relative'));
+  assert.ok(at('caregiver') > at('helper'), 'the people who came to attend the guest sit together');
+  assert.equal(at('other'), RELATIONS.length - 1, 'and "someone else" ends the list');
+});
+
+test('the commonest Filipino companions are on offer by name', () => {
+  for (const r of ['cousin', 'inlaw', 'nephew', 'fiance', 'grandparent', 'neighbour', 'caregiver']) {
+    assert.ok(isRelation(r), `${r} is offered`);
+  }
+});
+
 test('every relationship offered has words in both languages', () => {
   for (const r of RELATIONS) {
     assert.ok(isRelation(r));

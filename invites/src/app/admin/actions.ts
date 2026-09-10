@@ -14,7 +14,7 @@ import { activateOrder, cancelOrder } from '@/lib/orders';
 import { assignJob, moveJob, staffReply, updateJobNotes, extendDue } from '@/lib/dfy';
 import { setSettings } from '@/lib/settings';
 import { notify } from '@/lib/notifications';
-import { isOccasion } from '@/lib/occasions';
+import { isOccasion, OCCASIONS } from '@/lib/occasions';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
@@ -143,6 +143,8 @@ export async function saveTemplateAction(templateId: string | null, back: string
       name: s(fd, 'name'),
       slug: slugify(s(fd, 'slug') || s(fd, 'name')),
       occasion: occasion as Occasion,
+      // the other occasions this design is offered for; the home one is never repeated here
+      occasions: OCCASIONS.map((o) => o.key).filter((k) => k !== occasion && fd.get(`occ_${k}`) === 'on'),
       minTier: (['BASIC', 'STANDARD', 'COMPLETE'].includes(s(fd, 'minTier')) ? s(fd, 'minTier') : 'BASIC') as Tier,
       premium: b(fd, 'premium'),
       description: s(fd, 'description'),

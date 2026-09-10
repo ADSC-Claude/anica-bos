@@ -2,6 +2,7 @@ import type { Template } from '@prisma/client';
 import { paletteFrom, fontsFrom, cssVars, googleFontsUrl } from './theme';
 import { LOOK_BY_KEY, isLook } from './looks';
 import { premiumOpeningsFor } from './premium-openings';
+import { templateOccasions } from './occasions';
 import type { PlateWords } from '@/components/invite/renderer';
 
 /**
@@ -15,6 +16,8 @@ export type GalleryTemplate = {
   slug: string;
   name: string;
   occasion: Template['occasion'];
+  /** The home occasion, then every other it is offered for. */
+  occasions: Template['occasion'][];
   minTier: Template['minTier'];
   premium: boolean;
   description: string;
@@ -52,6 +55,7 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     slug: t.slug,
     name: t.name,
     occasion: t.occasion,
+    occasions: templateOccasions(t),
     minTier: t.minTier,
     premium: t.premium,
     description: t.description,

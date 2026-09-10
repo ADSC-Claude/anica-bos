@@ -41,7 +41,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, priceCents: a.priceCents, quoted: a.quoted }))}
         templates={templates.map((t) => {
           const pal = paletteFrom(t.palette);
-          return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, minTier: t.minTier, premium: t.premium, thumbnailUrl: t.thumbnailUrl, description: t.description, palette: { bg: pal.bg, accent: pal.accent, accent2: pal.accent2 }, premiumOpenings: premiumOpeningsFor(t).map((o) => o.name) };
+          return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, occasions: t.occasions, minTier: t.minTier, premium: t.premium, thumbnailUrl: t.thumbnailUrl, description: t.description, palette: { bg: pal.bg, accent: pal.accent, accent2: pal.accent2 }, premiumOpenings: premiumOpeningsFor(t).map((o) => o.name) };
         })}
         initial={sp}
         demoSlug={s['site.demoSlug']}

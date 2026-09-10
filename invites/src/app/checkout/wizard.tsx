@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import type { Occasion, ServiceMode, Tier } from '@prisma/client';
-import { OCCASIONS } from '@/lib/occasions';
+import { OCCASIONS, templateSuits } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
 import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
@@ -12,7 +12,7 @@ import { invitationPath } from '@/lib/app-url';
 
 export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number };
 export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
-export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
+export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; occasions: Occasion[]; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
 export type WizardProps = {
   packages: WizardPackage[];
@@ -44,7 +44,7 @@ export function CheckoutWizard(p: WizardProps) {
   const [pending, start] = useTransition();
 
   const pkg = useMemo(() => p.packages.find((x) => x.occasion === occasion && x.tier === tier) ?? p.packages.find((x) => x.occasion === null && x.tier === tier), [p.packages, occasion, tier]);
-  const templates = p.templates.filter((t) => t.occasion === occasion && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
+  const templates = p.templates.filter((t) => templateSuits(t, occasion) && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
   // the premium opening is sold per design: a design with no clip yet cannot carry it
   const premiumOk = !template || template.premiumOpenings.length > 0;

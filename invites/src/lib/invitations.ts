@@ -22,6 +22,7 @@ import {
   sectionOnCard,
   sectionOffered,
 } from './sections';
+import { templateSuits } from './occasions';
 import { hasFeature, TIER_LABELS } from './tiers';
 import { saveTheDateOffered } from './pricing';
 import { isStaff, can } from './rbac';
@@ -90,7 +91,7 @@ export function assertNotPublished(user: SessionUser, invitation: { status: stri
  */
 export const RESERVED_SLUGS = new Set([
   // Directories under src/app.
-  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks',
+  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks', 'occasions',
   'privacy', 'refund-policy', 'signup', 'templates', 'terms',
   // Files under src/app that serve their own path.
   'robots.txt', 'sitemap.xml', 'favicon.ico',
@@ -131,7 +132,7 @@ export async function createDraft(args: {
 }) {
   const template = await prisma.template.findUnique({ where: { id: args.templateId } });
   if (!template || !template.published) throw new HttpError(400, 'That template is not available.');
-  if (template.occasion !== args.occasion) throw new HttpError(400, 'That template is for a different occasion.');
+  if (!templateSuits(template, args.occasion)) throw new HttpError(400, 'That template is for a different occasion.');
 
   const language = args.language ?? 'en';
   const content = defaultContent(args.occasion, language);

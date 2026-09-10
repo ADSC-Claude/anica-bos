@@ -48,3 +48,24 @@ export const OCCASION_KEYS = OCCASIONS.map((o) => o.key) as Occasion[];
 export function isOccasion(value: string): value is Occasion {
   return (OCCASION_KEYS as string[]).includes(value);
 }
+
+/**
+ * Every occasion a design is offered for: its home occasion first, then any
+ * others staff ticked, in the order the occasions launch. A design drawn for
+ * weddings can be ticked for anniversaries and engagements too, and then
+ * shows under each of them on the site and in the checkout.
+ */
+export function templateOccasions(t: { occasion: Occasion; occasions?: Occasion[] }): Occasion[] {
+  const extra = new Set((t.occasions ?? []).filter((o) => o !== t.occasion));
+  return [t.occasion, ...OCCASIONS.map((o) => o.key).filter((k) => extra.has(k))];
+}
+
+/** Whether a design is offered for an occasion, its home one or a ticked one. */
+export function templateSuits(t: { occasion: Occasion; occasions?: Occasion[] }, occasion: Occasion): boolean {
+  return t.occasion === occasion || (t.occasions ?? []).includes(occasion);
+}
+
+/** The Prisma filter for the designs offered for an occasion. */
+export function offeredFor(occasion: Occasion): { OR: [{ occasion: Occasion }, { occasions: { has: Occasion } }] } {
+  return { OR: [{ occasion }, { occasions: { has: occasion } }] };
+}

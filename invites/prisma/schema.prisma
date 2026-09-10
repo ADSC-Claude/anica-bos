@@ -187,6 +187,8 @@ model Template {
   slug             String   @unique
   name             String
   occasion         Occasion
+  // Also offered for these occasions, on top of the home `occasion` above. Empty means the home one only.
+  occasions        Occasion[] @default([])
   /// The lowest tier that may use this design.
   minTier          Tier     @default(BASIC)
   /// Premium designs are Complete-only regardless of minTier.

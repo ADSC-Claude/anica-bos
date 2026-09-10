@@ -1606,7 +1606,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const visible = (key: SectionKey) =>
     sectionOnCard(key, occasion, saveTheDate) &&
     sectionOffered(key) &&
-    (templateSections.size === 0 || templateSections.has(key)) &&
+    // the design's ticks were made against its home occasion; a section that
+    // occasion does not have (an anniversary's, on a design ticked for weddings
+    // too) is offered the way the invitation's occasion offers it
+    (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key)) &&
     sectionUnlocked(key, occasion, inv.tier) &&
     // the countdown's only content is its switch; the label is the look's to supply
     (key === 'rsvp' || key === 'cover' || key === 'countdown' || sectionFilled(key, occasion, content[key]));

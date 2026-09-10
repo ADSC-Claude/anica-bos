@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
+import { offeredFor } from '@/lib/occasions';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { hasFeature, TIER_LABELS } from '@/lib/tiers';
 import { PALETTE_PRESETS } from '@/lib/theme';
@@ -21,7 +22,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   const [templates, premiumAddOn] = await Promise.all([
-    prisma.template.findMany({ where: { occasion: inv.occasion, published: true }, orderBy: { sortOrder: 'asc' } }),
+    prisma.template.findMany({ where: { ...offeredFor(inv.occasion), published: true }, orderBy: { sortOrder: 'asc' } }),
     prisma.addOn.findFirst({ where: { code: PREMIUM_OPENING_CODE, active: true } }),
   ]);
   // Only the clips drawn for this design, so a theme's openings are offered

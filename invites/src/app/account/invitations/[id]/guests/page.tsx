@@ -56,7 +56,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
         baseUrl={invitationUrl(inv.slug)}
         reminder={`Hi {name}! Please RSVP for ${inv.title} here: {link}`}
         canSeating={hasFeature(inv.tier, 'seating')}
-        tables={tables.map((t) => ({ id: t.id, name: t.name, capacity: t.capacity, seated: guests.filter((g) => g.tableId === t.id).reduce((a, g) => a + (g.rsvps[0]?.response === 'ACCEPT' ? g.rsvps[0].seats : g.seatsAllotted), 0) }))}
+        tables={tables.map((t) => ({ id: t.id, name: t.name, capacity: t.capacity }))}
         guests={guests.map((g) => ({ id: g.id, name: g.name, salutation: g.salutation, groupName: g.groupName, seatsAllotted: g.seatsAllotted, plusOneAllowed: g.plusOneAllowed, phone: g.phone, email: g.email, notes: g.notes, token: g.token, tableId: g.tableId, checkedIn: Boolean(g.checkedInAt), response: g.rsvps[0] ? { response: g.rsvps[0].response, seats: g.rsvps[0].seats } : null }))}
       />
     </>

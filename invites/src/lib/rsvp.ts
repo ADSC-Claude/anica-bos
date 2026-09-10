@@ -75,10 +75,20 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     seats = accepting ? 1 : 0;
   }
 
-  // Only a group the couple actually offers is kept — a made-up one would
-  // print on their headcount sheet.
+  // Only a group the couple actually offers is kept — a made-up one would print
+  // on their headcount sheet. What is posted therefore has to survive that
+  // check, and what does not falls back to the couple's own tag for this guest.
+  //
+  // Their tag is the better evidence anyway: they know which side a tita is
+  // from, and a guest choosing off a list is guessing. It is also the only
+  // answer available in two ordinary cases — a couple who tagged the guest list
+  // with words they never offered on the form, and a couple who hid the
+  // question entirely. Both used to reach the headcount sheet ungrouped while
+  // the answer sat on the guest row unread. A guest can still overrule it, but
+  // only with a group the couple offers.
   const groups = guestGroups(invitation.occasion, rsvpSection);
-  const groupName = input.groupName && groups.includes(input.groupName) ? input.groupName : '';
+  const offered = input.groupName && groups.includes(input.groupName) ? input.groupName : '';
+  const groupName = offered || guest?.groupName || '';
 
   const meal = input.mealChoice ?? '';
   const choices = rows<{ label: string }>(rsvpSection, 'mealChoices').map((m) => m.label);

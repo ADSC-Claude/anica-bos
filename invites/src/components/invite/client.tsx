@@ -457,6 +457,15 @@ export type RsvpFormProps = {
   askDepartment: boolean;
   mealChoices: string[];
   groups: string[];
+  /**
+   * What the couple recorded for this guest on their guest list, shown as the
+   * starting answer so a guest is not asked something we already know. Only
+   * honoured when it is one of `groups`: the select can only show an option it
+   * has, and a tag the couple never offered is dropped server-side anyway —
+   * where it falls back to this same value, so nothing is lost by leaving the
+   * field blank here.
+   */
+  defaultGroup?: string;
   existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: string[]; mealChoice: string; dietary: string; message: string; groupName: string } | null;
   labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group', string>;
 };
@@ -517,6 +526,9 @@ export function RsvpForm(p: RsvpFormProps) {
   }
 
   const seatOptions = Array.from({ length: p.maxSeats }, (_, i) => i + 1);
+  // An answer they gave on an earlier reply wins over the couple's tag: they
+  // have already been asked once and corrected it.
+  const groupDefault = p.existing?.groupName || (p.defaultGroup && p.groups.includes(p.defaultGroup) ? p.defaultGroup : '');
 
   return (
     <form onSubmit={submit} className="inv-card space-y-4" id="rsvp-form">
@@ -536,7 +548,7 @@ export function RsvpForm(p: RsvpFormProps) {
       {p.groups.length > 0 && (
         <div>
           <label className="inv-label" htmlFor="rsvp-group">{p.labels.group}</label>
-          <select id="rsvp-group" name="groupName" className="inv-field" defaultValue={p.existing?.groupName ?? ''}>
+          <select id="rsvp-group" name="groupName" className="inv-field" defaultValue={groupDefault}>
             <option value=""></option>
             {p.groups.map((g) => (
               <option key={g} value={g}>{g}</option>

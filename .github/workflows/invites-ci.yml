@@ -129,7 +129,15 @@ jobs:
           # Signed out, the privacy pages must redirect rather than serve.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/account/privacy)" = "307"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/account/privacy/export)" = "307"
-          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"slug":"juan-and-maria","name":"CI Bot","response":"ACCEPT","seats":1}' http://127.0.0.1:3000/api/public/rsvp)" = "200"
+          # A guest leaves a mobile number and, if they care to, an address —
+          # so the bot sends what the form actually sends.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"slug":"juan-and-maria","name":"CI Bot","response":"ACCEPT","seats":1,"phone":"0917 123 4567","email":"ci-bot@example.com"}' http://127.0.0.1:3000/api/public/rsvp)" = "200"
+          # The address is optional and the reply stands without it. The
+          # headcount is worth more than the address.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"slug":"juan-and-maria","name":"CI Bot","response":"ACCEPT","seats":1,"phone":"0917 123 4567"}' http://127.0.0.1:3000/api/public/rsvp)" = "200"
+          # The number is not. Requiring a field in a browser is a courtesy;
+          # what makes it a promise is the server saying no.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"slug":"juan-and-maria","name":"CI Bot","response":"ACCEPT","seats":1}' http://127.0.0.1:3000/api/public/rsvp)" = "400"
           # The shared album: a real PNG is accepted, and a file that only
           # claims to be one is not — the check is the magic bytes, not the name.
           printf '\211PNG\r\n\032\n\0\0\0\rIHDR\0\0\0\1\0\0\0\1\10\6\0\0\0\37\25\304\211\0\0\0\nIDATx\234c\0\1\0\0\5\0\1\r\n-\264\0\0\0\0IEND\256B`\202' > /tmp/ci.png

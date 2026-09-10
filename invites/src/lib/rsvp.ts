@@ -52,8 +52,42 @@ export const rsvpSchema = z.object({
   mealChoice: z.string().trim().max(60).optional(),
   dietary: z.string().trim().max(500).optional(),
   message: z.string().trim().max(1000).optional(),
-  phone: z.string().trim().max(30).optional(),
-  email: z.string().trim().max(120).optional(),
+  /*
+   * The number is required, and checked here as well as in the browser:
+   * `required` on an input is a courtesy to the person filling it in, not a
+   * guarantee about what arrives.
+   *
+   * The number is only checked for being a plausible one, not for being a
+   * Philippine mobile. Half the ninongs at a Manila wedding are texting from
+   * Dubai or Daly City, and refusing their reply to protect a text we could
+   * not have sent them anyway is the wrong trade. Whether a number can
+   * actually be texted is Semaphore's question, and lib/sms.ts already answers
+   * it per-number at send time.
+   */
+  phone: z
+    .string({ error: 'Please leave a mobile number.' })
+    .trim()
+    .min(1, 'Please leave a mobile number.')
+    .max(30)
+    .regex(/^[\d+][\d\s()+-]{5,}$/, 'That does not look like a mobile number.'),
+  /*
+   * The address is taken if it is offered and the reply stands without it.
+   *
+   * It is not labelled optional, though, and that is deliberate rather than an
+   * oversight: an "(optional)" beside a field is read as "skip me", and a guest
+   * who skips it costs the couple the only way of reaching them that is not a
+   * text message. So it is asked plainly, with a line saying what it is for, and
+   * a guest who has no address or does not care to leave one simply carries on.
+   *
+   * Blank is accepted; a few characters that are not an address are not, since
+   * that is a typo rather than a decision.
+   */
+  email: z
+    .string()
+    .trim()
+    .max(120)
+    .refine((v) => v === '' || z.string().email().safeParse(v).success, 'That does not look like an e-mail address.')
+    .optional(),
   department: z.string().trim().max(120).optional(),
   /** Honeypot. Bots fill it; people never see it. */
   website: z.string().max(0).optional(),

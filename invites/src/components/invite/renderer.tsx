@@ -43,7 +43,7 @@ export type GuestForPage = {
   plusOneAllowed: boolean;
   token: string;
   table: { name: string } | null;
-  rsvps: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: unknown; mealChoice: string; dietary: string; message: string; groupName: string }[];
+  rsvps: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: unknown; mealChoice: string; dietary: string; message: string; groupName: string; phone: string; email: string }[];
 };
 
 export type RenderProps = {
@@ -919,6 +919,9 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
             relation: t(lang, 'rsvp.relation'),
             relationBlank: t(lang, 'rsvp.relationBlank'),
             relationName: t(lang, 'rsvp.relationName'),
+            email: t(lang, 'rsvp.email'),
+            phoneHint: t(lang, 'rsvp.phoneHint'),
+            emailHint: t(lang, 'rsvp.emailHint'),
             companions: t(lang, 'rsvp.companions'),
             companion: t(lang, 'rsvp.companion'),
             meal: t(lang, 'rsvp.meal'),

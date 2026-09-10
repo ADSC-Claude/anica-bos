@@ -8,6 +8,7 @@ import { str, bool } from '@/lib/sections';
 import { formatDate, formatTime, formatDateTime } from '@/lib/datetime';
 import { getSettings } from '@/lib/settings';
 import { PrintButton } from './print-button';
+import { attendeeLine } from '@/lib/attendees';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false }, title: 'Headcount sheet' };
@@ -107,7 +108,7 @@ export default async function RsvpPrintPage({ params }: { params: Promise<{ id: 
                       {r.name}
                       {r.alias && <span className="sheet-with">replied as {r.alias}</span>}
                       {!showSeats && r.state === 'DECLINE' && <span className="sheet-with">Cannot make it</span>}
-                      {r.attendees.length > 1 && <span className="sheet-with">with {r.attendees.slice(1).filter(Boolean).join(', ')}</span>}
+                      {r.attendees.length > 1 && <span className="sheet-with">with {r.attendees.slice(1).map((a) => attendeeLine(a)).join(', ')}</span>}
                     </td>
                     {showTables && <td className="sheet-seat">{r.table || '—'}</td>}
                     {showSeats && <td className="sheet-num">{r.state === 'ACCEPT' ? r.seats : '—'}</td>}

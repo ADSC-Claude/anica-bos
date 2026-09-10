@@ -9,6 +9,7 @@ import { formatDateTime } from '@/lib/datetime';
 import { replyIdentity } from '@/lib/names';
 import { PageHeader, Stat, Empty } from '@/components/ui';
 import { RsvpToggle } from './toggle';
+import { companionsOf, attendeeLine } from '@/lib/attendees';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +52,9 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
                   <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} personal={Boolean(r.guestId)} />
                   <td><span className={`pill ${r.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{r.response === 'ACCEPT' ? 'Accepted' : 'Declined'}</span></td>
                   <td>{r.response === 'ACCEPT' ? r.seats : '—'}</td>
-                  <td className="text-xs">{Array.isArray(r.attendees) ? (r.attendees as string[]).join(', ') : ''}</td>
+                  {/* Each companion with what they are to the guest, which is the
+                      part that decides whether they sit at the same table. */}
+                  <td className="text-xs">{companionsOf(r.attendees).map((a) => attendeeLine(a)).join(', ')}</td>
                   {dashboard && <><td>{r.mealChoice}</td><td className="text-xs">{r.dietary}</td></>}
                   <td className="max-w-xs text-xs">{r.message}</td>
                   <td className="text-xs">{[r.phone, r.email].filter(Boolean).join(' · ')}</td>

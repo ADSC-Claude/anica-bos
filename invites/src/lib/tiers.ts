@@ -114,12 +114,19 @@ export type ComparisonRow = {
 };
 
 /**
- * Features that exist in the code but are not offered yet — too much to
- * encode for Done-For-You, and not what most couples ask for. Nothing is
- * removed: their pages still work if reached, they just are not shown or sold.
- * To offer one later, delete it from this set and un-hide its rows.
+ * Features that exist in the code but are not offered — held back rather than
+ * removed, so their pages still work if reached; they simply are not shown or
+ * sold. To hold one back, add it here and mark its COMPARISON rows `hidden`.
+ *
+ * Nothing is held back today. The guest list manager, its Excel import, the
+ * seating chart and event-day check-in sat here on the reasoning that they were
+ * too much to encode for Done-For-You. That reasoning does not survive the
+ * shape the service ended up in: the guest list is the one part of an
+ * invitation we cannot write for a couple, because only they know who is
+ * coming — so it is theirs to fill in, with an Excel import for the long ones,
+ * and it is not encoding work at all. They are Signature's, and sold.
  */
-export const FUTURE_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>(['guests.manager', 'guests.import', 'seating', 'checkin']);
+export const FUTURE_FEATURES: ReadonlySet<FeatureKey> = new Set<FeatureKey>();
 
 /** Whether a feature is part of the package customers can see and buy. */
 export function featureOffered(feature: FeatureKey): boolean {
@@ -136,7 +143,7 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Premium opening video, made for your design', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on' } },
   { label: 'Countdown timer', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Ceremony & reception + Google Maps & Waze buttons', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
-  { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true }, hidden: true },
+  { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Dress code + colour motif swatches', cells: { BASIC: true, STANDARD: true, COMPLETE: true } },
   { label: 'Photos', cells: { BASIC: '1 cover photo', STANDARD: 'Gallery up to 10', COMPLETE: 'Unlimited gallery + prenup video' } },
   { label: 'RSVP', cells: { BASIC: 'Simple form', STANDARD: '+ RSVP dashboard, Excel export', COMPLETE: '+ meal choice, auto-close on your deadline' } },
@@ -146,13 +153,13 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Our Story / timeline', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Gift note + GCash / bank QR', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Hashtag & social', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
-  { label: 'FAQ section', cells: { BASIC: false, STANDARD: true, COMPLETE: true }, hidden: true },
+  { label: 'FAQ section', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Background music', cells: { BASIC: false, STANDARD: true, COMPLETE: true } },
   { label: 'Program / timeline of the day', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
-  { label: 'Accommodation & travel tips', cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
-  { label: 'Guest list manager (Excel import, groups, reminders)', cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
-  { label: "Seating chart on the guest's page", cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
-  { label: 'QR check-in on event day', cells: { BASIC: false, STANDARD: false, COMPLETE: true }, hidden: true },
+  { label: 'Accommodation & travel tips', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
+  { label: 'Guest list manager (Excel import, groups, a personal link per guest)', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
+  { label: "Seating chart on the guest's page", cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
+  { label: 'QR check-in on event day', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Guestbook / well-wishes wall', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: false, STANDARD: false, COMPLETE: true } },
   { label: 'Link', cells: { BASIC: '/juan-and-maria', STANDARD: '+ custom slug', COMPLETE: '+ password / private option' } },

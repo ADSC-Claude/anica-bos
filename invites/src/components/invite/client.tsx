@@ -467,8 +467,8 @@ export type RsvpFormProps = {
    * field blank here.
    */
   defaultGroup?: string;
-  existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: Attendee[]; mealChoice: string; dietary: string; message: string; groupName: string } | null;
-  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group' | 'relation' | 'relationBlank' | 'relationName', string>;
+  existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: Attendee[]; mealChoice: string; dietary: string; message: string; groupName: string; phone: string; email: string } | null;
+  labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group' | 'relation' | 'relationBlank' | 'relationName' | 'email' | 'phoneHint' | 'emailHint', string>;
   /** The relationships on offer, already in the guest's language. */
   relations: { value: string; label: string }[];
 };
@@ -524,6 +524,7 @@ export function RsvpForm(p: RsvpFormProps) {
       dietary: String(fd.get('dietary') ?? ''),
       message: String(fd.get('message') ?? ''),
       phone: String(fd.get('phone') ?? ''),
+      email: String(fd.get('email') ?? ''),
       department: String(fd.get('department') ?? ''),
       website: String(fd.get('website') ?? ''),
     };
@@ -657,9 +658,23 @@ export function RsvpForm(p: RsvpFormProps) {
         </div>
       )}
 
+      {/*
+        * Both required, and both carry a line saying what they are for.
+        * They are the only two things asked here that are not about the day
+        * itself, so a guest who is not told why reads them as the form being
+        * nosy. They are also the whole of the couple's reach: a reminder text
+        * and a confirmation e-mail have nowhere to go without them.
+        */}
       <div>
         <label className="inv-label" htmlFor="rsvp-phone">{p.labels.phone}</label>
-        <input id="rsvp-phone" name="phone" className="inv-field" inputMode="tel" autoComplete="tel" />
+        <input id="rsvp-phone" name="phone" className="inv-field" inputMode="tel" autoComplete="tel" required defaultValue={p.existing?.phone ?? ''} />
+        <p className="inv-muted mt-1 text-xs">{p.labels.phoneHint}</p>
+      </div>
+
+      <div>
+        <label className="inv-label" htmlFor="rsvp-email">{p.labels.email}</label>
+        <input id="rsvp-email" name="email" type="email" className="inv-field" inputMode="email" autoComplete="email" required defaultValue={p.existing?.email ?? ''} />
+        <p className="inv-muted mt-1 text-xs">{p.labels.emailHint}</p>
       </div>
 
       <div>

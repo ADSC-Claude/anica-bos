@@ -72,7 +72,9 @@ export async function deleteGuest(invitation: { id: string }, guestId: string) {
 /**
  * Import from a pasted spreadsheet or CSV. Columns are matched by header
  * name when there is a header row; otherwise the order is
- * name, group, seats, phone.
+ * name, group, seats, phone. Email is matched by header only — a file with no
+ * header row is somebody's paste, and guessing a fifth column would be
+ * guessing.
  */
 export async function importGuests(invitation: { id: string; tier: Tier }, text: string): Promise<{ added: number; skipped: number }> {
   return importGuestRows(invitation, parseCsv(text));
@@ -98,6 +100,10 @@ export async function importGuestRows(invitation: { id: string; tier: Tier }, ro
   const cGroup = col(['group', 'tag', 'side', 'family'], 1);
   const cSeats = col(['seats', 'pax', 'seats allotted', 'no. of seats'], 2);
   const cPhone = col(['phone', 'mobile', 'number', 'contact'], 3);
+  // The couple's own list is the only place a number or an address exists
+  // before anybody replies, which is the whole point of holding one: a
+  // reminder goes to the guests who have *not* answered.
+  const cEmail = col(['email', 'e-mail', 'email address'], -1);
   const cSalutation = col(['salutation', 'greeting', 'address as'], -1);
 
   const body = hasHeader ? rows.slice(1) : rows;
@@ -120,6 +126,7 @@ export async function importGuestRows(invitation: { id: string; tier: Tier }, ro
       groupName: (cGroup >= 0 ? r[cGroup] ?? '' : '').slice(0, 60),
       seatsAllotted: Math.max(1, Math.min(20, parseInt(cSeats >= 0 ? r[cSeats] ?? '1' : '1', 10) || 1)),
       phone: (cPhone >= 0 ? r[cPhone] ?? '' : '').slice(0, 30),
+      email: (cEmail >= 0 ? r[cEmail] ?? '' : '').slice(0, 120),
       salutation: (cSalutation >= 0 ? r[cSalutation] ?? '' : '').slice(0, 120),
     });
     added++;
@@ -143,17 +150,18 @@ export async function importGuestRows(invitation: { id: string; tier: Tier }, ro
  */
 export function guestTemplateCsv(groups: string[]): string {
   const rows = [
-    ['Mr. & Mrs. Dela Cruz', groups[0] ?? "Bride's family", '2', '0917 123 4567', 'Tito Ben & Tita Let'],
-    ['Ninong Fred', groups[1] ?? 'Principal sponsors', '1', '', 'Ninong Fred'],
+    ['Mr. & Mrs. Dela Cruz', groups[0] ?? "Bride's family", '2', '0917 123 4567', 'delacruz@email.com', 'Tito Ben & Tita Let'],
+    ['Ninong Fred', groups[1] ?? 'Principal sponsors', '1', '0918 765 4321', 'fred@email.com', 'Ninong Fred'],
   ];
   const notes = [
     [],
     ['Delete these two example rows before you send this back.'],
     ['Seats is how many places you are setting aside for that name — a couple is 2.'],
+    ['Phone and Email are what a reminder is sent to. Fill in what you have; a blank one is simply skipped.'],
     ['Greeting is how the invitation addresses them: "Dear ___". Leave it blank to use the name.'],
     groups.length ? ['Group can be any of:', ...groups] : ['Group can be any word you like — it is how the headcount sheet is sorted.'],
   ];
-  return toCsv(['Name', 'Group', 'Seats', 'Phone', 'Greeting'], [...rows, ...notes]);
+  return toCsv(['Name', 'Group', 'Seats', 'Phone', 'Email', 'Greeting'], [...rows, ...notes]);
 }
 
 export async function listGuests(invitationId: string) {

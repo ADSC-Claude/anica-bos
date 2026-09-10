@@ -36,6 +36,8 @@ export type GuestForPage = {
   id: string;
   name: string;
   salutation: string;
+  /** The couple's own tag for them — "Principal sponsors", "Mommy's side". */
+  groupName: string;
   seatsAllotted: number;
   plusOneAllowed: boolean;
   token: string;
@@ -811,6 +813,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           askDepartment={bool(data, 'askDepartment')}
           mealChoices={mealChoices}
           groups={groups}
+          defaultGroup={personal && guest ? guest.groupName : ''}
           existing={existing}
           labels={{
             name: t(lang, 'rsvp.name'),

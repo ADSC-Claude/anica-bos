@@ -4,7 +4,17 @@ import { useMemo, useState, useTransition } from 'react';
 import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, saveTableAction, deleteTableAction, assignTableAction } from '@/app/account/actions';
 
 type Guest = { id: string; name: string; salutation: string; groupName: string; seatsAllotted: number; plusOneAllowed: boolean; phone: string; email: string; notes: string; token: string; tableId: string | null; checkedIn: boolean; response: { response: 'ACCEPT' | 'DECLINE'; seats: number } | null };
-type Table = { id: string; name: string; capacity: number; seated: number };
+type Table = { id: string; name: string; capacity: number };
+
+/**
+ * How many seats a guest is holding at their table.
+ *
+ * Before they answer, the seats the couple set aside — that is the number to
+ * plan against. Once they accept, what they actually confirmed. Once they
+ * decline, nothing: they used to keep their allotment, so a table of ten with
+ * two regrets still read as full and the couple could not give the places away.
+ */
+const seatsHeld = (g: Guest) => (g.response ? (g.response.response === 'ACCEPT' ? g.response.seats : 0) : g.seatsAllotted);
 
 export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating, tables, guests }: { invitationId: string; slug: string; baseUrl: string; reminder: string; canSeating: boolean; tables: Table[]; guests: Guest[] }) {
   const [pending, start] = useTransition();
@@ -26,6 +36,10 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
       if (!r.ok) setError(r.error ?? 'Something went wrong.');
       else done?.(r.data);
     });
+
+  const at = (tableId: string) => guests.filter((g) => g.tableId === tableId);
+  const held = (tableId: string) => at(tableId).reduce((n, g) => n + seatsHeld(g), 0);
+  const unseated = guests.filter((g) => !g.tableId);
 
   const link = (g: Guest) => `${baseUrl}/${g.token}`;
   async function copy(text: string, id: string) {
@@ -119,14 +133,15 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
 
       {canSeating && (
         <div className="card p-4">
-          <h2 className="mb-2 font-semibold">Tables</h2>
+          <h2 className="font-semibold">Tables</h2>
+          <p className="mb-2 text-sm text-[color:var(--color-ink-500)]">Optional — skip this if you are not doing assigned seating. Nothing on your invitation changes until you seat somebody.</p>
           <div className="flex flex-wrap gap-2">
             {tables.map((t) => (
               <form key={t.id} className="flex items-center gap-1 rounded-xl border border-[color:var(--color-sand-200)] p-2 text-sm" onSubmit={(e) => { e.preventDefault(); run(() => saveTableAction(invitationId, new FormData(e.currentTarget))); }}>
                 <input type="hidden" name="id" value={t.id} />
                 <input name="name" defaultValue={t.name} className="field min-h-0 w-28 py-1 text-sm" />
                 <input name="capacity" type="number" defaultValue={t.capacity} className="field min-h-0 w-16 py-1 text-sm" />
-                <span className={`text-xs ${t.seated > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{t.seated}/{t.capacity}</span>
+                <span className={`text-xs ${held(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{held(t.id)}/{t.capacity}</span>
                 <button type="submit" className="btn btn-ghost btn-sm">Save</button>
                 <button type="button" className="btn btn-ghost btn-sm text-[color:var(--bad)]" onClick={() => run(() => deleteTableAction(invitationId, t.id))}>✕</button>
               </form>
@@ -137,6 +152,70 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
               <button type="submit" className="btn btn-secondary btn-sm" disabled={pending}>+ Table</button>
             </form>
           </div>
+        </div>
+
+      )}
+
+      {/*
+        The plan read the other way round. The list above answers "where is this
+        guest sitting"; a couple laying out a room asks "who is at this table",
+        and could only get that by reading every row. Whoever has no table yet
+        is the work still to do, so they are last and they carry the dropdown —
+        the seating gets finished from the place that shows what is unfinished.
+      */}
+      {canSeating && tables.length > 0 && (
+        <div className="card p-4">
+          <h2 className="font-semibold">Seating plan</h2>
+          <p className="mb-3 text-sm text-[color:var(--color-ink-500)]">Seats count what each guest confirmed once they reply, and what you set aside for them before that. Someone who cannot come frees their places.</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {tables.map((t) => (
+              <div key={t.id} className="rounded-xl border border-[color:var(--color-sand-200)] p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="font-semibold">{t.name}</span>
+                  <span className={`text-xs ${held(t.id) > t.capacity ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>{held(t.id)}/{t.capacity} seats</span>
+                </div>
+                {at(t.id).length === 0 ? (
+                  <p className="mt-2 text-sm text-[color:var(--color-ink-500)]">Nobody here yet.</p>
+                ) : (
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {at(t.id).map((g) => (
+                      <li key={g.id} className="flex items-baseline justify-between gap-2">
+                        <span className={g.response?.response === 'DECLINE' ? 'text-[color:var(--color-ink-500)] line-through' : undefined}>
+                          {g.name}
+                          {g.groupName && <span className="ml-1 text-xs text-[color:var(--color-ink-500)]">{g.groupName}</span>}
+                        </span>
+                        <span className="shrink-0 text-xs text-[color:var(--color-ink-500)]">
+                          {g.response?.response === 'DECLINE' ? 'not coming' : g.response ? `${g.response.seats}` : `${g.seatsAllotted} held`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {unseated.length > 0 && (
+            <div className="mt-4 rounded-xl border border-dashed border-[color:var(--color-sand-200)] p-3">
+              <p className="text-sm font-semibold">Not seated yet <span className="font-normal text-[color:var(--color-ink-500)]">· {unseated.length} {unseated.length === 1 ? 'guest' : 'guests'}</span></p>
+              <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                {unseated.map((g) => (
+                  <li key={g.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className={g.response?.response === 'DECLINE' ? 'text-[color:var(--color-ink-500)] line-through' : undefined}>{g.name}</span>
+                    <select
+                      aria-label={`Seat ${g.name}`}
+                      className="field min-h-0 w-32 shrink-0 py-1 text-xs"
+                      value=""
+                      onChange={(e) => run(() => assignTableAction(invitationId, g.id, e.target.value || null))}
+                    >
+                      <option value="">Seat at…</option>
+                      {tables.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
       <p className="text-xs text-[color:var(--color-ink-500)]">Links look like {baseUrl.replace(slug, slug)}/… — each one is private to its guest. Do not post them in a group chat; use the general link for that.</p>

@@ -1,0 +1,589 @@
+# The Design Studio: a plan for building invitation designs without a developer
+
+Version 2. Part 1 is for the owner and uses her words only. Parts 2 to 7 are for the engineer; every file and line reference was checked against the code on the day this was written. Where the earlier draft said something the code does not do, it is corrected here, and where it left something out, it is covered or scoped out in one sentence.
+
+The one idea underneath everything: a design's pages already exist in the code as three tables of numbers (which sections sit on which page, which picture is under each page, and where every photo frame and label sits on the two drawn Baby Blue pages). We move those numbers into a document stored on the design, teach the guest page to read that document, and build a screen where the owner edits it by dragging things on a real phone-sized page. Nothing about the guest page changes until she presses Publish.
+
+---
+
+## 1. The screen she will use, in her words
+
+### Words to know first
+
+- **Design.** One entry in Templates: Baby Blue, Capiz, or a new one she makes. Every customer's invitation is built on one design.
+- **Page.** One screen-tall stretch of the invitation. Baby Blue has ten: Cover, Our Story, The Invitation, Ninong and Ninang, Baby Photos, Venue, Dress Code, Gift and Program, Snap and Share, Closing.
+- **Drawn page.** A page with a fixed height: a picture, or a plain colour at a height she chooses (one screen, one and a half, two). Its height never changes with the customer's words, so she can place a frame or a heading anywhere on it and it will land in exactly that spot on every phone. Baby Blue's Our Story and Baby Photos are drawn pages. **This is the kind of page she can arrange freely, like a Canva canvas.**
+- **Flow page.** A page whose height grows with the customer's words: a long program makes it taller, a short one shorter. Things she places on a flow page hold on to its top edge or its bottom edge, not to an exact spot, because the exact spot moves with the words. **She can choose its background, its blend into the next page and which sections it carries, but she cannot drag the RSVP button or the program list around.**
+- **Background.** What a page is painted on: a picture she uploads, or a plain colour from the design's colour roles. A colour needs no artwork and weighs nothing on a phone, so a design can be a few drawn pages on pictures and every other page on the design's own colour. The colour of the page column and the colour beside it on a laptop follow the design's palette too.
+- **Section.** A block of the customer's answers, the same blocks the builder shows the customer: Cover, Our Story, Ceremony, Sponsors, Gallery, Dress Code, Gift, Program, RSVP and so on. A page carries one or more sections.
+- **Background.** The picture under a page. The studio reads two things from it by itself when she uploads it: how tall it is compared with its width (so the page can take the same shape), and the colour at its top and bottom edge (used to fill any gap above or below the picture on a very tall phone). Nothing to type.
+- **Element.** A thing placed on a page: a photo frame, a text box, a shape, a short video, or an animation.
+- **Shape.** A rectangle, an ellipse or a line drawn by the page itself in one of the design's colours: a pale card behind words, a ribbon band behind a heading, a divider. It needs no upload and weighs nothing.
+- **Animation.** Three kinds, all layered like anything else on the page. A *moving picture* with a see-through background (falling petals, a drifting cloud, a shimmer), which behaves exactly like a photo. *Motion* on an element she already placed: it fades in, rises, or drifts into place as the page comes on screen, and can float or sway gently while it is there. A *vector animation*: a small file exported from animation software, such as a bow that ties itself or a dove that flaps, which plays like a drawing and stays sharp at every size.
+- **Link.** Where an element gets its content. Three kinds, and one rule: *the customer's answer wins; where it is blank, the design's own words show; fixed words never change.*
+  - *A customer's answer:* "Our Story, Milestone 3, Photo" or "Gallery, Photo 2, Caption".
+  - *The design's own words:* the headings and the line under each heading, in English and Tagalog, the same ones in the "Words on the page" box today.
+  - *Fixed words:* something she types herself that is the same on every invitation, such as "Share".
+- **Look.** The set of fonts and stock wording a design is written in (Heritage, Romance, Modern, Editorial, Regal). The customer may switch the look of their own invitation, so text she places must still fit in every look.
+- **Colour roles.** The design's six named colours (background, surface, ink, muted, accent, second accent). Text on a page takes one of these names, not a colour of its own, so night mode and the customer's palette choice keep working.
+- **Demo invitation.** A real, filled-in invitation that belongs to the design and shows it off. It is what the live page in the studio shows, what "See it open" on the website plays, and what the customer sees before buying.
+- **Draft and Published.** Draft is what only she sees in the studio. Published is what guests see. Publishing copies the draft over the published version.
+- **Library.** The pieces she has uploaded once and can use in any design: bows, clouds, petals, the Capiz clusters, the wardrobe garments. Each has a name and a tag or two so she can find it.
+- **Font set.** The pairing of faces a design is written in: a display face for headings, a body face, and where the design wants them a script and a face for the names. She manages the list of faces and sets herself and says which packages may use each set. Every face is shown in itself wherever it is listed, in the admin and in the studio.
+- **Colour book.** Every colour family at ten shades or more, each with its name. It is the picker for shapes, page colours and text backing in the studio, the client's motif palette on the dress code form, and a one-tap way to make a design's six colour roles from a family.
+- **Draft link.** A link to the draft that works for a week without a login, for her graphic designer or a client to open on their own phone before she publishes.
+- **Asked for.** Any element she marks **Ask the customer**. Marking it puts its question on that design's form and nowhere else: a frame becomes a photograph the customer is asked for, with the shape it has to be; a text box becomes a line they are asked to write, with the room it has. A design that asks for six story photographs asks for six; a design that asks for two asks for two. The customer sees an ordinary form and never learns which design it was built from.
+- **The design's own line.** Wording she types in the studio that stands on the page when the customer writes nothing. She can also offer it to the customer as an example: it then appears under their box as something to adopt with one tap, or to read and write their own.
+- **What this design asks for.** A sheet the studio writes by itself from the pages: every photograph with its shape, every line with its room, every list with its length. It is what the customer's form is built from, what their order confirmation shows, and what the encoder works to.
+
+### Before she opens the studio
+
+1. **Have a design to work on.** From Templates, either **Duplicate Baby Blue** or **Duplicate Capiz** (same pages, ready for her own backgrounds and layout, while Baby Blue and Capiz themselves stay exactly as built), or **New design**, where the first question is "based on Baby Blue or on Capiz?" A design is always based on one of the two, because that choice decides the cover behaviour (Baby Blue's one-screen sky cover or Capiz's whole-picture cover). The colour behind the invitation on a laptop is not fixed by the base: it follows the design's own palette.
+2. **Keep it out of the shop while it is being made.** A new or duplicated design starts with "Show in the shop" switched off. Publishing in the studio never switches it on; she does that herself on the design's page when it is ready and has a thumbnail.
+3. **Give it a demo invitation, filled in.** Press **Create demo**: it copies the base design's demo (Baby Blue's or Capiz's) onto this design, with six milestones, four photos and every section filled. She can change the demo's words and photos in the builder like any invitation. Without a filled demo, the live page in the studio is empty and the checklist cannot judge anything.
+4. Then open the design and press **Design the pages**.
+
+### The screen
+
+Three columns, like the builder our customers use and the encoder our staff use.
+
+**Left: the pages and the checklist.** A strip of pages in order, each with a small picture of its background (or its colour) and its name. Drag a page up or down to reorder. Press "+" to add a page (blank, or a copy of the current one) or the bin to delete one. Each page shows whether it is a drawn page or a flow page. Drop ten pictures on the strip at once and ten pages are made in order, each at its picture's proportions. **Copy a page from another design** brings a page over with its elements. Beside the pages sit a **Library** tab, listing her uploaded pieces, and a **Guide** tab with the exact sizes to export artwork at and what each page kind wants. Under the selected page a checklist fills itself in as she works, in plain lines she can act on:
+
+- "Page 3 has no background yet."
+- "Frame 2 sits partly off the page."
+- "Frames 1 and 2 overlap."
+- "Frame 4 is not linked to anything."
+- "Our Story allows up to 6 milestones on a christening; this page has 7 frames."
+- "This heading has English but no Tagalog."
+- "This caption is too small to read on a phone."
+- "This title is 34 letters; the box fits about 20 in the Regal look."
+- "This line depends on words only staff can fill; customers will see the design's own words here."
+- "This background is too heavy for phones (1.8 MB; keep it under 400 KB)."
+- "The words on this page are hard to read on this background at night."
+- "This page grows with the customer's words; the decoration near the bottom may collide with a long program."
+- "The demo has no photo for frame 4." (information only, never a blocker)
+- "Frame 3 is linked to a field Anniversary does not have; it stays empty on anniversaries." (information only)
+- "This design asks for 11 photographs and 6 lines. A customer on the Basic package can give 4 of them." (information only)
+- "Frame 5 is asked for but has nothing to show when it is left empty."
+- "This heading box fits about 20 letters; the question on the form still asks for 40."
+- "Our Story asks for 6 milestones; the form offers 6." (information only)
+- "This clip is heavier than 8 MB." and "The clips on this design add up to more than 16 MB per guest."
+- "This moving picture is heavier than 1.5 MB." and "This animation is heavier than 300 KB."
+- "Five things move on this page at once; guests may find it busy." (information only)
+- "No thumbnail yet." (blocks "Show in the shop", not Publish)
+- "The bottom of the cover sits under the phone's browser bar at 360."
+- "This design's font set is not offered to the Basic package; Basic customers will see the set you chose for them." (information only)
+
+Clicking a line jumps to the element it is about. Each page in the strip shows a count of what is still red, and the Templates list shows the same count per design.
+
+**Middle: the page, at phone size.** A phone-shaped frame with a switch for **small phone, normal phone, large phone** and **laptop**. On a laptop the invitation is shown as a narrow phone-shaped column in the middle of the screen, so "laptop" is just the widest column a guest will ever see. On the frame is the page's background and every element on it. It works the way Canva works:
+
+- Click an element to select it. Drag to move. Pull a corner to resize (photos keep their shape unless she holds Alt). A handle above the box rotates it (hold Shift for neat steps). Arrow keys nudge. Delete removes. Ctrl+D duplicates. Ctrl+Z and Ctrl+Shift+Z undo and redo (undo is for this sitting; if she closes the tab the saved draft is what remains). Guide lines snap to the page centre and to other elements.
+- Double-click a photo to **crop**: the frame stays where it is, the whole picture shows faintly around it, and she drags to pan and scrolls to zoom. Enter keeps it, Esc cancels.
+- **Bring forward / Send backward** and a Layers list with eye and lock icons.
+- Every page, drawn or flow, shows the same row above the canvas: **Add photo**, **Add video**, **Add a file**, **Add text**, **Add shape**, **Add animation**. Add photo asks whether it is the design's own picture or a customer's (linked to a photo field of any section) and whether it goes on top or becomes the page's background. Add video does the same with a clip (from phase 3). **Add a file** takes anything the studio accepts and sorts it by what it is: a still picture becomes a photo or a background, a clip a video, a moving picture a moving picture, a Lottie JSON an animation, a font file goes to the font list, and anything else is refused with a sentence saying what is accepted. Dropping a file onto the page does the same where it landed.
+- Shift-click selects several elements and they move, resize and rotate together. **Attach to** in a text box's properties ties it to a photo frame, so moving frame 3 moves its caption with it; a dashed line shows the tie while the frame is selected.
+- A text box has a **Backing** setting: none, a soft shadow, or a pale scrim behind the words, for a busy picture. Every element has an opacity.
+- **Ask the customer** is one switch in an element's properties, and it is how the form is built. Switch it on for a frame and choose whose photograph it is (the cover portrait, story photo 3, a month-by-month picture, the extras); switch it on for a text box and choose which line it is. The box she drew sets the room: a heading box that fits about twenty letters asks for twenty, and the customer's form counts down from there. **What this design asks for** on the left keeps the running list, so she can read the whole ask in one place before she publishes.
+- A frame she has not asked anybody for is hers to fill: a picture from the library, or one she uploads. A frame she has asked for gets an **If it is left empty** setting: leave the space, or show a piece from the library in its place (a cloud, a bow, a soft card), so a half-filled page still looks designed.
+- **Areas over a moving background.** A page whose background is a clip or a moving picture takes elements like any other: she draws a frame where the clip leaves room, marks it asked for, and that is where the customer's photograph lands. The clip keeps playing behind it. The customer's form says "a portrait photograph, face in the middle"; it says nothing about clips or areas, because that is our business and not theirs.
+- **A page grows as she works.** A page whose height comes from its words (the invitation, the programme, the closing) stretches and shrinks while she types, and the pages under it move down with it, exactly as a guest's page will. A page built on a picture keeps the picture's height, but she can switch on **Grow if the words need more room**: the ground then stretches from its middle band and the top and foot stay as drawn, so a long programme cannot spill off the artwork.
+- **Our Story and the photographs page can be made either way.** Arrange frames on a background here, as Baby Blue's are arranged, or upload the whole page as one finished picture and place the frames on top of it. Both end up as a page with frames the customer's photographs land in.
+- **Bringing a page in from Canva.** Not by its link: Canva gives nothing about a design to another system, so a link is a locked door and a picture of a page is only paint. What she does instead is export the page and drop the file in, and there are three ways in, from least to most help:
+  - **One picture.** Drop the exported page in. It becomes the page's background and she draws the frames on it herself.
+  - **Two pictures, and the studio draws the frames.** Export the page twice: once as designed, with the placeholder photographs sitting in their frames, and once with those photographs deleted. Drop both in. The version without them is the background; the difference between the two is exactly where the photographs belong, so the studio proposes a frame at every one of those places. She names each one ("the cover portrait", "story photo 3") and that is the whole job. This is the one to use.
+  - **The PDF.** A PDF is not flat the way a picture is: every photograph in it is a separate object with its own rectangle, and the words are usually still words. Drop the PDF in and the studio reads those rectangles straight off it and proposes the frames and the text boxes together, with the fonts and sizes it finds. Where Canva has flattened the page or turned the words into outlines there is nothing to read, and the studio says so and falls back to the two-picture way rather than guessing.
+- Whichever way she brings it in, **naming the frames is hers.** The studio can see that a rectangle wants a photograph; only she knows that this one is the cover portrait and that one is the third milestone whose caption sits beside it. One tap each.
+- On the cover page a faint band at the bottom shows where a phone's browser bar sits over a one-screen cover, so nothing important lands there.
+- **Cover** properties on the cover page: where the names block sits (top, middle, bottom, and how far in), where the date sits, the design's default photo style from the five, and the size of the photo. Today those are fixed per family.
+- Every element has a **Motion** setting in its properties: how it arrives (none, fade in, rise, drift) and what it does while on screen (nothing, float, sway). The canvas plays the motion once when she picks it so she can see it, and the real page on the right plays it as the guest will.
+- Empty frames are never invisible while editing: an unfilled frame shows as a dashed box labelled with what fills it ("Photo 3, Milestones"). A switch at the top shows the page with **the demo's content**, **empty**, **placeholder text**, **the longest words** (every box filled to its limit, the case the checklist measures), or **an invitation** she picks from the list, to see the draft with a real customer's long names and program.
+- A **day / night** switch shows the page the way a guest sees it at night.
+- On a flow page she can pick the background, the blend into the next page, and which sections it carries; decorations she adds there hold to the top or the bottom edge.
+
+**Right: properties, then the real page.** For the selected element: exact numbers (position, size, rotation, layer), what it is **linked to**, for text its role (heading, sub-heading, label, caption), the face it takes from the design's font set (the heading face, the names face, the script or the body face), its size, weight and letter-spacing, alignment and backing, and for a shape its fill, outline, corner and opacity. For the page: its name, its background as either an uploaded picture or a plain colour chosen from the six colour roles (**Upload** replaces a colour with a picture, **Use a colour** drops the picture), for a colour drawn page its height in screens, an optional night-time background (a colour page needs none: a role colour follows the night palette by itself), whether it ends the "See it open" preview on the website, and which sections it carries. Below the properties sits **the actual invitation**, whole, as guests see it, at the same width, scrolled to the page she is on; she can scroll it from the cover to the ending at any moment, and **Open as guest** opens it full-screen in a new tab. When she drags, resizes or rewords an element, the real page follows within a blink. When she changes a background, adds or removes a page or element, or switches the look, the real page reloads in about a second. That difference is real and is not hidden.
+
+**Top bar.** Draft / Published pill with "changed 2 min ago". **Publish design** makes what she sees live for every invitation on this design, and first shows her what that touches: "14 live invitations and 9 drafts use this design. Baby Photos goes from 4 frames to 5: 12 invitations have a fifth photo waiting. Our Story goes from 6 frames to 4: 3 invitations have milestones 5 and 6 that will stop showing (their words are kept, not deleted)." **Discard draft** throws away unpublished changes. **Restore previous** brings back the version published just before this one. **It is one step back only: publishing twice loses the older one.** There is no longer history. **Open as guest** opens the demo invitation in a new tab. **Share draft** copies a draft link that works for a week; **Stop sharing** kills it. A **Theme** popover changes the colour roles (typed, or made from a family of the colour book in one tap) and the font set, with the page re-colouring and re-setting in place; every font set in the list is drawn in its own faces, so what she reads in the menu is what the heading will be.
+
+**A note on Baby Blue's and Capiz's words.** Those two designs' headings and lines also live in a master list the developer keeps, and so do their thumbnail, demo invitation, opening clip and section ticks. If she changes any of those on Baby Blue or Capiz in the admin, she should tell the developer so the master list matches; otherwise the next update brings the old ones back. Pages, layouts, backgrounds and new designs are not in that list and cannot be overwritten that way.
+
+---
+
+## 2. The data model
+
+### Where it lives
+
+Two new JSON columns on `Template` (prisma/schema.prisma:185-232, beside `art` at :220): `design Json @default("{}")` is what guests render; `designDraft Json @default("{}")` is what the studio edits; plus `designDraftRev Int @default(0)` so two staff editing the same draft cannot silently overwrite each other. One migration.
+
+An empty `design` means "use the built-in": `designOf(template)` returns `builtinDesign(layout)`, compiled at runtime from the constants the renderer uses today (BABYBLUE_PAGES and CAPIZ_PAGES at src/components/invite/renderer.tsx:1466-1501, BABYBLUE_GROUNDS at src/lib/design.ts:164-175, STORY_SLOTS / STORY_LABELS / STORY_HEAD / PHOTO_SLOTS / PHOTO_HEAD / PHOTO_STRIP at src/lib/babyblue.ts:27-72). The day the columns land, both designs render exactly as before, and rolling back is "clear the column".
+
+`Template.layout` keeps its value ('babyblue' or 'capiz') and becomes the **CSS base family**: a new design is a copy of one of them and keeps that layout, so the 34 `.inv[data-layout=…]` rules and the 91 `.inv[data-paged]` rules in globals.css keep applying. No new LAYOUTS entry (src/lib/theme.ts:69), no new CSS family per design. **Layout guard:** the identity card's Layout select (src/app/admin/templates/[id]/page.tsx:68, `options={LAYOUTS.map(...)}`) offers every entry of LAYOUTS (src/lib/theme.ts:69), six of which (classic, editorial, garden, modern, festive, quiet) are non-paged and only those six are named in its hint, and `isPaged` is true only for capiz and babyblue (src/lib/sections.ts:911-914); a template with a document but a non-paged layout would silently render a flat section list (renderer.tsx:1748-1752). So: once `design` or `designDraft` is non-empty the select renders read-only with a hidden input; the studio route returns 404 for a non-paged layout; and the New design and Duplicate paths set `layout` explicitly from the chosen base.
+
+The catalogue sync (scripts/sync-templates.ts:42) writes only what `templateData()` emits (prisma/templates.ts:104-132), which never names `design`, `designDraft` or `art`. A test pins that so `npm run db:templates` can never erase her work.
+
+### The types (new, in src/lib/design.ts, next to `artOf` at :94)
+
+```ts
+type DesignDoc = {
+  v: 1;
+  pages: PageSpec[];
+  overflowGround?: Ground;   // the ground under a page the map does not name (today: 'venue' for Baby Blue, renderer.tsx:1792)
+  paper?: string;            // the column's own colour behind every page; default the palette's bg
+  surround?: string;         // the colour beside the column on a laptop; default the palette's bg mixed five parts in a hundred toward its ink
+};
+
+type PageSpec = {
+  key: string;                          // /^[a-z][a-z0-9-]{0,30}$/ ; becomes data-page (renderer.tsx:1773) and the scroll anchor
+  label: { en: string; tl?: string };   // the name in the page strip
+  sections: (SectionKey | 'verse' | 'gallery-video')[];   // which builder sections this page carries (PageDef.sections today)
+  ground?: Ground;                      // the picture under the page; per page, in data
+  seam?: number;                        // 0..1 share of width, the dissolve into this page (PageDef.seam)
+  drawn?: boolean;                      // true: page height = ground.ratio x width, elements placed absolutely
+  peekEnd?: boolean;                    // true: the public peek stops after this page (today: the page keyed 'story')
+  elements?: Element[];                 // drawn pages; flow pages accept top/bottom-anchored decorations from phase 5
+  cover?: { names: 'top' | 'middle' | 'bottom'; inset?: number; date?: 'withNames' | 'bottom'; photoStyle?: 'veil' | 'arch' | 'oval' | 'round' | 'card'; photoScale?: number };   // the cover page only (phase 2)
+  grow?: boolean;                       // a drawn page that stretches from its middle band when the words need more room
+  sheet?: { url: string; ratio: number }; // Our Story or the photographs page uploaded whole, frames placed on top of it
+  importedFrom?: 'picture' | 'diff' | 'pdf';   // how the sheet arrived, for the checklist to say what it could and could not read
+  sectionStyle?: { align?: 'left' | 'centre'; card?: boolean; divider?: string };   // flow pages: how the built sections dress (phase 5); divider is a Library piece
+};
+
+type Ground = PictureGround | ColourGround;
+
+type PictureGround = {                  // the type at design.ts:148-162, plus night
+  url: string; ratio: number;           // ratio = height / width, read from the file on upload, never typed
+  top: string; bottom: string;          // edge colours, sampled from the picture on upload
+  slices?: { top: string; foot: string; mid: string };   // cut in the browser for tall flow pages (phase 2)
+  night?: string;                       // optional night-time picture (phase 2)
+};
+
+type ColourGround = {                   // a plain colour, no artwork: nothing to upload, nothing for a guest to download
+  color: ColorRole | string;            // one of the six roles ('bg' | 'surface' | 'ink' | 'muted' | 'accent' | 'accent2', the Palette keys at theme.ts:8-15) or a hex she picks
+  ratio?: number;                       // drawn pages only: height / width, chosen as screens (one screen = 1.777, the same as babyphotos.webp); default 1.777
+};
+
+type Base = {
+  id: string; x: number; y: number; w: number;
+  anchor?: 'centre' | 'top';            // photos default centre (slotStyle, babyblue.ts:75-77); text blocks default top, centred on x (labelStyle :78-80)
+  rotate?: number; z?: number;
+  hidden?: 'never' | 'whenEmpty';
+  ask?: boolean;                        // marked Ask the customer: its bound field becomes a question on this design's form
+  ifEmpty?: { piece: string } | 'leave'; // what a frame or box asked for shows when the customer leaves it: nothing, or a Library piece
+  motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };   // phase 4; delay in ms, 0..2000
+  opacity?: number;                     // 0..1, default 1
+  attachTo?: string;                    // id of a photo this element follows when that photo is moved (a caption tied to its frame)
+};
+// x and w are % of page WIDTH, y is % of page HEIGHT: exactly the Slot convention at babyblue.ts:13-21
+
+type FieldRef = { section: SectionKey; field: string; index?: number; sub?: string };   // e.g. story.timeline[2].photo
+
+type PhotoEl = Base & {
+  kind: 'photo';
+  aspect?: number;                      // height / width of the frame, default 1 (square, as .inv-bb-slot today)
+  bind: FieldRef | { asset: string };   // a customer's picture, or the design's own
+  crop?: { x: number; y: number; w: number; h: number };   // fractions of the source, aspect locked to the frame
+  frame?: 'none' | 'thin' | 'polaroid'; // 'none' when the frame is painted into the ground (Baby Blue today)
+  mask?: 'none' | 'circle' | 'arch';
+  animated?: boolean;                   // a moving picture (animated WebP, APNG or GIF): never re-encoded, never sent through imageUrl(), capped at 1.5 MB (phase 4)
+};
+
+// One text source; a Line tries its sources in order and shows the first non-empty one.
+type Source =
+  | { bind: FieldRef }                  // a customer's (or staff's) answer, through str/rows (sections.ts:1325-1348)
+  | { word: WordKey }                   // the design's words over the look's, through lookLine/lookTitle after withWords; empty when there is no look
+  | { copy: string }                    // the app's copy, through t(lang, key) (src/lib/copy.ts); the last resort a heading has today (renderer.tsx:1691 `named`)
+  | { fixed: { en: string; tl?: string } };
+
+type Line = {
+  role: 'title' | 'sub' | 'eyebrow' | 'script' | 'label-title' | 'label-text' | 'caption' | 'body';  // the cqw classes at globals.css:1217-1227
+  sources: Source[];
+  align?: 'left' | 'center' | 'right';
+  size?: number;                        // cqw, default per role
+  color?: 'ink' | 'muted' | 'accent' | 'accent2';   // palette roles only, so night mode keeps working (globals.css:2094)
+};
+
+// A text block: one or more lines stacked in flow inside one box, the way
+// .inv-bb-head holds the title and the sub line (renderer.tsx:939-942) and
+// .inv-bb-label holds .t and .x (renderer.tsx:953-957). `hidden: 'whenEmpty'`
+// hides the whole block only when every line is empty; an empty line is
+// simply dropped, as today.
+type TextEl = Base & {
+  kind: 'text';
+  block: 'head' | 'label' | 'caption' | 'free';   // picks the wrapper class (.inv-bb-head / .inv-bb-label / .inv-bb-caption / new .inv-bb-text)
+  lines: Line[];
+  along?: string;                       // id of a photo whose tilt this block follows (a caption on the polaroid strip)
+  backing?: 'none' | 'shadow' | 'scrim';   // legibility on a busy picture: a soft text-shadow, or a padded surface-role scrim at 70%
+  face?: 'display' | 'names' | 'script' | 'body';   // which face of the design's font set; default from the role
+  size?: number;                        // in cqw, so it scales with the column; default from the role; the checklist's legibility floor still applies
+  weight?: number;                      // 300..900, only the weights the set loads
+  tracking?: number;                    // letter-spacing in em, -0.05..0.4
+  room?: number;                        // the letters this box fits, measured from the box and the face; the form's cap for the field it asks for
+  offerLine?: boolean;                  // the design's own line is offered to the customer as an example under their box
+};
+
+type VideoEl = Base & { kind: 'video'; url: string; poster: string; aspect?: number; loop?: boolean };   // phase 3
+type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };   // phase 4: a vector animation, Lottie JSON, capped at 300 KB
+type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: ColorRole | string; stroke?: ColorRole | string; strokeWidth?: number; radius?: number; h?: number };   // phase 2: fill and stroke are a colour role or a hex from the colour book
+
+type Element = PhotoEl | TextEl | VideoEl | AnimEl | ShapeEl;
+```
+
+`designOf()` is a zod schema (zod 4.4.3 is already a dependency, package.json:36) run with `safeParse` on the way in and out. Unlike `artOf` it does not silently coerce: it returns the document plus a list of what it dropped, and the studio refuses to autosave a draft that would not round-trip identically. Bindings are checked against `fieldsFor(section, occasion)` (src/lib/sections.ts:1004-1015) so an element can only point at a field the occasion offers.
+
+**Why the text block, not one element per line.** Today the story heading is one `.inv-bb-head` header at `STORY_HEAD.titleTop` (9.6%) holding the title and, in flow beneath it, the sub line (renderer.tsx:939-942; `.inv-bb-sub` at globals.css:1218). `STORY_HEAD.lineTop` (12.5) and `PHOTO_HEAD.titleTop` / `lineTop` (babyblue.ts:45, 72) are never read. The milestone label is one `.inv-bb-label` div holding `.t` and `.x`, with `.x` stacked 0.9cqw under `.t` (renderer.tsx:953-957; globals.css:1223-1225), shown when the title or the text exists. The earlier draft placed the sub line as its own element at y 12.5 and split each label into two elements chained by `after`, which would have moved the sub line, orphaned the text when a title was blank, and had no CSS (the rules are descendant selectors on `.inv-bb-label .t` and `.x`). The block reproduces the markup as it is, so the parity test can pass.
+
+**Why sources are a list.** Today a heading is `lookTitle ?? copy fallback` (renderer.tsx:1691), a tagline is the customer's `line` || the look's line (renderer.tsx:1866, 1881), the look can be downgraded by tier (src/lib/invitations.ts:342) or cleared by a customer's fontsKey (invitations.ts:353), and `story.line` is a staff-only field (sections.ts:614, `staff: true`) that a DIY customer never sees. A one-of source would blank the sub line for every DIY customer. The chain keeps today's behaviour: customer's answer, then the design's word, then the app's copy.
+
+### The example: Baby Blue's story page
+
+Built from BABYBLUE_PAGES[1] (renderer.tsx:1492), BABYBLUE_GROUNDS.story (design.ts:166), STORY_HEAD, STORY_SLOTS and STORY_LABELS (babyblue.ts:27-45). The numbers are the constants copied as they are; the six polaroid frames are painted into story.webp, so `frame` is `none`. The head is one block at 9.6% with the title and the sub line in flow; each milestone's label is one block with its two lines.
+
+```json
+{
+  "key": "story",
+  "label": { "en": "Our Story", "tl": "Ang Aming Kuwento" },
+  "sections": ["story"],
+  "peekEnd": true,
+  "ground": { "url": "/babyblue/story.webp", "ratio": 2.989, "top": "#e3e0dd", "bottom": "#c4cbd3" },
+  "seam": 0.18,
+  "drawn": true,
+  "elements": [
+    { "id": "head", "kind": "text", "block": "head", "x": 50, "y": 9.6, "w": 88,
+      "lines": [
+        { "role": "title", "sources": [{ "word": "title:story" }, { "copy": "story.title" }] },
+        { "role": "sub",   "sources": [{ "bind": { "section": "story", "field": "line" } }, { "word": "story" }] }
+      ] },
+
+    { "id": "p1", "kind": "photo", "x": 25.93, "y": 22.2, "w": 27.2, "rotate": -7, "frame": "none", "hidden": "whenEmpty",
+      "bind": { "section": "story", "field": "timeline", "index": 0, "sub": "photo" } },
+    { "id": "l1", "kind": "text", "block": "label", "x": 69.7, "y": 21.1, "w": 26, "hidden": "whenEmpty",
+      "lines": [
+        { "role": "label-title", "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 0, "sub": "title" } }] },
+        { "role": "label-text",  "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 0, "sub": "text" } }] }
+      ] },
+
+    { "id": "p2", "kind": "photo", "x": 74.48, "y": 33.41, "w": 26.6, "rotate": 7.5, "frame": "none", "hidden": "whenEmpty",
+      "bind": { "section": "story", "field": "timeline", "index": 1, "sub": "photo" } },
+    { "id": "l2", "kind": "text", "block": "label", "x": 31.3, "y": 33.4, "w": 27, "hidden": "whenEmpty",
+      "lines": [
+        { "role": "label-title", "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 1, "sub": "title" } }] },
+        { "role": "label-text",  "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 1, "sub": "text" } }] }
+      ] },
+
+    { "id": "p3", "kind": "photo", "x": 26.9, "y": 45.96, "w": 27.2, "rotate": -7, "frame": "none", "hidden": "whenEmpty",
+      "bind": { "section": "story", "field": "timeline", "index": 2, "sub": "photo" } },
+    { "id": "l3", "kind": "text", "block": "label", "x": 70.3, "y": 46.1, "w": 26, "hidden": "whenEmpty",
+      "lines": [
+        { "role": "label-title", "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 2, "sub": "title" } }] },
+        { "role": "label-text",  "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 2, "sub": "text" } }] }
+      ] },
+
+    { "id": "p4", "kind": "photo", "x": 75.31, "y": 58.24, "w": 27.6, "rotate": 8.6, "frame": "none", "hidden": "whenEmpty",
+      "bind": { "section": "story", "field": "timeline", "index": 3, "sub": "photo" } },
+    { "id": "l4", "kind": "text", "block": "label", "x": 29.0, "y": 57.9, "w": 33, "hidden": "whenEmpty",
+      "lines": [
+        { "role": "label-title", "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 3, "sub": "title" } }] },
+        { "role": "label-text",  "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 3, "sub": "text" } }] }
+      ] },
+
+    { "id": "p5", "kind": "photo", "x": 26.76, "y": 69.77, "w": 27.2, "rotate": -7.3, "frame": "none", "hidden": "whenEmpty",
+      "bind": { "section": "story", "field": "timeline", "index": 4, "sub": "photo" } },
+    { "id": "l5", "kind": "text", "block": "label", "x": 70.3, "y": 71.0, "w": 26, "hidden": "whenEmpty",
+      "lines": [
+        { "role": "label-title", "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 4, "sub": "title" } }] },
+        { "role": "label-text",  "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 4, "sub": "text" } }] }
+      ] },
+
+    { "id": "p6", "kind": "photo", "x": 74.76, "y": 82.23, "w": 27.9, "rotate": 9.1, "frame": "none", "hidden": "whenEmpty",
+      "bind": { "section": "story", "field": "timeline", "index": 5, "sub": "photo" } },
+    { "id": "l6", "kind": "text", "block": "label", "x": 32.7, "y": 82.6, "w": 29, "hidden": "whenEmpty",
+      "lines": [
+        { "role": "label-title", "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 5, "sub": "title" } }] },
+        { "role": "label-text",  "sources": [{ "bind": { "section": "story", "field": "timeline", "index": 5, "sub": "text" } }] }
+      ] }
+  ]
+}
+```
+
+Notes. The head block is top-anchored and spans 6% to 94%, which is what `.inv-bb-head { left: 6%; right: 6% }` (globals.css:1216) does; the sub line's inner 12% padding stays in the `.inv-bb-sub` rule (:1218). A label block is top-anchored and centred on x, which is `labelStyle()` (babyblue.ts:78-80). A photo with no `h` uses `aspect` 1, matching `.inv-bb-slot { aspect-ratio: 1 }` (globals.css:1221). `hidden: "whenEmpty"` on a photo reproduces "no photo, no frame" (renderer.tsx:945-950); on a label it reproduces "no title and no text, no label" (:953). The baby-photos page has the same shape with PHOTO_SLOTS (babyblue.ts:48-53), ground ratio 1.777, a head block at 9.4% whose lines are an `eyebrow` with `fixed` "Share" in English and nothing in Tagalog (renderer.tsx:1881), a `script` title (`title:gallery`, then copy), and a `sub` (`gallery.line`, then the word `gallery`); plus four `caption` blocks with `along: "p1"` and so on, carrying the strip offset that `captionStyle()` computes (babyblue.ts:64-70). A flow page such as `closing` is `{ key, label, sections: ["rsvp","countdown","contact","closing"], ground: {...with slices}, elements: [] }` and its sections render exactly as today.
+
+**Where the customer's gallery video goes.** Today Baby Blue's photo page spawns an extra flow page keyed `baby-photos-more` on the `venue` ground when the customer has a `gallery.videoUrl` (renderer.tsx:1598, 1789, 1877-1881; the field at sections.ts:647, tier-gated by `hasFeature(tier, 'video')`), and any section the map does not name gets a page of its own on `venue` (renderer.tsx:1792). In the document this is explicit: the built-in Baby Blue has a page `{ key: "baby-photos-more", sections: ["gallery-video"], ground: <the venue ground> }` right after `baby-photos`, where `gallery-video` is a pseudo-section rendered by the existing `Gallery` component with `photos: []` (what `babyMore` is today) and emitted only when a video exists and the tier allows it. Unmapped sections land on `DesignDoc.overflowGround`, which the built-in sets to the venue ground for Baby Blue and leaves unset for Capiz. The studio shows both as ordinary pages she can reground or move.
+
+**Save the Date art.** `stdArt` (renderer.tsx:1714) picks `art.backgrounds[0]` for Capiz or `art.grounds.cover.url` for Baby Blue by layout string. With a document it reads the first page's ground (`design.pages[0].ground?.url`), falling back to `art.backgrounds[0]` for a Capiz-based design whose pages have no grounds yet (phase 5 gives them).
+
+What is **not** in the document: the customer's answers (still `Invitation.content`, still edited by the unchanged builder and encoder forms, src/components/builder/fields.tsx), and palette, fonts, look and words (still their Template columns, resolved by `resolveTheme`, invitations.ts:336-361, and `withWords`, design.ts:123-141). Elements refer to those symbolically (role colours, word keys), so changing the look or palette re-themes every page.
+
+### Section membership: two sources of truth today, one rule
+
+`Template.sections` (the checkboxes at admin/templates/[id]/page.tsx:78-85) gates visibility in the renderer (renderer.tsx:1609), and `PageSpec.sections` says where a section sits. Both stay, with one rule: a section on a page but unticked in `Template.sections` is hidden, and a page whose sections all hide is skipped (as today, renderer.tsx:1788). The studio greys unticked sections in the page's section list rather than offering a second switch. In phase 5 `Template.sections` becomes derived from the document and the checkboxes go.
+
+`pages()` renders every visible section once into a Map keyed by section (renderer.tsx:1764-1767) and then groups them by page; a drawn page carrying two sections would render `DrawnPage` twice. So the loop is restructured: `section(key)` returns null for any section a drawn page carries, and the page loop renders one `DrawnPage` per drawn page, marking its sections placed. A drawn page is shown when at least one of its bound sections passes `visible()` (renderer.tsx:1606-1612: on the card, offered, ticked, unlocked, filled); elements bound to a hidden or tier-locked section resolve as empty and follow their `hidden` rule.
+
+### Anchors
+
+`sectionAnchor(key, layout)` (src/lib/anchors.ts:41-45) maps gallery to `baby-photos` on Baby Blue by name. With the document it becomes `sectionAnchor(key, design)`: the key of the page carrying the section, else the section's own anchor. A `DrawnPage` gives its page div `id={page.key}`; flow sections keep the ids their components emit today (including the RSVP and guestbook forms). The encoder's segment strip (src/app/admin/dfy/[id]/encode/page.tsx:39-48, anchor at :45) and its frame scrolling (encode/workspace.tsx:86, 94) call the new signature and otherwise do not change; the builder's nav stays section-based, because sections are what customers fill.
+
+### Draft, publish, restore
+
+The studio autosaves to `designDraft` through `saveDesignDraftAction`, which must return JSON, not redirect: `run()` (src/app/admin/actions.ts:35-50) always redirects with `?ok` / `?error` and cannot back a client-driven save. The action takes the JSON-returning shape of `saveSectionAction` (src/app/account/actions.ts:30-38, a customer action: `requireUser()` then `ownInvitation()` inside `action()` at src/lib/guard.ts:167) but the staff guard of `run()` (src/app/admin/actions.ts:36-37: `requireStaffSession()` + `assertPermission(user, 'templates.edit')`) without its redirect, taking `{ baseRev, doc }` and returning `{ ok, data: { rev } }`. A save whose `baseRev` is behind `designDraftRev` is refused and the studio says "Someone else changed this draft; reload." Last write does not win silently.
+
+**Publish** copies draft to `design`, writes an audit row (module 'templates', action 'design.publish', the `audit()` at src/lib/audit.ts:18 with `before` = the previously published document and `after` = the new one, AuditLog.before/after at schema.prisma:743-744), and **Restore previous** re-publishes the latest such row's `before`. One step: restoring after two publishes brings back the one before the last, never older. Rows grow with the document: the story page above is about 4 KB and a whole ten-page document about 20 to 40 KB, so a hundred publishes is a few MB in AuditLog; no pruning is planned. Per-sitting undo is in memory only; a reload keeps the autosaved draft and drops the undo stack. **Discard** clears the draft. **Reset to built-in** clears both. Guests only ever read `design`. Publish and Restore go through a new permission `templates.publish`, added to PERMISSIONS (src/lib/rbac.ts:24-25); ADMIN gets it by construction (:86); ENCODER (:49-60) and SUPPORT (:67-84) do not, so drafting (templates.edit) and going live are granted separately; tests/rbac.test.ts gains the three asserts.
+
+**Blast radius on Publish.** Before writing, the action counts invitations on the template by status and diffs the frame count per bound list field (story.timeline, gallery.photos) between `design` and `designDraft`, and returns the report Part 1 quotes. Rows beyond the new frame count stay in `Invitation.content` and are simply not rendered (today's slice at renderer.tsx:1881). List limits at the three call sites that call `photoFrames(layout)` (src/app/admin/dfy/[id]/encode/page.tsx:95, src/app/account/invitations/[id]/dfy/page.tsx:46, src/app/account/invitations/[id]/builder/page.tsx:55) read `frameCount(design, 'gallery.photos')` instead, so adding a fifth frame grows the customer's photo list to five by itself. A customer switching designs through the TemplatePicker (changeTemplate, invitations.ts:406-416) meets the new limits the same way.
+
+### Uploads
+
+The ground picker posts to the existing `/api/admin/upload` (src/app/api/admin/upload/route.ts:10-18), which gains a `Media` row per upload from phase 1 so nothing is ever orphaned: `Media.templateId String?`, `MediaKind.DESIGN_IMAGE` / `DESIGN_VIDEO` (schema.prisma:556-593), and `width`, `height`, `bytes`, `durationMs` columns for the checklist. An asset drawer lists and deletes what was uploaded under `design/<templateId>/` (src/lib/storage.ts:89) through `deleteFile` (:136). The studio only opens on a saved template, so it never uploads under `design/new/`; the old form's `new` path (page.tsx:42) is left as it is.
+
+Before posting, the browser reads the file for `naturalWidth/Height` (the ratio), samples the top and bottom rows on a small canvas (the edge colours), and re-encodes PNG or oversized JPEG to WebP no wider than 1536 px (three device pixels per CSS pixel across the 512 px column, the width the Guide tab asks for) with `canvas.toBlob`. **A moving picture is the one upload that must not be touched:** re-encoding through a canvas keeps only its first frame. The browser detects animation before deciding (a WebP whose VP8X chunk has the animation bit set, a PNG with an `acTL` chunk, any GIF), uploads such a file exactly as it is, flags the element `animated`, and caps it at 1.5 MB. Server-side, `sniff()` (src/lib/storage.ts:21-38) knows JPEG, PNG and WebP but not GIF, so `GIF87a` / `GIF89a` is added there with `'image/gif': 'gif'` in EXTENSIONS (:40). An animated file is also never passed through `imageUrl()` (src/lib/images.ts:63-81), because the render transform returns a still frame; it is served as uploaded, which is why the cap is tight. **Grounds are served raw today:** PageGround paints them as `background-image` URLs (src/components/invite/client.tsx:963-979), so `imageUrl()`'s Supabase render transform (src/lib/images.ts:63-81) never touches them. The shipped Baby Blue grounds total about 1 MB for ten pages (story.webp is 103 KB); an unprocessed 2 MB phone photo on every page would be 20 MB per guest visit. Two fixes: the grounds map is built in the server component (renderer.tsx:1780), so `imageUrl(url, { width: 1536 })` is applied there before it reaches PageGround, and the same for slices and night pictures; and the checklist blocks Publish for any ground over 400 KB after re-encoding. If Supabase image transformation is switched off (the kill switch at images.ts:49-51, a plan-dependent feature), the upload-time re-encode and the 400 KB cap are the floor. Local development serves `/uploads` raw (images.ts:66; storage.ts:91-101; `public/uploads/` is gitignored, .gitignore:9), which is fine for development. Grounds above the 4.5 MB serverless body limit (storage.ts:184) are refused until the direct sign-and-commit path arrives in phase 3; without Supabase that path returns null (storage.ts:190-191) and the studio falls back to the server route the way `AudioInput` does.
+
+**The old Pictures block.** `saveTemplateAction` rebuilds `art` from the form on every save (src/app/admin/actions.ts:166-171), so hiding the ground fields would write `grounds: {}` and wipe the overrides the studio carries into the built-in. Once a document exists the block therefore keeps every `art_*` value in hidden inputs and shows a note ("Backgrounds are edited in the studio now"), and the renderer ignores `art.grounds` for that template.
+
+---
+
+### What a design asks for, and how the form is built from it
+
+`asksOf(design, occasion, tier)` walks the published document and returns one row per element marked `ask`: the field it binds (`section`, `field`, `index`, `sub`), what kind of thing it is, and what the studio measured about the space it goes into: a frame's aspect ratio and shape (`arch`, `oval`, `round`, `card`, `rect`), a text box's `room` in letters, a list's frame count. It is one pure function over the document, so the same rows drive four places and cannot drift between them:
+
+- **The customer's form.** `fieldsFor()` (sections.ts:1004-1015) keeps returning what an occasion offers; the builder then filters it against the asks. A field the published design never asks for is not shown, so a form never collects a photograph that has nowhere to go: `sectionsFor` drops a section no page carries, `customerFields` drops a field no element binds, and a list's `max` becomes the design's frame count (`frameCount(design, 'story.timeline')`) rather than the code's. **Every design's form is different, and none of them mentions the design.** Where a design is offered for several occasions the asks are the union, so an anniversary is never asked for a christening's months.
+- **The hints beside each upload**, written from the shape rather than typed: a frame taller than it is wide reads "portrait, face in the middle"; a round or oval one reads "square, face centred, we crop it to a circle"; a wide one reads "landscape, wide"; and every one names the smallest picture that will not blur at that size (its width in the 512 px column times three).
+- **The caps on each writing.** `room` replaces the FIT entry (sections.ts:819-857) for the fields this design asks for, so what a customer types is what their design has space for, not what Baby Blue had. FIT stays the floor for a design that asks for nothing.
+- **The sheet.** "What this design asks for", the same rows as a plain list: 1 cover portrait, 6 story photographs (4:5), 4 baby photographs (square), 1 closing photograph, 6 milestone titles at 28 letters, 6 lines at 70. It shows in the studio, on the design's page in the admin, in the customer's order confirmation and at the top of the encoder's workspace (src/app/admin/dfy/[id]/encode/page.tsx).
+
+**The design's own line, offered.** A text block whose sources chain ends in the design's own words (part 2) may carry `offerLine`. The builder then renders that wording under the customer's box as an example, through the same mechanism the ten named asks use (`Field.examples`, built 10 September): one tap adopts it, and they edit it or write over it. Nothing is offered on a field only we fill.
+
+**Importing a page somebody designed elsewhere.** Three readers, one result: a `sheet` ground plus a list of proposed elements the owner confirms. Nothing here touches Canva's API, so there is no OAuth, no rate limit and no Enterprise plan in the path: she exports by hand and uploads a file, the same route every other ground takes.
+
+- **The two-picture difference** runs in the browser, on a canvas, with no library. Both files are drawn at the same width, and the version *with* the placeholders is subtracted from the version *without* them: a pixel counts as changed when its channels differ by more than about 12 of 255, which clears JPEG noise and the faint edge softening an export adds. Changed pixels are grouped by a flood fill over a downscaled mask (a quarter size is plenty and keeps it under a frame's worth of work), each group's bounding box is snapped to whole percents of the page, groups smaller than 1.5% of the page area are dropped as noise, and boxes overlapping by more than three quarters are merged. What comes back is a list of rectangles in the same percent coordinates elements already use, so each becomes a `PhotoEl` with `ask` set and nothing else new. The picture *without* the placeholders is the one kept as the ground, which is why the frames sit on empty artwork rather than on a printed photograph of somebody else's baby.
+- **The PDF reader** is `pdfjs-dist` (a new dependency, dynamically imported by the studio route only, so no guest page grows by a byte). For each page it walks `getOperatorList()` for the image-painting operators and reads the current transformation matrix at each one, which is the placed rectangle in PDF points; dividing by the page box gives the same percent coordinates. `getTextContent()` gives the words with their transforms, so a text box arrives with its position, its measured size in points converted to `cqw`, and the face name Canva embedded, matched against the design's font set by name and left unset when it does not match. Two failure modes are detected rather than guessed at: a page whose operator list holds exactly one full-page image is a flattened export, and a page with no text items but visible words has outlined text. Both are reported in plain words with the two-picture way offered instead.
+- **The confirm step** is one screen: every proposed frame drawn on the page with a numbered tag, a field picker beside each, and Discard on any it got wrong. Nothing is written to the draft until she confirms, and `importedFrom` is kept so the checklist can say "the words on this page came in as outlines, so they are pictures and cannot be reworded".
+
+**A whole part added later.** A customer may publish with parts left blank and ask for one of them afterwards, and that must not disturb what is finished. Because a page's sections are data, adding one is one write: the section is ticked onto a page (or onto a page of its own on the overflow ground), the customer's answers for it already exist or are collected then, and no element on any other page moves. Two things are then true and are said in Part 1: **adding a whole part is a change to that one invitation** and touches nothing else; **changing what a design asks for**, a seventh story frame where the design draws six, is a change to the design, so it goes through the studio and its blast-radius report, and it is not the same job.
+
+### Library, per-section media, fonts, the colour book, the draft link
+
+**Library.** Media rows with `templateId` null and `kind: DESIGN_PIECE`, plus `name` and `tags String[]`, uploaded under `library/<uuid>.<ext>`. The asset drawer gains a Library tab with search by name and tag; any piece uploaded to a design gets **Save to library**. Placing a piece copies its URL into the element (`asset`), so deleting it from the library never breaks a page. The Capiz cut pieces in `public/capiz/` and the wardrobe in `public/attire/` are listed read-only as built-in pieces.
+
+**Per-section customer media.** Every section gains three optional fields in `fieldsFor()` (sections.ts:1004-1015): `photo` (image), `videoUrl` (url) and `file` (a PDF or an image: a map, a menu, a programme sheet), all `staff: true` by default and shown to the customer only when the published design carries an element bound to them (the builder and the encoder ask `designBinds(design, section, field)`), so the form never grows for a design that does not use them. Sections that already have a photo field (cover, venue, gallery, closing, the moment's backdrop, the gift QR) keep theirs. A design can therefore put a customer's picture or clip on any page as a layer or as the page's background.
+
+**Fonts.** Two tables. `FontFace { key, family, source: 'google' | 'file', url?, weights?, licence?, enabled }` and `FontSet { key, name, display, body, script?, names?, voice: LookKey, minTier, enabled, sortOrder }`, where `voice` picks the stock wording from one of the five looks (looks.ts:76-401) so a new set never has blank lines. The five looks' font pairings are seeded as rows, and so are the owner's thirty pairings from her font sheets, which already ship as `FONT_PRESETS` in theme.ts with every licensed face replaced by its nearest free Google face (her decision of 10 September: no font purchases; Italiana for TAN Mon Cheri, Marcellus for Black Mango, Bodoni Moda for Bauer Bodoni, Great Vibes for Slight, Mrs Saint Delafield for Sloop Script, Herr Von Muellerhoff for Burgues Script, Montserrat for Gotham, and the rest as the comparison sheet shows). `looksFor()` (src/app/account/invitations/[id]/settings/page.tsx:45), `LOOK_MIN_TIER` (looks.ts:403-409) and `resolveTheme` read the table, and a set's faces become `Fonts` (theme.ts:23). A Google face is added by family name and checked once on save by fetching its stylesheet from fonts.googleapis.com; a file face is a woff2, woff, ttf or otf upload (`sniff()` learns `wOF2`, `wOFF`, `\0\1\0\0` and `OTTO`, storage.ts:21-40) served from the public bucket through an `@font-face` rule the renderer emits beside `googleFontsUrl()` (theme.ts:123-130), with a licence note required on save (self-declared; the system cannot check a licence). The Fonts admin page lists faces and sets with every name rendered in its own face, a sample line per set in both languages, the package rule per set (the owner's rule today, one automatic set for Basic, three to choose from for Standard, five for Complete, becomes data she edits), and per design the default set and the sets offered. The studio's Theme popover uses the same list, every entry drawn in itself, and the canvas is the same DOM with the same font links, so a heading on the canvas is the guest's heading to the pixel.
+
+**The colour book.** `PALETTE` in src/lib/palette.ts (13 groups today, from 2 to 13 swatches each) becomes the book: every family at ten shades or more, on the sheet the owner approves, with the keys and hexes of existing swatches unchanged so saved motifs keep their names, and `swatchByHex`, `swatchHex` and the presets working as they do. A `ColourPicker` in the studio shows the book and the six roles, and `familyPalette(family)` derives the six roles from a family (bg the palest shade, surface white, ink the darkest, muted and accent from the middle, accent2 the second palest) for the Theme popover's **from a family** button and the template form's palette field. The client's motif picker shows the fuller families.
+
+**Draft link.** `Template.shareNonce Int` and `signDraftLink(templateId, nonce, 7 days)` with `jose` (already a dependency) issue a token; `?design=draft&t=<token>` passes the previewer gate in shared.tsx:26 for that one template, read-only, and **Stop sharing** bumps the nonce so every issued link dies.
+
+**Copy a page from another design.** Reads the other template's published `design`, copies the PageSpec with its elements and ground (assets are shared public objects), re-keys the page, re-checks every bind against this occasion through `designOf`, and reports the drops in the checklist.
+
+## 3. How the guest page draws it, and why it stays right on a phone and a laptop
+
+### The renderer
+
+`Invitation()` (renderer.tsx:1571) keeps its props. Four internal changes, all reading `const design = designOf(inv.template.design, layout)`:
+
+1. **Pages from data.** `pages()` (renderer.tsx:1763-1801) iterates `design.pages` instead of `babyblue ? BABYBLUE_PAGES : CAPIZ_PAGES` (line 1785). The `page()` helper and its `data-page / data-bg / data-seam / data-drawn` contract (line 1773) stay, plus `id={key}` and an inline `style={{ '--page-ratio': ground.ratio }}` on drawn pages. One generic rule, `.inv[data-paged] .inv-page[data-drawn] { aspect-ratio: 1 / var(--page-ratio); padding: 0; display: block; container-type: inline-size; }`, replaces the two literals at globals.css:1212-1213 (725/2167 is 1/2.989 and 941/1672 is 1/1.777, so nothing moves), and `.inv[data-paged] .inv-page[data-drawn] > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }` replaces the babyblue-only rule at :1214 so a Capiz-based drawn page positions its elements too. The grounds map handed to `PageGround` (renderer.tsx:1780) is built from `design.pages` with `imageUrl` applied; PageGround already reads `grounds[p.dataset.bg]` and uses `own.ratio` (client.tsx:896-897), `own.url`, `own.slices`, `own.top` and `own.bottom` (:933-979), so the measuring and dissolving engine is untouched. The peek slice (renderer.tsx:1701, 1793-1798) cuts at the page with `peekEnd`, else after the first page, which is today's rule for a design with no story; the gallery link text (src/components/landing/gallery.tsx:75, "See it open, to Our Story") takes that page's label; a test covers a document with the story page renamed and one with no `peekEnd`.
+
+2. **One generic `DrawnPage`** replaces `StoryMilestones` (renderer.tsx:935) and `BabyPhotos` (:967). It lives in a new file, src/components/invite/drawn.tsx, takes plain props (`page, content, look, lang, resolveImage`) and imports nothing from `@/lib/invitations` (`import 'server-only'`, invitations.ts:1) or `@/lib/images` (server-only by design, images.ts:54-61). It renders `<section class="inv-section inv-bb-art">` and per element: a photo as `<figure class="inv-bb-slot" data-el={id} style={slotStyle(el)}>` with the same maths as babyblue.ts:75-77; a text block as the wrapper its `block` names (`.inv-bb-head` / `.inv-bb-label` / `.inv-bb-caption` / `.inv-bb-text`) with one child per non-empty line, each resolved through its source chain. The old two components stay behind a flag until the parity test and a manual check pass.
+
+3. **Crop is CSS, not re-encoding.** `.inv-bb-slot img` is `width: 100%; height: 100%; object-fit: cover` (globals.css:1222), which pins the image to the frame, so a cropped slot needs one new rule: `.inv-bb-slot[data-crop] img { position: absolute; width: auto; height: auto; max-width: none; object-fit: none; }` with inline `width: 100/w %; height: 100/h %; left: -x/w*100 %; top: -y/h*100 %` from the source fractions. Exact at every width, works with `imageUrl(url, IMAGE.grid)` sizing (images.ts:63-102), no server image library.
+
+4. **Night, as the code actually has it.** PageGround's `dark` is `inv.dataset.mode === 'night' && Boolean(night?.length)` (client.tsx:888), Baby Blue passes no `night` prop (renderer.tsx:1780), and `data-night-art` is toggled on `.inv-ground` as a whole (client.tsx:999), which is what the darkening filter and navy overlay key on (globals.css:2096-2097): all or nothing. So the two-line swap the earlier draft described would never fire. The change is: `dark` becomes `mode === 'night'`; each paper is marked `data-night-art` when its own ground has `night` (or, by number, when `night[]` has that strip), the URL choice happening per paper; and the two CSS rules move from `.inv-ground:not([data-night-art]) .inv-paper` to `.inv-paper:not([data-night-art])`. A page with night art draws it as is; a page without is darkened, on the same design. `ModeToggle` persists per slug in localStorage (client.tsx:1023-1061) and is dropped in `bare` mode (renderer.tsx:1920), so the studio canvas and its iframe carry their own day/night switch that sets `data-mode` directly. Text colours are palette roles only, so the night override (globals.css:2094 re-declares the `--inv-*` variables) recolours every element.
+
+5. **Colour grounds, and the colours around the pages.** A page whose ground is a colour gets a paper in PageGround painted `background: var(--inv-<role>)` (or the hex): no image request, no slices, no seam pictures. Its `top` and `bottom` for the dissolve into the neighbouring pages are the colour itself, so the existing seam maths runs unchanged, and on a drawn page its `ratio` feeds the same `--page-ratio` rule as a picture. At night a role colour changes with the night palette (globals.css:2094) and a hex is darkened by the same filter as a picture (:2096). The two literal column colours (`.inv[data-layout='babyblue'] { background: #eef3f9 }` at :1195 and `.inv[data-layout='capiz'] { background: #f0dccb }` at :612) become `background: var(--inv-paper)`, and the two body rules (:600-601) go: the renderer wraps a paged invitation in `<div class="inv-stage">` painted `background: var(--inv-surround); min-height: 100dvh`, with the night rule at :2095 moving to `.inv-stage:has(.inv[data-mode='night'])`. Both variables are set beside `cssVars()` (renderer.tsx:1590) from `design.paper` and `design.surround`, defaulting to the palette's `bg` and to `color-mix(in srgb, <bg> 95%, <ink>)`. `builtinDesign` pins today's four literals (#eef3f9 and #e4ecf5 for Baby Blue, #f0dccb and #e9dfd2 for Capiz) so neither design moves by a shade, and the Theme popover re-colours a new design's column and surround as it re-colours everything else.
+
+6. **A page that grows, and a page uploaded whole.** A drawn page with `grow` keeps its `--page-ratio` as a minimum rather than a fixed height (`min-height` from the ratio, `height: auto`), and its ground is painted as three bands instead of one picture: the top and the foot at their drawn height, the middle repeating or stretching between them, which is the slice treatment PageGround already performs for tall flow pages (client.tsx:963-967). Elements anchored to the top hold their exact spot, elements anchored to the bottom hold theirs, and the middle is what stretches. A page with a `sheet` is a drawn page whose ground is that one picture at its own ratio, with the frames placed over it; nothing else about it differs, which is why Our Story can be arranged here or drawn elsewhere and uploaded.
+
+7. **Shapes, backing, cover control, and a clip as the ground.** A shape is a `<div class="inv-bb-shape" data-shape>` with `background` and `border` from its role variable or hex, `border-radius` for a rectangle and `50%` for an ellipse, a line as a thin div in `cqw`; no SVG, no script. A text backing is `data-backing="shadow"` (a two-layer `text-shadow` in the surface colour) or `"scrim"` (padding and `background: color-mix(in srgb, var(--inv-surface) 70%, transparent)` with a small radius). Opacity is inline. `attachTo` is a studio-time convenience: the document stores absolute positions, so the guest page needs nothing. Cover properties map onto the existing hero: `names` sets the cover's `justify-content` (the rule at globals.css:1208 for Baby Blue) and `inset` its padding, `photoStyle` is the default `data-style` (renderer.tsx:199-226) when the invitation has none, and `photoScale` multiplies the portrait width rules through one variable. A page whose background is a clip (phase 3) is a `VideoEl` at `z: 0` spanning the page, with the ground's `top` and `bottom` colours sampled from its poster so the dissolve into the neighbouring pages still has colours to blend; the poster is what prints and what Low Power Mode shows.
+
+A frame drawn over a clip or a moving background is an ordinary element at a higher `z`; the ground plays behind it and the frame's own picture is the customer's. Nothing in the markup says the two are related, so a guest sees one page and the customer's form sees one photograph.
+
+Video (phase 3) is `<video muted playsinline loop preload="none" poster>` with **no autoplay attribute** (autoplay makes browsers fetch on mount regardless of preload). A tiny `LazyVideo` client island assigns `src` and plays only while at least half visible, pauses off-screen, shows the poster when autoplay is refused (iOS Low Power Mode) and never loads under `navigator.connection.saveData`. The poster goes through `imageUrl(poster, IMAGE.grid)`.
+
+Animation (phase 4) is three mechanisms, each costing the guest what it must and no more. **Element motion** is CSS only: `motion.enter` and `motion.idle` become `data-enter` / `data-idle` attributes on the element, keyframes in globals.css run when the observer that already drives `LazyVideo` adds an `is-seen` class as the element comes at least a third into view, and both are disabled under `@media (prefers-reduced-motion: reduce)`, the way the opening's own motion already is (src/components/invite/client.tsx respects the same query). No script beyond the observer, no library. **A moving picture** is an ordinary `<img>` in a photo element with `animated` set, served raw and lazy; it needs nothing else. **A vector animation** is a `LazyLottie` island that dynamically imports the light build of `lottie-web` (a new dependency, a few tens of kilobytes compressed) only on a page that carries one, mounts the animation into a `<div>` sized by `aspect`, plays it while in view and stops it off screen, and under reduced motion or `navigator.connection.saveData` shows the poster still instead. Animation files count toward the same 16 MB per-invitation weight the clips do, and the checklist shows the running total.
+
+**Print.** `@media print` hides `.inv-ground` (globals.css:1180-1184) and `/[slug]/print` renders the same component with `print` (src/app/[slug]/print/page.tsx:16). A drawn page whose ground is hidden would print its elements over nothing, so `DrawnPage` renders its ground as an `<img class="inv-print-ground">` at the back of the page, `display: none` on screen and shown in print, keeping the page's aspect ratio; flow pages print as today.
+
+Derived values come from the document rather than the layout string: page order (replacing LAYOUT_ORDER, sections.ts:902-909), the number of photo frames a design offers (replacing LAYOUT_PHOTO_FRAMES / `photoFrames`, sections.ts:921-924, at the three call sites named in part 2), and scroll anchors (anchors.ts:41-45).
+
+Guest cost: zero new JavaScript on a normal load. `DrawnPage` is server-rendered; the studio's `DesignBridge` island mounts only when `?design=draft` is present, which the `[slug]` loader honours only for a previewer (owner or staff, src/app/[slug]/shared.tsx:26, and `bare` is already gated the same way at :117; the query parameter itself is new code in src/app/[slug]/page.tsx:6-17). The bridge checks `event.origin === location.origin`.
+
+### What follows her hand and what reloads
+
+PageGround snapshots `pages = inv.querySelectorAll('.inv-page')` once per effect (client.tsx:859) and re-runs only on resize, a `data-mode` change, load, fonts ready, or a change of its props (:1012). It never re-reads a ground URL swapped in place or a page added or removed. So the bridge patches only what PageGround does not own: an element's geometry, rotation, layer and text are applied live through `data-el`, and the ResizeObserver keeps the papers right because a drawn page's height does not change with its elements. Everything else (a ground, a night picture, a page added, removed or reordered, a section moved, the look or palette) reloads the iframe, about a second. Part 1 says exactly that.
+
+### Phone and laptop
+
+The guest page is already a fixed-width object: `.inv[data-paged] { max-width: 32rem; margin: 0 auto }` (globals.css:599), so a 1440 px laptop shows a 512 px column centred on the layout's body colour (globals.css:600-601, `body:has(.inv[data-layout='capiz'])` and `body:has(.inv[data-layout='babyblue'])`; the column's own ground is :1195 for Baby Blue and :612 for Capiz; phase 1 replaces both with the document's `surround` and `paper`, Part 3 item 5), and a phone shows the same column at 360, 390 or 430 px. Everything in the document is relative to that column: x and w in percent of width, y in percent of the page's height, page height fixed by `aspect-ratio` from the ground, rotation in degrees, and type in `cqw` through `container-type: inline-size`. Going from 390 to 512 scales every frame and every letter by the same 1.31, which is exactly why today's Baby Blue frames land on their painted polaroids on any phone (babyblue.ts:10-11).
+
+**The canvas needs its own frame.** The builder's `.phone` bezel is fixed at `width: 300px` (globals.css:239-250) and holds an iframe (src/components/builder/builder.tsx:221, 225); it cannot show 390 or 512. The studio draws its own bezel whose inner width is the chosen 360 / 390 / 430 / 512 and puts the same bezel around the live iframe.
+
+Two things are not scale-proof, and the studio shows them instead of hiding them. First, flow pages reflow: their padding is `min(11vw, 3.5rem)` (globals.css:634), the covers use `--capiz-bg: min(264.5vw, …)` (:611) and Baby Blue's hero `min-height: 100dvh` (:1208) with `--bb-cover` (:1195), and their height depends on the customer's words. That is why the live preview is an **iframe of the real page** (the `?bare=1` mode the encoder already uses, shared.tsx:109-117): inside it `vw` and `dvh` resolve against a real phone-sized viewport, and PageGround's joins and seams are visible. Second, text in a fixed box wraps differently in Tagalog, in another look, or at 360 px: the customer may pick any look their tier allows (`looksFor`, src/app/account/invitations/[id]/settings/page.tsx:45; LOOK_MIN_TIER at src/lib/looks.ts:403-409) and a tier downgrade swaps to BASE_LOOK (looks.ts:416; invitations.ts:342), each look changing faces and every word. The checklist therefore measures overflow and legibility (anything under about 2.6 cqw, roughly 10 px on a 390 phone) across the five looks, both languages and every width in the toggle, and reports the worst case with the look named, which is the sentence Part 1 quotes.
+
+The middle canvas is not a bitmap. It is the same DOM: a `.inv[data-paged][data-layout='babyblue']` wrapper carrying `cssVars(palette, fonts)` (theme.ts:106) and the Google Fonts link (theme.ts:123), because the `.inv-bb-*` rules are scoped under `.inv[data-paged]` (globals.css:1216-1227). Without that wrapper the canvas would lie; with it, canvas and iframe use the same classes, the same `slotStyle()` and the same fonts.
+
+---
+
+## 4. What happens to Capiz and Baby Blue
+
+**Capiz and Baby Blue stay exactly as they are built.** The owner's decision of 10 September: the two designs keep their hand-written pages (BABYBLUE_PAGES and CAPIZ_PAGES, `StoryMilestones`, `BabyPhotos`, the numbered Capiz strips) and are not switched to the document. Their rows keep `design = {}`, and `pages()` takes the document path only when a design carries one, so nothing about them can move. `builtinDesign('babyblue' | 'capiz')` still exists, for one purpose: **Duplicate** compiles it into the copy's `designDraft`, so a new design starts as Baby Blue or Capiz page for page and is then edited in the studio while the original goes on untouched. `tests/design.test.ts` asserts that the compiled copy renders, element by element, the same `slotStyle` / `labelStyle` / `captionStyle` strings and the same markup as the original, which is what makes a copy a faithful start rather than a near miss, and that the originals' server-rendered markup is byte-identical before and after (they are not on the new path, and the test proves it). If she later wants an original in the studio, the switch is one column write for that design with the same parity test as proof.
+
+**Baby Blue and Capiz in the admin** keep today's identity card: words, palette, fonts, look, pictures and section ticks. The studio button on the two originals opens their compiled document read-only, as a reference to copy from, never to publish over them. Any ground the owner replaced through the old form (`art.grounds[key]`, admin/templates/[id]/page.tsx:104-106) keeps working exactly as today and is carried into a copy as that copy's ground.
+
+**Capiz** keeps its numbered strips, night backgrounds and strand through `art` (renderer.tsx:1581-1585) and PageGround's by-number branch (client.tsx:888-906), untouched, and the art_bg / art_night / art_strand fields stay for it. A copy of Capiz starts as 13 flow pages whose grounds are the strips cut per page (a document design's per-page ground beats the numbered strip), so the copy can be re-grounded page by page in the studio in phase 5.
+
+**What the studio inherits from the system.** Every new design is built from the same parts the two originals use: the sections and their forms (the dress code's drawn wardrobe, the RSVP, the program), the five looks and the thirty font pairings, the colour book, the premium openings catalogue, and the occasions a design is offered for. That last one was built on 10 September: `Template.occasions`, the admin's **Also offered for** ticks, and the site's **By occasion** pages, which list the categories that have a design for each occasion. A page the studio makes carries sections the way Baby Blue's pages do, so a client's answers fill it the same way.
+
+**Words, palette, look and fonts** stay in their columns and their form; scripts/sync-templates.ts still overwrites them for the two catalogued slugs (update at :42 with everything `templateData()` emits), which is today's behaviour: edits to Baby Blue's or Capiz's words in the admin do not survive `npm run db:templates` unless prisma/templates.ts is changed too. The same is true of every other column `templateData()` emits (prisma/templates.ts:104-132): `thumbnailUrl` (:127), `demoSlug` (:128), `sections: []` (:124), `openingVideoUrl` / `openingPosterUrl` (:118-119), `opening`, `collection`, `description`, `featured` and `sortOrder`. So for Baby Blue and Capiz a thumbnail she uploads, a `demoSlug` she sets, an opening clip pair she uploads under phase 3 and her section ticks are all reverted on the next sync unless prisma/templates.ts is changed too. Part 1 tells the owner to send such edits to the developer. Pages, drafts and art are outside the sync's reach, guarded by a test.
+
+**New designs** never enter prisma/templates.ts, so the sync lists them and leaves them alone (sync-templates.ts:52-53). Duplicating copies the document, palette, fonts, look and words, and copies referenced uploads under `design/<newId>/` (with their Media rows) so deleting one template cannot break another. A new or duplicated design is created with `published = false` (the existing form defaults it to true, page.tsx:64, actions.ts:162), because `/templates`, the landing page and the checkout list every published template (src/app/templates/page.tsx:19, src/app/page.tsx:44, src/app/checkout/page.tsx:26) and would show it with blank pages. The studio's Publish and `Template.published` stay two switches: Publish makes the pages live for invitations on the design; "Show in the shop" is the identity card's checkbox and is refused while the checklist says "No thumbnail yet".
+
+**Thumbnail.** The storefront, checkout picker, settings TemplatePicker and admin list all show `Template.thumbnailUrl` (landing/gallery.tsx:112, checkout/page.tsx:44, account settings/page.tsx:55, admin/templates/page.tsx:26), which is a pasted URL today (admin/templates/[id]/page.tsx:58). It becomes an upload field through the same route; she exports the cover from the studio's canvas with a "Save cover as picture" button (a canvas snapshot of the drawn DOM at 540 by 960) and uploads it. Automatic capture without her pressing anything is scoped out: the stack has no headless browser.
+
+**Demo invitation.** The live iframe, "Open as guest", the peek and the gallery's sample words all need an Invitation row on this template: the peek requires `Template.demoSlug` to name an invitation whose `templateId` is this template (src/lib/peek.ts:29-37; shared.tsx:99), so a duplicated Baby Blue cannot share Baby Blue's demo, and `changeTemplate` refuses PUBLISHED invitations (invitations.ts:406-408), so switching is not the path either. **Create demo** in the studio clones the base design's demo invitation (content, language, tier, the placeholder photos) as a new DRAFT invitation on this template, owned by the same staff-side user as the base demo, and sets `demoSlug`; the peek renders it whatever its status (shared.tsx:97-101) and `demosOf` excludes only ARCHIVED (peek.ts:32). `demoSlug` itself becomes editable on the identity card.
+
+**Changing the occasion.** Story fields differ per occasion (sections.ts:605-621: a christening timeline is title / text / photo, a wedding adds date and more), and the identity card lets staff change a template's occasion (page.tsx:52). On save, `designOf` re-checks every bind against the new occasion and reports the drops; the checklist then reads "Frame 3 was linked to a field this occasion does not have" and the element shows unlinked rather than vanishing. Elements bound to `staff: true` fields (line, note, close; hidden from DIY forms by `customerFields`, sections.ts:991-993) get the "depends on words only staff can fill" line. A design offered for several occasions has its binds checked against every one of them: a frame linked to a field one of those occasions lacks is reported ("Frame 3 is linked to a field Anniversary does not have") and stays empty on that occasion rather than being dropped.
+
+---
+
+## 5. Phases
+
+Effort is working days for one engineer who knows this codebase, with a day of slack per phase already inside the number. The judges were right that the original 15-day estimate was about half of reality; the earlier draft said 27, and the coverage added in this version (peek flag, video spill page, source chains, the restructured page loop, night per paper, the JSON save with a revision, blast radius, demo cloning, thumbnails, the layout lock, the checklist across looks, ground sizing, the own-clip catalogue entry, permissions and the second test script) adds five more; animation adds five, colour backgrounds one, and the owner's additions of 10 September (shapes, backing, grouping, the library, many pages at once, the draft link, the real-invitation preview, cover control, the safe area, copy a page, per-section media, section styling, the fonts manager and the colour book) twenty more, per-text faces and sizes one, and the owner's additions of 10 September evening (the asks and the form built from them, the sheet, the shape hints, the room caps, the empty-frame pieces, a page that grows, a page uploaded whole, the design's line offered as an example, and adding a whole part to a published invitation) twelve, and importing a page from Canva two. Leaving Capiz and Baby Blue as built removes their conversion but not the copy's parity work, so phase 0 keeps its five days. This is the honest version.
+
+### Phase 0: the document, the generic renderer, and a faithful copy (5 days)
+
+- Migration for `Template.design`, `designDraft`, `designDraftRev`; `Media.templateId`, the DESIGN kinds and the width / height / bytes / durationMs columns.
+- `DesignDoc` types with text blocks, source chains, `peekEnd`, `gallery-video` and `overflowGround`; `designOf()` with zod `safeParse` reporting drops; `builtinDesign('babyblue' | 'capiz')` compiled from the existing constants, including the `baby-photos-more` page and the venue overflow ground.
+- `pages()` takes the document path only for a design whose column carries one (the restructured loop, one `DrawnPage` per drawn page; grounds map per page into PageGround with `imageUrl`; the generic `[data-drawn]` and `.inv-bb-art` rules with `--page-ratio`; `stdArt` from the first page's ground; `sectionAnchor(key, design)`; `frameCount()` at the three list-limit call sites; the peek cut on `peekEnd`). Baby Blue and Capiz keep BABYBLUE_PAGES / CAPIZ_PAGES and their components exactly as today.
+- **Duplicate Baby Blue** and **Duplicate Capiz** on the Templates list: a new unpublished template with the built-in compiled into `designDraft`, its palette, fonts, look and words copied, its uploads copied under `design/<newId>/`.
+- `DrawnPage` in its own client-safe file, rendering element lists; the print ground image.
+- Tests: the compiled copy's style strings and markup equal the original's (with and without a gallery video); the originals' server-rendered markup byte-identical before and after; `templateData()` never emits the new columns; the peek cut with a renamed story page and with no `peekEnd`; a second script `test:client` that runs `tsx --test tests/client/*.test.ts` **without** `--conditions=react-server`, because under that condition `server-only` resolves to an empty module (its package `exports` map `react-server` to `empty.js`) and the existing `npm test` (package.json:20) would pass the client-safety test vacuously.
+
+**She can do:** duplicate Baby Blue or Capiz into a new design that renders exactly like the original, ready for the studio. Capiz and Baby Blue themselves are untouched and guests load no new JavaScript.
+
+### Phase 1: the studio on a copy of Baby Blue (16 days)
+
+- `/admin/templates/[id]/design` (404 for non-paged layouts) with the page strip, the studio's own bezel at 360 / 390 / 430 / 512 around the `.inv[data-paged][data-layout=…]` wrapper, select / drag / resize / rotate / nudge / duplicate / delete, layers with bring-forward and send-back, snapping, undo and redo, a day / night switch.
+- Properties panel: numbers, link picker (customer field via `fieldsFor`, design word via LINE_LABELS and TITLE_LABELS at design.ts:35-72, app copy, fixed en/tl), text role and alignment, source order.
+- Ground upload with ratio and edge colours read in the browser, WebP re-encode at 1536 px, Media row per upload, asset drawer with delete; thumbnail as an upload field plus "Save cover as picture".
+- Colour backgrounds: the `ColourGround` variant in the zod schema; **Use a colour** in the properties panel with the six roles and a custom hex, and a height in screens for a colour drawn page (default one); PageGround painting a colour paper with no image request; `paper` and `surround` on the document, the `.inv-stage` wrapper painting them, the four literal colours moved into `builtinDesign`; the checklist and the night-contrast check reading the colour where they read a picture's edges; a test that Baby Blue and Capiz render the same style strings before and after.
+- Live iframe (`?bare=1&design=draft`, previewer-gated) with the `DesignBridge` postMessage island for element geometry and text; reload for grounds, pages, sections, look and palette; hash scroll to the page (as workspace.tsx:86-98).
+- `saveDesignDraftAction` as a JSON action with `baseRev`, `publishDesignAction` with the blast-radius report, `discardDesignDraftAction`, **Restore previous** from the audit row's `before`, the `templates.publish` permission and its rbac tests, `demoSlug` editable, **Create demo** cloning the base's demo, the layout select locked and the Pictures block round-tripping `art` through hidden inputs, new and duplicated designs created unpublished, night per paper in PageGround and the two CSS rules.
+- Empty bound elements shown as dashed labelled placeholders while editing, each labelled with the question the customer will be asked.
+- Tests: `?design=draft` refused for non-previewers, the postMessage origin check, zod fixtures for dropped elements, the revision conflict, the blast-radius diff.
+- Multi-select with Shift-click, `attachTo` in the document and the properties panel, group move, resize and rotate, the tie drawn on the canvas.
+- Per-text face from the design's font set, size in `cqw`, weight and letter-spacing in the properties panel, the legibility floor (about 2.6 cqw) still applied by the checklist; every face in the panel drawn in itself.
+- **Ask the customer** on an element, with the field picker behind it, `room` measured from the box and the face, `ifEmpty` per asked frame, and `asksOf()` with its tests; the asks list in the left column.
+- Flow pages restretching live as she types, and `grow` on a drawn page: the three-band ground, `min-height` from the ratio, bottom-anchored elements holding the foot.
+- The cover's browser-bar band on the canvas at each width (a fixed band at the bottom of a one-screen cover, drawn, not measured).
+
+**She can do:** open her copy of Baby Blue, drag the six story frames and four photo frames, re-tilt and resize them, move and reword the headings and milestone labels in English and Tagalog, replace any page's background with her own picture or a plain colour, watch the real page follow, see who a publish touches, publish when happy, and restore the previous version if she regrets it, select several frames and move them together, tie a caption to its frame, set any text in any face of the design's set at her own size, mark which frames and lines the customer will be asked for, and watch a page stretch as the words grow. Guests see only what is published. This is first real use, at about day 21.
+
+### Phase 2: the form built from the design, importing a page, checklist, crop, shapes, library, new designs (27 days)
+
+- `pageNeeds()` checklist producing the sentences in Part 1: ground present and ratio known; ground weight; every frame linked to a field the occasion offers and within the field's `max` (story milestones allow 6 on a christening, sections.ts:615); fixed words in both languages; elements off the page; frames overlapping more than 15% (shown as "Frames 1 and 2 overlap"); a heading present; a drawn page without a ground or a colour; staff-only dependencies; text overflow and legibility measured across the five looks, both languages and every width, worst case named; a FIT-based "this title is N letters, the box fits about M in <look>"; night contrast of ground against the night ink, with the fixed slot colour (`.inv-bb-slot` background at globals.css:1221) and the single night palette (:2094) in the calculation; "the demo has no photo for frame 4" as information; "no thumbnail yet" gating "Show in the shop". Counts on the page strip and on the Templates list cards.
+- Crop mode (pan and zoom, source-fraction rectangle, the new `[data-crop]` rule), masks (circle, arch) and drawn frames (thin, polaroid strip) for grounds without painted frames.
+- Add, remove and duplicate elements and pages; reorder pages; turn a flow page into a drawn page; per-page night ground; `peekEnd` per page; the occasion-change re-check.
+- Client-side cutting of top, mid and foot slices when a ground is uploaded for a flow page.
+- Sample switcher (demo / empty / placeholders). Theme popover.
+- **Duplicate Baby Blue / Capiz** and **New design** (base chosen first) with a starter document (cover plus one flow page per offered section on palette-coloured blank grounds).
+- Old components and babyblue.ts removed.
+- `ShapeEl` with fill, outline, radius and opacity; `backing` on text and `opacity` on every element; the `ColourPicker` over the colour book and the six roles.
+- Drop several pictures on the page strip to make pages in order; the Guide tab (sizes, weights, what each page kind wants, a list of Canva custom sizes to copy); **Copy a page from another design**.
+- The Library: Media rows without a template, `name` and `tags`, the Library tab with search, **Save to library**, built-in pieces listed read-only.
+- Per-section `photo`, `videoUrl` and `file` fields, staff-only until a published design binds them; `designBinds()` in the builder and the encoder; **Add photo** offering a customer's field of any section.
+- The draft link: `shareNonce`, `signDraftLink`, the token accepted by the previewer gate for one template, **Share draft** and **Stop sharing** in the top bar.
+- The sample switcher gains **the longest words** and **an invitation** (a staff pick from the template's invitations, content read-only).
+- Cover properties on the cover PageSpec, the hero rules that read them, the default photo style per design.
+- **The form built from the design:** the builder and the DFY intake filtering `sectionsFor` / `customerFields` / list maxima through `asksOf(design, occasion, tier)`; the upload hints written from each frame's shape and size; `room` overriding FIT per design; the union of the asks where a design is offered for several occasions; a test that a design asking for nothing leaves today's form exactly as it is.
+- **The sheet** "What this design asks for": in the studio, on the design's page, in the customer's order confirmation and at the top of the encoder's workspace, from the one function.
+- `offerLine` on a text block, rendered in the builder as an example under the customer's box through `Field.examples`.
+- **A page made from an uploaded sheet** (`PageSpec.sheet`): drop a finished page picture in, place frames on it, ratio read from the file.
+- **Importing a page from Canva, three readers:** the two-picture difference on a canvas (threshold, quarter-size flood fill, percent snapping, area floor, overlap merge) and the `pdfjs-dist` reader (image matrices for frames, text content for boxes, flattened-page and outlined-text detection), both feeding one confirm screen with numbered tags and a field picker per frame; `importedFrom` stored. Tests: a fixture pair of pictures whose known rectangles must come back within a percent, a fixture PDF whose image rectangles must match, a flattened PDF that must be refused with the fallback named.
+- **Adding a whole part to a published invitation**: ticking a section onto a page (or onto a page of its own on the overflow ground) for that one invitation, with the customer's answers collected then; nothing on any other page moves, and the report says plainly that it is a change to one invitation and not to the design.
+
+**She can do:** build an entirely new christening or wedding design, either from a copy of Baby Blue or from a starter, with her own backgrounds, any number of frames per page, cropped and framed photos, and see a green checklist before publishing. She can also draw shapes and cards behind words, keep a library of pieces, share a draft link, see the draft with a real customer's words, place the cover's names where she wants them, and bring a page she designed in Canva in as a page whose frames the studio finds for her. From here the customer's form is her design's own: it asks for what she drew, in the shapes she drew, with the room she left, and adds nothing she did not ask for.
+
+### Phase 3: video on a page and clip uploads (8 days)
+
+- MP4 (ftyp) and WebM (EBML) sniffing in storage.ts:21-38 and EXTENSIONS at :40-48; an accept of 'video' with an 8 MB per-clip ceiling. There is no server transcoding (no ffmpeg or sharp in package.json), so the checklist reads the container in the browser and refuses anything but H.264 Baseline or Main with AAC (or no audio track), portrait, at most 8 MB; WebM is accepted as an optional second file for browsers that prefer it. A per-invitation weight budget of 16 MB of design clips is enforced by the checklist across all pages.
+- `/api/admin/upload/sign` and `/commit`, the audio direct-upload pattern (src/app/api/account/upload/sign/route.ts:16-31, commit/route.ts:13-30) widened to video and to `entityType 'design'`, with `putWithProgress` (src/components/builder/fields.tsx:696-709) in the studio; grounds above 4.5 MB use the same path; the server route remains the fallback without Supabase. Verify once with a range request that the public bucket serves partial content, which `preload="none"` then in-view play relies on.
+- Poster captured in the browser from the first frame and uploaded as an image, so the clip-plus-poster rule (actions.ts:153-156) holds; duration and dimensions written to the Media row.
+- `VideoEl` in the document and `LazyVideo` in the renderer (in-view, no autoplay attribute, poster under saveData, poster through `imageUrl`); clip size and the budget surfaced in the checklist.
+- **The design's opening clip.** The premium opening resolves from the code catalogue first: `premiumOpeningsFor` (src/lib/premium-openings.ts:92-96) filters PREMIUM_OPENINGS by slug or collection, the add-on is offered only when that list is non-empty (src/app/checkout/page.tsx:44, account settings/page.tsx:29, admin/invitations/[id]/page.tsx:28, src/lib/gallery.ts:69, peek.ts:53), `premiumOpeningOf` (:108-111) picks the clip, and a clip plays only when `hasPremiumOpening(inv)` is true (renderer.tsx:1628-1641; src/lib/openings.ts:250-252). `openingAssets` (openings.ts:255-262) falls back to `Template.openingVideoUrl / openingPosterUrl` only when the catalogue returns null. So uploading a clip into those columns on a new design would neither play nor sell. The change: `premiumOpeningsFor` appends a synthetic entry `{ key: 'own', video, poster, designs: [slug], words: false }` when the template has both columns set and no catalogue entry matches, so the add-on is offered, the picker lists it, and the clip plays through the existing stage (client.tsx:52-76). The stage's clip styling (`.inv-open-clip`, globals.css:1425-1444) is not per clip; the only per-clip rules are the gallery plate's word placement at globals.css:294-315 (`.gal-phone[data-clip='baby-blue-bow'] …`), which the synthetic entry avoids by setting `words: false` (`PremiumOpening.words`, premium-openings.ts:44), so it shows no words on the card. Uploading the pair through the same uploader replaces the two pasted-URL fields (admin/templates/[id]/page.tsx:59-60).
+- A clip as a page's background: **Add video, as the background** makes a `VideoEl` at `z: 0` spanning the page, its poster's edge colours as the ground's; the poster prints and shows under Low Power Mode.
+- Frames and text asked for over a moving background: the same elements at a higher `z`, the checklist reading legibility against the poster's brightest frame rather than a still.
+
+**She can do:** drop a short muted clip into a frame on a page (a sky, falling petals, the couple's reel) and give a new design its own opening clip and poster that customers can buy and guests will see, without a developer. A clip can also be a whole page's background, with the customer's photographs and words placed over it where it leaves room.
+
+### Phase 4: animation, three kinds (5 days)
+
+- **Moving pictures (1 day).** Animation detection in the browser (VP8X bit, `acTL`, GIF header); pass-through upload with the 1.5 MB cap; `GIF87a` / `GIF89a` in `sniff()` and `'image/gif'` in EXTENSIONS (storage.ts:21-40); `animated` on the element and on the Media row; such elements skip `imageUrl()` in DrawnPage; checklist lines for size.
+- **Element motion (1 day).** `motion` on `Base`; `data-enter` / `data-idle` attributes from DrawnPage; keyframes for fade, rise, drift, float and sway in globals.css, off under reduced motion; the in-view observer shared with `LazyVideo`; a Motion picker in the properties panel that replays the chosen preset on the canvas; the "five things move at once" checklist line.
+- **Vector animations (3 days).** `AnimEl` in the document and the zod schema; Lottie JSON accepted by parsing it and checking for `v`, `fr`, `layers` and `op` (a `.lottie` bundle is a zip, which `sniff()` already reads as an Excel file at storage.ts:34-36, so it is refused with a message saying to export JSON); 300 KB cap; poster captured in the browser by rendering frame 0 to a canvas; `lottie-web` light build as a dependency, dynamically imported by a `LazyLottie` island only on pages that carry one; plays in view, stops off screen, poster under reduced motion and saveData; **Add animation** with a drop target in the studio, the canvas playing it in place; the per-invitation weight total in the checklist counts animations with clips.
+
+**She can do:** lay falling petals over the sky on the cover, make the child's name rise in as the page arrives and a photo float gently while it is read, drop a bow that ties itself beside the heading, and layer any of these over or under photos and video the same way she layers a photo.
+
+### Phase 5: flow pages, section styling, words beside pictures, Capiz copies (7 days)
+
+- Section membership and order per flow page from the studio; seam and foot padding per page; `Template.sections` derived from the document and the checkboxes retired.
+- Float photos on flow pages: rendered as `float: left | right` with `shape-outside` (a rotated polygon for tilted frames) before the section's text, so the section's real words wrap beside them; decorations anchored to the top or bottom of a flow page.
+- A copy of Capiz re-grounded page by page: per-page grounds beat the numbered strips on a document design, with the strand and night set as document fields on the copy; the original Capiz keeps its strips and its art fields.
+- Night palette roles per design.
+- `sectionStyle` per flow page: heading alignment, card or plain, a divider piece from the Library above each section heading; the built sections read it through three CSS variables and one data attribute, so the RSVP form and the program list dress differently per design without new components.
+
+**She can do:** decide which sections share a page, let the invitation text wrap beside a tilted photo on the left or right, give a page its own night picture, and rebuild a copy of Capiz page by page. Each flow page can dress its sections: centred or left, in a card or plain, with a divider from the library.
+
+### Phase 6: fonts and the colour book (5 days)
+
+- `FontFace` and `FontSet` tables seeded from the five looks and the thirty free pairings already in `FONT_PRESETS`; `looksFor`, `LOOK_MIN_TIER` and `resolveTheme` reading them; the `voice` fallback for wording.
+- Google faces by family name, checked once on save; file faces (woff2, woff, ttf, otf) through `sniff()`, served from the bucket, `@font-face` emitted by the renderer, a licence note required.
+- The Fonts admin page: faces and sets, every name drawn in its own face, a sample line per set in both languages, the package rule per set, on and off; per design the default and the offered sets. The customer's look picker and the DFY encoder read the same list.
+- The colour book into `PALETTE` (keys and hexes of existing swatches unchanged), `familyPalette()`, the Theme popover's **from a family** button and the template form's palette field; the client's motif picker shows the fuller families.
+- Tests: a set below a customer's package falls back to the design's default set, a file face emits its `@font-face` once, the book keeps every old key and hex, a Google family name that does not exist is refused.
+
+**She can do:** add a face from Google Fonts by typing its name, upload a licensed font file, pair faces into a set, say which packages may use it, see every font drawn in itself in the admin and in the studio, and pick a design's colours from a family of the book in one tap. The customers' font choices per package are hers to change without a developer.
+
+**Total: 73 working days.** First hands-on use at the end of phase 1 (about day 21); a complete new design whose form asks for exactly what it draws, without a developer, at the end of phase 2 (about day 48); video from day 56, animation from day 61, and the owner's own fonts and colours from day 73.
+
+---
+
+## 6. What Canva does that this will not
+
+Said plainly, so nobody is surprised.
+
+- **Words will not flow around a picture in the middle of a text box.** On a drawn page, text is a box with a width placed beside the photo, the way Baby Blue's milestone labels sit beside their frames. On a flow page (phase 5) a photo can sit at the left or right edge and the section's words wrap beside it on that one side. Nothing wraps on both sides of a tilted frame in the middle of a paragraph.
+- **Faces come from the design's font set.** Any text may take any of the set's faces (heading, names, script, body) at its own size, weight and spacing, but not a face outside the set, and its colour is a colour role (ink, muted, accent). That is what keeps the customer's font-set choice, packages and night mode working: a role and a face travel across sets, a hard-coded family would not. Shapes, backings and page colours may take any colour of the book.
+- **A Canva font is not automatically a website font.** Faces Canva licenses for use inside Canva (TAN Mon Cheri, Black Mango, Burgues Script and the like) need a web licence bought from their foundry before their file is uploaded here. The owner chose not to buy: every such face is replaced by its nearest free Google face, and the thirty pairings ship that way. Google faces are free. The licence note on an uploaded face is her own declaration; the system cannot check it.
+- **The colour book is one list for everyone.** A colour she adds appears in every client's motif picker and every design's picker; names are unique across the book.
+- **Cropping is a rectangle, not a magic cut-out.** Pan, zoom, and choose a circle or arch mask. No background removal, no filters, no effects.
+- **Video plays only while it is on screen, muted, and only when the phone allows it.** On iOS Low Power Mode and under data-saver the guest sees the poster picture. Clips are capped at 8 MB each and 16 MB per invitation, and must be exported by her as portrait H.264 MP4 (Baseline or Main, AAC or silent); nothing is converted on the server.
+- **A drawn page grows from its middle, not everywhere.** Switch on Grow and the top and the foot stay exactly as drawn while the middle band stretches. A page whose artwork has a picture in the middle of it will stretch that picture, so the middle band wants to be sky, paper or a wash rather than a face.
+- **What a design asks for changes the design, not one invitation.** Adding a whole part to somebody's published invitation is a change to that invitation and touches nothing else. Wanting a seventh story frame where the design draws six is a change to the design: it goes through the studio, it shows in the blast-radius report, and every invitation on that design gets it.
+- **The insides of ordinary sections are not editable on the canvas.** The RSVP form, the dress code figures, the program list and the venue block keep their built layouts. She can place things over or beside them and decide which page they sit on, but she cannot move the RSVP button.
+- **A Canva link is not a way in.** Canva hands another system nothing about a design: no elements, no positions, no idea which rectangle is a photo frame. Its interface answers only for designs the logged-in owner has in their own account, and even then it returns the title, the owner, the page count and a thumbnail. Element-level reading exists only inside Canva's own editor, in the browser, on the design somebody has open. So the way in is a file she exports, and it always was.
+- **The import proposes, she names.** A rectangle that wants a photograph is all the studio can see. Which photograph it is, and whose caption sits beside it, is hers to say, one tap per frame.
+- **A flattened PDF has nothing to read.** Canva's flatten option, and any export that turns words into outlines, produce a single picture: the frames cannot be found and the words cannot be reworded. The studio says which of the two happened and offers the two-picture way instead of guessing.
+- **We do not fill a Canva template from here.** Canva can be driven the other way, by naming data fields inside a brand template and filling them through their interface, but that needs their Enterprise plan and it gives back a Canva design. Every invitation would then be a picture Canva rendered, which throws away the scrolling page, the RSVP form, day and night, and words that reflow per language and per font set, and puts somebody else's rate limit in front of every guest. The wrong shape for this product, and it was considered.
+- **No pinch-and-drag editing on a phone.** The studio is a desktop tool; the phone is what guests use.
+- **The draft link is view-only, and there are no comments or version history beyond "Restore previous".** Whoever holds the link can look, not edit, and it dies after a week or when she presses Stop sharing. Draft and Published are the two states; Restore is one step back; a second person saving the same draft is told to reload, not merged.
+- **Flow pages change height with the customer's words.** A decoration on such a page is anchored to the top or bottom, not to an exact spot; the studio shows the page at the demo's height and the checklist warns where the two can collide.
+- **A copied design keeps its base's cover behaviour.** Copy Baby Blue and the new design keeps Baby Blue's one-screen sky cover; copy Capiz and it keeps Capiz's whole-picture cover. The page colour and the colour beside the column on a laptop are the design's own, from its palette. Choosing the base is a one-time choice, made first.
+- **No automatic thumbnail.** She saves the cover as a picture from the studio and uploads it; the stack has no headless browser to capture it for her.
+- **Printing a drawn page shows the page with its background as a plain picture** and no dissolves; flow pages print as today.
+- **No automated tests of dragging, resizing or cropping.** The repository's tests are node:test only, with no browser harness; canvas behaviour is checked by hand against a written script before each release, and the document logic (parsing, parity, checklist, permissions) is what the tests cover.
+- **Motion is a fixed set of presets, not a timeline.** Fade, rise or drift on arrival; float or sway while on screen; a delay of up to two seconds. No keyframes, no motion paths, no timing curves of her own.
+- **A moving picture plays as the browser plays it.** No pause, no scrubbing, no sound, and a guest who has asked their phone for less motion still sees it move, because a browser cannot freeze an animated picture. The other two kinds do stop for that guest.
+- **A vector animation must be exported as Lottie JSON** (from After Effects with Bodymovin, or from LottieFiles), under 300 KB, and plays muted with nothing to tap. The `.lottie` bundle format is not accepted.
+- **Uploads made through the old form before a design was first saved** (under the `new` path) are left as they are.
+
+---
+
+## 7. The first concrete step
+
+Phase 0, first commit, touching no renderer code yet:
+
+1. `npx prisma migrate dev --name template_design_and_media_template` adding `design Json @default("{}")`, `designDraft Json @default("{}")` and `designDraftRev Int @default(0)` to `Template` (prisma/schema.prisma:185-232, after `art` at :220), `templateId String?`, `width Int?`, `height Int?`, `bytes Int?`, `durationMs Int?` to `Media` (:569-593) and `DESIGN_IMAGE`, `DESIGN_VIDEO` to `MediaKind` (:556-567).
+2. In src/lib/design.ts, next to `artOf` (:94-115), add the `DesignDoc` types from part 2, `designOf(raw, layout)` as a zod schema with `safeParse` that returns `{ doc, dropped }`, and `builtinDesign('babyblue')` compiled from BABYBLUE_PAGES (renderer.tsx:1490-1501, moved into design.ts), BABYBLUE_GROUNDS (design.ts:164-175) and the babyblue.ts constants (:27-72), converting each Slot into a photo element, each head and label into a text block with the source chains, each strip caption into a caption block, and adding the `baby-photos-more` page, `peekEnd` on the story page and the venue overflow ground, exactly as the example above.
+3. Write `tests/design.test.ts` first: for every Baby Blue element, the style produced from the document must equal the string `slotStyle` / `labelStyle` / `captionStyle` produce from the constants, and the head and label markup must match `StoryMilestones` and `BabyPhotos` line for line; `templateData()` (prisma/templates.ts:104-132) must emit no `design`, `designDraft` or `art` key; the peek cut must land after the `peekEnd` page. Add `test:client` to package.json beside `test` (:20) and put the "drawn.tsx imports without react-server" test under tests/client/.
+4. Run `npm test` and `npm run test:client`. Green means the document describes Baby Blue perfectly, the sync cannot touch it, and the drawn renderer is client-safe. Only then move on to `pages()` at renderer.tsx:1763-1801 and the generic `DrawnPage`. The originals are never switched over: `pages()` takes the document path only for a design whose column carries one, and the parity test is what makes a copy trustworthy.
+
+That commit is about a day and a half, and after it the whole plan rests on something proven rather than promised.

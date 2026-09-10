@@ -541,6 +541,17 @@ In production, run the **Sync the invitation designs** workflow. It deletes
 nothing, which is why it needs no confirmation phrase — unlike the seed, which
 truncates the schema.
 
+### The Design Studio
+
+Today a new design is a code change: its pages, its grounds and the places its
+photo frames and labels sit are constants in `src/lib/design.ts`,
+`src/lib/babyblue.ts` and the renderer. The plan for moving those numbers onto
+the design row, so the owner can draw a design on a phone-sized page in the
+admin and publish it without a release, is
+[`docs/design-studio-plan.md`](docs/design-studio-plan.md) — seven phases, what
+each one lets her do, and what it will not do that Canva does. It is the
+working document: a phase begins by reading its section.
+
 ## Money and payments
 
 All money is an integer number of **centavos**. `₱1,999.00 === 199900`.

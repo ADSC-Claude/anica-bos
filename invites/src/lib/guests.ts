@@ -236,10 +236,12 @@ export async function checkIn(user: SessionUser, invitation: { id: string; tier:
  * questions rather than the couple's: how many are coming, how many of each
  * meal, which group each name belongs to, and who has still not replied.
  *
- * There are no tables or reserved seats here on purpose. Both come from the
- * guest list manager, which is not part of any package yet (see
- * FUTURE_FEATURES in src/lib/tiers.ts) — printing empty columns for them would
- * promise a coordinator something the couple cannot fill in.
+ * There are no tables or reserved seats here yet. Both come from the guest
+ * list manager, which Signature now sells, so the reason for leaving them out
+ * has changed: it is no longer that a couple cannot fill them in, it is that
+ * this sheet is built from Rsvp rows and a table assignment lives on Guest,
+ * which the two are only joined through a token. A coordinator holding a
+ * seating chart wants that column; adding it means joining the two here first.
  */
 export async function rsvpSheet(invitationId: string) {
   const [rsvps, guests, summary, invitation] = await Promise.all([

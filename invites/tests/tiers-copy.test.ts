@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, TIERS } from '../src/lib/tiers';
+import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS } from '../src/lib/tiers';
 import { t, INTRO_PRESETS, GIFT_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, preset } from '../src/lib/copy';
 import { slugify, guestToken, orderReference } from '../src/lib/codes';
 import { parseCsv, toCsv } from '../src/lib/csv';
@@ -33,6 +33,24 @@ test('features unlock in order', () => {
   assert.ok(after, 'and says what happens after');
   assert.deepEqual([after!.cells.BASIC, after!.cells.STANDARD, after!.cells.COMPLETE], ['Message us', 'Message us', 'Message us']);
   assert.ok(after!.label.includes('design'), 'and that the design is in that, not exempt from it');
+
+  // The guest list manager, its Excel import, the seating chart and event-day
+  // check-in were built and then withheld, on the reasoning that they were too
+  // much to encode for Done-For-You. A guest list is not encoding work — it is
+  // the one part of an invitation only the couple can supply — so they are
+  // Signature's and they are sold. Their pages are reached through
+  // featureOffered, so a table that lists them while that returns false would
+  // sell a link nobody can click.
+  for (const feature of ['guests.manager', 'guests.import', 'seating', 'checkin'] as const) {
+    assert.equal(featureOffered(feature), true, `${feature} is offered`);
+    assert.equal(hasFeature('COMPLETE', feature), true, `${feature} is Signature's`);
+    assert.equal(hasFeature('STANDARD', feature), false, `${feature} is not Standard's`);
+  }
+  assert.equal(FUTURE_FEATURES.size, 0, 'nothing is held back');
+  assert.deepEqual(COMPARISON, COMPARISON_ALL, 'so the table a customer reads is the whole table');
+  for (const label of ['Seating chart', 'QR check-in', 'Guest list manager', 'Accommodation', 'Parents section', 'FAQ section']) {
+    assert.ok(COMPARISON.some((r) => r.label.includes(label)), `the table names ${label}`);
+  }
 });
 
 test('every phrase exists in both languages and substitutes variables', () => {

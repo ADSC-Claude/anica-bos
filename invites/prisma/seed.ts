@@ -210,7 +210,11 @@ async function main() {
       { ninong: 'Col. Ramon Villanueva (Ret.)', ninang: 'Mrs. Amparo Villanueva' }, { ninong: 'Mr. Ernesto Reyes', ninang: 'Ms. Corazon Reyes' }, { ninong: 'Hon. Alfredo Garcia', ninang: 'Mrs. Belen Garcia' },
     ],
     secondarySponsors: [{ role: 'candle', first: 'Mark Anthony Santos', second: 'Patricia Lim' }, { role: 'veil', first: 'Christian Dela Cruz', second: 'Andrea Gomez' }, { role: 'cord', first: 'Kevin Tan', second: 'Nicole Fernandez' }],
-    bestMan: 'Miguel Angelo Dela Cruz', maidOfHonor: 'Ana Patricia Santos', honorTitle: 'maid', officiant: 'Rev. Fr. Benjamin Ocampo, OSA',
+    bestMen: [{ name: 'Miguel Angelo Dela Cruz' }],
+    // One of each, because a wedding with both is exactly the case the single
+    // box could not hold.
+    honors: [{ title: 'maid', name: 'Ana Patricia Santos' }, { title: 'matron', name: 'Carmen L. Lim' }],
+    officiant: 'Rev. Fr. Benjamin Ocampo, OSA',
     groomsmen: [{ name: 'Rafael Mendoza' }, { name: 'Joshua Reyes' }, { name: 'Paolo Garcia' }, { name: 'Bryan Aquino' }],
     bridesmaids: [{ name: 'Camille Ramos' }, { name: 'Bianca Torres' }, { name: 'Erika Villanueva' }, { name: 'Danica Lim' }],
     juniorGroomsmen: [{ name: 'Lucas Santos' }], juniorBridesmaids: [{ name: 'Sophia Dela Cruz' }],

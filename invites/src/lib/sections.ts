@@ -168,6 +168,26 @@ const checks = (key: string, label: string, options: Option[], extra: Partial<Fi
 const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en, ...(i.for ? { when: i.for } : {}) }));
 const names = (key: string, label: string, extra: Partial<Field> = {}): Field => list(key, label, [text('name', 'Name', { required: true })], { addLabel: 'Add a name', ...extra });
 
+/**
+ * The secondary sponsors of a church wedding: the candle, the veil and the
+ * cord, which is the whole of the tradition and why there are only three.
+ * "Other" is there for the couple whose parish or family adds a pair of its
+ * own — they write what to call it, rather than filing it under a rite it
+ * isn't.
+ */
+const SECONDARY_ROLES: Option[] = [
+  { value: 'candle', label: 'Candle' },
+  { value: 'veil', label: 'Veil' },
+  { value: 'cord', label: 'Cord' },
+  { value: 'other', label: 'Other' },
+];
+
+/** Maid or matron: which one is whether she is married, not who she is. */
+const HONOR_TITLES: Option[] = [
+  { value: 'maid', label: 'Maid of Honor' },
+  { value: 'matron', label: 'Matron of Honor' },
+];
+
 const MAPS_HINT = 'Paste the "Share" link from Google Maps. Guests get a one-tap button.';
 const WAZE_HINT = 'Paste a Waze share link (waze.com/ul/…). Optional but loved by drivers.';
 
@@ -466,13 +486,20 @@ const SECTION_DEFS: SectionDef[] = [
       names('groomParents', 'Parents of the groom'),
       list('principalSponsors', 'Principal Sponsors (Ninong & Ninang)', [text('ninong', 'Ninong', { placeholder: 'Mr. Jose Santos' }), text('ninang', 'Ninang', { placeholder: 'Mrs. Ana Santos' })], { addLabel: 'Add a pair' }),
       list('secondarySponsors', 'Secondary Sponsors', [
-        select('role', 'Role', [{ value: 'candle', label: 'Candle' }, { value: 'veil', label: 'Veil' }, { value: 'cord', label: 'Cord' }]),
+        select('role', 'Role', SECONDARY_ROLES),
+        text('roleOther', 'If other', { placeholder: 'e.g. Ring' }),
         text('first', 'Name'),
         text('second', 'Partner'),
       ], { addLabel: 'Add a pair', max: 6 }),
-      text('bestMan', 'Best Man'),
-      text('maidOfHonor', 'Maid / Matron of Honor'),
-      select('honorTitle', 'Title', [{ value: 'maid', label: 'Maid of Honor' }, { value: 'matron', label: 'Matron of Honor' }]),
+      // A best man and a maid of honour were one box each, so a couple with two
+      // best men, or with both a maid and a matron, had nowhere to put the
+      // second. Each is a list now, and the honour carries its own title per
+      // row — the pair who stand up are not always the same kind of person.
+      names('bestMen', 'Best Man', { max: 4 }),
+      list('honors', 'Maid / Matron of Honor', [
+        select('title', 'Title', HONOR_TITLES),
+        text('name', 'Name', { required: true }),
+      ], { addLabel: 'Add a name', max: 4 }),
       text('officiant', 'Officiant / Presider'),
       names('groomsmen', 'Groomsmen'),
       names('bridesmaids', 'Bridesmaids'),
@@ -811,7 +838,12 @@ export const FIT: Record<string, number> = {
   'reception.venue': 60, 'reception.address': 110, 'reception.note': 160, 'reception.parkingNote': 120,
   // people
   'parents.brideNote': 120, 'parents.groomNote': 120, 'parents.note': 120, 'parents.hosts.name': 48, 'parents.hosts.relation': 40,
-  'entourage.first': 40, 'entourage.second': 40, 'entourage.principalSponsors.ninong': 48, 'entourage.principalSponsors.ninang': 48,
+  // A list's writings are looked up under the list, so the two that used to sit
+  // here as 'entourage.first' and 'entourage.second' never matched and the
+  // secondary sponsors quietly took the 80-character default.
+  'entourage.secondarySponsors.first': 40, 'entourage.secondarySponsors.second': 40, 'entourage.secondarySponsors.roleOther': 24,
+  'entourage.principalSponsors.ninong': 48, 'entourage.principalSponsors.ninang': 48,
+  'entourage.bestMen.name': 48, 'entourage.honors.name': 48,
   'sponsors.ninongs.name': 48, 'sponsors.ninangs.name': 48,
   'eighteen.treasures.item': 40, 'eighteen.treasures.relation': 40,
   // dress code: lines under a heading, notes under the figures and the palette
@@ -1397,4 +1429,40 @@ export function rsvpDeadline(content: Content): Date | null {
 /** The photo used for the link preview: the cover, else the first gallery photo. */
 export function coverImage(content: Content): string {
   return str(content.cover, 'coverPhoto') || rows(content.gallery, 'photos')[0]?.url || str(content.cover, 'photo') || '';
+}
+
+/**
+ * Shapes that changed after invitations had already been saved in them.
+ *
+ * `cleanSection` keeps only what the field spec asks for, so a field the spec
+ * no longer names is dropped on the next save. A rename therefore has to carry
+ * the old value forward on the way *in*, not patch it on the way out. This runs
+ * inside `contentOf`, which is the one door every reader goes through — the
+ * builder, the admin encoder and the public page alike — so a couple opens
+ * their section and finds the name already in its new box, and an invitation
+ * that is live and never re-saved still prints it.
+ *
+ * Each of these can go once no stored invitation carries the old shape.
+ */
+export function readForward<T extends Content>(content: T): T {
+  const e = content.entourage;
+  if (!e) return content;
+
+  // The best man and the maid of honour were a single box each. A couple with
+  // two best men, or with both a maid and a matron, had nowhere for the second.
+  const bestMan = str(e, 'bestMan');
+  const maid = str(e, 'maidOfHonor');
+  const addBestMen = bestMan && rows(e, 'bestMen').length === 0;
+  const addHonors = maid && rows(e, 'honors').length === 0;
+  if (!addBestMen && !addHonors) return content;
+
+  return {
+    ...content,
+    entourage: {
+      ...e,
+      ...(addBestMen ? { bestMen: [{ name: bestMan }] } : {}),
+      // The title used to be one choice for the whole wedding; it becomes hers.
+      ...(addHonors ? { honors: [{ title: str(e, 'honorTitle') || 'maid', name: maid }] } : {}),
+    },
+  };
 }

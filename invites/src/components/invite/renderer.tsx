@@ -462,9 +462,15 @@ function NameList({ title, items }: { title: string; items: string[] }) {
 
 function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: Lang; tagline?: string; title?: string }) {
   const principal = rows<{ ninong: string; ninang: string }>(data, 'principalSponsors').filter((p) => p.ninong || p.ninang);
-  const secondary = rows<{ role: string; first: string; second: string }>(data, 'secondarySponsors').filter((p) => p.first || p.second);
+  const secondary = rows<{ role: string; roleOther: string; first: string; second: string }>(data, 'secondarySponsors').filter((p) => p.first || p.second);
   const namesOf = (k: string) => rows<{ name: string }>(data, k).map((r) => r.name);
-  const honor = str(data, 'honorTitle') === 'matron' ? t(lang, 'entourage.matronOfHonor') : t(lang, 'entourage.maidOfHonor');
+  // Maids and matrons are the same standing under two names, so they are one
+  // list to fill in and two headings to read — each printed only if it is used,
+  // and each plural only when there is more than one under it.
+  const honors = rows<{ title: string; name: string }>(data, 'honors').filter((h) => nonEmpty(h.name));
+  const maids = honors.filter((h) => h.title !== 'matron').map((h) => h.name);
+  const matrons = honors.filter((h) => h.title === 'matron').map((h) => h.name);
+  const bestMen = namesOf('bestMen').filter(nonEmpty);
   return (
     <Section id="entourage" title={title ?? t(lang, 'entourage.title')} tagline={tagline}>
       <div className="space-y-8">
@@ -489,7 +495,9 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
             <div className="inv-list">
               {secondary.map((p, i) => (
                 <p key={i}>
-                  <span className="inv-muted text-xs uppercase tracking-widest">{t(lang, (`entourage.${p.role || 'candle'}`) as 'entourage.candle')}</span>
+                  <span className="inv-muted text-xs uppercase tracking-widest">
+                    {p.role === 'other' ? p.roleOther : t(lang, (`entourage.${p.role || 'candle'}`) as 'entourage.candle')}
+                  </span>
                   <br />
                   {[p.first, p.second].filter(Boolean).join(' & ')}
                 </p>
@@ -498,8 +506,9 @@ function Entourage({ data, lang, tagline, title }: { data: SectionData; lang: La
           </div>
         )}
         <div className="inv-two">
-          <NameList title={t(lang, 'entourage.bestMan')} items={[str(data, 'bestMan')]} />
-          <NameList title={honor} items={[str(data, 'maidOfHonor')]} />
+          <NameList title={t(lang, bestMen.length > 1 ? 'entourage.bestMen' : 'entourage.bestMan')} items={bestMen} />
+          <NameList title={t(lang, maids.length > 1 ? 'entourage.maidsOfHonor' : 'entourage.maidOfHonor')} items={maids} />
+          <NameList title={t(lang, matrons.length > 1 ? 'entourage.matronsOfHonor' : 'entourage.matronOfHonor')} items={matrons} />
           <NameList title={t(lang, 'entourage.groomsmen')} items={namesOf('groomsmen')} />
           <NameList title={t(lang, 'entourage.bridesmaids')} items={namesOf('bridesmaids')} />
           <NameList title={t(lang, 'entourage.juniorGroomsmen')} items={namesOf('juniorGroomsmen')} />

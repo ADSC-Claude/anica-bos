@@ -40,14 +40,14 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       <h2 className="mt-8 mb-2 font-semibold">Add-ons</h2>
       <div className="card overflow-x-auto">
         <table className="data">
-          <thead><tr><th>Code</th><th>Name / description</th><th>Price ₱</th><th>Quoted</th><th>Active</th><th>Order</th><th /></tr></thead>
+          <thead><tr><th>Code</th><th>Name / description / picture</th><th>Price ₱</th><th>Quoted</th><th>Active</th><th>Order</th><th /></tr></thead>
           <tbody>
             {[...addOns, null].map((a, i) => {
               const fid = `addon-${a?.id ?? 'new'}`;
               return (
                 <tr key={a?.id ?? 'new'}>
                   <td><form id={fid} action={saveAddOnAction.bind(null, a?.id ?? null, back)} /><input form={fid} name="code" defaultValue={a?.code} placeholder="NEW_CODE" className="field w-36 font-mono text-xs" /></td>
-                  <td><input form={fid} name="name" defaultValue={a?.name} placeholder="Name" className="field" /><input form={fid} name="description" defaultValue={a?.description} placeholder="Description" className="field mt-1 text-xs" /></td>
+                  <td><input form={fid} name="name" defaultValue={a?.name} placeholder="Name" className="field" /><input form={fid} name="description" defaultValue={a?.description} placeholder="Description" className="field mt-1 text-xs" /><input form={fid} name="imageUrl" defaultValue={a?.imageUrl} placeholder="Picture URL — shown on the website and in the checkout. Leave blank for none." className="field mt-1 text-xs" /></td>
                   <td><input form={fid} name="price" type="number" step="0.01" defaultValue={a ? a.priceCents / 100 : 0} className="field w-24" /></td>
                   <td><input form={fid} name="quoted" type="checkbox" defaultChecked={a?.quoted ?? true} className="h-4 w-4" title="Untick for 'ask us' pricing" /></td>
                   <td><input form={fid} name="active" type="checkbox" defaultChecked={a?.active ?? true} className="h-4 w-4" /></td>

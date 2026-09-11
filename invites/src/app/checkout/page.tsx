@@ -38,7 +38,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
       <p className="mb-8 text-[color:var(--color-ink-700)]">A few quick choices, then pay with GCash, Maya, a card, or a bank transfer. You send us the details afterwards.</p>
       <CheckoutWizard
         packages={packages.map((p) => ({ code: p.code, name: p.name, tagline: p.tagline, occasion: p.occasion, tier: p.tier, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds }))}
-        addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, priceCents: a.priceCents, quoted: a.quoted }))}
+        addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))}
         templates={templates.map((t) => {
           const pal = paletteFrom(t.palette);
           return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, occasions: t.occasions, minTier: t.minTier, premium: t.premium, thumbnailUrl: t.thumbnailUrl, description: t.description, palette: { bg: pal.bg, accent: pal.accent, accent2: pal.accent2 }, premiumOpenings: premiumOpeningsFor(t).map((o) => o.name) };

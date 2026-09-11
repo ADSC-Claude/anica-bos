@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
@@ -7,7 +8,7 @@ import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme
 import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
-import { OCCASION_SECTIONS, SECTION_BY_KEY } from '@/lib/sections';
+import { OCCASION_SECTIONS, SECTION_BY_KEY, isPaged } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
@@ -43,7 +44,11 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   return (
     <>
       <BackLink href="/admin/templates">Templates</BackLink>
-      <PageHeader title={isNew ? 'New template' : t!.name} subtitle="A template is a layout, a palette and fonts. Content never lives here." />
+      <PageHeader
+        title={isNew ? 'New template' : t!.name}
+        subtitle="A template is a layout, a palette and fonts. Content never lives here."
+        actions={t && isPaged(t.layout) ? <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link> : undefined}
+      />
       <Flash {...sp} />
       <form action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
         <div className="card space-y-3 p-4">

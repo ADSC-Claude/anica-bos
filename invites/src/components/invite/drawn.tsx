@@ -27,10 +27,19 @@ import {
  * can mount it in the browser (tests/client/ proves it, without the
  * react-server condition that would hide a mistake).
  */
-export function DrawnPage({ page, content, look, lang }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang }) {
+/**
+ * `edit` is the studio's view of the same page: every element keeps a
+ * `data-el` so the canvas can measure the box a guest will actually see, and
+ * one that would draw nothing is drawn anyway, as an empty box labelled with
+ * what fills it. A guest never passes it, so a guest never sees either.
+ */
+export type EditView = { label: (el: Element) => string };
+
+export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
   const read = {
     content,
     lang,
+    edit,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey) : lookLine(look, lang, key as LineKey)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
@@ -41,7 +50,7 @@ export function DrawnPage({ page, content, look, lang }: { page: PageSpec; conte
   );
 }
 
-type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown> };
+type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView };
 
 function draw(el: Element, read: Read) {
   if (el.kind === 'photo') return <Frame el={el} read={read} />;
@@ -54,12 +63,14 @@ function draw(el: Element, read: Read) {
 /** A photograph in its frame. An empty binding draws nothing, as today. */
 function Frame({ el, read }: { el: PhotoEl; read: Read }) {
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
-  if (!url && el.hidden !== 'never') return null;
+  if (!url && el.hidden !== 'never' && !read.edit) return null;
   const alt = el.alt ? valueAt(read.content, el.alt) : '';
   return (
-    <figure className="inv-bb-slot" style={elementStyle(el) as CSSProperties}>
-      {/* a moving picture is never re-encoded: the transform endpoint would take its first frame */}
-      <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" />
+    <figure className="inv-bb-slot" style={elementStyle(el) as CSSProperties} data-el={read.edit ? el.id : undefined} data-empty={read.edit && !url ? '' : undefined}>
+      {url
+        // a moving picture is never re-encoded: the transform endpoint would take its first frame
+        ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" />
+        : <figcaption className="inv-bb-ask">{read.edit!.label(el)}</figcaption>}
     </figure>
   );
 }
@@ -71,14 +82,18 @@ function Frame({ el, read }: { el: PhotoEl; read: Read }) {
  */
 function Block({ el, read }: { el: TextEl; read: Read }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
-  if (!texts.some(Boolean) && el.hidden !== 'never') return null;
+  const blank = !texts.some(Boolean);
+  if (blank && el.hidden !== 'never' && !read.edit) return null;
   const style = { ...elementStyle(el), ...blockType(el) } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
+  const mark = read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {};
   // the caption is the paragraph itself, the way the polaroid's strip is written
-  if (el.block === 'caption') return <p className={cls} style={style}>{texts.find(Boolean) ?? ''}</p>;
-  const body = el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null));
-  if (el.block === 'head') return <header className={cls} style={style}>{body}</header>;
-  return <div className={cls} style={style}>{body}</div>;
+  if (el.block === 'caption') return <p className={cls} style={style} {...mark}>{texts.find(Boolean) || (read.edit ? read.edit.label(el) : '')}</p>;
+  const body = blank && read.edit
+    ? <p className="inv-bb-ask">{read.edit.label(el)}</p>
+    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null));
+  if (el.block === 'head') return <header className={cls} style={style} {...mark}>{body}</header>;
+  return <div className={cls} style={style} {...mark}>{body}</div>;
 }
 
 function LineText({ line, text }: { line: Line; text: string }) {

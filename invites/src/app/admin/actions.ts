@@ -1,6 +1,6 @@
 'use server';
 
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, designOf, blastRadius, type DesignDoc } from '@/lib/design';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -236,6 +236,95 @@ export async function duplicateTemplateAction(templateId: string, back: string) 
     });
     await audit(user, { module: 'templates', action: 'create', entityType: 'Template', entityId: made.id, summary: `${made.name} (copied from ${src.name})` });
     redirect(`/admin/templates/${made.id}?ok=${encodeURIComponent('Copied. It is unpublished until you say otherwise.')}`);
+  });
+}
+
+// --- the design studio ------------------------------------------------------
+
+/**
+ * Save the draft.
+ *
+ * `baseRev` is the revision she loaded. If the row has moved on, somebody
+ * else saved while she was drawing and her save is refused rather than
+ * quietly overwriting theirs — she is told, and can reload and redo the last
+ * few minutes rather than lose an afternoon of somebody else's.
+ *
+ * The document is parsed on the way in and refused if anything would be
+ * dropped, so a draft that cannot be read back is never written: the studio
+ * would then be editing something the guest page will not render.
+ */
+export async function saveDesignDraftAction(templateId: string, baseRev: number, json: string) {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId }, select: { layout: true, designDraftRev: true } });
+  if (t.designDraftRev !== baseRev) {
+    return { ok: false as const, rev: t.designDraftRev, error: 'Somebody else saved this design while you were working. Reload to see their version before saving yours.' };
+  }
+  let raw: unknown;
+  try { raw = JSON.parse(json); } catch { return { ok: false as const, rev: t.designDraftRev, error: 'The draft could not be read.' }; }
+  const read = designOf(raw, t.layout);
+  if (!read.doc) return { ok: false as const, rev: t.designDraftRev, error: 'The draft could not be read.' };
+  if (read.dropped.length) {
+    return { ok: false as const, rev: t.designDraftRev, error: `Not saved — this would have lost ${read.dropped.join(', ')}.` };
+  }
+  const saved = await prisma.template.update({
+    where: { id: templateId },
+    data: { designDraft: read.doc as never, designDraftRev: { increment: 1 } },
+    select: { designDraftRev: true },
+  });
+  return { ok: true as const, rev: saved.designDraftRev };
+}
+
+/**
+ * Make the draft live for every invitation on this design.
+ *
+ * The document it replaces goes on the audit row, which is what Restore
+ * previous reads. One step back only: publishing twice loses the older one,
+ * as the studio says on the button.
+ */
+export async function publishDesignAction(templateId: string, back: string) {
+  return run('templates.publish', back, async (user) => {
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId } });
+    const draft = documentOf({ design: t.designDraft, layout: t.layout });
+    if (!draft) throw new HttpError(400, 'There is no draft to publish.');
+    const before = documentOf(t) ?? builtinDesign(t.layout);
+    const invitations = await prisma.invitation.findMany({ where: { templateId }, select: { status: true, content: true } });
+    const radius = blastRadius(before, draft, invitations);
+    await prisma.template.update({ where: { id: templateId }, data: { design: draft as never } });
+    await audit(user, {
+      module: 'templates', action: 'publish-design', entityType: 'Template', entityId: templateId,
+      summary: `${t.name}: ${radius.live} live and ${radius.drafts} draft invitations`,
+      before: (before ?? {}) as never, after: draft as never,
+    });
+    return `Published. ${radius.live} live and ${radius.drafts} draft invitations are drawn from it now.`;
+  });
+}
+
+/** Throw away what has not been published. The published design is untouched. */
+export async function discardDesignDraftAction(templateId: string, back: string) {
+  return run('templates.edit', back, async (user) => {
+    await prisma.template.update({ where: { id: templateId }, data: { designDraft: {}, designDraftRev: { increment: 1 } } });
+    await audit(user, { module: 'templates', action: 'discard-design-draft', entityType: 'Template', entityId: templateId });
+    return 'Draft discarded. What is published is unchanged.';
+  });
+}
+
+/**
+ * Bring back the version published just before this one, as a draft she can
+ * look at before publishing it again. Restoring never goes live on its own.
+ */
+export async function restoreDesignAction(templateId: string, back: string) {
+  return run('templates.publish', back, async (user) => {
+    const last = await prisma.auditLog.findFirst({
+      where: { entityType: 'Template', entityId: templateId, action: 'publish-design' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId }, select: { layout: true } });
+    const previous = documentOf({ design: last?.before, layout: t.layout });
+    if (!previous) throw new HttpError(400, 'There is no previous version to restore: this design has been published once or not at all.');
+    await prisma.template.update({ where: { id: templateId }, data: { designDraft: previous as never, designDraftRev: { increment: 1 } } });
+    await audit(user, { module: 'templates', action: 'restore-design', entityType: 'Template', entityId: templateId, after: previous as never });
+    return 'The previous version is back as a draft. Look it over, then publish it.';
   });
 }
 

@@ -27,6 +27,8 @@ const content = {
 
 const html = (key: string, c: Record<string, unknown> = content) =>
   renderToStaticMarkup(DrawnPage({ page: page(key), content: c, look: undefined, lang: 'en' }) as ReactElement);
+const studio = (key: string, c: Record<string, unknown> = content) =>
+  renderToStaticMarkup(DrawnPage({ page: page(key), content: c, look: undefined, lang: 'en', edit: { label: (el) => `fills ${el.id}` } }) as ReactElement);
 
 /** Every style attribute in the markup, in order, parsed back into an object. */
 function styles(markup: string): Record<string, string>[] {
@@ -101,4 +103,41 @@ test('a fixed line written in one language only stays out of the other', () => {
   const markup = renderToStaticMarkup(DrawnPage({ page: page('baby-photos'), content, look: undefined, lang: 'tl' }) as ReactElement);
   assert.doesNotMatch(markup, /inv-bb-eyebrow/);
   assert.match(markup, /inv-bb-script/);
+});
+
+/**
+ * The studio's view of the same page. A frame with nothing in it is never
+ * invisible while she is drawing — it shows where it is and says what fills
+ * it — and every element is findable, so a handle can sit exactly on the box
+ * a guest will see. A guest passes no `edit`, so a guest sees none of it.
+ */
+test('the studio marks every element and draws the empty ones', () => {
+  const bare = { gallery: { photos: [] }, story: { timeline: [] } };
+  const guest = html('baby-photos', bare);
+  assert.doesNotMatch(guest, /data-el=/);
+  assert.doesNotMatch(guest, /data-empty/);
+  assert.doesNotMatch(guest, /inv-bb-ask/);
+
+  const editing = studio('baby-photos', bare);
+  // the head, four frames and four captions, every one findable
+  assert.equal([...editing.matchAll(/data-el="/g)].length, 9);
+  // and every one empty but the head, which carries the design's own eyebrow
+  // and falls back to the app's heading: those are the design's words, not
+  // the customer's, so the box is not empty and never was
+  assert.equal([...editing.matchAll(/data-empty=""/g)].length, 8);
+  assert.match(editing, /<header class="inv-bb-head"[^>]*data-el="photos-head">/);
+  assert.match(editing, /data-el="photos-photo-2" data-empty=""/);
+  assert.match(editing, /fills photos-photo-2/);
+  // a filled page keeps its content and is marked but not empty
+  const filled = studio('baby-photos');
+  assert.equal([...filled.matchAll(/data-el="/g)].length, 9);
+  assert.equal([...filled.matchAll(/data-empty=""/g)].length, 0);
+  assert.match(filled, /Month 1/);
+});
+
+/** The box a handle sits on is the box the guest page gives the element. */
+test('an element marked for the studio keeps exactly the style it had', () => {
+  const guest = styles(html('story'));
+  const editing = styles(studio('story'));
+  assert.deepEqual(editing, guest);
 });

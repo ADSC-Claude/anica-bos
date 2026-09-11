@@ -723,6 +723,15 @@ export function documentOf(t: { design?: unknown; layout?: string }): DesignDoc 
   return designOf(t.design, t.layout ?? '').doc;
 }
 
+/**
+ * The document the studio opens: the draft if there is one, else what is
+ * published, else the layout's built-in. A design opened for the first time
+ * is drawn from its base, which is what makes it editable at all.
+ */
+export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: string }): DesignDoc | null {
+  return documentOf({ design: t.designDraft, layout: t.layout }) ?? documentOf(t) ?? builtinDesign(t.layout);
+}
+
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */
 export const ONE_SCREEN = 1.777;
 export function pageRatio(page: PageSpec): number {
@@ -732,22 +741,117 @@ export function pageRatio(page: PageSpec): number {
 }
 
 /**
- * How many frames this design gives one list — six for Baby Blue's timeline,
- * four for its photographs. What a design shows is what its form should ask
- * for, so this is the cap the form reads (phase 2) and the number the asks
- * sheet quotes.
+ * Every list this design gives frames to, and how many: six for Baby Blue's
+ * timeline, four for its photographs. What a design shows is what its form
+ * should ask for, so this is the cap the form reads and the number the asks
+ * sheet quotes. Keyed `section.field`, with the page each list is drawn on.
  */
-export function frameCount(doc: DesignDoc | null, section: string, field: string): number {
-  if (!doc) return 0;
-  let n = 0;
-  for (const page of doc.pages) {
+export type FrameList = { section: string; field: string; page: string; count: number };
+export function frameLists(doc: DesignDoc | null): FrameList[] {
+  const out = new Map<string, FrameList>();
+  for (const page of doc?.pages ?? []) {
     for (const el of page.elements ?? []) {
       if (el.kind !== 'photo') continue;
       const bind = el.bind as FieldRef;
-      if (bind.section === section && bind.field === field && bind.index !== undefined) n = Math.max(n, bind.index + 1);
+      if (bind.index === undefined || !bind.section || !bind.field) continue;
+      const key = `${bind.section}.${bind.field}`;
+      const seen = out.get(key);
+      if (seen) seen.count = Math.max(seen.count, bind.index + 1);
+      else out.set(key, { section: bind.section, field: bind.field, page: page.key, count: bind.index + 1 });
     }
   }
-  return n;
+  return [...out.values()];
+}
+
+export function frameCount(doc: DesignDoc | null, section: string, field: string): number {
+  return frameLists(doc).find((f) => f.section === section && f.field === field)?.count ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// What publishing would do
+// ---------------------------------------------------------------------------
+
+/** A list whose number of frames changes, and the page it is drawn on. */
+export type FrameChange = { section: string; field: string; page: string; from: number; to: number };
+
+export type DocChange = {
+  pagesAdded: string[];
+  pagesRemoved: string[];
+  /** sections a design stops carrying: their answers stop appearing */
+  sectionsRemoved: string[];
+  sectionsAdded: string[];
+  frames: FrameChange[];
+};
+
+/** What the second document does that the first did not. */
+export function designChange(before: DesignDoc | null, after: DesignDoc | null): DocChange {
+  const keys = (d: DesignDoc | null) => (d?.pages ?? []).map((p) => p.key);
+  const sections = (d: DesignDoc | null) => new Set((d?.pages ?? []).flatMap((p) => p.sections));
+  const was = new Set(keys(before));
+  const now = new Set(keys(after));
+  const wasSec = sections(before);
+  const nowSec = sections(after);
+  const lists = new Map<string, FrameChange>();
+  for (const f of frameLists(before)) lists.set(`${f.section}.${f.field}`, { section: f.section, field: f.field, page: f.page, from: f.count, to: 0 });
+  for (const f of frameLists(after)) {
+    const key = `${f.section}.${f.field}`;
+    const seen = lists.get(key);
+    if (seen) { seen.to = f.count; seen.page = f.page; }
+    else lists.set(key, { section: f.section, field: f.field, page: f.page, from: 0, to: f.count });
+  }
+  return {
+    pagesAdded: keys(after).filter((k) => !was.has(k)),
+    pagesRemoved: keys(before).filter((k) => !now.has(k)),
+    sectionsAdded: [...nowSec].filter((k) => !wasSec.has(k)),
+    sectionsRemoved: [...wasSec].filter((k) => !nowSec.has(k)),
+    frames: [...lists.values()].filter((f) => f.from !== f.to),
+  };
+}
+
+/**
+ * How many rows of a list an invitation has actually filled. A row counts
+ * when anything in it is filled, or — where the design counts the way the
+ * photographs page counts — when the field it counts by is filled.
+ */
+export function filledRows(content: unknown, section: string, field: string, by?: string): number {
+  const data = isRecord(content) && isRecord(content[section]) ? (content[section] as Record<string, unknown>) : undefined;
+  const raw = data?.[field];
+  if (!Array.isArray(raw)) return 0;
+  return raw.filter((r) => {
+    if (!isRecord(r)) return false;
+    if (by) return Boolean(text(r[by]));
+    return Object.values(r).some((v) => Boolean(text(v)));
+  }).length;
+}
+
+/**
+ * What pressing Publish would touch, in numbers she can read before she
+ * presses it: how many invitations are on this design, and for every list
+ * whose frame count changes, how many of them hold answers on the wrong side
+ * of the change — a fifth photograph that will now appear, or a sixth
+ * milestone that will stop showing. Nothing is deleted either way; a frame
+ * that goes simply stops being drawn.
+ */
+export type BlastRadius = Omit<DocChange, 'frames'> & {
+  live: number;
+  drafts: number;
+  frames: (FrameChange & { beyond: number })[];
+};
+export function blastRadius(
+  before: DesignDoc | null,
+  after: DesignDoc | null,
+  invitations: { status: string; content: unknown }[],
+): BlastRadius {
+  const change = designChange(before, after);
+  return {
+    ...change,
+    live: invitations.filter((i) => i.status === 'PUBLISHED').length,
+    drafts: invitations.filter((i) => i.status !== 'PUBLISHED').length,
+    frames: change.frames.map((f) => {
+      const floor = Math.min(f.from, f.to);
+      return { ...f, beyond: invitations.filter((i) => filledRows(i.content, f.section, f.field) > floor).length };
+    }),
+  };
 }
 
 /**

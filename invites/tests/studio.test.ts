@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtinDesign, designChange, blastRadius, filledRows, frameLists, studioDoc, withFollowers, canAttach,
+  putSection, dropSection, shiftSection,
   type DesignDoc, type PhotoEl, type Element,
 } from '../src/lib/design';
 import { can, PERMISSIONS } from '../src/lib/rbac';
@@ -174,4 +175,38 @@ test('Baby Blue ties every caption and every milestone to its own photograph', (
   }
   // dragging one frame carries its caption and nothing else
   assert.deepEqual(withFollowers(photos, ['photos-photo-2']), ['photos-photo-2', 'photos-caption-2']);
+});
+
+// ---------------------------------------------------------------------------
+// What a page carries
+// ---------------------------------------------------------------------------
+
+/** A section is on one page. Putting it on another moves it; it is never on two. */
+test('putSection moves a section rather than copying it', () => {
+  const after = putSection(base, 'closing', 'gallery');
+  const on = after.pages.filter((p) => p.sections.includes('gallery')).map((p) => p.key);
+  assert.deepEqual(on, ['closing']);
+  assert.equal(after.pages.find((p) => p.key === 'closing')!.sections.at(-1), 'gallery');
+  // the page it came from keeps everything else
+  const before = base.pages.find((p) => p.key === 'baby-photos')!;
+  const now = after.pages.find((p) => p.key === 'baby-photos')!;
+  assert.deepEqual(now.sections, before.sections.filter((s) => s !== 'gallery'));
+});
+
+test('putSection: putting one where it already is changes nothing, and an unknown page is left alone', () => {
+  assert.deepEqual(putSection(base, 'baby-photos', 'gallery'), base);
+  assert.deepEqual(putSection(base, 'no-such-page', 'gallery'), base);
+});
+
+test('dropSection and shiftSection work on one page only', () => {
+  const page = base.pages.find((p) => p.sections.length > 1)!;
+  const [first, second] = page.sections;
+  const moved = shiftSection(base, page.key, second, -1);
+  assert.deepEqual(moved.pages.find((p) => p.key === page.key)!.sections.slice(0, 2), [second, first]);
+  // off the end it stays put
+  assert.deepEqual(shiftSection(base, page.key, first, -1), base);
+  assert.deepEqual(shiftSection(base, page.key, page.sections.at(-1)!, 1), base);
+  const gone = dropSection(base, page.key, first);
+  assert.equal(gone.pages.find((p) => p.key === page.key)!.sections.includes(first), false);
+  assert.equal(gone.pages.filter((p) => p.sections.includes(first)).length, 0);
 });

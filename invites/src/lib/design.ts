@@ -770,6 +770,48 @@ export function canAttach(elements: Element[], id: string, to: string): boolean 
   return !withFollowers(elements, [id]).includes(to);
 }
 
+/**
+ * Put a section on a page.
+ *
+ * A section belongs to one page. Two pages naming it would draw the same
+ * answers twice — a couple's ceremony printed in two places — so it is taken
+ * off whichever page had it. A section already on this page is left where it
+ * is rather than moved to the end, because adding what is already there
+ * should do nothing at all.
+ */
+export function putSection(doc: DesignDoc, pageKey: string, key: PageSectionKey): DesignDoc {
+  if (!doc.pages.some((p) => p.key === pageKey)) return doc;
+  const already = doc.pages.find((p) => p.key === pageKey)!.sections.includes(key);
+  return {
+    ...doc,
+    pages: doc.pages.map((p) => (p.key === pageKey
+      ? (already ? p : { ...p, sections: [...p.sections, key] })
+      : (p.sections.includes(key) ? { ...p, sections: p.sections.filter((x) => x !== key) } : p))),
+  };
+}
+
+/** Take a section off a page. Nothing else carries it afterwards. */
+export function dropSection(doc: DesignDoc, pageKey: string, key: string): DesignDoc {
+  return { ...doc, pages: doc.pages.map((p) => (p.key === pageKey ? { ...p, sections: p.sections.filter((x) => x !== key) } : p)) };
+}
+
+/** Move a section earlier or later within its own page. */
+export function shiftSection(doc: DesignDoc, pageKey: string, key: string, by: number): DesignDoc {
+  return {
+    ...doc,
+    pages: doc.pages.map((p) => {
+      if (p.key !== pageKey) return p;
+      const list = [...p.sections];
+      const at = list.indexOf(key as PageSectionKey);
+      const to = at + by;
+      if (at < 0 || to < 0 || to >= list.length) return p;
+      const [moved] = list.splice(at, 1);
+      list.splice(to, 0, moved);
+      return { ...p, sections: list };
+    }),
+  };
+}
+
 export const LEGIBLE_CQW = 2.6;
 
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */

@@ -4,9 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
-  isPicture, pageRatio, place, withFollowers, canAttach, ONE_SCREEN, LEGIBLE_CQW,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole,
+  isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, ONE_SCREEN, LEGIBLE_CQW,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
 } from '@/lib/design';
+import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import type { Occasion } from '@prisma/client';
@@ -283,6 +284,38 @@ export function Studio(p: Props) {
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
+
+  // --- what a page carries --------------------------------------------------
+
+  const addSection = (key: PageSectionKey) => change(putSection(doc, pageKey, key));
+  const removeSection = (key: string) => change(dropSection(doc, pageKey, key));
+  const moveSection = (key: string, by: number) => change(shiftSection(doc, pageKey, key, by));
+
+  /**
+   * What she can put on this page: everything the occasion offers that is
+   * not already here, each saying which page it would come from. The two
+   * that are not sections of the form — the verse and the film that no
+   * frame can hold — are offered beside them, because on the page they are
+   * the same kind of thing.
+   */
+  const sectionOffer = useMemo(() => {
+    const here = new Set<string>(page?.sections ?? []);
+    const where = new Map<string, string>();
+    for (const pg of doc.pages) for (const k of pg.sections) where.set(k, pg.key);
+    const keys: { key: PageSectionKey; label: string }[] = [
+      ...sectionsFor(p.occasion).map((d) => ({ key: d.key as PageSectionKey, label: sectionLabel(d.key, p.occasion) })),
+      { key: 'verse', label: 'The verse' },
+      { key: 'gallery-video', label: 'The film, and the photographs no frame holds' },
+    ];
+    return keys.filter((k) => !here.has(k.key)).map((k) => ({ ...k, on: where.get(k.key) }));
+  }, [doc, page, p.occasion]);
+
+  /** A section already on the page, named the way the form names it. */
+  const nameOf = useCallback((key: string) => {
+    if (key === 'verse') return 'The verse';
+    if (key === 'gallery-video') return 'The film, and the photographs no frame holds';
+    try { return sectionLabel(key as SectionKey, p.occasion); } catch { return key; }
+  }, [p.occasion]);
 
   /** The page's background: a picture she uploads, a colour from the palette, or nothing. */
   function setGround(ground: Ground | undefined) {
@@ -571,7 +604,10 @@ export function Studio(p: Props) {
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{pg.label?.en ?? pg.key}</span>
-                  <span className="block text-[11px] text-[color:var(--color-ink-500)]">{i + 1}. {pg.drawn ? 'drawn' : 'flows'}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}</span>
+                  <span className="block text-[11px] text-[color:var(--color-ink-500)]">
+                    {i + 1}. {pg.drawn ? 'drawn' : 'flows'}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}
+                    {!pg.drawn && pg.sections.length === 0 && <span className="text-amber-800"> · carries nothing</span>}
+                  </span>
                 </span>
               </button>
               {pg.key === pageKey && (
@@ -748,7 +784,14 @@ export function Studio(p: Props) {
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
           />
         ) : (
-          <PageProps page={page} onChange={editPage} onGround={setGround} templateId={p.templateId} vars={p.vars} />
+          <PageProps
+            page={page}
+            onChange={editPage}
+            onGround={setGround}
+            templateId={p.templateId}
+            vars={p.vars}
+            sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
+          />
         )}
       </aside>
     </div>
@@ -1206,12 +1249,21 @@ const ROLES = [
   { key: 'muted', label: 'Muted' }, { key: 'accent', label: 'Accent' }, { key: 'accent2', label: 'Second accent' },
 ];
 
-function PageProps({ page, onChange, onGround, templateId, vars }: {
+type SectionTools = {
+  offer: { key: PageSectionKey; label: string; on?: string }[];
+  name: (key: string) => string;
+  add: (key: PageSectionKey) => void;
+  remove: (key: string) => void;
+  move: (key: string, by: number) => void;
+};
+
+function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
   templateId: string;
   vars: Record<string, string>;
+  sections: SectionTools;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -1239,12 +1291,38 @@ function PageProps({ page, onChange, onGround, templateId, vars }: {
         <input className="input w-full" value={page.label?.en ?? ''} placeholder={page.key} onChange={(e) => onChange((p) => ({ ...p, label: { ...(p.label ?? { en: '' }), en: e.target.value } }))} />
       </label>
       <p className="text-xs text-[color:var(--color-ink-500)]">Key: {page.key}</p>
+      {/*
+        * What the page carries, in the order it is drawn in. A section is on
+        * one page only, so putting it here takes it off wherever it was —
+        * the menu says which page that is before she picks it.
+        */}
       <div>
         <p className="label">Sections it carries</p>
-        <ul className="mt-1 flex flex-wrap gap-1 text-xs">
-          {page.sections.map((s) => <li key={s} className="rounded bg-[color:var(--color-sand-100)] px-2 py-0.5">{s}</li>)}
-          {page.sections.length === 0 && <li className="text-[color:var(--color-ink-500)]">none</li>}
-        </ul>
+        <ol className="mt-1 space-y-1">
+          {page.sections.map((k, i) => (
+            <li key={k} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+              <span className="min-w-0 flex-1 truncate" title={k}>{sections.name(k)}</span>
+              <button type="button" title="Earlier on the page" onClick={() => sections.move(k, -1)} disabled={i === 0} className="rounded bg-white px-1.5 disabled:opacity-40">↑</button>
+              <button type="button" title="Later on the page" onClick={() => sections.move(k, 1)} disabled={i === page.sections.length - 1} className="rounded bg-white px-1.5 disabled:opacity-40">↓</button>
+              <button type="button" title="Take it off this page" onClick={() => sections.remove(k)} className="rounded bg-white px-1.5 text-red-700">✕</button>
+            </li>
+          ))}
+          {page.sections.length === 0 && (
+            <li className="text-xs text-[color:var(--color-ink-500)]">
+              Nothing yet.{page.drawn ? ' A drawn page still needs one, so the design knows what it is for.' : ' A page with nothing on it is not drawn at all.'}
+            </li>
+          )}
+        </ol>
+        <select
+          className="input mt-1 w-full text-xs"
+          value=""
+          onChange={(e) => { if (e.target.value) sections.add(e.target.value as PageSectionKey); }}
+        >
+          <option value="">+ put a section on this page</option>
+          {sections.offer.map((o) => (
+            <option key={o.key} value={o.key}>{o.label}{o.on ? ` — moves from ${o.on}` : ''}</option>
+          ))}
+        </select>
       </div>
       <div className="border-t border-[color:var(--color-sand-300)] pt-3">
         <p className="label">Background</p>

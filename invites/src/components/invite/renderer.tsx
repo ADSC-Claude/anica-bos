@@ -1894,8 +1894,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // other page is the sections it names, exactly as the constant maps
       // below. The clip that no frame can hold rides on 'gallery-video'.
       for (const spec of doc.pages) {
+        // A drawn page that names sections comes and goes with them, the way
+        // the photographs page goes when a package has no gallery. One that
+        // names none depends on nothing — it is the design's own page, a
+        // picture and some words — so it is always drawn.
         const parts = spec.drawn
-          ? (spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
           : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;

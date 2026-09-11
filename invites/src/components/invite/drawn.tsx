@@ -4,8 +4,9 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type Line, type WordKey, type FieldRef,
+  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
+import { LazyVideo } from './client';
 
 /**
  * A page drawn from the design's document.
@@ -69,9 +70,58 @@ function draw(el: Element, read: Read, grow?: number) {
   if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} />;
   if (el.kind === 'text') return <Block el={el} read={read} grow={grow} />;
   if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} />;
-  // video and animation arrive with phases 3 and 4; a document that names one
-  // is read and kept, it simply has nothing to draw yet
+  if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} />;
+  // animation arrives with phase 4; a document that names one is read and
+  // kept, it simply has nothing to draw yet
   return null;
+}
+
+/**
+ * A clip on a page, in its element's box like any other.
+ *
+ * The poster is what everything falls back to, so it is treated as the real
+ * picture: it goes through `imageUrl` the way a photograph does, it is what
+ * prints, and it is what a guest sparing their data or asking for less
+ * motion sees instead. That is why the checklist reads legibility against
+ * the poster rather than against a frame nobody may ever be shown.
+ *
+ * In the studio the clip is not played — a canvas with four clips running
+ * under the handles is unusable, and she is placing a box, not watching a
+ * film. The poster stands in, and the whole invitation tab beside it is
+ * where the clip actually plays.
+ */
+function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
+  const poster = el.poster ? imageUrl(el.poster, IMAGE.grid) : undefined;
+  /*
+   * A background clip is *sized* by the stylesheet and not by the document.
+   * A page that grows is as tall as its words, so the height to fill is not
+   * known until the browser has laid it out — and an inline left, top, width
+   * or aspect here would win over the rule that knows, since an inline style
+   * beats a stylesheet. So those four are dropped, and only the two that are
+   * still the design's to say are kept: how far down the stack it sits, and
+   * how solid it is.
+   */
+  const placed = elementStyle(el, grow);
+  const box = el.bg
+    ? ({ opacity: placed.opacity, zIndex: placed.zIndex } as CSSProperties)
+    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined } as CSSProperties);
+  if (!el.url && !read.edit) return null;
+  return (
+    <div
+      className="inv-bb-clip"
+      style={box}
+      data-bg={el.bg ? '' : undefined}
+      data-el={read.edit ? el.id : undefined}
+      data-foot={grow && el.from === 'bottom' ? '' : undefined}
+      data-empty={read.edit && !el.url ? '' : undefined}
+    >
+      {read.edit || !el.url
+        ? poster
+          ? <img src={poster} alt="" />
+          : <span className="inv-bb-ask">{read.edit!.label(el)}</span>
+        : <LazyVideo src={el.url} webm={el.webm} poster={poster} loop={el.loop !== false} />}
+    </div>
+  );
 }
 
 /**

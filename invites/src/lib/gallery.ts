@@ -70,7 +70,7 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     vars: cssVars(p, fonts),
     fontsUrl: googleFontsUrl(fonts),
     peekSlug: '',
-    clip: (() => { const c = premiumOpeningsFor({ slug: t.slug, collection: t.collection }) [0]; return c ? { key: c.key, blurb: c.blurb } : null; })(),
+    clip: (() => { const c = premiumOpeningsFor(t)[0]; return c ? { key: c.key, blurb: c.blurb } : null; })(),
     sample: null,
   };
 }

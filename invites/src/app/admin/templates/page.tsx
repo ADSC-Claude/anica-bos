@@ -7,6 +7,7 @@ import { TIER_LABELS } from '@/lib/tiers';
 import { paletteFrom } from '@/lib/theme';
 import { documentOf, builtinDesign } from '@/lib/design';
 import { pageNeeds, needCount } from '@/lib/needs';
+import { designFilesFor } from '@/lib/design-files';
 import { PageHeader, Pill } from '@/components/ui';
 import { Flash, type FlashParams } from '../flash';
 import { duplicateTemplateAction } from '../actions';
@@ -17,6 +18,12 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
   const user = await requireStaffPage('templates.view');
   const sp = await searchParams;
   const templates = await prisma.template.findMany({ orderBy: [{ occasion: 'asc' }, { sortOrder: 'asc' }], include: { _count: { select: { invitations: true } } } });
+  /*
+   * The weights and lengths for every design at once, so the count beside a
+   * design is the same count the publish door will apply. One query for the
+   * list rather than one per card.
+   */
+  const files = await designFilesFor(templates.map((t) => t.id));
   return (
     <>
       <PageHeader title="Templates" subtitle={`${templates.length} designs`} actions={can(user.role, 'templates.edit') && <Link href="/admin/templates/new" className="btn btn-primary btn-sm">+ New template</Link>} />
@@ -31,7 +38,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
           const draft = documentOf({ design: t.designDraft, layout: t.layout });
           const drawn = Boolean(documentOf(t)) || Boolean(draft);
           // what the draft still needs, so she can see it without opening it
-          const todo = draft ? needCount(pageNeeds({ doc: draft, occasion: t.occasion })) : null;
+          const todo = draft ? needCount(pageNeeds({ doc: draft, occasion: t.occasion, weights: files[t.id]?.weights, lengths: files[t.id]?.lengths })) : null;
           return (
             <div key={t.id} className="card overflow-hidden text-sm">
               <Link href={`/admin/templates/${t.id}`} className="block hover:bg-[color:var(--color-sand-100)]">

@@ -398,7 +398,32 @@ export type TextEl = Base & {
   offerLine?: boolean;
 };
 
-export type VideoEl = Base & { kind: 'video'; url: string; poster: string; aspect?: number; loop?: boolean };
+/**
+ * A clip on a page. `webm` is the optional second file, offered only to a
+ * browser that asks for it; `url` is the MP4 every phone can play.
+ *
+ * `glare` is the brightest area the studio saw in the frames it decoded
+ * while choosing the poster, 0 to 255. It is here rather than measured later
+ * because measuring it needs a decoder and the server has none — and the
+ * checklist needs it to warn about words laid over a bright clip. It is
+ * about the clip's frames rather than about the poster, so replacing the
+ * poster by hand leaves it true. Absent on an element the studio did not
+ * add, which the checklist says rather than assumes.
+ */
+export type VideoEl = Base & {
+  kind: 'video'; url: string; webm?: string; poster: string; aspect?: number; loop?: boolean; glare?: number;
+  /**
+   * Behind the whole page rather than in a box on it.
+   *
+   * A size, not a placement — which is why it is a flag and not four
+   * numbers. A page that grows takes its height from its words, so the
+   * height a clip must fill is not known until the browser has laid the page
+   * out; the stylesheet answers that with `inset: 0` and no element of the
+   * document could. A frame's `aspect` cannot do it either: it would make
+   * the clip its poster's shape and leave the foot of a long page bare.
+   */
+  bg?: true;
+};
 export type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };
 export type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: string; stroke?: string; strokeWidth?: number; radius?: number; h?: number };
 
@@ -687,7 +712,7 @@ const zElement = z.union([
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
   }).strict(),
-  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional() }).strict(),
+  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional(), glare: z.number().int().min(0).max(255).optional(), bg: z.literal(true).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('shape'), shape: z.enum(['rect', 'ellipse', 'line']), fill: zColour.optional(), stroke: zColour.optional(), strokeWidth: z.number().min(0).max(40).optional(), radius: z.number().min(0).max(100).optional(), h: z.number().min(0).max(200).optional() }).strict(),
 ]);
@@ -1036,6 +1061,62 @@ export function withFollowers(elements: Element[], ids: string[]): string[] {
 export function canAttach(elements: Element[], id: string, to: string): boolean {
   if (id === to) return false;
   return !withFollowers(elements, [id]).includes(to);
+}
+
+/**
+ * A clip behind a whole page: the page and the element it takes.
+ *
+ * Two things happen, and the second is the one worth explaining. The clip is
+ * marked as the page's background — `bg`, a size and not a placement, which
+ * the stylesheet answers with `inset: 0` because a page that grows takes its
+ * height from its words and no number in the document could know it — and
+ * laid at z -2.
+ *
+ * Not z 0, which is what the studio plan says. An element with no z of its
+ * own is `auto`, and CSS paints auto and 0 together in tree order, so a clip
+ * at 0 added after the words would cover them and whether it did would
+ * depend on the order somebody happened to draw things in. -1 is already
+ * taken by a shape, which is the card a design puts *behind* its words and
+ * therefore in front of a background. -2 is the only unambiguous answer.
+ *
+ * Then the page's ground becomes the clip's own poster — the picture itself,
+ * through the machinery a background has always used, rather than a colour
+ * sampled off it. That way the page has a real height, the edge strips and
+ * the seams into the pages above and below take their colours the way every
+ * other page's do, and a guest sees the poster while the clip is still off
+ * screen, on a phone in Low Power Mode, or in print. Nothing new to draw and
+ * nothing to blend by hand.
+ *
+ * `measured` is what the browser read off the poster: its proportions and
+ * its two edge colours. Only the browser can read those, which is why they
+ * are passed in rather than found here — and why this is the pure half,
+ * testable without one.
+ */
+export function fillPageWithClip(
+  page: PageSpec,
+  id: string,
+  measured: { ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string } },
+): PageSpec {
+  const clip = (page.elements ?? []).find((e) => e.id === id);
+  if (!clip || clip.kind !== 'video' || !clip.poster) return page;
+  return {
+    ...page,
+    drawn: true,
+    ground: {
+      url: clip.poster,
+      ratio: measured.ratio,
+      top: measured.top,
+      bottom: measured.bottom,
+      ...(measured.slices ? { slices: measured.slices } : {}),
+    },
+    // x, y and w are set to the page-filling values the flag makes moot, so
+    // that taking the flag off leaves a clip somewhere sensible rather than
+    // wherever it happened to be when she pressed the button. Its own aspect
+    // is left alone for the same reason.
+    elements: (page.elements ?? []).map((e) => (e.id === id
+      ? { ...e, x: 50, y: 0, w: 100, anchor: 'top' as const, z: -2, rotate: undefined, bg: true as const }
+      : e)),
+  };
 }
 
 /**

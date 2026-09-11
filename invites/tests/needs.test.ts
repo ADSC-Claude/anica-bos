@@ -337,6 +337,11 @@ test('every rule the type names can be made to fire', () => {
   cap.lines[0].sources = [...cap.lines[0].sources, { fixed: { en: 'Much longer than eight letters' } }];
   add(o);
 
+  // the four about clips: one too heavy, one too long, bare words on a
+  // bright one, and every clip in the design over the budget together
+  runRow(withClip({ glare: 240 }), { weights: { 'u/c.mp4': 5_000_000 }, lengths: { 'u/c.mp4': 20_000 } }).forEach((x) => fired.add(x.rule));
+  runRow(withClip({ clips: 3 }), { weights: { 'u/c.mp4': 7_000_000, 'u/c-2.mp4': 7_000_000, 'u/c-3.mp4': 7_000_000 } }).forEach((x) => fired.add(x.rule));
+
   // and the three the row knows about: a heavy background, a ground she typed
   // that the night palette cannot save, and a shop card with no cover
   const q = clone();
@@ -349,4 +354,111 @@ test('every rule the type names can be made to fire', () => {
 
   // the list is the type's own, so a rule added and never exercised fails here
   assert.deepEqual([...fired].sort(), [...NEED_RULES].sort());
+});
+
+// --- clips on a page ------------------------------------------------------
+
+/**
+ * A design with clips on its story page, built to order.
+ *
+ * `glare` is what the studio measured while it chose the poster, so leaving
+ * it out is the real state of an element the studio did not add — which the
+ * checklist is supposed to say rather than assume. `words` puts a bare text
+ * box on top of the clip, which is the case a backing exists for.
+ */
+function withClip({ glare, clips = 1, poster = 'u/p.webp', words = true }: { glare?: number; clips?: number; poster?: string; words?: boolean } = {}): DesignDoc {
+  const d = clone();
+  const page = on(d, 'story');
+  page.elements = [];
+  for (let i = 1; i <= clips; i++) {
+    page.elements.push({
+      id: `clip-${i}`, kind: 'video', x: 50, y: 30, w: 60, anchor: 'centre', aspect: 1,
+      url: i === 1 ? 'u/c.mp4' : `u/c-${i}.mp4`, poster, ...(glare === undefined ? {} : { glare }),
+    } as never);
+  }
+  if (words) {
+    page.elements.push({
+      id: 'over', kind: 'text', block: 'free', x: 50, y: 30, w: 40, anchor: 'centre',
+      lines: [{ role: 'body', sources: [{ fixed: { en: 'Words', tl: 'Salita' } }] }],
+    } as never);
+  }
+  return d;
+}
+
+test('a clip with no still behind it blocks, because three kinds of guest never see the clip', () => {
+  const need = run(withClip({ poster: '' })).filter((n) => n.rule === 'clip-glare');
+  assert.equal(need.length, 1);
+  assert.equal(need[0].level, 'blocks');
+  assert.match(need[0].text, /prints|data|Low Power/);
+  assert.equal(need[0].id, 'clip-1');
+  // with a still it is not a blocker at all
+  assert.equal(run(withClip({ glare: 100 })).some((n) => n.level === 'blocks'), false);
+});
+
+test('one clip’s weight and length are said, and only when the row knows them', () => {
+  const quiet = run(withClip({ glare: 100 }));
+  assert.deepEqual(quiet.filter((n) => n.rule === 'clip-weight' || n.rule === 'clip-length'), [],
+    'a clip with no row is unknown, not light and not short');
+  const said = runRow(withClip({ glare: 100 }), { weights: { 'u/c.mp4': 5_000_000 }, lengths: { 'u/c.mp4': 20_000 } });
+  const weight = said.find((n) => n.rule === 'clip-weight')!;
+  const length = said.find((n) => n.rule === 'clip-length')!;
+  assert.equal(weight.level, 'says');
+  assert.match(weight.text, /4\.8 MB/, 'it says the clip’s own number');
+  assert.match(length.text, /20 seconds/);
+  // a small, short clip says nothing
+  assert.deepEqual(
+    runRow(withClip({ glare: 100 }), { weights: { 'u/c.mp4': 900_000 }, lengths: { 'u/c.mp4': 6_000 } })
+      .filter((n) => n.rule === 'clip-weight' || n.rule === 'clip-length'),
+    [],
+  );
+});
+
+test('every clip in the design is added up, across pages, and blocks over the budget', () => {
+  const three = withClip({ glare: 100, clips: 3 });
+  const under = runRow(three, { weights: { 'u/c.mp4': 4_000_000, 'u/c-2.mp4': 4_000_000, 'u/c-3.mp4': 4_000_000 } });
+  assert.deepEqual(under.filter((n) => n.rule === 'clip-budget'), [], '12 MB is inside the budget');
+  const over = runRow(three, { weights: { 'u/c.mp4': 7_000_000, 'u/c-2.mp4': 7_000_000, 'u/c-3.mp4': 7_000_000 } });
+  const need = over.find((n) => n.rule === 'clip-budget')!;
+  assert.equal(need.level, 'blocks', 'a guest scrolls the whole invitation, so this is not advice');
+  assert.match(need.text, /3 clips/);
+  assert.match(need.text, /20 MB|20\.0 MB/);
+  assert.equal(need.page, '', 'it is about the design, not any one page');
+  assert.equal(publishable(over), false);
+});
+
+test('the same clip on two pages is one download and counts once', () => {
+  const d = withClip({ glare: 100 });
+  const second = on(d, 'baby-photos');
+  second.elements = [{ id: 'clip-again', kind: 'video', x: 50, y: 30, w: 60, anchor: 'centre', aspect: 1, url: 'u/c.mp4', poster: 'u/p.webp', glare: 100 } as never];
+  // 9 MB twice would be over; one file twice is 9 MB
+  assert.deepEqual(runRow(d, { weights: { 'u/c.mp4': 9_000_000 } }).filter((n) => n.rule === 'clip-budget'), []);
+});
+
+test('bare words on a bright clip are warned about; a backing or a dark clip is fine', () => {
+  const bright = run(withClip({ glare: 240 })).find((n) => n.rule === 'clip-glare')!;
+  assert.equal(bright.level, 'says');
+  assert.match(bright.text, /240 of 255/);
+  assert.equal(bright.id, 'over', 'it points at the words, which are what she would change');
+  // a clip that never goes pale
+  assert.deepEqual(run(withClip({ glare: 90 })).filter((n) => n.rule === 'clip-glare'), []);
+  // words that carry their own halo
+  const backed = withClip({ glare: 240 });
+  (on(backed, 'story').elements!.find((e) => e.id === 'over') as TextEl).backing = 'scrim';
+  assert.deepEqual(run(backed).filter((n) => n.rule === 'clip-glare'), []);
+  // no words on it at all
+  assert.deepEqual(run(withClip({ glare: 240, words: false })).filter((n) => n.rule === 'clip-glare'), []);
+});
+
+test('a clip whose brightness was never measured says so rather than passing it', () => {
+  const need = run(withClip({})).find((n) => n.rule === 'clip-glare')!;
+  assert.equal(need.level, 'says');
+  assert.match(need.text, /never measured/);
+  assert.match(need.text, /a clip moves/, 'the reason matters: one still cannot answer for thirty seconds');
+});
+
+test('words beside a clip rather than on it are left alone', () => {
+  const d = withClip({ glare: 250 });
+  // the clip is 60 wide centred on 50, so it spans 20 to 80 across
+  (on(d, 'story').elements!.find((e) => e.id === 'over')!).x = 95;
+  assert.deepEqual(run(d).filter((n) => n.rule === 'clip-glare'), []);
 });

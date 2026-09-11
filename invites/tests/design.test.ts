@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, sliceHeights,
+  starterDesign, sliceHeights, fillPageWithClip,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
-  type PhotoEl, type TextEl, type ShapeEl, type PageSpec, type Element, type DesignDoc,
+  type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
 import { sectionOrder } from '../src/lib/sections';
@@ -677,4 +677,63 @@ test('a ground is cut the way the shipped ones were cut', () => {
   }
   // one screen and a bit is the shortest that can be cut at all
   assert.ok(sliceHeights(100).band > 0);
+});
+
+// --- a clip behind a whole page -------------------------------------------
+
+/**
+ * The page's background becomes the clip's own poster, through the machinery
+ * a background has always used — so the page gets its height, its edge
+ * strips and its seams the ordinary way, and a guest who never sees the clip
+ * still sees the page.
+ */
+test('a clip put behind a page fills it, sits under everything, and its poster becomes the ground', () => {
+  const page: PageSpec = {
+    key: 'p', sections: [],
+    elements: [
+      { id: 'clip', kind: 'video', x: 20, y: 40, w: 44, anchor: 'centre', rotate: 6, aspect: 1.7778, url: 'u/c.mp4', poster: 'u/p.webp', glare: 120 },
+      { id: 'words', kind: 'text', block: 'free', x: 50, y: 50, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'Hi', tl: 'Oy' } }] }] },
+    ],
+  };
+  const out = fillPageWithClip(page, 'clip', { ratio: 1.4, top: '#f0e9dd', bottom: '#111827' });
+  const clip = out.elements!.find((e) => e.id === 'clip')! as VideoEl;
+  // A flag, not an aspect. A page that grows is as tall as its words, so the
+  // height to fill is not known until the browser lays the page out — the
+  // stylesheet's `inset: 0` answers that and no number here could. An aspect
+  // taken off the poster would make the clip the poster's shape and leave the
+  // foot of a long page bare, which is what the first attempt at this did.
+  assert.equal(clip.bg, true);
+  assert.equal(clip.aspect, 1.7778, 'its own aspect is left alone, so taking the flag off restores it');
+  assert.deepEqual({ x: clip.x, y: clip.y, w: clip.w, anchor: clip.anchor }, { x: 50, y: 0, w: 100, anchor: 'top' },
+    'set anyway, so taking the flag off leaves it somewhere sensible');
+  assert.equal(clip.rotate, undefined, 'a background is not turned');
+  // -2, not 0: an element with no z is `auto`, and CSS paints auto and 0
+  // together in tree order, so a clip at 0 would cover words added before it
+  assert.equal(clip.z, -2);
+  const words = out.elements!.find((e) => e.id === 'words')!;
+  assert.ok((words.z ?? 0) > clip.z!, 'the words are above it');
+  assert.equal(out.drawn, true);
+  assert.ok(out.ground && isPicture(out.ground));
+  assert.deepEqual(out.ground, { url: 'u/p.webp', ratio: 1.4, top: '#f0e9dd', bottom: '#111827' });
+  // the clip itself is untouched otherwise
+  assert.equal(clip.url, 'u/c.mp4');
+  assert.equal(clip.glare, 120);
+});
+
+test('the slices of a tall poster are carried onto the ground, and only when there are any', () => {
+  const page: PageSpec = { key: 'p', sections: [], elements: [{ id: 'c', kind: 'video', x: 50, y: 0, w: 50, url: 'u/c.mp4', poster: 'u/p.webp' }] };
+  const cut = fillPageWithClip(page, 'c', { ratio: 3, top: '#fff', bottom: '#000', slices: { top: 'a', mid: 'b', foot: 'c' } });
+  assert.deepEqual((cut.ground as { slices?: unknown }).slices, { top: 'a', mid: 'b', foot: 'c' });
+  assert.equal('slices' in (fillPageWithClip(page, 'c', { ratio: 1, top: '#fff', bottom: '#000' }).ground as object), false);
+});
+
+test('a clip with no poster, or an id that is not a clip, changes nothing', () => {
+  const page: PageSpec = { key: 'p', sections: [], elements: [
+    { id: 'bare', kind: 'video', x: 50, y: 0, w: 50, url: 'u/c.mp4', poster: '' },
+    { id: 'frame', kind: 'photo', x: 50, y: 0, w: 50, bind: { asset: '' } },
+  ] };
+  // no poster means no colours to measure and nothing to show while it loads
+  assert.equal(fillPageWithClip(page, 'bare', { ratio: 1, top: '#fff', bottom: '#000' }), page);
+  assert.equal(fillPageWithClip(page, 'frame', { ratio: 1, top: '#fff', bottom: '#000' }), page);
+  assert.equal(fillPageWithClip(page, 'nobody', { ratio: 1, top: '#fff', bottom: '#000' }), page);
 });

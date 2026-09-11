@@ -646,6 +646,28 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   mask-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.04) calc(var(--seam) * 0.15), rgba(0, 0, 0, 0.18) calc(var(--seam) * 0.33), rgba(0, 0, 0, 0.5) calc(var(--seam) * 0.5), rgba(0, 0, 0, 0.82) calc(var(--seam) * 0.67), rgba(0, 0, 0, 0.96) calc(var(--seam) * 0.85), #000 var(--seam), #000 calc(100% - var(--out)), rgba(0, 0, 0, 0.96) calc(100% - var(--out) * 0.85), rgba(0, 0, 0, 0.82) calc(100% - var(--out) * 0.67), rgba(0, 0, 0, 0.5) calc(100% - var(--out) * 0.5), rgba(0, 0, 0, 0.18) calc(100% - var(--out) * 0.33), rgba(0, 0, 0, 0.04) calc(100% - var(--out) * 0.15), transparent 100%);
 }
 .inv-paper.is-foot { background-position: center bottom; }
+/* A clip on a page: the box its element was drawn at, the clip or its poster
+   filling it the way a photograph fills a frame. `object-fit: cover` and not
+   `contain`, because a box drawn for a clip is the shape the designer meant
+   and letterboxing inside it would leave bands she never drew.
+
+   The poster shows through until the clip has enough to paint, and stays for
+   good where a guest is sparing their data, has asked for less motion, or is
+   on an iPhone in Low Power Mode that refuses to play at all — so it is a
+   picture in its own right and not a placeholder. */
+.inv-bb-clip { position: absolute; overflow: hidden; }
+.inv-bb-clip > video,
+.inv-bb-clip > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* A clip whose play was refused: nothing to do, the poster is already under
+   it. Said in the markup so the studio's checklist can see it. */
+.inv-bb-clip > video[data-refused] { opacity: 0; }
+/* In the studio, a clip's box with nothing in it yet — the same grey a frame
+   waiting for a photograph shows, so an empty box reads the same either way. */
+.inv-bb-clip[data-empty] { background: var(--inv-slot, #e8e3dd); display: grid; place-items: center; }
+@media print {
+  /* the poster prints; a clip cannot */
+  .inv-bb-clip > video { display: none; }
+}
 .inv-page {
   position: relative; z-index: 1;
   display: flex; flex-direction: column; justify-content: center;
@@ -1329,6 +1351,20 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    drawn page is the same share of the same width, so it keeps its
    proportions at every phone size. */
 .inv[data-paged] .inv-bb-art > .inv-bb-shape { position: absolute; margin: 0; }
+/* A clip on a drawn page.
+   Not redundant with `.inv-bb-clip { position: absolute }` further up: on a
+   paged invitation `.inv[data-paged] .inv-section > *` (above) sets every
+   child of a section to `position: relative; z-index: 1`, and it is the more
+   specific of the two. Every other element kind on a drawn page has a rule
+   here for exactly that reason; a clip was missing one, so its inline `left`
+   and `top` were being measured from wherever it fell in the flow instead of
+   from the page, and its own `z` was being overruled by that `z-index: 1`. */
+.inv[data-paged] .inv-bb-art > .inv-bb-clip { position: absolute; margin: 0; z-index: auto; }
+/* A clip behind the whole page. The stylesheet gives it its size, not the
+   document: a page that grows is as tall as its words, and no number written
+   down when the clip was placed could know that. `object-fit: cover` (above)
+   then crops the clip into whatever shape the page turns out to be. */
+.inv[data-paged] .inv-bb-art > .inv-bb-clip[data-bg] { inset: 0; }
 .inv-bb-shape[data-shape='ellipse'] { border-radius: 50%; }
 /* What sits behind words on a busy picture. A halo in the surface colour
    lifts them off it without a box; a scrim is the box, pale enough to read

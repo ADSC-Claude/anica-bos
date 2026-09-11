@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { isPaged, SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
 import { documentOf, builtinDesign, blastRadius } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
+import { designFiles } from '@/lib/design-files';
 import { PageHeader, BackLink, Notice } from '@/components/ui';
 import { Flash, type FlashParams } from '../../../../flash';
 import { publishDesignAction, discardDesignDraftAction, restoreDesignAction } from '../../../../actions';
@@ -33,8 +34,10 @@ export default async function PublishDesignPage({ params, searchParams }: { para
   const before = documentOf(t) ?? builtinDesign(t.layout);
   const invitations = await prisma.invitation.findMany({ where: { templateId: id }, select: { status: true, content: true } });
   const r = draft ? blastRadius(before, draft, invitations) : null;
-  // the same list the studio keeps and the action enforces
-  const wrong = draft ? pageNeeds({ doc: draft, occasion: t.occasion }).filter((n) => n.level === 'blocks') : [];
+  // the same list the studio keeps and the action enforces, read from the
+  // same rows so all three agree
+  const files = await designFiles(id);
+  const wrong = draft ? pageNeeds({ doc: draft, occasion: t.occasion, weights: files.weights, lengths: files.lengths }).filter((n) => n.level === 'blocks') : [];
   const back = `/admin/templates/${id}/design/publish`;
   const published = Boolean(documentOf(t));
 

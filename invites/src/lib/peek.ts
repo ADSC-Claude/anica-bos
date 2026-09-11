@@ -50,7 +50,7 @@ function sampleOf(t: Template, demo: Demo): PlateWords {
   // rather than the wedding line the look was born with.
   const chosen = resolveTheme(t, contentOf(demo.content), demo.tier).look;
   const look = chosen ? withWords(chosen, wordsOf(t.words)) : t.look && isLook(t.look) ? withWords(LOOK_BY_KEY[t.look], wordsOf(t.words)) : undefined;
-  const premium = premiumOpeningsFor({ slug: t.slug, collection: t.collection })[0] ?? null;
+  const premium = premiumOpeningsFor(t)[0] ?? null;
   return plateWords(demo.occasion, contentOf(demo.content), demo.language === 'tl' ? 'tl' : 'en', look, premium);
 }
 

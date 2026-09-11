@@ -5,6 +5,7 @@ import { Readable } from 'node:stream';
 import path from 'node:path';
 import { HttpError } from './errors';
 import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './album';
+import { VIDEO_TYPES } from './clips';
 
 /**
  * Supabase Storage over its REST API — no SDK, and the service-role key never
@@ -31,8 +32,26 @@ function sniff(buffer: Buffer): string | null {
   // MP3: an ID3 tag in front, or a bare frame — its sync bits set, layer III
   if (buffer.subarray(0, 3).toString('ascii') === 'ID3') return 'audio/mpeg';
   if (buffer[0] === 0xff && (buffer[1] & 0xe6) === 0xe2) return 'audio/mpeg';
-  // M4A: an MP4 container that declares itself audio
+  // M4A: an MP4 container that declares itself audio. Checked before the
+  // general MP4 rule below, because both are `ftyp` boxes and only the brand
+  // tells them apart — a song read as a clip would be offered a poster.
   if (buffer.subarray(4, 8).toString('ascii') === 'ftyp' && buffer.subarray(8, 12).toString('ascii') === 'M4A ') return 'audio/mp4';
+  /*
+   * MP4 video: any other `ftyp` brand. Brands are many and vendors invent
+   * them — isom, iso2, mp41, mp42, avc1, M4V, dash, qt — so the brand is not
+   * an allowlist here. What a clip is actually encoded with is read in the
+   * browser before it is ever sent (H.264 Baseline or Main, AAC or silent),
+   * because a container tells you nothing about the codec inside it and a
+   * server with no ffmpeg cannot find out.
+   */
+  if (buffer.subarray(4, 8).toString('ascii') === 'ftyp') return 'video/mp4';
+  /*
+   * WebM: the EBML header, and the `webm` DocType within it. Matroska shares
+   * the header, so without the DocType an .mkv would be accepted and then
+   * play for nobody; it is refused with the rest.
+   */
+  if (buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3])))
+    return buffer.subarray(0, 64).includes(Buffer.from('webm', 'ascii')) ? 'video/webm' : null;
   // Excel (xlsx) is a zip: PK\x03\x04. Accepted only for intake uploads.
   if (buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04)
     return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -47,6 +66,8 @@ const EXTENSIONS: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
   'audio/mpeg': 'mp3',
   'audio/mp4': 'm4a',
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
 };
 
 const IMAGE_TYPES = [...PHOTO_TYPES];
@@ -55,13 +76,36 @@ export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
 /** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */
 export const AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 
-export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio';
+export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video';
 const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
   images: { types: IMAGE_TYPES, message: 'Only JPEG, PNG and WebP images are accepted.' },
   'images-and-pdf': { types: [...IMAGE_TYPES, 'application/pdf'], message: 'Only JPEG, PNG, WebP and PDF files are accepted.' },
   intake: { types: [...IMAGE_TYPES, 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], message: 'Only JPEG, PNG, WebP, PDF and Excel files are accepted.' },
   audio: { types: AUDIO_TYPES, message: 'Only MP3 and M4A audio files are accepted.' },
+  video: { types: [...VIDEO_TYPES], message: 'Only MP4 and WebM video files are accepted. An .mov from an iPhone needs exporting as MP4 first.' },
 };
+
+/**
+ * A design's own folder in storage, from whatever the form sent.
+ *
+ * Narrowed rather than trusted: the value becomes a path segment, so
+ * anything that is not a letter, a digit or a hyphen is dropped — `../../etc`
+ * comes out as `etc`, a folder name and not an escape. Forty characters is a
+ * cuid with room to spare. Empty becomes `shared`, which is where a file
+ * uploaded before its design exists goes.
+ *
+ * This is one of two locks, not the only one: `directUploadUrl` independently
+ * refuses any stored path that does not begin with this design's own folder,
+ * so a committed file cannot be pointed at somebody else's design even if
+ * this let something through.
+ */
+export function designFolder(raw: unknown): string {
+  // Only a string is a name. Coercing anything else turns `{}` into the
+  // folder `objectObject`, which is not an escape but is not a design's
+  // folder either — a file would quietly land somewhere nobody looks.
+  if (typeof raw !== 'string') return 'shared';
+  return raw.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 40) || 'shared';
+}
 
 export type Stored = { url: string; storagePath: string; contentType: string };
 

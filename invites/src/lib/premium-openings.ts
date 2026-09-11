@@ -82,17 +82,60 @@ export const PREMIUM_OPENING_BY_KEY: Record<string, PremiumOpening> = Object.fro
   PREMIUM_OPENINGS.map((o) => [o.key, o]),
 );
 
-/** What a design carries, for its collection: the theme's name is what pairs them. */
-export type ClipDesign = { slug: string; collection: string };
+/**
+ * What a design carries: its slug and collection, which are what pair it
+ * with the catalogue, and its own two opening columns, which are what a
+ * design drawn in the studio has instead of a catalogue entry.
+ *
+ * Every field is required on purpose. A caller that passed only the slug
+ * would compile and quietly leave a design's own opening unsellable, which
+ * is exactly the bug this type exists to prevent.
+ */
+export type ClipDesign = {
+  slug: string;
+  collection: string;
+  name: string;
+  openingVideoUrl: string;
+  openingPosterUrl: string;
+};
+
+/** The key a design's own opening is stored under. Not in the catalogue: there is one per design. */
+export const OWN_OPENING_KEY = 'own';
 
 /**
- * The clips made for this design, in catalogue order. Empty means the design
- * has no premium opening yet — the add-on is not sold with it.
+ * The clips this design can sell, in catalogue order. Empty means the design
+ * has no premium opening at all — the add-on is not sold with it.
+ *
+ * A design whose own two columns are filled and which matches nothing in the
+ * catalogue gets one synthetic entry of its own. That is the whole point of
+ * the studio: a design somebody draws, with a clip she uploads, should be
+ * able to sell its opening without a developer adding an entry above and
+ * shipping a release. The clip already played for a guest — `openingAssets`
+ * has always fallen back to these columns — but with nothing here the add-on
+ * could not be bought, the customer's picker was empty and the admin's
+ * "which opening" never appeared. So the clip worked and could not be sold,
+ * which is the wrong way round.
+ *
+ * `words: false`, deliberately. Whether a clip leaves a card blank for the
+ * couple's names is a fact about the artwork that only the person who drew
+ * it knows, and setting names over a clip that has its own is worse than not
+ * setting them at all. A catalogue entry is where somebody says otherwise.
  */
 export function premiumOpeningsFor(design: ClipDesign): PremiumOpening[] {
-  return PREMIUM_OPENINGS.filter(
+  const made = PREMIUM_OPENINGS.filter(
     (o) => o.designs.includes(design.slug) || Boolean(design.collection && o.collections?.includes(design.collection)),
   );
+  if (made.length || !design.openingVideoUrl || !design.openingPosterUrl) return made;
+  return [{
+    key: OWN_OPENING_KEY,
+    name: design.name ? `The ${design.name} opening` : 'This design’s own opening',
+    tagline: 'The clip this design was given, played as your envelope.',
+    blurb: 'the clip plays, and your invitation fades in beneath it',
+    video: design.openingVideoUrl,
+    poster: design.openingPosterUrl,
+    designs: [design.slug],
+    words: false,
+  }];
 }
 
 /** Whether this design has a premium opening to sell at all. */

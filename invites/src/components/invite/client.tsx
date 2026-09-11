@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { plateChars } from '@/lib/openings';
 import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
@@ -1311,5 +1311,97 @@ export function PeekControls({ href, backLabel, closeLabel }: { href: string; ba
       <a href={href} className="inv-peek-btn" onClick={step} aria-label={backLabel} title={backLabel}>←</a>
       <a href={href} className="inv-peek-btn" aria-label={closeLabel} title={closeLabel}>×</a>
     </div>
+  );
+}
+
+/**
+ * A short clip on a page, loaded and played only while a guest is looking at
+ * it.
+ *
+ * Everything here is about what a guest's phone and connection do, not about
+ * what looks best on a desk:
+ *
+ * - **No `autoplay` attribute.** It is the one thing that would undo the rest:
+ *   a browser given `autoplay` fetches the file when the element mounts,
+ *   whatever `preload` says, so every clip on every page of the invitation
+ *   would download the moment the page opened. `play()` is called by hand
+ *   instead, once the clip is actually in view.
+ * - **`preload="none"`** until then, and `src` is not even set: an unset
+ *   source is a request that cannot happen. This is what the range requests
+ *   the bucket serves are for — the file arrives in pieces as it plays,
+ *   rather than whole before it starts.
+ * - **Half in view, and it plays; out of view, and it pauses.** A guest
+ *   scrolling past a page should not leave four clips running behind them,
+ *   which is battery and data both.
+ * - **`saveData` means never.** A guest who has told their phone to spare
+ *   their data has told us too, and the poster is a perfectly good page.
+ *   Reduced motion is respected the same way: a clip is motion.
+ * - **A refused `play()` is not an error.** iOS in Low Power Mode refuses
+ *   every one, and the honest answer is the poster, which is already there.
+ *
+ * Muted and looping are not choices either: a page that makes noise at
+ * somebody reading an invitation on a bus is a page they close, and it is
+ * also the only way a browser will play anything without a tap.
+ */
+export function LazyVideo({ src, webm, poster, loop = true, className, style }: { src: string; webm?: string; poster?: string; loop?: boolean; className?: string; style?: CSSProperties }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [refused, setRefused] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Asked once, on the client, where the answer exists. A guest sparing
+    // their data, or asking for less motion, gets the poster and no request.
+    const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (save || still) return;
+
+    let armed = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            // the first time it comes into view is the first time the file is
+            // asked for at all: the sources are written in only now
+            if (!armed) {
+              armed = true;
+              for (const s of el.querySelectorAll('source')) s.setAttribute('src', s.dataset.src ?? '');
+              el.load();
+            }
+            el.play().catch(() => setRefused(true));
+          } else if (!el.paused) {
+            el.pause();
+          }
+        }
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      className={className}
+      style={style}
+      poster={poster}
+      muted
+      // A clip that does not loop stops on its last frame and stays there,
+      // which is right for a message to camera and wrong for a ribbon
+      // turning in the wind. The design says which it is.
+      loop={loop}
+      playsInline
+      preload="none"
+      // A refused play leaves the poster showing, which is the point; the
+      // controls are not offered, because a page's clip is decoration and a
+      // play button on decoration invites a guest to think they missed
+      // something.
+      data-refused={refused ? '' : undefined}
+      aria-hidden
+    >
+      {webm && <source data-src={webm} type="video/webm" />}
+      <source data-src={src} type="video/mp4" />
+    </video>
   );
 }

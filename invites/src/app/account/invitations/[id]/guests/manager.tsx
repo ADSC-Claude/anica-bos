@@ -9,6 +9,28 @@ type Table = { id: string; name: string; capacity: number };
 
 const guestSeats = (g: Guest) => seatsHeld(g.seatsAllotted, g.response);
 
+type Imported = { added: number; updated: number; skipped: number; unmatched: number };
+
+/**
+ * What the upload did, in the couple's words.
+ *
+ * Written out rather than summed, because "86 rows processed" is the sentence
+ * that hides the only thing worth knowing — whether their list just doubled.
+ * Updated comes first: on the seat sheet that is nearly every row, and it is
+ * the reassurance that nobody was copied.
+ */
+function importedLine(r: Imported): string {
+  const bits: string[] = [];
+  if (r.updated) bits.push(`Updated ${r.updated} guest${r.updated === 1 ? '' : 's'}`);
+  if (r.added) bits.push(`${bits.length ? 'added' : 'Added'} ${r.added} new one${r.added === 1 ? '' : 's'}`);
+  if (!bits.length) bits.push('Nothing changed');
+  let line = `${bits.join(', ')}.`;
+  if (r.unmatched)
+    line += ` ${r.unmatched} row${r.unmatched === 1 ? '' : 's'} had a personal link that is not on this list — ${r.unmatched === 1 ? 'it was' : 'they were'} left alone.`;
+  if (r.skipped) line += ` ${r.skipped} row${r.skipped === 1 ? '' : 's'} had no name and ${r.skipped === 1 ? 'was' : 'were'} skipped.`;
+  return line;
+}
+
 export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating, tables, guests }: { invitationId: string; slug: string; baseUrl: string; reminder: string; canSeating: boolean; tables: Table[]; guests: Guest[] }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
@@ -61,8 +83,22 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
       </div>
 
       {showImport && (
-        <form className="card p-4" onSubmit={(e) => { e.preventDefault(); const text = String(new FormData(e.currentTarget).get('text') ?? ''); if (!text.trim()) return; run(() => importGuestsAction(invitationId, text), (d) => { const r = d as { added: number; skipped: number }; setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`); setShowImport(false); }); }}>
-          <p className="text-sm">Columns: <b>Name, Group, Seats, Phone</b> (a header row is fine; <i>Greeting</i> is optional). <a href={`/account/invitations/${invitationId}/guest-template.csv`} className="underline">Download the blank list</a> — fill it in, then send it back below.</p>
+        <form className="card p-4" onSubmit={(e) => { e.preventDefault(); const text = String(new FormData(e.currentTarget).get('text') ?? ''); if (!text.trim()) return; run(() => importGuestsAction(invitationId, text), (d) => { setNotice(importedLine(d as Imported)); setShowImport(false); }); }}>
+          <p className="text-sm">Download one of these, open it in Excel or Google Sheets, and send it back below. <b>The instructions are inside the file</b> — nothing in it needs changing except the guests themselves.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {/* Two files, one question each: have you got a list yet, or are
+                you fixing the one you have? Offering only the blank was what
+                made a second upload mean a second copy of everybody. */}
+            <a href={`/account/invitations/${invitationId}/guest-template.csv`} className="rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50,#fbf8f3)] p-3 no-underline hover:bg-[color:var(--color-sand-100)]">
+              <b className="block text-sm">Blank list ↓</b>
+              <span className="text-xs text-[color:var(--color-ink-500)]">Starting from nothing. Name, group, seats, phone, email, greeting — with an example of each.</span>
+            </a>
+            <a href={`/account/invitations/${invitationId}/seat-sheet.csv`} className="rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50,#fbf8f3)] p-3 no-underline hover:bg-[color:var(--color-sand-100)]">
+              <b className="block text-sm">Seat sheet ↓</b>
+              <span className="text-xs text-[color:var(--color-ink-500)]">The {guests.length} {guests.length === 1 ? 'guest' : 'guests'} you already have, with a Seats column to settle. Send it back and it updates them — it does not add them again.</span>
+            </a>
+          </div>
+          <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">Pasting your own columns works too: <b>Name, Group, Seats, Phone</b> in that order, with <i>Email</i> and <i>Greeting</i> after them if you have a header row.</p>
           <label className="label mt-3">Upload the file</label>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -76,8 +112,7 @@ export function GuestManager({ invitationId, slug, baseUrl, reminder, canSeating
                 form.set('file', file);
                 e.target.value = '';
                 run(() => importGuestFileAction(invitationId, form), (d) => {
-                  const r = d as { added: number; skipped: number };
-                  setNotice(`Imported ${r.added} guest${r.added === 1 ? '' : 's'}${r.skipped ? `, skipped ${r.skipped} blank rows` : ''}.`);
+                  setNotice(importedLine(d as Imported));
                   setShowImport(false);
                 });
               }}

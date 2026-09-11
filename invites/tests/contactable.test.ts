@@ -73,7 +73,9 @@ test('the blank a couple fills in asks for an e-mail', () => {
 });
 
 test('the example rows show what an e-mail looks like rather than describing it', () => {
-  const rows = parseCsv(guestTemplateCsv([]));
-  assert.match(rows[1][4], /@/, 'the first example carries an address');
-  assert.match(rows[2][4], /@/, 'and so does the second');
+  // Found rather than counted: the instructions now sit between the header and
+  // the examples, and they are what makes the file fillable without asking us.
+  const examples = parseCsv(guestTemplateCsv([])).filter((r) => (r[4] ?? '').includes('@'));
+  assert.equal(examples.length, 2, 'the examples no longer carry an address');
+  for (const r of examples) assert.match(r[4], /^[^@\s]+@[^@\s]+$/, `"${r[4]}" is not a plausible address`);
 });

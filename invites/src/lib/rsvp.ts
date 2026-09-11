@@ -5,7 +5,7 @@ import { prisma } from './db';
 import { HttpError } from './errors';
 import { loadPublic, rsvpOpen } from './invitations';
 import { guestByToken } from './guests';
-import { hasFeature, entitled } from './tiers';
+import { hasFeature, entitled, type Entitled } from './tiers';
 import { notify } from './notifications';
 import { sendEmail, render, baseVars, mailable } from './email';
 import { getSettings } from './settings';
@@ -340,7 +340,17 @@ export async function decideSeats(
  * address is handed back to the couple's own phone, which is the honest answer
  * and usually the better one anyway.
  */
-export async function messageGuest(invitation: { id: string }, rsvpId: string, subject: string, body: string) {
+export async function messageGuest(invitation: Entitled & { id: string }, rsvpId: string, subject: string, body: string) {
+  // Our mail key, our cost, so it is sold rather than given away. The couple is
+  // never left without a way to send: the drawer's Viber, WhatsApp, Messages
+  // and Messenger buttons open their own app with the words already in it, and
+  // those are free on every package because their phone does the sending.
+  if (!entitled(invitation, 'rsvp.emailConfirmation'))
+    throw new HttpError(
+      403,
+      'Sending it for you from your invitation’s own address comes with the Exclusive package, or with any reminder pack. Until then, send it from your own Viber, Messenger or Messages with the buttons beside this one.',
+    );
+
   const reply = await prisma.rsvp.findFirst({
     where: { id: rsvpId, invitationId: invitation.id },
     select: { id: true, guestId: true, email: true, name: true },

@@ -382,6 +382,59 @@ table.data tr:hover td {
   border-radius: 1rem;
   padding: 1.25rem;
 }
+/*
+ * The check-in pass: the guest's own code, in one of three backdrops.
+ *
+ * The photograph is set as a background on the frame rather than as an <img>,
+ * so the code sits in normal flow above it and keeps its quiet zone whatever
+ * the picture does. `--inv-veil` is written from QR_VEIL in src/lib/qr.ts, so
+ * the measured number has one home.
+ */
+.inv-pass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  background-size: cover;
+  background-position: center;
+  text-align: center;
+}
+.inv-pass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+/* The photo behind the whole card: the code gets solid paper of its own, so
+   the picture is free to stay at full strength. Darkened only enough to read
+   the names over it. */
+.inv-pass-photo::before {
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.52));
+}
+/* The photo behind the code itself: a flat white veil, because a gradient
+   would be safe at one end and under the floor at the other. */
+.inv-pass-behind::before {
+  background: rgba(255, 255, 255, var(--inv-veil, 0.8));
+}
+.inv-pass-body {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+}
+.inv-pass-photo .inv-pass-body {
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+.inv-pass-plate {
+  display: block;
+  line-height: 0;
+  border-radius: 0.75rem;
+  padding: 0.55rem;
+  background: var(--inv-surface);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+}
+.inv-pass-code { display: block; line-height: 0; }
+
 .inv-btn {
   display: inline-flex;
   align-items: center;

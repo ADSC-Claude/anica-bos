@@ -11,7 +11,7 @@ import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
-import { qrSvg } from '@/lib/qr';
+import { qrSvg, qrOnPhoto, qrColours, qrBackdropFrom, QR_VEIL, QR_SAFE } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
@@ -862,7 +862,63 @@ function stripReservedSentence(note: string): string {
     .trim();
 }
 
-function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string }) {
+/**
+ * The guest's own check-in code, in whichever backdrop the couple chose.
+ *
+ * Three of them, and the difference between the middle two is the whole point:
+ * `photoCard` puts the photograph behind the card and gives the code solid
+ * paper of its own, so the picture stays at full strength; `photoBehind` runs
+ * the photograph under the modules themselves, which works only under a veil
+ * heavy enough that the photograph is nearly gone. Both are offered because
+ * couples ask for the second and usually mean the first.
+ *
+ * A backdrop that wants a photograph and has not been given one falls back to
+ * the invitation's own colours rather than drawing a code onto nothing.
+ */
+function CheckinPass({ url, lang, backdrop, photo, ink }: { url: string; lang: Lang; backdrop: ReturnType<typeof qrBackdropFrom>; photo: string; ink: { dark: string; light: string } }) {
+  const mode = photo ? backdrop : 'ground';
+  const eyebrow = <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>;
+
+  if (mode === 'photoCard') {
+    return (
+      <div className="inv-pass inv-pass-photo mt-6" style={{ backgroundImage: `url(${photo})` }}>
+        <div className="inv-pass-body">
+          {eyebrow}
+          <span className="inv-pass-plate" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
+          <p className="text-xs">{t(lang, 'checkin.hint')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === 'photoBehind') {
+    // The safe near-black rather than the palette's ink: the veil bounds how
+    // dark the photograph can get under the code, and the pair has to clear the
+    // floor against the darkest point it leaves behind.
+    return (
+      <div
+        className="inv-pass inv-pass-behind mt-6"
+        style={{ backgroundImage: `url(${photo})`, ['--inv-veil' as string]: String(QR_VEIL), color: QR_SAFE.dark }}
+      >
+        <div className="inv-pass-body">
+          {eyebrow}
+          <span className="inv-pass-code" dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 144) }} />
+          <p className="text-xs">{t(lang, 'checkin.hint')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inv-card mt-6 text-center">
+      {eyebrow}
+      <div className="mx-auto w-36" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
+      <p className="inv-muted mt-2 text-xs">{t(lang, 'checkin.hint')}</p>
+    </div>
+  );
+}
+
+function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title, ink }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string; ink: { dark: string; light: string } }) {
   const deadline = str(data, 'deadline');
   const open = rsvpOpen(inv);
   const seatsCap = personal && guest ? guest.seatsAllotted + (guest.plusOneAllowed ? 1 : 0) : 10;
@@ -946,11 +1002,13 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
         </p>
       )}
       {personal && guest && entitled(inv, 'checkin') && (
-        <div className="inv-card mt-6 text-center">
-          <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>
-          <div className="mx-auto w-36" dangerouslySetInnerHTML={{ __html: qrSvg(invitationUrl(slug, guest.token), { size: 144 }) }} />
-          <p className="inv-muted mt-2 text-xs">{t(lang, 'checkin.hint')}</p>
-        </div>
+        <CheckinPass
+          url={invitationUrl(slug, guest.token)}
+          lang={lang}
+          backdrop={qrBackdropFrom(str(data, 'qrBackdrop'))}
+          photo={str(data, 'qrPhoto')}
+          ink={ink}
+        />
       )}
     </Section>
   );
@@ -1976,7 +2034,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'gift':
         return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : named('gift', t(lang, 'gift.title'))} format={format} thanks={line('giftThanks')} />;
       case 'rsvp':
-        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} />;
+        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} ink={qrColours(palette)} />;
       case 'story':
         if (babyblue) return <StoryMilestones key={key} data={data} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} />;
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;

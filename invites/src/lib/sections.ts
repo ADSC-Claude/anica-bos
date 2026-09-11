@@ -2,6 +2,7 @@ import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast, entitled, TIER_LABELS, type FeatureKey } from './tiers';
+import { QR_BACKDROPS } from './qr';
 import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
@@ -670,6 +671,13 @@ const SECTION_DEFS: SectionDef[] = [
       ...(occasion === 'CORPORATE' ? [toggle('askDepartment', 'Ask for department / company')] : []),
       text('contactPhone', 'RSVP by text', { placeholder: 'Mobile number guests can text instead' }),
       textarea('reminderText', 'Reminder message', { hint: 'Used when RSVP reminders are sent from the guest list.', staff: true }),
+      // The check-in code's backdrop. Only drawn for invitations that carry
+      // check-in, but the fields are always offered: a couple settles the look
+      // of their invitation before they decide which add-ons to buy.
+      select('qrBackdrop', 'Behind the check-in QR', QR_BACKDROPS.map((b) => ({ value: b.value, label: b.label })), {
+        hint: 'Your photo behind the card keeps the picture at full strength and gives the code its own panel. Behind the code itself, the photo has to be faded almost away before a phone can still read it — we do that for you, so expect it to look pale.',
+      }),
+      image('qrPhoto', 'Photo behind the QR', { hint: 'Only used by the two photo options. A bright, uncluttered picture works best; a dark or busy one fades the most.' }),
     ],
   },
   {

@@ -162,3 +162,114 @@ export function posterTimes(durationMs: number): number[] {
   if (!s) return [0];
   return [s * 0.1, s * 0.3, s * 0.5, 0].map((t) => Math.min(t, Math.max(0, s - 0.05)));
 }
+
+/**
+ * What is actually inside an MP4, read from the file's own boxes.
+ *
+ * `canPlayType` cannot answer this. It is asked about a *type string*, not
+ * about a file, so it says what the browser could decode in principle and
+ * nothing at all about the thing that was picked. And the file that must be
+ * caught is exactly the one that looks fine: an iPhone records HEVC by
+ * default, Safari plays it back perfectly for the person who shot it, and a
+ * large share of the Android phones a guest opens the invitation with show
+ * a black rectangle. Nobody sees that happen. It is the worst kind of fault.
+ *
+ * So the container is read instead. An MP4 is a tree of boxes, each
+ * `[4-byte big-endian size][4-byte ASCII type][payload]`, and the video
+ * track's codec is a four-character code sitting at
+ * `moov > trak > mdia > minf > stbl > stsd`. No decoder is involved, which
+ * is also why this can be tested on a machine with no H.264 at all.
+ *
+ * Returns the code ('avc1', 'hvc1', 'av01'…), or null when the file is not
+ * shaped like an MP4 or the boxes it needs are not there — a file whose
+ * `moov` sits past what was read, for instance. Null means *unknown*, and
+ * unknown must never be treated as bad: see `codecFault`.
+ */
+export function mp4VideoCodec(bytes: Uint8Array): string | null {
+  const moov = child(bytes, boxes(bytes, 0, bytes.length), 'moov');
+  if (!moov) return null;
+  for (const trak of boxes(bytes, moov.from, moov.to).filter((b) => b.type === 'trak')) {
+    const mdia = child(bytes, boxes(bytes, trak.from, trak.to), 'mdia');
+    if (!mdia) continue;
+    const kids = boxes(bytes, mdia.from, mdia.to);
+    // hdlr payload: 4 version+flags, 4 pre_defined, then the handler type.
+    // A file has a sound track too, and its codec is not the one in question.
+    const hdlr = child(bytes, kids, 'hdlr');
+    if (hdlr && ascii(bytes, hdlr.from + 8, 4) !== 'vide') continue;
+    const minf = child(bytes, kids, 'minf');
+    const stbl = minf && child(bytes, boxes(bytes, minf.from, minf.to), 'stbl');
+    const stsd = stbl && child(bytes, boxes(bytes, stbl.from, stbl.to), 'stsd');
+    // stsd payload: 4 version+flags, 4 entry count, then [4 size][4 format]…
+    if (!stsd || stsd.from + 16 > stsd.to) continue;
+    return ascii(bytes, stsd.from + 12, 4);
+  }
+  return null;
+}
+
+/** H.264, under either of the two codes it is filed as. Everything else is a refusal or an unknown. */
+const MP4_PLAYS_ANYWHERE = new Set(['avc1', 'avc3']);
+
+/** The codes worth naming by name, because the person who picked the file will recognise them. */
+const MP4_CODEC_NAMES: Record<string, string> = {
+  hvc1: 'HEVC (H.265)', hev1: 'HEVC (H.265)', dvh1: 'Dolby Vision', dvhe: 'Dolby Vision',
+  av01: 'AV1', vp09: 'VP9', vp08: 'VP8', mp4v: 'MPEG-4 Part 2', s263: 'H.263',
+};
+
+/**
+ * Whether an MP4's video codec is one every guest's phone can play.
+ *
+ * Null in, null out, deliberately: a codec that could not be read is not a
+ * codec that is wrong, and refusing a file on a box this could not find
+ * would be refusing a file that works. The caller says so instead — "the
+ * codec could not be read, so the clip was taken as it is" — and the weight,
+ * length and shape rules, which need no decoder, still hold.
+ */
+export function codecFault(code: string | null): { say: string; codec: string } | null {
+  if (!code || MP4_PLAYS_ANYWHERE.has(code)) return null;
+  const name = MP4_CODEC_NAMES[code];
+  return {
+    codec: code,
+    say: name === 'HEVC (H.265)'
+      ? 'That clip is HEVC, which is what an iPhone records unless it is told otherwise. It plays on the phone that shot it and shows a black rectangle on a lot of Android phones, so it cannot go on an invitation. In Settings → Camera → Formats choose “Most Compatible”, or export the clip as H.264.'
+      : `That clip is ${name ?? `in ${code}`}, and an invitation needs H.264 — it is the one format every phone a guest opens the page with can play. Export it again as H.264 (sometimes called AVC).`,
+  };
+}
+
+type Box = { type: string; from: number; to: number };
+
+/** The boxes laid out one after another between two offsets. Stops at the first one that does not fit rather than guessing. */
+function boxes(b: Uint8Array, start: number, end: number): Box[] {
+  const out: Box[] = [];
+  let at = start;
+  while (at + 8 <= end) {
+    const size = u32(b, at);
+    const type = ascii(b, at + 4, 4);
+    let from = at + 8;
+    let to = size === 0 ? end : at + size;
+    if (size === 1) {
+      // a 64-bit size follows the type; the high word is zero for any file
+      // that fits the weight limit, so the low word is the whole of it
+      if (at + 16 > end) break;
+      to = at + u32(b, at + 12);
+      from = at + 16;
+    }
+    if (to <= from || to > end) break;
+    out.push({ type, from, to });
+    at = to;
+  }
+  return out;
+}
+
+function child(b: Uint8Array, list: Box[], type: string): Box | undefined {
+  return list.find((x) => x.type === type);
+}
+
+function u32(b: Uint8Array, at: number): number {
+  return ((b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3]) >>> 0;
+}
+
+function ascii(b: Uint8Array, at: number, n: number): string {
+  let s = '';
+  for (let i = 0; i < n; i++) s += String.fromCharCode(b[at + i]);
+  return s;
+}

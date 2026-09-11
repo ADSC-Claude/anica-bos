@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4, looksBlank, posterTimes } from '../src/lib/clips';
+import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4, looksBlank, posterTimes, mp4VideoCodec, codecFault } from '../src/lib/clips';
 import { designFolder } from '../src/lib/storage';
 
 /**
@@ -201,4 +201,58 @@ test('poster frames are tried a tenth in first, not at the very start', () => {
 test('every poster time is inside a very short clip', () => {
   for (const t of posterTimes(200)) assert.ok(t >= 0 && t <= 0.2, `${t} is outside a 0.2s clip`);
   assert.deepEqual(posterTimes(0), [0]);
+});
+
+// --- what is actually inside the file ------------------------------------
+
+/**
+ * `canPlayType` answers about a type string, not about the file somebody
+ * picked — so the file that must be caught is the one that looks fine. An
+ * iPhone records HEVC by default, Safari plays it back perfectly for the
+ * person who shot it, and a lot of Android phones show a black rectangle.
+ * Reading the container catches it, and needs no decoder, which is why this
+ * runs on a machine with no H.264 at all.
+ */
+test('the two clips this app ships are read as H.264', () => {
+  for (const name of ['baby-blue.mp4', 'capiz.mp4']) {
+    const path = `public/openings/${name}`;
+    if (!existsSync(path)) continue;
+    const code = mp4VideoCodec(new Uint8Array(readFileSync(path)));
+    assert.equal(code, 'avc1', `${name} should be avc1, not ${code}`);
+    assert.equal(codecFault(code), null, `${name} must not be refused`);
+  }
+});
+
+test('an iPhone’s HEVC is refused, and the refusal says how to fix it', () => {
+  const fault = codecFault('hvc1');
+  assert.ok(fault, 'hvc1 must be refused');
+  assert.match(fault.say, /HEVC/);
+  assert.match(fault.say, /Most Compatible|H\.264/, 'it has to say what to do, not only that it is wrong');
+  assert.equal(fault.codec, 'hvc1');
+  assert.ok(codecFault('av01'), 'AV1 too — Safari on an older iPhone will not play it');
+});
+
+test('a codec that could not be read is not a codec that is wrong', () => {
+  assert.equal(codecFault(null), null, 'unknown must never refuse a working file');
+  assert.equal(mp4VideoCodec(new Uint8Array(0)), null, 'nothing at all');
+  assert.equal(mp4VideoCodec(new Uint8Array([0, 0, 0, 24, 102, 116, 121, 112])), null, 'an ftyp and no moov');
+  // a truncated file: the shipped clip cut off before its moov is complete
+  const whole = existsSync('public/openings/baby-blue.mp4') ? new Uint8Array(readFileSync('public/openings/baby-blue.mp4')) : null;
+  if (whole) assert.equal(mp4VideoCodec(whole.subarray(0, 64)), null, 'a fragment must answer unknown, not throw');
+});
+
+test('a sound track’s codec is never mistaken for the picture’s', () => {
+  // moov > trak(soun, mp4a) then trak(vide, avc1) — the video one is the answer
+  const box = (type: string, payload: number[]) => {
+    const size = 8 + payload.length;
+    return [(size >>> 24) & 255, (size >>> 16) & 255, (size >>> 8) & 255, size & 255, ...[...type].map((c) => c.charCodeAt(0)), ...payload];
+  };
+  const chars = (s: string) => [...s].map((c) => c.charCodeAt(0));
+  const stsd = (fmt: string) => box('stsd', [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 8, ...chars(fmt)]);
+  const trak = (handler: string, fmt: string) => box('trak', box('mdia', [
+    ...box('hdlr', [0, 0, 0, 0, 0, 0, 0, 0, ...chars(handler)]),
+    ...box('minf', box('stbl', stsd(fmt))),
+  ]));
+  const file = new Uint8Array(box('moov', [...trak('soun', 'mp4a'), ...trak('vide', 'avc1')]));
+  assert.equal(mp4VideoCodec(file), 'avc1');
 });

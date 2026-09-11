@@ -48,24 +48,29 @@ export type AddOnSpec = {
 
 /**
  * The queue jumps, in pesos. Rush is Basic's and Standard's and promises 24
- * hours; priority is Signature's and promises two working days, because that
- * build carries too much to encode overnight. addOnAvailable in
- * src/lib/pricing.ts decides which tier is offered which; addOnPrice charges
- * rush 1,500 on Standard, which is the one price not held on its own row.
+ * hours; priority is Signature's and Luxury's and promises two to three working
+ * days, because those builds carry per-guest links, seating and a programme,
+ * which is more than one night of work. addOnAvailable in src/lib/pricing.ts
+ * decides which package is offered which; addOnPrice charges rush 1,500 on
+ * Standard, which is the one price not held on its own row.
+ *
+ * Both quote the ordinary turnaround to say what they are shortening, so they
+ * have to move when it does — it is seven to ten working days now, not five to
+ * a week.
  */
 export const ADDONS: AddOnSpec[] = [
   {
     code: 'RUSH',
     price: 1_000,
     name: 'Rush publish (24 hours)',
-    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.',
+    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual seven to ten working days. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard — a bigger build carries too much to finish overnight, and those are sold priority instead.',
     sortOrder: 5,
   },
   {
     code: 'PRIORITY',
     price: 2_000,
-    name: 'Priority (2 working days)',
-    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature and Luxury.',
+    name: 'Priority (2 to 3 working days)',
+    description: 'Your invitation is finished in two to three working days instead of the usual seven to ten. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature and Luxury — those builds carry per-guest links, seating and a programme, which is more than one night of work however much anyone wants it tomorrow.',
     sortOrder: 6,
   },
   {

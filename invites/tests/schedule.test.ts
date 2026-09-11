@@ -16,8 +16,10 @@ test('the schedule counts back from the day they send it out', () => {
   assert.equal(s.comfortableBy.toISOString().slice(0, 10), '2026-10-27');
   assert.equal(Math.round((s.sendOut.getTime() - s.finalBy.getTime()) / day), FINAL_FORM_DAYS);
   assert.equal(Math.round((s.sendOut.getTime() - s.comfortableBy.getTime()) / day), COMFORTABLE_DAYS);
-  // a form final today would be built by
-  assert.equal(s.readyIfFinalisedNow.toISOString().slice(0, 10), '2026-09-17');
+  // A form final today would be built by the far end of the estimate. Counted
+  // from the constant rather than written out, so moving the promise moves the
+  // test with it instead of breaking it.
+  assert.equal(s.readyIfFinalisedNow.toISOString().slice(0, 10), new Date(now.getTime() + PROCESSING_DAYS * day).toISOString().slice(0, 10));
   assert.equal(s.daysToSendOut, 77);
   assert.equal(s.tight, false);
   assert.equal(s.late, false);
@@ -33,8 +35,8 @@ test('tight and late are named, not hidden', () => {
   const late = scheduleAdvice(on('2026-09-14'), now)!;
   assert.equal(late.late, true);
   assert.equal(late.daysToSendOut, 4);
-  // exactly the processing week is still not late
-  const edge = scheduleAdvice(on('2026-09-17'), now)!;
+  // exactly the build estimate is still not late
+  const edge = scheduleAdvice(new Date(now.getTime() + PROCESSING_DAYS * day), now)!;
   assert.equal(edge.daysToSendOut, PROCESSING_DAYS);
   assert.equal(edge.late, false);
   // a day already past

@@ -22,6 +22,27 @@
  * public link it is the only name there is.
  */
 
+/**
+ * Who a staff reply is from, as a customer should read it.
+ *
+ * Not the person who typed it. A customer's thread is with the business rather
+ * than with whoever picked the job up: a real name there invites them to ask
+ * for that colleague by name next time, follows them off the platform, and
+ * puts one person's name in front of every customer who ever buys an
+ * invitation. Staff keep seeing each other's names on the admin side, where
+ * the name is the accountability.
+ *
+ * Stored, not shown: DfyRevision.authorName still records who wrote it, so
+ * this changes what is printed and not what is kept. Which means it reads
+ * correctly for the rows written before it, too.
+ */
+export const STAFF_BYLINE = 'Admin';
+
+/** The name to print against one message in a thread a customer can read. */
+export function byline(authorName: string, byStaff: boolean): string {
+  return byStaff ? STAFF_BYLINE : authorName;
+}
+
 export type ReplyIdentity = {
   /** What to print: the couple's name for the guest, or the typed one if there is no guest. */
   name: string;

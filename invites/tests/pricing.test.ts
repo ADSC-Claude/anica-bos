@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnIncluded, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
+import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnPriceRises, addOnIncluded, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
+import { TIERS } from '../src/lib/tiers';
+import { SERVICE_MODES } from '../src/lib/pricing';
+import { turnaroundLabel } from '../src/lib/datetime';
+import { PROCESSING_DAYS } from '../src/lib/progress';
+import { DEFAULT_SETTINGS } from '../src/lib/settings-defaults';
 import { discountAmount, formatPeso, formatPesoShort, toCents } from '../src/lib/money';
 
 const pkg: PackageLike = { code: 'WEDDING_STANDARD', name: 'Wedding Standard', tier: 'STANDARD', priceCents: 300000, dfyFeeCents: 120000, conciergeFeeCents: 0 };
@@ -79,43 +84,69 @@ test('one service is sold; the other two modes are withdrawn on every tier', () 
   assert.equal(DEFAULT_SERVICE_MODE, 'DFY', 'and it is what a new order is stamped with');
 });
 
-test('the queue jump is rush below Signature and priority on it', () => {
+test('the queue jumps are split by what we can promise on the work', () => {
   const rush = { code: 'RUSH', name: 'Rush', priceCents: 100000 };
   const priority = { code: 'PRIORITY', name: 'Priority', priceCents: 200000 };
-  // A tier is offered one or the other, never both: they are one purchase.
-  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE', 'LUXURY'].map((t) => addOnAvailable('RUSH', t as never)), [true, true, false, false]);
-  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE', 'LUXURY'].map((t) => addOnAvailable('PRIORITY', t as never)), [false, false, true, true]);
+  // Not the same offer twice: rush is a day, which the small builds can have,
+  // and priority is two to three, which is what the big ones can.
+  assert.deepEqual(TIERS.map((t) => addOnAvailable('RUSH', t)), [true, true, false, false]);
+  assert.deepEqual(TIERS.map((t) => addOnAvailable('PRIORITY', t)), [false, false, true, true]);
+
+  // Every other add-on is still offered to every package.
+  for (const code of ['PREMIUM_OPENING', 'PRINTABLE', 'CUSTOM_DOMAIN', 'SMS_PACK']) {
+    assert.deepEqual(TIERS.map((t) => addOnAvailable(code, t)), [true, true, true, true], code);
+  }
 
   // Signature, done for them, wanted early: 4,000 + 2,000 + 2,000.
   const sig = quote({ pkg: signature, serviceMode: 'DFY', addOns: [priority] });
   assert.equal(sig.totalCents, 800000);
   assert.equal(sig.items.map((i) => i.kind).join(','), 'PACKAGE,SERVICE,ADDON');
 
-  // and the jump the tier is not sold is dropped rather than charged
+  // And the jump a package is not sold is dropped rather than charged.
   assert.equal(quote({ pkg: signature, serviceMode: 'DFY', addOns: [rush] }).addOnsCents, 0);
   assert.equal(quote({ pkg, serviceMode: 'DFY', addOns: [priority] }).addOnsCents, 0);
 });
 
-test('Rush is Basic and Standard only, and is dropped from a Signature quote', () => {
-  const rush = { code: 'RUSH', name: 'Rush publish', priceCents: 100000 };
-  assert.equal(addOnAvailable('RUSH', 'BASIC'), true);
-  assert.equal(addOnAvailable('RUSH', 'STANDARD'), true);
-  assert.equal(addOnAvailable('RUSH', 'COMPLETE'), false);
-  assert.equal(addOnAvailable('PREMIUM_OPENING', 'COMPLETE'), true, 'other add-ons are unaffected');
+// The checkout card used to print the catalogue row while the order charged
+// the tier price — 1,000 on the label, 1,500 on the bill. Both now go through
+// addOnPrice, and this names the one add-on whose price moves, so a second one
+// cannot be added without the pages being told.
+test('only rush gets dearer with the package; only Save the Date gets cheaper', () => {
+  assert.equal(addOnPriceRises('RUSH'), true);
+  for (const code of ['PRIORITY', 'SAVE_THE_DATE', 'PREMIUM_OPENING', 'PRINTABLE', 'CUSTOM_DOMAIN', 'SMS_PACK']) {
+    assert.equal(addOnPriceRises(code), false, code);
+  }
 
-  // 1,000 on Basic, 1,500 on Standard: jumping ahead of a bigger build costs more.
+  // Everything else is flat across the packages.
+  for (const code of ['PRIORITY', 'PREMIUM_OPENING', 'PRINTABLE', 'CUSTOM_DOMAIN', 'SMS_PACK']) {
+    const row = { code, name: code, priceCents: 29900 };
+    assert.deepEqual(TIERS.map((t) => addOnPrice(row, t)), [29900, 29900, 29900, 29900], code);
+  }
+
+  // Save the Date is the one that falls rather than rises: Luxury is given it.
+  const std = { code: 'SAVE_THE_DATE', name: 'Save the Date card', priceCents: 29900 };
+  assert.deepEqual(TIERS.map((t) => addOnPrice(std, t)), [29900, 29900, 29900, 0]);
+});
+
+test('rush costs more the bigger the build it jumps ahead of', () => {
+  const rush = { code: 'RUSH', name: 'Rush publish', priceCents: 100000 };
   assert.equal(addOnPrice(rush, 'BASIC'), 100000);
   assert.equal(addOnPrice(rush, 'STANDARD'), 150000);
   const other = { code: 'PRINTABLE', name: 'Printable', priceCents: 29900 };
   assert.equal(addOnPrice(other, 'BASIC'), 29900, 'every other add-on prices from its own row');
 
+  // Never less for a bigger package than a smaller one, among the packages it
+  // is sold to. Above those it is not sold at all, so the catalogue fallback
+  // there is never charged.
+  let last = 0;
+  for (const tier of TIERS.filter((t) => addOnAvailable('RUSH', t))) {
+    const price = addOnPrice(rush, tier);
+    assert.ok(price >= last, `rush on ${tier} costs less than the package below it`);
+    last = price;
+  }
+
   assert.equal(quote({ pkg: { ...pkg, tier: 'BASIC' }, serviceMode: 'DIY', addOns: [rush] }).addOnsCents, 100000);
   assert.equal(quote({ pkg, serviceMode: 'DFY', addOns: [rush] }).addOnsCents, 150000);
-
-  const dropped = quote({ pkg: signature, serviceMode: 'DIY', addOns: [rush] });
-  assert.equal(dropped.addOnsCents, 0, 'not charged');
-  assert.equal(dropped.totalCents, 400000);
-  assert.ok(!dropped.items.some((i) => i.code === 'RUSH'), 'and not listed');
 });
 
 test('a build paid to be quick carries fewer rounds, never more', () => {
@@ -152,4 +183,25 @@ test('Save the Date is included with Luxury and sold to everybody else', () => {
   const q = quote({ pkg: luxury, serviceMode: 'DFY', addOns: [std], occasion: 'WEDDING' });
   assert.equal(q.totalCents, 750000, 'the card adds nothing to the bill');
   assert.ok(q.items.some((i) => i.code === 'SAVE_THE_DATE' && i.amountCents === 0), 'and is still named on the order');
+});
+
+// The turnaround is written in two places that must not drift: SERVICE_MODES
+// prints it on the landing page and in the checkout, and the settings are what
+// a due date is actually counted from. PROCESSING_DAYS is the third — the date
+// a customer plans against — and it has to be the far end, because a date that
+// arrives early is a good surprise and one that arrives late is a broken
+// promise.
+test('what we print as the turnaround is what we count a due date from', () => {
+  const dfy = SERVICE_MODES.find((m) => m.key === 'DFY')!;
+  assert.equal(dfy.turnaround, turnaroundLabel(DEFAULT_SETTINGS['dfy.turnaroundDays'], DEFAULT_SETTINGS['dfy.turnaroundDaysMax']));
+  assert.equal(dfy.turnaround, '7 to 10 working days');
+  assert.equal(PROCESSING_DAYS, DEFAULT_SETTINGS['dfy.turnaroundDaysMax'], 'the date a customer plans against is the far end');
+
+  // Priority is two to three, and never quicker than rush is allowed to be.
+  assert.equal(turnaroundLabel(DEFAULT_SETTINGS['concierge.turnaroundDays'], DEFAULT_SETTINGS['concierge.turnaroundDaysMax']), '2 to 3 working days');
+  assert.ok(DEFAULT_SETTINGS['concierge.turnaroundDaysMax'] < DEFAULT_SETTINGS['dfy.turnaroundDays'], 'a queue jump has to beat the ordinary promise');
+
+  // A single number still reads as one.
+  assert.equal(turnaroundLabel(3, 3), '3 working days');
+  assert.equal(turnaroundLabel(1, 1), '1 working day');
 });

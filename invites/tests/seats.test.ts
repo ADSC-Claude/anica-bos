@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seatsHeld, replyState, headsArrived, arrivalLabel } from '../src/lib/seats';
+import { seatsHeld, replyState, headsArrived, arrivalLabel, replySeats, awaitingDecision, decided } from '../src/lib/seats';
 
 test('a guest holds what they confirmed, or what was set aside until they say', () => {
   // Nobody has answered: the couple's allotment is the number to plan against.
@@ -90,4 +90,62 @@ test('the stepper stops saying "of" once it stops being a fraction', () => {
   // Five against four confirmed is two facts, not a fraction.
   assert.equal(arrivalLabel(4, 5), '5 arrived · 4 confirmed');
   assert.equal(arrivalLabel(0, 2), '2 arrived · 0 confirmed');
+});
+
+test('what the couple settled on outranks what the guest put down', () => {
+  assert.equal(seatsHeld(0, { response: 'ACCEPT', seats: 6 }), 6, 'nobody has looked');
+  assert.equal(seatsHeld(0, { response: 'ACCEPT', seats: 6, seatsApproved: 2 }), 2, 'cut to two');
+  assert.equal(seatsHeld(0, { response: 'ACCEPT', seats: 6, seatsApproved: 6 }), 6, 'kept whole');
+  assert.equal(seatsHeld(0, { response: 'ACCEPT', seats: 2, seatsApproved: 4 }), 4, 'the couple may also add');
+  assert.equal(seatsHeld(0, { response: 'ACCEPT', seats: 6, seatsApproved: 0 }), 0, 'settled at nobody');
+
+  // Null is "not looked at", which is not the same as zero — the distinction
+  // the whole queue rests on.
+  assert.equal(seatsHeld(0, { response: 'ACCEPT', seats: 3, seatsApproved: null }), 3);
+
+  // A decline holds nothing whatever anybody settled.
+  assert.equal(seatsHeld(0, { response: 'DECLINE', seats: 0, seatsApproved: 4 }), 0);
+});
+
+test('replySeats is the same rule with no allotment in the picture', () => {
+  assert.equal(replySeats(null), 0);
+  assert.equal(replySeats(undefined), 0);
+  assert.equal(replySeats({ response: 'ACCEPT', seats: 3 }), 3);
+  assert.equal(replySeats({ response: 'ACCEPT', seats: 6, seatsApproved: 2 }), 2);
+  assert.equal(replySeats({ response: 'DECLINE', seats: 0 }), 0);
+  // It must not fall back to an allotment the way seatsHeld does for a missing
+  // reply — there is no guest row behind a plain-link answer to fall back to.
+  assert.equal(replySeats({ response: 'ACCEPT', seats: 0 }), 0);
+});
+
+test('only the replies nobody vetted wait on the couple', () => {
+  const claim = { response: 'ACCEPT' as const, seats: 4 };
+
+  // Through a personal link: submitRsvp already refused anything over the
+  // allotment, so there is nothing left to agree. This is what keeps the queue
+  // short enough that a couple actually works through it.
+  assert.equal(awaitingDecision(claim, true), false);
+
+  // Through the plain link, where the dropdown goes to ten and nothing checks.
+  assert.equal(awaitingDecision(claim, false), true);
+
+  // One seat is somebody answering for themselves, not a claim on anything.
+  assert.equal(awaitingDecision({ response: 'ACCEPT', seats: 1 }, false), false);
+
+  // A decline has no seats to argue about.
+  assert.equal(awaitingDecision({ response: 'DECLINE', seats: 0 }, false), false);
+  assert.equal(awaitingDecision(null, false), false);
+});
+
+test('a settled reply leaves the queue at whatever number was chosen', () => {
+  // Including nought, which is the one a naive truthiness check would miss and
+  // put back in the queue forever.
+  for (const n of [0, 1, 4, 9]) {
+    const reply = { response: 'ACCEPT' as const, seats: 4, seatsApproved: n };
+    assert.equal(decided(reply), true, `settled at ${n}`);
+    assert.equal(awaitingDecision(reply, false), false, `settled at ${n} still waiting`);
+  }
+  assert.equal(decided({ response: 'ACCEPT', seats: 4 }), false);
+  assert.equal(decided({ response: 'ACCEPT', seats: 4, seatsApproved: null }), false);
+  assert.equal(decided(null), false);
 });

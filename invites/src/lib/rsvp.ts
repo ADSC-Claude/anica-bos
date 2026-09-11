@@ -13,6 +13,7 @@ import { str, rows, bool, guestGroups, displayTitle } from './sections';
 import { contentOf } from './invitations';
 import { contactPatch, plainAddress } from './contacts';
 import { attendeesOf } from './attendees';
+import { seatsHeld, awaitingDecision } from './seats';
 import { invitationUrl } from './app-url';
 import { formatDate } from './datetime';
 
@@ -185,7 +186,7 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
 
   // And tell the guest, where the invitation has it. A reply into a form that
   // says nothing back is the commonest reason somebody replies twice.
-  await confirmToGuest(invitation, saved, guest);
+  await confirmToGuest(invitation, saved, guest, personal);
 
   // Tell the host, but not on every edit of the same response.
   if (!existing) {
@@ -226,8 +227,9 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
  */
 async function confirmToGuest(
   invitation: { id: string; slug: string; tier: Tier; addOns: string[]; title: string; occasion: Occasion; content: unknown; eventAt: Date | null },
-  saved: { id: string; name: string; response: string; seats: number; email: string },
+  saved: { id: string; name: string; response: string; seats: number; seatsApproved?: number | null; email: string },
   guest: { id: string; token: string; salutation: string } | null,
+  vetted: boolean,
 ) {
   if (!entitled(invitation, 'rsvp.emailConfirmation')) return;
   // Only the people who are coming. A decline is a kindness the guest has
@@ -235,11 +237,20 @@ async function confirmToGuest(
   // not be there reads as a receipt nobody asked for — worse on the occasions
   // where the reason for declining is not a happy one.
   if (saved.response !== 'ACCEPT') return;
+  // And not while the couple has yet to agree the number. A receipt confirming
+  // six seats, sent the moment a stranger picked six off a dropdown, is the
+  // hardest thing in this system to walk back — the guest has it in writing.
+  // decideSeats() sends it once the couple has settled the figure.
+  if (awaitingDecision({ response: 'ACCEPT', seats: saved.seats, seatsApproved: saved.seatsApproved }, vetted)) return;
   const address = mailable(plainAddress(saved.email));
   // No address is not a failure to record — there was nobody to write to. The
   // couple's RSVP list says so from the blank, which is the thing they can act
   // on: ask that guest for one.
   if (!address) return;
+
+  // What they are actually holding: the couple's figure where there is one,
+  // the guest's where there is not. Never the raw claim once it has been cut.
+  const seats = seatsHeld(0, { response: 'ACCEPT', seats: saved.seats, seatsApproved: saved.seatsApproved });
 
   const content = contentOf(invitation.content);
   const settings = await getSettings();
@@ -250,7 +261,7 @@ async function confirmToGuest(
     hosts: invitation.title.trim() || displayTitle(invitation.occasion, content),
     eventDate: invitation.eventAt ? formatDate(invitation.eventAt) : '',
     response: 'coming',
-    seatsLine: ` for ${saved.seats} seat${saved.seats === 1 ? '' : 's'}`,
+    seatsLine: ` for ${seats} seat${seats === 1 ? '' : 's'}`,
     link: invitationUrl(invitation.slug, guest?.token),
   };
   const subject = render(settings['email.rsvpConfirmationSubject'], vars);
@@ -269,6 +280,96 @@ async function confirmToGuest(
       error: result.error ?? '',
     },
   });
+}
+
+/**
+ * The couple's answer to a reply nobody vetted.
+ *
+ * Setting the number is the whole decision: approving is settling on what the
+ * guest asked for, trimming is settling on less, and both write to the same
+ * column. There is no separate "rejected" state because there is no such
+ * outcome at a Filipino celebration — a party of six becomes a party of two,
+ * and the two still come.
+ *
+ * Once this has run, seatsApproved is no longer null, so the reply leaves the
+ * queue whichever number was chosen and nothing asks the couple about it again.
+ */
+export async function decideSeats(
+  invitation: { id: string; slug: string; tier: Tier; addOns: string[]; title: string; occasion: Occasion; content: unknown; eventAt: Date | null },
+  rsvpId: string,
+  seats: number,
+) {
+  const reply = await prisma.rsvp.findFirst({
+    where: { id: rsvpId, invitationId: invitation.id },
+    include: { guest: { select: { id: true, token: true, salutation: true } } },
+  });
+  if (!reply) throw new HttpError(404, 'That reply is not on this invitation.');
+  if (reply.response !== 'ACCEPT') throw new HttpError(400, 'Only an acceptance has seats to settle.');
+
+  const seatsApproved = Math.min(99, Math.max(0, Math.trunc(Number(seats) || 0)));
+  const saved = await prisma.rsvp.update({ where: { id: reply.id }, data: { seatsApproved } });
+
+  // Approved at what they asked for — or more — is not news anybody has to
+  // brace for, so the receipt goes now, carrying the settled figure.
+  //
+  // A cut is a different kind of message. "We can only seat two of you" is a
+  // sentence the couple has to write in their own voice to somebody they know,
+  // and a system that sends it for them automatically at two in the morning is
+  // a system that costs them a cousin. messageGuest() sends it when they are
+  // ready; nothing goes out here.
+  //
+  // `vetted` is true because the couple has just done the vetting themselves.
+  const trimmed = seatsApproved < reply.seats;
+  if (!trimmed) await confirmToGuest(invitation, saved, reply.guest, true);
+
+  return { reply: saved, trimmed, claimed: reply.seats, approved: seatsApproved };
+}
+
+/**
+ * One message, to one guest, in the couple's own words.
+ *
+ * Every blast in this codebase takes a whole list and two modes — everybody, or
+ * everybody who has not replied. There was no way to write to a single person,
+ * which is why a couple who needed to say one careful thing to one guest left
+ * the system and opened Messenger, and why nothing about that conversation was
+ * ever recorded beside the reply it was about.
+ *
+ * E-mail only, and that is deliberate rather than a gap: it is the one channel
+ * we can send down ourselves at no cost. A text would be charged per message by
+ * the gateway and the sender name is not registered yet. The guest with no
+ * address is handed back to the couple's own phone, which is the honest answer
+ * and usually the better one anyway.
+ */
+export async function messageGuest(invitation: { id: string }, rsvpId: string, subject: string, body: string) {
+  const reply = await prisma.rsvp.findFirst({
+    where: { id: rsvpId, invitationId: invitation.id },
+    select: { id: true, guestId: true, email: true, name: true },
+  });
+  if (!reply) throw new HttpError(404, 'That reply is not on this invitation.');
+
+  const address = mailable(plainAddress(reply.email));
+  if (!address) throw new HttpError(400, 'That guest left no e-mail address — send it from your own phone instead.');
+
+  const cleanSubject = subject.trim().slice(0, 200);
+  const cleanBody = body.trim().slice(0, 4000);
+  if (!cleanSubject || !cleanBody) throw new HttpError(400, 'Write a subject and a message first.');
+
+  const result = await sendEmail({ to: address, subject: cleanSubject, text: cleanBody });
+  await prisma.emailMessage.create({
+    data: {
+      invitationId: invitation.id,
+      guestId: reply.guestId,
+      // Filed against the reply, so the couple's list can show that this guest
+      // was written to and does not need chasing twice.
+      rsvpId: reply.id,
+      to: address,
+      subject: cleanSubject,
+      body: cleanBody,
+      status: result.status === 'sent' ? 'SENT' : result.status === 'logged' ? 'LOGGED' : 'FAILED',
+      error: result.error ?? '',
+    },
+  });
+  return { to: address, name: reply.name, status: result.status };
 }
 
 export const guestbookSchema = z.object({

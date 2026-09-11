@@ -3101,3 +3101,73 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   border-radius: 0.25rem;
   box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.72);
 }
+
+/* The peek in the maroon band: the design's demo running where its cover used
+   to sit still. It takes the plate's shape from .ed-figure above, so a slot
+   holding a live invitation and one holding a photograph are the same object
+   on the same surface — only one of them moves. */
+.ed-peek {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: var(--color-sand-100);
+  box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.72);
+}
+.ed-peek-still,
+.ed-peek-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+/* Top, not centre: the still and the frame under it both begin at the cover,
+   so the swap between them does not jump. */
+.ed-peek-still {
+  object-fit: cover;
+  object-position: top center;
+}
+.ed-peek-frame {
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+.ed-peek[data-open] .ed-peek-frame { opacity: 1; }
+/* The still stays underneath rather than being removed: it is what the frame
+   composites over while it paints, and what remains if the frame never loads. */
+.ed-peek[data-open] .ed-peek-still { opacity: 0; transition: opacity 700ms ease; }
+/* The way in, before the frame is there. The whole picture is the button, so
+   the gesture is "open the invitation" rather than "find the small control". */
+.ed-peek-wake {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1.25rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ed-peek-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-sand-50);
+  background: rgba(31, 29, 26, 0.62);
+  backdrop-filter: blur(3px);
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  transition: background 200ms ease;
+}
+.ed-peek-wake:hover .ed-peek-label,
+.ed-peek-wake:focus-visible .ed-peek-label { background: rgba(31, 29, 26, 0.86); }
+.ed-peek-wake:focus-visible { outline: 2px solid var(--color-gold-400); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-peek-frame,
+  .ed-peek-still { transition: none; }
+}

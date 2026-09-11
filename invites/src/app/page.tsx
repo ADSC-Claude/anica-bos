@@ -15,6 +15,7 @@ import { Packages } from '@/components/landing/packages';
 import { ContactButtons } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
 import { Figure, PHOTO } from '@/components/landing/figure';
+import { PeekCard } from '@/components/landing/peek-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,6 +70,23 @@ export default async function Landing() {
    */
   const heroPhoto = s['landing.heroImageUrl'] || PHOTO.hero;
   const bandPhoto = s['landing.bandImageUrl'] || PHOTO.band;
+  /*
+   * The gallery's rows, looked up once and read twice: the designs section
+   * draws all of them, and the maroon band plays one of them. It was two
+   * queries for the same rows when the band held a still.
+   *
+   * The band plays the design its picture already belongs to. PHOTO.card is a
+   * cover, and it was chosen for this ground rather than at random — the note
+   * in figure.tsx records that a cool blue fought the maroon and the warm gold
+   * did not. Taking the first design with a demo instead would have put the
+   * blue one here and quietly undone that, so the still names the design and
+   * the peek follows it: change PHOTO.card and the invitation that plays
+   * changes with it. A card no design claims falls back to the first that has
+   * a demo, and then to the still alone.
+   */
+  const gallery = await galleryWithPeeks(templates);
+  const bandStill = PHOTO.card ?? '';
+  const bandPeek = gallery.find((t) => t.peekSlug && t.thumbnailUrl === bandStill) ?? gallery.find((t) => t.peekSlug);
   const weddingPackages = TIERS.map((t) => packages.find((p) => p.occasion === 'WEDDING' && p.tier === t) ?? packages.find((p) => p.occasion === null && p.tier === t)).filter((p): p is NonNullable<typeof p> => Boolean(p));
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -172,9 +190,19 @@ export default async function Landing() {
         <section className="ed-maroon grid items-stretch lg:grid-cols-[1.02fr_1fr]">
           {/* Portrait, because the covers are portrait. In a landscape box a
               cover gets cropped through the names, which is the one part of a
-              design nobody may crop. */}
+              design nobody may crop.
+
+              The design's demo runs here where its cover used to sit still —
+              the opening plays as the band arrives, and the invitation can be
+              scrolled down to Our Story, which is the sentence beside it
+              demonstrated rather than described. Where no design names a demo
+              yet the still stands in, exactly as before. */}
           <div className="ed-maroon-plate flex items-center justify-center">
-            <Figure src={PHOTO.card} alt="" className="ed-figure-bleed aspect-[4/5] w-full max-w-[26rem]" />
+            {bandPeek ? (
+              <PeekCard slug={bandPeek.peekSlug} still={bandPeek.thumbnailUrl || bandStill} name={bandPeek.name} className="aspect-[4/5] w-full max-w-[26rem]" />
+            ) : (
+              <Figure src={PHOTO.card} alt="" className="ed-figure-bleed aspect-[4/5] w-full max-w-[26rem]" />
+            )}
           </div>
           <div className="ed-gutter-r flex items-center px-5 py-16 lg:py-24 lg:pl-16">
             <div className="max-w-lg">
@@ -241,7 +269,7 @@ export default async function Landing() {
             <h2 className="ed-display ed-display-lg mt-6 text-center">Our designs</h2>
             <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">Each design is shown by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen; the premium opening video is an add-on. More designs, for {OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label.toLowerCase()).join(', ')} and beyond, are on the way.</p>
             <div className="mt-8">
-              <TemplateGallery compact templates={await galleryWithPeeks(templates)} premiumPriceCents={addOns.find((a) => a.code === PREMIUM_OPENING_CODE && a.active)?.priceCents} />
+              <TemplateGallery compact templates={gallery} premiumPriceCents={addOns.find((a) => a.code === PREMIUM_OPENING_CODE && a.active)?.priceCents} />
             </div>
           </div>
         </section>

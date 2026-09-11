@@ -19,7 +19,7 @@ import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import { cssVars, fontsFrom, FONT_PRESETS, PALETTE_PRESETS, allFacesUrl, type Fonts, type Palette } from '@/lib/theme';
-import { colourFamilies, swatchName } from '@/lib/palette';
+import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
 import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
@@ -1718,6 +1718,52 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
 }
 
 /**
+ * The colour book, for a colour of her own.
+ *
+ * A role colour is the right answer nearly always — it follows the palette,
+ * so it turns itself down at night with everything else — which is why the
+ * book is folded away rather than offered first. What it adds over the
+ * browser's own picker is a name: these are the colours on the designer's
+ * own sheet, and Dusty Rose is a colour two people can agree on over the
+ * phone where #dba8a8 is not.
+ *
+ * The metallics are left out. They are drawn with a sheen where a guest
+ * reads a dress code, and a design's shape or ground takes one flat colour;
+ * offering a swatch with a sheen that renders without one would be a
+ * promise the page does not keep.
+ */
+function BookColours({ value, onPick }: { value?: string; onPick: (c: string) => void }) {
+  const named = value?.startsWith('#') ? swatchName(value) : '';
+  return (
+    <details className="mt-1">
+      <summary className="cursor-pointer text-[11px] text-[color:var(--color-ink-500)]">
+        from the colour book{named ? ` · ${named}` : ''}
+      </summary>
+      <div className="mt-1 max-h-44 space-y-1.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-1.5">
+        {PALETTE.filter((g) => g.key !== 'metallics').map((g) => (
+          <div key={g.key}>
+            <p className="text-[10px] leading-tight text-[color:var(--color-ink-500)]">{g.label}</p>
+            <div className="mt-0.5 flex flex-wrap gap-1">
+              {g.swatches.map((sw) => (
+                <button
+                  key={sw.key}
+                  type="button"
+                  title={sw.name}
+                  aria-label={sw.name}
+                  onClick={() => onPick(sw.hex)}
+                  className={`h-5 w-5 rounded border ${value === sw.hex ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
+                  style={{ background: swatchStyle(sw.hex) }}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/**
  * A swatch row: the palette's six roles, a colour of her own, and nothing.
  *
  * A role follows the theme, so it turns itself down at night with everything
@@ -1727,26 +1773,29 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
  */
 function Swatches({ value, onPick, vars, none = 'none' }: { value?: string; onPick: (c: string | undefined) => void; vars: Record<string, string>; none?: string }) {
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-1">
-      {ROLES.map((r) => (
-        <button
-          key={r.key}
-          type="button"
-          title={r.label}
-          onClick={() => onPick(r.key)}
-          className={`h-6 w-6 rounded border ${value === r.key ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
-          style={{ background: colourOf(r.key, vars) }}
+    <>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {ROLES.map((r) => (
+          <button
+            key={r.key}
+            type="button"
+            title={r.label}
+            onClick={() => onPick(r.key)}
+            className={`h-6 w-6 rounded border ${value === r.key ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
+            style={{ background: colourOf(r.key, vars) }}
+          />
+        ))}
+        <input
+          type="color"
+          title="A colour of your own"
+          value={value?.startsWith('#') ? value : '#ffffff'}
+          onChange={(e) => onPick(e.target.value)}
+          className="h-6 w-6 cursor-pointer rounded border border-black/15 p-0"
         />
-      ))}
-      <input
-        type="color"
-        title="A colour of your own"
-        value={value?.startsWith('#') ? value : '#ffffff'}
-        onChange={(e) => onPick(e.target.value)}
-        className="h-6 w-6 cursor-pointer rounded border border-black/15 p-0"
-      />
-      <button type="button" onClick={() => onPick(undefined)} className={`rounded px-1.5 text-[11px] ${value === undefined ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{none}</button>
-    </div>
+        <button type="button" onClick={() => onPick(undefined)} className={`rounded px-1.5 text-[11px] ${value === undefined ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{none}</button>
+      </div>
+      <BookColours value={value} onPick={onPick} />
+    </>
   );
 }
 
@@ -2874,6 +2923,10 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
             own
           </label>
         </div>
+        <BookColours
+          value={ground && !isPicture(ground) ? ground.color : undefined}
+          onPick={(c) => onGround({ color: c, ratio: ground && !isPicture(ground) ? ground.ratio : undefined })}
+        />
         <p className="hint">A role colour follows the palette, so it turns itself down at night. A colour of your own does not.</p>
 
         {ground && (

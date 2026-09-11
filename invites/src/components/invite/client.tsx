@@ -766,12 +766,20 @@ export function PrintButton({ label }: { label: string }) {
 }
 
 /**
- * Adding a photo to the shared album. Phone-first: the file input opens the
- * camera roll directly, the chosen photo is previewed from a local object URL
- * so nothing has to travel before the guest can see what they picked, and the
- * form stays on the page afterwards because guests arrive with several photos,
- * not one.
+ * Adding photos to the shared album. Phone-first: the file input opens the
+ * camera roll directly, what the guest picked is previewed from local object
+ * URLs so nothing has to travel before they can see it, and the form stays on
+ * the page afterwards because guests arrive with several photos, not one.
+ *
+ * Several at a time, because they arrive that way. The upload endpoint takes
+ * one file per request, and this sends them one after another rather than at
+ * once: the server counts each photo against the album's hourly ceilings as it
+ * arrives, and a burst fired in parallel would race past a limit that a queue
+ * respects. It also means a photo that is refused — too large, wrong format —
+ * is named on its own instead of failing the whole batch.
  */
+const MAX_AT_ONCE = 20;
+
 export function GuestPhotoForm({
   slug,
   token,
@@ -784,67 +792,109 @@ export function GuestPhotoForm({
     choose: string;
     caption: string;
     submit: string;
+    submitMany: string;
     sending: string;
     pending: string;
+    pendingMany: string;
     thanks: string;
+    thanksMany: string;
     another: string;
+    tooMany: string;
+    sent: string;
   };
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [chosen, setChosen] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<'pending' | 'posted' | null>(null);
+  const [at, setAt] = useState(0);
+  const [done, setDone] = useState<{ kind: 'pending' | 'posted'; count: number } | null>(null);
   const [error, setError] = useState('');
-  const [preview, setPreview] = useState('');
+  const [note, setNote] = useState('');
 
-  // An object URL is a document-lifetime resource; without this every photo a
+  // Object URLs are a document-lifetime resource; without this every photo a
   // guest picks stays in memory until they leave the page.
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => () => { previews.forEach((url) => URL.revokeObjectURL(url)); }, [previews]);
+
+  function replacePreviews(files: File[]) {
+    setPreviews((old) => {
+      old.forEach((url) => URL.revokeObjectURL(url));
+      return files.map((f) => URL.createObjectURL(f));
+    });
+  }
 
   function choose(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.currentTarget.files?.[0];
-    setPreview((old) => {
-      if (old) URL.revokeObjectURL(old);
-      return file ? URL.createObjectURL(file) : '';
-    });
+    const picked = Array.from(e.currentTarget.files ?? []);
+    const files = picked.slice(0, MAX_AT_ONCE);
+    setChosen(files);
+    replacePreviews(files);
+    setNote(picked.length > MAX_AT_ONCE ? labels.tooMany : '');
     setError('');
+  }
+
+  function clear(form: HTMLFormElement) {
+    form.reset();
+    setChosen([]);
+    replacePreviews([]);
+    setAt(0);
   }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = e.currentTarget;
-    const fd = new FormData(form);
-    const file = fd.get('file');
-    if (!(file instanceof File) || file.size === 0) {
+    if (!chosen.length) {
       setError(labels.choose);
       return;
     }
-    fd.set('slug', slug);
-    if (token) fd.set('token', token);
 
+    const fields = new FormData(form);
     setBusy(true);
     setError('');
-    try {
-      const res = await fetch('/api/public/photos', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'Something went wrong.');
-      setDone(json.pending ? 'pending' : 'posted');
-      form.reset();
-      setPreview((old) => {
-        if (old) URL.revokeObjectURL(old);
-        return '';
-      });
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
+    setNote('');
+
+    let sent = 0;
+    let pending = false;
+    let failure = '';
+    for (const [i, file] of chosen.entries()) {
+      setAt(i);
+      const fd = new FormData();
+      fd.set('slug', slug);
+      if (token) fd.set('token', token);
+      fd.set('name', String(fields.get('name') ?? ''));
+      fd.set('caption', String(fields.get('caption') ?? ''));
+      fd.set('website', String(fields.get('website') ?? ''));
+      fd.set('file', file);
+      try {
+        const res = await fetch('/api/public/photos', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? 'Something went wrong.');
+        sent++;
+        pending = pending || Boolean(json.pending);
+      } catch (err) {
+        failure = (err as Error).message;
+        // A full album and a spent allowance are answers about the album, not
+        // about this photo: the rest of the batch would only collect the same
+        // refusal, so stop and say it once.
+        if (/full|try again/i.test(failure)) break;
+      }
     }
+
+    setBusy(false);
+    if (sent) {
+      setDone({ kind: pending ? 'pending' : 'posted', count: sent });
+      clear(form);
+    }
+    // Said even when some went: "6 sent" with nothing about the other two is a
+    // guest who thinks all eight arrived.
+    if (failure) setError(sent ? `${sent} / ${chosen.length} ${labels.sent} ${failure}` : failure);
   }
 
-  if (done) {
+  if (done && !error) {
+    const many = done.count > 1;
     return (
       <div className="inv-card space-y-3 text-center">
-        <p>{done === 'pending' ? labels.pending : labels.thanks}</p>
-        <button type="button" className="inv-btn inv-btn-outline" onClick={() => setDone(null)}>
+        <p>{done.kind === 'pending' ? (many ? labels.pendingMany : labels.pending) : many ? labels.thanksMany : labels.thanks}</p>
+        <button type="button" className="inv-btn inv-btn-outline" onClick={() => { setDone(null); setError(''); }}>
           {labels.another}
         </button>
       </div>
@@ -864,13 +914,26 @@ export function GuestPhotoForm({
           name="file"
           type="file"
           accept="image/jpeg,image/png,image/webp"
+          multiple
           required
           onChange={choose}
           className="inv-field"
         />
       </div>
-      {preview && (
-        <img src={preview} alt="" className="max-h-56 w-full rounded-xl object-cover" />
+      {previews.length > 0 && (
+        <ul className={previews.length === 1 ? '' : 'grid grid-cols-3 gap-2'}>
+          {previews.map((url, i) => (
+            <li key={url} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt=""
+                className={previews.length === 1 ? 'max-h-56 w-full rounded-xl object-cover' : 'aspect-square w-full rounded-lg object-cover'}
+                style={busy && i < at ? { opacity: 0.4 } : undefined}
+              />
+            </li>
+          ))}
+        </ul>
       )}
       <div>
         <label className="inv-label" htmlFor="gp-caption">{labels.caption}</label>
@@ -879,9 +942,12 @@ export function GuestPhotoForm({
       <div style={{ position: 'absolute', left: '-9999px' }} aria-hidden="true">
         <label>Website <input name="website" tabIndex={-1} autoComplete="off" /></label>
       </div>
-      {error && <p role="alert" className="rounded-lg bg-[#fbe9e7] p-2 text-sm text-[#8f1d17]">{error}</p>}
+      {note && <p className="inv-muted text-sm">{note}</p>}
+      {error && <p role="alert" className="text-sm" style={{ color: 'var(--bad, #8f1d17)' }}>{error}</p>}
       <button type="submit" className="inv-btn w-full" disabled={busy}>
-        {busy ? labels.sending : labels.submit}
+        {busy
+          ? chosen.length > 1 ? `${labels.sending} ${at + 1} / ${chosen.length}` : labels.sending
+          : chosen.length > 1 ? labels.submitMany : labels.submit}
       </button>
     </form>
   );

@@ -524,6 +524,7 @@ model Guest {
   rsvps      Rsvp[]
   texts      SmsMessage[]
   emails     EmailMessage[]
+  photos     Media[]
 
   @@index([invitationId, groupName])
 }
@@ -628,6 +629,11 @@ model Media {
   caption      String    @default("")
   /// Who sent it, for a GUEST_PHOTO. A guest has no account to attribute it to.
   uploadedBy   String    @default("")
+  /// Which guest sent it, when they came through their own personal link. It is
+  /// what lets a named invitee have their own upload allowance instead of
+  /// sharing the room's: a venue's wifi is one address for every phone in it.
+  /// Null for an upload from the public link, which is most of them.
+  guestId      String?
   /// Guest photo uploads wait here until the couple approves them.
   approved     Boolean   @default(true)
   sortOrder    Int       @default(0)
@@ -637,7 +643,10 @@ model Media {
 
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   invitation Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?      @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
+  @@index([invitationId, kind, guestId, createdAt])
+  @@index([invitationId, kind, ip, createdAt])
   @@index([invitationId, kind, sortOrder])
   @@index([invitationId, kind, approved, createdAt])
   @@index([ip, createdAt])

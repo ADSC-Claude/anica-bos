@@ -82,7 +82,7 @@ export const TEMPLATES: TemplateSeed[] = [
         dressNote: 'Soft blues and whites would be lovely.', giftThanks: 'Thank you!',
         countdown: 'Counting down to the blessing...', contactNote: 'For any questions, feel free to reach out.',
         closing: 'See you there! ♡', closingMessage: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.',
-        photos: 'Share your snaps with us!', photosIntro: 'Upload your photos and videos from the christening.',
+        photos: 'Share your snaps with us!', photosIntro: 'Upload your photos from the christening.',
       },
       tl: {
         cover: 'Ang binyag ni',
@@ -93,7 +93,7 @@ export const TEMPLATES: TemplateSeed[] = [
         dressNote: 'Magaganda ang malalamlam na asul at puti.', giftThanks: 'Maraming salamat!',
         countdown: 'Bilang ng araw bago ang binyag...', contactNote: 'Para sa anumang tanong, huwag mag-atubiling magtanong.',
         closing: 'Kita-kits! ♡', closingMessage: 'Salamat sa pagiging bahagi ng biyayang ito. Hindi na kami makapaghintay na makipagdiwang sa inyo.',
-        photos: 'I-share ang mga kuha mo!', photosIntro: 'I-upload ang inyong mga larawan at video mula sa binyag.',
+        photos: 'I-share ang mga kuha mo!', photosIntro: 'I-upload ang inyong mga larawan mula sa binyag.',
       },
     },
   },

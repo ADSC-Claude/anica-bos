@@ -1390,10 +1390,15 @@ function GuestPhotos({
               choose: t(lang, 'photos.choose'),
               caption: t(lang, 'photos.caption'),
               submit: t(lang, 'photos.submit'),
+              submitMany: t(lang, 'photos.submitMany'),
               sending: t(lang, 'photos.sending'),
               pending: t(lang, 'photos.pending'),
+              pendingMany: t(lang, 'photos.pendingMany'),
               thanks: t(lang, 'photos.thanks'),
+              thanksMany: t(lang, 'photos.thanksMany'),
               another: t(lang, 'photos.another'),
+              tooMany: t(lang, 'photos.tooMany'),
+              sent: t(lang, 'photos.sent'),
             }}
           />
         </div>

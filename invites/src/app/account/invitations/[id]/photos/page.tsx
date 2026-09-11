@@ -42,6 +42,17 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
         }
       />
 
+      {media.length > 0 && (
+        <p className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span>{media.length} {media.length === 1 ? 'photo' : 'photos'} from your guests.</span>
+          {/* A plain link, not a fetch: the browser saves the stream as it
+              arrives, so an album of several gigabytes never sits in a tab. */}
+          <a href={`/account/invitations/${invitation.id}/photos.zip`} className="btn btn-secondary btn-sm" download>
+            Download all
+          </a>
+        </p>
+      )}
+
       {waiting > 0 && (
         <p className="card mb-4 p-4 text-sm">
           <strong>{waiting}</strong> {waiting === 1 ? 'photo is' : 'photos are'} waiting for you.

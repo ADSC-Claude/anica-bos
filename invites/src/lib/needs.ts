@@ -116,8 +116,12 @@ type Box = { left: number; right: number; top: number; bottom: number };
  * not measured here.
  */
 function boxOf(el: Element, ratio: number): Box | undefined {
-  // A clip is placed exactly as a frame is — its own width, its own
-  // proportion — so the same maths gives its box and nothing is duplicated.
+  // A clip behind the whole page is the whole page, whatever numbers it
+  // happens to carry: the stylesheet places it, not the document.
+  if (el.kind === 'video' && (el as VideoEl).bg) return { left: 0, right: 100, top: 0, bottom: 100 };
+  // Otherwise a clip is placed exactly as a frame is — its own width, its
+  // own proportion — so the same maths gives its box and nothing is
+  // duplicated.
   if ((el.kind !== 'photo' && el.kind !== 'video') || el.w === undefined || el.x === undefined) return undefined;
   const h = (el.w * ((el as PhotoEl | VideoEl).aspect ?? 1)) / ratio;
   const centred = (el.anchor ?? 'centre') === 'centre';

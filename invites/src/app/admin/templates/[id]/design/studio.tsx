@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
-  isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, titleWord,
+  isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
@@ -622,6 +622,23 @@ export function Studio(p: Props) {
     const id = freeId(doc, 'clip');
     const made: Element = { id, kind: 'video', x: 50, y: 40, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A clip behind the whole page. The measuring is here because only a
+   * browser can do it; everything the document takes from it is in
+   * `fillPageWithClip`, where it can be tested without one.
+   */
+  async function fillPage(id: string) {
+    const el = elements.find((x) => x.id === id);
+    if (!page || !el || el.kind !== 'video' || !el.poster) return;
+    // Read rather than caught: the poster is measured off a canvas, so this
+    // fails when the file is not being served yet or the bucket sends no
+    // CORS header — and failing quietly would leave her pressing a button
+    // that does nothing, which is the worst way to find that out.
+    const g = await groundFromUrl(el.poster);
+    editPage((pg) => fillPageWithClip(pg, id, g));
     setSel([id]);
   }
 
@@ -1428,6 +1445,7 @@ export function Studio(p: Props) {
             onRemove={remove}
             label={label(selected)}
             templateId={p.templateId}
+            onFillPage={() => fillPage(selected.id)}
             measureRoom={() => measureRoom(selected.id)}
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
             grows={Boolean(page?.grow)}
@@ -1733,8 +1751,9 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
+  onFillPage: () => Promise<void>;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
@@ -1776,7 +1795,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} />
       )}
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
-      {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} />}
+      {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
@@ -2027,7 +2046,7 @@ function AddClip({ templateId, onAdd }: { templateId: string; onAdd: (up: SentCl
  * people, none of whom ever watch the clip. The one taken off the file is a
  * starting point; a still she chose is nearly always better.
  */
-function ClipBlock({ el, onChange, templateId }: { el: VideoEl; onChange: (fn: (e: Element) => Element) => void; templateId: string }) {
+function ClipBlock({ el, onChange, templateId, onFillPage }: { el: VideoEl; onChange: (fn: (e: Element) => Element) => void; templateId: string; onFillPage: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -2068,6 +2087,15 @@ function ClipBlock({ el, onChange, templateId }: { el: VideoEl; onChange: (fn: (
         It only plays while the guest is looking at it, and never on a phone in Low Power Mode or with Reduce Motion on — the still is what those guests get.
         A clip is at most {VIDEO_MAX_LABEL} and {VIDEO_MAX_MS / 1000} seconds, and the checklist adds up every clip on the design.
       </p>
+      {el.poster && (
+        <div>
+          <button type="button" className={`btn btn-secondary btn-sm ${busy ? 'opacity-60' : ''}`} disabled={busy}
+            onClick={async () => { setBusy(true); setError(''); try { await onFillPage(); } catch (e) { setError(`${(e as Error).message} The still has to be readable from here for its edge colours to be measured.`); } finally { setBusy(false); } }}>
+            Put it behind the whole page
+          </button>
+          <p className="hint">The clip fills the page and its still becomes the page&rsquo;s background, so the edges and the joins above and below take their colours from it and a guest who never sees the clip still sees the page.</p>
+        </div>
+      )}
       <p className="break-all font-mono text-[10px] text-[color:var(--color-ink-500)]">{el.url}</p>
     </div>
   );

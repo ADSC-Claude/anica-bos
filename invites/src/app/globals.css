@@ -1351,6 +1351,20 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    drawn page is the same share of the same width, so it keeps its
    proportions at every phone size. */
 .inv[data-paged] .inv-bb-art > .inv-bb-shape { position: absolute; margin: 0; }
+/* A clip on a drawn page.
+   Not redundant with `.inv-bb-clip { position: absolute }` further up: on a
+   paged invitation `.inv[data-paged] .inv-section > *` (above) sets every
+   child of a section to `position: relative; z-index: 1`, and it is the more
+   specific of the two. Every other element kind on a drawn page has a rule
+   here for exactly that reason; a clip was missing one, so its inline `left`
+   and `top` were being measured from wherever it fell in the flow instead of
+   from the page, and its own `z` was being overruled by that `z-index: 1`. */
+.inv[data-paged] .inv-bb-art > .inv-bb-clip { position: absolute; margin: 0; z-index: auto; }
+/* A clip behind the whole page. The stylesheet gives it its size, not the
+   document: a page that grows is as tall as its words, and no number written
+   down when the clip was placed could know that. `object-fit: cover` (above)
+   then crops the clip into whatever shape the page turns out to be. */
+.inv[data-paged] .inv-bb-art > .inv-bb-clip[data-bg] { inset: 0; }
 .inv-bb-shape[data-shape='ellipse'] { border-radius: 50%; }
 /* What sits behind words on a busy picture. A halo in the surface colour
    lifts them off it without a box; a scrim is the box, pale enough to read

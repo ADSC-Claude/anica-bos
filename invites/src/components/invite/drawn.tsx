@@ -92,12 +92,25 @@ function draw(el: Element, read: Read, grow?: number) {
  */
 function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
   const poster = el.poster ? imageUrl(el.poster, IMAGE.grid) : undefined;
-  const box = { ...elementStyle(el, grow), aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined } as CSSProperties;
+  /*
+   * A background clip is *sized* by the stylesheet and not by the document.
+   * A page that grows is as tall as its words, so the height to fill is not
+   * known until the browser has laid it out — and an inline left, top, width
+   * or aspect here would win over the rule that knows, since an inline style
+   * beats a stylesheet. So those four are dropped, and only the two that are
+   * still the design's to say are kept: how far down the stack it sits, and
+   * how solid it is.
+   */
+  const placed = elementStyle(el, grow);
+  const box = el.bg
+    ? ({ opacity: placed.opacity, zIndex: placed.zIndex } as CSSProperties)
+    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined } as CSSProperties);
   if (!el.url && !read.edit) return null;
   return (
     <div
       className="inv-bb-clip"
       style={box}
+      data-bg={el.bg ? '' : undefined}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !el.url ? '' : undefined}

@@ -12,6 +12,7 @@ import { OCCASION_SECTIONS, SECTION_BY_KEY, isPaged } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
+import { AsksSheet, asksFor } from '@/components/asks-sheet';
 import { Flash, type FlashParams } from '../../flash';
 import { saveTemplateAction } from '../../actions';
 
@@ -50,6 +51,14 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         actions={t && isPaged(t.layout) ? <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link> : undefined}
       />
       <Flash {...sp} />
+      {t && (
+        <div className="mb-4">
+          <AsksSheet
+            asks={asksFor(t, occasion)}
+            intro="Every customer on this design is asked for these, and for nothing else the design does not draw."
+          />
+        </div>
+      )}
       <form action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
         <div className="card space-y-3 p-4">
           <Field label="Name" name="name" defaultValue={t?.name} required />

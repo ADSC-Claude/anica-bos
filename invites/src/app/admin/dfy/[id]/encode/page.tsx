@@ -6,7 +6,8 @@ import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, photoFrames, photoFramesHint, type Content, type SectionKey } from '@/lib/sections';
 import { sectionAnchor } from '@/lib/anchors';
 import { documentOf } from '@/lib/design';
-import { designForm, askedFields, askedLimits } from '@/lib/asks';
+import { designForm, askedFields, askedLimits, asksOf } from '@/lib/asks';
+import { AsksSheet } from '@/components/asks-sheet';
 import { intakeRows, intakeFilled } from '@/lib/intake';
 import { doneSections } from '@/lib/progress';
 import { galleryLimit } from '@/lib/tiers';
@@ -85,6 +86,13 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
       </div>
       <Flash {...sp} />
       {!job.intakeSubmittedAt && <p className="mb-4 rounded-lg bg-[color:var(--color-sand-100)] p-3 text-sm">The client has not submitted their form yet. Anything they sent by chat goes straight into the segments here.</p>}
+      <div className="mb-4">
+        <AsksSheet
+          asks={asksOf(doc, occasion)}
+          title="What this design asks the customer for"
+          intro="Drawn into the design, so these are the ones with a place waiting on the page."
+        />
+      </div>
       <Workspace
         key={current}
         jobId={job.id}

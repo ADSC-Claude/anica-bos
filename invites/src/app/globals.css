@@ -454,6 +454,65 @@ table.data tr:hover td {
 .desk-go.btn-primary:hover { background: var(--color-plum-700); }
 .desk-already { font-size: 0.875rem; color: var(--color-ink-500); margin: 1rem 0 0; }
 
+/* The camera, and the button that opens it. */
+.desk-scan {
+  width: 100%;
+  min-height: 3.5rem;
+  font-size: 1rem;
+  gap: 0.6rem;
+  background: var(--color-plum-600);
+  color: #fff;
+}
+.desk-scan:hover { background: var(--color-plum-700); }
+.desk-or {
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  margin: 0.9rem 0 0.6rem;
+}
+.desk-link {
+  font: inherit;
+  font-size: 0.8125rem;
+  background: none;
+  border: 0;
+  color: var(--color-plum-600);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.4rem;
+}
+
+.scan { max-width: 30rem; margin: 0 auto; display: grid; gap: 0.9rem; justify-items: center; }
+.scan-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: #17120f;
+}
+.scan-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Four corners rather than a box: it frames without hiding what is under it. */
+.scan-reticle {
+  position: absolute;
+  inset: 16%;
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(#fff, #fff) 0 0 / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 0 0 / 3px 2rem no-repeat,
+    linear-gradient(#fff, #fff) 100% 0 / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 100% 0 / 3px 2rem no-repeat,
+    linear-gradient(#fff, #fff) 0 100% / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 0 100% / 3px 2rem no-repeat,
+    linear-gradient(#fff, #fff) 100% 100% / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 100% 100% / 3px 2rem no-repeat;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.5));
+}
+.scan-hint { font-size: 0.875rem; color: var(--color-ink-500); margin: 0; text-align: center; }
+.scan-error { font-size: 0.875rem; color: var(--bad); margin: 0; text-align: center; max-width: 26rem; line-height: 1.5; }
+.scan-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
 .desk-done { padding-top: 2.25rem; }
 .desk-tick {
   width: 5rem;

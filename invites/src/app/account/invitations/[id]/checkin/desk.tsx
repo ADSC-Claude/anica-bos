@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { checkInAction, setArrivedAction } from '@/app/account/actions';
+import { Scanner } from './scanner';
 import { headsArrived, arrivalLabel } from '@/lib/seats';
 
 type G = {
@@ -122,13 +123,14 @@ function Review({ g, onCheckIn, onBack, busy }: { g: G; onCheckIn: () => void; o
 }
 
 /** The screen that says it worked, big enough to read at arm's length. */
-function Done({ text, onAnother }: { text: string; onAnother: () => void }) {
+function Done({ text, onAnother, onScan }: { text: string; onAnother: () => void; onScan: () => void }) {
   return (
     <div className="desk-stage desk-done">
       <span className="desk-tick" aria-hidden="true">✓</span>
       <h2 className="desk-name">Checked in</h2>
       <p className="desk-said">{text}</p>
-      <button type="button" className="btn btn-primary desk-go" onClick={onAnother}>Check in another guest</button>
+      <button type="button" className="btn btn-primary desk-go" onClick={onScan}>Scan the next guest</button>
+      <button type="button" className="desk-link" onClick={onAnother}>Find someone by name</button>
     </div>
   );
 }
@@ -142,6 +144,7 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
   // confirmation it worked, which a queue needs to see from arm's length.
   const [review, setReview] = useState<G | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   // What this device has just done, ahead of the page revalidating. Every entry
   // is the number the server sent back rather than a guess, so it is the truth
   // arriving early rather than an optimistic copy that can be wrong. It does
@@ -189,7 +192,21 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
     });
 
   /** Straight to the review screen, whatever found them. */
-  const open = (g: G) => { setReview(g); setDone(null); setLast(null); setQ(''); };
+  const open = (g: G) => { setReview(g); setDone(null); setLast(null); setQ(''); setScanning(false); };
+
+  /**
+   * A code came off the camera.
+   *
+   * It resolves against this invitation's own guests, so a pass from another
+   * wedding — or last year's, still in somebody's photos — says so rather than
+   * checking a stranger in.
+   */
+  const scanned = (token: string) => {
+    const g = rows.find((x) => x.token === token);
+    if (g) { open(g); return; }
+    setScanning(false);
+    setLast({ ok: false, text: 'That code is not on this guest list.' });
+  };
 
   const setArrived = (g: G, n: number) =>
     start(async () => {
@@ -212,7 +229,21 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
     </span>
   );
 
-  if (done) return <div className="space-y-4"><Done text={done} onAnother={() => setDone(null)} /></div>;
+  if (scanning) {
+    return (
+      <div className="space-y-4">
+        <Scanner onFound={scanned} onClose={() => setScanning(false)} />
+      </div>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="space-y-4">
+        <Done text={done} onAnother={() => setDone(null)} onScan={() => { setDone(null); setScanning(true); }} />
+      </div>
+    );
+  }
   if (review) {
     const fresh = rows.find((g) => g.id === review.id) ?? review;
     return (
@@ -226,6 +257,13 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
   return (
     <div className="space-y-4">
       <div className="card p-4">
+        {/* The camera first, because it is the fast path and the one a
+            coordinator uses two hundred times. Typing stays underneath it for
+            the pamangkin with no code and the phone that will not focus. */}
+        <button type="button" className="btn desk-scan" onClick={() => { setScanning(true); setLast(null); }}>
+          <span aria-hidden="true">▣</span> Scan a guest’s QR
+        </button>
+        <p className="desk-or">or find them by name</p>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (matches.length === 1) open(matches[0]); }}>
           <input className="field" placeholder="Paste a scanned link, or type a name" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
           <button type="submit" className="btn btn-primary" disabled={pending || matches.length !== 1}>Find</button>

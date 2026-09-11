@@ -100,8 +100,8 @@ test('a design above the package is set in Modern; a look chosen and then downgr
   assert.equal(resolveTheme(template, { theme: { lookKey: 'regal' } }).look?.key, 'regal');
 });
 
-test('colours are every package’s, and the old font presets stay staff’s', () => {
-  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
+test('colours are every package’s and off the table, and the old font presets stay staff’s', () => {
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE', 'LUXURY'] as const) {
     assert.equal(hasFeature(tier, 'palette.presets'), true, tier);
     assert.equal(hasFeature(tier, 'palette.custom'), true, tier);
   }
@@ -114,6 +114,8 @@ test('colours are every package’s, and the old font presets stay staff’s', (
   const fonts = COMPARISON.find((r) => r.label === 'Font style')!;
   assert.match(String(fonts.cells.STANDARD), /3/);
   assert.match(String(fonts.cells.COMPLETE), /5/);
-  const colours = COMPARISON.find((r) => r.label === 'Colours')!;
-  assert.equal(colours.cells.BASIC, colours.cells.COMPLETE);
+  // Colours are not a row any more. Choosing a design is choosing its
+  // colours, so a row promising them separately described a decision the
+  // customer had already made by the time they read it.
+  assert.equal(COMPARISON.find((r) => r.label === 'Colours'), undefined, 'no colours row');
 });

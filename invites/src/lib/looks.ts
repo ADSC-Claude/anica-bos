@@ -1,7 +1,7 @@
 import type { Tier } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Fonts } from './theme';
-import { tierAtLeast } from './tiers';
+import { tierAtLeast, RANK } from './tiers';
 
 /**
  * A look is the voice of an invitation: the faces it is set in and the lines
@@ -415,15 +415,13 @@ export const LOOK_MIN_TIER: Record<LookKey, Tier> = {
  */
 export const BASE_LOOK: LookKey = 'modern';
 
-const TIER_RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
-
 /**
  * The looks this package may pick, the ones it already had first. Basic has
  * one — the font style it is set in, with nothing to choose.
  */
 export function looksFor(tier: Tier): Look[] {
   return LOOKS.filter((l) => tierAtLeast(tier, LOOK_MIN_TIER[l.key])).sort(
-    (a, b) => TIER_RANK[LOOK_MIN_TIER[a.key]] - TIER_RANK[LOOK_MIN_TIER[b.key]] || LOOKS.indexOf(a) - LOOKS.indexOf(b),
+    (a, b) => RANK[LOOK_MIN_TIER[a.key]] - RANK[LOOK_MIN_TIER[b.key]] || LOOKS.indexOf(a) - LOOKS.indexOf(b),
   );
 }
 

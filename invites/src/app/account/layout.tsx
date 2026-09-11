@@ -18,8 +18,13 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <Link href="/account" className="display text-xl">{s['business.name']}</Link>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             <Link href="/account" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">My invitations</Link>
+            {/* No Help tab. Messenger and Viber are at the foot of every page
+                and answer faster; a support inbox in the navigation invited a
+                written thread about invitations that were already finished,
+                and answering those costs more than the tab ever saved. The
+                page at /account/support still works, so a reply we send still
+                has somewhere to land. */}
             <Link href="/account/orders" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">Orders</Link>
-            <Link href="/account/support" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">Help</Link>
             <Link href="/account/privacy" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">Your data</Link>
             <Link href="/account/notifications" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">
               Notifications{unread > 0 && <span className="pill pill-bad ml-1">{unread}</span>}

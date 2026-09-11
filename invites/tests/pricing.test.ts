@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
+import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnIncluded, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
 import { discountAmount, formatPeso, formatPesoShort, toCents } from '../src/lib/money';
 
 const pkg: PackageLike = { code: 'WEDDING_STANDARD', name: 'Wedding Standard', tier: 'STANDARD', priceCents: 300000, dfyFeeCents: 120000, conciergeFeeCents: 0 };
@@ -83,8 +83,8 @@ test('the queue jump is rush below Signature and priority on it', () => {
   const rush = { code: 'RUSH', name: 'Rush', priceCents: 100000 };
   const priority = { code: 'PRIORITY', name: 'Priority', priceCents: 200000 };
   // A tier is offered one or the other, never both: they are one purchase.
-  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE'].map((t) => addOnAvailable('RUSH', t as never)), [true, true, false]);
-  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE'].map((t) => addOnAvailable('PRIORITY', t as never)), [false, false, true]);
+  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE', 'LUXURY'].map((t) => addOnAvailable('RUSH', t as never)), [true, true, false, false]);
+  assert.deepEqual(['BASIC', 'STANDARD', 'COMPLETE', 'LUXURY'].map((t) => addOnAvailable('PRIORITY', t as never)), [false, false, true, true]);
 
   // Signature, done for them, wanted early: 4,000 + 2,000 + 2,000.
   const sig = quote({ pkg: signature, serviceMode: 'DFY', addOns: [priority] });
@@ -134,4 +134,22 @@ test('a build paid to be quick carries fewer rounds, never more', () => {
   // the rushed number, and a meagre one is left alone rather than topped up.
   assert.equal(revisionRounds('COMPLETE', true, 6), 2, 'cut down');
   assert.equal(revisionRounds('BASIC', true, 0), 0, 'never topped up');
+});
+
+// The second card is Luxury's, given rather than sold. It stays an add-on row
+// so the order says what it carried and activation has the same thing to look
+// for whoever bought it — it simply costs nothing.
+test('Save the Date is included with Luxury and sold to everybody else', () => {
+  const std = { code: 'SAVE_THE_DATE', name: 'Save the Date card', priceCents: 29900 };
+  assert.equal(addOnPrice(std, 'BASIC'), 29900);
+  assert.equal(addOnPrice(std, 'COMPLETE'), 29900);
+  assert.equal(addOnPrice(std, 'LUXURY'), 0);
+  assert.equal(addOnIncluded('SAVE_THE_DATE', 'LUXURY'), true);
+  assert.equal(addOnIncluded('SAVE_THE_DATE', 'COMPLETE'), false);
+  assert.equal(addOnIncluded('RUSH', 'LUXURY'), false, 'only the card is given away');
+
+  const luxury: PackageLike = { code: 'WEDDING_LUXURY', name: 'Wedding Luxury', tier: 'LUXURY', priceCents: 750000, dfyFeeCents: 0, conciergeFeeCents: 0 };
+  const q = quote({ pkg: luxury, serviceMode: 'DFY', addOns: [std], occasion: 'WEDDING' });
+  assert.equal(q.totalCents, 750000, 'the card adds nothing to the bill');
+  assert.ok(q.items.some((i) => i.code === 'SAVE_THE_DATE' && i.amountCents === 0), 'and is still named on the order');
 });

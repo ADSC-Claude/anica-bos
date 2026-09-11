@@ -839,7 +839,12 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { CHRISTENING: 'Post-event photos' },
     tl: 'Mga Larawan ng Bisita',
     description: 'A shared album your guests add to from their phones. You approve each photo before it appears.',
-    minTier: 'COMPLETE',
+    // Luxury's, with the rest of the day-of half of the service. The section's
+    // gate and the photoSharing feature must name the same package: the badge
+    // in the builder is drawn from this one and the album itself is opened by
+    // the other, so a disagreement offers an upgrade to a package that does not
+    // carry it.
+    minTier: 'LUXURY',
     fields: () => [
       toggle('enabled', 'Let guests add photos'),
       text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', staff: true }),

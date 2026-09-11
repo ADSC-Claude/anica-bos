@@ -96,14 +96,14 @@ const ADDONS: { code: string; price: number; name: string; description: string; 
     code: 'RUSH',
     price: 1_000,
     name: 'Rush publish (24 hours)',
-    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.',
+    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. A bigger package carries more to encode, so tell us your date and we will say what we can promise.',
     sortOrder: 5,
   },
   {
     code: 'PRIORITY',
     price: 2_000,
     name: 'Priority (2 working days)',
-    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
+    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. The steadier of the two promises, and the one we would suggest for a big build.',
     sortOrder: 6,
   },
   {

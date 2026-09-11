@@ -5,7 +5,7 @@ import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS, templateSuits } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON, tierAtLeast } from '@/lib/tiers';
-import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
+import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnIncluded, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
 import { invitationPath } from '@/lib/app-url';
@@ -189,7 +189,7 @@ export function CheckoutWizard(p: WizardProps) {
                     ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours in the builder.' : '.'}</span>
                     : <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>)}
                 </span>
-                <span className="text-sm font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span>
+                <span className="text-sm font-semibold">{addOnIncluded(a.code, tier) ? 'Included' : a.quoted ? formatPesoShort(addOnPrice(a, tier)) : 'Ask us'}</span>
               </label>
               );
             })}

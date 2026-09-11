@@ -1,6 +1,6 @@
 import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
-import { hasFeature, tierAtLeast } from './tiers';
+import { hasFeature } from './tiers';
 
 /**
  * A quote is arithmetic on rows the admin can edit: a package, its add-ons, a
@@ -108,17 +108,19 @@ export function serviceModeAvailable(mode: ServiceMode, _tier: Tier): boolean {
 export const DEFAULT_SERVICE_MODE: ServiceMode = 'DFY';
 
 /**
- * Which queue jump a tier is sold. Rush promises 24 hours and is Basic's and
- * Standard's; priority promises two working days and is Signature's, because
- * that build carries too much information to guarantee overnight. A tier is
- * never offered both — they are the same purchase under two promises.
+ * Whether a package may be sold this add-on.
+ *
+ * Every add-on is offered to every package. The queue jumps used to be split —
+ * rush for Basic and Standard, priority for Signature — on the reasoning that a
+ * Signature build cannot be encoded overnight. That reasoning belongs in what
+ * each promise says, not in hiding one of them: a customer who wants their
+ * invitation tomorrow should be able to ask for it and be told what we can do,
+ * rather than not see the option at all.
+ *
+ * The one rule left is not about the package: a memorial is the gathering
+ * nobody announces in advance, so it is not sold a Save the Date.
  */
-export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): boolean {
-  // The dividing line is Signature and above, not Signature exactly: an
-  // equality check here would have sold Luxury the 24-hour promise, which is
-  // the one package that certainly cannot be encoded overnight.
-  if (code === RUSH_CODE) return !tierAtLeast(tier, 'COMPLETE');
-  if (code === PRIORITY_CODE) return tierAtLeast(tier, 'COMPLETE');
+export function addOnAvailable(code: string, _tier: Tier, occasion?: Occasion): boolean {
   if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
   return true;
 }
@@ -140,7 +142,17 @@ export function saveTheDateOffered(occasion: Occasion): boolean {
  * carries a single priceCents and rush needs two. The row's own price is the
  * fallback, so an add-on with no entry here still prices from the catalogue.
  */
-const RUSH_BY_TIER: Partial<Record<Tier, number>> = { BASIC: 100_000, STANDARD: 150_000 };
+const RUSH_BY_TIER: Partial<Record<Tier, number>> = {
+  BASIC: 100_000,
+  STANDARD: 150_000,
+  // Signature and Luxury are here only because rush is now offered to them.
+  // Without a row each they would fall back to the catalogue price of 1,000 —
+  // charging less to rush the biggest build than the middle one. Standard's
+  // price is a floor, not a decision: set these when the add-on packages are
+  // priced.
+  COMPLETE: 150_000,
+  LUXURY: 150_000,
+};
 
 /**
  * Preview rounds on a build that was paid to be quick. A round is a preview
@@ -164,6 +176,18 @@ export function addOnPrice(addOn: AddOnLike, tier: Tier): number {
   if (addOn.code === SAVE_THE_DATE_CODE && hasFeature(tier, 'saveTheDate.included')) return 0;
   if (addOn.code !== RUSH_CODE) return addOn.priceCents;
   return RUSH_BY_TIER[tier] ?? addOn.priceCents;
+}
+
+/**
+ * Whether the catalogue price is a starting price rather than the price.
+ *
+ * True only where a bigger package pays *more*, which is rush alone: jumping
+ * ahead of a bigger build displaces more work. Save the Date also moves with
+ * the package, but downwards — it is included with Luxury — and "from 299"
+ * would be the wrong way round for that.
+ */
+export function addOnPriceRises(code: string): boolean {
+  return code === RUSH_CODE;
 }
 
 /** Whether a tier is given this add-on rather than sold it. */

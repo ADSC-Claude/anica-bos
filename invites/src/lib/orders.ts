@@ -174,10 +174,13 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       const bought = (code: string) => order.items.some((it) => it.kind === 'ADDON' && it.code === code);
       const priority = bought(PRIORITY_CODE);
       const rush = bought(RUSH_CODE);
-      const days = priority
-        ? s['concierge.turnaroundDays']
-        : rush
-          ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
+      // Rush is read first, not priority. Both may now be on one order — they
+      // are offered to every package — and the promise we keep has to be the
+      // tighter of the two, not whichever the code happened to test first.
+      const days = rush
+        ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
+        : priority
+          ? s['concierge.turnaroundDays']
           : s['dfy.turnaroundDays'];
       await tx.dfyJob.create({
         data: {

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Tier } from '@prisma/client';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
-import { SERVICE_MODES, DEFAULT_SERVICE_MODE } from '@/lib/pricing';
+import { SERVICE_MODES, DEFAULT_SERVICE_MODE, addOnPriceRises } from '@/lib/pricing';
 import { formatPesoShort } from '@/lib/money';
 
 export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number; linkValidityDays: number };
@@ -44,7 +44,7 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
       <div className="mt-8">
         <h3 className="mb-2 text-center font-semibold">Add-ons for any package</h3>
         <ul className="mx-auto grid max-w-3xl gap-2 text-sm sm:grid-cols-2">
-          {addOns.map((a) => <li key={a.code} className="flex justify-between gap-3 rounded-xl bg-white px-4 py-2"><span>{a.name}<span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span></span><span className="whitespace-nowrap font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span></li>)}
+          {addOns.map((a) => <li key={a.code} className="flex justify-between gap-3 rounded-xl bg-white px-4 py-2"><span>{a.name}<span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span></span><span className="whitespace-nowrap font-semibold">{a.quoted ? `${addOnPriceRises(a.code) ? 'from ' : ''}${formatPesoShort(a.priceCents)}` : 'Ask us'}</span></li>)}
         </ul>
       </div>
     </div>

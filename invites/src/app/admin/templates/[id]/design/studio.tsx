@@ -4,8 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
-  isPicture, pageRatio, place, ONE_SCREEN,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground,
+  isPicture, pageRatio, place, ONE_SCREEN, LEGIBLE_CQW,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole,
 } from '@/lib/design';
 import { DrawnPage, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
@@ -619,14 +619,7 @@ function Properties({ el, ratio, occasion, onChange, onLayer, onDuplicate, onRem
       {el.kind === 'photo' && (
         <label className="block"><span className="label">Shape (height over width)</span>{num((el as PhotoEl).aspect, (n) => onChange((e) => ({ ...(e as PhotoEl), aspect: n })), 0.05)}</label>
       )}
-      {el.kind === 'text' && (
-        <div>
-          <p className="label">Lines</p>
-          <ul className="mt-1 space-y-1 text-xs">
-            {(el as TextEl).lines.map((l, i) => <li key={i} className="rounded bg-[color:var(--color-sand-100)] px-2 py-1">{l.role}</li>)}
-          </ul>
-        </div>
-      )}
+      {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
         <input type="range" min={0} max={1} step={0.05} value={el.opacity ?? 1} onChange={(e) => onChange((x) => ({ ...x, opacity: Number(e.target.value) }))} className="w-full" />
@@ -641,6 +634,130 @@ function Properties({ el, ratio, occasion, onChange, onLayer, onDuplicate, onRem
         <button type="button" onClick={onRemove} className="btn btn-ghost btn-sm text-red-700">Delete</button>
       </div>
     </>
+  );
+}
+
+/** The design's own faces. Each one is drawn in itself, so the menu is the answer. */
+const FACES: { key: NonNullable<TextEl['face']>; label: string; css: string }[] = [
+  { key: 'display', label: 'Heading', css: 'var(--inv-display)' },
+  { key: 'names', label: 'Names', css: 'var(--inv-names)' },
+  { key: 'script', label: 'Script', css: 'var(--inv-script)' },
+  { key: 'body', label: 'Body', css: 'var(--inv-body)' },
+];
+
+/** The roles a line can take, and what each is for. */
+const ROLES_TEXT: { key: LineRole; label: string }[] = [
+  { key: 'title', label: 'Heading' },
+  { key: 'script', label: 'Heading in script' },
+  { key: 'eyebrow', label: 'Small line above' },
+  { key: 'sub', label: 'Line under the heading' },
+  { key: 'label-title', label: 'A name' },
+  { key: 'label-text', label: 'A sentence under a name' },
+  { key: 'caption', label: 'A caption' },
+  { key: 'body', label: 'Plain words' },
+];
+
+/**
+ * How the words are set: the face from the design's own set, the size in
+ * shares of the column so it holds at every width, the weight, the spacing
+ * between letters, and what sits behind them on a busy picture. Each line
+ * keeps its own role, because a heading and the line under it are not the
+ * same thing even when they live in one box.
+ */
+function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) => Element) => void }) {
+  const edit = (fn: (t: TextEl) => TextEl) => onChange((x) => fn(x as TextEl));
+  const small = el.size !== undefined && el.size < LEGIBLE_CQW;
+  return (
+    <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+      <p className="label">How it is set</p>
+      <div className="mt-1 grid grid-cols-4 gap-1">
+        {FACES.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            title={f.label}
+            onClick={() => edit((t) => ({ ...t, face: t.face === f.key ? undefined : f.key }))}
+            className={`rounded border px-1 py-1.5 text-base leading-none ${el.face === f.key ? 'border-[color:var(--color-ink-700)] bg-[color:var(--color-sand-200)]' : 'border-[color:var(--color-sand-300)]'}`}
+            style={{ fontFamily: f.css }}
+          >
+            Aa
+          </button>
+        ))}
+      </div>
+      <p className="hint">{el.face ? FACES.find((f) => f.key === el.face)?.label : 'Whatever the role is set in'} — tap again to go back to the role&rsquo;s own face.</p>
+
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <label className="block">
+          <span className="label">Size</span>
+          <input
+            type="number" min={0.5} max={40} step={0.1}
+            value={el.size ?? ''}
+            placeholder="role"
+            onChange={(e) => edit((t) => ({ ...t, size: Number(e.target.value) > 0 ? place(Number(e.target.value)) : undefined }))}
+            className="input w-full"
+          />
+        </label>
+        <label className="block">
+          <span className="label">Weight</span>
+          <input
+            type="number" min={100} max={900} step={100}
+            value={el.weight ?? ''}
+            placeholder="—"
+            onChange={(e) => edit((t) => ({ ...t, weight: Number(e.target.value) >= 100 ? Math.round(Number(e.target.value)) : undefined }))}
+            className="input w-full"
+          />
+        </label>
+        <label className="block">
+          <span className="label">Spacing</span>
+          <input
+            type="number" min={-0.05} max={0.4} step={0.01}
+            value={el.tracking ?? ''}
+            placeholder="—"
+            onChange={(e) => edit((t) => ({ ...t, tracking: e.target.value === '' ? undefined : place(Number(e.target.value)) }))}
+            className="input w-full"
+          />
+        </label>
+      </div>
+      <p className="hint">Size is a share of the column, so it holds at every width. {small && <strong className="text-amber-800">Under {LEGIBLE_CQW} it is hard to read on a small phone.</strong>}</p>
+
+      <label className="mt-2 block">
+        <span className="label">Behind the words</span>
+        <select className="input w-full" value={el.backing ?? 'none'} onChange={(e) => edit((t) => ({ ...t, backing: e.target.value === 'none' ? undefined : (e.target.value as TextEl['backing']) }))}>
+          <option value="none">Nothing</option>
+          <option value="shadow">A soft shadow</option>
+          <option value="scrim">A pale card</option>
+        </select>
+        <span className="hint">For words that sit on a busy picture.</span>
+      </label>
+
+      <p className="label mt-3">Lines</p>
+      <ul className="mt-1 space-y-1">
+        {el.lines.map((l, i) => (
+          <li key={i} className="rounded bg-[color:var(--color-sand-100)] p-2">
+            <select
+              className="input w-full text-xs"
+              value={l.role}
+              onChange={(e) => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, role: e.target.value as LineRole } : x)) }))}
+            >
+              {ROLES_TEXT.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
+            <div className="mt-1 flex gap-1">
+              {(['left', 'center', 'right'] as const).map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, align: x.align === a ? undefined : a } : x)) }))}
+                  className={`rounded px-2 py-0.5 text-xs ${l.align === a ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-white'}`}
+                >
+                  {a === 'left' ? '⇤' : a === 'center' ? '↔' : '⇥'}
+                </button>
+              ))}
+              <span className="ml-auto text-[11px] text-[color:var(--color-ink-500)]">{l.sources.length} source{l.sources.length === 1 ? '' : 's'}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

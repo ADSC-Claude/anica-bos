@@ -88,20 +88,33 @@ function Block({ el, read }: { el: TextEl; read: Read }) {
   const cls = BLOCK_CLASS[el.block];
   const mark = read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {};
   // the caption is the paragraph itself, the way the polaroid's strip is written
-  if (el.block === 'caption') return <p className={cls} style={style} {...mark}>{texts.find(Boolean) || (read.edit ? read.edit.label(el) : '')}</p>;
+  if (el.block === 'caption') {
+    const own = { ...style, ...(el.face ? { fontFamily: `var(--inv-${el.face})` } : {}), ...(el.size ? { fontSize: `${el.size}cqw` } : {}) };
+    return <p className={cls} style={own} {...mark}>{texts.find(Boolean) || (read.edit ? read.edit.label(el) : '')}</p>;
+  }
   const body = blank && read.edit
     ? <p className="inv-bb-ask">{read.edit.label(el)}</p>
-    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null));
+    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} face={el.face} size={el.size} /> : null));
   if (el.block === 'head') return <header className={cls} style={style} {...mark}>{body}</header>;
   return <div className={cls} style={style} {...mark}>{body}</div>;
 }
 
-function LineText({ line, text }: { line: Line; text: string }) {
+/**
+ * One line inside a block.
+ *
+ * A role's own rule sets its face and its size — `.inv-title` is the display
+ * face at 5.6cqw — and a rule beats an inline style on the parent, so the
+ * block's face and size have to be set on the line itself or the studio's
+ * setting would do nothing at all. The line's own size still wins over the
+ * block's, because she set that one last and more precisely.
+ */
+function LineText({ line, text, face, size }: { line: Line; text: string; face?: TextEl['face']; size?: number }) {
   const Tag = LINE_TAG[line.role];
   const cls = LINE_CLASS[line.role];
   const style: CSSProperties = {};
+  if (face) style.fontFamily = `var(--inv-${face})`;
   if (line.align) style.textAlign = line.align;
-  if (line.size) style.fontSize = `${line.size}cqw`;
+  if (line.size ?? size) style.fontSize = `${line.size ?? size}cqw`;
   if (line.color) style.color = `var(--inv-${line.color})`;
   const styled = Object.keys(style).length ? style : undefined;
   return <Tag className={cls || undefined} style={styled}>{text}</Tag>;

@@ -732,6 +732,13 @@ export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: 
   return documentOf({ design: t.designDraft, layout: t.layout }) ?? documentOf(t) ?? builtinDesign(t.layout);
 }
 
+/**
+ * Small enough to be unreadable on a phone. Below this the studio says so:
+ * 2.6% of the column is about nine pixels at 360 across, which is where a
+ * caption stops being a caption and becomes a smudge.
+ */
+export const LEGIBLE_CQW = 2.6;
+
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */
 export const ONE_SCREEN = 1.777;
 export function pageRatio(page: PageSpec): number {

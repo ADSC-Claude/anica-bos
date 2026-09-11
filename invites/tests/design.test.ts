@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
-  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture,
+  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type PageSpec, type Element,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
@@ -11,6 +11,7 @@ import { templateData } from '../prisma/templates';
 import { TEMPLATES } from '../prisma/templates';
 
 const doc = builtinDesign('babyblue')!;
+const base = doc;
 const page = (key: string): PageSpec => {
   const p = doc.pages.find((x) => x.key === key);
   assert.ok(p, `no page ${key}`);
@@ -337,4 +338,37 @@ test('a colour background survives the column, by role and by hand', () => {
   const bent = JSON.parse(JSON.stringify(doc));
   bent.pages[0].ground = { url: '/x.webp' };
   assert.equal(designOf(bent, 'babyblue').dropped.length, 1);
+});
+
+/**
+ * How a text box is set — its face, its size, its weight, the spacing, what
+ * sits behind it, and each line's own alignment — is part of the design, so
+ * it has to survive the column like everything else.
+ */
+test('the way a box is set survives the column', () => {
+  const doc = JSON.parse(JSON.stringify(base ?? builtinDesign('babyblue')));
+  const head = doc.pages[1].elements[0];
+  Object.assign(head, { face: 'script', size: 4.25, weight: 600, tracking: 0.12, backing: 'scrim' });
+  head.lines[0].align = 'left';
+  head.lines[0].color = 'accent';
+  head.lines[1].size = 2.1;
+  const read = designOf(doc, 'babyblue');
+  assert.deepEqual(read.dropped, []);
+  const back = read.doc!.pages[1].elements![0] as TextEl;
+  assert.equal(back.face, 'script');
+  assert.equal(back.size, 4.25);
+  assert.equal(back.weight, 600);
+  assert.equal(back.tracking, 0.12);
+  assert.equal(back.backing, 'scrim');
+  assert.equal(back.lines[0].align, 'left');
+  assert.equal(back.lines[0].color, 'accent');
+  assert.equal(back.lines[1].size, 2.1);
+
+  // a face the design does not have, and a weight nothing could load, are refused
+  const bent = JSON.parse(JSON.stringify(doc));
+  bent.pages[1].elements[0].face = 'comic';
+  assert.equal(designOf(bent, 'babyblue').dropped.length, 1);
+
+  // the floor the studio warns at is a real size, not a placeholder
+  assert.ok(LEGIBLE_CQW > 1 && LEGIBLE_CQW < 5);
 });

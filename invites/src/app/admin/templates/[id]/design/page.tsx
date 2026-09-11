@@ -2,10 +2,9 @@ import { notFound } from 'next/navigation';
 import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
-import { contentOf } from '@/lib/invitations';
+import { contentOf, resolveTheme } from '@/lib/invitations';
 import { isPaged } from '@/lib/sections';
-import { paletteFrom, fontsFrom, cssVars } from '@/lib/theme';
-import { LOOK_BY_KEY, isLook } from '@/lib/looks';
+import { cssVars } from '@/lib/theme';
 import { studioDoc, documentOf, wordsOf, withWords } from '@/lib/design';
 import { BackLink } from '@/components/ui';
 import { Studio } from './studio';
@@ -31,8 +30,16 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
   // The demo invitation is what the pages are drawn against: without one the
   // canvas is a set of empty frames and there is nothing to judge.
   const demo = t.demoSlug ? await prisma.invitation.findUnique({ where: { slug: t.demoSlug }, select: { content: true, slug: true } }) : null;
-  const look = withWords(t.look && isLook(t.look) ? LOOK_BY_KEY[t.look] : undefined, wordsOf(t.words));
-  const vars = cssVars(paletteFrom(t.palette), fontsFrom(t.fonts));
+  /**
+   * The colours and faces a guest actually gets, not the raw columns. A
+   * design set in a look is drawn in the look's faces — the `fonts` column
+   * underneath is what it would fall back to — so the studio has to resolve
+   * it the same way the guest page does or she would be drawing in a face
+   * nobody ever sees.
+   */
+  const theme = resolveTheme(t, demo ? contentOf(demo.content) : {});
+  const look = withWords(theme.look, wordsOf(t.words));
+  const vars = cssVars(theme.palette, theme.fonts);
 
   return (
     <>

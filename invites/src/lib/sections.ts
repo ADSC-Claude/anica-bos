@@ -83,6 +83,16 @@ export type Field = {
   max?: number;
   /** swatches: how many at least, asked at publish */
   min?: number;
+  /**
+   * Staff's until a published design asks for it.
+   *
+   * Every part of an invitation can carry a picture of the customer's, but
+   * only where the design has drawn a place for one — so the field exists on
+   * every section and is hidden until the published document binds an
+   * element to it. A form that grew three boxes on every part for every
+   * design would be a worse form for everybody.
+   */
+  byDesign?: true;
   /** swatches: offer the palette's presets — four colours that go together, in one tap */
   sets?: boolean;
   /** checks: the sibling field whose values decide which options (by their 'when') are offered */
@@ -1014,6 +1024,27 @@ export function fitOf(path: string, type: FieldType): number | undefined {
   return FIT[path] ?? FIT_DEFAULT[type];
 }
 
+/**
+ * A place for a picture of the customer's on any part of the invitation.
+ *
+ * A section that already asks for one keeps its own — the cover's portrait,
+ * the venue's photograph, the closing picture — because those have their own
+ * words and their own place in the form. Everything else gains one, hidden
+ * until a design draws a frame for it.
+ */
+function withMedia(def: SectionDef, fields: Field[]): Field[] {
+  // a retired part is offered to nobody, so no design can draw for it
+  if (def.hidden || fields.some((f) => f.key === 'photo')) return fields;
+  return [
+    ...fields,
+    image('photo', 'A photo for this part', {
+      staff: true,
+      byDesign: true,
+      hint: 'Shown where the design draws a frame for it.',
+    }),
+  ];
+}
+
 /** Every writing in a section carries its limit, list rows included. A list's own `max` (how many rows) is left alone. */
 function withLimits(section: SectionKey, fields: Field[]): Field[] {
   return fields.map((f) => {
@@ -1024,7 +1055,7 @@ function withLimits(section: SectionKey, fields: Field[]): Field[] {
 }
 
 export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries(
-  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, s.fields(occasion)) }]),
+  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, withMedia(s, s.fields(occasion))) }]),
 ) as Record<SectionKey, SectionDef>;
 
 /** Which sections each occasion carries, in page order. */

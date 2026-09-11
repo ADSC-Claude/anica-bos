@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
@@ -7,10 +8,11 @@ import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme
 import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
-import { OCCASION_SECTIONS, SECTION_BY_KEY } from '@/lib/sections';
+import { OCCASION_SECTIONS, SECTION_BY_KEY, isPaged } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
+import { AsksSheet, asksFor } from '@/components/asks-sheet';
 import { Flash, type FlashParams } from '../../flash';
 import { saveTemplateAction } from '../../actions';
 
@@ -43,8 +45,20 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   return (
     <>
       <BackLink href="/admin/templates">Templates</BackLink>
-      <PageHeader title={isNew ? 'New template' : t!.name} subtitle="A template is a layout, a palette and fonts. Content never lives here." />
+      <PageHeader
+        title={isNew ? 'New template' : t!.name}
+        subtitle="A template is a layout, a palette and fonts. Content never lives here."
+        actions={t && isPaged(t.layout) ? <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link> : undefined}
+      />
       <Flash {...sp} />
+      {t && (
+        <div className="mb-4">
+          <AsksSheet
+            asks={asksFor(t, occasion)}
+            intro="Every customer on this design is asked for these, and for nothing else the design does not draw."
+          />
+        </div>
+      )}
       <form action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
         <div className="card space-y-3 p-4">
           <Field label="Name" name="name" defaultValue={t?.name} required />
@@ -75,6 +89,25 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </div>
         <div className="card space-y-3 p-4">
           <Select label="Layout" name="layout" defaultValue={t?.layout ?? 'classic'} options={LAYOUTS.map((l) => ({ value: l, label: l }))} hint="classic: full-bleed photo hero · editorial: portrait photo, big serif · garden: arched photo · modern: uppercase sans · festive: confetti · quiet: memorial" />
+          {/*
+            * Where its pages come from, asked once and never again: a design
+            * with pages of its own is edited in the studio from then on. A
+            * starter is one page per section this occasion offers, on plain
+            * colours; the layout's own is Baby Blue's or Capiz's pages
+            * exactly, which is the same thing Duplicate makes.
+            */}
+          {isNew && (
+            <Select
+              label="Start the pages from"
+              name="startFrom"
+              defaultValue="starter"
+              options={[
+                { value: 'starter', label: 'A starter — one page per section you tick, on plain colours' },
+                { value: 'layout', label: "The layout's own pages, as Baby Blue and Capiz are built" },
+              ]}
+              hint="Only for a layout built as a run of pages (Capiz, Baby Blue). Everything else ignores it."
+            />
+          )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
           <div className="grid grid-cols-3 gap-2">
             {(['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as const).map((k) => (

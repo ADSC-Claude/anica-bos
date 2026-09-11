@@ -808,6 +808,11 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='capiz'] .inv-hero-body { position: relative; }
 .inv[data-layout='capiz'] .inv-hero-body > .inv-hero-names,
 .inv[data-layout='capiz'] .inv-hero-body > .inv-hero-details { position: relative; z-index: 1; }
+/* Every portrait width below is multiplied by --inv-portrait-scale, which a
+   design sets on its hero when it wants the cover photograph larger or
+   smaller than the size it was drawn with. Unset it is 1, and `calc(X * 1)`
+   is X, so the two designs as shipped measure exactly what they measured
+   before the variable existed — checked in a browser, not argued. */
 .inv-portrait { position: relative; margin: 0.2rem auto 1.7rem; z-index: 0; }
 .inv-portrait img { display: block; width: 100%; object-fit: cover; }
 .inv-portrait[data-style='veil'] {
@@ -815,9 +820,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   left: 50%;
   top: -3.2rem;
   translate: -50% 0;
-  width: 100vw;
-  max-width: 32rem;
-  height: 34rem;
+  width: calc(100vw * var(--inv-portrait-scale, 1));
+  max-width: calc(32rem * var(--inv-portrait-scale, 1));
+  height: calc(34rem * var(--inv-portrait-scale, 1));
   margin: 0;
   opacity: 0.72;
   -webkit-mask-image: radial-gradient(ellipse 64% 58% at 50% 46%, #000 44%, rgba(0, 0, 0, 0.6) 68%, transparent 100%);
@@ -827,7 +832,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* room for the couple above the names, so they are seen before they are read */
 .inv[data-layout='capiz'] .inv-hero-body:has(.inv-portrait[data-style='veil']) > .inv-hero-names { padding-top: 14rem; }
 .inv-portrait[data-style='arch'] {
-  width: min(66%, 15.5rem);
+  width: calc(min(66%, 15.5rem) * var(--inv-portrait-scale, 1));
   padding: 0.3rem;
   border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 75%, transparent);
   border-radius: 999px 999px 0.9rem 0.9rem;
@@ -836,7 +841,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv-portrait[data-style='arch'] img { aspect-ratio: 4 / 5; border-radius: 999px 999px 0.65rem 0.65rem; }
 .inv-portrait[data-style='oval'] {
-  width: min(60%, 14.5rem);
+  width: calc(min(60%, 14.5rem) * var(--inv-portrait-scale, 1));
   padding: 0.4rem;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 80%, transparent);
@@ -848,7 +853,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv-portrait[data-style='oval'] img { aspect-ratio: 3 / 4; border-radius: 50%; }
 .inv-portrait[data-style='round'] {
-  width: min(52%, 12.5rem);
+  width: calc(min(52%, 12.5rem) * var(--inv-portrait-scale, 1));
   padding: 0.45rem;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 85%, transparent);
@@ -857,7 +862,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv-portrait[data-style='round'] img { aspect-ratio: 1 / 1; border-radius: 50%; }
 .inv-portrait[data-style='card'] {
-  width: min(58%, 14rem);
+  width: calc(min(58%, 14rem) * var(--inv-portrait-scale, 1));
   padding: 0.45rem 0.45rem 1.6rem;
   border-radius: 2px;
   background: #fbf7f0;
@@ -895,9 +900,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='veil'] {
   top: 0;
   translate: -50% -14%;
-  width: min(100%, 20rem);
+  width: calc(min(100%, 20rem) * var(--inv-portrait-scale, 1));
   max-width: none;
-  height: min(46dvh, 21rem);
+  height: calc(min(46dvh, 21rem) * var(--inv-portrait-scale, 1));
   opacity: 0.62;
   -webkit-mask-image: radial-gradient(46% 42% at 50% 44%, #000 34%, rgba(0, 0, 0, 0.5) 66%, transparent 100%);
   mask-image: radial-gradient(46% 42% at 50% 44%, #000 34%, rgba(0, 0, 0, 0.5) 66%, transparent 100%);
@@ -906,21 +911,21 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* the name sits over the wash's lower half, where the sky comes back */
 .inv[data-layout='babyblue'] .inv-hero-body:has(.inv-portrait[data-style='veil']) > .inv-hero-names { padding-top: min(22dvh, 9rem); }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='arch'] {
-  width: min(66%, 15.5rem, 21dvh);
+  width: calc(min(66%, 15.5rem, 21dvh) * var(--inv-portrait-scale, 1));
   background: color-mix(in srgb, #fff 55%, transparent);
   box-shadow: 0 22px 44px -26px rgba(74, 91, 122, 0.5);
 }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='oval'] {
-  width: min(60%, 14.5rem, 20dvh);
+  width: calc(min(60%, 14.5rem, 20dvh) * var(--inv-portrait-scale, 1));
   background: rgba(255, 255, 255, 0.45);
   box-shadow: 0 22px 44px -26px rgba(74, 91, 122, 0.5);
 }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='round'] {
-  width: min(52%, 12.5rem, 24dvh);
+  width: calc(min(52%, 12.5rem, 24dvh) * var(--inv-portrait-scale, 1));
   box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.55), 0 0 0 6px color-mix(in srgb, var(--inv-accent, #8fb0d8) 40%, transparent), 0 20px 40px -24px rgba(74, 91, 122, 0.5);
 }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='card'] {
-  width: min(50%, 11.5rem, 20dvh);
+  width: calc(min(50%, 11.5rem, 20dvh) * var(--inv-portrait-scale, 1));
   padding: 0.4rem 0.4rem 1.4rem;
   background: #fff;
   box-shadow: 0 16px 32px -18px rgba(74, 91, 122, 0.5), 0 1px 2px rgba(74, 91, 122, 0.12);
@@ -1237,6 +1242,43 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: 0; padding-top: 0.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
+/*
+ * A drawn page in a design that carries a document (the studio's own): its
+ * height is its ground's ratio, whatever the page is called, and its elements
+ * are placed on it absolutely. The two rules under this one are the same
+ * thing written by hand for Baby Blue, which carries no document — they stay
+ * so that nothing about the original can move.
+ */
+.inv[data-doc] .inv-page[data-drawn] { aspect-ratio: 1 / var(--page-ratio, 1.777); padding: 0; display: block; container-type: inline-size; }
+/*
+  A drawn page that grows. Its ground's proportion becomes a floor rather
+  than a measurement, so a customer's long sentence pushes the page down
+  instead of spilling over the join onto the next one. The floor is a
+  percentage padding on a pseudo-element because a percentage padding
+  resolves against the element's own WIDTH, which is the one thing the page
+  knows before anything has been measured — `aspect-ratio` would pin the
+  height and `100cqw` would ask the page about itself. Growth past the floor
+  is set in pixels by the pass that lays the grounds, which is the only
+  place the real boxes are known. The ground stretches to follow, keeping
+  its head and foot whole (`slices`).
+*/
+.inv[data-doc] .inv-page[data-drawn][data-grow] { aspect-ratio: auto; }
+.inv[data-doc] .inv-page[data-drawn][data-grow]::before { content: ''; display: block; float: left; width: 0; padding-top: calc(var(--page-ratio, 1.777) * 100%); }
+.inv[data-doc] .inv-page[data-drawn][data-grow]::after { content: ''; display: block; clear: both; }
+.inv[data-doc] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
+/*
+ * The studio only. A frame or a box with nothing in it is never invisible
+ * while she is drawing: it shows where it is and says what fills it. Nothing
+ * carries `data-empty` on a guest's page, so a guest sees none of this.
+ */
+.inv [data-empty] { outline: 1px dashed rgba(47, 111, 208, 0.55); background: rgba(47, 111, 208, 0.06); }
+.inv figure[data-empty] { display: flex; align-items: center; justify-content: center; }
+/* A text box the studio placed that is not one of the design's own kinds. */
+.inv[data-paged] .inv-bb-art > .inv-bb-text { position: absolute; text-align: center; }
+.inv-bb-text .inv-bb-body { font-family: var(--inv-body); font-size: 2.6cqw; line-height: 1.5; color: var(--inv-ink); }
+/* The paper role is the one colour the night block sets on .inv rather than on the variable. */
+.inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: #1a1b26; }
+.inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 2.3cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
@@ -1247,7 +1289,53 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-bb-head .inv-bb-eyebrow { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.34em; text-indent: 0.34em; font-size: 2.9cqw; color: var(--inv-ink); margin-bottom: 0.4cqw; }
 .inv[data-paged] .inv-bb-head .inv-bb-script { font-family: var(--inv-names); font-weight: 400; font-size: 9.6cqw; line-height: 1.15; color: var(--inv-ink); margin: 0 0 1.4cqw; text-transform: none; letter-spacing: 0; }
 .inv[data-paged] .inv-bb-art > .inv-bb-slot { position: absolute; aspect-ratio: 1; margin: 0; overflow: hidden; background: #e8e3dd; }
+/* A picture the design supplies itself — a piece from the library, a
+   flourish — is not a frame waiting to be filled, so it gets no card behind
+   it: a piece drawn with transparency around it would otherwise sit on a
+   grey square. Written before the frame rules and at the same reach, so a
+   piece she does give a frame still gets one. */
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-own] { background: none; }
 .inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; border-radius: 0; }
+/* A crop is a window on the source, not a re-encoded file: the picture is
+   blown up until that window is the size of the frame and slid so the window
+   lands on it (the numbers are inline, from cropStyle). The window's shape is
+   locked to the frame's, so `cover` above neither stretches nor trims — and
+   if a hand-written document ever breaks the lock, `cover` trims rather than
+   distorts, which is the kinder of the two failures. */
+.inv-bb-slot[data-crop] img { position: absolute; max-width: none; }
+/* A cut goes on the frame, and the picture takes the same one. */
+.inv-bb-slot[data-mask] img { border-radius: inherit; }
+/* A drawn frame, for a ground with no frames painted into it. The card is the
+   surface colour so it follows the palette, and every measure is in cqw so it
+   scales with the column exactly as the type does. A polaroid's deep foot is
+   the strip a caption is written on: she places the words over it herself,
+   the way Baby Blue's captions sit on its painted ones.
+   The card is written at the same reach as the slot's own rule above, which
+   paints the grey a waiting frame shows: written any shorter it would lose
+   to it and every polaroid would be grey. */
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-frame] { background: var(--inv-surface, #fff); box-shadow: 0 1.2cqw 3cqw -1.4cqw rgba(0, 0, 0, 0.3); }
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-frame='thin'] { padding: 1.1cqw; }
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-frame='polaroid'] { padding: 1.5cqw 1.5cqw 6.4cqw; }
+/* The whole picture behind a frame she is fitting, spilling out of it so she
+   can see what she is panning past. The studio's own; it is drawn only when
+   the page is passed an `edit` view, which a guest never is. It takes the
+   frame's own placement, so it lands on the frame exactly, turn and all,
+   with no second set of geometry to keep in step. */
+.inv-bb-art > .inv-bb-ghost { position: absolute; aspect-ratio: 1; margin: 0; overflow: visible; pointer-events: none; opacity: 0.34; }
+.inv-bb-ghost img { position: absolute; display: block; max-width: none; object-fit: cover; }
+/* A shape: a card behind some words, a rule across the page, a dot. A div
+   and nothing else — no SVG, no script, nothing for a guest to download.
+   Everything but its width is set inline in cqw (shapeStyle), which on a
+   drawn page is the same share of the same width, so it keeps its
+   proportions at every phone size. */
+.inv[data-paged] .inv-bb-art > .inv-bb-shape { position: absolute; margin: 0; }
+.inv-bb-shape[data-shape='ellipse'] { border-radius: 50%; }
+/* What sits behind words on a busy picture. A halo in the surface colour
+   lifts them off it without a box; a scrim is the box, pale enough to read
+   the picture through. Both follow the palette into night, and both are in
+   cqw so they scale with the type rather than with the screen. */
+.inv-bb-art [data-backing='shadow'] { text-shadow: 0 0.16cqw 0.55cqw var(--inv-surface), 0 0 1cqw var(--inv-surface); }
+.inv-bb-art [data-backing='scrim'] { padding: 0.9cqw 1.6cqw; background: color-mix(in srgb, var(--inv-surface) 70%, transparent); border-radius: 0.9cqw; }
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
 .inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }
@@ -2111,9 +2199,13 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* ---------------------------------------------------------------------------
    Night. The guest switches with the sun-and-moon button (top right); the
    couple sets the default in Settings, or leaves it to the guest's clock.
-   Capiz by night: its papers darkened and tinted toward a deep blue, unless
-   the design has its own night backgrounds (data-night-art, drawn as is), the
-   ink lifted to ivory, the cards and fields on dark glass. */
+   A paper by night is darkened and turned toward a deep blue, unless it is
+   drawing a picture made for the night (data-night-art, drawn as it is) — the
+   mark is on the paper, so one page of a design can be night art over pages
+   that are only turned down. The tint under the papers shows through the
+   dissolves where they meet, so it is the joins that it colours; it goes only
+   when every paper on the ground is night art. The ink is lifted to ivory and
+   the cards and fields go on dark glass either way. */
 .inv-mode { position: fixed; right: 1rem; top: 1rem; z-index: 40; width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent); background: color-mix(in srgb, var(--inv-surface) 88%, transparent); color: var(--inv-ink); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); cursor: pointer; backdrop-filter: blur(6px); }
 .inv-mode:hover { transform: translateY(-1px); }
 .inv[data-paged][data-mode='night'] { background: #1a1b26; }
@@ -2121,7 +2213,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    ones are set one level down, on everything in the page but the opening. */
 .inv[data-paged][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
 body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
-.inv[data-mode='night'] .inv-ground:not([data-night-art]) .inv-paper { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
+.inv[data-mode='night'] .inv-paper:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
 .inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
 .inv[data-paged][data-mode='night'] .inv-card,
 .inv[data-paged][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }

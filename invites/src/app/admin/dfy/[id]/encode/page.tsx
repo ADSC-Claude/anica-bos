@@ -5,6 +5,9 @@ import { prisma } from '@/lib/db';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, photoFrames, photoFramesHint, type Content, type SectionKey } from '@/lib/sections';
 import { sectionAnchor } from '@/lib/anchors';
+import { documentOf } from '@/lib/design';
+import { designForm, askedFields, askedLimits, asksOf, designMedia } from '@/lib/asks';
+import { AsksSheet } from '@/components/asks-sheet';
 import { intakeRows, intakeFilled } from '@/lib/intake';
 import { doneSections } from '@/lib/progress';
 import { galleryLimit } from '@/lib/tiers';
@@ -37,18 +40,22 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
 
   // The segments in the order the page shows them, the ones this package has.
   const offered = new Set(sectionsFor(occasion).map((d) => d.key));
+  // a design drawn in the studio says which page each section lands on
+  const doc = documentOf(inv.template);
   const keys = sectionOrder(occasion, inv.template.layout).filter((k) => offered.has(k) && sectionUnlocked(k, occasion, inv.tier, inv.addOns));
   const sections = keys.map((key) => ({
     key,
     label: sectionLabel(key, occasion),
     description: sectionsFor(occasion).find((d) => d.key === key)?.description ?? '',
-    anchor: sectionAnchor(key, inv.template.layout),
+    anchor: sectionAnchor(key, inv.template.layout, doc),
     filled: sectionFilled(key, occasion, content[key]),
     fromClient: intakeFilled(fieldsFor(key, occasion), intake.content?.[key]),
   }));
   const current = (sections.find((s) => s.key === sp.section)?.key ?? sections[0]?.key) as SectionKey;
-  // staff see every field, the fixed writings included
-  const fields = fieldsFor(current, occasion, inv.tier);
+  // staff see every field, the fixed writings included — fitted to the design
+  // the same way the customer's form is, so an encoder is told the same room
+  const form = designForm(doc, occasion);
+  const fields = askedFields(designMedia(fieldsFor(current, occasion, inv.tier), current, form), current, form);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const intakeData = intake.content?.[current] ?? null;
   const limit = galleryLimit(inv.tier);
@@ -79,6 +86,13 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
       </div>
       <Flash {...sp} />
       {!job.intakeSubmittedAt && <p className="mb-4 rounded-lg bg-[color:var(--color-sand-100)] p-3 text-sm">The client has not submitted their form yet. Anything they sent by chat goes straight into the segments here.</p>}
+      <div className="mb-4">
+        <AsksSheet
+          asks={asksOf(doc, occasion)}
+          title="What this design asks the customer for"
+          intro="Drawn into the design, so these are the ones with a place waiting on the page."
+        />
+      </div>
       <Workspace
         key={current}
         jobId={job.id}
@@ -92,7 +106,7 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
         intakeData={intakeData}
         intakeNotes={intake.notes ?? ''}
         lang={inv.language === 'tl' ? 'tl' : 'en'}
-        listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)) }}
+        listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }}
         listHints={photoFramesHint(inv.template.layout)}
         done={doneSections(content.progress)}
       />

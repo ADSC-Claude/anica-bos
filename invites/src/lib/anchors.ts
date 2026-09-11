@@ -1,4 +1,5 @@
 import type { SectionKey } from './sections';
+import { pageOfSection, type DesignDoc } from './design';
 
 /**
  * Where each section lands on the guest page: the `id` its block carries in
@@ -38,7 +39,12 @@ const ANCHORS: Partial<Record<SectionKey, string>> = {
   speakers: 'speakers',
 };
 
-export function sectionAnchor(key: SectionKey, layout: string): string {
+export function sectionAnchor(key: SectionKey, layout: string, doc?: DesignDoc | null): string {
+  // A design that carries a document says where its sections are. A drawn
+  // page is one block with the page's own id — the section inside it has no
+  // id of its own — so the anchor is the page.
+  const page = pageOfSection(doc ?? null, key);
+  if (page?.drawn) return page.key;
   // The Baby Blue design draws its photos on a page of their own.
   if (key === 'gallery' && layout === 'babyblue') return 'baby-photos';
   return ANCHORS[key] ?? 'top';

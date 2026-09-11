@@ -15,6 +15,7 @@ import { contentOf } from '@/lib/invitations';
 import { publishProblems, sectionsFor, sectionUnlocked, sectionLabel, blankSections, skippedSections } from '@/lib/sections';
 import { changeWindow, doneSections, scheduleAdvice, PROCESSING_DAYS } from '@/lib/progress';
 import { PageHeader, InvitationPill, Stat, Notice } from '@/components/ui';
+import { AsksSheet, asksFor } from '@/components/asks-sheet';
 import { PublishControls, ShareBox } from './controls';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,10 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const window = changeWindow(inv.eventAt);
   const upgrade = nextTier(inv.tier);
 
+  // What this design will ask them for, before they start filling anything
+  // in: the same list the studio keeps, so it cannot drift from the design.
+  const asks = asksFor(inv.template, inv.occasion);
+
   return (
     <>
       <Link href="/account" className="text-sm text-[color:var(--color-plum-600)] hover:underline">← My invitations</Link>
@@ -74,6 +79,16 @@ export default async function InvitationDashboard({ params }: { params: Promise<
           </>
         }
       />
+
+      {asks.length > 0 && (
+        <div className="mb-4">
+          <AsksSheet
+            asks={asks}
+            title="What to have ready"
+            intro="Your design has a place waiting for each of these. The form asks for them one at a time; this is the whole list, so you can gather them in one sitting."
+          />
+        </div>
+      )}
 
       {!active && inv.order && (
         <div className="mb-4"><Notice tone="warn">This invitation unlocks once order {inv.order.reference} is paid. <Link href={`/checkout/pay/${inv.order.reference}`} className="underline">Pay now</Link></Notice></div>

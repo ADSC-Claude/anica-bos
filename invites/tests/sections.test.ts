@@ -215,7 +215,10 @@ test('the clothes are clothes: no shoes, ties or heels; kindly-avoid is the full
 
 test('Background music keeps the song named, its start as seconds, and its uploaded file — and nothing that would put a player on the page', () => {
   const fields = fieldsFor('music', 'WEDDING');
-  assert.deepEqual(fields.map((f) => f.key), ['song', 'start', 'url']);
+  // the three the song needs, and the photo every part carries for a design
+  // to draw — hidden until one does, which is what `byDesign` means
+  assert.deepEqual(fields.map((f) => f.key), ['song', 'start', 'url', 'photo']);
+  assert.ok(fields.find((f) => f.key === 'photo')?.byDesign);
   assert.ok(fields.some((f) => f.key === 'url' && f.type === 'audio'));
   assert.ok(fields.some((f) => f.key === 'start' && f.type === 'offset'));
   const { data, issues } = cleanSection(fields, {

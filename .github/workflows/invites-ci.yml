@@ -71,6 +71,13 @@ jobs:
       - name: Test
         run: npm test
 
+      # `npm test` runs under --conditions=react-server, where `server-only`
+      # resolves to an empty module and importing it passes. What the studio
+      # draws with has to load in a browser too, so it is tested without that
+      # condition, which is the only way that import can fail the build.
+      - name: Test what the browser loads
+        run: npm run test:client
+
       # The production build script, not `build:local` — it is the thing that
       # applies the migrations, and it is the thing that broke in production.
       - name: Build
@@ -117,6 +124,22 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria/calendar.ics
           curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria/card
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/does-not-exist)" = "404"
+          # The studio's preview draws a design's unpublished draft. Nobody
+          # but a previewer may be shown one, so signed out the flag has to
+          # change nothing: the same markup, byte for byte. The scripts are
+          # stripped because the flight payload echoes the query string back,
+          # which is the address and not the page.
+          page() { curl -s "$1" | perl -0777 -pe 's{<script\b.*?</script>}{}gs'; }
+          page http://127.0.0.1:3000/juan-and-maria > /tmp/plain.html
+          page 'http://127.0.0.1:3000/juan-and-maria?design=draft' > /tmp/draft.html
+          test -s /tmp/plain.html || { echo '::error::the invitation served nothing'; exit 1; }
+          diff -q /tmp/plain.html /tmp/draft.html || { echo '::error::?design=draft changed the page for a signed-out guest'; exit 1; }
+          # A Share-draft key is the one thing that opens a draft without an
+          # account, and it is checked against the design's own secret. A made
+          # up one must change nothing either, or the flag is open to anybody
+          # who guesses that a key exists.
+          page 'http://127.0.0.1:3000/juan-and-maria?design=draft&key=not.a.key' > /tmp/faked.html
+          diff -q /tmp/plain.html /tmp/faked.html || { echo '::error::an invented ?key= opened the draft'; exit 1; }
           # Anything shared under the old prefix keeps working.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/i/juan-and-maria)" = "308"
           # A slug cannot swallow a real page: static routes win, which is what

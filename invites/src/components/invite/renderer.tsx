@@ -15,8 +15,9 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS } from '@/lib/design';
-import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '@/lib/babyblue';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
+import { extraSectionsOf } from '@/lib/parts';
+import { DrawnPage } from './drawn';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
@@ -184,7 +185,7 @@ function dottedDate(dateKey: string): string {
   return m ? `${m[2]} · ${m[3]} · ${m[1]}` : '';
 }
 
-function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; saveTheDate?: boolean; eyebrow?: string }) {
+function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyebrow: lookEyebrow, spec }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; saveTheDate?: boolean; eyebrow?: string; spec?: CoverSpec }) {
   const cover = content.cover;
   const copy = heroCopy(occasion, cover, lang);
   // A Save the Date says so above the names, over anything the design or the
@@ -217,10 +218,15 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // client saying they want the cover to be the design alone. The photograph
   // they uploaded is still the link preview and still opens the photos page —
   // this decides the cover and nothing else.
-  const portraitStyle = str(cover, 'photoStyle') || (layout === 'babyblue' ? 'card' : 'veil');
+  // the customer's choice first, then the design's own, then the layout's
+  const portraitStyle = str(cover, 'photoStyle') || spec?.photoStyle || (layout === 'babyblue' ? 'card' : 'veil');
+  // a design that says nothing about its cover emits no style at all, so the
+  // markup of a design drawn before any of this existed does not move
+  const set = coverStyle(spec);
+  const heroStyle = Object.keys(set).length ? (set as CSSProperties) : undefined;
   const portrait = format && isPaged(layout) && photo && portraitStyle !== 'none';
   return (
-    <header className="inv-hero" id="top">
+    <header className="inv-hero" id="top" style={heroStyle}>
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
@@ -1033,65 +1039,6 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
 
 type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[]; strand: string };
 
-/**
- * The Baby Blue story: six milestones on the designer's drawn timeline. The
- * photographs go into the frames drawn on the ground; the words are set live
- * where the designer set hers, so staff and the client can name each moment.
- */
-function StoryMilestones({ data, title, tagline }: { data: SectionData; title: string; tagline?: string }) {
-  const timeline = rows<{ title: string; text: string; photo: string }>(data, 'timeline');
-  return (
-    <section id="story" className="inv-section inv-bb-art inv-bb-story">
-      <header className="inv-bb-head" style={{ top: `${STORY_HEAD.titleTop}%` }}>
-        <h2 className="inv-title">{title}</h2>
-        {tagline && <p className="inv-bb-sub">{tagline}</p>}
-      </header>
-      {STORY_SLOTS.map((slot, i) => {
-        const m = timeline[i];
-        if (!m) return null;
-        return (
-          <Fragment key={i}>
-            {m.photo && (
-              <figure className="inv-bb-slot" style={slotStyle(slot)}>
-                <img src={imageUrl(m.photo, IMAGE.grid)} alt="" loading="lazy" />
-              </figure>
-            )}
-            {(m.title || m.text) && (
-              <div className="inv-bb-label" style={labelStyle(STORY_LABELS[i])}>
-                {m.title && <p className="t">{m.title}</p>}
-                {m.text && <p className="x">{m.text}</p>}
-              </div>
-            )}
-          </Fragment>
-        );
-      })}
-    </section>
-  );
-}
-
-/** The Baby Blue photo page: the first four photographs in the frames drawn on the ground. */
-function BabyPhotos({ photos, eyebrow, title, tagline }: { photos: { url: string; caption: string }[]; eyebrow?: string; title: string; tagline?: string }) {
-  return (
-    <section id="baby-photos" className="inv-section inv-bb-art inv-bb-photos">
-      <header className="inv-bb-head" style={{ top: `${PHOTO_HEAD.eyebrowTop}%` }}>
-        {eyebrow && <p className="inv-bb-eyebrow">{eyebrow}</p>}
-        <h2 className="inv-bb-script">{title}</h2>
-        {tagline && <p className="inv-bb-sub">{tagline}</p>}
-      </header>
-      {PHOTO_SLOTS.map((slot, i) =>
-        photos[i] ? (
-          <Fragment key={i}>
-            <figure className="inv-bb-slot" style={slotStyle(slot)}>
-              <img src={imageUrl(photos[i].url, IMAGE.grid)} alt={photos[i].caption || ''} loading="lazy" />
-            </figure>
-            {/* the client's word for the photo, written on the polaroid's strip in the design's script */}
-            {photos[i].caption && <p className="inv-bb-caption" style={captionStyle(slot)}>{photos[i].caption}</p>}
-          </Fragment>
-        ) : null,
-      )}
-    </section>
-  );
-}
 
 function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat }) {
   const limit = galleryLimit(tier);
@@ -1554,63 +1501,16 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * of the one before, and a spray of shell cut from the designs lies across the
  * join (PageGround measures the pages and lays all of it).
  */
-type PageDef = {
-  key: string;
-  sections: (SectionKey | 'verse')[];
-  /** the ground under the page, for a layout that names them (src/lib/design.ts) */
-  bg?: string;
-  /** how long the dissolve into this page is, as a share of the width */
-  seam?: number;
-  /**
-   * A drawn page: its ground carries frames and writings at fixed places, so
-   * it must sit exactly on the page. The dissolve into it lies wholly below
-   * its top edge and is short, so its own header comes up on clean ground.
-   * Any other page lets its ground start half a seam up, inside the page
-   * before, so the two pictures cross halfway across the join.
-   */
-  drawn?: boolean;
-};
+/** A colour background named by its role follows the palette; anything else is a colour. */
+const ROLE_NAMES = ['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'];
+
 /** The backgrounds' height as a multiple of their width. */
 export const CAPIZ_BG_RATIO = 2.645;
 /** The order of the backgrounds down the invitation, long enough for any; 8 is set last. */
 const STRIP_ORDER = [1, 2, 3, 4, 5, 6, 7, ...Array.from({ length: 24 }, (_, i) => (i % 2 ? 6 : 5))];
 
-const CAPIZ_PAGES: PageDef[] = [
-  { key: 'cover', sections: ['cover', 'verse'] },
-  { key: 'story', sections: ['story'] },
-  { key: 'invitation', sections: ['ceremony'] },
-  { key: 'entourage', sections: ['entourage'] },
-  { key: 'prenup', sections: ['gallery'] },
-  { key: 'venue', sections: ['reception'] },
-  { key: 'dress-code', sections: ['dressCode'] },
-  { key: 'gift', sections: ['gift'] },
-  { key: 'program', sections: ['program', 'social'] },
-  { key: 'guestbook', sections: ['guestbook'] },
-  { key: 'photos', sections: ['photos'] },
-  { key: 'rsvp', sections: ['rsvp'] },
-  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
-];
-
-/**
- * The Baby Blue pages, each on its own ground, in the order the owner set:
- * the cover with the verse, the story, the invitation, ninong and ninang, the
- * baby photos, the venue, the dress code, the gift request with the program,
- * snap and share with the post-event photos, and the last page with the RSVP,
- * the countdown, the assistance and the ending. The two drawn pages keep
- * their tops clear of the dissolve.
- */
-const BABYBLUE_PAGES: PageDef[] = [
-  { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
-  { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
-  { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
-  { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
-  { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
-  { key: 'venue', bg: 'venue', sections: ['reception'] },
-  { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
-  { key: 'program', bg: 'program', sections: ['gift', 'program'] },
-  { key: 'share', bg: 'share', sections: ['social', 'photos'] },
-  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
-];
+// Both page maps live in src/lib/design.ts, beside the documents they are
+// compiled into: BABYBLUE_PAGES and CAPIZ_PAGES, imported above.
 
 /** Which line icon a program entry gets, from the words in its title. */
 function programIcon(title: string): string {
@@ -1706,12 +1606,47 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const format = isPaged(layout);
   const capiz = layout === 'capiz';
   const babyblue = layout === 'babyblue';
+  /**
+   * The design's document. Its own column when it carries one — a design the
+   * studio has published — and otherwise the layout's built-in, compiled from
+   * the same numbers the pages were drawn to.
+   *
+   * So there is one path now, and every paged design is on it. Baby Blue and
+   * Capiz took the constants path until this commit; they were moved onto
+   * this one only after the two were rendered side by side and measured, and
+   * every element on every page of both designs landed within 0.07 px of
+   * where it had been, at two column widths, by day and by night. The path
+   * they are on now is the path a publish from the studio would have put
+   * them on anyway; this is that step taken deliberately, with the
+   * measurement, rather than the first time somebody presses Publish.
+   */
+  const doc = documentOf(inv.template) ?? builtinDesign(layout);
+  // A page with a ground of its own hands it to PageGround under the page's
+  // key; the ground for a page the map does not name goes under a key no
+  // page can have (page keys carry no underscore).
+  const OVERFLOW_BG = '_overflow';
+  const groundPairs: [string, PictureGround][] = [];
+  if (doc) {
+    for (const p of doc.pages) if (p.ground && isPicture(p.ground)) groundPairs.push([p.key, p.ground]);
+    if (doc.overflowGround && isPicture(doc.overflowGround)) groundPairs.push([OVERFLOW_BG, doc.overflowGround]);
+  }
+  const docGrounds = doc ? Object.fromEntries(groundPairs) : undefined;
+  /** Where the peek stops: the page the design marks, or the first page. */
+  const peekPage = doc ? peekEndPage(doc) : 'story';
   // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
   let babyMore: ReactNode = null;
   const personal = Boolean(guest) && entitled(inv, 'rsvp.personalLinks');
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
   const templateSections = new Set(inv.template.sections);
+  /**
+   * Parts this one invitation carries that its design does not draw. Staff
+   * tick them on when a customer asks for a page their design never had; the
+   * design is untouched, so nobody else on it moves. They pass the design's
+   * gate below and nothing else: the package still decides what may be shown,
+   * and a part with nothing written in it still does not appear.
+   */
+  const extras = new Set(extraSectionsOf(inv.extraSections));
   // A Save the Date carries the couple, the date and nothing after it.
   const saveTheDate = Boolean(inv.saveTheDateOfId);
 
@@ -1721,7 +1656,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // the design's ticks were made against its home occasion; a section that
     // occasion does not have (an anniversary's, on a design ticked for weddings
     // too) is offered the way the invitation's occasion offers it
-    (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key)) &&
+    (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key) || extras.has(key)) &&
     sectionUnlocked(key, occasion, inv.tier, inv.addOns) &&
     // the countdown's only content is its switch; the label is the look's to supply
     (key === 'rsvp' || key === 'cover' || key === 'countdown' || sectionFilled(key, occasion, content[key]));
@@ -1826,7 +1761,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    */
   // The design's own picture, if it has one. A design with no artwork keeps
   // the palette and the type, which is a card too.
-  const stdArt = !saveTheDate ? '' : capiz ? art.backgrounds[0] : babyblue ? art.grounds.cover?.url ?? '' : '';
+  const stdArt = !saveTheDate
+    ? ''
+    : doc
+      ? groundPairs.find(([key]) => key !== OVERFLOW_BG)?.[1].url ?? ''
+      : capiz ? art.backgrounds[0] : babyblue ? art.grounds.cover?.url ?? '' : '';
 
   function saveTheDateCard() {
     const cover = content.cover;
@@ -1884,32 +1823,66 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    const page = (key: string, parts: ReactNode[], bg?: string, seam?: number, drawn?: boolean) => (
-      <div key={key} className="inv-page" data-page={key} data-bg={bg} data-seam={seam} data-drawn={drawn ? '' : undefined}>{parts}</div>
+    /**
+     * One page. A plain colour is painted here and asks for no picture at
+     * all; a colour named by its role follows the palette, and `data-ground`
+     * is what lets the night rule turn the paper down with everything else.
+     */
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string } = {}) => (
+      <div
+        key={key}
+        className="inv-page"
+        data-page={key}
+        data-bg={o.bg}
+        data-seam={o.seam}
+        data-drawn={o.drawn ? '' : undefined}
+        data-grow={o.grow ? '' : undefined}
+        data-ground={o.colour}
+        style={{
+          ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
+          ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+        } as CSSProperties}
+      >
+        {parts}
+      </div>
     );
     // The ground behind every page: the backgrounds in order, each trimmed to
     // its page, dissolved into one another at the joins. PageGround lays them.
+    // A design that carries a document names a ground per page, and hands
+    // them over keyed by the page: the layout's own machinery below stays as
+    // the fallback for a page that names none, which is every Capiz page.
     out.push(
       <div key="ground" className="inv-ground" aria-hidden="true" />,
       babyblue ? (
-        <PageGround key="ground-lay" ratio={1} order={[]} last={0} backgrounds={[]} grounds={art.grounds} seam={0.55} />
+        <PageGround key="ground-lay" ratio={1} order={[]} last={0} backgrounds={[]} grounds={docGrounds ?? art.grounds} seam={0.55} />
       ) : (
-        <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} />
+        <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} grounds={docGrounds} />
       ),
     );
-    for (const def of babyblue ? BABYBLUE_PAGES : CAPIZ_PAGES) {
-      const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
-      def.sections.forEach((k) => placed.add(k));
-      if (parts.length) out.push(page(def.key, parts, def.bg, def.seam, def.drawn));
-      if (def.key === 'baby-photos' && parts.length && babyMore) out.push(page('baby-photos-more', [babyMore], 'venue'));
+    if (doc) {
+      // The document's own page list. A drawn page is its elements; every
+      // other page is the sections it names. The clip that no frame can hold
+      // rides on 'gallery-video'.
+      for (const spec of doc.pages) {
+        // A drawn page that names sections comes and goes with them, the way
+        // the photographs page goes when a package has no gallery. One that
+        // names none depends on nothing — it is the design's own page, a
+        // picture and some words — so it is always drawn.
+        const parts = spec.drawn
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
+          : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
+        spec.sections.forEach((k) => placed.add(k));
+        const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
+        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
+      }
     }
-    // a section the map does not name gets a page of its own, in its place
-    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], babyblue ? 'venue' : undefined));
+    // a section the document does not name gets a page of its own, in its place
+    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
     if (peek) {
-      // the ground, then the pages up to Our Story
+      // the ground, then the pages up to the one the design ends the peek on
       const ground = out.slice(0, 2);
       const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
-      const at = rest.findIndex((el) => el.props['data-page'] === 'story');
+      const at = peekPage ? rest.findIndex((el) => el.props['data-page'] === peekPage) : -1;
       return [...ground, ...rest.slice(0, at < 0 ? 1 : at + 1)];
     }
     return out;
@@ -1919,7 +1892,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} />;
+        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} spec={coverOf(doc)} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
           <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>
@@ -1978,7 +1951,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'rsvp':
         return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} />;
       case 'story':
-        if (babyblue) return <StoryMilestones key={key} data={data} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} />;
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery': {
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
@@ -1986,14 +1958,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // the couple's own lines where they typed them, the look's where not
         const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, inv.occasion === 'WEDDING' ? 'gallery.watchPrenup' : 'gallery.video'), sides, strand: art.strand } : undefined;
         if (babyblue) {
-          const limit = galleryLimit(inv.tier);
-          const all = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
           const video = hasFeature(inv.tier, 'video') ? str(data, 'videoUrl') : '';
           // The drawn page holds four frames and that is the page: the form
           // stops at four for this design. A video, which no frame can hold,
-          // gets a page of its own after it.
+          // gets a page of its own after it, which the document names
+          // 'gallery-video'.
           babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} /> : null;
-          return <BabyPhotos key={key} photos={all.slice(0, PHOTO_SLOTS.length)} eyebrow={lang === 'tl' ? '' : 'Share'} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'line') || line('gallery')} />;
         }
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
       }
@@ -2029,7 +1999,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   }
 
   return (
-    <div className="inv" data-layout={layout} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
       <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
       {peek && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}

@@ -22,7 +22,13 @@ import { BABYBLUE_GROUNDS, CAPIZ_DEFAULT_ART } from './design';
  * are the same numbers the renderer has always drawn with.
  */
 
-export type PieceGround = { ratio: number; top: string; bottom: string };
+export type PieceGround = {
+  ratio: number;
+  top: string;
+  bottom: string;
+  /** the three cuts a flow page needs, for a ground that shipped with them */
+  slices?: { top: string; foot: string; mid: string };
+};
 
 export type Piece = {
   /** what a page keeps; also the identity of a built-in */
@@ -77,7 +83,7 @@ function babyBluePieces(): Piece[] {
     name: `Baby Blue — ${words(key)}`,
     tags: ['baby blue', 'background', 'christening', key],
     builtin: true as const,
-    ground: { ratio: g.ratio, top: g.top, bottom: g.bottom },
+    ground: { ratio: g.ratio, top: g.top, bottom: g.bottom, ...(g.slices ? { slices: g.slices } : {}) },
   }));
 }
 

@@ -20,7 +20,7 @@ import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing'
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import type { Fonts } from '@/lib/theme';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction } from '../../../actions';
-import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, type ReadPicture, type Uploaded } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction } from '../../../actions';
@@ -417,7 +417,11 @@ export function Studio(p: Props) {
     setDrop({ busy: true, error: '' });
     try {
       const g = found?.ground ?? await groundFromUrl(url);
-      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom });
+      // A flow page can run past its ground, so it needs the three cuts. A
+      // shipped ground already has its own, cut by hand when it shipped; one
+      // she uploaded is cut here, from the file already on the server.
+      const slices = page?.drawn ? undefined : g.slices ?? await cutFromUrl(url, p.templateId);
+      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(slices ? { slices } : {}) });
       setDrop({ busy: false, error: '' });
     } catch (e) {
       setDrop({ busy: false, error: (e as Error).message });
@@ -2438,8 +2442,12 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
     setBusy(true);
     setError('');
     try {
-      const up = await uploadGround(file, templateId);
-      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom });
+      // A flow page's height comes from its words, so it can run past the
+      // picture behind it — which is what the three cuts are for. A drawn
+      // page is exactly its ground's height and never needs them, so it is
+      // not made to upload three more files.
+      const up = await uploadGround(file, templateId, !page?.drawn);
+      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom, ...(up.slices ? { slices: up.slices } : {}) });
     } catch (e) {
       setError((e as Error).message);
     } finally {

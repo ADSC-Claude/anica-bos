@@ -8,6 +8,8 @@
  * re-encodes to something a phone can download while it is at it.
  */
 
+import { sliceHeights } from '@/lib/design';
+
 /** No page is ever drawn wider than this, so nothing needs to be. */
 export const MAX_WIDTH = 1536;
 
@@ -84,11 +86,86 @@ function edge(ctx: CanvasRenderingContext2D, width: number, y: number): string {
   return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
-export type Uploaded = { url: string; width: number; height: number; ratio: number; top: string; bottom: string };
+export type Slices = { top: string; foot: string; mid: string };
+export type Uploaded = { url: string; width: number; height: number; ratio: number; top: string; bottom: string; slices?: Slices };
+
+/**
+ * A page taller than its ground, cut so it can be.
+ *
+ * A flow page's height comes from its words, so it can run past the picture
+ * behind it. Stretching the whole picture pulls the artwork out of shape —
+ * a bow at the top of the page becomes a wide flat bow. So the ground is
+ * cut in three: the head and the foot are kept whole at the page's head and
+ * foot, and only the band between them is stretched.
+ *
+ * Forty-four percent each and the twelve percent between them, which is the
+ * proportion the ten shipped Baby Blue grounds were cut at by hand — 953,
+ * 261 and 953 of the cover's 2167 pixels — so a ground cut here and one cut
+ * then behave identically. The three tile the picture exactly: no overlap,
+ * nothing lost.
+ */
+export async function cutSlices(source: CanvasImageSource, width: number, height: number): Promise<{ top: Blob; mid: Blob; foot: Blob }> {
+  const { head, band } = sliceHeights(height);
+  if (band < 1) throw new Error('That picture is not tall enough to cut: a page-high background is at least twice a phone screen.');
+  const cut = async (y: number, h: number): Promise<Blob> => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('This browser cannot cut the picture.');
+    ctx.drawImage(source, 0, y, width, h, 0, 0, width, h);
+    const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.9));
+    if (!blob) throw new Error('The picture could not be re-encoded.');
+    return blob;
+  };
+  return { top: await cut(0, head), mid: await cut(head, band), foot: await cut(head + band, head) };
+}
+
+/** Send the three cuts and come back with their addresses. */
+export async function sendSlices(cuts: { top: Blob; mid: Blob; foot: Blob }, name: string, templateId: string): Promise<Slices> {
+  const one = async (part: 'top' | 'mid' | 'foot') => {
+    const fd = new FormData();
+    fd.set('file', new File([cuts[part]], `${name.replace(/\.[^.]+$/, '')}-${part}.webp`, { type: 'image/webp' }));
+    fd.set('templateId', templateId);
+    fd.set('caption', `the ${part} of ${name}`);
+    const res = await fetch('/api/admin/design-upload', { method: 'POST', body: fd });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
+    return json.url as string;
+  };
+  return { top: await one('top'), mid: await one('mid'), foot: await one('foot') };
+}
 
 /** Read it, shrink it, send it, and come back with everything the document needs. */
-export async function uploadGround(file: File, templateId: string): Promise<Uploaded> {
-  return sendPicture(await readPicture(file), file.name, templateId);
+export async function uploadGround(file: File, templateId: string, cut = false): Promise<Uploaded> {
+  const read = await readPicture(file);
+  const sent = await sendPicture(read, file.name, templateId);
+  if (!cut) return sent;
+  // cut from the picture as it was sent — capped to MAX_WIDTH — so the three
+  // cuts and the whole are the same picture at the same size
+  const whole = await createImageBitmap(read.blob);
+  try {
+    const cuts = await cutSlices(whole, read.width, read.height);
+    return { ...sent, slices: await sendSlices(cuts, file.name, templateId) };
+  } finally {
+    whole.close?.();
+  }
+}
+
+/**
+ * The three cuts of a picture already on the server.
+ *
+ * A background chosen from the library was uploaded once and is not being
+ * uploaded again, but a flow page still needs it cut. The file is ours and
+ * same-origin, so the browser reads it back and cuts it there.
+ */
+export async function cutFromUrl(url: string, templateId: string): Promise<Slices> {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = url;
+  await img.decode();
+  const cuts = await cutSlices(img, Math.max(1, img.naturalWidth), Math.max(1, img.naturalHeight));
+  return sendSlices(cuts, url.split('/').pop() ?? 'ground.webp', templateId);
 }
 
 /** Send a picture already read, for a caller that needed its pixels first. */
@@ -115,7 +192,7 @@ export async function sendPicture(read: ReadPicture, name: string, templateId: s
  * take those. The file is ours and same-origin, so the browser can read it
  * back off a canvas rather than the server measuring it a second time.
  */
-export async function groundFromUrl(url: string): Promise<{ ratio: number; top: string; bottom: string }> {
+export async function groundFromUrl(url: string): Promise<{ ratio: number; top: string; bottom: string; slices?: Slices }> {
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.src = url;

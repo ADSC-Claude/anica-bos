@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign,
+  starterDesign, sliceHeights,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -654,4 +654,27 @@ test('coverOf finds the page that carries the cover, whatever it is called', () 
   const silly = JSON.parse(JSON.stringify(doc)) as DesignDoc;
   silly.pages.find((p) => p.sections.includes('cover'))!.cover!.photoScale = 40;
   assert.equal(designOf(silly, 'capiz').dropped.length, 1);
+});
+
+/**
+ * A ground cut in the browser and one cut by hand when Baby Blue shipped
+ * have to behave identically, because the renderer measures the foot slice
+ * as 44% of the ground's height and draws the band stretched between them.
+ * So the arithmetic is pinned to the files that shipped.
+ */
+test('a ground is cut the way the shipped ones were cut', () => {
+  // the cover: 725 x 2167, cut by hand into 953, 261 and 953
+  const cover = sliceHeights(2167);
+  assert.deepEqual(cover, { head: 953, band: 261 });
+  assert.equal(cover.head * 2 + cover.band, 2167, 'the three tile the picture exactly');
+
+  // and it holds for any height: nothing is lost and nothing overlaps
+  for (const h of [800, 1080, 1777, 2167, 2990, 3001]) {
+    const { head, band } = sliceHeights(h);
+    assert.equal(head * 2 + band, h, `${h} does not tile`);
+    assert.ok(band > 0, `${h} leaves no band`);
+    assert.ok(Math.abs(head / h - 0.44) < 0.001, `${h} is not cut at 44%`);
+  }
+  // one screen and a bit is the shortest that can be cut at all
+  assert.ok(sliceHeights(100).band > 0);
 });

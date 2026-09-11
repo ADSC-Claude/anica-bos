@@ -183,6 +183,22 @@ export type ColorRole = 'bg' | 'surface' | 'ink' | 'muted' | 'accent' | 'accent2
 export type Ground = PictureGround | ColourGround;
 export const isPicture = (g: Ground): g is PictureGround => typeof (g as PictureGround).url === 'string';
 
+/**
+ * How a ground is cut for a page that can outgrow it.
+ *
+ * The head and the foot are kept whole and only the band between them is
+ * stretched, so a bow at the top of the page stays the shape it was drawn.
+ * Forty-four percent each is the proportion the ten shipped Baby Blue
+ * grounds were cut at: the cover's 2167 pixels came out as 953, 261 and 953,
+ * which is what this returns for it. The three tile the picture exactly.
+ */
+export const HEAD_SHARE = 0.44;
+
+export function sliceHeights(height: number): { head: number; band: number } {
+  const head = Math.round(height * HEAD_SHARE);
+  return { head, band: height - head * 2 };
+}
+
 const slices = (key: string) => ({ top: `/babyblue/${key}-top.webp`, foot: `/babyblue/${key}-foot.webp`, mid: `/babyblue/${key}-mid.webp` });
 export const BABYBLUE_GROUNDS: Record<string, PictureGround> = {
   cover: { url: '/babyblue/cover.webp', ratio: 2.989, top: '#b4c3d5', bottom: '#d5cbc5', slices: slices('cover') },

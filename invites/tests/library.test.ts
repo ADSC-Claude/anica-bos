@@ -25,8 +25,14 @@ test('the three built-in groups are all there, and a background knows its own sh
   assert.equal(by('mine').length, 0);
 
   const cover = all.find((p) => p.url === '/babyblue/cover.webp')!;
-  // the same numbers the renderer has always drawn the cover with
-  assert.deepEqual(cover.ground, { ratio: 2.989, top: '#b4c3d5', bottom: '#d5cbc5' });
+  // the same numbers the renderer has always drawn the cover with, and the
+  // three cuts it shipped with, so a flow page taking it needs no cutting
+  assert.deepEqual(cover.ground, {
+    ratio: 2.989, top: '#b4c3d5', bottom: '#d5cbc5',
+    slices: { top: '/babyblue/cover-top.webp', foot: '/babyblue/cover-foot.webp', mid: '/babyblue/cover-mid.webp' },
+  });
+  // the two drawn pages are exactly their ground's height and shipped no cuts
+  assert.equal(all.find((p) => p.url === '/babyblue/story.webp')!.ground!.slices, undefined);
 });
 
 test('a search matches whole words from the start, in the name or a tag', () => {

@@ -29,7 +29,7 @@
  */
 import type { Occasion, Tier } from '@prisma/client';
 import { prisma } from '../src/lib/db';
-import { ADDONS, RETIRED_ADDONS } from '../src/lib/addon-catalogue';
+import { ADDONS, RETIRED_ADDONS, SHELVED_ADDONS } from '../src/lib/addon-catalogue';
 import { audit } from '../src/lib/audit';
 import { formatPeso } from '../src/lib/money';
 import { TIERS, TIER_LABELS } from '../src/lib/tiers';
@@ -58,7 +58,7 @@ const FEES: Record<Tier, { base: number; dfy: number; concierge: number; rounds:
   // check-in desk, the album afterwards — and two more rounds of drafting on
   // top, because the package with the most on its page is the one that takes
   // the most passes to get right.
-  LUXURY: { base: 7_500, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
+  LUXURY: { base: 8_000, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
 };
 
 /**
@@ -235,6 +235,29 @@ async function main() {
       await audit(null, {
         module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
         summary: `${code} withdrawn — ${reason} (set-pricing)`, before: { active: true }, after: { active: false }, sensitive: true,
+      });
+    }
+    changed++;
+  }
+
+  // Off the website, still in the system. Same deactivation as retiring and a
+  // different decision, so it is reported in its own words: these come back.
+  for (const { code, reason } of SHELVED_ADDONS) {
+    const a = await prisma.addOn.findUnique({ where: { code } });
+    if (!a) continue;
+    if (!a.active) {
+      console.info(`  ${code.padEnd(22)} already off the website`);
+      continue;
+    }
+    console.info(`  ${code.padEnd(22)} off the website (${reason})`);
+    if (!dry) {
+      // Price and wording untouched: hiding a row is not a reason to overrule
+      // the admin about what it costs.
+      await prisma.addOn.update({ where: { id: a.id }, data: { active: false } });
+      await audit(null, {
+        module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
+        summary: `${code} off the website — ${reason} (set-pricing)`,
+        before: { active: true }, after: { active: false }, sensitive: true,
       });
     }
     changed++;

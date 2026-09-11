@@ -1977,7 +1977,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
         const sides = format ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || line(`moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
         // the couple's own lines where they typed them, the look's where not
-        const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, 'gallery.watchPrenup'), sides, strand: art.strand } : undefined;
+        const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, inv.occasion === 'WEDDING' ? 'gallery.watchPrenup' : 'gallery.video'), sides, strand: art.strand } : undefined;
         if (babyblue) {
           const limit = galleryLimit(inv.tier);
           const all = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);

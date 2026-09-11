@@ -25,10 +25,16 @@ test('features unlock in order', () => {
   // of the range the customer was shown.
   assert.equal(galleryLimit('STANDARD'), 7);
   assert.equal(galleryLimit('COMPLETE'), 15);
-  assert.equal(galleryLimit('LUXURY'), Infinity);
+  assert.equal(galleryLimit('LUXURY'), 20);
   const photos = COMPARISON.find((r) => r.label === 'Photos')!;
   assert.match(String(photos.cells.STANDARD), /5 to 7/);
   assert.match(String(photos.cells.COMPLETE), /10 to 15/);
+  // The number and the word move together, or the package promises one thing
+  // and accepts another. This caught the pair coming apart.
+  assert.equal(photos.cells.LUXURY, '20 photos + video');
+  for (const cell of Object.values(photos.cells)) {
+    if (typeof cell === 'string') assert.doesNotMatch(cell, /unlimited/i, 'the table still says unlimited');
+  }
   for (const row of COMPARISON) for (const tier of TIERS) assert.notEqual(row.cells[tier], undefined, `${row.label} ${tier}`);
 
   // Revisions are rounds of changes before we publish — after it, an

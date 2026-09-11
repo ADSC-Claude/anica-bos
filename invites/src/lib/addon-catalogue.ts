@@ -10,8 +10,10 @@
  * same time.
  *
  * Rows the catalogue has no opinion about — PREMIUM_OPENING, PRINTABLE,
- * CUSTOM_DOMAIN — are deliberately absent: their prices are the admin's, and a
- * pricing run should not quietly put them back to whatever was typed here.
+ * CUSTOM_DOMAIN — are deliberately absent from ADDONS: their prices are the
+ * admin's, and a pricing run should not quietly put them back to whatever was
+ * typed here. Two of them appear in SHELVED_ADDONS below, which takes a row off
+ * the website without touching what it costs.
  */
 
 /**
@@ -29,6 +31,28 @@
 export const RETIRED_ADDONS: { code: string; reason: string }[] = [
   { code: 'TEMPLATE_SWITCH', reason: 'the design is settled at publish' },
   { code: 'SMS_PACK', reason: 'the reminder bands replaced it' },
+];
+
+/**
+ * Taken off the website, kept in the system, and expected back.
+ *
+ * The same single operation as retiring — `active: false`, so the landing page
+ * and the checkout stop offering it while the row, its price and any order that
+ * bought one all stay exactly as they are — but not the same decision, which is
+ * why it is not the same list. A retired add-on is one we have stopped selling.
+ * These two are ones we should not have been selling yet: a customer could pay
+ * ₱299 for a printable PDF and ₱999 to have a domain set up, and neither is
+ * referred to anywhere in the app outside a comment. Custom domain at least a
+ * person could do by hand; the printable needs a layout that does not exist.
+ *
+ * Their prices are untouched on purpose. The catalogue has no opinion about
+ * what these cost — see the note at the top — and hiding a row is not a reason
+ * to start overruling the admin about its price. Putting one back on sale is
+ * ticking `active` in admin, or deleting a line here.
+ */
+export const SHELVED_ADDONS: { code: string; reason: string }[] = [
+  { code: 'PRINTABLE', reason: 'nothing produces the layout yet' },
+  { code: 'CUSTOM_DOMAIN', reason: 'no one is set up to do the domain yet' },
 ];
 
 export type AddOnSpec = {

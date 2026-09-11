@@ -3,7 +3,7 @@ import { prisma } from './db';
 import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { parseCsv, toCsv } from './csv';
-import { hasFeature, TIER_LABELS } from './tiers';
+import { entitled, TIER_LABELS, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
@@ -11,7 +11,6 @@ import { attendeesOf, attendeeLine, type Attendee } from './attendees';
 import { guestGroups } from './sections';
 import { replyIdentity } from './names';
 import type { SessionUser } from './auth';
-import type { Tier } from '@prisma/client';
 
 /**
  * The guest list. Every row gets a secret token, and the token is the only
@@ -19,9 +18,9 @@ import type { Tier } from '@prisma/client';
  * reserved seats and their table, and to nobody else's.
  */
 
-function requireGuestManager(tier: Tier) {
-  if (!hasFeature(tier, 'rsvp.personalLinks')) {
-    throw new HttpError(403, `Per-guest links and the guest list manager are included in the ${TIER_LABELS.COMPLETE} package.`);
+function requireGuestManager(invitation: Entitled) {
+  if (!entitled(invitation, 'rsvp.personalLinks')) {
+    throw new HttpError(403, `Per-guest links and the guest list manager are included in the ${TIER_LABELS.COMPLETE} package, and come with the check-in and seating add-ons.`);
   }
 }
 
@@ -53,13 +52,13 @@ function clean(input: GuestInput) {
   };
 }
 
-export async function addGuest(invitation: { id: string; tier: Tier }, input: GuestInput) {
-  requireGuestManager(invitation.tier);
+export async function addGuest(invitation: Entitled & { id: string }, input: GuestInput) {
+  requireGuestManager(invitation);
   return prisma.guest.create({ data: { invitationId: invitation.id, token: guestToken(), ...clean(input) } });
 }
 
-export async function updateGuest(invitation: { id: string; tier: Tier }, guestId: string, input: GuestInput) {
-  requireGuestManager(invitation.tier);
+export async function updateGuest(invitation: Entitled & { id: string }, guestId: string, input: GuestInput) {
+  requireGuestManager(invitation);
   const guest = await prisma.guest.findFirst({ where: { id: guestId, invitationId: invitation.id } });
   if (!guest) throw new HttpError(404, 'That guest is not on this list.');
   return prisma.guest.update({ where: { id: guestId }, data: clean(input) });
@@ -76,7 +75,7 @@ export async function deleteGuest(invitation: { id: string }, guestId: string) {
  * header row is somebody's paste, and guessing a fifth column would be
  * guessing.
  */
-export async function importGuests(invitation: { id: string; tier: Tier }, text: string): Promise<{ added: number; skipped: number }> {
+export async function importGuests(invitation: Entitled & { id: string }, text: string): Promise<{ added: number; skipped: number }> {
   return importGuestRows(invitation, parseCsv(text));
 }
 
@@ -85,8 +84,8 @@ export async function importGuests(invitation: { id: string; tier: Tier }, text:
  * first sheet of a workbook. Everything that knows which column is which lives
  * here, so a new way in only has to produce rows.
  */
-export async function importGuestRows(invitation: { id: string; tier: Tier }, rows: string[][]): Promise<{ added: number; skipped: number }> {
-  requireGuestManager(invitation.tier);
+export async function importGuestRows(invitation: Entitled & { id: string }, rows: string[][]): Promise<{ added: number; skipped: number }> {
+  requireGuestManager(invitation);
   if (rows.length === 0) return { added: 0, skipped: 0 };
 
   const header = rows[0].map((h) => h.toLowerCase());
@@ -234,8 +233,17 @@ export async function rsvpsCsv(invitationId: string): Promise<string> {
 // Tables and check-in
 // ---------------------------------------------------------------------------
 
-export async function saveTable(invitation: { id: string; tier: Tier }, input: { id?: string; name: string; capacity: number }) {
-  if (!hasFeature(invitation.tier, 'seating')) throw new HttpError(403, `Seating charts are included in the ${TIER_LABELS.COMPLETE} package.`);
+/**
+ * What a customer who cannot do this is told. Both features are Signature's
+ * and both are sold on their own, so the sentence names the add-on: telling a
+ * Basic customer to buy the top package to scan a door is losing a sale they
+ * were ready to make.
+ */
+const seatingLocked = `Seating charts are included in the ${TIER_LABELS.COMPLETE} package, or can be added to yours.`;
+const checkinLocked = `QR check-in is included in the ${TIER_LABELS.COMPLETE} package, or can be added to yours.`;
+
+export async function saveTable(invitation: Entitled & { id: string }, input: { id?: string; name: string; capacity: number }) {
+  if (!entitled(invitation, 'seating')) throw new HttpError(403, seatingLocked);
   const name = input.name.trim().slice(0, 60);
   if (!name) throw new HttpError(400, 'A table needs a name.');
   const capacity = Math.max(1, Math.min(50, Math.round(input.capacity) || 10));
@@ -252,8 +260,8 @@ export async function deleteTable(invitation: { id: string }, tableId: string) {
   await prisma.seatingTable.deleteMany({ where: { id: tableId, invitationId: invitation.id } });
 }
 
-export async function assignTable(invitation: { id: string; tier: Tier }, guestId: string, tableId: string | null) {
-  if (!hasFeature(invitation.tier, 'seating')) throw new HttpError(403, `Seating charts are included in the ${TIER_LABELS.COMPLETE} package.`);
+export async function assignTable(invitation: Entitled & { id: string }, guestId: string, tableId: string | null) {
+  if (!entitled(invitation, 'seating')) throw new HttpError(403, seatingLocked);
   const guest = await prisma.guest.findFirst({ where: { id: guestId, invitationId: invitation.id } });
   if (!guest) throw new HttpError(404, 'That guest is not on this list.');
   if (tableId) {
@@ -264,8 +272,8 @@ export async function assignTable(invitation: { id: string; tier: Tier }, guestI
 }
 
 /** Event-day check-in by scanning the guest's QR (their token) or tapping a row. */
-export async function checkIn(user: SessionUser, invitation: { id: string; tier: Tier }, tokenOrId: string, undo = false) {
-  if (!hasFeature(invitation.tier, 'checkin')) throw new HttpError(403, `QR check-in is included in the ${TIER_LABELS.COMPLETE} package.`);
+export async function checkIn(user: SessionUser, invitation: Entitled & { id: string }, tokenOrId: string, undo = false) {
+  if (!entitled(invitation, 'checkin')) throw new HttpError(403, checkinLocked);
   const guest = await prisma.guest.findFirst({ where: { invitationId: invitation.id, OR: [{ token: tokenOrId }, { id: tokenOrId }] }, include: { table: true } });
   if (!guest) throw new HttpError(404, 'No guest matches that code.');
   // The reply comes back with them: what the desk announces is the seats they

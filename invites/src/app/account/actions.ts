@@ -19,7 +19,7 @@ import { planReminders, sendReminders, planEmailReminders, sendEmailReminders } 
 import { eraseCustomer } from '@/lib/privacy';
 import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
-import { hasFeature } from '@/lib/tiers';
+import { entitled } from '@/lib/tiers';
 
 /**
  * Every customer action re-checks ownership through ownInvitation(); the id
@@ -321,7 +321,7 @@ export async function previewRemindersAction(invitationId: string, everyone: boo
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const plan = await planReminders(inv, { everyone });
     return {
       count: plan.send.length,
@@ -336,7 +336,7 @@ export async function sendRemindersAction(invitationId: string, everyone: boolea
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const outcome = await sendReminders(inv, { everyone });
     refresh(invitationId);
     return outcome;
@@ -354,7 +354,7 @@ export async function previewEmailRemindersAction(invitationId: string, everyone
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const plan = await planEmailReminders(inv, { everyone });
     return {
       count: plan.send.length,
@@ -368,7 +368,7 @@ export async function sendEmailRemindersAction(invitationId: string, everyone: b
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const outcome = await sendEmailReminders(inv, { everyone });
     refresh(invitationId);
     return outcome;

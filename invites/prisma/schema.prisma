@@ -443,6 +443,17 @@ model Invitation {
   /// an add-on and has no order of its own. Null on an ordinary invitation.
   saveTheDateOfId String? @unique
 
+  /// The add-on codes this invitation was sold with, copied from the order's
+  /// line items when it activates. Some of them buy a feature outright on a
+  /// package that does not include it — see ADDON_FEATURE in src/lib/tiers.ts
+  /// — so what an invitation may do is read from the tier and from here.
+  ///
+  /// Copied rather than joined through the order because staff create
+  /// invitations with no order at all, and because an order's line items are a
+  /// record of a sale: switching one on for a customer who was owed it should
+  /// not mean editing what they were billed.
+  addOns          String[] @default([])
+
   user          User        @relation(fields: [userId], references: [id])
   template      Template    @relation(fields: [templateId], references: [id])
   order         Order?

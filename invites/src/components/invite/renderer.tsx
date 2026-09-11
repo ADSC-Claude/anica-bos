@@ -7,7 +7,7 @@ import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOff
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
-import { galleryLimit, hasFeature } from '@/lib/tiers';
+import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
@@ -944,7 +944,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           {lang === 'tl' ? 'O mag-text sa' : 'Or text'} <a href={`sms:${str(data, 'contactPhone').replace(/\s/g, '')}`} className="underline">{str(data, 'contactPhone')}</a>
         </p>
       )}
-      {personal && guest && hasFeature(inv.tier, 'checkin') && (
+      {personal && guest && entitled(inv, 'checkin') && (
         <div className="inv-card mt-6 text-center">
           <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>
           <div className="mx-auto w-36" dangerouslySetInnerHTML={{ __html: qrSvg(invitationUrl(slug, guest.token), { size: 144 }) }} />
@@ -1701,7 +1701,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const babyblue = layout === 'babyblue';
   // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
   let babyMore: ReactNode = null;
-  const personal = Boolean(guest) && hasFeature(inv.tier, 'rsvp.personalLinks');
+  const personal = Boolean(guest) && entitled(inv, 'rsvp.personalLinks');
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
   const templateSections = new Set(inv.template.sections);

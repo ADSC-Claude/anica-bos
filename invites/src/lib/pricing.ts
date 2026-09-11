@@ -1,5 +1,6 @@
 import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
+import { ADDON_FEATURE, hasFeature } from './tiers';
 
 /**
  * A quote is arithmetic on rows the admin can edit: a package, its add-ons, a
@@ -116,6 +117,11 @@ export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): b
   if (code === RUSH_CODE) return tier !== 'COMPLETE';
   if (code === PRIORITY_CODE) return tier === 'COMPLETE';
   if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
+  // Check-in, the seating chart and the password are Signature's, and are sold
+  // on their own to the packages below it. Offering one to Signature would be
+  // charging for what that package already includes.
+  const headline = ADDON_FEATURE[code]?.[0];
+  if (headline) return !hasFeature(tier, headline);
   return true;
 }
 

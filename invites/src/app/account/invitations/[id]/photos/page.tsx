@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
-import { hasFeature } from '@/lib/tiers';
+import { entitled } from '@/lib/tiers';
 import { guestPhotos } from '@/lib/photos';
 import { contentOf } from '@/lib/invitations';
 import { bool } from '@/lib/sections';
@@ -21,7 +21,7 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
     throw e;
   });
   const media = await guestPhotos(invitation.id);
-  if (!hasFeature(invitation.tier, 'photoSharing')) redirect(`/account/invitations/${invitation.id}/upgrade`);
+  if (!entitled(invitation, 'photoSharing')) redirect(`/account/invitations/${invitation.id}/upgrade`);
 
   const section = contentOf(invitation.content).photos;
   const open = bool(section, 'enabled');

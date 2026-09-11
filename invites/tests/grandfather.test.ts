@@ -10,7 +10,7 @@ const AFTER = new Date('2026-09-30T00:00:00Z');
 test('a Signature invitation sold before the move gets back what it lost', () => {
   const inv = { tier: 'COMPLETE' as const, addOns: [], createdAt: BEFORE };
   assert.deepEqual(lost(inv).map((m) => m.feature).sort(), ['checkin', 'photoSharing', 'seating']);
-  assert.deepEqual(restoreCodes(inv).sort(), ['QR_CHECKIN', 'SEATING_VIEWER']);
+  assert.deepEqual(restoreCodes(inv).sort(), ['PHOTO_SHARING', 'QR_CHECKIN', 'SEATING_VIEWER']);
 });
 
 test('a Signature invitation sold after the move is owed nothing', () => {
@@ -24,13 +24,15 @@ test('a Signature invitation sold after the move is owed nothing', () => {
 test('nothing is given back twice', () => {
   // The run is safe to repeat: once the codes are on, the invitation has the
   // features, so it is no longer owed them.
-  const inv = { tier: 'COMPLETE' as const, addOns: ['SEATING_VIEWER', 'QR_CHECKIN'], createdAt: BEFORE };
-  assert.deepEqual(lost(inv).map((m) => m.feature), ['photoSharing']);
+  const inv = { tier: 'COMPLETE' as const, addOns: ['SEATING_VIEWER', 'QR_CHECKIN', 'PHOTO_SHARING'], createdAt: BEFORE };
+  assert.deepEqual(lost(inv), []);
   assert.deepEqual(restoreCodes(inv), []);
 
-  // and a couple who bought the add-on themselves is not counted as owed it
-  const bought = { tier: 'COMPLETE' as const, addOns: ['SEATING_VIEWER'], createdAt: BEFORE };
-  assert.equal(lost(bought).some((m) => m.feature === 'seating'), false);
+  // A couple who bought one of them themselves is not counted as owed it, and
+  // what is still missing is still offered.
+  const half = { tier: 'COMPLETE' as const, addOns: ['SEATING_VIEWER'], createdAt: BEFORE };
+  assert.equal(lost(half).some((m) => m.feature === 'seating'), false);
+  assert.deepEqual(restoreCodes(half).sort(), ['PHOTO_SHARING', 'QR_CHECKIN']);
 });
 
 test('packages that never had the feature, and packages that still do, are left alone', () => {
@@ -68,20 +70,25 @@ test('a code named as the way back really does grant the feature, and is for sal
 });
 
 test('a feature with no way back is admitted, not quietly skipped', () => {
-  // The shared album is the one that has no add-on. If somebody later adds a
-  // code for it, this test is what reminds them to say so here — and if it
-  // stays null, the script still has to report the loss rather than count it
-  // fixed. Both halves matter, so both are asserted.
+  // The shared album had no add-on when this was written, and the script had to
+  // report that loss rather than count it fixed. It has one now, so the other
+  // half of the rule applies: a code named here really grants the feature. The
+  // test keeps both halves, because the next feature to move may well have no
+  // way back either.
+  for (const m of MOVED) {
+    if (m.restoreWith === null) {
+      const inv = { tier: m.was, addOns: [], createdAt: BEFORE };
+      assert.ok(lost(inv).some((f) => f.feature === m.feature), `${m.feature} is not reported`);
+      assert.equal(restoreCodes(inv).length, 0, `${m.feature} is pretended fixed`);
+    } else {
+      assert.ok(ADDON_FEATURE[m.restoreWith]?.includes(m.feature), `${m.restoreWith} does not grant ${m.feature}`);
+    }
+  }
+
+  // The album, today: bought back for ₱1,000 rather than stranded.
   const album = MOVED.find((m) => m.feature === 'photoSharing');
   assert.ok(album, 'the album move is not on record');
-  if (album.restoreWith === null) {
-    assert.equal(ADDON_FEATURE.PHOTO_SHARING, undefined, 'there is a code for it now — set restoreWith');
-    const inv = { tier: 'COMPLETE' as const, addOns: [], createdAt: BEFORE };
-    assert.ok(lost(inv).some((m) => m.feature === 'photoSharing'), 'reported');
-    assert.equal(restoreCodes(inv).includes('PHOTO_SHARING'), false, 'and not pretended fixed');
-  } else {
-    assert.ok(ADDON_FEATURE[album.restoreWith]?.includes('photoSharing'));
-  }
+  assert.equal(album.restoreWith, 'PHOTO_SHARING');
 });
 
 test('the rule reads the move it is given, not only the ones on record', () => {

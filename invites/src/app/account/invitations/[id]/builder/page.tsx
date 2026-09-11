@@ -27,7 +27,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
     key: d.key,
     label: sectionLabel(d.key, inv.occasion),
     description: d.description,
-    unlocked: sectionUnlocked(d.key, inv.occasion, inv.tier),
+    unlocked: sectionUnlocked(d.key, inv.occasion, inv.tier, inv.addOns),
     filled: sectionFilled(d.key, inv.occasion, content[d.key]),
     minTier: sectionMinTier(d.key, inv.occasion),
   }));

@@ -231,7 +231,7 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
   if (!sectionOnCard(key, invitation.occasion, Boolean(invitation.saveTheDateOfId))) throw new HttpError(400, 'That section does not belong to this card.');
-  if (!sectionUnlocked(key, invitation.occasion, invitation.tier)) {
+  if (!sectionUnlocked(key, invitation.occasion, invitation.tier, invitation.addOns)) {
     throw new HttpError(403, 'That section is not included in your package. Upgrade to unlock it.');
   }
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet. The builder unlocks once payment is confirmed.');
@@ -246,7 +246,7 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   let completed = false;
   if (opts.done !== undefined) {
     content.progress = withDone(content.progress, key, opts.done);
-    const mine = OCCASION_SECTIONS[invitation.occasion].filter((k) => sectionOffered(k) && sectionUnlocked(k, invitation.occasion, invitation.tier));
+    const mine = OCCASION_SECTIONS[invitation.occasion].filter((k) => sectionOffered(k) && sectionUnlocked(k, invitation.occasion, invitation.tier, invitation.addOns));
     if (formComplete(content.progress, mine) && !content.progress.completedAt) {
       content.progress.completedAt = new Date().toISOString();
       completed = true;

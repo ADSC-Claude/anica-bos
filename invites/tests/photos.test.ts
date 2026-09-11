@@ -4,8 +4,8 @@ import { albumProblem, guestPhotoSchema } from '../src/lib/photos';
 import { defaultContent } from '../src/lib/sections';
 import { hasFeature } from '../src/lib/tiers';
 
-function invitation(tier: 'BASIC' | 'STANDARD' | 'COMPLETE' | 'LUXURY', photos: Record<string, unknown>) {
-  return { tier, content: { ...defaultContent('WEDDING'), photos } };
+function invitation(tier: 'BASIC' | 'STANDARD' | 'COMPLETE' | 'LUXURY', photos: Record<string, unknown>, addOns: string[] = []) {
+  return { tier, addOns, content: { ...defaultContent('WEDDING'), photos } };
 }
 
 test('the album is a Luxury feature, whatever the section says', () => {
@@ -17,6 +17,17 @@ test('the album is a Luxury feature, whatever the section says', () => {
   assert.match(String(albumProblem(invitation('COMPLETE', open))), /does not have a shared album/);
   assert.match(String(albumProblem(invitation('STANDARD', open))), /does not have a shared album/);
   assert.match(String(albumProblem(invitation('BASIC', open))), /does not have a shared album/);
+});
+
+test('the album add-on opens it on a package that does not include it', () => {
+  // What buying one means: the same album, on Standard, for ₱1,000.
+  const open = { enabled: true, moderated: true };
+  assert.equal(albumProblem(invitation('STANDARD', open, ['PHOTO_SHARING'])), null);
+  assert.equal(albumProblem(invitation('BASIC', open, ['PHOTO_SHARING'])), null);
+  // and only that add-on — another one does not open it
+  assert.match(String(albumProblem(invitation('STANDARD', open, ['PASSWORD']))), /does not have a shared album/);
+  // It still has to be switched on, bought or included.
+  assert.match(String(albumProblem(invitation('BASIC', { enabled: false }, ['PHOTO_SHARING']))), /closed/);
 });
 
 test('a Luxury invitation with the album switched off is closed, not open', () => {

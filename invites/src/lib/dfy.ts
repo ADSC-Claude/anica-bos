@@ -72,7 +72,7 @@ export async function saveIntake(
     // the customer nothing. This saves every section at once, and throwing
     // the whole intake away over one key a client sent before it caught up
     // with a tier change would lose somebody's typing.
-    if (!sectionUnlocked(def.key, occasion, job.invitation.tier)) continue;
+    if (!sectionUnlocked(def.key, occasion, job.invitation.tier, job.invitation.addOns)) continue;
     cleaned[def.key] = cleanSection(fieldsFor(def.key, occasion), raw[def.key]).data;
   }
   const method = ['FORM', 'MESSENGER', 'EXCEL'].includes(input.method) ? input.method : 'FORM';

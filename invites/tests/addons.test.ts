@@ -152,6 +152,7 @@ test('the comparison table matches what each package is actually offered', () =>
     QR_CHECKIN: 'QR check-in on event day',
     SEATING_VIEWER: "Seating chart on the guest's page",
     PASSWORD: 'Password on the link',
+    PHOTO_SHARING: 'Post-event photo sharing (guest uploads)',
   };
   assert.deepEqual(Object.keys(ROW).sort(), Object.keys(ADDON_FEATURE).sort(), 'a sellable feature with no row');
 

@@ -20,7 +20,8 @@
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "build:local": "prisma generate && next build",
     "check:erasure": "tsx --conditions=react-server scripts/check-erasure.ts",
-    "backfill:contacts": "tsx --conditions=react-server scripts/backfill-contacts.ts"
+    "backfill:contacts": "tsx --conditions=react-server scripts/backfill-contacts.ts",
+    "grandfather": "tsx --conditions=react-server scripts/grandfather-features.ts"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"

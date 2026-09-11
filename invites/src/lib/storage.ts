@@ -4,6 +4,7 @@ import { mkdir, open, rm, writeFile } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import { HttpError } from './errors';
+import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './album';
 
 /**
  * Supabase Storage over its REST API — no SDK, and the service-role key never
@@ -16,7 +17,7 @@ import { HttpError } from './errors';
  * served through a one-hour signed link to staff only.
  */
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = PHOTO_MAX_BYTES;
 
 /** MIME type by magic bytes, not by the extension the browser claimed. */
 function sniff(buffer: Buffer): string | null {
@@ -48,7 +49,7 @@ const EXTENSIONS: Record<string, string> = {
   'audio/mp4': 'm4a',
 };
 
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const IMAGE_TYPES = [...PHOTO_TYPES];
 /** A song file: MP3, or M4A from an iPhone. */
 export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
 /** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */

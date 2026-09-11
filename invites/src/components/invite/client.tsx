@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { plateChars } from '@/lib/openings';
+import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
 
 /**
@@ -778,7 +779,7 @@ export function PrintButton({ label }: { label: string }) {
  * respects. It also means a photo that is refused — too large, wrong format —
  * is named on its own instead of failing the whole batch.
  */
-const MAX_AT_ONCE = 20;
+
 
 export function GuestPhotoForm({
   slug,
@@ -790,6 +791,7 @@ export function GuestPhotoForm({
   labels: {
     name: string;
     choose: string;
+    accepts: string;
     caption: string;
     submit: string;
     submitMany: string;
@@ -825,10 +827,10 @@ export function GuestPhotoForm({
 
   function choose(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.currentTarget.files ?? []);
-    const files = picked.slice(0, MAX_AT_ONCE);
+    const files = picked.slice(0, PHOTOS_AT_ONCE);
     setChosen(files);
     replacePreviews(files);
-    setNote(picked.length > MAX_AT_ONCE ? labels.tooMany : '');
+    setNote(picked.length > PHOTOS_AT_ONCE ? labels.tooMany : '');
     setError('');
   }
 
@@ -919,6 +921,7 @@ export function GuestPhotoForm({
           onChange={choose}
           className="inv-field"
         />
+        <p className="inv-muted mt-1 text-xs">{labels.accepts}</p>
       </div>
       {previews.length > 0 && (
         <ul className={previews.length === 1 ? '' : 'grid grid-cols-3 gap-2'}>

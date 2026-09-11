@@ -10,6 +10,7 @@ import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
 import { str, rows, bool, guestGroups } from './sections';
 import { contentOf } from './invitations';
+import { contactPatch } from './contacts';
 import { attendeesOf } from './attendees';
 
 /**
@@ -164,22 +165,14 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   // What a guest tells us about themselves goes back on their own row, because
   // that is the row a blast reads. Two copies of the same details on file and
   // only one of them read is how a couple ends up buying an SMS add-on for a
-  // list the system believes has no numbers in it.
+  // list the system believes has no numbers in it. The rule for which copy
+  // wins is contactPatch, shared with the back-fill so the two cannot drift.
   //
-  // The reply wins over what the couple typed: a guest is the authority on
-  // their own number, and theirs is the more recent of the two. Blank never
-  // wins — leaving a field empty is not a correction.
-  //
-  // input.email rather than data.email, because the corporate form packs a
-  // department into the address it stores, and a department has no business on
-  // a mailing list.
+  // input.email rather than data.email: what is stored may have a department
+  // packed onto it, and while contactPatch takes that off anyway, there is no
+  // reason to hand it something to undo.
   if (guest) {
-    const phone = (input.phone ?? '').trim();
-    const email = (input.email ?? '').trim();
-    const patch = {
-      ...(phone && phone !== guest.phone ? { phone } : {}),
-      ...(email && email !== guest.email ? { email } : {}),
-    };
+    const patch = contactPatch({ phone: input.phone, email: input.email }, guest);
     if (Object.keys(patch).length) await prisma.guest.update({ where: { id: guest.id }, data: patch });
   }
 

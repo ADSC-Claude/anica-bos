@@ -7,7 +7,9 @@ import {
   isPicture, pageRatio, place, ONE_SCREEN,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground,
 } from '@/lib/design';
-import { DrawnPage } from '@/components/invite/drawn';
+import { DrawnPage, bindingOf } from '@/components/invite/drawn';
+import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
+import type { Occasion } from '@prisma/client';
 import { saveDesignDraftAction } from '../../../actions';
 import { uploadGround } from './ground';
 
@@ -37,6 +39,7 @@ type Props = {
   templateId: string;
   name: string;
   layout: string;
+  occasion: Occasion;
   doc: DesignDoc;
   rev: number;
   hasDraft: boolean;
@@ -354,6 +357,38 @@ export function Studio(p: Props) {
 
   // --- the page's own numbers ------------------------------------------------
 
+  /** What this design asks for, recomputed as she draws. */
+  const asks = useMemo(() => asksOf(doc, p.occasion), [doc, p.occasion]);
+  const counts = askCounts(asks);
+
+  /**
+   * The letters this box holds, measured from the box she drew and the face
+   * it is set in. It is what the form counts down from, so it is measured
+   * rather than typed: the same canvas the browser lays text out with gives
+   * the average advance of the face at the size the page uses it.
+   */
+  const measureRoom = useCallback((id: string): number | undefined => {
+    const node = stage.current?.querySelector<HTMLElement>(`[data-el="${id}"]`);
+    if (!node) return undefined;
+    // the line the customer's answer lands on is the first one, so it is that
+    // line's own box and its own face that decide how much will fit — not the
+    // block's, which on a milestone label holds a second line in another size
+    const inner = node.querySelector<HTMLElement>('p, h2') ?? node;
+    const cs = getComputedStyle(inner);
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (!ctx) return undefined;
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const sample = 'Maria Clara at ang mga ninong nila';
+    const advance = ctx.measureText(sample).width / sample.length + (parseFloat(cs.letterSpacing) || 0);
+    if (!(advance > 0)) return undefined;
+    const box = inner.getBoundingClientRect();
+    const width = box.width || node.getBoundingClientRect().width;
+    const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+    const lines = Math.max(1, Math.round(box.height / line));
+    if (!(width > 0)) return undefined;
+    return Math.max(1, Math.floor((width / advance) * lines));
+  }, []);
+
   const ratio = page ? pageRatio(page) : 1;
   const ground = page?.ground;
   const stageStyle: CSSProperties = {
@@ -404,6 +439,32 @@ export function Studio(p: Props) {
             </li>
           ))}
         </ol>
+
+        <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
+          <p className="label px-1">What this design asks for</p>
+          {asks.length === 0 ? (
+            <p className="hint px-1">Nothing yet. Select a frame or a box and switch on <strong>Ask the customer</strong>.</p>
+          ) : (
+            <>
+              <ol className="mt-1 space-y-0.5">
+                {asks.map((a) => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => { setPageKey(a.page); setSel(a.id); }}
+                      className={`w-full rounded px-2 py-1 text-left text-[11px] leading-snug hover:bg-[color:var(--color-sand-100)] ${a.orphan ? 'text-amber-800' : ''}`}
+                    >
+                      {a.kind === 'photo' ? '▣' : '✎'} {a.label}
+                      {a.room ? <span className="text-[color:var(--color-ink-500)]"> · {a.room} letters</span> : null}
+                      {a.orphan ? <span className="block">not a field this occasion has</span> : null}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <p className="hint px-1">{counts.photos} photograph{counts.photos === 1 ? '' : 's'} and {counts.writings} writing{counts.writings === 1 ? '' : 's'}.</p>
+            </>
+          )}
+        </div>
       </aside>
 
       {/* the page */}
@@ -467,7 +528,17 @@ export function Studio(p: Props) {
       {/* what is selected */}
       <aside className="card h-fit space-y-3 p-3 text-sm">
         {selected ? (
-          <Properties el={selected} ratio={ratio} onChange={(fn) => editEl(selected.id, fn)} onLayer={layer} onDuplicate={duplicate} onRemove={remove} label={label(selected)} />
+          <Properties
+            el={selected}
+            ratio={ratio}
+            occasion={p.occasion}
+            onChange={(fn) => editEl(selected.id, fn)}
+            onLayer={layer}
+            onDuplicate={duplicate}
+            onRemove={remove}
+            label={label(selected)}
+            measureRoom={() => measureRoom(selected.id)}
+          />
         ) : (
           <PageProps page={page} onChange={editPage} onGround={setGround} templateId={p.templateId} vars={p.vars} />
         )}
@@ -522,10 +593,11 @@ function Handle({ el, at, on, onDown, onSize, onTurn }: { el: Element; at?: Box;
   );
 }
 
-function Properties({ el, ratio, onChange, onLayer, onDuplicate, onRemove, label }: {
-  el: Element; ratio: number; label: string;
+function Properties({ el, ratio, occasion, onChange, onLayer, onDuplicate, onRemove, label, measureRoom }: {
+  el: Element; ratio: number; label: string; occasion: Occasion;
   onChange: (fn: (e: Element) => Element) => void;
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
+  measureRoom: () => number | undefined;
 }) {
   const num = (v: number | undefined, set: (n: number) => void, step = 0.1) => (
     <input type="number" value={v ?? ''} step={step} onChange={(e) => set(place(Number(e.target.value)))} className="input w-full" />
@@ -559,6 +631,9 @@ function Properties({ el, ratio, onChange, onLayer, onDuplicate, onRemove, label
         <span className="label">Opacity</span>
         <input type="range" min={0} max={1} step={0.05} value={el.opacity ?? 1} onChange={(e) => onChange((x) => ({ ...x, opacity: Number(e.target.value) }))} className="w-full" />
       </label>
+      {(el.kind === 'photo' || el.kind === 'text') && (
+        <AskBlock el={el} occasion={occasion} onChange={onChange} measureRoom={measureRoom} />
+      )}
       <div className="flex flex-wrap gap-1">
         <button type="button" onClick={() => onLayer(1)} className="btn btn-ghost btn-sm">Bring forward</button>
         <button type="button" onClick={() => onLayer(-1)} className="btn btn-ghost btn-sm">Send back</button>
@@ -567,6 +642,140 @@ function Properties({ el, ratio, onChange, onLayer, onDuplicate, onRemove, label
       </div>
     </>
   );
+}
+
+/**
+ * Ask the customer.
+ *
+ * One switch on an element, and the form has a question. What it asks for is
+ * a field the occasion actually offers, picked from the same list the form is
+ * built from, so a design can never ask for something that does not exist.
+ * The box she drew sets the size of the answer: the letters it holds are
+ * measured from the box and the face, and that is what the form counts down
+ * from. A frame she has asked for also says what it shows when nobody
+ * answers, so a half-filled page still looks designed.
+ */
+function AskBlock({ el, occasion, onChange, measureRoom }: {
+  el: PhotoEl | TextEl;
+  occasion: Occasion;
+  onChange: (fn: (e: Element) => Element) => void;
+  measureRoom: () => number | undefined;
+}) {
+  const kind = el.kind;
+  const offers = useMemo(() => askable(occasion, kind), [occasion, kind]);
+  const ref = bindingOf(el);
+  const at = ref ? offers.find((o) => o.section === ref.section && o.field === ref.field && (o.sub ?? undefined) === (ref.sub ?? undefined)) : undefined;
+  const value = at ? key(at) : '';
+
+  function bind(next: Askable | undefined, index?: number) {
+    const made: FieldRef | undefined = next
+      ? { section: next.section, field: next.field, ...(next.sub ? { sub: next.sub } : {}), ...(next.list ? { index: index ?? 0 } : {}) }
+      : undefined;
+    onChange((e) => {
+      if (e.kind === 'photo') return { ...e, bind: made ?? { asset: '' } };
+      if (e.kind !== 'text') return e;
+      // the first line carries the customer's answer; the rest of the chain stands
+      const lines = e.lines.map((l, i) => (i === 0
+        ? { ...l, sources: made ? [{ bind: made }, ...l.sources.filter((sx) => !('bind' in sx))] : l.sources.filter((sx) => !('bind' in sx)) }
+        : l));
+      return { ...e, lines: lines.length ? lines : e.lines };
+    });
+  }
+
+  return (
+    <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={Boolean(el.ask)}
+          onChange={(e) => onChange((x) => ({ ...x, ask: e.target.checked ? true : undefined }))}
+          className="h-4 w-4"
+        />
+        <span className="font-semibold">Ask the customer</span>
+      </label>
+      {!el.ask ? (
+        <p className="hint">Off: this is the design&rsquo;s own {kind === 'photo' ? 'picture' : 'words'}, and the form says nothing about it.</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          <label className="block">
+            <span className="label">What is it?</span>
+            <select className="input w-full" value={value} onChange={(e) => bind(offers.find((o) => key(o) === e.target.value), ref?.index)}>
+              <option value="">— pick a field —</option>
+              {Object.entries(groupBy(offers)).map(([section, list]) => (
+                <optgroup key={section} label={section}>
+                  {list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          {at?.list && (
+            <label className="block">
+              <span className="label">Which one in the list</span>
+              <input
+                type="number" min={1} max={40}
+                value={(ref?.index ?? 0) + 1}
+                onChange={(e) => bind(at, Math.max(0, Math.round(Number(e.target.value)) - 1))}
+                className="input w-full"
+              />
+            </label>
+          )}
+          {kind === 'photo' && (
+            <>
+              <p className="hint">A <strong>{shapeOf((el as PhotoEl).aspect)}</strong> frame. {SHAPE_GUIDANCE[shapeOf((el as PhotoEl).aspect)]}</p>
+              <label className="block">
+                <span className="label">If it is left empty</span>
+                <select
+                  className="input w-full"
+                  value={el.ifEmpty === 'leave' || el.ifEmpty === undefined ? 'leave' : 'piece'}
+                  onChange={(e) => onChange((x) => ({ ...x, ifEmpty: e.target.value === 'leave' ? 'leave' : { piece: '' } }))}
+                >
+                  <option value="leave">Leave the space</option>
+                  <option value="piece">Show a piece from the library</option>
+                </select>
+              </label>
+              {el.ifEmpty && el.ifEmpty !== 'leave' && (
+                <input
+                  className="input w-full font-mono text-xs"
+                  placeholder="/babyblue/cloud.webp"
+                  value={el.ifEmpty.piece}
+                  onChange={(e) => onChange((x) => ({ ...x, ifEmpty: { piece: e.target.value } }))}
+                />
+              )}
+            </>
+          )}
+          {kind === 'text' && (
+            <label className="block">
+              <span className="label">Letters the box holds</span>
+              <span className="flex gap-1">
+                <input
+                  type="number" min={1} max={2000}
+                  value={(el as TextEl).room ?? ''}
+                  onChange={(e) => onChange((x) => ({ ...(x as TextEl), room: Math.max(1, Math.round(Number(e.target.value))) || undefined }))}
+                  className="input w-full"
+                />
+                <button
+                  type="button"
+                  onClick={() => { const n = measureRoom(); if (n) onChange((x) => ({ ...(x as TextEl), room: n })); }}
+                  className="btn btn-secondary btn-sm shrink-0"
+                >
+                  Measure
+                </button>
+              </span>
+              <span className="hint">What the form counts down from. Measure reads the box you drew and the face it is set in.</span>
+            </label>
+          )}
+          {el.ask && !at && <p className="hint text-amber-800">Nothing picked yet, so this asks for nothing.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const key = (a: Askable) => `${a.section}|${a.field}|${a.sub ?? ''}`;
+function groupBy(list: Askable[]): Record<string, Askable[]> {
+  const out: Record<string, Askable[]> = {};
+  for (const a of list) (out[a.sectionLabel] ??= []).push(a);
+  return out;
 }
 
 /** The six roles a colour background can take, so night mode keeps working. */

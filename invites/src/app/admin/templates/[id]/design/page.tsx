@@ -41,6 +41,7 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         templateId={t.id}
         name={t.name}
         layout={t.layout}
+        occasion={t.occasion}
         doc={doc}
         rev={t.designDraftRev}
         hasDraft={Boolean(documentOf({ design: t.designDraft, layout: t.layout }))}

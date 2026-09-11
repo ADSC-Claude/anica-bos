@@ -54,9 +54,10 @@ const FEES: Record<Tier, { base: number; dfy: number; concierge: number; rounds:
   STANDARD: { base: 4_000, dfy: 0, concierge: 0, rounds: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
   COMPLETE: { base: 6_000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, guestbook, meal choice and Signature-only designs.' },
   // Luxury buys the event-day half of the service — the seating chart, the
-  // check-in desk, the album afterwards — rather than more rounds of drafting,
-  // so its allowance matches Signature's.
-  LUXURY: { base: 7_500, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
+  // check-in desk, the album afterwards — and two more rounds of drafting on
+  // top, because the package with the most on its page is the one that takes
+  // the most passes to get right.
+  LUXURY: { base: 7_500, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
 };
 
 /**

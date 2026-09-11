@@ -35,7 +35,11 @@ test('features unlock in order', () => {
   const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions'));
   assert.ok(revisions, 'the table names the revision rounds');
   assert.ok(revisions!.label.includes('before we publish'), 'and says when they happen');
-  assert.deepEqual([revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE], ['2 rounds', '4 rounds', '6 rounds'], 'a bigger package buys more of them');
+  assert.deepEqual(
+    [revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE, revisions!.cells.LUXURY],
+    ['2 rounds', '4 rounds', '6 rounds', '8 rounds'],
+    'a bigger package buys more of them',
+  );
   // What happens after publishing is not a row. Every answer it could give is
   // "message us", which reads as an invitation to open a conversation about an
   // invitation that is finished — and answering those costs more than the row

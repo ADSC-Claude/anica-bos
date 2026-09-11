@@ -26,11 +26,61 @@
  */
 
 /** A reply, as much of it as this rule needs. */
-export type SeatReply = { response: 'ACCEPT' | 'DECLINE'; seats: number };
+export type SeatReply = {
+  response: 'ACCEPT' | 'DECLINE';
+  seats: number;
+  /**
+   * What the couple settled on, once they looked at it. Null means they have
+   * not, and the guest's own number stands — which is right for the replies
+   * that arrived through a personal link, because the couple's allotment was
+   * already applied when the reply was written.
+   */
+  seatsApproved?: number | null;
+};
 
 export function seatsHeld(seatsAllotted: number, reply: SeatReply | null | undefined): number {
   if (!reply) return Math.max(0, seatsAllotted);
-  return reply.response === 'ACCEPT' ? Math.max(0, reply.seats) : 0;
+  if (reply.response !== 'ACCEPT') return 0;
+  return Math.max(0, reply.seatsApproved ?? reply.seats);
+}
+
+/**
+ * What one reply is holding, with no allotment in the picture.
+ *
+ * Everywhere that counts a reply rather than a guest — the headcount sheet, the
+ * exports, the totals — wants this. Written out because `seatsHeld(0, reply)`
+ * is the same call with a magic nought in it, and a magic nought is how the
+ * next person ends up reading the raw claim instead.
+ */
+export function replySeats(reply: SeatReply | null | undefined): number {
+  return reply ? seatsHeld(0, reply) : 0;
+}
+
+/**
+ * Whether a reply is waiting on the couple before anybody should act on it.
+ *
+ * Only the replies nobody vetted. A guest who answered through their personal
+ * link was already held to what the couple set aside for them — submitRsvp
+ * refuses a bigger number outright — so those never queue, and a couple with a
+ * hundred families is not asked to tick a hundred boxes.
+ *
+ * What is left is the reply that came through the plain link: no guest row, no
+ * allotment, and a seats dropdown that goes to ten. That is the one number in
+ * this system nobody agreed to, and until now it went straight onto the
+ * headcount sheet.
+ *
+ * One seat is not a claim. Somebody answering for themselves is the ordinary
+ * case and does not need a decision; queueing it would bury the ones that do.
+ */
+export function awaitingDecision(reply: SeatReply | null | undefined, vetted: boolean): boolean {
+  if (!reply || reply.response !== 'ACCEPT') return false;
+  if (decided(reply)) return false;
+  return !vetted && reply.seats > 1;
+}
+
+/** Whether the couple has settled this reply, at any number. */
+export function decided(reply: SeatReply | null | undefined): boolean {
+  return reply?.seatsApproved !== null && reply?.seatsApproved !== undefined;
 }
 
 /**

@@ -478,7 +478,7 @@ model Invitation {
   /// invitations with no order at all, and because an order's line items are a
   /// record of a sale: switching one on for a customer who was owed it should
   /// not mean editing what they were billed.
-  addOns          String[] @default([])
+  addOns String[] @default([])
 
   /// Parts this one invitation carries that its design does not draw — a
   /// programme on a design with no programme page, a gift note on one that
@@ -489,7 +489,7 @@ model Invitation {
   /// refused here exactly as it is refused on the form: the tier and the
   /// add-ons decide what an invitation may show, and this decides only
   /// whether the design draws it. See src/lib/parts.ts.
-  extraSections   String[] @default([])
+  extraSections String[] @default([])
 
   /// What this couple's guests are sent, and how it is worded: the tone they
   /// picked, and any message they rewrote. Only what differs from the library
@@ -499,7 +499,7 @@ model Invitation {
   /// Not `messages`: that is already the support thread with this invitation's
   /// owner, and two things called messages on one row is how you end up
   /// e-mailing a guest a reply meant for staff.
-  guestMessages   Json     @default("{}")
+  guestMessages Json @default("{}")
 
   user          User        @relation(fields: [userId], references: [id])
   template      Template    @relation(fields: [templateId], references: [id])
@@ -553,6 +553,7 @@ model Guest {
   rsvps      Rsvp[]
   texts      SmsMessage[]
   emails     EmailMessage[]
+  photos     Media[]
 
   @@index([invitationId, groupName])
 }
@@ -579,35 +580,42 @@ enum RsvpResponse {
 /// submission (no guest). Attendee names are stored so the couple can print a
 /// list, and so a "party of 4" is four names and not a number.
 model Rsvp {
-  id           String       @id @default(cuid())
-  invitationId String
-  guestId      String?
-  name         String
-  response     RsvpResponse
+  id            String       @id @default(cuid())
+  invitationId  String
+  guestId       String?
+  name          String
+  response      RsvpResponse
   /// Which set they said they belong to: "Principal sponsors", "College
   /// friends". Chosen from the list the couple writes on the RSVP section.
-  groupName    String       @default("")
-  seats        Int          @default(1)
-  attendees    Json
-  mealChoice   String       @default("")
-  dietary      String       @default("")
-  message      String       @default("")
-  phone        String       @default("")
-  email        String       @default("")
+  groupName     String       @default("")
+  seats         Int          @default(1)
+  /// What the couple settled on, when the guest's own number was never vetted.
+  /// Null means they have not looked and the guest's number stands — which is
+  /// correct for every reply that came through a personal link, since the
+  /// allotment was already applied when the reply was written. See
+  /// seatsHeld() and awaitingDecision() in src/lib/seats.ts.
+  seatsApproved Int?
+  attendees     Json
+  mealChoice    String       @default("")
+  dietary       String       @default("")
+  message       String       @default("")
+  phone         String       @default("")
+  email         String       @default("")
   /// Corporate events ask which department or company the guest is from. Its
   /// own column because it is not a contact detail: it used to ride along on
   /// `email` as "address · department", which put a department on a mailing
   /// list and an address nowhere a blast could read it.
-  department   String       @default("")
-  ip           String       @default("")
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  department    String       @default("")
+  ip            String       @default("")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
-  invitation Invitation       @relation(fields: [invitationId], references: [id], onDelete: Cascade)
-  guest      Guest?            @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  invitation Invitation     @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?         @relation(fields: [guestId], references: [id], onDelete: SetNull)
   emails     EmailMessage[]
 
   @@index([invitationId, response])
+  @@index([invitationId, seatsApproved])
   @@index([ip, createdAt])
 }
 
@@ -661,6 +669,11 @@ model Media {
   caption      String    @default("")
   /// Who sent it, for a GUEST_PHOTO. A guest has no account to attribute it to.
   uploadedBy   String    @default("")
+  /// Which guest sent it, when they came through their own personal link. It is
+  /// what lets a named invitee have their own upload allowance instead of
+  /// sharing the room's: a venue's wifi is one address for every phone in it.
+  /// Null for an upload from the public link, which is most of them.
+  guestId      String?
   /// Guest photo uploads wait here until the couple approves them.
   approved     Boolean   @default(true)
   sortOrder    Int       @default(0)
@@ -682,7 +695,10 @@ model Media {
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   invitation Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
   template   Template?   @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  guest      Guest?      @relation(fields: [guestId], references: [id], onDelete: SetNull)
 
+  @@index([invitationId, kind, guestId, createdAt])
+  @@index([invitationId, kind, ip, createdAt])
   @@index([invitationId, kind, sortOrder])
   @@index([invitationId, kind, approved, createdAt])
   @@index([templateId, kind, sortOrder])

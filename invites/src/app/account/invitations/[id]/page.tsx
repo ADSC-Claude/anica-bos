@@ -8,6 +8,7 @@ import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS, hasFeature, entitled, featureOffered, nextTier } from '@/lib/tiers';
 import { formatDate, formatDateTime } from '@/lib/datetime';
 import { replyIdentity } from '@/lib/names';
+import { replySeats } from '@/lib/seats';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
 import { contentOf } from '@/lib/invitations';
@@ -198,7 +199,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             {recent.length === 0 ? <p className="text-sm text-[color:var(--color-ink-500)]">No responses yet. Share the link to start collecting.</p> : (
               <ul className="divide-y divide-[color:var(--color-sand-100)] text-sm">
                 {recent.map((r) => (
-                  <li key={r.id} className="flex justify-between gap-3 py-2"><span>{replyIdentity(r.name, r.guest?.name).name} <span className="text-[color:var(--color-ink-500)]">· {r.response === 'ACCEPT' ? `accepted, ${r.seats} seat${r.seats === 1 ? '' : 's'}` : 'declined'}</span></span><span className="text-xs text-[color:var(--color-ink-500)]">{formatDateTime(r.updatedAt)}</span></li>
+                  <li key={r.id} className="flex justify-between gap-3 py-2"><span>{replyIdentity(r.name, r.guest?.name).name} <span className="text-[color:var(--color-ink-500)]">· {r.response === 'ACCEPT' ? `accepted, ${replySeats(r)} seat${replySeats(r) === 1 ? '' : 's'}` : 'declined'}</span></span><span className="text-xs text-[color:var(--color-ink-500)]">{formatDateTime(r.updatedAt)}</span></li>
                 ))}
               </ul>
             )}

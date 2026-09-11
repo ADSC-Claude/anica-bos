@@ -13,6 +13,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
+import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
@@ -1335,12 +1336,18 @@ function GuestPhotos({
             labels={{
               name: t(lang, 'rsvp.name'),
               choose: t(lang, 'photos.choose'),
+              accepts: t(lang, 'photos.accepts', { max: PHOTO_MAX_LABEL }),
               caption: t(lang, 'photos.caption'),
               submit: t(lang, 'photos.submit'),
+              submitMany: t(lang, 'photos.submitMany'),
               sending: t(lang, 'photos.sending'),
               pending: t(lang, 'photos.pending'),
+              pendingMany: t(lang, 'photos.pendingMany'),
               thanks: t(lang, 'photos.thanks'),
+              thanksMany: t(lang, 'photos.thanksMany'),
               another: t(lang, 'photos.another'),
+              tooMany: t(lang, 'photos.tooMany'),
+              sent: t(lang, 'photos.sent'),
             }}
           />
         </div>

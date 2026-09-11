@@ -150,7 +150,7 @@ export default async function Landing() {
                 ['RSVP dashboard', 'Who accepted, how many seats, meal choices, dietary notes, messages — and an Excel export for the caterer.'],
                 ['Entourage section', 'Principal sponsors in paired columns, secondary sponsors for candle, veil and cord, the whole wedding party. Unlimited rows.'],
                 ['GCash QR gift note', 'A gracious preset note (“Your presence is the greatest gift…”), your GCash QR and bank details. Tagalog version included.'],
-                ['Guest photos', 'After the day, guests upload their own photos and videos to your page — you approve what shows.'],
+                ['Guest photos', 'After the day, guests upload their own photos to your page — you approve what shows.'],
                 ['Messenger-ready', 'Loads fast on mobile data, renders inside the Messenger and Viber browsers, and the link preview shows your photo and names.'],
               ].map(([t, d]) => <div key={t} className="card p-5"><h3 className="font-semibold">{t}</h3><p className="mt-1 text-sm text-[color:var(--color-ink-700)]">{d}</p></div>)}
             </div>

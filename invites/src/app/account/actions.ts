@@ -11,6 +11,7 @@ import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, save
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
 import { seatsHeld, replyState } from '@/lib/seats';
+import { decideSeats, messageGuest } from '@/lib/rsvp';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
@@ -132,6 +133,35 @@ export async function toggleRsvpAction(invitationId: string, closed: boolean) {
     await ownInvitation(user, invitationId);
     await prisma.invitation.update({ where: { id: invitationId }, data: { rsvpClosed: closed } });
     refresh(invitationId);
+  });
+}
+
+/**
+ * The couple settling a reply nobody vetted, and writing to the guest about it.
+ *
+ * Two actions rather than one because they are two decisions. Settling the
+ * number is bookkeeping the caterer needs today; the message is a thing the
+ * couple says to a person, in their own time and their own words. Tying them
+ * together would mean a cut could not be recorded until somebody had found the
+ * right sentence, and the headcount would stay wrong while they looked for it.
+ */
+export async function decideSeatsAction(invitationId: string, rsvpId: string, seats: number) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    const r = await decideSeats(inv, rsvpId, seats);
+    refresh(invitationId);
+    return { trimmed: r.trimmed, claimed: r.claimed, approved: r.approved };
+  });
+}
+
+export async function messageGuestAction(invitationId: string, rsvpId: string, subject: string, body: string) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    const r = await messageGuest(inv, rsvpId, subject, body);
+    refresh(invitationId);
+    return { to: r.to, name: r.name, status: r.status };
   });
 }
 

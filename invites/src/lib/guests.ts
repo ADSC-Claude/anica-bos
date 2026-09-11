@@ -2,7 +2,7 @@ import 'server-only';
 import { prisma } from './db';
 import { HttpError } from './errors';
 import { guestToken } from './codes';
-import { seatsHeld, headsArrived } from './seats';
+import { seatsHeld, headsArrived, replySeats } from './seats';
 import { parseCsv, toCsv } from './csv';
 import { entitled, TIER_LABELS, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
@@ -195,7 +195,7 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
         g.phone,
         g.email,
         r ? (r.response === 'ACCEPT' ? 'Accepted' : 'Declined') : 'No response',
-        r?.response === 'ACCEPT' ? r.seats : 0,
+        replySeats(r),
         r ? attendeesOf(r.attendees).map((a) => attendeeLine(a)).join('; ') : '',
         r?.mealChoice ?? '',
         r?.dietary ?? '',
@@ -221,7 +221,7 @@ export async function rsvpsCsv(invitationId: string): Promise<string> {
       r.groupName,
       r.department,
       r.response === 'ACCEPT' ? 'Accepted' : 'Declined',
-      r.seats,
+      replySeats(r),
       attendeesOf(r.attendees).map((a) => attendeeLine(a)).join('; '),
       r.mealChoice,
       r.dietary,
@@ -382,7 +382,7 @@ export async function rsvpSheet(invitationId: string) {
     ...replyIdentity(r.name, r.guest?.name),
     group: r.groupName,
     table: r.guest?.table?.name ?? '',
-    seats: r.response === 'ACCEPT' ? r.seats : 0,
+    seats: replySeats(r),
     meal: r.mealChoice,
     dietary: r.dietary,
     note: r.message,
@@ -433,13 +433,21 @@ export async function rsvpSheet(invitationId: string) {
 }
 
 export async function rsvpSummary(invitationId: string) {
-  const [accepted, declined, seats, guests, responded, checkedIn] = await Promise.all([
+  const [accepted, declined, claimed, settled, guests, responded, checkedIn] = await Promise.all([
     prisma.rsvp.count({ where: { invitationId, response: 'ACCEPT' } }),
     prisma.rsvp.count({ where: { invitationId, response: 'DECLINE' } }),
-    prisma.rsvp.aggregate({ where: { invitationId, response: 'ACCEPT' }, _sum: { seats: true } }),
+    // Two sums rather than one, because there is no COALESCE in a Prisma
+    // aggregate: what the couple settled on where they have settled it, the
+    // guest's own number where they have not. A reply still waiting on them
+    // counts its claim — the "Waiting on you" figure beside this one is what
+    // says the total is provisional, and leaving them out would hand a caterer
+    // a number that is too low instead of one that is merely unagreed.
+    prisma.rsvp.aggregate({ where: { invitationId, response: 'ACCEPT', seatsApproved: null }, _sum: { seats: true } }),
+    prisma.rsvp.aggregate({ where: { invitationId, response: 'ACCEPT', seatsApproved: { not: null } }, _sum: { seatsApproved: true } }),
     prisma.guest.count({ where: { invitationId } }),
     prisma.guest.count({ where: { invitationId, rsvps: { some: {} } } }),
     prisma.guest.count({ where: { invitationId, checkedInAt: { not: null } } }),
   ]);
-  return { accepted, declined, seats: seats._sum.seats ?? 0, guests, responded, pending: Math.max(0, guests - responded), checkedIn };
+  const seats = (claimed._sum.seats ?? 0) + (settled._sum.seatsApproved ?? 0);
+  return { accepted, declined, seats, guests, responded, pending: Math.max(0, guests - responded), checkedIn };
 }

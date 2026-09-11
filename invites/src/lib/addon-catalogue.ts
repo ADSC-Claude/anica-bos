@@ -9,11 +9,11 @@
  * SAVE_THE_DATE came to be ₱299 in the seed and ₱500 in the price list at the
  * same time.
  *
- * Rows the catalogue has no opinion about — PREMIUM_OPENING, PRINTABLE,
- * CUSTOM_DOMAIN — are deliberately absent from ADDONS: their prices are the
- * admin's, and a pricing run should not quietly put them back to whatever was
- * typed here. Two of them appear in SHELVED_ADDONS below, which takes a row off
- * the website without touching what it costs.
+ * Rows the catalogue has no opinion about — PREMIUM_OPENING, CUSTOM_DOMAIN —
+ * are deliberately absent from ADDONS: their prices are the admin's, and a
+ * pricing run should not quietly put them back to whatever was typed here. The
+ * second appears in SHELVED_ADDONS below, which takes a row off the website
+ * without touching what it costs.
  */
 
 /**
@@ -40,10 +40,13 @@ export const RETIRED_ADDONS: { code: string; reason: string }[] = [
  * and the checkout stop offering it while the row, its price and any order that
  * bought one all stay exactly as they are — but not the same decision, which is
  * why it is not the same list. A retired add-on is one we have stopped selling.
- * These two are ones we should not have been selling yet: a customer could pay
- * ₱299 for a printable PDF and ₱999 to have a domain set up, and neither is
- * referred to anywhere in the app outside a comment. Custom domain at least a
- * person could do by hand; the printable needs a layout that does not exist.
+ * This one is an add-on we should not have been selling yet: a customer could
+ * pay ₱999 to have a domain set up, and nobody here is set up to do it.
+ *
+ * The printable sat beside it and has come back, at ₱199 and with a description
+ * that says what actually happens — see ADDONS. The difference is not that the
+ * layout got built: it is that arranging pages by hand is work this business
+ * already does, and a domain is not.
  *
  * Their prices are untouched on purpose. The catalogue has no opinion about
  * what these cost — see the note at the top — and hiding a row is not a reason
@@ -51,8 +54,47 @@ export const RETIRED_ADDONS: { code: string; reason: string }[] = [
  * ticking `active` in admin, or deleting a line here.
  */
 export const SHELVED_ADDONS: { code: string; reason: string }[] = [
-  { code: 'PRINTABLE', reason: 'nothing produces the layout yet' },
   { code: 'CUSTOM_DOMAIN', reason: 'no one is set up to do the domain yet' },
+];
+
+/**
+ * The rows only the seed creates, and whose prices are the admin's.
+ *
+ * They live here rather than inline in prisma/seed.ts for one reason: the seed
+ * writes every add-on in a single createMany, so a code that appears in both
+ * lists violates AddOn_code_key and takes the whole seed down. That is exactly
+ * what happened when the printable came back — it was in the seed at ₱299 and
+ * in ADDONS at ₱199 at the same time, and CI went red on a database error that
+ * no amount of typechecking could have caught.
+ *
+ * With both lists in one file a test can hold them apart, which is the test
+ * directly below this file's own name in tests/addons.test.ts.
+ *
+ * Nothing here is repriced by a pricing run: set-pricing reads ADDONS only, so
+ * these keep whatever the admin last typed.
+ */
+export type SeedOnlyAddOn = {
+  code: string;
+  name: string;
+  description: string;
+  priceCents: number;
+  sortOrder: number;
+  active?: boolean;
+  quoted?: boolean;
+};
+
+export const SEED_ONLY_ADDONS: SeedOnlyAddOn[] = [
+  // The premium opening video, at the starting price: every package opens with
+  // the included opening; this is the designed clip made for a design.
+  { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99_900, sortOrder: 1 },
+  // Off the website, priced and kept — see SHELVED_ADDONS. Seeded inactive so a
+  // fresh database matches a live one rather than briefly offering something
+  // nothing behind the scenes can deliver.
+  { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99_900, active: false, sortOrder: 6 },
+  // Withdrawn, and seeded withdrawn so a fresh database matches a live one: an
+  // order that bought either keeps its line item either way.
+  { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19_900, active: false, sortOrder: 4 },
+  { code: 'SMS_PACK', name: 'SMS reminder blast (credit pack)', description: 'RSVP reminders by text. Priced per pack — ask us.', priceCents: 0, quoted: false, active: false, sortOrder: 7 },
 ];
 
 export type AddOnSpec = {
@@ -113,6 +155,31 @@ export const ADDONS: AddOnSpec[] = [
     sortOrder: 2,
   },
 
+  /*
+   * The printable, back on sale at ₱199.
+   *
+   * It was shelved because the Print / PDF button produces the live page on A4
+   * — seventeen sheets on a real wedding, three of them a form, an upload box
+   * and a countdown — and nothing produced a layout fit for paper.
+   *
+   * What changed is the promise, not the layout. This is not sold as a button
+   * that makes a file; it is sold as a thing we arrange and send, which is what
+   * this whole business already is. That is deliverable the day it goes on sale
+   * and it stays true afterwards: when the A5 card is built, the same sentence
+   * describes a faster version of the same deliverable.
+   *
+   * The description therefore promises a PDF by hand within a day, and does not
+   * mention a download. Whoever builds the card should leave the promise alone
+   * and simply stop doing the arranging by hand.
+   */
+  {
+    code: 'PRINTABLE',
+    price: 199,
+    name: 'Printable PDF',
+    description: 'A print version of your invitation, laid out for paper and sent to you as a PDF — for the copy on the reception desk, the one taped inside the church door, and the lola who is not scanning anything. We arrange it once your invitation is published and send it to you within a working day.',
+    sortOrder: 3,
+  },
+
   // Three whole features, each already built and already included in some
   // package, sold on their own to the packages below that one. Check-in and the
   // seating chart are Luxury's; the password is Signature's. addOnAvailable
@@ -143,7 +210,7 @@ export const ADDONS: AddOnSpec[] = [
     price: 1_000,
     image: '/demo/addon-album.png',
     name: 'Shared album after the day',
-    description: 'Your guests add their photos to your invitation from their phones, and everyone sees the day through everybody else\u2019s eyes. You approve each one before it appears. Included in Luxury.',
+    description: 'Your guests add their photos to your invitation from their phones, and everyone sees the day through everybody else\u2019s eyes. You approve each one before it appears, and you can download the whole album afterwards. Photographs only — not video. Included in Luxury.',
     sortOrder: 10,
   },
   {

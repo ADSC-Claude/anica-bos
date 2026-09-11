@@ -1,8 +1,10 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, open, rm, writeFile } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import path from 'node:path';
 import { HttpError } from './errors';
+import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './album';
 
 /**
  * Supabase Storage over its REST API — no SDK, and the service-role key never
@@ -15,7 +17,7 @@ import { HttpError } from './errors';
  * served through a one-hour signed link to staff only.
  */
 
-const MAX_BYTES = 10 * 1024 * 1024;
+const MAX_BYTES = PHOTO_MAX_BYTES;
 
 /** MIME type by magic bytes, not by the extension the browser claimed. */
 function sniff(buffer: Buffer): string | null {
@@ -47,7 +49,7 @@ const EXTENSIONS: Record<string, string> = {
   'audio/mp4': 'm4a',
 };
 
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const IMAGE_TYPES = [...PHOTO_TYPES];
 /** A song file: MP3, or M4A from an iPhone. */
 export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
 /** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */
@@ -126,6 +128,38 @@ export async function storeFile(args: {
     storagePath: `${bucket}/${objectPath}`,
     contentType,
   };
+}
+
+/**
+ * Reads a stored object back, as a stream.
+ *
+ * For downloading an album: the caller writes each photograph straight into a
+ * ZIP without ever holding it, so five hundred of them cost one file's memory
+ * rather than the album's. Null when the object is gone, which a download
+ * skips rather than fails on — a row whose file has vanished should not lose
+ * the couple the other four hundred and ninety-nine.
+ *
+ * `storagePath` is what `storeFile` returned, not a URL: the object is read
+ * through the service key rather than its public address, so this works the
+ * same for a private bucket and does not depend on what the CDN is serving.
+ */
+export async function openFile(storagePath: string): Promise<ReadableStream<Uint8Array> | null> {
+  if (!storageConfigured()) {
+    const file = path.join(process.cwd(), 'public', 'uploads', storagePath);
+    try {
+      const handle = await open(file, 'r');
+      return Readable.toWeb(handle.createReadStream()) as ReadableStream<Uint8Array>;
+    } catch {
+      return null;
+    }
+  }
+
+  const base = process.env.SUPABASE_URL!.replace(/\/$/, '');
+  const res = await fetch(`${base}/storage/v1/object/${storagePath}`, {
+    headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+  });
+  if (!res.ok || !res.body) return null;
+  return res.body as ReadableStream<Uint8Array>;
 }
 
 /**

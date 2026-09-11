@@ -2,6 +2,7 @@ import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast, entitled, TIER_LABELS, type FeatureKey } from './tiers';
+import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
   type Lang, type Preset } from './copy';
@@ -856,7 +857,7 @@ const SECTION_DEFS: SectionDef[] = [
     label: 'Guest photos',
     labelFor: { CHRISTENING: 'Post-event photos' },
     tl: 'Mga Larawan ng Bisita',
-    description: 'A shared album your guests add to from their phones. You approve each photo before it appears.',
+    description: `A shared album your guests add to from their phones — photographs only, not video. ${PHOTOS_AT_ONCE} at a time, up to ${PHOTO_MAX_LABEL} each, JPEG, PNG or WebP. You approve each photo before it appears, and you can download the album when the day is over.`,
     // Luxury's, with the rest of the day-of half of the service. The section's
     // gate and the photoSharing feature must name the same package: the badge
     // in the builder is drawn from this one and the album itself is opened by

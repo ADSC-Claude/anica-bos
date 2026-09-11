@@ -6,10 +6,10 @@ import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
 import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
+import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
-import { OCCASION_SECTIONS, SECTION_BY_KEY, isPaged } from '@/lib/sections';
+import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, isPaged, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
@@ -43,6 +43,15 @@ export default async function TemplateEditor({ params, searchParams }: { params:
     ...LINE_KEYS.map((k) => ({ key: k, label: LINE_LABELS[k], en: lookLine(look, 'en', k) ?? '', tl: lookLine(look, 'tl', k) ?? '' })),
   ];
   const tid = t?.id ?? 'new';
+  /*
+   * What the design itself says it offers. Read from the published document,
+   * not the draft: this is the design as it stands, and the draft is the
+   * studio's business until it is published.
+   */
+  const doc = t ? documentOf(t) : null;
+  const drawn = Boolean(doc);
+  const offers = doc ? offeredSections(doc, occasion) : [];
+  const hidden = doc?.hides ?? [];
   return (
     <>
       <BackLink href="/admin/templates">Templates</BackLink>
@@ -116,15 +125,45 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           </div>
           <Select label="Fonts" name="fontsKey" defaultValue={fontsKey} options={FONT_PRESETS.map((f) => ({ value: f.key, label: f.label }))} hint="Used only when no look is set below." />
           <Select label="Look" name="look" defaultValue={t?.look ?? ''} options={[{ value: '', label: '— none: the fonts above, no lines under the headings —' }, ...LOOKS.map((l) => ({ value: l.key, label: `${l.name} — ${l.tagline}` }))]} hint="A look is a set of faces and the lines under each heading, in English and Tagalog. See /looks for all of them side by side." />
-          <div>
-            <p className="label">Sections this layout renders</p>
-            <div className="grid grid-cols-2 gap-1 text-sm">
-              {OCCASION_SECTIONS[occasion].map((k) => (
-                <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{SECTION_BY_KEY[k].label}</label>
-              ))}
+          {/*
+            * Which sections this design offers.
+            *
+            * For a design drawn in the studio this row is retired: the
+            * document says which sections the design declines, and a row of
+            * ticks beside it would be a second opinion that can only ever
+            * drift from the first. The studio is also where the change
+            * belongs, because hiding a section changes every invitation
+            * already on the design and has to pass the publish screen that
+            * says how many that is.
+            *
+            * A design with no document yet keeps the ticks, because for it
+            * there is nothing else to ask.
+            */}
+          {drawn ? (
+            <div>
+              <p className="label">Sections this design offers</p>
+              <p className="mt-1 text-sm">{offers.length ? offers.map((k) => sectionLabel(k as SectionKey, occasion)).join(', ') : 'None yet.'}</p>
+              {hidden.length > 0 && (
+                <p className="mt-1 text-sm text-[color:var(--color-ink-500)]">
+                  Does not do: {hidden.map((k) => sectionLabel(k as SectionKey, occasion)).join(', ')}
+                </p>
+              )}
+              <p className="hint">
+                Read from the design&rsquo;s own pages, so there is nothing to tick here.
+                Change it in <Link href={`/admin/templates/${tid}/design`} className="underline">the Design Studio</Link> &mdash; it publishes with the design, which is how you see how many invitations it would redraw first.
+              </p>
             </div>
-            <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept.</p>
-          </div>
+          ) : (
+            <div>
+              <p className="label">Sections this layout renders</p>
+              <div className="grid grid-cols-2 gap-1 text-sm">
+                {OCCASION_SECTIONS[occasion].map((k) => (
+                  <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{SECTION_BY_KEY[k].label}</label>
+                ))}
+              </div>
+              <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept. A design drawn in the studio says this in its pages instead.</p>
+            </div>
+          )}
         </div>
         <details className="card p-4 lg:col-span-2">
           <summary className="cursor-pointer font-semibold">Words on the page</summary>

@@ -1304,6 +1304,28 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
+
+/*
+ * A page's own room at the foot, from the document: a multiple of the usual
+ * gap, for a ground whose artwork runs along the bottom.
+ *
+ * A multiple and not a measurement, because the usual is already
+ * viewport-relative with a cap — a number of pixels written into a document
+ * would be right on a phone and wrong on a laptop.
+ *
+ * It sits here, after the layout blocks and carrying their specificity, and
+ * that placement is the whole point: `.inv[data-layout='babyblue']
+ * .inv-page` sets a padding-bottom for every page of that layout, and a
+ * value the design states for *one* page has to beat a default meant for all
+ * of them. Only a page the document gave a number is affected, since there
+ * is no `data-foot` on any other.
+ *
+ * Still beaten, deliberately, by the rules above that name a page by key —
+ * Capiz's cover and closing, Baby Blue's cover and its two drawn pages.
+ * Those are hand-tuned to their own artwork and are already right; a drawn
+ * page has no padding at all, by design, so foot room means nothing there.
+ */
+.inv .inv-page[data-foot] { padding-bottom: calc(var(--page-foot) * min(11vw, 3.5rem)); }
 /* placed on the ground, over the shared rule that keeps every section child in flow */
 .inv[data-paged] .inv-bb-art > .inv-bb-head { position: absolute; left: 6%; right: 6%; text-align: center; }
 .inv[data-paged] .inv-bb-head .inv-title { font-size: 5.6cqw; letter-spacing: 0.3em; text-indent: 0.3em; margin-bottom: 1.6cqw; }

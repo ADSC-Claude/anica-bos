@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import type { Occasion } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Look, LineKey, TitleKey } from './looks';
-import type { SectionKey } from './sections';
+import { OCCASION_SECTIONS, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
@@ -247,6 +248,21 @@ export type DesignDoc = {
   paper?: string;
   /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
   surround?: string;
+  /**
+   * The sections this design does not do at all.
+   *
+   * Stated as a refusal rather than as a list of what it accepts, because
+   * the pages already say what is *drawn* and that is a different question:
+   * a section no page names still gets a plain page of its own from the
+   * renderer, which is how Baby Blue's ten drawn pages sit in front of a
+   * plain Contact. So "offers nothing here" has to be said out loud, and an
+   * empty list means the design offers everything its occasion has — the
+   * same thing an empty `Template.sections` has always meant.
+   *
+   * A customer's answers for a hidden section are kept, untouched. Hiding is
+   * about this design, not about their data.
+   */
+  hides?: PageSectionKey[];
 };
 
 export type PageSpec = {
@@ -257,6 +273,20 @@ export type PageSpec = {
   ground?: Ground;
   /** how long the dissolve into this page is, as a share of the width */
   seam?: number;
+  /**
+   * Room at the foot of the page, as a multiple of the usual.
+   *
+   * A multiple rather than a measurement, because the usual is already
+   * `min(11vw, 3.5rem)` — viewport-relative with a cap, so it holds on a
+   * phone and on a laptop — and a number of pixels written here would be
+   * right on only one of them. 2 is twice the usual gap; absent is 1.
+   *
+   * What it is for: a ground whose artwork runs along the bottom. Capiz's
+   * closing page keeps clear of the shells there, and does it with a CSS
+   * rule naming that page by its key — which a design drawn in the studio
+   * cannot have without a release.
+   */
+  footPad?: number;
   /** a drawn page: its height is the ground's ratio times its width, and its elements are placed */
   drawn?: true;
   /**
@@ -722,6 +752,7 @@ const zPage = z.object({
   sections: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(30),
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
+  footPad: z.number().min(0).max(5).optional(),
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
@@ -738,6 +769,7 @@ const zDoc = z.object({
   overflowGround: zGround.optional(),
   paper: zColour.optional(),
   surround: zColour.optional(),
+  hides: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(40).optional(),
 }).strict();
 
 /**
@@ -1235,10 +1267,62 @@ export type DocChange = {
   frames: FrameChange[];
 };
 
+/**
+ * The sections a design's pages actually draw, in page order.
+ *
+ * Not the same thing as what the design *offers* — see `offeredSections`.
+ * The renderer draws a section no page names in its own generic page, in
+ * occasion order, after the drawn ones, which is how Baby Blue's ten drawn
+ * pages sit in front of a plain Contact and a plain Music without anybody
+ * drawing those. So this answers "what is drawn by hand", and nothing else.
+ *
+ * Deduped: a section belongs to one page (see `putSection`), so the order is
+ * the order a guest meets them.
+ */
+export function drawnSections(doc: DesignDoc | null): PageSectionKey[] {
+  const out: PageSectionKey[] = [];
+  const seen = new Set<string>();
+  for (const page of doc?.pages ?? []) {
+    for (const key of page.sections) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(key);
+    }
+  }
+  return out;
+}
+
+/**
+ * The sections a design offers: everything its occasion has, less what the
+ * design says it does not do.
+ *
+ * `Template.sections` has always been a second opinion about this — a row of
+ * ticks in the admin, kept by hand. For a design that carries a document
+ * that is one source of truth too many, so the document carries it and the
+ * column becomes a copy of the answer rather than a rival to it.
+ *
+ * It is stated as what the design *refuses* rather than what it accepts, and
+ * that is the whole reason this is not simply `drawnSections`. A design that
+ * draws no Music page still offers Music — the renderer gives it a plain page
+ * of its own — so "the pages name it" and "the design offers it" are
+ * different questions, and the pages cannot answer the second one. An empty
+ * `hides` therefore means "everything", which is exactly what an empty
+ * `Template.sections` has always meant.
+ *
+ * Whether the *product* offers a section at all — the six features held back
+ * for now — is `sectionOffered`'s to answer, and the renderer asks it
+ * separately. Repeating that judgement here would be the second opinion this
+ * function exists to remove.
+ */
+export function offeredSections(doc: DesignDoc, occasion: Occasion): PageSectionKey[] {
+  const hidden = new Set(doc.hides ?? []);
+  return (OCCASION_SECTIONS[occasion] as readonly string[]).filter((k) => !hidden.has(k as PageSectionKey)) as PageSectionKey[];
+}
+
 /** What the second document does that the first did not. */
 export function designChange(before: DesignDoc | null, after: DesignDoc | null): DocChange {
   const keys = (d: DesignDoc | null) => (d?.pages ?? []).map((p) => p.key);
-  const sections = (d: DesignDoc | null) => new Set((d?.pages ?? []).flatMap((p) => p.sections));
+  const sections = (d: DesignDoc | null) => new Set(drawnSections(d));
   const was = new Set(keys(before));
   const now = new Set(keys(after));
   const wasSec = sections(before);

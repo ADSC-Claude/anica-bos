@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, sliceHeights, fillPageWithClip,
+  starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
-import { sectionOrder } from '../src/lib/sections';
+import { sectionOrder, OCCASION_SECTIONS } from '../src/lib/sections';
 import { pageNeeds } from '../src/lib/needs';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
 import { templateData } from '../prisma/templates';
@@ -736,4 +736,76 @@ test('a clip with no poster, or an id that is not a clip, changes nothing', () =
   assert.equal(fillPageWithClip(page, 'bare', { ratio: 1, top: '#fff', bottom: '#000' }), page);
   assert.equal(fillPageWithClip(page, 'frame', { ratio: 1, top: '#fff', bottom: '#000' }), page);
   assert.equal(fillPageWithClip(page, 'nobody', { ratio: 1, top: '#fff', bottom: '#000' }), page);
+});
+
+// --- what a design offers, and what it draws ------------------------------
+
+/**
+ * Two different questions, and the reason `hides` exists.
+ *
+ * `Template.sections` has always been a row of ticks kept by hand beside the
+ * design — a second opinion that can only drift from the first. The pages
+ * cannot replace it on their own: the renderer gives a section no page names
+ * a plain page of its own, in its place, which is how Baby Blue's ten drawn
+ * pages sit in front of a plain Contact. So "drawn here" and "offered at
+ * all" are separate, and only a refusal written down can answer the second.
+ */
+test('the pages say what is drawn; hides says what is not offered', () => {
+  const doc = builtinDesign('babyblue')!;
+  const drawn = drawnSections(doc);
+  assert.ok(drawn.includes('story'), 'Baby Blue draws the story');
+  assert.ok(drawn.includes('gallery'), 'and the photographs');
+  assert.ok(!drawn.includes('music'), 'it draws no music page — the renderer gives music a plain one');
+
+  // and yet music is offered, because the design refuses nothing
+  const offered = offeredSections(doc, 'CHRISTENING' as never);
+  assert.ok(offered.includes('music'), 'a design that refuses nothing offers everything its occasion has');
+  assert.deepEqual(offered, OCCASION_SECTIONS.CHRISTENING, 'which is what an empty Template.sections has always meant');
+});
+
+test('a design that hides a section stops offering it, and keeps the rest in occasion order', () => {
+  const doc: DesignDoc = { ...builtinDesign('babyblue')!, hides: ['music', 'social'] };
+  const offered = offeredSections(doc, 'CHRISTENING' as never);
+  assert.ok(!offered.includes('music'));
+  assert.ok(!offered.includes('social'));
+  assert.deepEqual(offered, OCCASION_SECTIONS.CHRISTENING.filter((k) => k !== 'music' && k !== 'social'),
+    'everything else, in the order the occasion has them');
+  // hiding changes nothing about what the pages draw
+  assert.deepEqual(drawnSections(doc), drawnSections(builtinDesign('babyblue')!));
+});
+
+test('drawnSections is in page order and names a section once', () => {
+  const doc: DesignDoc = {
+    v: 1,
+    pages: [
+      { key: 'a', sections: ['cover', 'story'] },
+      { key: 'b', sections: ['story', 'ceremony'] },
+      { key: 'c', sections: [] },
+    ],
+  };
+  assert.deepEqual(drawnSections(doc), ['cover', 'story', 'ceremony']);
+  assert.deepEqual(drawnSections(null), []);
+  assert.deepEqual(drawnSections({ v: 1, pages: [] }), []);
+});
+
+test('a hidden section survives the document being read back', () => {
+  // it has to round-trip, or a publish would quietly un-hide it
+  const doc: DesignDoc = { ...builtinDesign('capiz')!, hides: ['program'] };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(read.doc?.hides, ['program']);
+  assert.deepEqual(read.dropped, []);
+});
+
+test('the join and the room at the foot survive a read-back', () => {
+  // a page's dissolve into the one above it, and its room at the foot: both
+  // in the document, so a design drawn in the studio can have what Capiz's
+  // closing page gets from a CSS rule naming it by key
+  const doc: DesignDoc = { v: 1, pages: [{ key: 'a', sections: ['cover'], seam: 0.42, footPad: 2.5 }] };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.equal(read.doc?.pages[0].seam, 0.42);
+  assert.equal(read.doc?.pages[0].footPad, 2.5);
+  assert.deepEqual(read.dropped, []);
+  // and nonsense is refused rather than carried
+  const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], footPad: 40 }] }, 'capiz');
+  assert.deepEqual(bad.dropped, ['page 1 (a)'], 'a foot of forty times the usual is not a page');
 });

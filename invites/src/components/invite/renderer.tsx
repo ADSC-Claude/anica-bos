@@ -15,7 +15,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, type PictureGround, type CoverSpec } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage } from './drawn';
 import { Drawn } from './figures';
@@ -1638,7 +1638,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const personal = Boolean(guest) && entitled(inv, 'rsvp.personalLinks');
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
-  const templateSections = new Set(inv.template.sections);
+  /*
+   * Which sections this design offers at all. The document answers where the
+   * design carries one — it says what it refuses and everything else is
+   * offered — and the column is only consulted for a design with no document
+   * yet. A column that has drifted from the design cannot mislead a guest
+   * this way, because for a document design nothing reads it.
+   */
+  const templateSections = new Set<string>(doc ? offeredSections(doc, inv.template.occasion) : inv.template.sections);
   /**
    * Parts this one invitation carries that its design does not draw. Staff
    * tick them on when a customer asks for a page their design never had; the
@@ -1828,18 +1835,20 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string } = {}) => (
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string } = {}) => (
       <div
         key={key}
         className="inv-page"
         data-page={key}
         data-bg={o.bg}
         data-seam={o.seam}
+        data-foot={o.foot !== undefined ? '' : undefined}
         data-drawn={o.drawn ? '' : undefined}
         data-grow={o.grow ? '' : undefined}
         data-ground={o.colour}
         style={{
           ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
+          ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
           ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
         } as CSSProperties}
       >
@@ -1873,7 +1882,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
       }
     }
     // a section the document does not name gets a page of its own, in its place

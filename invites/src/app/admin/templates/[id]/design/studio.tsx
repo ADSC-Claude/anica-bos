@@ -642,6 +642,28 @@ export function Studio(p: Props) {
     setSel([id]);
   }
 
+  /**
+   * A section this design does not do at all.
+   *
+   * Different from taking a section off a page. A page not carrying a
+   * section means the renderer gives that section a plain page of its own,
+   * in its place — which is how Baby Blue's ten drawn pages sit in front of
+   * a plain Contact and a plain Music. So "not drawn here" and "not offered
+   * by this design" are two questions, and only this one answers the second.
+   *
+   * It goes in the draft and publishes with it, because hiding a section
+   * changes every invitation on the design and belongs behind the publish
+   * screen's blast-radius report rather than in a form that saves at once.
+   */
+  function toggleHide(key: PageSectionKey) {
+    const hides = new Set(doc.hides ?? []);
+    if (hides.has(key)) hides.delete(key);
+    else hides.add(key);
+    const next: DesignDoc = { ...doc, hides: hides.size ? [...hides] : undefined };
+    if (!next.hides) delete next.hides;
+    change(next);
+  }
+
   // --- what a page carries --------------------------------------------------
 
   const addSection = (key: PageSectionKey) => change(putSection(doc, pageKey, key));
@@ -1144,6 +1166,7 @@ export function Studio(p: Props) {
         </label>
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
         {said && <p className="hint mt-1">{said}</p>}
+        <HidesPanel occasion={p.occasion} hides={doc.hides ?? []} onToggle={toggleHide} />
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -1980,6 +2003,49 @@ const MASKS: { key: NonNullable<PhotoEl['mask']>; label: string }[] = [
   { key: 'circle', label: 'A circle' },
   { key: 'arch', label: 'An arch' },
 ];
+
+/**
+ * The sections this design does not do.
+ *
+ * This is the row of ticks that used to live on the design's own page in the
+ * admin, moved here and turned the other way up. Two reasons it had to move.
+ * It is a fact about the design, and the design is what this screen edits;
+ * and hiding a section changes every invitation already built on the design,
+ * so it belongs in the draft, behind the publish screen that says how many
+ * invitations a change would redraw — not in a form that saves the moment
+ * she clicks away.
+ *
+ * Turned the other way up because a refusal is what is actually being said.
+ * A design offers what its occasion has; the list is what it declines. So
+ * nothing to tick is the ordinary case, and a design with three ticks is
+ * saying three specific things rather than eighteen implied ones.
+ *
+ * Folded away, because most designs have nothing here at all.
+ */
+function HidesPanel({ occasion, hides, onToggle }: { occasion: Occasion; hides: string[]; onToggle: (key: PageSectionKey) => void }) {
+  const hidden = new Set(hides);
+  const keys = sectionsFor(occasion).map((d) => d.key as PageSectionKey);
+  return (
+    <details className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
+      <summary className="cursor-pointer text-[11px] text-[color:var(--color-ink-500)]">
+        Sections this design does not do{hidden.size ? ` · ${hidden.size}` : ''}
+      </summary>
+      <p className="hint mt-1">
+        A section left unticked here is offered, drawn by whichever page carries it or on a plain page of its own.
+        Tick one and this design stops offering it altogether &mdash; on every invitation built on it, from the next publish.
+        What a customer already wrote in it is kept.
+      </p>
+      <div className="mt-1 space-y-0.5">
+        {keys.map((k) => (
+          <label key={k} className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={hidden.has(k)} onChange={() => onToggle(k)} className="h-3.5 w-3.5" />
+            <span className={hidden.has(k) ? 'text-[color:var(--color-ink-500)] line-through' : ''}>{sectionLabel(k as SectionKey, occasion)}</span>
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
 
 /**
  * Put a clip on the page.
@@ -3059,6 +3125,49 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
         <input className="input w-full" value={page.label?.en ?? ''} placeholder={page.key} onChange={(e) => onChange((p) => ({ ...p, label: { ...(p.label ?? { en: '' }), en: e.target.value } }))} />
       </label>
       <p className="text-xs text-[color:var(--color-ink-500)]">Key: {page.key}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {/*
+          * How far the page above dissolves into this one. It is the thing
+          * that makes ten separate backgrounds read as one sheet of paper,
+          * and it was in the document from the start with no way to set it.
+          */}
+        <label className="block">
+          <span className="label">Join above</span>
+          <input
+            type="number" step={0.02} min={0} max={1}
+            value={page.seam ?? ''}
+            placeholder="0.24"
+            onChange={(e) => {
+              const v = e.target.value === '' ? undefined : Math.min(1, Math.max(0, Number(e.target.value)));
+              onChange((pg) => { const next = { ...pg, seam: v }; if (v === undefined) delete next.seam; return next; });
+            }}
+            className="input w-full"
+          />
+        </label>
+        {/*
+          * Room at the foot, for a ground whose art runs along the bottom.
+          * A multiple of the usual rather than a number of pixels, because
+          * the usual is viewport-relative and pixels would be right on a
+          * phone and wrong on a laptop.
+          */}
+        <label className="block">
+          <span className="label">Room at the foot</span>
+          <input
+            type="number" step={0.25} min={0} max={5}
+            value={page.footPad ?? ''}
+            placeholder="1"
+            onChange={(e) => {
+              const v = e.target.value === '' ? undefined : Math.min(5, Math.max(0, Number(e.target.value)));
+              onChange((pg) => { const next = { ...pg, footPad: v }; if (v === undefined) delete next.footPad; return next; });
+            }}
+            className="input w-full"
+          />
+        </label>
+      </div>
+      <p className="hint">
+        The join is how far the background above dissolves into this one, as a share of the page&rsquo;s width &mdash; 0.24 unless it is said, and it is what makes separate backgrounds read as one sheet of paper.
+        The room at the foot is a multiple of the usual gap, for a ground whose art runs along the bottom.
+      </p>
       {/*
         * What the page carries, in the order it is drawn in. A section is on
         * one page only, so putting it here takes it off wherever it was —

@@ -1,6 +1,6 @@
 'use server';
 
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, offeredSections, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
 import { designFiles } from '@/lib/design-files';
 import { canAddPart, extraSectionsOf } from '@/lib/parts';
@@ -27,7 +27,9 @@ import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { isLook } from '@/lib/looks';
+import { colourFamilies } from '@/lib/palette';
+import { findSet } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
@@ -144,9 +146,22 @@ export async function saveTemplateAction(templateId: string | null, back: string
     const layout = s(fd, 'layout');
     if (!isLayout(layout)) throw new HttpError(400, 'Pick a layout.');
     const palettePreset = PALETTE_PRESETS.find((p) => p.key === s(fd, 'paletteKey'));
+    // A family of the colour book, made into the six roles. It wins over a
+    // preset, because it is the more particular of the two answers.
+    const family = colourFamilies().find((f) => f.key === s(fd, 'paletteFamily'))?.palette;
     const palette = { bg: s(fd, 'bg'), surface: s(fd, 'surface'), ink: s(fd, 'ink'), muted: s(fd, 'muted'), accent: s(fd, 'accent'), accent2: s(fd, 'accent2') };
     const fonts = FONT_PRESETS.find((f) => f.key === s(fd, 'fontsKey'))?.fonts ?? FONT_PRESETS[0].fonts;
-    const sections = OCCASION_SECTIONS[occasion as Occasion].filter((k) => fd.get(`section_${k}`) === 'on');
+    /*
+     * The ticks, for a design that has no document. A design drawn in the
+     * studio has no ticks on its form at all — its document says which
+     * sections it declines — so its column is left exactly as the last
+     * publish wrote it rather than being emptied by a form that never
+     * showed the question.
+     */
+    const drawn = templateId ? Boolean(documentOf(await prisma.template.findUnique({ where: { id: templateId }, select: { design: true, layout: true } }) ?? {})) : false;
+    const ticked = OCCASION_SECTIONS[occasion as Occasion].filter((k) => fd.get(`section_${k}`) === 'on');
+    // undefined leaves the column exactly as the last publish wrote it
+    const sections = drawn ? undefined : ticked;
     const data = {
       name: s(fd, 'name'),
       slug: slugify(s(fd, 'slug') || s(fd, 'name')),
@@ -158,14 +173,17 @@ export async function saveTemplateAction(templateId: string | null, back: string
       description: s(fd, 'description'),
       thumbnailUrl: s(fd, 'thumbnailUrl'),
       layout,
-      look: isLook(s(fd, 'look')) ? s(fd, 'look') : '',
+      look: findSet(s(fd, 'look'), await fontBook())?.key ?? '',
+      // Nothing ticked is "every set the package allows", so an empty array
+      // is the default rather than a design that offers nothing at all.
+      fontSets: (await fontBook()).filter((x) => fd.get(`set_${x.key}`) === 'on').map((x) => x.key),
       collection: isCollection(s(fd, 'collection')) ? s(fd, 'collection') : '',
       // A clip with no poster would leave the guest on a blank screen until it
       // buffered, so the pair only takes effect together.
       openingVideoUrl: s(fd, 'openingPosterUrl') ? s(fd, 'openingVideoUrl') : '',
       openingPosterUrl: s(fd, 'openingPosterUrl'),
       opening: isOpening(s(fd, 'opening')) && s(fd, 'opening') !== 'none' ? s(fd, 'opening') : '',
-      palette: (palettePreset && !s(fd, 'bg') ? palettePreset.palette : palette) as never,
+      palette: (!s(fd, 'bg') ? (family ?? palettePreset?.palette ?? palette) : palette) as never,
       fonts: fonts as never,
       sections,
       featured: b(fd, 'featured'),
@@ -195,7 +213,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
       // an invitation — the story and the details, then the forms and the
       // countdown — rather than like the list of questions it came from
       ? (s(fd, 'startFrom') === 'layout' ? builtinDesign(layout) : null)
-        ?? starterDesign(sectionOrder(occasion as Occasion, layout).filter((k) => sections.includes(k)))
+        ?? starterDesign(sectionOrder(occasion as Occasion, layout).filter((k) => ticked.includes(k)))
       : null;
     const saved = templateId
       ? await prisma.template.update({ where: { id: templateId }, data })
@@ -468,7 +486,7 @@ export async function themeAction(templateId: string, colours: Record<string, st
   const labels: Record<string, string> = { bg: 'The paper', surface: 'The card', ink: 'The ink', muted: 'The muted ink', accent: 'The accent', accent2: 'The second accent' };
   const bad = roles.find((r) => !/^#[0-9a-f]{6}$/i.test(colours[r] ?? ''));
   if (bad) return { ok: false, error: `${labels[bad]} is not a colour. Each of the six is a six-digit hex, like #f7f5f0.` };
-  const set = fontsKey ? FONT_PRESETS.find((f) => f.key === fontsKey) : undefined;
+  const set = fontsKey ? findSet(fontsKey, await fontBook()) : undefined;
   if (fontsKey && !set) return { ok: false, error: 'That font set is not one of ours.' };
   const t = await prisma.template.findUnique({ where: { id: templateId }, select: { name: true, palette: true, fonts: true } });
   if (!t) return { ok: false, error: 'That design is not there any more.' };
@@ -483,7 +501,7 @@ export async function themeAction(templateId: string, colours: Record<string, st
   });
   await audit(user, {
     module: 'templates', action: 'theme', entityType: 'Template', entityId: templateId,
-    summary: `${t.name}: ${set ? set.label : 'the faces unchanged'}, ${live} live and ${drafts} draft invitations`,
+    summary: `${t.name}: ${set ? set.name : 'the faces unchanged'}, ${live} live and ${drafts} draft invitations`,
     before: { palette: t.palette, fonts: t.fonts } as never,
     after: { palette, fonts: set ? set.fonts : t.fonts } as never,
   });
@@ -506,7 +524,7 @@ export async function listPiecesAction(): Promise<Piece[]> {
     where: { kind: 'DESIGN_PIECE' },
     orderBy: { createdAt: 'desc' },
     take: 300,
-    select: { id: true, url: true, name: true, tags: true, width: true, height: true },
+    select: { id: true, url: true, name: true, tags: true, width: true, height: true, animated: true },
   });
   return rows.map(pieceOf);
 }
@@ -598,7 +616,16 @@ export async function publishDesignAction(templateId: string, back: string) {
     const before = documentOf(t) ?? builtinDesign(t.layout);
     const invitations = await prisma.invitation.findMany({ where: { templateId }, select: { status: true, content: true } });
     const radius = blastRadius(before, draft, invitations);
-    await prisma.template.update({ where: { id: templateId }, data: { design: draft as never } });
+    /*
+     * The column is written from the document, not beside it. Everything
+     * that has been taught to read the document ignores `sections` for a
+     * design that carries one; this keeps the column true for anything that
+     * has not, and makes it a copy of the answer rather than a rival to it.
+     */
+    await prisma.template.update({
+      where: { id: templateId },
+      data: { design: draft as never, sections: offeredSections(draft, t.occasion) },
+    });
     await audit(user, {
       module: 'templates', action: 'publish-design', entityType: 'Template', entityId: templateId,
       summary: `${t.name}: ${radius.live} live and ${radius.drafts} draft invitations`,

@@ -1,6 +1,7 @@
 import { handle, requireApi, HttpError } from '@/lib/guard';
 import { cleanName, cleanTags } from '@/lib/library';
 import { storeFile } from '@/lib/storage';
+import { MOVING_MAX_BYTES } from '@/lib/moving';
 import { prisma } from '@/lib/db';
 
 /**
@@ -34,9 +35,25 @@ export const POST = handle(async (req) => {
   const int = (key: string) => { const n = Number(form.get(key)); return Number.isFinite(n) && n > 0 && n < 100000 ? Math.round(n) : null; };
   const width = int('width');
   const height = int('height');
-  const stored = library
-    ? await storeFile({ file, entityType: 'library', entityId: 'pieces', visibility: 'public', accept: 'images' })
-    : await storeFile({ file, entityType: 'design', entityId: templateId, visibility: 'public', accept: 'images' });
+  /*
+   * A moving picture: a GIF, an animated WebP, an animated PNG, sent whole.
+   *
+   * A different door rather than a flag on this one, because it is a
+   * different promise: nothing resizes or re-encodes it — the browser's
+   * canvas would keep one frame of it — so the types it accepts and the
+   * weight it allows are its own. The browser has already read the chunk
+   * inside the file that says it moves; the server checks the container it
+   * arrives in, which is all a server without a decoder can check.
+   */
+  const moving = String(form.get('moving') ?? '') === '1';
+  const where = library
+    ? { entityType: 'library', entityId: 'pieces' }
+    : { entityType: 'design', entityId: templateId };
+  const stored = await storeFile({
+    file, ...where, visibility: 'public',
+    accept: moving ? 'moving' : 'images',
+    ...(moving ? { maxBytes: MOVING_MAX_BYTES } : {}),
+  });
   const row = await prisma.media.create({
     data: {
       userId: user.id,
@@ -44,13 +61,14 @@ export const POST = handle(async (req) => {
       url: stored.url, storagePath: stored.storagePath, contentType: stored.contentType,
       caption: String(form.get('caption') ?? '').slice(0, 120),
       ...(library ? { name: pieceName(form, file), tags: pieceTags(form) } : {}),
-      width, height, bytes: file.size,
+      width, height, bytes: file.size, animated: moving,
     },
   });
   return {
     ok: true,
     id: row.id,
     url: stored.url,
+    animated: moving,
     width, height,
     ratio: width && height ? Math.round((height / width) * 1e4) / 1e4 : null,
     top: String(form.get('top') ?? '').slice(0, 9),

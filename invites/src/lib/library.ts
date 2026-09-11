@@ -43,6 +43,14 @@ export type Piece = {
   ground?: PieceGround;
   width?: number;
   height?: number;
+  /**
+   * A moving picture: a GIF, an animated WebP, an animated PNG. What it means
+   * downstream is *never re-encode this*, so it travels with the piece: a
+   * piece put on a page carries the flag onto the element, and the element is
+   * what tells the renderer to serve the file as it is rather than through
+   * the transform endpoint, which would keep one frame of it.
+   */
+  animated?: true;
 };
 
 /** Letters and digits only, so "Baby Blue" and "baby-blue" are one word. */
@@ -124,7 +132,7 @@ export function builtinPieces(): Piece[] {
 }
 
 /** A row she uploaded, as a piece. */
-export function pieceOf(m: { id: string; url: string; name: string; tags: string[]; width: number | null; height: number | null }): Piece {
+export function pieceOf(m: { id: string; url: string; name: string; tags: string[]; width: number | null; height: number | null; animated?: boolean }): Piece {
   return {
     id: m.id,
     url: m.url,
@@ -132,6 +140,7 @@ export function pieceOf(m: { id: string; url: string; name: string; tags: string
     tags: m.tags,
     ...(m.width ? { width: m.width } : {}),
     ...(m.height ? { height: m.height } : {}),
+    ...(m.animated ? { animated: true as const } : {}),
   };
 }
 

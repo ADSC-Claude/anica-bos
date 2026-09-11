@@ -5,25 +5,26 @@ import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt,
+  cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
-  type Source, type WordKey,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
+  type Source, type WordKey, type SectionStyle, type NightPalette,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
-import { DrawnPage, bindingOf } from '@/components/invite/drawn';
+import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import { pageNeeds, needCount, HEAVY_GROUND, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
-import { cssVars, fontsFrom, FONT_PRESETS, PALETTE_PRESETS, allFacesUrl, type Fonts, type Palette } from '@/lib/theme';
+import { cssVars, fontsFrom, PALETTE_PRESETS, type Fonts, type Palette } from '@/lib/theme';
 import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
-import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { readClip, sendClip, type SentClip } from './clip';
+import { readAnim, sendAnim, type SentAnim } from './anim';
 import { VIDEO_MAX_LABEL, VIDEO_MAX_MS } from '@/lib/clips';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
@@ -84,6 +85,14 @@ type Props = {
     overridden: boolean;
     live: number;
     drafts: number;
+    /**
+     * Every pairing she has switched on, drawn in its own faces. Handed in
+     * rather than imported, because the list is rows now and the studio is
+     * a client component.
+     */
+    sets: { key: string; name: string; tagline: string; fonts: Fonts }[];
+    /** One stylesheet drawing the whole menu in the faces it offers. */
+    facesUrl: string;
   };
   canPublish: boolean;
   /** the live Share-draft link, or blank when the design is not shared */
@@ -163,10 +172,10 @@ export function Studio(p: Props) {
    * the column underneath is set, and the popover says so.
    */
   const varsFor = useCallback((t: Tried, preview = false) => {
-    const set = !preview && p.theme.look ? undefined : FONT_PRESETS.find((f) => f.key === t.fontsKey);
+    const set = !preview && p.theme.look ? undefined : p.theme.sets.find((f) => f.key === t.fontsKey);
     const made = cssVars(t.colours, set?.fonts ?? fontsFrom(null));
     return set ? made : { ...made, ...Object.fromEntries(FACE_VARS.map((k) => [k, p.vars[k]])) };
-  }, [p.theme.look, p.vars]);
+  }, [p.theme.look, p.theme.sets, p.vars]);
   const vars = useMemo(() => (tried ? varsFor(tried, true) : after ?? p.vars), [tried, after, varsFor, p.vars]);
   /**
    * Who the canvas is drawn against. The checklist above is not switched
@@ -247,6 +256,37 @@ export function Studio(p: Props) {
     // the whole invitation is shown: a hidden box measures zero, the guard
     // above keeps the last good numbers, and this measures again on her return
   }, [doc, page, width, night, shownContent, view, grown]);
+
+  /**
+   * Everything on the canvas is marked arrived.
+   *
+   * On a guest's page an element that enters starts invisible and is marked
+   * when it scrolls into view. On the canvas that would mean drawing a frame
+   * and watching it not appear, so the mark is put on everything a frame
+   * after it is drawn: the arrival plays once as she adds it, the idling
+   * runs, and nothing she places is invisible while she places it. **Play it
+   * again** takes the mark off one element and puts it back, which is the
+   * whole of replaying an arrival.
+   */
+  useEffect(() => {
+    const root = stage.current;
+    if (!root) return;
+    const id = requestAnimationFrame(() => {
+      for (const el of root.querySelectorAll('[data-enter], [data-idle]')) el.setAttribute('data-in', '');
+    });
+    return () => cancelAnimationFrame(id);
+  }, [elements, pageKey, view]);
+
+  /** Take the arrival off and put it back, which is how an arrival is replayed. */
+  const replay = useCallback((id: string) => {
+    const node = stage.current?.querySelector<HTMLElement>(`[data-el="${CSS.escape(id)}"]`);
+    if (!node) return;
+    node.removeAttribute('data-in');
+    // read a layout value between the two, or the browser coalesces them and
+    // nothing happens at all
+    void node.offsetWidth;
+    requestAnimationFrame(() => node.setAttribute('data-in', ''));
+  }, []);
 
   // --- changing the document ------------------------------------------------
 
@@ -476,7 +516,7 @@ export function Studio(p: Props) {
    * never blank a page that used it — which is the one thing a library of
    * shared pieces has to promise.
    */
-  async function placePiece(url: string, aspect?: number) {
+  async function placePiece(url: string, aspect?: number, animated?: true) {
     if (!page) return;
     // Its own shape, or the browser's reading of it: a strand of flowers
     // dropped into a square frame is a strand of flowers with most of it
@@ -487,8 +527,14 @@ export function Studio(p: Props) {
     }
     const id = freeId(doc, 'piece');
     const made: PhotoEl = {
-      id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre',
+      // on a page laid out by its words a piece hangs off the head: there is
+      // no canvas to place it on, and flush with the head is where she can
+      // see it (addElement says the same thing about a blank frame)
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 40, anchor: 'centre',
       aspect: place(shape), frame: 'none', bind: { asset: url },
+      // a moving picture is served as it is: the flag is what keeps it out of
+      // the transform endpoint, which would send back one frame of it
+      ...(animated ? { animated: true as const } : {}),
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
@@ -598,12 +644,61 @@ export function Studio(p: Props) {
   function addElement(kind: 'text' | 'photo' | 'shape') {
     if (!page) return;
     const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : 'words');
+    /*
+     * Where a new piece lands. On a drawn page, four tenths down it, which is
+     * in view and clear of both edges. On a page laid out by its words there
+     * is no such place — the piece hangs off the head or the foot — so it
+     * lands flush with the head, where she can see it and push it down by as
+     * much as she likes.
+     */
+    const y = page.drawn ? 40 : 0;
     const made: Element = kind === 'photo'
-      ? { id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
+      ? { id, kind: 'photo', x: 50, y, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
       : kind === 'shape'
         // behind the words, not over them: a card is what a shape is usually for
-        ? { id, kind: 'shape', shape: 'rect', x: 50, y: 40, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
-        : { id, kind: 'text', block: 'free', x: 50, y: 40, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+        ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
+        : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A moving picture that has just been uploaded, put on the page at the
+   * shape it really is.
+   *
+   * It is a frame like any other and is placed like any other — the only
+   * thing that is different about it is the flag, which is what keeps it out
+   * of the transform endpoint. Narrower than a photograph by default because
+   * a moving picture is a decoration nine times out of ten: petals, a bow, a
+   * flourish, not a portrait.
+   */
+  function addMoving(up: Uploaded & { animated: true }) {
+    if (!page) return;
+    const id = freeId(doc, 'moving');
+    const made: Element = {
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 32, anchor: 'centre',
+      aspect: place(up.ratio), frame: 'none', bind: { asset: up.url }, animated: true,
+    };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A vector animation that has just been uploaded.
+   *
+   * Its shape is not a guess either: an animation carries its own canvas
+   * size, so the box is the shape the designer drew it at and nothing is
+   * squashed. A third of the page's width by default, because an animation
+   * is nearly always an ornament beside something rather than the thing
+   * itself.
+   */
+  function addAnim(up: SentAnim) {
+    if (!page) return;
+    const id = freeId(doc, 'anim');
+    const made: Element = {
+      id, kind: 'anim', x: 50, y: page.drawn ? 40 : 0, w: 34, anchor: 'centre',
+      url: up.url, poster: up.poster, aspect: place(up.aspect), loop: true,
+    };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -620,7 +715,7 @@ export function Studio(p: Props) {
   function addClip(up: SentClip) {
     if (!page) return;
     const id = freeId(doc, 'clip');
-    const made: Element = { id, kind: 'video', x: 50, y: 40, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
+    const made: Element = { id, kind: 'video', x: 50, y: page.drawn ? 40 : 0, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -641,6 +736,118 @@ export function Studio(p: Props) {
     editPage((pg) => fillPageWithClip(pg, id, g));
     setSel([id]);
   }
+
+  /**
+   * A section this design does not do at all.
+   *
+   * Different from taking a section off a page. A page not carrying a
+   * section means the renderer gives that section a plain page of its own,
+   * in its place — which is how Baby Blue's ten drawn pages sit in front of
+   * a plain Contact and a plain Music. So "not drawn here" and "not offered
+   * by this design" are two questions, and only this one answers the second.
+   *
+   * It goes in the draft and publishes with it, because hiding a section
+   * changes every invitation on the design and belongs behind the publish
+   * screen's blast-radius report rather than in a form that saves at once.
+   */
+  function toggleHide(key: PageSectionKey) {
+    const hides = new Set(doc.hides ?? []);
+    if (hides.has(key)) hides.delete(key);
+    else hides.add(key);
+    const next: DesignDoc = { ...doc, hides: hides.size ? [...hides] : undefined };
+    if (!next.hides) delete next.hides;
+    change(next);
+  }
+
+  /**
+   * The design's own colours: the column, the colour beside it on a laptop,
+   * and the colours it gives the night.
+   *
+   * All three are the document's, so they are in the draft and publish with
+   * it — unlike the palette and the faces in the Theme popover, which are
+   * columns on the row and reach every invitation the moment they save. A
+   * colour taken off is taken out of the document rather than written blank,
+   * so the stylesheet's own answer comes back.
+   */
+  function setColumnColour(key: 'paper' | 'surround', colour: string | undefined) {
+    const next: DesignDoc = { ...doc, [key]: colour };
+    if (!colour) delete next[key];
+    change(next);
+  }
+
+  function setNightColour(role: keyof NightPalette, colour: string | undefined) {
+    const night = { ...(doc.nightColours ?? {}) };
+    if (colour) night[role] = colour;
+    else delete night[role];
+    const next: DesignDoc = { ...doc, nightColours: Object.keys(night).length ? night : undefined };
+    if (!next.nightColours) delete next.nightColours;
+    change(next);
+  }
+
+  /**
+   * The piece under the prenup photograph. The last thing a copy of Capiz
+   * still had to take from the `art` column, so it is the document's now.
+   */
+  function setStrand(url: string | undefined) {
+    const next: DesignDoc = { ...doc, strand: url };
+    if (!url) delete next.strand;
+    change(next);
+  }
+
+  /**
+   * A picture the words flow around, on a page laid out by its words.
+   *
+   * A flow page has no canvas — its height is its words, so there is nothing
+   * to drag on — which is why this is a button and a list rather than a
+   * frame she places. It goes on the left by default, because that is where
+   * a reader's eye already is.
+   */
+  function addFloat() {
+    if (!page) return;
+    const id = freeId(doc, 'photo');
+    // y is required of every element and means nothing on a flow page, where
+    // the words decide where a float lands; 0 is the honest value for it
+    const made: Element = { id, kind: 'photo', y: 0, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A decoration on a page laid out by its words: a piece along its head, a
+   * flourish at its foot. Not a float — the words do not flow past it, it
+   * hangs over them or behind them — and not a placed element either, since
+   * the page has no height to place it in. `flowDecor` is the rule.
+   */
+  function addDecor() {
+    if (!page) return;
+    const id = freeId(doc, 'photo');
+    const made: Element = { id, kind: 'photo', x: 50, y: 0, w: 100, anchor: 'centre', aspect: 0.3, frame: 'none', bind: { asset: '' } };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * How the page she is on dresses the sections it carries.
+   *
+   * A page that says nothing about it keeps the dress every design has
+   * always had, so the whole setting is absent until she touches it and an
+   * empty one is taken off again rather than saved as `{}`.
+   */
+  function setDress(change: (d: SectionStyle) => SectionStyle) {
+    editPage((pg) => {
+      const next = change(pg.sectionStyle ?? {});
+      const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined && v !== '')) as SectionStyle;
+      const out = { ...pg, sectionStyle: Object.keys(clean).length ? clean : undefined };
+      if (!out.sectionStyle) delete out.sectionStyle;
+      return out;
+    });
+  }
+
+  /** What the page she is on carries, on a page laid out by its words. */
+  const pieces = useMemo(
+    () => (page && !page.drawn ? { floats: flowFloats(page), decor: flowDecor(page) } : { floats: [], decor: [] }),
+    [page],
+  );
 
   // --- what a page carries --------------------------------------------------
 
@@ -1053,7 +1260,7 @@ export function Studio(p: Props) {
         * connection or a request that fails. The faces arrive when they
         * arrive, and until they do the menu is in the fallback.
         */}
-      {faces && <link rel="stylesheet" href={allFacesUrl()} />}
+      {faces && <link rel="stylesheet" href={p.theme.facesUrl} />}
       <TopBar {...p} state={state} error={error} rev={rev} doc={doc} onSave={() => void save(doc)} />
 
       {/* the pages */}
@@ -1081,9 +1288,11 @@ export function Studio(p: Props) {
         ) : drawer === 'library' ? (
           <LibraryDrawer
             selected={selected}
-            onPlace={(url, aspect) => void placePiece(url, aspect)}
+            onPlace={(url, aspect, animated) => void placePiece(url, aspect, animated)}
             onGround={(url) => void groundFromPiece(url)}
             onIfEmpty={(url) => { if (selected?.kind === 'photo') editEls([selected.id], (e) => ({ ...e, ifEmpty: { piece: url } })); }}
+            onRule={page && !page.drawn ? (url) => setDress((d) => ({ ...d, rule: url })) : undefined}
+            onStrand={(url) => setStrand(url)}
           />
         ) : (
         <>
@@ -1144,6 +1353,8 @@ export function Studio(p: Props) {
         </label>
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
         {said && <p className="hint mt-1">{said}</p>}
+        <HidesPanel occasion={p.occasion} hides={doc.hides ?? []} onToggle={toggleHide} />
+        <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} />
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -1222,9 +1433,12 @@ export function Studio(p: Props) {
           <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
           {view === 'page' ? (
             <>
-              <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
+              {/* a flow page's words are its sections': see flowDecor */}
+              {page?.drawn && <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>}
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
+              <AddMoving templateId={p.templateId} onAdd={addMoving} />
+              <AddAnim templateId={p.templateId} onAdd={addAnim} />
               <AddClip templateId={p.templateId} onAdd={addClip} />
             </>
           ) : (
@@ -1347,7 +1561,14 @@ export function Studio(p: Props) {
 
         <div className={`justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4 ${view === 'page' ? 'flex' : 'hidden'}`}>
           <div className="relative shadow-lg" style={{ width }}>
-            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
+            {/*
+              * `data-motion` here and not from the island: the canvas is not
+              * a guest's page and she is drawing, so what she needs is to see
+              * the idling and to be able to replay an arrival on demand. Every
+              * element is marked arrived a frame after it is drawn (below), so
+              * nothing she places is invisible while she places it.
+              */}
+            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-motion="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
               <div
                 ref={stage}
                 className="inv-page relative"
@@ -1360,7 +1581,21 @@ export function Studio(p: Props) {
                 onPointerCancel={endDrag}
                 onPointerDown={() => { if (!fit) setSel([]); }}
               >
-                {page && <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />}
+                {/*
+                  * A drawn page is its elements. A page laid out by its words
+                  * is its decorations and nothing else here: its words are its
+                  * customer's and their height is not known until the browser
+                  * has laid them out, which is what the whole-invitation tab
+                  * is for. The band is the page's width, and every decoration
+                  * on it hangs off an edge by a share of that width — so what
+                  * she sees here is exactly where it will be, on a page whose
+                  * height is the only part this canvas has to guess.
+                  */}
+                {page && (page.drawn
+                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />
+                  : (['under', 'over'] as const).map((layer) => (
+                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" layer={layer} edit={{ label, cropping: fit?.id }} />
+                  )))}
                 {/*
                   * The handles, over the real page. The layer itself lets the
                   * pointer through, so a click on bare ground still deselects;
@@ -1414,7 +1649,7 @@ export function Studio(p: Props) {
         </div>
         {view === 'whole'
           ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
-          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background and which sections it carries are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
+          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
       </section>
 
       {/* what is selected */}
@@ -1443,8 +1678,10 @@ export function Studio(p: Props) {
             onLayer={layer}
             onDuplicate={duplicate}
             onRemove={remove}
+            onReplay={() => replay(selected.id)}
             label={label(selected)}
             templateId={p.templateId}
+            flow={!page?.drawn}
             onFillPage={() => fillPage(selected.id)}
             measureRoom={() => measureRoom(selected.id)}
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
@@ -1461,6 +1698,8 @@ export function Studio(p: Props) {
             templateId={p.templateId}
             vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
+            pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
+            dress={{ value: page?.sectionStyle, set: setDress }}
           />
         )}
       </aside>
@@ -1619,7 +1858,7 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
         ? <p className="hint">This design is set in the {theme.look} look, so a guest is served the look&rsquo;s faces and the set below is only what it would fall back to — the canvas shows the set while you are trying it, and goes back to the look&rsquo;s faces once it is saved. The look is on <Link href={`/admin/templates/${templateId}`} className="underline">the design&rsquo;s own page</Link>.</p>
         : !value.fontsKey && <p className="hint">These faces are not one of the sets below. Picking one replaces them; leaving it alone keeps them.</p>}
       <div className="mt-1 max-h-56 space-y-0.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-1">
-        {FONT_PRESETS.map((f) => (
+        {theme.sets.map((f) => (
           <button
             key={f.key}
             type="button"
@@ -1630,7 +1869,7 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
             {f.fonts.script && f.fonts.script !== (f.fonts.names || f.fonts.display) && (
               <span className="block text-sm leading-tight" style={{ fontFamily: f.fonts.script, fontStyle: f.fonts.scriptStyle ?? 'normal' }}>together with our families</span>
             )}
-            <span className="block text-[11px] leading-snug" style={{ fontFamily: f.fonts.body }}>{f.label}</span>
+            <span className="block text-[11px] leading-snug" style={{ fontFamily: f.fonts.body }}>{f.name}</span>
           </button>
         ))}
       </div>
@@ -1658,6 +1897,101 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
  * a book — "Dusty Rose" is a colour a person can talk about on the phone,
  * and #dba8a8 is not.
  */
+/**
+ * The colours this design gives the column and the night.
+ *
+ * Night used to be one set of colours for every design, in the stylesheet:
+ * an ivory ink, a pale gold accent, cards on dark glass, the same for a
+ * christening in baby blue as for a wedding in capiz and shell. Each row
+ * here is an override and nothing more — left alone it says *the app's own*
+ * and the stylesheet answers as it always has, so a design is only as
+ * different by night as she has asked it to be.
+ *
+ * The column and the colour beside it are the same kind of thing by day, and
+ * were the same kind of literal: two per layout, in the stylesheet, which is
+ * why a design drawn here wore its layout's and could not say otherwise.
+ */
+function ColoursPanel({ doc, onColumn, onNight }: {
+  doc: DesignDoc;
+  onColumn: (key: 'paper' | 'surround', colour: string | undefined) => void;
+  onNight: (role: keyof NightPalette, colour: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const night = doc.nightColours ?? {};
+  const set = (doc.paper ? 1 : 0) + (doc.surround ? 1 : 0) + Object.keys(night).length;
+  return (
+    <div className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
+      <button type="button" onClick={() => setOpen((x) => !x)} className="flex w-full items-center justify-between text-left">
+        <span className="label mb-0">Its own colours</span>
+        <span className="text-[11px] text-[color:var(--color-ink-500)]">{set ? `${set} of its own` : 'all ours'} {open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="mt-1 space-y-2">
+          <div className="space-y-1">
+            <p className="hint">The column itself, and what is beside it on a laptop.</p>
+            <OwnColour label="The column" colour={doc.paper} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('paper', c)} />
+            <OwnColour label="Beside it" colour={doc.surround} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('surround', c)} />
+          </div>
+          <div className="space-y-1">
+            <p className="hint">By night. Anything you leave alone stays ours.</p>
+            {NIGHT_ROWS.map((r) => (
+              <OwnColour
+                key={r.key}
+                label={r.label}
+                colour={night[r.key]}
+                fallback={NIGHT_SWATCH[r.key]}
+                onPick={(c) => onNight(r.key, c)}
+              />
+            ))}
+          </div>
+          <p className="hint">
+            These are the design&rsquo;s own, so they are in the draft and go live when you publish it &mdash; unlike the palette and the faces under <strong>Theme</strong>, which are the design&rsquo;s row and reach every invitation the moment they save.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The night rows, in the order a page is read: the words, then what is behind them. */
+const NIGHT_ROWS: { key: keyof NightPalette; label: string }[] = [
+  { key: 'ink', label: 'The words' },
+  { key: 'muted', label: 'Quiet words' },
+  { key: 'surface', label: 'Cards and fields' },
+  { key: 'accent', label: 'Accent' },
+  { key: 'accent2', label: 'Second accent' },
+  { key: 'paper', label: 'The column' },
+  { key: 'surround', label: 'Beside it' },
+];
+
+/**
+ * What a swatch shows for a colour the design has not given.
+ *
+ * The app's own night surface is dark glass — `rgba(38, 36, 50, 0.72)` — and
+ * a colour input cannot hold a colour with a hole in it, so the swatch shows
+ * the same colour solid. Picking it writes a solid colour, which is the
+ * honest thing: the studio cannot offer a transparency it cannot show.
+ */
+const NIGHT_SWATCH: Record<keyof NightPalette, string> = { ...APP_NIGHT, surface: '#262432' };
+/** and for the column by day, whose own answer is the palette's background */
+const PALETTE_FALLBACK = '#ffffff';
+
+/** One colour the design may give, or leave to us. */
+function OwnColour({ label, colour, fallback, onPick }: {
+  label: string; colour?: string; fallback: string; onPick: (c: string | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <div className="min-w-0 flex-1">
+        <RoleRow label={label} colour={colour && /^#[0-9a-f]{6}$/i.test(colour) ? colour : fallback} onPick={(c) => onPick(c)} />
+      </div>
+      {colour
+        ? <button type="button" title="Leave it to us" onClick={() => onPick(undefined)} className="rounded bg-white px-1.5 text-xs text-red-700">✕</button>
+        : <span className="w-14 shrink-0 text-[10px] leading-tight text-[color:var(--color-ink-500)]">ours</span>}
+    </div>
+  );
+}
+
 function RoleRow({ label, colour, onPick }: { label: string; colour: string; onPick: (c: string) => void }) {
   const [text, setText] = useState(colour);
   useEffect(() => setText(colour), [colour]);
@@ -1751,12 +2085,16 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
+  /** the page is laid out by its words, so a picture on it floats rather than being placed */
+  flow: boolean;
   onFillPage: () => Promise<void>;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
+  /** take the arrival off this element and put it back, so she can watch it again */
+  onReplay: () => void;
   measureRoom: () => number | undefined;
   attachable: Named[];
   grows: boolean;
@@ -1767,6 +2105,9 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   const num = (v: number | undefined, set: (n: number) => void, step = 0.1) => (
     <input type="number" value={v ?? ''} step={step} onChange={(e) => set(place(Number(e.target.value)))} className="input w-full" />
   );
+  /** On a page laid out by its words: the words flow past this one, or they do not. */
+  const floated = flow && el.kind === 'photo' && Boolean(el.float);
+  const deco = flow && !floated;
   return (
     <>
       <div className="flex items-center justify-between">
@@ -1774,28 +2115,51 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <p className="text-[11px] text-[color:var(--color-ink-500)]">{el.id}</p>
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
+      {/*
+        * Which numbers mean anything here.
+        *
+        * A float has no place of its own: it goes where the words make room
+        * for it, so only its width and its turn are offered. A decoration on
+        * the same page does have one — it hangs off the head or the foot —
+        * but its gap from that edge is a share of the page's *width*, not of
+        * a height its customer's words decide, so the number is labelled for
+        * the edge it is measured from. A drawn page is as it always was.
+        */}
       <div className="grid grid-cols-2 gap-2">
-        <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>
-        <label className="block"><span className="label">Down</span>{num(el.y, (n) => onMoveTo({ y: n }))}</label>
+        {!floated && <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>}
+        {!floated && (
+          <label className="block">
+            <span className="label">{deco ? (el.from === 'bottom' ? 'Up from the foot' : 'Down from the head') : 'Down'}</span>
+            {num(el.y, (n) => onMoveTo({ y: n }))}
+          </label>
+        )}
         <label className="block"><span className="label">Width</span>{num(el.w, (n) => onChange((e) => ({ ...e, w: n })))}</label>
         <label className="block"><span className="label">Turn</span>{num(el.rotate, (n) => onChange((e) => ({ ...e, rotate: n })), 0.5)}</label>
       </div>
-      <p className="hint">Across and width are a share of the page&rsquo;s width; down is a share of its height. This page is {ratio.toFixed(2)} screens tall.</p>
-      {grows && (
+      <p className="hint">
+        {floated
+          ? `Width is a share of the page's width. This page is laid out by its words, so there is nowhere to put it: it goes where the words make room for it.`
+          : deco
+            ? `Across, width and the gap from the edge are all a share of the page's width — this page's height is its words', so a share of it would move as a customer typed.`
+            : `Across and width are a share of the page's width; down is a share of its height. This page is ${ratio.toFixed(2)} screens tall.`}
+      </p>
+      {(grows || deco) && (
         <label className="block">
           <span className="label">Measured from</span>
           <select className="input w-full" value={el.from ?? 'top'} onChange={(e) => onChange((x) => ({ ...x, from: e.target.value === 'bottom' ? 'bottom' : undefined }))}>
             <option value="top">The head of the page</option>
-            <option value="bottom">The foot &mdash; it holds the bottom however far the words push it</option>
+            <option value="bottom">{deco ? 'The foot — it stays at the bottom however long the words run' : 'The foot — it holds the bottom however far the words push it'}</option>
           </select>
         </label>
       )}
       <Attach value={el.attachTo} options={attachable} onChange={(to) => onChange((e) => ({ ...e, attachTo: to }))} />
+      <MotionBlock el={el} onChange={onChange} onReplay={onReplay} num={num} />
       {el.kind === 'photo' && (
-        <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} />
+        <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} flow={flow} />
       )}
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
+      {el.kind === 'anim' && <AnimBlock el={el as AnimEl} onChange={onChange} num={num} />}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
@@ -1982,6 +2346,49 @@ const MASKS: { key: NonNullable<PhotoEl['mask']>; label: string }[] = [
 ];
 
 /**
+ * The sections this design does not do.
+ *
+ * This is the row of ticks that used to live on the design's own page in the
+ * admin, moved here and turned the other way up. Two reasons it had to move.
+ * It is a fact about the design, and the design is what this screen edits;
+ * and hiding a section changes every invitation already built on the design,
+ * so it belongs in the draft, behind the publish screen that says how many
+ * invitations a change would redraw — not in a form that saves the moment
+ * she clicks away.
+ *
+ * Turned the other way up because a refusal is what is actually being said.
+ * A design offers what its occasion has; the list is what it declines. So
+ * nothing to tick is the ordinary case, and a design with three ticks is
+ * saying three specific things rather than eighteen implied ones.
+ *
+ * Folded away, because most designs have nothing here at all.
+ */
+function HidesPanel({ occasion, hides, onToggle }: { occasion: Occasion; hides: string[]; onToggle: (key: PageSectionKey) => void }) {
+  const hidden = new Set(hides);
+  const keys = sectionsFor(occasion).map((d) => d.key as PageSectionKey);
+  return (
+    <details className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
+      <summary className="cursor-pointer text-[11px] text-[color:var(--color-ink-500)]">
+        Sections this design does not do{hidden.size ? ` · ${hidden.size}` : ''}
+      </summary>
+      <p className="hint mt-1">
+        A section left unticked here is offered, drawn by whichever page carries it or on a plain page of its own.
+        Tick one and this design stops offering it altogether &mdash; on every invitation built on it, from the next publish.
+        What a customer already wrote in it is kept.
+      </p>
+      <div className="mt-1 space-y-0.5">
+        {keys.map((k) => (
+          <label key={k} className="flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={hidden.has(k)} onChange={() => onToggle(k)} className="h-3.5 w-3.5" />
+            <span className={hidden.has(k) ? 'text-[color:var(--color-ink-500)] line-through' : ''}>{sectionLabel(k as SectionKey, occasion)}</span>
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+/**
  * Put a clip on the page.
  *
  * The whole of the reading happens here before anything is uploaded, because
@@ -1994,6 +2401,92 @@ const MASKS: { key: NonNullable<PhotoEl['mask']>; label: string }[] = [
  * seeking four times and sending two files is several seconds of silence
  * otherwise, and silence in a studio reads as a broken button.
  */
+/**
+ * A vector animation onto the page: a Lottie JSON.
+ *
+ * The refusals are the reason this is its own door and not a flag on the
+ * picture one. A Lottie has no magic bytes, so "is this an animation?" can
+ * only be answered by reading it — and the export button most people press
+ * first gives a `.lottie` bundle, which is a zip, which the app's own
+ * sniffing reads as an Excel file. Told that her animation is not a
+ * spreadsheet, she would have no idea what to do; told to press the other
+ * export button, she has.
+ */
+function AddAnim({ templateId, onAdd }: { templateId: string; onAdd: (up: SentAnim) => void }) {
+  const [step, setStep] = useState('');
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const busy = step !== '';
+  async function take(file: File) {
+    setError('');
+    try {
+      setStep('Reading it…');
+      const read = await readAnim(file);
+      setStep('Uploading…');
+      onAdd(await sendAnim(read, templateId));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStep('');
+      if (input.current) input.current.value = '';
+    }
+  }
+  return (
+    <>
+      <label className={`rounded bg-[color:var(--color-sand-200)] px-2 py-1 ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+        {busy ? step : '+ Animation'}
+        <input ref={input} type="file" accept="application/json,.json,.lottie" className="sr-only" disabled={busy}
+          onChange={(e) => e.target.files?.[0] && take(e.target.files[0])} />
+      </label>
+      {error && (
+        <span className="basis-full text-[11px] text-[color:var(--bad)]">
+          {error}{' '}
+          <button type="button" className="underline" onClick={() => setError('')}>Dismiss</button>
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * An animation as an object: how fast it plays, whether it repeats, and the
+ * still that stands in for it.
+ *
+ * The still is not a detail. It is what a guest sees for the second or two
+ * before a third of a megabyte of player arrives, and it is what a guest who
+ * asked for less motion, or is sparing their data, sees instead of the
+ * animation for ever.
+ */
+function AnimBlock({ el, onChange, num }: {
+  el: AnimEl;
+  onChange: (fn: (e: Element) => Element) => void;
+  num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+}) {
+  const edit = (fn: (x: AnimEl) => AnimEl) => onChange((x) => fn(x as AnimEl));
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <div className="flex items-start gap-2">
+        <span
+          className="h-16 w-16 shrink-0 rounded border border-black/10 bg-contain bg-center bg-no-repeat"
+          style={el.poster ? { backgroundImage: `url(${el.poster})` } : { background: 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="label">Its first frame</p>
+          <p className="hint">Taken off the file when it arrived. It is the page until the player has loaded, and it is the page for good for a guest who asked their phone for less motion or is sparing their data.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block"><span className="label">Speed</span>{num(el.speed ?? 1, (n) => edit((x) => ({ ...x, speed: n })), 0.1)}</label>
+        <label className="flex items-center gap-2 pt-5 text-xs">
+          <input type="checkbox" checked={el.loop !== false} onChange={(e) => edit((x) => ({ ...x, loop: e.target.checked }))} />
+          It repeats
+        </label>
+      </div>
+      <p className="hint">A loop that never stops pulls the eye for as long as the page is open; one that plays through once and stops is usually the kinder choice for anything near words.</p>
+    </div>
+  );
+}
+
 function AddClip({ templateId, onAdd }: { templateId: string; onAdd: (up: SentClip) => void }) {
   const [step, setStep] = useState('');
   const [pct, setPct] = useState(0);
@@ -2030,6 +2523,54 @@ function AddClip({ templateId, onAdd }: { templateId: string; onAdd: (up: SentCl
         <span className={`basis-full text-[11px] ${error ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
           {error || note}{' '}
           <button type="button" className="underline" onClick={() => { setError(''); setNote(''); }}>Dismiss</button>
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * A moving picture onto the page: a GIF, an animated WebP, an animated PNG.
+ *
+ * Its own door rather than the photograph one, because the promise is
+ * different: nothing resizes it and nothing re-encodes it, so what she
+ * chooses is what every guest downloads, whole. That is why the cap is a
+ * megabyte and a half and why the refusal says so in the same breath.
+ *
+ * A still picture dropped here is refused with the reason and the other
+ * door named, rather than being quietly accepted and served at whatever size
+ * it happened to be.
+ */
+function AddMoving({ templateId, onAdd }: { templateId: string; onAdd: (up: Uploaded & { animated: true }) => void }) {
+  const [step, setStep] = useState('');
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const busy = step !== '';
+  async function take(file: File) {
+    setError('');
+    try {
+      setStep('Reading it…');
+      const read = await readMoving(file);
+      setStep('Sending it as it is…');
+      onAdd(await sendMoving(read, templateId));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStep('');
+      if (input.current) input.current.value = '';
+    }
+  }
+  return (
+    <>
+      <label className={`rounded bg-[color:var(--color-sand-200)] px-2 py-1 ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+        {busy ? step : '+ Moving picture'}
+        <input ref={input} type="file" accept="image/gif,image/webp,image/png" className="sr-only" disabled={busy}
+          onChange={(e) => e.target.files?.[0] && take(e.target.files[0])} />
+      </label>
+      {error && (
+        <span className="basis-full text-[11px] text-[color:var(--bad)]">
+          {error}{' '}
+          <button type="button" className="underline" onClick={() => setError('')}>Dismiss</button>
         </span>
       )}
     </>
@@ -2110,16 +2651,126 @@ function ClipBlock({ el, onChange, templateId, onFillPage }: { el: VideoEl; onCh
  * for somebody who has not learnt the double-click, and it says what the
  * gesture is either way.
  */
-function PictureBlock({ el, onChange, onFit, fitting, num }: {
+/**
+ * How this element arrives, and what it does while it is read.
+ *
+ * Two settings and a delay, and the delay is the one that matters most:
+ * three petals that all start together are one petal drawn three times.
+ *
+ * Everything here is a request rather than a promise, and the note says so.
+ * A guest who has asked their phone for less motion, or who is sparing their
+ * data, sees none of it — the element is simply where it was drawn, fully
+ * visible. That is not a degradation to apologise for: a design that only
+ * reads when it moves is a design that does not read.
+ */
+function MotionBlock({ el, onChange, onReplay, num }: {
+  el: Element;
+  onChange: (fn: (e: Element) => Element) => void;
+  onReplay: () => void;
+  num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+}) {
+  type Motion = NonNullable<Element['motion']>;
+  const m: Motion = el.motion ?? {};
+  const set = (patch: Partial<Motion>) => onChange((x) => {
+    const next: Motion = { ...(x.motion ?? {}), ...patch };
+    // a motion that says nothing is taken off rather than saved as `{}`
+    const clean = Object.fromEntries(
+      Object.entries(next).filter(([, v]) => v !== undefined && v !== 'none' && v !== 0),
+    ) as Motion;
+    const out = { ...x, motion: Object.keys(clean).length ? clean : undefined };
+    if (!out.motion) delete out.motion;
+    return out;
+  });
+  const moves = Boolean((m.enter && m.enter !== 'none') || (m.idle && m.idle !== 'none'));
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <p className="label">Motion</p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="label">It arrives</span>
+          <select className="input w-full" value={m.enter ?? 'none'} onChange={(e) => set({ enter: e.target.value as Motion['enter'] })}>
+            <option value="none">already there</option>
+            <option value="fade">fading in</option>
+            <option value="rise">rising into place</option>
+            <option value="drift">drifting in from the side</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="label">And then</span>
+          <select className="input w-full" value={m.idle ?? 'none'} onChange={(e) => set({ idle: e.target.value as Motion['idle'] })}>
+            <option value="none">it is still</option>
+            <option value="float">it floats</option>
+            <option value="sway">it sways</option>
+          </select>
+        </label>
+      </div>
+      {moves && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="label">After (ms)</span>
+            {num(m.delay, (n) => set({ delay: n }), 50)}
+          </label>
+          <button type="button" onClick={onReplay} className="btn btn-ghost btn-sm mt-5">Play it again</button>
+        </div>
+      )}
+      <p className="hint">
+        {moves
+          ? 'It arrives the first time a guest scrolls to it, and only once. A guest who has asked their phone for less motion, or who is sparing their data, sees none of this — the element is simply where you drew it, which is how the page has to read anyway.'
+          : 'Nothing moves unless you say so.'}
+      </p>
+    </div>
+  );
+}
+
+function PictureBlock({ el, onChange, onFit, fitting, num, flow }: {
   el: PhotoEl;
   onChange: (fn: (e: Element) => Element) => void;
   onFit: () => void;
   fitting: boolean;
   num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+  flow: boolean;
 }) {
   const edit = (fn: (x: PhotoEl) => PhotoEl) => onChange((x) => fn(x as PhotoEl));
   return (
     <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      {/*
+        * Only offered on a page laid out by its words, because the four
+        * answers are only about words. A drawn page places every picture by
+        * hand and none of this would mean anything there.
+        *
+        * There is no fifth answer: a picture on a page is on it. The two
+        * sides are floats, the head and the foot are decorations, and taking
+        * it off the page is the ✕ beside it in the list — not an option here
+        * that leaves it in the document drawn nowhere.
+        */}
+      {flow && (
+        <label className="block">
+          <span className="label">Where it sits</span>
+          <select
+            className="input w-full"
+            value={el.float ?? (el.from === 'bottom' ? 'foot' : 'head')}
+            onChange={(e) => edit((x) => {
+              const v = e.target.value;
+              const next = { ...x };
+              if (v === 'left' || v === 'right') { next.float = v; delete next.from; return next; }
+              delete next.float;
+              if (v === 'foot') next.from = 'bottom';
+              else delete next.from;
+              return next;
+            })}
+          >
+            <option value="left">in among the words, on the left &mdash; they flow past its right</option>
+            <option value="right">in among the words, on the right &mdash; they flow past its left</option>
+            <option value="head">along the head of the page, the words unmoved</option>
+            <option value="foot">along the foot of the page, the words unmoved</option>
+          </select>
+          <span className="hint">
+            {el.float
+              ? 'On a phone there is no room for words beside a picture, so it is centred with the words above and below — the same picture, in a narrower place.'
+              : 'The words do not move for it, so it sits behind them unless its layer is above zero. Room for it at the foot is the page’s own foot setting.'}
+          </span>
+        </label>
+      )}
       <label className="block"><span className="label">Shape (height over width)</span>{num(el.aspect, (n) => edit((x) => ({ ...x, aspect: n })), 0.05)}</label>
       <label className="block">
         <span className="label">Frame</span>
@@ -3009,13 +3660,20 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
+function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces, dress }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
   templateId: string;
   vars: Record<string, string>;
   sections: SectionTools;
+  /** what a page laid out by its words carries: the floats, and the decorations */
+  pieces: {
+    floats: PhotoEl[]; decor: Element[];
+    addFloat: () => void; addDecor: () => void; pick: (id: string) => void; drop: (id: string) => void;
+  };
+  /** how that page dresses the sections it carries */
+  dress: { value?: SectionStyle; set: (change: (d: SectionStyle) => SectionStyle) => void };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -3059,6 +3717,49 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
         <input className="input w-full" value={page.label?.en ?? ''} placeholder={page.key} onChange={(e) => onChange((p) => ({ ...p, label: { ...(p.label ?? { en: '' }), en: e.target.value } }))} />
       </label>
       <p className="text-xs text-[color:var(--color-ink-500)]">Key: {page.key}</p>
+      <div className="grid grid-cols-2 gap-2">
+        {/*
+          * How far the page above dissolves into this one. It is the thing
+          * that makes ten separate backgrounds read as one sheet of paper,
+          * and it was in the document from the start with no way to set it.
+          */}
+        <label className="block">
+          <span className="label">Join above</span>
+          <input
+            type="number" step={0.02} min={0} max={1}
+            value={page.seam ?? ''}
+            placeholder="0.24"
+            onChange={(e) => {
+              const v = e.target.value === '' ? undefined : Math.min(1, Math.max(0, Number(e.target.value)));
+              onChange((pg) => { const next = { ...pg, seam: v }; if (v === undefined) delete next.seam; return next; });
+            }}
+            className="input w-full"
+          />
+        </label>
+        {/*
+          * Room at the foot, for a ground whose art runs along the bottom.
+          * A multiple of the usual rather than a number of pixels, because
+          * the usual is viewport-relative and pixels would be right on a
+          * phone and wrong on a laptop.
+          */}
+        <label className="block">
+          <span className="label">Room at the foot</span>
+          <input
+            type="number" step={0.25} min={0} max={5}
+            value={page.footPad ?? ''}
+            placeholder="1"
+            onChange={(e) => {
+              const v = e.target.value === '' ? undefined : Math.min(5, Math.max(0, Number(e.target.value)));
+              onChange((pg) => { const next = { ...pg, footPad: v }; if (v === undefined) delete next.footPad; return next; });
+            }}
+            className="input w-full"
+          />
+        </label>
+      </div>
+      <p className="hint">
+        The join is how far the background above dissolves into this one, as a share of the page&rsquo;s width &mdash; 0.24 unless it is said, and it is what makes separate backgrounds read as one sheet of paper.
+        The room at the foot is a multiple of the usual gap, for a ground whose art runs along the bottom.
+      </p>
       {/*
         * What the page carries, in the order it is drawn in. A section is on
         * one page only, so putting it here takes it off wherever it was —
@@ -3092,6 +3793,119 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
           ))}
         </select>
       </div>
+      {/*
+        * What a page laid out by its words carries. Only there — a drawn page
+        * places everything by hand — and a list rather than a canvas for the
+        * same reason: its height is its customer's words, so there is nowhere
+        * to drag to.
+        *
+        * Two kinds, and the difference is what the words do. A float is in
+        * among them and they flow past it. A decoration hangs off the head or
+        * the foot and the words do not move for it at all, so it goes behind
+        * them unless it is told to go in front, and the room for it at the
+        * foot is the page's own foot setting above.
+        */}
+      {!page.drawn && (
+        <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+          <p className="label">Pictures and pieces on this page</p>
+          <ol className="mt-1 space-y-1">
+            {pieces.floats.map((el) => (
+              <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
+                  The words flow past it, {el.float === 'right' ? 'on the right' : 'on the left'} · {el.w ?? 40}% wide{el.rotate ? ` · turned ${el.rotate}°` : ''}
+                </button>
+                <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
+              </li>
+            ))}
+            {pieces.decor.map((el) => (
+              <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
+                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
+                </button>
+                <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-1 flex gap-1">
+            <button type="button" onClick={pieces.addFloat} className="flex-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
+              + one the words flow past
+            </button>
+            <button type="button" onClick={pieces.addDecor} className="flex-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
+              + one along the head
+            </button>
+          </div>
+          <p className="hint">
+            The section&rsquo;s own words wrap beside a float &mdash; the real ones, not a guess &mdash; and a turned picture is followed by the words at its tilt rather than at its corners.
+            A decoration hangs off the head or the foot and the words do not move for it, so keep it clear of them with the page&rsquo;s foot setting above.
+            Press one to set what it reads, how wide it is, how far down it hangs and how far it turns.
+          </p>
+        </div>
+      )}
+      {/*
+        * How this page dresses its sections.
+        *
+        * The sections are the app's own components and they are the same on
+        * every design, which is why a design built here used to come out
+        * looking like the app. These four settings are read by all of them
+        * through one attribute and a few variables, so the same RSVP form is
+        * centred on a card here and left on bare paper under a flourish
+        * there, without a component knowing or a new one being written.
+        */}
+      {!page.drawn && (
+        <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+          <p className="label">How its sections are dressed</p>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="label">The words sit</span>
+              <select
+                className="input w-full"
+                value={dress.value?.align ?? 'center'}
+                onChange={(e) => dress.set((d) => ({ ...d, align: e.target.value === 'center' ? undefined : (e.target.value as 'left' | 'right') }))}
+              >
+                <option value="center">In the middle</option>
+                <option value="left">To the left</option>
+                <option value="right">To the right</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Each section sits</span>
+              <select
+                className="input w-full"
+                value={dress.value?.card ? 'card' : 'plain'}
+                onChange={(e) => dress.set((d) => ({ ...d, card: e.target.value === 'card' ? true : undefined }))}
+              >
+                <option value="plain">On the page itself</option>
+                <option value="card">On a card</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-2 flex items-start gap-2">
+            <span
+              className="h-10 w-16 shrink-0 rounded border border-black/10 bg-contain bg-center bg-no-repeat"
+              style={dress.value?.rule ? { backgroundImage: `url(${dress.value.rule})` } : { background: 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/8px 8px' }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="label">Over each section</p>
+              {dress.value?.rule ? (
+                <div className="mt-0.5 flex items-center gap-1">
+                  <label className="flex-1">
+                    <span className="hint">How tall, as a multiple of the page&rsquo;s gap</span>
+                    <input
+                      type="number" step={0.1} min={0} max={6}
+                      value={dress.value.ruleHeight ?? 1}
+                      onChange={(e) => dress.set((d) => ({ ...d, ruleHeight: place(Number(e.target.value)) }))}
+                      className="input w-full"
+                    />
+                  </label>
+                  <button type="button" onClick={() => dress.set((d) => ({ ...d, rule: undefined, ruleHeight: undefined }))} className="rounded bg-white px-1.5 text-red-700">✕</button>
+                </div>
+              ) : (
+                <p className="hint">Pick a piece in the <strong>Library</strong>, on the left, and press <em>Draw it over each section on this page</em>. It follows the alignment above.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="border-t border-[color:var(--color-sand-300)] pt-3">
         <p className="label">Background</p>
         <div className="mt-1 flex items-start gap-2">
@@ -3299,11 +4113,15 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
  * them copies the piece's address, never a reference to the row, so
  * deleting a piece from the library cannot blank a page that used it.
  */
-function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
+function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule, onStrand }: {
   selected: Element | null;
-  onPlace: (url: string, aspect?: number) => void;
+  onPlace: (url: string, aspect?: number, animated?: true) => void;
   onGround: (url: string) => void;
   onIfEmpty: (url: string) => void;
+  /** offered only on a page laid out by its words, which is the only page with sections to divide */
+  onRule?: (url: string) => void;
+  /** the piece under the prenup photograph: the design's, not the page's */
+  onStrand?: (url: string) => void;
 }) {
   const built = useMemo(() => builtinPieces(), []);
   const [mine, setMine] = useState<Piece[]>([]);
@@ -3326,6 +4144,24 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
     setBusy('Reading the picture…');
     setError('');
     try {
+      /*
+       * A moving picture takes the other road. The usual one re-encodes
+       * through a canvas, which holds one frame, so a GIF down it arrives as
+       * a still picture of its first frame — and she would have no way of
+       * knowing why her petals stopped falling. So the bytes are asked first
+       * (`movingKind` reads the chunk inside the file, since an animated WebP
+       * is the same type as a still one), and a picture that moves is sent
+       * exactly as it is.
+       */
+      const moving = await movingKind(file);
+      if (moving) {
+        setBusy('Sending it as it is…');
+        const up = await sendMoving(await readMoving(file), '', true);
+        await load();
+        setOpen(up.url);
+        setBusy('');
+        return;
+      }
       const read = await readPicture(file);
       const fd = new FormData();
       fd.set('file', new File([read.blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
@@ -3385,10 +4221,11 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
 
       {piece && (
         <div className="mt-2 rounded bg-[color:var(--color-sand-100)] p-2">
-          <p className="truncate text-sm font-semibold">{piece.name}</p>
+          <p className="truncate text-sm font-semibold">{piece.name}{piece.animated ? ' · moves' : ''}</p>
           <p className="hint truncate">{piece.builtin ? 'The app’s own — it cannot be renamed or removed' : piece.tags.join(', ') || 'no tags yet'}</p>
+          {piece.animated && <p className="hint">It is served exactly as it was uploaded — never resized, never re-encoded — so every guest downloads it whole.</p>}
           <div className="mt-1 grid gap-1">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPlace(piece.url, piece.width && piece.height ? piece.height / piece.width : undefined)}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPlace(piece.url, piece.width && piece.height ? piece.height / piece.width : undefined, piece.animated)}>
               Put it on the page
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onGround(piece.url)}>
@@ -3397,6 +4234,16 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
             {selected?.kind === 'photo' && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => onIfEmpty(piece.url)}>
                 Show it when the frame is left empty
+              </button>
+            )}
+            {onRule && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onRule(piece.url)}>
+                Draw it over each section on this page
+              </button>
+            )}
+            {onStrand && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onStrand(piece.url)}>
+                Draw it under the prenup photograph
               </button>
             )}
           </div>
@@ -3411,7 +4258,7 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
       )}
 
       <label className={`mt-2 block rounded border border-dashed border-[color:var(--color-sand-300)] px-2 py-3 text-center text-[11px] leading-snug ${busy ? 'opacity-60' : 'cursor-pointer hover:bg-[color:var(--color-sand-100)]'}`}>
-        {busy || 'Add a piece — a bow, a cloud, a flourish. It stays in the library for every design.'}
+        {busy || 'Add a piece — a bow, a cloud, a flourish, or a moving one: a GIF, an animated WebP or an animated PNG. It stays in the library for every design.'}
         <input
           type="file" accept="image/*" className="sr-only" disabled={Boolean(busy)}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }}

@@ -54,12 +54,28 @@ test('a design carries a look, the customer can pick another, and a font preset 
   const template = { palette: capiz.palette, fonts: capiz.fonts, look: 'heritage' };
   const own = resolveTheme(template, {});
   assert.equal(own.look?.key, 'heritage');
-  assert.equal(own.fonts, LOOK_BY_KEY.heritage.fonts, 'the look brings its fonts');
+  // The look brings its faces. Not the same object any more — the faces come
+  // from the set's rows, whose weights are merged across every pairing that
+  // asks for the family — but the same letters in every part.
+  for (const part of ['display', 'body', 'names', 'script'] as const) {
+    assert.equal(own.fonts[part], LOOK_BY_KEY.heritage.fonts[part], part);
+  }
   const chosen = resolveTheme(template, { theme: { lookKey: 'modern' } });
   assert.equal(chosen.look?.key, 'modern');
   assert.equal(chosen.fonts.body, LOOK_BY_KEY.modern.fonts.body);
   const preset = resolveTheme(template, { theme: { fontsKey: 'editorial' } });
   assert.equal(preset.look, undefined, 'a font preset on its own is the old way: fonts, no lines');
+  /*
+   * And it is the *pairing* called editorial, not the look that now shares
+   * its key: a `fontsKey` was always written against the pairings' list, so
+   * an invitation set in Playfair and DM Sans must not quietly become
+   * Bodoni because the two lists became one table.
+   */
+  assert.equal(preset.fonts.display, "'Playfair Display', 'Hoefler Text', Georgia, serif");
+  assert.equal(preset.fonts.body, "'DM Sans', 'Segoe UI', system-ui, sans-serif");
+  // where a lookKey of the same string is the look, and brings its wording
+  assert.equal(resolveTheme(template, { theme: { lookKey: 'editorial' } }).look?.key, 'editorial');
+  assert.match(resolveTheme(template, { theme: { lookKey: 'editorial' } }).fonts.display, /Bodoni Moda/);
   const bogus = resolveTheme({ ...template, look: 'nope' }, { theme: { lookKey: 'nope' } });
   assert.equal(bogus.look, undefined);
   const plain = resolveTheme({ palette: capiz.palette, fonts: capiz.fonts }, {});

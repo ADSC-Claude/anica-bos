@@ -289,6 +289,150 @@ test('a ground the colour of the waiting grey hides the empty frames', () => {
   assert.deepEqual(run(deep).filter((x) => x.rule === 'slot-lost'), []);
 });
 
+// --- a page laid out by its words ----------------------------------------
+
+/**
+ * The checklist's boxes need a height, and a flow page has none until a
+ * customer has written. Its decorations hang off an edge by a share of its
+ * *width*, so measuring them the drawn way said a perfectly good piece along
+ * the head was off the page — which is exactly what this asserts cannot
+ * happen, at the two places it used to.
+ */
+test('a decoration along the head or the foot is not off the page', () => {
+  const d = clone();
+  on(d, 'venue').elements = [
+    { id: 'crest', kind: 'photo', x: 50, y: 3, w: 60, aspect: 0.4, bind: { asset: '/crest.png' } },
+    { id: 'sprig', kind: 'photo', x: 50, y: 2, w: 40, from: 'bottom', bind: { asset: '/sprig.png' } },
+  ];
+  assert.deepEqual(run(d).filter((x) => x.rule === 'off-page'), []);
+  assert.deepEqual(run(d).filter((x) => x.rule === 'overlap'), [], 'and two of them at opposite edges do not overlap');
+});
+
+test('a decoration running off the side of the page still says so', () => {
+  const d = clone();
+  on(d, 'venue').elements = [{ id: 'wide', kind: 'photo', x: 50, y: 1, w: 130, bind: { asset: '/w.png' } }];
+  const n = run(d).filter((x) => x.rule === 'off-page');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /runs off the side/);
+
+  // and a middle off the page altogether blocks, as it does on a drawn page
+  const gone = clone();
+  on(gone, 'venue').elements = [{ id: 'gone', kind: 'photo', x: 140, y: 1, w: 20, bind: { asset: '/g.png' } }];
+  const b = run(gone).filter((x) => x.rule === 'off-page');
+  assert.equal(b.length, 1);
+  assert.equal(b[0].level, 'blocks');
+});
+
+test('words on a page laid out by its words are never drawn, and it says so', () => {
+  const d = clone();
+  on(d, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
+  const n = run(d).filter((x) => x.rule === 'not-drawn');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /never drawn/);
+  assert.equal(publishable(run(d)), false);
+  // the same box on a drawn page is exactly where it belongs
+  const drawn = clone();
+  on(drawn, 'story').elements!.push({ id: 'fine', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'here', tl: 'dito' } }] }] });
+  assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
+});
+
+// --- what a guest downloads --------------------------------------------------
+
+/**
+ * The total is about what a phone downloads, and a phone does not care which
+ * of them was a clip. So an animation counts, a moving picture counts, and
+ * the player counts once — a design with one animation is carrying the
+ * animation plus a third of a megabyte of the thing that draws it.
+ */
+test('an animation counts in the download total, and the player counts once', () => {
+  const d = clone();
+  const story = on(d, 'story');
+  story.elements!.push(
+    { id: 'a1', kind: 'anim', x: 30, y: 50, w: 20, aspect: 1, url: 'u/a1.json', poster: 'u/a1.webp' },
+    { id: 'a2', kind: 'anim', x: 70, y: 50, w: 20, aspect: 1, url: 'u/a2.json', poster: 'u/a2.webp' },
+  );
+  // two small animations: well inside the budget once, even with the player
+  assert.deepEqual(runRow(d, { weights: { 'u/a1.json': 90_000, 'u/a2.json': 90_000 } }).filter((x) => x.rule === 'clip-budget'), []);
+  // and one enormous one is over it, and says so about moving things rather
+  // than about clips, since there is not a clip in the design
+  const n = runRow(d, { weights: { 'u/a1.json': 20_000_000, 'u/a2.json': 90_000 } }).filter((x) => x.rule === 'clip-budget');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /moving things and the animation player/);
+});
+
+test('a moving picture counts in the download total too', () => {
+  const d = clone();
+  const frame = el(d, 'story', 'story-photo-1') as PhotoEl;
+  frame.animated = true;
+  frame.bind = { asset: '/pieces/heavy.gif' };
+  const n = runRow(d, { weights: { '/pieces/heavy.gif': 30_000_000 } }).filter((x) => x.rule === 'clip-budget');
+  assert.equal(n.length, 1, 'a phone does not care that it was not a clip');
+});
+
+// --- motion ----------------------------------------------------------------
+
+/**
+ * Not a performance line — a browser animates a dozen small things without
+ * noticing. It is about reading: a guest's eye goes to whatever is moving,
+ * and when six things move there is nowhere for it to land.
+ */
+test('a page where everything moves says so', () => {
+  const d = clone();
+  const els = on(d, 'story').elements!;
+  els.slice(0, 6).forEach((x, i) => { x.motion = { enter: 'fade', delay: i * 100 }; });
+  const n = run(d).filter((x) => x.rule === 'motion');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /6 things move/);
+  assert.equal(n[0].id, els[5].id, 'and it points at the one over the line');
+
+  // five is the line, and five is allowed
+  const five = clone();
+  on(five, 'story').elements!.slice(0, 5).forEach((x) => { x.motion = { idle: 'float' }; });
+  assert.deepEqual(run(five).filter((x) => x.rule === 'motion'), []);
+  // and a motion that says nothing at all does not count
+  const none = clone();
+  on(none, 'story').elements!.slice(0, 6).forEach((x) => { x.motion = { enter: 'none', idle: 'none' }; });
+  assert.deepEqual(run(none).filter((x) => x.rule === 'motion'), []);
+});
+
+// --- a moving picture ------------------------------------------------------
+
+/**
+ * The two things worth saying about a moving picture, and they share a cause:
+ * it is never re-encoded. Nothing resizes it, so its own weight is what every
+ * guest downloads — and a frame the *customer* fills must never be marked as
+ * one, or their four-thousand-pixel photograph is served whole to everybody,
+ * which is the one way this goes wrong quietly.
+ */
+test('a moving picture too heavy for mobile data says so', () => {
+  const d = clone();
+  const frame = el(d, 'story', 'story-photo-1') as PhotoEl;
+  frame.animated = true;
+  frame.bind = { asset: '/pieces/petals.gif' };
+  const n = runRow(d, { weights: { '/pieces/petals.gif': 1_400_000 } }).filter((x) => x.rule === 'moving');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /never resized or re-encoded/);
+  // and one that is light enough says nothing at all
+  assert.deepEqual(runRow(d, { weights: { '/pieces/petals.gif': 300_000 } }).filter((x) => x.rule === 'moving'), []);
+  // nor does an unknown weight: unknown is not heavy
+  assert.deepEqual(runRow(d, {}).filter((x) => x.rule === 'moving'), []);
+});
+
+test('a customer’s frame cannot be a moving picture', () => {
+  const d = clone();
+  (el(d, 'story', 'story-photo-1') as PhotoEl).animated = true;
+  const n = run(d).filter((x) => x.rule === 'moving');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /served at whatever size they uploaded/);
+  assert.equal(publishable(run(d)), false);
+});
+
 /** A design in the shop with no cover: not broken, but the card nobody taps. */
 test('a design shown in the shop with no thumbnail says so once', () => {
   const n = runRow(clone(), { shop: { shown: true, thumbnail: false } }).filter((x) => x.rule === 'no-thumbnail');
@@ -351,6 +495,32 @@ test('every rule the type names can be made to fire', () => {
   on(r, 'story').ground = { color: '#fef5df', ratio: 2.989 };
   add(r);
   runRow(clone(), { shop: { shown: true, thumbnail: false } }).forEach((x) => fired.add(x.rule));
+
+  // an animation counts in the download total, and brings the player with it
+  const an = clone();
+  on(an, 'story').elements!.push({ id: 'petal-anim', kind: 'anim', x: 50, y: 50, w: 30, aspect: 1, url: 'u/a.json', poster: 'u/a.webp' });
+  runRow(an, { weights: { 'u/a.json': 20_000_000 } }).forEach((x) => fired.add(x.rule));
+
+  // a moving picture: one too heavy for a guest on mobile data, and one
+  // pointed at a field the customer fills, which it must never be
+  const u = clone();
+  const bow = el(u, 'story', 'story-photo-1') as PhotoEl;
+  bow.animated = true;
+  bow.bind = { asset: '/pieces/bow.gif' };
+  runRow(u, { weights: { '/pieces/bow.gif': 1_400_000 } }).forEach((x) => fired.add(x.rule));
+  const v = clone();
+  (el(v, 'story', 'story-photo-2') as PhotoEl).animated = true;
+  add(v);
+
+  // six things moving on one page, which is one more than a page can carry
+  const w = clone();
+  on(w, 'story').elements!.slice(0, 6).forEach((x, i) => { x.motion = { enter: 'rise', delay: i * 120 }; });
+  add(w);
+
+  // words put on a page laid out by its words: in the document, drawn nowhere
+  const t2 = clone();
+  on(t2, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
+  add(t2);
 
   // the list is the type's own, so a rule added and never exercised fails here
   assert.deepEqual([...fired].sort(), [...NEED_RULES].sort());

@@ -3,10 +3,11 @@ import { t, type Lang } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type Line, type WordKey, type FieldRef,
+  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf,
+  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
-import { LazyVideo } from './client';
+import { LazyVideo, LazyLottie } from './client';
 
 /**
  * A page drawn from the design's document.
@@ -46,14 +47,19 @@ export type EditView = {
   cropping?: string;
 };
 
-export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
-  const read = {
+/** What an element's words and pictures are read from: the look, the answers, the copy. */
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, edit?: EditView): Read {
+  return {
     content,
     lang,
     edit,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey) : lookLine(look, lang, key as LineKey)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
+}
+
+export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
+  const read = reader(content, look, lang, edit);
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -66,14 +72,143 @@ export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec;
 
 type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView };
 
-function draw(el: Element, read: Read, grow?: number) {
-  if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} />;
-  if (el.kind === 'text') return <Block el={el} read={read} grow={grow} />;
-  if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} />;
-  if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} />;
-  // animation arrives with phase 4; a document that names one is read and
-  // kept, it simply has nothing to draw yet
+/**
+ * The pictures a flow page's words flow around.
+ *
+ * A flow page is laid out by its words — its height is whatever they come
+ * to — so it has never placed anything. These are the third kind of thing:
+ * not placed and not stacked, but floated, so the section's *real* words
+ * make room beside them. They are emitted before the sections, which is
+ * what a float needs in order to have anything to flow past.
+ *
+ * A tilted frame floats a box big enough to hold it turned, with a
+ * `shape-outside` polygon tracing its real corners, so the words follow the
+ * tilt rather than a rectangle. `floatShape` works that out; see its note
+ * for why `float` and `transform` need the help.
+ *
+ * An empty binding draws nothing at all, the way an empty frame does: a
+ * customer who gave no picture gets their words, in one column, and no gap
+ * where a photograph was going to be.
+ */
+export function FlowFloats({ page, content, lang }: { page: PageSpec; content: Record<string, unknown>; lang: Lang }) {
+  const floats = flowFloats(page);
+  if (!floats.length) return null;
+  return (
+    <>
+      {floats.map((el) => {
+        const url = 'asset' in el.bind ? el.bind.asset : valueAt(content, el.bind);
+        if (!url) return null;
+        const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
+        const alt = el.alt ? valueAt(content, el.alt) : '';
+        return (
+          <figure
+            key={el.id}
+            className="inv-bb-float"
+            data-float={el.float}
+            data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
+            data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
+            style={{
+              width: `${(el.w ?? 40) * shape.width}%`,
+              aspectRatio: `${shape.width} / ${shape.height}`,
+              shapeOutside: shape.polygon,
+              ['--float-inner' as string]: `${shape.inner}%`,
+              ['--float-turn' as string]: `${el.rotate ?? 0}deg`,
+            } as CSSProperties}
+          >
+            <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" lang={lang === 'tl' ? 'tl' : undefined} />
+          </figure>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * The decorations on a page laid out by its words: a piece from the library
+ * along its head, a rule above its first heading, a flourish at its foot.
+ *
+ * One band, `inset: 0` over the whole page, holding everything the page
+ * carries that is neither a float nor a section's words. The band is the
+ * answer to three problems at once:
+ *
+ * - A flow page's height is its customer's words, so nothing on it can be
+ *   placed by a share of that height. The band is the page's *width*, and a
+ *   decoration hangs from the head or the foot by a gap measured in `cqw`
+ *   against it (`decorStyle`).
+ * - A flow page is not a query container, so a shape's height and a frame's
+ *   card — every one of them in `cqw` — would otherwise be measured against
+ *   the viewport and be wrong on a laptop. The band is the container.
+ * - `.inv-page` is a flex column, and anything absolutely placed inside it
+ *   is out of flow but still measured against the page; the band takes the
+ *   whole page so the same percentages mean what they mean on a drawn page.
+ *
+ * It carries `inv-bb-art` as well as its own class, which is not a trick: it
+ * *is* an art layer over a page, so every rule a drawn page's frames, cards,
+ * cuts and clips already have applies to these unchanged. Two bands are
+ * drawn, one before the words and one after (`decorOver`), because a
+ * decoration behind the words and a decoration over them cannot be the same
+ * layer — and behind is the default, since words a guest cannot read are the
+ * one thing a design must not be able to do by accident.
+ */
+export function FlowDecor({ page, content, look, lang, layer, edit }: {
+  page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; layer: 'under' | 'over'; edit?: EditView;
+}) {
+  const decor = flowDecor(page).filter((el) => decorOver(el) === (layer === 'over'));
+  if (!decor.length) return null;
+  const read = reader(content, look, lang, edit);
+  return (
+    <div className="inv-bb-art inv-deco" data-layer={layer}>
+      {decor.map((el) => <Fragment key={el.id}>{draw(el, read, undefined, true)}</Fragment>)}
+    </div>
+  );
+}
+
+function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
+  if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} deco={deco} />;
+  // a flow page's words are its sections': see flowDecor
+  if (el.kind === 'text') return deco ? null : <Block el={el} read={read} grow={grow} />;
+  if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} deco={deco} />;
+  if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} deco={deco} />;
+  if (el.kind === 'anim') return <Anim el={el} read={read} grow={grow} deco={deco} />;
   return null;
+}
+
+/**
+ * A vector animation in its box.
+ *
+ * It is drawn exactly where a photograph or a clip would be — the same
+ * geometry, the same layer — and the difference is all inside `LazyLottie`:
+ * the player is fetched only when the thing is on screen, and the poster
+ * stands in until it is, and for ever for a guest who asked for less motion
+ * or is sparing their data.
+ *
+ * It plays in the studio too, unlike a clip. A canvas with four clips
+ * running under the handles is unusable and a clip is not what she is
+ * placing; a Lottie is small, silent and short, and watching it is the only
+ * way to know whether it sits right on the page.
+ */
+function Anim({ el, read, grow, deco }: { el: AnimEl; read: Read; grow?: number; deco?: boolean }) {
+  const placed = deco ? decorStyle(el) : elementStyle(el, grow);
+  const box = { ...placed, aspectRatio: `1 / ${el.aspect}` } as CSSProperties;
+  const poster = el.poster ? imageUrl(el.poster, IMAGE.grid) : undefined;
+  if (!el.url && !read.edit) return null;
+  if (!el.url) {
+    return (
+      <div className="inv-bb-anim" style={box} data-el={el.id} data-empty="">
+        <span className="inv-bb-ask">{read.edit!.label(el)}</span>
+      </div>
+    );
+  }
+  return (
+    <LazyLottie
+      src={el.url}
+      poster={poster}
+      loop={el.loop !== false}
+      speed={el.speed ?? 1}
+      className="inv-bb-anim"
+      style={box}
+    />
+  );
 }
 
 /**
@@ -90,7 +225,7 @@ function draw(el: Element, read: Read, grow?: number) {
  * film. The poster stands in, and the whole invitation tab beside it is
  * where the clip actually plays.
  */
-function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
+function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number; deco?: boolean }) {
   const poster = el.poster ? imageUrl(el.poster, IMAGE.grid) : undefined;
   /*
    * A background clip is *sized* by the stylesheet and not by the document.
@@ -101,15 +236,17 @@ function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
    * still the design's to say are kept: how far down the stack it sits, and
    * how solid it is.
    */
-  const placed = elementStyle(el, grow);
+  const placed = deco ? decorStyle(el) : elementStyle(el, grow);
+  const motion = motionOf(el);
   const box = el.bg
-    ? ({ opacity: placed.opacity, zIndex: placed.zIndex } as CSSProperties)
-    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined } as CSSProperties);
+    ? ({ opacity: placed.opacity, zIndex: placed.zIndex, ...motion.vars } as CSSProperties)
+    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined, ...motion.vars } as CSSProperties);
   if (!el.url && !read.edit) return null;
   return (
     <div
       className="inv-bb-clip"
       style={box}
+      {...motion.attrs}
       data-bg={el.bg ? '' : undefined}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
@@ -128,13 +265,14 @@ function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
  * A card behind some words, a rule across the page, a dot. A div and
  * nothing else: no SVG, no script, nothing for a guest to download.
  */
-function Shape({ el, read, grow }: { el: ShapeEl; read: Read; grow?: number }) {
+function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: number; deco?: boolean }) {
   return (
     <div
       className="inv-bb-shape"
       aria-hidden
       data-shape={el.shape}
-      style={{ ...elementStyle(el, grow), ...shapeStyle(el) } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el), ...motionOf(el).vars } as CSSProperties}
+      {...motionOf(el).attrs}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
     />
@@ -142,7 +280,7 @@ function Shape({ el, read, grow }: { el: ShapeEl; read: Read; grow?: number }) {
 }
 
 /** A photograph in its frame. An empty binding draws nothing, as today. */
-function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
+function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: number; deco?: boolean }) {
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
   if (!url && el.hidden !== 'never' && !read.edit) return null;
   const alt = el.alt ? valueAt(read.content, el.alt) : '';
@@ -152,7 +290,8 @@ function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
   const figure = (
     <figure
       className="inv-bb-slot"
-      style={{ ...elementStyle(el, grow), ...photoStyle(el) } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...photoStyle(el), ...motionOf(el).vars } as CSSProperties}
+      {...motionOf(el).attrs}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !url ? '' : undefined}
@@ -187,11 +326,12 @@ function Block({ el, read, grow }: { el: TextEl; read: Read; grow?: number }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
   if (blank && el.hidden !== 'never' && !read.edit) return null;
-  const style = { ...elementStyle(el, grow), ...blockType(el) } as CSSProperties;
+  const style = { ...elementStyle(el, grow), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
   // `data-foot` says this one is placed from the foot: what holds the bottom
   // of a page that grows follows the page down and is never what pushes it
   const mark = {
+    ...motionOf(el).attrs,
     ...(read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {}),
     ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}),
     // what sits behind the words on a busy picture: a halo in the surface

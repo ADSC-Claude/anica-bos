@@ -130,6 +130,7 @@ export const ADMIN_MODULES = [
   { key: 'dfy', label: 'DFY queue', href: '/admin/dfy', icon: '❖', permission: 'dfy.view' },
   { key: 'invitations', label: 'Invitations', href: '/admin/invitations', icon: '✉', permission: 'invitations.view' },
   { key: 'templates', label: 'Templates', href: '/admin/templates', icon: '▦', permission: 'templates.view' },
+  { key: 'fonts', label: 'Fonts', href: '/admin/fonts', icon: 'Aa', permission: 'templates.view' },
   { key: 'customers', label: 'Customers', href: '/admin/customers', icon: '☺', permission: 'customers.view' },
   { key: 'coupons', label: 'Coupons', href: '/admin/coupons', icon: '✂', permission: 'coupons.manage' },
   { key: 'support', label: 'Support', href: '/admin/support', icon: '✆', permission: 'support.view' },

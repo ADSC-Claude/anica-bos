@@ -9,6 +9,11 @@
  * code's book, for the one case where that is what you want: a face the code
  * has fixed and nobody has touched.
  *
+ * The production build runs this itself, right after the migration that
+ * creates the tables, so there is no deploy step to remember — see
+ * scripts/build.mjs. It is create-only precisely so that running it on every
+ * build is safe. By hand:
+ *
  *   npm run db:fonts              # add what is missing
  *   npm run db:fonts -- --dry     # say what it would add
  *   npm run db:fonts -- --refresh # also overwrite rows that exist

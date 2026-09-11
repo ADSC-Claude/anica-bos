@@ -189,7 +189,11 @@ export function addOnForFeature(feature: FeatureKey): string | undefined {
  * is not a gallery row and is not counted here.
  */
 export function galleryLimit(tier: Tier): number {
-  if (hasFeature(tier, 'gallery.unlimited')) return Infinity;
+  // Twenty, not unlimited. The number and the word have to move together: a
+  // package that says twenty and accepts a hundred is a package whose promise
+  // means nothing, and one that says unlimited while an encoder is placing
+  // every photo by hand was never unlimited in the way a customer would read it.
+  if (hasFeature(tier, 'gallery.unlimited')) return 20;
   if (hasFeature(tier, 'gallery.limited')) return tierAtLeast(tier, 'COMPLETE') ? 15 : 7;
   return 0;
 }
@@ -243,7 +247,7 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Dress code + colour motif swatches', cells: { BASIC: true, STANDARD: true, COMPLETE: true, LUXURY: true } },
   // "Prenup video" is a wedding's word for it, and this table is read by a
   // family choosing a package for a christening as readily as by a couple.
-  { label: 'Photos', cells: { BASIC: '1 cover photo', STANDARD: '5 to 7 photos', COMPLETE: '10 to 15 photos + video', LUXURY: 'Unlimited gallery + video' } },
+  { label: 'Photos', cells: { BASIC: '1 cover photo', STANDARD: '5 to 7 photos', COMPLETE: '10 to 15 photos + video', LUXURY: '20 photos + video' } },
   { label: 'RSVP', cells: { BASIC: 'Simple form', STANDARD: '+ RSVP dashboard, Excel export', COMPLETE: '+ meal choice, auto-close on your deadline', LUXURY: '+ meal choice, auto-close on your deadline' } },
   { label: 'E-mail confirmation to each guest who accepts', cells: { BASIC: false, STANDARD: false, COMPLETE: false, LUXURY: true } },
   { label: 'SMS blast to your guest list', cells: { BASIC: false, STANDARD: false, COMPLETE: 'Ask us — texts priced per pack', LUXURY: 'Ask us — texts priced per pack' } },

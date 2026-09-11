@@ -23,6 +23,14 @@
   --color-plum-500: #a05266; /* lighter — icons, links on cream */
   --color-plum-600: #8a3b4e; /* brand: buttons, prices — 7.4:1 on sand-50 */
   --color-plum-700: #6f2e3e; /* pressed and hovered */
+  /* The logo's own oxblood, sampled from the file, and two steps around it.
+     plum-600 is the UI brand — buttons, prices, links — and stays. These are
+     the editorial register: the hero's call to action, the dark band, the
+     mark. Kept apart so restyling the landing page cannot quietly restain
+     every button in the dashboard. */
+  --color-wine-700: #6b1220; /* the hero button, hovered states on wine-900 */
+  --color-wine-800: #520108; /* the logo, exactly */
+  --color-wine-900: #3a0a10; /* the dark band */
 
   --color-gold-400: #d8bf8c;
   --color-gold-500: #c9a86a;
@@ -2414,4 +2422,163 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   .inv[data-card] { min-height: 0; }
   .inv-std { min-height: 0; padding: 2rem 1rem; }
   .inv-std-count { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   The landing page's editorial register.
+
+   Everything here is for the public site's storefront — the hero, the bands,
+   the occasion strip. It is deliberately separate from the .btn/.card system
+   above, which the dashboard and the builder use: a customer signed in to
+   manage their guest list wants a dense, obvious interface, and a stranger
+   deciding whether to spend eight thousand pesos wants room to breathe. One
+   set of styles asked to do both ends up doing neither.
+
+   The tracking is wide and the type is large on purpose. Small letterspaced
+   caps read as considered where a bold sans reads as urgent, and what is
+   being sold here is not urgency.
+--------------------------------------------------------------------------- */
+
+/* Caps with the rule under them the mockup hangs every section on. */
+/* No `display` here on purpose. This file is loaded after Tailwind's
+   utilities, so a `display: block` on a plain class quietly outranks
+   `hidden` — and the first thing that wanted hiding, the hero's vertical
+   rail, turned up on every phone despite saying `hidden xl:block`. Call
+   sites that need a block box ask for one with the utility. */
+.ed-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-ink-500);
+}
+.ed-eyebrow-ruled::after {
+  content: '';
+  display: block;
+  width: 2.5rem;
+  height: 1px;
+  margin-top: 0.75rem;
+  background: var(--color-wine-800);
+  opacity: 0.45;
+}
+.ed-eyebrow-ruled.is-centred::after { margin-inline: auto; }
+
+/* Section rhythm. The mockup's whole feel is the space around things, so the
+   vertical padding is a token rather than a number sprinkled per section. */
+.ed-section { padding-block: clamp(3.5rem, 9vw, 7rem); }
+.ed-section-tight { padding-block: clamp(2.5rem, 6vw, 4.5rem); }
+
+/* Display sizes that hold their shape from a phone to a wide desktop. */
+.ed-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em; line-height: 1.04; }
+.ed-display-xl { font-size: clamp(2.5rem, 7vw, 4.25rem); }
+.ed-display-lg { font-size: clamp(2rem, 4.6vw, 3.25rem); }
+
+/* The solid call to action: wine, letterspaced caps, an arrow that leans in
+   on hover. Its own class rather than a .btn variant because the .btn sizing
+   is tuned for forms. */
+.ed-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  border-radius: 999px;
+  background: var(--color-wine-800);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+.ed-cta:hover { background: var(--color-wine-700); }
+.ed-cta .ed-arrow { transition: transform 160ms ease; }
+.ed-cta:hover .ed-arrow { transform: translateX(3px); }
+
+/* The outlined twin, for the header and anywhere the solid one would shout. */
+.ed-cta-outline {
+  background: transparent;
+  color: var(--color-wine-800);
+  border: 1px solid color-mix(in srgb, var(--color-wine-800) 35%, transparent);
+  padding: 0.7rem 1.4rem;
+}
+.ed-cta-outline:hover { background: color-mix(in srgb, var(--color-wine-800) 6%, transparent); }
+
+/* An underlined caps link — "EXPLORE TEMPLATES →". The rule is the element's
+   own border so it spans the text and the arrow together. */
+.ed-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  color: var(--color-wine-800);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: border-color 160ms ease;
+}
+.ed-link:hover { border-bottom-color: currentColor; }
+.ed-link .ed-arrow { transition: transform 160ms ease; }
+.ed-link:hover .ed-arrow { transform: translateX(3px); }
+
+/* Caps navigation. */
+.ed-nav a {
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+  text-decoration: none;
+  padding-block: 0.25rem;
+  border-bottom: 1px solid transparent;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.ed-nav a:hover { color: var(--color-wine-800); border-bottom-color: var(--color-wine-800); }
+
+/* An image slot that looks composed while it is empty.
+
+   The photographs are the owner's to supply and they are not here yet. A slot
+   that renders as a grey box says "broken"; this renders as a warm panel with
+   the mark held quietly in it, which reads as a design decision until the day
+   a real photograph replaces it — at which point nothing but the src changes. */
+.ed-figure {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--color-sand-100), var(--color-sand-200));
+  border-radius: 1.25rem;
+}
+.ed-figure img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ed-figure-empty { display: grid; place-items: center; }
+.ed-figure-empty img { width: auto; height: 26%; opacity: 0.26; object-fit: contain; }
+/* The hero's arch, echoing the shape behind the phone in the mockup. */
+.ed-figure-arch { border-radius: 14rem 14rem 1.25rem 1.25rem; }
+
+/* The dark band. A wine ground the photograph sits into on the right, with a
+   gradient over it so the headline stays readable whatever the photo is. */
+.ed-band { position: relative; background: var(--color-wine-900); color: #fff; overflow: hidden; }
+.ed-band .ed-band-media { position: absolute; inset: 0 0 0 40%; }
+.ed-band .ed-band-media img { width: 100%; height: 100%; object-fit: cover; }
+.ed-band .ed-band-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-wine-900) 0%, color-mix(in srgb, var(--color-wine-900) 55%, transparent) 45%, transparent 100%);
+}
+.ed-band .ed-band-inner { position: relative; }
+.ed-band .ed-eyebrow { color: rgba(255, 255, 255, 0.72); }
+.ed-band .ed-link { color: #fff; }
+
+/* The numbered occasion strip. */
+.ed-numbered { font-size: 0.8125rem; letter-spacing: 0.14em; color: var(--color-ink-500); }
+.ed-numbered-rule { width: 1.75rem; height: 1px; background: var(--color-wine-800); opacity: 0.4; }
+
+/* Hairline dividers between the four promises — vertical on a wide screen,
+   gone on a narrow one where the cards simply stack. */
+.ed-divided > * + * { border-top: 1px solid var(--color-sand-200); padding-top: 1.75rem; margin-top: 1.75rem; }
+@media (min-width: 768px) {
+  .ed-divided > * + * { border-top: 0; border-left: 1px solid var(--color-sand-200); padding-top: 0; margin-top: 0; padding-left: 2rem; }
 }

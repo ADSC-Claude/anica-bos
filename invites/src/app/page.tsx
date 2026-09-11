@@ -15,8 +15,28 @@ import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { Packages } from '@/components/landing/packages';
 import { ContactButtons } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
+import { Figure, PHOTO } from '@/components/landing/figure';
 
 export const dynamic = 'force-dynamic';
+
+/** The arrow that trails every call to action. Drawn rather than a character:
+ *  → sits on the text baseline at whatever weight the font feels like. */
+function Arrow() {
+  return (
+    <svg className="ed-arrow" width="16" height="10" viewBox="0 0 16 10" fill="none" aria-hidden>
+      <path d="M1 5h13M10 1l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The four promises above the fold's fold, each with a thin line icon. */
+const PROMISES: { title: string; body: string; path: string }[] = [
+  { title: 'Elegant designs', body: 'Beautiful templates for every occasion.', path: 'M6 3h8l4 4v14H6zM14 3v4h4' },
+  { title: 'Easy RSVP management', body: 'All your responses in one place.', path: 'M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a6 6 0 0 1 12 0M17 8a2.5 2.5 0 1 1 0 5M16 20a5 5 0 0 0-1-3' },
+  { title: 'Share in seconds', body: 'Send by link, QR code or Messenger.', path: 'M21 3 10.5 13.5M21 3l-6.5 18-4-8-8-4z' },
+  { title: 'Made for everyone', body: 'No app, no account — it opens on any phone.', path: 'M12 20s-7-4.4-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 4.6-7 9-7 9z' },
+];
+
 
 const FAQ = [
   { q: 'Can I pay with GCash?', a: 'Yes. GCash, Maya, credit or debit card and online banking go through PayMongo and confirm instantly. You can also transfer directly to our GCash or bank account and upload the screenshot — a person verifies it within a few hours during business hours.' },
@@ -61,33 +81,103 @@ export default async function Landing() {
       <SiteHeader s={s} signedIn={Boolean(session)} />
       <main>
         {/* Hero */}
-        <section className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-14 md:grid-cols-[1fr_auto] md:py-20">
-          <div>
-            <p className="eyebrow mb-3">Digital invitations · Philippines</p>
-            <h1 className="display text-balance text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">The invitation your guests will actually open.</h1>
-            <p className="mt-5 max-w-xl text-lg text-[color:var(--color-ink-700)]">A beautiful link and QR for your wedding, debut, binyag or birthday — with the full entourage, Google Maps and Waze buttons, a GCash gift QR and one-tap RSVP. You tell us the details; we build it and you approve it before anyone sees it.</p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link href="/checkout" className="btn btn-primary">Create your invitation</Link>
-              <Link href="#how" className="btn btn-secondary">See how it works</Link>
+        <section className="ed-section">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+            <div>
+              <span className="ed-eyebrow ed-eyebrow-ruled block">More than an invitation</span>
+              <h1 className="ed-display ed-display-xl mt-7 text-balance">Beautiful beginnings start here.</h1>
+              <p className="mt-7 max-w-md text-lg leading-relaxed text-[color:var(--color-ink-700)]">
+                Create elegant digital invitations for life&rsquo;s most meaningful moments — with one-tap RSVP, a QR code, and nothing for your guests to download.
+              </p>
+              <div className="mt-10">
+                <Link href="/checkout" className="ed-cta">Create your invitation<Arrow /></Link>
+              </div>
+              <p className="mt-6 text-sm text-[color:var(--color-ink-500)]">One-time payment · GCash / Maya · No app needed for guests</p>
             </div>
-            <p className="mt-4 text-sm text-[color:var(--color-ink-500)]">One-time payment · GCash / Maya · No app needed for guests</p>
+
+            {/* The photograph, and beside it the line the mockup runs up the
+                right-hand edge. On a phone that rail would be a column of
+                single words, so it only appears once there is room for it. */}
+            <div className="flex items-stretch gap-6">
+              {/* The alcove, with the phone standing in it.
+
+                  The mockup photographs a phone on marble; we have something
+                  better than a photograph of a phone, which is a phone playing
+                  the actual premium opening. So the arch is the set and the
+                  live demo is what stands in it — and the moment a real
+                  photograph arrives it takes the same slot with the phone
+                  still in front of it. */}
+              <Figure src={PHOTO.hero} alt="" arch className="flex-1 place-items-center px-6 py-10 sm:px-10">
+                {flagship
+                  ? <div className="relative w-full max-w-[15rem]"><PhoneOpening src={flagship.openingVideoUrl} poster={flagship.openingPosterUrl} name={flagship.name} /></div>
+                  : null}
+              </Figure>
+              <p className="ed-eyebrow hidden self-center whitespace-nowrap xl:block" style={{ writingMode: 'vertical-rl' }}>
+                Timeless invitations for modern celebrations
+              </p>
+            </div>
           </div>
-          {flagship && <PhoneOpening src={flagship.openingVideoUrl} poster={flagship.openingPosterUrl} name={flagship.name} />}
         </section>
 
-        {/* Trust bar */}
+        {/* The occasions, numbered. Four, not the mockup's five: corporate
+            events are not on sale yet, and a storefront that lists something
+            it cannot take an order for is a storefront that wastes a click. */}
         <section className="border-y border-[color:var(--color-sand-200)] bg-white">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-5 py-4 text-xs font-semibold uppercase tracking-wider text-[color:var(--color-ink-500)]">
-            <span className="text-[#0070e0]">GCash</span><span className="text-[#00a651]">Maya</span><span>Visa · Mastercard</span><span>BPI · BDO · UnionBank</span><span>🇵🇭 Made in the Philippines</span>
+          <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-16 gap-y-8 px-5 py-10 text-center">
+            {OCCASIONS.filter((o) => o.phase === 1).map((o, i) => (
+              <Link key={o.key} href={`/occasions/${o.key.toLowerCase().replace(/_/g, '-')}`} className="group">
+                <span className="ed-numbered block tabular-nums">{String(i + 1).padStart(2, '0')}</span>
+                <span className="ed-eyebrow mt-2 block text-[color:var(--color-ink-900)] transition-colors group-hover:text-[color:var(--color-wine-800)]">{o.label}</span>
+                <span aria-hidden className="ed-numbered-rule mx-auto mt-3 block" />
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Invitations made simple */}
+        <section className="ed-section">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2 lg:gap-20">
+            <Figure src={PHOTO.card} alt="" className="min-h-[20rem] sm:min-h-[26rem]" />
+            <div>
+              <span className="ed-eyebrow ed-eyebrow-ruled block">Effortlessly elegant</span>
+              <h2 className="ed-display ed-display-lg mt-7">Invitations<br />Made Simple</h2>
+              <p className="mt-6 max-w-md text-lg leading-relaxed text-[color:var(--color-ink-700)]">
+                Designed to celebrate what matters, without the hassle. You send us the details however is easiest — our form, Messenger, Viber, even a photo of a list — and we build it.
+              </p>
+              <Link href="/#templates" className="ed-link mt-10 w-full max-w-xs">Explore templates<Arrow /></Link>
+            </div>
+          </div>
+        </section>
+
+        {/* The four promises */}
+        <section className="border-y border-[color:var(--color-sand-200)] bg-white">
+          <div className="ed-divided mx-auto grid max-w-6xl gap-0 px-5 py-14 md:grid-cols-4">
+            {PROMISES.map((f) => (
+              <div key={f.title} className="text-center">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="mx-auto text-[color:var(--color-wine-800)]" aria-hidden>
+                  <path d={f.path} stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <h3 className="ed-eyebrow mt-5 text-[color:var(--color-ink-900)]">{f.title}</h3>
+                <p className="mx-auto mt-3 max-w-[15rem] text-sm leading-relaxed text-[color:var(--color-ink-700)]">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* What we take, kept from the old trust bar. Not decoration: "can I
+            pay with GCash" is the first question anybody asks. */}
+        <section className="mx-auto max-w-6xl px-5 py-8">
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs uppercase tracking-[0.16em] text-[color:var(--color-ink-500)]">
+            <span className="text-[#0070e0]">GCash</span><span className="text-[#00a651]">Maya</span><span>Visa · Mastercard</span><span>BPI · BDO · UnionBank</span><span>Made in the Philippines</span>
             {s['business.invitesCreatedLabel'] && <span>{s['business.invitesCreatedLabel']} invitations created</span>}
             {s['business.rsvpsCollectedLabel'] && <span>{s['business.rsvpsCollectedLabel']} RSVPs collected</span>}
           </div>
         </section>
 
         {/* How it works */}
-        <section id="how" className="mx-auto max-w-6xl px-5 py-16">
-          <p className="eyebrow text-center">How it works</p>
-          <h2 className="display mt-2 text-center text-3xl">From payment to published</h2>
+        <section id="how" className="ed-section mx-auto max-w-6xl px-5">
+          <span className="ed-eyebrow ed-eyebrow-ruled is-centred block text-center">How it works</span>
+          <h2 className="ed-display ed-display-lg mt-6 text-center">From payment to published</h2>
           <p className="mx-auto mt-2 max-w-2xl text-center text-sm text-[color:var(--color-ink-500)]">You do not have to build anything. Every package is encoded by our team — you tell us the details and approve it before your guests see it.</p>
           <div className="mt-8 grid gap-6 md:grid-cols-4">
             {[
@@ -106,10 +196,10 @@ export default async function Landing() {
         </section>
 
         {/* Templates */}
-        <section id="templates" className="bg-white py-16">
+        <section id="templates" className="ed-section bg-white">
           <div className="mx-auto max-w-6xl px-5">
-            <p className="eyebrow text-center">Templates</p>
-            <h2 className="display mt-2 text-center text-3xl">Our designs</h2>
+            <span className="ed-eyebrow ed-eyebrow-ruled is-centred block text-center">Templates</span>
+            <h2 className="ed-display ed-display-lg mt-6 text-center">Our designs</h2>
             <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">Each design is shown by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen; the premium opening video is an add-on. More designs, for {OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label.toLowerCase()).join(', ')} and beyond, are on the way.</p>
             <div className="mt-8">
               <TemplateGallery compact templates={await galleryWithPeeks(templates)} premiumPriceCents={addOns.find((a) => a.code === PREMIUM_OPENING_CODE && a.active)?.priceCents} />
@@ -118,10 +208,10 @@ export default async function Landing() {
         </section>
 
         {/* Packages */}
-        <section id="packages" className="bg-white py-16">
+        <section id="packages" className="ed-section bg-white">
           <div className="mx-auto max-w-6xl px-5">
-            <p className="eyebrow text-center">Packages</p>
-            <h2 className="display mt-2 text-center text-3xl">Simple pricing, paid once</h2>
+            <span className="ed-eyebrow ed-eyebrow-ruled is-centred block text-center">Packages</span>
+            <h2 className="ed-display ed-display-lg mt-6 text-center">Simple pricing, paid once</h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[color:var(--color-ink-700)]">Wedding pricing shown. Debut, christening and birthday packages follow the same three tiers; pick your occasion at checkout to see its price.</p>
             <div className="mt-8">
               <Packages packages={weddingPackages.map((p) => ({ tier: p.tier, name: p.name, tagline: p.tagline, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds, linkValidityDays: p.linkValidityDays }))} addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))} />
@@ -130,8 +220,8 @@ export default async function Landing() {
         </section>
 
         {/* Comparison */}
-        <section className="mx-auto max-w-6xl px-5 py-16">
-          <h2 className="display text-center text-3xl">Everything, side by side</h2>
+        <section className="ed-section mx-auto max-w-6xl px-5">
+          <h2 className="ed-display ed-display-lg text-center">Everything, side by side</h2>
           <div className="card mt-6 overflow-x-auto">
             <table className="data min-w-[40rem]">
               <thead><tr><th>Feature</th>{TIERS.map((t) => <th key={t}>{TIER_LABELS[t]}</th>)}</tr></thead>
@@ -141,9 +231,9 @@ export default async function Landing() {
         </section>
 
         {/* Feature highlights */}
-        <section className="bg-white py-16">
+        <section className="ed-section bg-white">
           <div className="mx-auto max-w-6xl px-5">
-            <h2 className="display text-center text-3xl">Built around how Filipino events really work</h2>
+            <h2 className="ed-display ed-display-lg text-center">Built around how Filipino events really work</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ['Per-guest links', '“Dear Mr. & Mrs. Dela Cruz, we have reserved 2 seats for you.” Each guest sees their own name, seats and table — never anyone else’s.'],
@@ -158,8 +248,8 @@ export default async function Landing() {
         </section>
 
         {/* Testimonials */}
-        <section className="mx-auto max-w-6xl px-5 py-16">
-          <h2 className="display text-center text-3xl">From couples and celebrants</h2>
+        <section className="ed-section mx-auto max-w-6xl px-5">
+          <h2 className="ed-display ed-display-lg text-center">From couples and celebrants</h2>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {TESTIMONIALS.map((t) => (
               <figure key={t.name} className="card p-5">
@@ -172,25 +262,44 @@ export default async function Landing() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="bg-white py-16">
+        <section id="faq" className="ed-section bg-white">
           <div className="mx-auto max-w-3xl px-5">
-            <h2 className="display text-center text-3xl">Questions people ask us on Messenger</h2>
+            <h2 className="ed-display ed-display-lg text-center">Questions people ask us on Messenger</h2>
             <div className="mt-8 space-y-2">
               {FAQ.map((f) => <details key={f.q} className="card p-4"><summary className="cursor-pointer font-semibold">{f.q}</summary><p className="mt-2 text-sm text-[color:var(--color-ink-700)]">{f.a}</p></details>)}
             </div>
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section className="mx-auto max-w-6xl px-5 py-16 text-center">
-          <h2 className="display text-3xl sm:text-4xl">Ready when you are.</h2>
-          <p className="mx-auto mt-3 max-w-xl text-[color:var(--color-ink-700)]">Start now, or send us a message — we answer on Messenger and Viber. {s['contact.hoursNote']}</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link href="/checkout" className="btn btn-primary">Create your invitation</Link>
-            <Link href="#how" className="btn btn-secondary">See how it works</Link>
+        {/* The closing band.
+
+            Dark, full-bleed, and the only place on the page where the wine is
+            the ground rather than the accent — which is what makes it read as
+            an ending rather than one more section. The contact buttons stay
+            inside it: somebody who has scrolled this far and still has not
+            clicked usually has a question, not an objection. */}
+        <section className="ed-band">
+          <div className="ed-band-media" aria-hidden>
+            {PHOTO.band ? <img src={PHOTO.band} alt="" loading="lazy" /> : null}
           </div>
-          <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-4 justify-center" />
+          <div className="ed-band-inner mx-auto max-w-6xl px-5 py-20 md:py-28">
+            <span aria-hidden className="mb-8 block h-px w-10 bg-white/40" />
+            <h2 className="ed-display ed-display-lg max-w-2xl text-white">
+              Life&rsquo;s special moments deserve a beautiful invitation.
+            </h2>
+            {/* hoursNote already names the channels and the hours, so the
+                lead-in must not: the two together used to say "Messenger and
+                Viber" twice in one breath. */}
+            <p className="mt-6 max-w-md text-white/70">
+              Start now, or send us a message. {s['contact.hoursNote']}
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-8">
+              <Link href="/checkout" className="ed-link w-full max-w-xs">Start creating today<Arrow /></Link>
+            </div>
+            <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-10" />
+          </div>
         </section>
+
       </main>
       <SiteFooter s={s} />
       <FloatingContact s={s} />

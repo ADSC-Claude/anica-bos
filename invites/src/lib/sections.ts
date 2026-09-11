@@ -3,6 +3,7 @@ import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast, entitled, TIER_LABELS, type FeatureKey } from './tiers';
 import { QR_BACKDROPS } from './qr';
+import { PASS_LOOKS } from './pass';
 import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
@@ -114,6 +115,7 @@ export type Person = { title: string; name: string; deceased: boolean };
 
 export type SectionKey =
   | 'cover'
+  | 'checkin'
   | 'countdown'
   | 'parents'
   | 'ceremony'
@@ -655,6 +657,27 @@ const SECTION_DEFS: SectionDef[] = [
     ],
   },
   {
+    key: 'checkin',
+    label: 'Check-in pass',
+    tl: 'Check-in Pass',
+    description: 'The screen a guest holds up at the door, and how it looks.',
+    // Named rather than tiered: check-in is sold as an add-on as well as
+    // included at the top, and a couple who bought the add-on must be able to
+    // arrange the page they paid for.
+    minTier: 'LUXURY',
+    feature: 'checkin',
+    fields: () => [
+      styles('look', 'How the pass looks', PASS_LOOKS.map((l) => ({ value: l.value, label: l.label, hint: l.note })), {
+        hint: 'Each guest gets their own, with their name and their code on it.',
+      }),
+      image('photo', 'Photograph on the pass', { hint: 'Blank uses your cover photo. A bright, uncluttered picture works best.' }),
+      select('qrBackdrop', 'Behind the code itself', QR_BACKDROPS.map((b) => ({ value: b.value, label: b.label })), {
+        hint: 'Your photo behind the card keeps the picture at full strength and gives the code its own panel. Behind the code itself, the photo has to be faded almost away before a phone can still read it — we do that for you, so expect it to look pale.',
+      }),
+      textarea('note', 'Line under the code', { placeholder: 'Blank uses the wording for your occasion.', hint: 'What the guest reads while they wait to be scanned.' }),
+    ],
+  },
+  {
     key: 'rsvp',
     label: 'RSVP',
     tl: 'RSVP',
@@ -681,13 +704,6 @@ const SECTION_DEFS: SectionDef[] = [
       ...(occasion === 'CORPORATE' ? [toggle('askDepartment', 'Ask for department / company')] : []),
       text('contactPhone', 'RSVP by text', { placeholder: 'Mobile number guests can text instead' }),
       textarea('reminderText', 'Reminder message', { hint: 'Used when RSVP reminders are sent from the guest list.', staff: true }),
-      // The check-in code's backdrop. Only drawn for invitations that carry
-      // check-in, but the fields are always offered: a couple settles the look
-      // of their invitation before they decide which add-ons to buy.
-      select('qrBackdrop', 'Behind the check-in QR', QR_BACKDROPS.map((b) => ({ value: b.value, label: b.label })), {
-        hint: 'Your photo behind the card keeps the picture at full strength and gives the code its own panel. Behind the code itself, the photo has to be faded almost away before a phone can still read it — we do that for you, so expect it to look pale.',
-      }),
-      image('qrPhoto', 'Photo behind the QR', { hint: 'Only used by the two photo options. A bright, uncluttered picture works best; a dark or busy one fades the most.' }),
     ],
   },
   {
@@ -1068,20 +1084,20 @@ export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries
 
 /** Which sections each occasion carries, in page order. */
 export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
-  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing', 'extras'],
-  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing', 'extras'],
-  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing', 'extras'],
-  KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'program', 'gallery', 'faq', 'music', 'photos', 'closing', 'extras'],
-  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing', 'extras'],
-  BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing', 'extras'],
-  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing', 'extras'],
-  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'gallery', 'moment', 'faq', 'photos', 'closing', 'extras'],
-  GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'program', 'faq', 'photos', 'closing', 'extras'],
-  COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'gallery', 'faq', 'photos', 'closing', 'extras'],
-  CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'contact', 'faq', 'photos', 'closing', 'extras'],
-  HOUSEWARMING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'rsvp', 'gift', 'faq', 'photos', 'closing', 'extras'],
-  REUNION: ['cover', 'countdown', 'parents', 'reception', 'program', 'rsvp', 'gallery', 'faq', 'contact', 'photos', 'closing', 'extras'],
-  MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'gallery', 'photos', 'closing', 'extras'],
+  WEDDING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'entourage', 'dressCode', 'gift', 'rsvp', 'checkin', 'story', 'gallery', 'program', 'faq', 'travel', 'moment', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing', 'extras'],
+  DEBUT: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'eighteen', 'dressCode', 'gift', 'rsvp', 'checkin', 'gallery', 'program', 'faq', 'moment', 'social', 'music', 'guestbook', 'photos', 'closing', 'extras'],
+  CHRISTENING: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'story', 'gallery', 'program', 'faq', 'social', 'music', 'guestbook', 'photos', 'contact', 'closing', 'extras'],
+  KIDS_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'program', 'gallery', 'faq', 'music', 'photos', 'closing', 'extras'],
+  MILESTONE_BIRTHDAY: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing', 'extras'],
+  BABY_SHOWER: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'gallery', 'program', 'faq', 'photos', 'closing', 'extras'],
+  ANNIVERSARY: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'story', 'moment', 'gallery', 'program', 'faq', 'music', 'guestbook', 'photos', 'closing', 'extras'],
+  ENGAGEMENT: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'rsvp', 'checkin', 'gallery', 'moment', 'faq', 'photos', 'closing', 'extras'],
+  GRADUATION: ['cover', 'countdown', 'parents', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'gallery', 'program', 'faq', 'photos', 'closing', 'extras'],
+  COMMUNION: ['cover', 'countdown', 'parents', 'sponsors', 'ceremony', 'reception', 'dressCode', 'gift', 'rsvp', 'checkin', 'gallery', 'faq', 'photos', 'closing', 'extras'],
+  CORPORATE: ['cover', 'countdown', 'reception', 'program', 'speakers', 'dressCode', 'rsvp', 'checkin', 'contact', 'faq', 'photos', 'closing', 'extras'],
+  HOUSEWARMING: ['cover', 'countdown', 'parents', 'ceremony', 'reception', 'rsvp', 'checkin', 'gift', 'faq', 'photos', 'closing', 'extras'],
+  REUNION: ['cover', 'countdown', 'parents', 'reception', 'program', 'rsvp', 'checkin', 'gallery', 'faq', 'contact', 'photos', 'closing', 'extras'],
+  MEMORIAL: ['cover', 'family', 'ceremony', 'reception', 'gift', 'rsvp', 'checkin', 'gallery', 'photos', 'closing', 'extras'],
 };
 
 /** The sections a customer can fill for this occasion — the hidden ones left out. */

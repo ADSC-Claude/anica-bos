@@ -118,16 +118,46 @@ test('a seat needs both the feature and an actual table', () => {
   assert.deepEqual(arrivedLinks('https://x.test/a', { table: 'Table 7', seating: false, guestbook: false, programme: false, photos: false }), []);
 });
 
-test('none of the day is offered before the scan', () => {
-  // The front of the pass has one job: be the thing that gets scanned. A
+test('none of the day is offered before the scan, in any look', () => {
+  // The front of the pass has one job: be the thing that gets held up. A
   // guestbook and an album offered to somebody in a queue is a screen that
-  // gets read instead of held up.
+  // gets read instead of held up — and that has to hold for every look, which
+  // is why it is checked on the one block they all share rather than on any
+  // one of their layouts.
   const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  const front = pass.slice(pass.indexOf('{!guest.checkedIn && ('), pass.indexOf('{guest.checkedIn && ('));
-  assert.doesNotMatch(front, /pass-links|arrivedLinks|pass-arrived/, 'the arrived panel is drawn before the scan');
-  assert.match(front, /pass-code/, 'the front lost its code');
-  const after = pass.slice(pass.indexOf('{guest.checkedIn && ('));
-  assert.match(after, /pass-links/, 'nothing opens up after the scan');
+  // The day lives in exactly one place.
+  assert.equal((pass.match(/pass-links/g) ?? []).length, 1, 'the arrived panel is drawn in more than one place');
+  assert.equal((pass.match(/pass-arrived/g) ?? []).length, 1);
+  // And that place is only ever reached through the check. Two other things
+  // spell this word — `arrivedLinks`, and the panel's own class name, where a
+  // hyphen counts as a word boundary — so both are excluded.
+  const uses = [...pass.matchAll(/(?<![-\w])arrived\b(?!Links)/g)];
+  const declaration = uses.filter((m) => pass.slice(Math.max(0, m.index - 10), m.index).includes('const ')).length;
+  assert.equal(declaration, 1, 'the arrived panel is declared more than once');
+  assert.equal(uses.length - declaration, 3, `${uses.length - declaration} looks render it; there are three`);
+  for (const m of uses) {
+    const before = pass.slice(Math.max(0, m.index - 24), m.index);
+    if (before.includes('const ')) continue;
+    assert.match(before, /guest\.checkedIn \? $/, 'the arrived panel is reachable without a scan');
+  }
+});
+
+test('every look draws the same code block and the same details', () => {
+  // Three layouts, one set of contents. A look that quietly dropped the
+  // details, or drew its own code, is how two of them end up wrong.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.equal((pass.match(/const codeBlock = \(/g) ?? []).length, 1, 'a look draws its own code');
+  assert.equal((pass.match(/const detailList = /g) ?? []).length, 1);
+  for (const look of ['portrait', 'ticket', 'card']) {
+    assert.match(pass, new RegExp(`data-look="${look}"`), `${look} is not rendered`);
+  }
+});
+
+test('portrait falls back when there is no photograph to put at the top', () => {
+  // Its whole layout is the picture. Without one it is a blank rectangle with
+  // names on it, so it becomes the card instead.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.match(pass, /look === 'portrait' && photo/, 'portrait draws an empty hero when no photo is set');
 });
 
 test('the pass is behind the same door as the invitation, and behind check-in', () => {
@@ -172,4 +202,23 @@ test('the code shrinks to the phone it is on', () => {
   const block = css.slice(css.indexOf('.pass {'), css.indexOf('.inv-btn {'));
   assert.match(block, /\.pass-code-art svg \{[^}]*width: 100%/, 'the code cannot shrink');
   assert.match(block, /\.pass-code-body \{[^}]*min-width: 0/, 'the code’s column cannot shrink below its widest child');
+});
+
+test('a detail row has no fixed column to clip its value in', () => {
+  // The same shape of bug as the pass code: a fixed width inside a sheet that
+  // has to fit a phone. It left "Table 7" wrapping to "Tabl / 7" on the
+  // narrower looks.
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass-detail {'), css.indexOf('.pass-foot'));
+  assert.doesNotMatch(block, /grid-template-columns:[^;]*rem/, 'the label column is a fixed width again');
+});
+
+test('the ticket’s perforation is visible on a palette whose ground and sheet are a shade apart', () => {
+  // The notch is filled with --inv-bg and sits over --inv-surface. On the
+  // preset palettes those are two percent apart, so the fill alone showed
+  // nothing and the tear read as a plain dashed rule. The ring is what makes
+  // it a punch, and it takes the same colour as the dashes.
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass-tear::before,'), css.indexOf('.pass-stub {'));
+  assert.match(block, /border: 1px solid color-mix\(in srgb, var\(--inv-accent2\)/, 'the notch has no ring, so it is invisible on a low-contrast palette');
 });

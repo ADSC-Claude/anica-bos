@@ -154,6 +154,28 @@ export function passSubject(occasion: Occasion, content: Content, fallback: stri
   }
 }
 
+/**
+ * How the pass is laid out.
+ *
+ * Three, and they are not skins: each puts the photograph somewhere different
+ * and therefore reads as a different object. `card` is a sheet with the picture
+ * as a band — quiet, and what a memorial or a corporate badge wants. `portrait`
+ * gives the photograph the top of the screen and sets the names over it, which
+ * is what most couples picture. `ticket` tears in two, with the code in the
+ * stub, which is what an event with a door actually is.
+ */
+export type PassLook = 'card' | 'portrait' | 'ticket';
+
+export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string }[] = [
+  { value: 'portrait', label: 'Portrait', note: 'Your photograph across the top, your names over it.' },
+  { value: 'card', label: 'Card', note: 'A plain sheet. The quietest of the three.' },
+  { value: 'ticket', label: 'Ticket', note: 'Tears in two, with the code in the stub.' },
+];
+
+export function passLookFrom(raw: string): PassLook {
+  return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'portrait';
+}
+
 export type PassDetail = { label: string; value: string };
 
 /**

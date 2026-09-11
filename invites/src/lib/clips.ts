@@ -61,6 +61,25 @@ export const VIDEO_CODECS = {
   webm: ['video/webm; codecs="vp9"', 'video/webm; codecs="vp8, vorbis"'],
 } as const;
 
+/**
+ * Whether the browser doing the asking can decode H.264 at all.
+ *
+ * This matters because `canPlayType` answers about *this* browser, not about
+ * the file — and some builds cannot decode H.264 for licensing reasons
+ * rather than because anything is wrong with the clip. A headless Chromium
+ * is one: it answers "maybe" to `video/mp4` and empty to every `avc1` string,
+ * which is how this was found.
+ *
+ * So a studio that refuses a clip because the browser in front of it said no
+ * would be refusing a perfectly good file. Where this returns false the
+ * codec check must *say* it could not be made — "this browser cannot check
+ * MP4 clips; the file was accepted unchecked" — and never refuse on it. The
+ * weight, length and shape rules do not need a decoder and still hold.
+ */
+export function canJudgeMp4(canPlayType: (type: string) => string): boolean {
+  return VIDEO_CODECS.mp4.some((c) => canPlayType(c) !== '');
+}
+
 /** A clip on a page is portrait, because an invitation is. A landscape clip is letterboxed into a tall page and wastes half of what the guest downloaded. */
 export const VIDEO_MAX_ASPECT = 1;
 

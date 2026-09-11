@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault } from '../src/lib/clips';
+import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4 } from '../src/lib/clips';
 import { designFolder } from '../src/lib/storage';
 
 /**
@@ -141,4 +141,23 @@ test('a design folder is narrowed to a path segment, and cannot climb out of one
   assert.equal(designFolder(['a']), 'shared');
   // never longer than a cuid with room to spare
   assert.equal(designFolder('x'.repeat(200)).length, 40);
+});
+
+// --- what the browser in front of us can be trusted to judge ---------------
+
+/**
+ * Found by measuring rather than assumed: the headless Chromium these probes
+ * run in answers "maybe" to `video/mp4` and empty to every `avc1` string,
+ * because it carries no H.264 decoder. A studio that refused a clip on that
+ * answer would be refusing a good file for its own browser's licensing.
+ */
+test('a browser with no H.264 decoder is known not to be able to judge one', () => {
+  const none = () => '';
+  assert.equal(canJudgeMp4(none), false);
+  // the shape the headless build actually answers: generic maybe, codecs empty
+  const headless = (t: string) => (t === 'video/mp4' ? 'maybe' : '');
+  assert.equal(canJudgeMp4(headless), false, 'a generic maybe is not a decoder');
+  // a real desktop browser
+  const desktop = (t: string) => (t.startsWith('video/mp4') ? 'probably' : '');
+  assert.equal(canJudgeMp4(desktop), true);
 });

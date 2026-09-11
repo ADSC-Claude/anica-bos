@@ -701,6 +701,16 @@ export function Studio(p: Props) {
   }
 
   /**
+   * The piece under the prenup photograph. The last thing a copy of Capiz
+   * still had to take from the `art` column, so it is the document's now.
+   */
+  function setStrand(url: string | undefined) {
+    const next: DesignDoc = { ...doc, strand: url };
+    if (!url) delete next.strand;
+    change(next);
+  }
+
+  /**
    * A picture the words flow around, on a page laid out by its words.
    *
    * A flow page has no canvas — its height is its words, so there is nothing
@@ -1198,6 +1208,7 @@ export function Studio(p: Props) {
             onGround={(url) => void groundFromPiece(url)}
             onIfEmpty={(url) => { if (selected?.kind === 'photo') editEls([selected.id], (e) => ({ ...e, ifEmpty: { piece: url } })); }}
             onRule={page && !page.drawn ? (url) => setDress((d) => ({ ...d, rule: url })) : undefined}
+            onStrand={(url) => setStrand(url)}
           />
         ) : (
         <>
@@ -3799,13 +3810,15 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
  * them copies the piece's address, never a reference to the row, so
  * deleting a piece from the library cannot blank a page that used it.
  */
-function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule }: {
+function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule, onStrand }: {
   selected: Element | null;
   onPlace: (url: string, aspect?: number) => void;
   onGround: (url: string) => void;
   onIfEmpty: (url: string) => void;
   /** offered only on a page laid out by its words, which is the only page with sections to divide */
   onRule?: (url: string) => void;
+  /** the piece under the prenup photograph: the design's, not the page's */
+  onStrand?: (url: string) => void;
 }) {
   const built = useMemo(() => builtinPieces(), []);
   const [mine, setMine] = useState<Piece[]>([]);
@@ -3904,6 +3917,11 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule }: {
             {onRule && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => onRule(piece.url)}>
                 Draw it over each section on this page
+              </button>
+            )}
+            {onStrand && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onStrand(piece.url)}>
+                Draw it under the prenup photograph
               </button>
             )}
           </div>

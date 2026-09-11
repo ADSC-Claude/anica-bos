@@ -267,6 +267,17 @@ export type DesignDoc = {
    */
   nightColours?: NightPalette;
   /**
+   * The piece drawn under the prenup photograph, on a paged design.
+   *
+   * It is the last thing a copy of Capiz needed from the `art` column. The
+   * numbered backgrounds a page-by-page copy does not use at all — a page
+   * with a ground of its own always sits on that one ground, whatever the
+   * strips say — and the night is each ground's own. This was the remainder,
+   * and a design whose document says nothing about it still reads the column
+   * exactly as it did, so the original Capiz keeps its strips and its art.
+   */
+  strand?: string;
+  /**
    * The sections this design does not do at all.
    *
    * Stated as a refusal rather than as a list of what it accepts, because
@@ -859,6 +870,7 @@ const zDoc = z.object({
   overflowGround: zGround.optional(),
   paper: zColour.optional(),
   surround: zColour.optional(),
+  strand: z.string().min(1).max(500).optional(),
   nightColours: z.object({
     ink: zColour.optional(), muted: zColour.optional(), surface: zColour.optional(),
     accent: zColour.optional(), accent2: zColour.optional(),

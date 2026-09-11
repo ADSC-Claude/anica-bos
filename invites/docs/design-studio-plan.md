@@ -566,6 +566,23 @@ Measured in the browser at two widths, on a copy of Baby Blue whose venue page c
 
 Two things deliberately left: a decoration is set by its numbers rather than dragged, because the canvas can only guess the height of a page laid out by its words; and the checklist's box rules (off the page, one frame over another) are measured on drawn pages only, since a box needs a height — what a flow page can still be asked is the horizontal, and it is.
 - A copy of Capiz re-grounded page by page: per-page grounds beat the numbered strips on a document design, with the strand and night set as document fields on the copy; the original Capiz keeps its strips and its art fields.
+
+**Built, and most of it turned out to be built already — which is worth saying rather than claiming as work.** PageGround has always drawn a page's own ground where the page names one ("a page with a ground of its own always sits on that one ground, whatever its height"), and the numbered strips are consumed only by the pages that still use them, because the strip counter advances in the `byNumber` branch alone. Per-page night is the ground's own (`PictureGround.night`, phase 1). So the only field a copy of Capiz still had to take from the `art` column was the strand under the prenup photograph, and that is `DesignDoc.strand` now, offered from the Library beside the other four uses of a piece. A design whose document says nothing about it reads the column exactly as before, so the original Capiz keeps its strips, its night and its strand.
+
+**Measured, because "already built" is a claim like any other.** A copy of Capiz with its first three pages given grounds of their own, read beside the original at 420px:
+
+| page | the original | the copy |
+| --- | --- | --- |
+| cover | bg-1 | its own |
+| story | bg-3 | its own |
+| invitation | bg-4 | its own |
+| entourage | bg-5 | bg-1 |
+| prenup | bg-7 | bg-3 |
+| venue | bg-5 | bg-4 |
+| … | … | … |
+| closing | bg-8 | bg-8 |
+
+The three re-grounded pages drew their own pictures; the strips then began again from the first for the pages that still used them; the last page kept the closing background, which is the one the ground lays last by name rather than by count; and the copy laid 17 papers where the original laid 18, because a page with a ground of its own is never split over two. The strand read `/capiz/strand-b.webp` on the original and the copy's own file on the copy.
 - Night palette roles per design.
 
 **Built, and it swept up an unfinished phase 1 item with it.** `DesignDoc.paper` and `DesignDoc.surround` — the column's own colour and the colour beside it on a laptop — have been in the type and in the schema since phase 1 and were read by **nothing**: the studio could write them and no guest would ever see them. The column's colour was still two literals in the stylesheet keyed by the layout's name, which is why a design drawn in the studio wore whatever its layout happened to be. Both are the document's now, pinned in `builtinDesign` to the same four colours the stylesheet carried, and the stylesheet reads the variables with those literals as the fallbacks.

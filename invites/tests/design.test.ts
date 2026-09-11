@@ -860,6 +860,26 @@ test('the two shipped designs carry the four colours the stylesheet used to', ()
   assert.ok(css.includes('background: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
 });
 
+/**
+ * The last thing a copy of Capiz took from the `art` column. The numbered
+ * backgrounds a page-by-page copy does not use — a page with a ground of its
+ * own sits on that one ground whatever the strips say, which is PageGround's
+ * own rule and was measured in the browser on a copy whose first three pages
+ * carry their own: they drew their own pictures, the strips were then
+ * consumed in order by the pages that still used them (bg-1, bg-3, bg-4…),
+ * and the original Capiz drew exactly what it always drew. The night is each
+ * ground's own. This was the remainder.
+ */
+test('the piece under the prenup photograph can be the design’s own', () => {
+  const doc: DesignDoc = { v: 1, pages: [{ key: 'prenup', sections: ['gallery'] }], strand: '/pieces/strand.webp' };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.strand, '/pieces/strand.webp');
+  // and the two shipped designs say nothing about it, so they read the column
+  assert.equal(builtinDesign('capiz')!.strand, undefined);
+  assert.equal(builtinDesign('babyblue')!.strand, undefined);
+});
+
 test('a design’s night is a set of overrides, one variable each', () => {
   assert.deepEqual(designVars({ v: 1, pages: [], nightColours: { ink: '#ffe9c9' } }), { '--night-ink': '#ffe9c9' });
   const all = designVars({

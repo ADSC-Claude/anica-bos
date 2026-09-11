@@ -127,7 +127,7 @@ export function hasFeature(tier: Tier, feature: FeatureKey): boolean {
  *
  * That is most of what separates the top packages from Basic, for ₱1,000 —
  * worth knowing when either price moves, and worth knowing that ₱4,500 of Basic
- * plus these two reaches what ₱7,500 of Luxury is sold for. It is not a slip:
+ * plus these two reaches what ₱8,000 of Luxury is sold for. It is not a slip:
  * there is no smaller honest version, because neither feature works alone. The Excel import is in the list for the same reason, not a
  * generous one — it shares requireGuestManager with the list itself, so
  * withholding it would mean a gate that does not exist today, to stop a

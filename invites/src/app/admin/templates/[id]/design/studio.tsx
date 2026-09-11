@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
-  isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, ONE_SCREEN, LEGIBLE_CQW,
+  isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
@@ -68,6 +68,8 @@ export function Studio(p: Props) {
   const [shown, setShown] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
+  /** the band a phone's browser keeps: shown on a page drawn to a screen or less */
+  const [bar, setBar] = useState(true);
   const [rev, setRev] = useState(p.rev);
   const [state, setState] = useState<'clean' | 'dirty' | 'saving' | 'saved' | 'error'>('clean');
   const [error, setError] = useState('');
@@ -664,6 +666,9 @@ export function Studio(p: Props) {
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
           )}
           <span className="ml-auto" />
+          {view === 'page' && page?.drawn && ratio <= ONE_SCREEN + 0.02 && (
+            <button type="button" title="The band a phone's browser keeps for itself until the guest scrolls" onClick={() => setBar((x) => !x)} className={`rounded px-2 py-1 ${bar ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Browser bar</button>
+          )}
           <button type="button" onClick={() => setNight((n) => !n)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">{night ? '☾ Night' : '☀ Day'}</button>
           <button type="button" onClick={undo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Undo</button>
           <button type="button" onClick={redo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Redo</button>
@@ -727,6 +732,28 @@ export function Studio(p: Props) {
                   * each handle takes it back. Without the layer the frames'
                   * own photographs sit on top and nothing can be grabbed.
                   */}
+                {/*
+                  * A page drawn to a screen or less loses its foot to the
+                  * browser's own bar on the first look. The band is drawn at
+                  * a tenth of a screen — the browser's number, not the
+                  * page's — so nothing on the page can be measured from it.
+                  */}
+                {page?.drawn && bar && ratio <= ONE_SCREEN + 0.02 && (
+                  <div
+                    aria-hidden
+                    style={{
+                      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6, pointerEvents: 'none',
+                      height: `${(BROWSER_BAR / ratio) * 100}%`,
+                      background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
+                      borderTop: '1px dashed rgba(31,29,26,0.5)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
+                      the browser&rsquo;s bar sits about here
+                    </span>
+                  </div>
+                )}
                 {page?.drawn && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
                     <Ties elements={elements} boxes={boxes} on={chosen} />

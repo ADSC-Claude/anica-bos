@@ -124,6 +124,16 @@ jobs:
           curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria/calendar.ics
           curl -sf -o /dev/null http://127.0.0.1:3000/juan-and-maria/card
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/does-not-exist)" = "404"
+          # The studio's preview draws a design's unpublished draft. Nobody
+          # but a previewer may be shown one, so signed out the flag has to
+          # change nothing: the same markup, byte for byte. The scripts are
+          # stripped because the flight payload echoes the query string back,
+          # which is the address and not the page.
+          page() { curl -s "$1" | perl -0777 -pe 's{<script\b.*?</script>}{}gs'; }
+          page http://127.0.0.1:3000/juan-and-maria > /tmp/plain.html
+          page 'http://127.0.0.1:3000/juan-and-maria?design=draft' > /tmp/draft.html
+          test -s /tmp/plain.html || { echo '::error::the invitation served nothing'; exit 1; }
+          diff -q /tmp/plain.html /tmp/draft.html || { echo '::error::?design=draft changed the page for a signed-out guest'; exit 1; }
           # Anything shared under the old prefix keeps working.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/i/juan-and-maria)" = "308"
           # A slug cannot swallow a real page: static routes win, which is what

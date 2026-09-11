@@ -816,6 +816,19 @@ export const LEGIBLE_CQW = 2.6;
 
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */
 export const ONE_SCREEN = 1.777;
+
+/**
+ * What the browser keeps for itself, as a share of one screen.
+ *
+ * A phone does not give a page the whole screen: Safari holds a bar at the
+ * foot and Chrome one at the head, and until the guest scrolls, about a
+ * tenth of the screen is not the page's. A cover drawn to exactly one screen
+ * therefore loses its last tenth on the first look — the line a designer
+ * most wants seen. The studio draws the band so she can see it going, which
+ * is the only honest way to show it: the height is the browser's, not the
+ * page's, so it cannot be measured from anything on the page.
+ */
+export const BROWSER_BAR = 0.1;
 export function pageRatio(page: PageSpec): number {
   const g = page.ground;
   if (!g) return ONE_SCREEN;

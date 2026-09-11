@@ -1548,6 +1548,9 @@ function Contact({ data, lang, tagline, title, format, note }: { data: SectionDa
  * of the one before, and a spray of shell cut from the designs lies across the
  * join (PageGround measures the pages and lays all of it).
  */
+/** A colour background named by its role follows the palette; anything else is a colour. */
+const ROLE_NAMES = ['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'];
+
 /** The backgrounds' height as a multiple of their width. */
 export const CAPIZ_BG_RATIO = 2.645;
 /** The order of the backgrounds down the invitation, long enough for any; 8 is set last. */
@@ -1851,7 +1854,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (verse) drawn.set('verse', verse);
     const placed = new Set<string>();
     const out: ReactNode[] = [];
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; ratio?: number } = {}) => (
+    /**
+     * One page. A plain colour is painted here and asks for no picture at
+     * all; a colour named by its role follows the palette, and `data-ground`
+     * is what lets the night rule turn the paper down with everything else.
+     */
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; ratio?: number; colour?: string } = {}) => (
       <div
         key={key}
         className="inv-page"
@@ -1859,7 +1867,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         data-bg={o.bg}
         data-seam={o.seam}
         data-drawn={o.drawn ? '' : undefined}
-        style={o.ratio ? ({ ['--page-ratio' as string]: o.ratio } as CSSProperties) : undefined}
+        data-ground={o.colour}
+        style={{
+          ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
+          ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+        } as CSSProperties}
       >
         {parts}
       </div>
@@ -1886,7 +1898,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           ? (spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
           : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground ? spec.key : undefined, seam: spec.seam, drawn: spec.drawn, ratio: spec.drawn ? pageRatio(spec) : undefined }));
+        const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
+        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, ratio: spec.drawn ? pageRatio(spec) : undefined }));
       }
     } else {
       for (const def of babyblue ? BABYBLUE_PAGES : CAPIZ_PAGES) {

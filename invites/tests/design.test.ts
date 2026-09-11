@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
-  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES,
+  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture,
   type PhotoEl, type TextEl, type PageSpec, type Element,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
@@ -312,4 +312,29 @@ test('the peek stops where the design says, whatever the page is called', () => 
   assert.equal(peekEndPage(renamed), 'how-we-prayed');
   const unmarked = { ...doc, pages: doc.pages.map(({ peekEnd, ...p }) => { void peekEnd; return p; }) };
   assert.equal(peekEndPage(unmarked), undefined);
+});
+
+/**
+ * A page's background is either a picture or a plain colour. A colour costs a
+ * guest nothing to download, and one named by its role follows the palette,
+ * so it turns itself down at night without a second picture being made.
+ */
+test('a colour background survives the column, by role and by hand', () => {
+  const withColour = JSON.parse(JSON.stringify(doc));
+  withColour.pages.push({ key: 'thanks', sections: ['closing'], drawn: true, ground: { color: 'accent', ratio: 2.4 } });
+  withColour.pages.push({ key: 'sign-off', sections: [], ground: { color: '#f6f2ea' } });
+  const read = designOf(withColour, 'babyblue');
+  assert.deepEqual(read.dropped, []);
+  const [a, b] = read.doc!.pages.slice(-2);
+  assert.deepEqual(a.ground, { color: 'accent', ratio: 2.4 });
+  assert.equal(pageRatio(a), 2.4);
+  assert.deepEqual(b.ground, { color: '#f6f2ea' });
+  assert.equal(pageRatio(b), 1.777, 'a colour page with no height is one screen');
+  assert.equal(isPicture(a.ground!), false);
+  assert.equal(isPicture(doc.pages[0].ground!), true);
+
+  // a ground that is neither loses the page rather than half-reading it
+  const bent = JSON.parse(JSON.stringify(doc));
+  bent.pages[0].ground = { url: '/x.webp' };
+  assert.equal(designOf(bent, 'babyblue').dropped.length, 1);
 });

@@ -4,11 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
-  isPicture, pageRatio, place,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef,
+  isPicture, pageRatio, place, ONE_SCREEN,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground,
 } from '@/lib/design';
 import { DrawnPage } from '@/components/invite/drawn';
 import { saveDesignDraftAction } from '../../../actions';
+import { uploadGround } from './ground';
 
 /**
  * The Design Studio.
@@ -181,6 +182,67 @@ export function Studio(p: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel, page, editEl, undo, redo]);
 
+  /** A page's own key, free of every other page's. */
+  function freePageKey(stem: string): string {
+    const taken = new Set(doc.pages.map((x) => x.key));
+    const base = stem.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'page';
+    if (!taken.has(base)) return base;
+    for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+  }
+
+  /** A new page goes in after the one she is on, so it lands where she is looking. */
+  function addPage(from?: PageSpec) {
+    const key = freePageKey(from ? `${from.key}-copy` : 'page');
+    const made: PageSpec = from
+      ? { ...JSON.parse(JSON.stringify(from)) as PageSpec, key, peekEnd: undefined }
+      : { key, sections: [] };
+    const at = doc.pages.findIndex((x) => x.key === pageKey);
+    const pages = [...doc.pages];
+    pages.splice(at < 0 ? pages.length : at + 1, 0, made);
+    change({ ...doc, pages });
+    setPageKey(key);
+    setSel(null);
+  }
+
+  function removePage(key: string) {
+    if (doc.pages.length < 2) return;
+    const pages = doc.pages.filter((x) => x.key !== key);
+    change({ ...doc, pages });
+    if (pageKey === key) setPageKey(pages[0].key);
+    setSel(null);
+  }
+
+  function movePage(key: string, by: number) {
+    const at = doc.pages.findIndex((x) => x.key === key);
+    const to = at + by;
+    if (at < 0 || to < 0 || to >= doc.pages.length) return;
+    const pages = [...doc.pages];
+    const [moved] = pages.splice(at, 1);
+    pages.splice(to, 0, moved);
+    change({ ...doc, pages });
+  }
+
+  /** Something new on the page, in the middle of it, selected and ready to drag. */
+  function addElement(kind: 'text' | 'photo') {
+    if (!page) return;
+    const id = freeId(doc, kind === 'photo' ? 'photo' : 'words');
+    const made: Element = kind === 'photo'
+      ? { id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
+      : { id, kind: 'text', block: 'free', x: 50, y: 40, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel(id);
+  }
+
+  /** The page's background: a picture she uploads, a colour from the palette, or nothing. */
+  function setGround(ground: Ground | undefined) {
+    editPage((pg) => {
+      const next: PageSpec = { ...pg, ground };
+      // a page with a ground of known proportions can be drawn on; one with none cannot
+      if (!ground) next.drawn = undefined;
+      return next;
+    });
+  }
+
   function duplicate() {
     if (!selected || !page) return;
     const id = freeId(doc, selected.id.replace(/-\d+$/, ''));
@@ -308,7 +370,13 @@ export function Studio(p: Props) {
 
       {/* the pages */}
       <aside className="card h-fit p-2">
-        <p className="label px-1">Pages</p>
+        <div className="flex items-center justify-between px-1">
+          <p className="label">Pages</p>
+          <span className="flex gap-1">
+            <button type="button" title="A new blank page after this one" onClick={() => addPage()} className="rounded bg-[color:var(--color-sand-200)] px-2 text-sm leading-6">+</button>
+            <button type="button" title="A copy of this page after it" onClick={() => page && addPage(page)} className="rounded bg-[color:var(--color-sand-200)] px-2 text-xs leading-6">copy</button>
+          </span>
+        </div>
         <ol className="mt-1 space-y-1">
           {doc.pages.map((pg, i) => (
             <li key={pg.key}>
@@ -326,6 +394,13 @@ export function Studio(p: Props) {
                   <span className="block text-[11px] text-[color:var(--color-ink-500)]">{i + 1}. {pg.drawn ? 'drawn' : 'flows'}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}</span>
                 </span>
               </button>
+              {pg.key === pageKey && (
+                <span className="flex gap-1 px-2 pb-1 pt-0.5 text-[11px]">
+                  <button type="button" onClick={() => movePage(pg.key, -1)} disabled={i === 0} className="rounded bg-[color:var(--color-sand-200)] px-1.5 disabled:opacity-40">↑</button>
+                  <button type="button" onClick={() => movePage(pg.key, 1)} disabled={i === doc.pages.length - 1} className="rounded bg-[color:var(--color-sand-200)] px-1.5 disabled:opacity-40">↓</button>
+                  <button type="button" onClick={() => removePage(pg.key)} disabled={doc.pages.length < 2} className="ml-auto rounded bg-[color:var(--color-sand-200)] px-1.5 text-red-700 disabled:opacity-40">delete</button>
+                </span>
+              )}
             </li>
           ))}
         </ol>
@@ -337,6 +412,9 @@ export function Studio(p: Props) {
           {WIDTHS.map((w) => (
             <button key={w.key} type="button" onClick={() => setWidth(w.key)} className={`rounded px-2 py-1 ${width === w.key ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{w.label}<span className="ml-1 opacity-60">{w.hint}</span></button>
           ))}
+          <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
+          <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
+          <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
           <span className="ml-auto" />
           <button type="button" onClick={() => setNight((n) => !n)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">{night ? '☾ Night' : '☀ Day'}</button>
           <button type="button" onClick={undo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Undo</button>
@@ -391,7 +469,7 @@ export function Studio(p: Props) {
         {selected ? (
           <Properties el={selected} ratio={ratio} onChange={(fn) => editEl(selected.id, fn)} onLayer={layer} onDuplicate={duplicate} onRemove={remove} label={label(selected)} />
         ) : (
-          <PageProps page={page} onChange={editPage} />
+          <PageProps page={page} onChange={editPage} onGround={setGround} templateId={p.templateId} vars={p.vars} />
         )}
       </aside>
     </div>
@@ -491,8 +569,37 @@ function Properties({ el, ratio, onChange, onLayer, onDuplicate, onRemove, label
   );
 }
 
-function PageProps({ page, onChange }: { page?: PageSpec; onChange: (fn: (p: PageSpec) => PageSpec) => void }) {
+/** The six roles a colour background can take, so night mode keeps working. */
+const ROLES = [
+  { key: 'bg', label: 'Paper' }, { key: 'surface', label: 'Card' }, { key: 'ink', label: 'Ink' },
+  { key: 'muted', label: 'Muted' }, { key: 'accent', label: 'Accent' }, { key: 'accent2', label: 'Second accent' },
+];
+
+function PageProps({ page, onChange, onGround, templateId, vars }: {
+  page?: PageSpec;
+  onChange: (fn: (p: PageSpec) => PageSpec) => void;
+  onGround: (g: Ground | undefined) => void;
+  templateId: string;
+  vars: Record<string, string>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   if (!page) return <p className="hint">This design has no pages yet.</p>;
+  const ground = page.ground;
+
+  async function pick(file: File) {
+    setBusy(true);
+    setError('');
+    try {
+      const up = await uploadGround(file, templateId);
+      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <>
       <p className="label">The page</p>
@@ -508,6 +615,73 @@ function PageProps({ page, onChange }: { page?: PageSpec; onChange: (fn: (p: Pag
           {page.sections.length === 0 && <li className="text-[color:var(--color-ink-500)]">none</li>}
         </ul>
       </div>
+      <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+        <p className="label">Background</p>
+        <div className="mt-1 flex items-start gap-2">
+          <span
+            className="h-16 w-11 shrink-0 rounded border border-black/10 bg-cover bg-top"
+            style={ground && isPicture(ground) ? { backgroundImage: `url(${ground.url})` } : { background: ground ? colourOf(ground.color, vars) : 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+          />
+          <div className="min-w-0 flex-1 space-y-1">
+            <label className={`btn btn-secondary btn-sm w-full ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+              {busy ? 'Reading the picture…' : ground && isPicture(ground) ? 'Replace the picture' : 'Upload a picture'}
+              <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
+            </label>
+            {ground && <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm w-full">No background</button>}
+          </div>
+        </div>
+        {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
+        <p className="label mt-2">or a colour</p>
+        <div className="mt-1 flex flex-wrap gap-1">
+          {ROLES.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              title={r.label}
+              onClick={() => onGround({ color: r.key, ratio: ground && !isPicture(ground) ? ground.ratio : undefined })}
+              className={`h-7 w-7 rounded border ${ground && !isPicture(ground) && ground.color === r.key ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
+              style={{ background: colourOf(r.key, vars) }}
+            />
+          ))}
+          <label className="ml-1 flex items-center gap-1 text-xs">
+            <input
+              type="color"
+              value={ground && !isPicture(ground) && ground.color.startsWith('#') ? ground.color : '#ffffff'}
+              onChange={(e) => onGround({ color: e.target.value, ratio: ground && !isPicture(ground) ? ground.ratio : undefined })}
+              className="h-7 w-7 cursor-pointer rounded border border-black/15 p-0"
+            />
+            own
+          </label>
+        </div>
+        <p className="hint">A role colour follows the palette, so it turns itself down at night. A colour of your own does not.</p>
+
+        {ground && (
+          <label className="mt-2 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={Boolean(page.drawn)}
+              onChange={(e) => onChange((p) => ({ ...p, drawn: e.target.checked ? true : undefined }))}
+              className="h-4 w-4"
+            />
+            <span>Drawn page &mdash; things are placed on it by hand</span>
+          </label>
+        )}
+        {page.drawn && ground && !isPicture(ground) && (
+          <label className="mt-2 block">
+            <span className="label">How tall, in screens</span>
+            <input
+              type="number" min={0.3} max={12} step={0.1}
+              value={ground.ratio ?? ONE_SCREEN}
+              onChange={(e) => onGround({ color: ground.color, ratio: place(Math.max(0.3, Number(e.target.value) || ONE_SCREEN)) })}
+              className="input w-full"
+            />
+          </label>
+        )}
+        {page.drawn && ground && isPicture(ground) && (
+          <p className="hint mt-1">{ground.ratio.toFixed(3)} screens tall, from the picture itself.</p>
+        )}
+      </div>
+
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={Boolean(page.peekEnd)} onChange={(e) => onChange((p) => ({ ...p, peekEnd: e.target.checked ? true : undefined }))} className="h-4 w-4" />
         <span>Ends the &ldquo;See it open&rdquo; peek on the website</span>

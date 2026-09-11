@@ -444,7 +444,10 @@ table.data tr:hover td {
 .pass-code { position: relative; overflow: hidden; margin: 1rem 1.35rem 0; border-radius: 1rem; }
 .pass-code-photo { background-size: cover; background-position: center; }
 .pass-code-photo::before { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, var(--inv-veil, 0.8)); }
-.pass-code-body { position: relative; display: grid; justify-items: center; gap: 0.6rem; padding: 1.1rem; }
+/* min-width:0 so the grid column may shrink below the code's natural width.
+   Without it the column is sized by the 232px SVG, overflows a narrow phone,
+   and .pass-code's overflow:hidden clips the caption along with it. */
+.pass-code-body { position: relative; display: grid; justify-items: center; gap: 0.6rem; padding: 1.1rem; min-width: 0; }
 .pass-cta {
   font-size: 0.6875rem;
   letter-spacing: 0.2em;
@@ -452,8 +455,14 @@ table.data tr:hover td {
   font-weight: 700;
   margin: 0;
 }
-.pass-code-art { display: block; line-height: 0; }
-.pass-note { font-size: 0.75rem; text-align: center; margin: 0; line-height: 1.5; opacity: 0.8; max-width: 22rem; }
+/* The code is drawn at 232px and then allowed to shrink to the phone it is
+   on: an SVG with a viewBox scales without losing a module, and a fixed width
+   here is the difference between a pass that works on an iPhone SE and one
+   that does not. */
+.pass-code-art { display: block; line-height: 0; width: 100%; max-width: 232px; }
+.pass-code-art svg { width: 100%; height: auto; display: block; }
+.pass-note { font-size: 0.75rem; text-align: center; margin: 0; line-height: 1.5; opacity: 0.8; max-width: 22rem; text-wrap: pretty; }
+.pass-cta, .pass-note { min-width: 0; }
 
 .pass-details {
   margin: 1.15rem 1.35rem 0;

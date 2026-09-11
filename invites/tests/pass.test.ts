@@ -131,3 +131,13 @@ test('an occasion whose intro names nothing keeps the invitation’s own title',
 test('a missing name falls back rather than leaving the card blank', () => {
   assert.equal(passSubject('CHRISTENING', {}, "Baby's Christening"), "Baby's Christening");
 });
+
+test('the code shrinks to the phone it is on', () => {
+  // It is drawn at a fixed 232px. Without these two rules the grid column is
+  // sized by that SVG, overflows a narrow phone, and .pass-code's
+  // overflow:hidden clips the caption with it — "SCAN TO CHE".
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass {'), css.indexOf('.inv-btn {'));
+  assert.match(block, /\.pass-code-art svg \{[^}]*width: 100%/, 'the code cannot shrink');
+  assert.match(block, /\.pass-code-body \{[^}]*min-width: 0/, 'the code’s column cannot shrink below its widest child');
+});

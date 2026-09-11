@@ -682,6 +682,28 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-page[data-page='closing'] { padding-bottom: min(20vw, 6.4rem); }
 .inv-page > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .inv-page > .inv-section + .inv-section { padding-top: 1rem; }
+/*
+ * A flow page that carries a floated picture puts its sections inside this
+ * one plain block instead of hanging them off the flex column.
+ *
+ * It has to. `.inv-page` above is `display: flex`, and a float inside a flex
+ * container is not a float at all — it becomes a flex item and stacks above
+ * the words instead of letting them past. The measurement that caught it:
+ * the figure's box ended at −11px while the first line of the words began at
+ * 78px, and the line started at exactly the same place with the float as
+ * without it.
+ *
+ * So the float and the words share one block formatting context here. The
+ * sections are plain blocks and open no context of their own, so their line
+ * boxes are the ones that move — which is what a float is for. The two
+ * spacing rules above are repeated because they are child selectors and this
+ * wrapper would otherwise come between them and the sections.
+ */
+.inv-flow { display: block; }
+.inv-flow > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.inv-flow > .inv-section + .inv-section { padding-top: 1rem; }
+/* the floats are cleared at the end, so the page's height still holds them */
+.inv-flow::after { content: ''; display: block; clear: both; }
 
 /* --- sections --- */
 .inv[data-paged] .inv-section {

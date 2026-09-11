@@ -15,7 +15,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, type PictureGround, type CoverSpec } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, type PictureGround, type CoverSpec, type PageSpec, type PhotoEl, type Element } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats } from './drawn';
 import { Drawn } from './figures';
@@ -1855,6 +1855,28 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         {parts}
       </div>
     );
+    /**
+     * A flow page's body: its sections, and the pictures its words flow
+     * around where it has any.
+     *
+     * The wrapper is not decoration. `.inv-page` is a flex column, and a
+     * float inside a flex container is not a float — it becomes a flex item
+     * and stacks above the words. So where there is a float, the float and
+     * the sections go into one plain block together and share a block
+     * formatting context, which is the only arrangement in which the words'
+     * line boxes move aside. A page with no float is left exactly as it was.
+     */
+    const flowBody = (spec: PageSpec, parts: ReactNode[]): ReactNode[] => {
+      const floats = (spec.elements ?? []).filter((e: Element) => e.kind === 'photo' && Boolean((e as PhotoEl).float));
+      if (!floats.length) return parts;
+      return [(
+        <div key="flow" className="inv-flow">
+          <FlowFloats page={spec} content={content as Record<string, unknown>} lang={lang} />
+          {parts}
+        </div>
+      )];
+    };
+
     // The ground behind every page: the backgrounds in order, each trimmed to
     // its page, dissolved into one another at the joins. PageGround lays them.
     // A design that carries a document names a ground per page, and hands
@@ -1879,16 +1901,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // picture and some words — so it is always drawn.
         const parts = spec.drawn
           ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
-          : ([
-            /*
-             * A flow page's floated pictures come first, because that is
-             * what a float needs: the words after it are the ones that make
-             * room beside it. A drawn page has none — it places everything
-             * by hand and has no words to flow.
-             */
-            <FlowFloats key="floats" page={spec} content={content as Record<string, unknown>} lang={lang} />,
-            ...spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))),
-          ].filter(Boolean) as ReactNode[]);
+          : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
         if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));

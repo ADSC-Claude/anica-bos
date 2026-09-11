@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PALETTE, familyPalette, colourFamilies, contrast, lightness, READABLE_INK } from '../src/lib/palette';
+import { PALETTE, SWATCHES, familyPalette, colourFamilies, contrast, lightness, READABLE_INK } from '../src/lib/palette';
 
 /**
  * Six colours from a family in one tap. The two things that must hold for
@@ -203,3 +203,79 @@ test('a family with nothing deep enough has its own colour taken down, not repla
   assert.ok(shadesOf('browns').includes(familyPalette('browns').accent));
 });
 
+
+/** The distance between two colours as the eye roughly sees it, in RGB. */
+const apart = (a: string, b: string) => {
+  const rgb = (h: string) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const [p, q] = [rgb(a), rgb(b)];
+  return Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+};
+
+test('every family is a range to pick from, not a choice between two', () => {
+  /*
+   * Ten shades a family, which is what the plan asks of the book: a couple
+   * matching a gown to a sash to a table runner needs the steps in between,
+   * and light green used to have four.
+   */
+  for (const g of PALETTE) {
+    if (g.key === 'blacks') continue;
+    assert.ok(g.swatches.length >= 10, `${g.key} has only ${g.swatches.length}`);
+  }
+  assert.equal(PALETTE.length, 13);
+  assert.ok(SWATCHES.length >= 135, `${SWATCHES.length} swatches`);
+});
+
+test('blacks stop at six, because ten blacks is the same square ten times', () => {
+  /*
+   * The one family the ten-shade rule does not fit, and the numbers are why:
+   * the whole family lives inside a contrast ratio of about 1.5, and no two
+   * neighbours are even 1.2 apart, where the standards call two colours
+   * *different* at 3. Six is where a person can still tell one from the next
+   * on a phone in daylight.
+   */
+  const blacks = shadesOf('blacks');
+  assert.equal(blacks.length, 6);
+  const sorted = [...blacks].sort((a, b) => lightness(a) - lightness(b));
+  assert.ok(contrast(sorted[0], sorted[sorted.length - 1]) < 2, 'the whole family is one colour to the eye');
+  for (let i = 1; i < sorted.length; i++) {
+    assert.ok(contrast(sorted[i - 1], sorted[i]) < 1.3, `${sorted[i - 1]} and ${sorted[i]} are further apart than expected`);
+  }
+  // and six is enough to make a palette, where two was not: under three
+  // shades a family is not offered at all
+  assert.ok(colourFamilies().some((f) => f.key === 'blacks'), 'blacks should now make a palette');
+  const mono = familyPalette('blacks');
+  assert.equal(mono.ink, '#000000');
+  assert.ok(contrast(mono.ink, mono.bg) >= 4.5);
+});
+
+test('no two swatches are the same colour, and no new one crowds an old one', () => {
+  // What an invitation stores is the hex and the page reads the name back
+  // out of the book, so two swatches on one hex would silently rename one.
+  const hexes = SWATCHES.map((s) => s.hex);
+  assert.equal(new Set(hexes).size, hexes.length, 'two swatches share a hex');
+  /*
+   * And a shade added to a family must not sit on top of one she chose. The
+   * bar is her own: the closest pair in the book before any of this was
+   * Coffee and Cocoa, about 4 apart in RGB, so nothing new may be closer to
+   * its neighbour than that.
+   */
+  const HERS = 4;
+  for (const g of PALETTE) {
+    for (const s of g.swatches.filter((x) => x.added)) {
+      for (const other of g.swatches) {
+        if (other.key === s.key) continue;
+        assert.ok(apart(s.hex, other.hex) > HERS, `${s.name} crowds ${other.name} (${apart(s.hex, other.hex).toFixed(1)})`);
+      }
+    }
+  }
+});
+
+test('a shade added to the book is marked as added, so the sheet can show it', () => {
+  const added = SWATCHES.filter((s) => s.added);
+  assert.equal(added.length, SWATCHES.length - BOOK.length, 'the marked ones are exactly the ones the snapshot does not hold');
+  // and nothing from her original sheet is marked
+  for (const line of BOOK) {
+    const key = line.split(' ')[0];
+    assert.equal(SWATCHES.find((s) => s.key === key)?.added, undefined, `${key} is hers, not ours`);
+  }
+});

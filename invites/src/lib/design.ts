@@ -310,7 +310,42 @@ export type PageSpec = {
    * strip, the two-picture difference, or a PDF. A page drawn here has none.
    */
   importedFrom?: 'picture' | 'diff' | 'pdf';
+  /** how this page dresses the sections it carries; a drawn page has none */
+  sectionStyle?: SectionStyle;
   elements?: Element[];
+};
+
+/**
+ * How a page laid out by its words dresses the sections it carries.
+ *
+ * The sections are the app's own components — the RSVP form, the program
+ * list, the venue with its map link — and they are the same components on
+ * every design, which is why an invitation built in the studio has always
+ * come out looking like the app rather than like the design. This is the
+ * whole of the answer to that: four settings on the page, read by the
+ * sections through a handful of CSS variables and one attribute, so the
+ * same RSVP form is centred on a card in one design and left on bare paper
+ * with a flourish over it in another, and no component knows.
+ *
+ * A drawn page has none of this and cannot: its words are placed by hand,
+ * one box at a time, which is the other way of getting the same freedom.
+ */
+export type SectionStyle = {
+  /** where this page's headings sit; absent is centred, as they always were */
+  align?: 'left' | 'center' | 'right';
+  /** the sections sit on a card of the surface colour rather than on the page itself */
+  card?: true;
+  /** a piece from the library, drawn above each section's first words */
+  rule?: string;
+  /**
+   * How tall that piece is drawn, as a multiple of the page's own gap.
+   *
+   * A multiple rather than a measurement, for the same reason `footPad` is
+   * one: the gap is already `min(11vw, 3.5rem)`, viewport-relative with a
+   * cap, so it holds on a phone and on a laptop, and a number of pixels
+   * written here would be right on only one of them. Absent is 1.
+   */
+  ruleHeight?: number;
 };
 
 /**
@@ -773,6 +808,12 @@ const zPage = z.object({
     photoScale: zPlace(0.2, 3).optional(),
   }).strict().optional(),
   importedFrom: z.enum(['picture', 'diff', 'pdf']).optional(),
+  sectionStyle: z.object({
+    align: z.enum(['left', 'center', 'right']).optional(),
+    card: z.literal(true).optional(),
+    rule: z.string().min(1).max(500).optional(),
+    ruleHeight: zPlace(0, 6).optional(),
+  }).strict().optional(),
 }).strict();
 const zDoc = z.object({
   v: z.literal(1),
@@ -1572,6 +1613,41 @@ export function coverOf(doc: DesignDoc | null): CoverSpec | undefined {
  * where it always did.
  */
 const NAMES_AT: Record<NonNullable<CoverSpec['names']>, string> = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+/**
+ * A page's dress, as the one attribute and the few variables the built
+ * sections read it through.
+ *
+ * Everything here could have been a class per setting, and then every
+ * combination would have needed a rule. This way the stylesheet has one
+ * block, the document has four fields, and the combinations are the
+ * browser's to work out.
+ *
+ * The gap under the divider is a share of the divider's own height rather
+ * than a number, so a piece set taller pushes the words further down and a
+ * page with no piece at all has no gap and no box: the height falls to zero
+ * and `calc(0px * 0.35)` is nought.
+ *
+ * `--sec-rule-x` is the divider's own alignment and is not a second choice:
+ * a flourish over a heading follows the heading. It is a separate variable
+ * only because a text alignment and a background position are different
+ * kinds of value to CSS.
+ */
+export function sectionDress(dress: SectionStyle | undefined): { kind?: 'card' | 'plain'; vars: Record<string, string> } {
+  if (!dress) return { vars: {} };
+  const vars: Record<string, string> = {};
+  if (dress.align) {
+    vars['--sec-align'] = dress.align;
+    vars['--sec-rule-x'] = dress.align === 'center' ? 'center' : dress.align;
+  }
+  if (dress.rule) {
+    vars['--sec-rule'] = `url(${dress.rule})`;
+    // the page's own gap is the unit, so the piece holds its size on a phone
+    // and on a laptop the way every other measurement on the page does
+    vars['--sec-rule-h'] = `calc(${place(dress.ruleHeight ?? 1)} * min(11vw, 3.5rem))`;
+  }
+  return { kind: dress.card ? 'card' : 'plain', vars };
+}
+
 export function coverStyle(cover: CoverSpec | undefined): Record<string, string> {
   const st: Record<string, string> = {};
   if (!cover) return st;

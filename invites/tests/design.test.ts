@@ -4,7 +4,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle,
+  flowFloats, flowDecor, decorOver, decorStyle, sectionDress,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -809,6 +809,64 @@ test('the join and the room at the foot survive a read-back', () => {
   // and nonsense is refused rather than carried
   const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], footPad: 40 }] }, 'capiz');
   assert.deepEqual(bad.dropped, ['page 1 (a)'], 'a foot of forty times the usual is not a page');
+});
+
+// --- how a page dresses the sections it carries ---------------------------
+
+/**
+ * The sections are the app's own components, the same on every design, and
+ * everything about their dress used to be written once for all of them —
+ * which is why an invitation built in the studio came out looking like the
+ * app. Four fields on the page answer it, and this is the whole of what the
+ * markup gets: one attribute and a few variables.
+ */
+test('a page that says nothing about its sections is dressed as it always was', () => {
+  assert.deepEqual(sectionDress(undefined), { vars: {} });
+  assert.equal(sectionDress(undefined).kind, undefined, 'and carries no attribute, so no rule of the new block bites');
+});
+
+test('the alignment is one choice and carries the divider with it', () => {
+  const left = sectionDress({ align: 'left' });
+  assert.equal(left.kind, 'plain');
+  assert.deepEqual(left.vars, { '--sec-align': 'left', '--sec-rule-x': 'left' });
+  // centred is what every design already was, and it is said out loud rather
+  // than left out, because she chose it
+  assert.deepEqual(sectionDress({ align: 'center' }).vars, { '--sec-align': 'center', '--sec-rule-x': 'center' });
+});
+
+test('a card is the attribute, not a variable', () => {
+  assert.equal(sectionDress({ card: true }).kind, 'card');
+  assert.deepEqual(sectionDress({ card: true }).vars, {}, 'nothing about a card is a measurement');
+  assert.equal(sectionDress({ align: 'right' }).kind, 'plain');
+});
+
+/**
+ * The divider's height is a multiple of the page's own gap for the same
+ * reason `footPad` is: the gap is viewport-relative with a cap, so it holds
+ * on a phone and on a laptop, and a number of pixels would be right on only
+ * one of them.
+ */
+test('the divider is a piece and a height in the page’s own unit', () => {
+  const one = sectionDress({ rule: '/pieces/bow.webp' });
+  assert.equal(one.vars['--sec-rule'], 'url(/pieces/bow.webp)');
+  assert.equal(one.vars['--sec-rule-h'], 'calc(1 * min(11vw, 3.5rem))', 'absent is one gap tall');
+  assert.equal(sectionDress({ rule: '/p.png', ruleHeight: 2.5 }).vars['--sec-rule-h'], 'calc(2.5 * min(11vw, 3.5rem))');
+  // no piece, no height at all: the stylesheet falls back to nought, so the
+  // box is nought high and the gap under it — a share of that height — nought too
+  assert.equal(sectionDress({ align: 'left' }).vars['--sec-rule-h'], undefined);
+  assert.equal(sectionDress({ ruleHeight: 3 }).vars['--sec-rule-h'], undefined, 'a height with nothing to draw draws nothing');
+});
+
+test('a page’s dress survives a read-back, and nonsense in it is refused', () => {
+  const doc: DesignDoc = {
+    v: 1,
+    pages: [{ key: 'a', sections: ['rsvp'], sectionStyle: { align: 'left', card: true, rule: '/pieces/bow.webp', ruleHeight: 1.5 } }],
+  };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.pages[0].sectionStyle, { align: 'left', card: true, rule: '/pieces/bow.webp', ruleHeight: 1.5 });
+  const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], sectionStyle: { align: 'middle' } }] }, 'capiz');
+  assert.deepEqual(bad.dropped, ['page 1 (a)'], 'there is no such alignment');
 });
 
 // --- a picture the words flow around --------------------------------------

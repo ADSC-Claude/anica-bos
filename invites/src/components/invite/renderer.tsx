@@ -15,7 +15,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, type PictureGround, type CoverSpec, type PageSpec } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, sectionDress, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1835,26 +1835,33 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string } = {}) => (
-      <div
-        key={key}
-        className="inv-page"
-        data-page={key}
-        data-bg={o.bg}
-        data-seam={o.seam}
-        data-foot={o.foot !== undefined ? '' : undefined}
-        data-drawn={o.drawn ? '' : undefined}
-        data-grow={o.grow ? '' : undefined}
-        data-ground={o.colour}
-        style={{
-          ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
-          ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
-          ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
-        } as CSSProperties}
-      >
-        {parts}
-      </div>
-    );
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle } = {}) => {
+      // how this page dresses its sections: one attribute and a few
+      // variables, which is all the built sections read (sectionDress)
+      const dress = sectionDress(o.dress);
+      return (
+        <div
+          key={key}
+          className="inv-page"
+          data-page={key}
+          data-bg={o.bg}
+          data-seam={o.seam}
+          data-foot={o.foot !== undefined ? '' : undefined}
+          data-drawn={o.drawn ? '' : undefined}
+          data-grow={o.grow ? '' : undefined}
+          data-ground={o.colour}
+          data-dress={dress.kind}
+          style={{
+            ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
+            ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
+            ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+            ...dress.vars,
+          } as CSSProperties}
+        >
+          {parts}
+        </div>
+      );
+    };
     /**
      * A flow page's body: its sections, and the pictures its words flow
      * around where it has any.
@@ -1916,7 +1923,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle }));
       }
     }
     // a section the document does not name gets a page of its own, in its place

@@ -8,7 +8,7 @@ import {
   cropWindow, cropAt, flowFloats, flowDecor,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
-  type Source, type WordKey,
+  type Source, type WordKey, type SectionStyle,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
@@ -487,7 +487,10 @@ export function Studio(p: Props) {
     }
     const id = freeId(doc, 'piece');
     const made: PhotoEl = {
-      id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre',
+      // on a page laid out by its words a piece hangs off the head: there is
+      // no canvas to place it on, and flush with the head is where she can
+      // see it (addElement says the same thing about a blank frame)
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 40, anchor: 'centre',
       aspect: place(shape), frame: 'none', bind: { asset: url },
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
@@ -702,6 +705,23 @@ export function Studio(p: Props) {
     const made: Element = { id, kind: 'photo', x: 50, y: 0, w: 100, anchor: 'centre', aspect: 0.3, frame: 'none', bind: { asset: '' } };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
+  }
+
+  /**
+   * How the page she is on dresses the sections it carries.
+   *
+   * A page that says nothing about it keeps the dress every design has
+   * always had, so the whole setting is absent until she touches it and an
+   * empty one is taken off again rather than saved as `{}`.
+   */
+  function setDress(change: (d: SectionStyle) => SectionStyle) {
+    editPage((pg) => {
+      const next = change(pg.sectionStyle ?? {});
+      const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined && v !== '')) as SectionStyle;
+      const out = { ...pg, sectionStyle: Object.keys(clean).length ? clean : undefined };
+      if (!out.sectionStyle) delete out.sectionStyle;
+      return out;
+    });
   }
 
   /** What the page she is on carries, on a page laid out by its words. */
@@ -1152,6 +1172,7 @@ export function Studio(p: Props) {
             onPlace={(url, aspect) => void placePiece(url, aspect)}
             onGround={(url) => void groundFromPiece(url)}
             onIfEmpty={(url) => { if (selected?.kind === 'photo') editEls([selected.id], (e) => ({ ...e, ifEmpty: { piece: url } })); }}
+            onRule={page && !page.drawn ? (url) => setDress((d) => ({ ...d, rule: url })) : undefined}
           />
         ) : (
         <>
@@ -1547,6 +1568,7 @@ export function Studio(p: Props) {
             vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
             pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
+            dress={{ value: page?.sectionStyle, set: setDress }}
           />
         )}
       </aside>
@@ -3203,7 +3225,7 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces }: {
+function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces, dress }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
@@ -3215,6 +3237,8 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
     floats: PhotoEl[]; decor: Element[];
     addFloat: () => void; addDecor: () => void; pick: (id: string) => void; drop: (id: string) => void;
   };
+  /** how that page dresses the sections it carries */
+  dress: { value?: SectionStyle; set: (change: (d: SectionStyle) => SectionStyle) => void };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -3380,6 +3404,71 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
             A decoration hangs off the head or the foot and the words do not move for it, so keep it clear of them with the page&rsquo;s foot setting above.
             Press one to set what it reads, how wide it is, how far down it hangs and how far it turns.
           </p>
+        </div>
+      )}
+      {/*
+        * How this page dresses its sections.
+        *
+        * The sections are the app's own components and they are the same on
+        * every design, which is why a design built here used to come out
+        * looking like the app. These four settings are read by all of them
+        * through one attribute and a few variables, so the same RSVP form is
+        * centred on a card here and left on bare paper under a flourish
+        * there, without a component knowing or a new one being written.
+        */}
+      {!page.drawn && (
+        <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+          <p className="label">How its sections are dressed</p>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="label">The words sit</span>
+              <select
+                className="input w-full"
+                value={dress.value?.align ?? 'center'}
+                onChange={(e) => dress.set((d) => ({ ...d, align: e.target.value === 'center' ? undefined : (e.target.value as 'left' | 'right') }))}
+              >
+                <option value="center">In the middle</option>
+                <option value="left">To the left</option>
+                <option value="right">To the right</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">Each section sits</span>
+              <select
+                className="input w-full"
+                value={dress.value?.card ? 'card' : 'plain'}
+                onChange={(e) => dress.set((d) => ({ ...d, card: e.target.value === 'card' ? true : undefined }))}
+              >
+                <option value="plain">On the page itself</option>
+                <option value="card">On a card</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-2 flex items-start gap-2">
+            <span
+              className="h-10 w-16 shrink-0 rounded border border-black/10 bg-contain bg-center bg-no-repeat"
+              style={dress.value?.rule ? { backgroundImage: `url(${dress.value.rule})` } : { background: 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/8px 8px' }}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="label">Over each section</p>
+              {dress.value?.rule ? (
+                <div className="mt-0.5 flex items-center gap-1">
+                  <label className="flex-1">
+                    <span className="hint">How tall, as a multiple of the page&rsquo;s gap</span>
+                    <input
+                      type="number" step={0.1} min={0} max={6}
+                      value={dress.value.ruleHeight ?? 1}
+                      onChange={(e) => dress.set((d) => ({ ...d, ruleHeight: place(Number(e.target.value)) }))}
+                      className="input w-full"
+                    />
+                  </label>
+                  <button type="button" onClick={() => dress.set((d) => ({ ...d, rule: undefined, ruleHeight: undefined }))} className="rounded bg-white px-1.5 text-red-700">✕</button>
+                </div>
+              ) : (
+                <p className="hint">Pick a piece in the <strong>Library</strong>, on the left, and press <em>Draw it over each section on this page</em>. It follows the alignment above.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
       <div className="border-t border-[color:var(--color-sand-300)] pt-3">
@@ -3589,11 +3678,13 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
  * them copies the piece's address, never a reference to the row, so
  * deleting a piece from the library cannot blank a page that used it.
  */
-function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
+function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule }: {
   selected: Element | null;
   onPlace: (url: string, aspect?: number) => void;
   onGround: (url: string) => void;
   onIfEmpty: (url: string) => void;
+  /** offered only on a page laid out by its words, which is the only page with sections to divide */
+  onRule?: (url: string) => void;
 }) {
   const built = useMemo(() => builtinPieces(), []);
   const [mine, setMine] = useState<Piece[]>([]);
@@ -3687,6 +3778,11 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
             {selected?.kind === 'photo' && (
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => onIfEmpty(piece.url)}>
                 Show it when the frame is left empty
+              </button>
+            )}
+            {onRule && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onRule(piece.url)}>
+                Draw it over each section on this page
               </button>
             )}
           </div>

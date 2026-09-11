@@ -713,6 +713,67 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv[data-paged] .inv-section + .inv-section { border-top: 0; }
 
+/*
+ * How a page laid out by its words dresses the sections it carries.
+ *
+ * The sections are the app's own components — the RSVP form, the program
+ * list, the venue and its map link — and they are the same components on
+ * every design. That is why an invitation built in the studio has always
+ * come out looking like the app rather than like the design: everything
+ * about a section's dress was written here, once, for all of them.
+ *
+ * This is the whole of the answer. One attribute on the page and a few
+ * variables (`sectionDress`), and the same form is centred on a card in one
+ * design and left on bare paper under a flourish in another. No component
+ * knows, nothing is duplicated per combination, and a page that says nothing
+ * keeps exactly the dress it has always had — which is what the two shipped
+ * designs do, so neither moves by a pixel.
+ *
+ * The headings are named one by one rather than inherited, because each of
+ * them sets `text-align: center` in its own rule and an inherited value
+ * cannot beat that. The rules below are longer than those, which is the only
+ * reason they win.
+ */
+.inv[data-paged] .inv-page[data-dress] .inv-section { text-align: var(--sec-align, center); }
+.inv[data-paged] .inv-page[data-dress] .inv-section :is(.inv-eyebrow, .inv-title, .inv-tagline, .inv-list) { text-align: var(--sec-align, center); }
+/*
+ * The app's own hairline between a heading and what follows it. It is
+ * centred by `margin: auto`, which no alignment can argue with — so on a
+ * dressed page it becomes an inline box with no auto margins instead, and
+ * then the section's own alignment carries it, left or centred or right,
+ * with nothing else to set.
+ */
+.inv[data-paged] .inv-page[data-dress] .inv-section .inv-rule { display: inline-block; margin-inline: 0; }
+/*
+ * The card. The surface colour, so it follows the palette into night with
+ * the ink on it; the shadow is the only thing that is not the palette's, and
+ * it is the same one a drawn frame casts.
+ */
+.inv[data-paged] .inv-page[data-dress='card'] .inv-section {
+  background: color-mix(in srgb, var(--inv-surface) 92%, transparent);
+  border-radius: 1.1rem;
+  box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.45);
+}
+.inv[data-paged] .inv-page[data-dress='card'] > .inv-section,
+.inv[data-paged] .inv-page[data-dress='card'] .inv-flow > .inv-section { margin-block: 0.45rem; }
+/*
+ * The divider: a piece from the library over each section's first words.
+ *
+ * Its height is the page's own gap times whatever the design said, and with
+ * no piece at all the height falls to nought — so the box is nought high,
+ * the gap under it (a share of that height) is nought too, and a page that
+ * asked for no divider has no box and no space where one would have been.
+ * `contain` keeps the piece's own proportions inside a band the width of the
+ * section, so nothing has to know how wide or tall the file is.
+ */
+.inv[data-paged] .inv-page[data-dress] .inv-section::before {
+  content: '';
+  display: block;
+  height: var(--sec-rule-h, 0px);
+  margin-bottom: calc(var(--sec-rule-h, 0px) * 0.35);
+  background: var(--sec-rule, none) var(--sec-rule-x, center) center / contain no-repeat;
+}
+
 .inv[data-paged] .inv-title {
   font-family: var(--inv-display);
   font-weight: 500;

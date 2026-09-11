@@ -277,32 +277,29 @@ function StyleThumb({ kind }: { kind: string }) {
 }
 
 /**
- * The two check-in passes, drawn rather than described.
+ * The three check-in fronts, drawn rather than described.
  *
- * The same reasoning as StyleThumb: both are backgrounds, and the difference
- * between two backgrounds is a thing to look at rather than read. What each
- * tile has to get right is that neither puts the code on a card — an earlier
- * pair of these drew one, which is exactly the thing the looks removed.
+ * The same reasoning as StyleThumb: all three are about where the photograph
+ * goes and where the code sits on it, which is a thing to look at rather than
+ * read. What each tile has to get right is that the picture is at full
+ * strength and the code is on paper — an earlier pair drew the code washed
+ * into the photograph, which is not what any of these do.
  */
 function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: string }) {
   const line = (w: string, colour = ink, o = 0.6) => (
     <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: colour, opacity: o, margin: '0 auto' }} />
   );
-  // The code: a square with three corner eyes, which is the shape a phone
-  // camera recognises and so the shape a person does too.
   const eye = (pos: CSSProperties) => (
-    <span style={{ position: 'absolute', width: '28%', height: '28%', border: `2px solid var(--color-ink-900)`, borderRadius: 1, ...pos }} />
+    <span style={{ position: 'absolute', width: '28%', height: '28%', border: '2px solid var(--color-ink-900)', borderRadius: 1, ...pos }} />
   );
-  const mod = (l: string, t: string, w = '13%', h = '13%') => (
-    <span style={{ position: 'absolute', left: l, top: t, width: w, height: h, background: 'var(--color-ink-900)' }} />
+  const mod = (l: string, t: string) => (
+    <span style={{ position: 'absolute', left: l, top: t, width: '13%', height: '13%', background: 'var(--color-ink-900)' }} />
   );
   const qr = (
     <span style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1' }}>
       {eye({ left: 0, top: 0 })}
       {eye({ right: 0, top: 0 })}
       {eye({ left: 0, bottom: 0 })}
-      {/* enough modules between the eyes to read as a code rather than as
-          three squares and a dot */}
       {mod('44%', '4%')}
       {mod('44%', '30%')}
       {mod('62%', '44%')}
@@ -310,20 +307,22 @@ function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: str
       {mod('80%', '58%')}
       {mod('4%', '44%')}
       {mod('22%', '44%')}
-      {mod('62%', '76%', '13%', '13%')}
-      {mod('80%', '80%', '20%', '20%')}
+      {mod('62%', '76%')}
+      {mod('80%', '80%')}
       {mod('44%', '80%')}
     </span>
   );
-  // The wash: light with no edge, the same shape the pass draws.
-  const bloom = (
-    <span
-      style={{
-        position: 'absolute', left: '50%', top: '62%', translate: '-50% -50%',
-        width: '190%', aspectRatio: '1',
-        background: 'radial-gradient(closest-side circle, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.96) 44%, rgba(255,255,255,0.55) 70%, rgba(255,255,255,0) 100%)',
-      }}
-    />
+  // A picture rather than a flat grey rectangle, which reads as a missing
+  // image: two figures against a sky, at full strength in every tile.
+  const picture = (
+    <>
+      <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, var(--color-sand-300) 0%, var(--color-sand-100) 55%, var(--color-sand-200) 100%)' }} />
+      <span style={{ position: 'absolute', left: '17%', bottom: '-6%', width: '31%', height: '48%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.92 }} />
+      <span style={{ position: 'absolute', left: '44%', bottom: '-8%', width: '33%', height: '54%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.78 }} />
+    </>
+  );
+  const paper = (extra: CSSProperties) => (
+    <span style={{ position: 'absolute', background: 'var(--card-bg)', borderRadius: 4, boxShadow: '0 2px 7px rgba(0,0,0,0.2)', ...extra }} />
   );
   return (
     <span
@@ -331,39 +330,43 @@ function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: str
       className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)]"
       style={{ aspectRatio: '3 / 5', background: 'var(--color-sand-50)' }}
     >
-      {look === 'silhouette' && (
+      {/* the picture behind the whole pass, the card over it */}
+      {look === 'photo' && (
         <>
-          {/* A picture, edge to edge — two figures against a sky, because the
-              look is named for what a photograph does behind a code and a flat
-              grey rectangle reads as a missing image instead. */}
-          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, var(--color-sand-300) 0%, var(--color-sand-100) 52%, var(--color-sand-200) 100%)' }} />
-          <span style={{ position: 'absolute', left: '18%', bottom: '-6%', width: '30%', height: '46%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.9 }} />
-          <span style={{ position: 'absolute', left: '44%', bottom: '-8%', width: '32%', height: '52%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.75 }} />
-          {/* the head on a shade that fades, not a bar that ends */}
-          <span style={{ position: 'absolute', inset: '0 0 auto', height: '30%', background: 'linear-gradient(to bottom, rgba(0,0,0,0.58) 0%, rgba(0,0,0,0.3) 62%, rgba(0,0,0,0) 100%)' }} />
-          <span style={{ position: 'absolute', left: '13%', right: '13%', top: '9%' }}>
-            {line('100%', '#fff', 0.95)}
-            <span style={{ display: 'block', height: 4 }} />
-            {line('58%', '#fff', 0.85)}
-          </span>
-          {bloom}
-          <span style={{ position: 'absolute', left: '24%', right: '24%', top: '48%' }}>{qr}</span>
-        </>
-      )}
-      {look === 'ground' && (
-        <>
-          {/* the design's own artwork, standing in for whatever it is */}
-          <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px)`, opacity: 0.9 }} />
-          {/* the head on a wash of the design's paper, fading out below */}
-          <span style={{ position: 'absolute', inset: '0 0 auto', height: '34%', background: 'linear-gradient(to bottom, var(--card-bg) 0%, var(--card-bg) 58%, rgba(255,255,255,0) 100%)' }} />
-          <span style={{ position: 'absolute', left: '13%', right: '13%', top: '10%' }}>
+          {picture}
+          {paper({ inset: '12% 11%' })}
+          <span style={{ position: 'absolute', left: '19%', right: '19%', top: '17%' }}>
             {line('100%')}
             <span style={{ display: 'block', height: 4 }} />
-            {line('58%', ink, 0.45)}
+            {line('56%', ink, 0.42)}
           </span>
-          {/* and the same wash under the code — no card here either */}
-          {bloom}
-          <span style={{ position: 'absolute', left: '24%', right: '24%', top: '48%' }}>{qr}</span>
+          <span style={{ position: 'absolute', left: '25%', right: '25%', top: '38%' }}>{qr}</span>
+        </>
+      )}
+      {/* the picture across the top, the paper beneath it */}
+      {look === 'split' && (
+        <>
+          <span style={{ position: 'absolute', inset: 0, background: 'var(--card-bg)' }} />
+          <span style={{ position: 'absolute', inset: '0 0 62% 0', overflow: 'hidden' }}>{picture}</span>
+          <span style={{ position: 'absolute', left: '17%', right: '17%', top: '43%' }}>
+            {line('100%')}
+            <span style={{ display: 'block', height: 4 }} />
+            {line('56%', ink, 0.42)}
+          </span>
+          <span style={{ position: 'absolute', left: '25%', right: '25%', top: '58%' }}>{qr}</span>
+        </>
+      )}
+      {/* the design's own background, the card over it */}
+      {look === 'ground' && (
+        <>
+          <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px)` }} />
+          {paper({ inset: '12% 11%' })}
+          <span style={{ position: 'absolute', left: '19%', right: '19%', top: '17%' }}>
+            {line('100%')}
+            <span style={{ display: 'block', height: 4 }} />
+            {line('56%', ink, 0.42)}
+          </span>
+          <span style={{ position: 'absolute', left: '25%', right: '25%', top: '38%' }}>{qr}</span>
         </>
       )}
     </span>

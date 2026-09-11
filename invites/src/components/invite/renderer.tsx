@@ -11,7 +11,7 @@ import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
-import { qrSvg, qrOnPhoto, qrColours, QR_SAFE } from '@/lib/qr';
+import { qrSvg, qrColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
@@ -874,30 +874,23 @@ function stripReservedSentence(note: string): string {
  * the pass exists, so a guest who finds it here at home opens it again at the
  * door.
  *
- * It takes the same one choice the pass does — see PASS_LOOKS. `silhouette`
- * runs the photograph under the modules themselves, which works only where
- * the picture has gone to light beneath them; `ground` is the invitation's
- * own colours. There used to be a third, a photograph behind a solid white
- * card, and it was the thing the code should never be: cut out of the design
- * and pasted back on.
- *
- * A look that wants a photograph and has not been given one falls back to the
- * colours rather than drawing a code onto nothing.
+ * It takes the same one choice the pass does — see PASS_LOOKS. Either the
+ * photograph is behind it, at full strength, with the code on a plate of the
+ * invitation's own paper; or there is no photograph and the code sits on that
+ * paper directly. The picture is never veiled away under the modules: that
+ * costs the photograph everything and buys the code nothing a plate does not.
  */
 function CheckinPass({ url, passHref, lang, look, photo, ink }: { url: string; passHref: string; lang: Lang; look: PassLook; photo: string; ink: { dark: string; light: string } }) {
-  const mode: PassLook = photo ? look : 'ground';
   const eyebrow = <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>;
   const open = <a href={passHref} className="inv-pass-open">{t(lang, 'checkin.open')}</a>;
+  const code = <span dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />;
 
-  if (mode === 'silhouette') {
-    // The safe near-black rather than the palette's ink: the bloom bounds how
-    // dark the photograph can get under the code, and the pair has to clear
-    // the floor against the darkest point it leaves behind.
+  if (look !== 'ground' && photo) {
     return (
-      <div className="inv-pass inv-pass-behind mt-6" style={{ backgroundImage: `url(${photo})`, color: QR_SAFE.dark }}>
+      <div className="inv-pass inv-pass-photo mt-6" style={{ backgroundImage: `url(${photo})` }}>
         <div className="inv-pass-body">
           {eyebrow}
-          <span className="inv-pass-code" dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 144) }} />
+          <span className="inv-pass-plate">{code}</span>
           <p className="text-xs">{t(lang, 'checkin.hint')}</p>
           {open}
         </div>
@@ -908,7 +901,7 @@ function CheckinPass({ url, passHref, lang, look, photo, ink }: { url: string; p
   return (
     <div className="inv-card mt-6 text-center">
       {eyebrow}
-      <div className="mx-auto w-36" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
+      <div className="mx-auto w-36">{code}</div>
       <p className="inv-muted mt-2 text-xs">{t(lang, 'checkin.hint')}</p>
       <p className="mt-2">{open}</p>
     </div>

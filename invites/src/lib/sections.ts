@@ -674,7 +674,7 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'LUXURY',
     feature: 'checkin',
     fields: () => [
-      // "On your photograph" carries the blank value because that is what an
+      // "Your photo behind" carries the blank value because that is what an
       // untouched pass is (passLookFrom), and two tiles that mean the same
       // thing is not a choice. `art` names the drawing, so our tiles cannot
       // borrow the cover photograph's — its "card" is a different card.
@@ -684,12 +684,12 @@ const SECTION_DEFS: SectionDef[] = [
       // other, so the backdrop field is gone and this answers for both — the
       // pass and the code block on the invitation.
       styles('look', 'How the pass looks', PASS_LOOKS.map((l) => ({
-        value: l.value === 'silhouette' ? '' : l.value,
+        value: l.value === 'photo' ? '' : l.value,
         label: l.label,
         hint: l.note,
         art: `pass-${l.value}`,
       })), {
-        hint: 'Each guest gets their own, with their name and their code on it. A photograph has to fade under a code before a phone can still read it — we do that for you, and only under the code, so the picture keeps its strength everywhere else.',
+        hint: 'Each guest gets their own, with their name and their code on it. Your photograph keeps its full strength in all three — the code sits on your own paper rather than on the picture, because a phone cannot read a code off a photograph.',
       }),
       image('photo', 'Photograph on the pass', { hint: 'Blank uses your cover photo. A bright, uncluttered picture works best.' }),
       textarea('note', 'Line under the code', { placeholder: 'Blank uses the wording for your occasion.', hint: 'What the guest reads while they wait to be scanned.' }),

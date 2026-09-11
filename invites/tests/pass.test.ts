@@ -119,47 +119,7 @@ test('a seat needs both the feature and an actual table', () => {
   assert.deepEqual(arrivedLinks('https://x.test/a', { table: 'Table 7', seating: false, guestbook: false, programme: false, photos: false }), []);
 });
 
-test('none of the day is offered before the scan, in either look', () => {
-  // The front of the pass has one job: be the thing that gets held up. A
-  // guestbook and an album offered to somebody in a queue is a screen that
-  // gets read instead of held up — and that has to hold for both looks, which
-  // is why it is checked on the one block they share rather than on either
-  // one of their layouts.
-  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  // The day lives in exactly one place.
-  assert.equal((pass.match(/pass-links/g) ?? []).length, 1, 'the arrived panel is drawn in more than one place');
-  assert.equal((pass.match(/pass-arrived/g) ?? []).length, 1);
-  // And that place is only ever reached through the check. Two other things
-  // spell this word — `arrivedLinks`, and the panel's own class name, where a
-  // hyphen counts as a word boundary — so both are excluded.
-  const uses = [...pass.matchAll(/(?<![-\w])arrived\b(?!Links)/g)];
-  const declaration = uses.filter((m) => pass.slice(Math.max(0, m.index - 10), m.index).includes('const ')).length;
-  assert.equal(declaration, 1, 'the arrived panel is declared more than once');
-  assert.equal(uses.length - declaration, 2, `${uses.length - declaration} looks render it; there are two`);
-  for (const m of uses) {
-    const before = pass.slice(Math.max(0, m.index - 24), m.index);
-    if (before.includes('const ')) continue;
-    assert.match(before, /guest\.checkedIn \? $/, 'the arrived panel is reachable without a scan');
-  }
-});
 
-test('the threshold details are behind the scan too, and not beside the code', () => {
-  /*
-   * They used to sit under the code on the front. They are the questions a
-   * guest asks once they are through the door — which table, what is the
-   * hashtag — and every line beside the code is a line competing with it.
-   * So the front is the names and the code, and nothing else.
-   */
-  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  assert.equal((pass.match(/pass-details/g) ?? []).length, 1, 'the details are drawn in more than one place');
-  const at = pass.indexOf('pass-details');
-  const arrivedAt = pass.indexOf('const arrived = (');
-  const arrivedEnds = pass.indexOf('const head = (');
-  assert.ok(at > arrivedAt && at < arrivedEnds, 'the details are drawn outside the arrived panel');
-  // And the front block carries the code and its two lines, nothing more.
-  const block = pass.slice(pass.indexOf('const codeBlock = ('), pass.indexOf('const arrived = ('));
-  assert.doesNotMatch(block, /pass-details|pass-detail\b/, 'the details are back on the front of the pass');
-});
 
 test('the table is not said twice once they are through the door', () => {
   // The links already carry it, and carry it as somewhere to go.
@@ -167,25 +127,7 @@ test('the table is not said twice once they are through the door', () => {
   assert.match(pass, /spoken\.has\(d\.value\)/, 'a detail row repeats what the links already say');
 });
 
-test('both looks draw the same code block, and neither cuts it out of the design', () => {
-  // Two layouts, one set of contents. A look that drew its own code is how one
-  // of them ends up wrong.
-  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  assert.equal((pass.match(/const codeBlock = \(/g) ?? []).length, 1, 'a look draws its own code');
-  for (const look of ['silhouette', 'ground']) {
-    assert.match(pass, new RegExp(`data-look="${look}"`), `${look} is not rendered`);
-  }
-  // No tear, no stub, no card, no band: the things that separate a code from
-  // the design it belongs to.
-  assert.doesNotMatch(pass, /pass-tear|pass-stub|pass-strip|pass-hero|pass-photo\b/, 'a look went back to cutting the code out');
-});
 
-test('the silhouette falls back when there is no photograph to float on', () => {
-  // Its whole layout is the picture. Without one it is a blank rectangle with
-  // names on it, so it becomes the design's own background instead.
-  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  assert.match(pass, /wanted === 'silhouette' && !photo \? 'ground' : wanted/, 'the silhouette floats a code over nothing');
-});
 
 test('the pass is behind the same door as the invitation, and behind check-in', () => {
   assert.match(page, /if \(locked\) return <PasswordGate/, 'a password on the invitation does not cover the pass');
@@ -221,15 +163,6 @@ test('a missing name falls back rather than leaving the card blank', () => {
   assert.equal(passSubject('CHRISTENING', {}, "Baby's Christening"), "Baby's Christening");
 });
 
-test('the code shrinks to the phone it is on', () => {
-  // It is drawn at a fixed 232px. Without these two rules the grid column is
-  // sized by that SVG, overflows a narrow phone, and .pass-code's
-  // overflow:hidden clips the caption with it — "SCAN TO CHE".
-  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  const block = css.slice(css.indexOf('.pass {'), css.indexOf('.inv-btn {'));
-  assert.match(block, /\.pass-code-art svg \{[^}]*width: 100%/, 'the code cannot shrink');
-  assert.match(block, /\.pass-code-body \{[^}]*min-width: 0/, 'the code’s column cannot shrink below its widest child');
-});
 
 test('a detail row has no fixed column to clip its value in', () => {
   // The same shape of bug as the pass code: a fixed width inside a sheet that
@@ -241,27 +174,6 @@ test('a detail row has no fixed column to clip its value in', () => {
 });
 
 
-test('the look picker offers two looks, each drawn and explained, and no phantom third', () => {
-  // The controls were unfindable in RSVP; a picker of identical grey tiles
-  // would be the same failure one step later. "On your photograph" carries the
-  // blank value because blank already means it (passLookFrom), so a separate
-  // "the design's own" tile would be a second way to say the same thing — and
-  // StylesInput only leaves that tile off when an option owns ''.
-  const look = fieldsFor('checkin', 'WEDDING', 'LUXURY', false).find((f) => f.key === 'look');
-  assert.ok(look, 'the check-in section has no look picker');
-  const options = look.options ?? [];
-  assert.equal(options.length, PASS_LOOKS.length);
-  assert.equal(options.length, 2, 'a third look was invented; it is still open');
-  assert.ok(options.some((o) => o.value === ''), 'no option holds the blank value, so a phantom tile appears');
-  assert.equal(options.find((o) => o.value === '')?.label, 'On your photograph');
-  for (const o of options) {
-    assert.ok(o.hint && o.hint.length > 12, `${o.label} has no note under it`);
-    // `art` keeps these off the cover photograph's drawings, whose "card" is a
-    // different card entirely.
-    assert.match(o.art ?? '', /^pass-(silhouette|ground)$/, `${o.label} would borrow another field's drawing`);
-  }
-  assert.deepEqual(options.map((o) => o.art), PASS_LOOKS.map((l) => `pass-${l.value}`));
-});
 
 test('the check-in section asks how it looks once, not twice', () => {
   // A "look" and a separate "behind the code itself" asked the same question
@@ -287,37 +199,109 @@ test('the phone beside the check-in form shows the pass, not the invitation', ()
   assert.equal((builder.match(/previewSrc/g) ?? []).length, 4);
 });
 
-test('the wash is written so .pass-code cannot quietly undo it', () => {
-  /*
-   * Both classes sit on the same element and `.pass-code` is declared further
-   * down the file, so at equal specificity it wins. Written as `.pass-bloom`
-   * alone, every one of its resets lost — margin, radius, overflow — and the
-   * wash rendered as a rounded white card, which is the one thing the whole
-   * look exists not to be.
-   */
-  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  assert.match(css, /\.pass-code\.pass-bloom \{/, 'the wash is declared at a specificity .pass-code outranks');
-  assert.ok(css.indexOf('.pass-code.pass-bloom {') < css.indexOf('.pass-code {'), 'or it is declared after .pass-code, which also works — update this test');
+
+
+
+test('none of the day is offered before the scan, in any of the fronts', () => {
+  // The front of the pass has one job: be the thing that gets held up. A
+  // guestbook and an album offered to somebody in a queue is a screen that
+  // gets read instead of held up — checked on the one block all three fronts
+  // share rather than on any of their layouts.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.equal((pass.match(/pass-links/g) ?? []).length, 1, 'the arrived panel is drawn in more than one place');
+  assert.equal((pass.match(/pass-arrived/g) ?? []).length, 1);
+  assert.equal((pass.match(/pass-details/g) ?? []).length, 1, 'the details are drawn in more than one place');
+  // The three fronts share one body, and that body is the only way in.
+  assert.match(pass, /const body = guest\.checkedIn \? arrived : <>\{codeBlock\}\{foot\}<\/>;/, 'a front reaches the arrived panel its own way');
+  // `arrived` is declared once and referenced once — by `body`, behind the
+  // check. A front rendering it directly would show up as a third use.
+  const uses = [...pass.matchAll(/(?<![-\w])arrived\b(?!Links)/g)];
+  assert.equal(uses.length, 2, `${uses.length} uses of the arrived panel; there is one declaration and one use`);
+  assert.equal((pass.match(/\{body\}/g) ?? []).length, 3, 'the three fronts do not all render the shared body');
+  // And the code block carries the code and its two lines, nothing more.
+  const block = pass.slice(pass.indexOf('const codeBlock = ('), pass.indexOf('const arrived = ('));
+  assert.doesNotMatch(block, /pass-details|pass-detail\b|pass-links/, 'the day is back on the front of the pass');
 });
 
-test('nothing recolours the date line without saying which look it means', () => {
-  /*
-   * `.pass[data-art='yes'] .pass-when` outranks `.pass-shade .pass-when`, so a
-   * rule written for the design look also caught the silhouette — where the
-   * same line is white on a dark shade — and painted it dark ink on dark.
-   * Measured at 1.22:1, and nothing warned.
-   */
-  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  for (const m of css.matchAll(/^\.pass\[data-art=[^\]]+\][^{]*\.pass-when[^{]*\{([^}]*)\}/gm)) {
-    assert.doesNotMatch(m[1], /(^|[^-])color:/, 'a colour on .pass-when is set for every look at once');
+test('the table is not said twice once they are through the door', () => {
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.match(pass, /spoken\.has\(d\.value\)/, 'a detail row repeats what the links already say');
+});
+
+test('all three fronts are rendered, and one code block serves them', () => {
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.equal((pass.match(/const codeBlock = \(/g) ?? []).length, 1, 'a front draws its own code');
+  for (const look of ['photo', 'split', 'ground']) {
+    assert.match(pass, new RegExp(`data-look="${look}"`), `${look} is not rendered`);
   }
 });
 
-test('the date sits with the code on the silhouette, not in the head', () => {
-  // White type that small over an unknown photograph needed a scrim so dark
-  // the head stopped being a shade and became a black bar. On the bloom's
-  // light it is dark type on near-white and needs nothing.
+test('a front that wants a photograph and has none falls back rather than breaking', () => {
   const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  assert.match(pass, /\{when && look !== 'silhouette' && <p className="pass-when">/, 'the date is back in the silhouette’s head');
-  assert.match(pass, /look === 'silhouette' && when && <p className="pass-where">/, 'the date is nowhere on the silhouette');
+  assert.match(pass, /wanted !== 'ground' && !photo \? 'ground' : wanted/, 'a front would draw an empty rectangle');
+});
+
+test('the photograph is never washed out, darkened or written over', () => {
+  /*
+   * This is the whole rule. A veil, a scrim or a blur over the picture is the
+   * couple's photograph spent on a problem a piece of paper solves: the code
+   * and the words sit on the invitation's own surface, and the picture is the
+   * ground behind that. An earlier pass washed the photograph almost away
+   * under the code and put a near-black bar across the top for the names.
+   */
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass {'), css.indexOf('.inv-pass {'));
+  for (const gone of ['backdrop-filter', 'pass-bloom', 'pass-shade', '--inv-veil', 'radial-gradient']) {
+    assert.ok(!block.includes(gone), `${gone} is back over the photograph`);
+  }
+  // The picture itself is untouched: no filter, no dimming, no overlay. (A
+  // shadow *under* the sheet is not a scrim over the picture, which is why
+  // this looks at .pass-picture rather than banning rgba across the block.)
+  const pic = block.slice(block.indexOf('.pass-picture {'), block.indexOf('.pass-sheet {'));
+  for (const gone of ['filter', 'opacity', 'linear-gradient']) {
+    assert.ok(!pic.includes(gone), `the photograph is ${gone}-ed`);
+  }
+  assert.doesNotMatch(block, /\.pass-picture::(before|after)/, 'something is laid over the photograph');
+  // And the code takes the palette on paper, never the on-photo treatment.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(pass, /qrOnPhoto/, 'the code is drawn onto the photograph again');
+  assert.match(pass, /\.pass-picture|pass-picture/, 'nothing carries the photograph');
+});
+
+test('the code shrinks to the phone it is on', () => {
+  // It is drawn at a fixed 232px. Without this rule the column is sized by
+  // that SVG and overflows a narrow phone.
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass {'), css.indexOf('.inv-pass {'));
+  assert.match(block, /\.pass-code-art svg \{[^}]*width: 100%/, 'the code cannot shrink');
+  assert.match(block, /\.pass-code \{[^}]*min-width: 0/, 'the code’s column cannot shrink below its widest child');
+});
+
+test('the picture is contained by the pass rather than fixed to the window', () => {
+  // A fixed child leaves the sheet behind wherever the pass is embedded — the
+  // builder's preview phone, for one.
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass-picture {'), css.indexOf('.pass-sheet {'));
+  assert.match(block, /position: absolute/);
+  assert.doesNotMatch(block, /position: fixed/);
+});
+
+test('the picker offers the three fronts, each drawn and explained', () => {
+  const look = fieldsFor('checkin', 'WEDDING', 'LUXURY', false).find((f) => f.key === 'look');
+  assert.ok(look, 'the check-in section has no look picker');
+  const options = look.options ?? [];
+  assert.equal(options.length, 3);
+  assert.equal(options.length, PASS_LOOKS.length);
+  assert.ok(options.some((o) => o.value === ''), 'no option holds the blank value, so a phantom tile appears');
+  assert.equal(options.find((o) => o.value === '')?.label, 'Your photo behind');
+  for (const o of options) {
+    assert.ok(o.hint && o.hint.length > 12, `${o.label} has no note under it`);
+    assert.match(o.art ?? '', /^pass-(photo|split|ground)$/, `${o.label} would borrow another field's drawing`);
+  }
+  assert.deepEqual(options.map((o) => o.art), PASS_LOOKS.map((l) => `pass-${l.value}`));
+});
+
+test('the check-in section asks how it looks once, not twice', () => {
+  const keys = fieldsFor('checkin', 'WEDDING', 'LUXURY', false).map((f) => f.key);
+  assert.deepEqual(keys, ['look', 'photo', 'note']);
 });

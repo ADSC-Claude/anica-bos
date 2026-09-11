@@ -10,6 +10,7 @@ import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
 import { requireStaffSession, assertPermission, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
+import { contentOf } from '@/lib/invitations';
 import { hashPassword, changePassword } from '@/lib/auth';
 import { eraseCustomer } from '@/lib/privacy';
 import { audit } from '@/lib/audit';
@@ -385,6 +386,55 @@ export async function copyPageAction(templateId: string, key: string): Promise<{
   // shared rather than copied, so nothing is uploaded twice and neither
   // design can break the other by being edited
   return { ok: true, page };
+}
+
+// --- who the canvas is drawn against ---------------------------------------
+
+/**
+ * The invitations built on one design, so the canvas can be drawn against
+ * one of them.
+ *
+ * The customer's own title is the name, because what she is choosing is
+ * "whose words do I want to see this page with" and that list has to read
+ * like the invitation list she already knows. Newest first and capped: a
+ * design with two thousand invitations is a menu nobody can use, and the
+ * ones she wants to look at are the recent ones.
+ */
+export async function invitationsToDrawAction(templateId: string): Promise<{ id: string; title: string; tier: Tier; status: string }[]> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  assertPermission(user, 'invitations.view');
+  const rows = await prisma.invitation.findMany({
+    where: { templateId },
+    orderBy: { createdAt: 'desc' },
+    take: 60,
+    select: { id: true, title: true, tier: true, status: true },
+  });
+  return rows.map((r) => ({ id: r.id, title: r.title, tier: r.tier, status: r.status }));
+}
+
+/**
+ * One invitation's answers, for the canvas to draw a page against.
+ *
+ * Read-only by construction rather than by promise: the studio hands this
+ * to the canvas as what it draws, and everything the studio saves is the
+ * design document, which has no customer's words in it at all. The only
+ * way this could reach an invitation is if somebody wrote that code, and
+ * there is none.
+ *
+ * Scoped to the design, so an id from anywhere else cannot be read through
+ * the studio; and reading a customer's answers is an invitations
+ * permission, not a design one, so it asks for that as well.
+ */
+export async function invitationContentAction(templateId: string, id: string): Promise<
+  { ok: true; title: string; content: Record<string, unknown> } | { ok: false; error: string }
+> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  assertPermission(user, 'invitations.view');
+  const inv = await prisma.invitation.findFirst({ where: { id, templateId }, select: { title: true, content: true } });
+  if (!inv) return { ok: false, error: 'That invitation is not on this design any more.' };
+  return { ok: true, title: inv.title, content: contentOf(inv.content) as Record<string, unknown> };
 }
 
 // --- the theme -------------------------------------------------------------

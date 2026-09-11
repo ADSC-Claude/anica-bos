@@ -25,7 +25,7 @@ import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromU
 import { readPdfFile } from './pdf';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
-import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pagesToCopyAction, copyPageAction } from '../../../actions';
+import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pagesToCopyAction, copyPageAction, invitationsToDrawAction, invitationContentAction } from '../../../actions';
 
 /**
  * The Design Studio.
@@ -116,7 +116,18 @@ export function Studio(p: Props) {
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
   /** who the canvas is drawn against: the demo, nobody, anybody, or the longest */
-  const [sample, setSample] = useState<Sample>('demo');
+  const [sample, setSample] = useState<Sample | 'real'>('demo');
+  /*
+   * A real customer's invitation on the canvas. Their answers, drawn and
+   * nothing else: everything the studio saves is the design document, which
+   * holds no customer's words at all, so there is no path from here back to
+   * their invitation. The list is fetched the first time she opens the menu
+   * rather than on every studio load, because most of the time she is
+   * drawing against the demo and never asks.
+   */
+  const [real, setReal] = useState<{ id: string; title: string; content: Record<string, unknown> } | null>(null);
+  const [theirs, setTheirs] = useState<{ id: string; title: string; tier: string; status: string }[] | null>(null);
+  const [against, setAgainst] = useState({ busy: false, error: '' });
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
   /** the left column: the pages, or the pieces any design can be built from */
@@ -156,9 +167,28 @@ export function Studio(p: Props) {
    * frame 4" is about the demo, not about whoever the canvas is showing.
    */
   const shownContent = useMemo(
-    () => sampleContent(sample, { doc, occasion: p.occasion, demo: p.content }),
-    [sample, doc, p.occasion, p.content],
+    () => (sample === 'real' ? real?.content ?? {} : sampleContent(sample, { doc, occasion: p.occasion, demo: p.content })),
+    [sample, real, doc, p.occasion, p.content],
   );
+  /** the invitations on this design, asked for once and kept */
+  const loadTheirs = useCallback(async () => {
+    if (theirs !== null || against.busy) return;
+    setAgainst({ busy: true, error: '' });
+    try {
+      setTheirs(await invitationsToDrawAction(p.templateId));
+      setAgainst({ busy: false, error: '' });
+    } catch {
+      setAgainst({ busy: false, error: 'The invitations could not be listed.' });
+    }
+  }, [theirs, against.busy, p.templateId]);
+  const drawAgainst = useCallback(async (id: string) => {
+    setAgainst({ busy: true, error: '' });
+    const r = await invitationContentAction(p.templateId, id).catch(() => ({ ok: false as const, error: 'Their words could not be read.' }));
+    if (!r.ok) { setAgainst({ busy: false, error: r.error }); return; }
+    setReal({ id, title: r.title, content: r.content });
+    setSample('real');
+    setAgainst({ busy: false, error: '' });
+  }, [p.templateId]);
   /** the band a phone's browser keeps: shown on a page drawn to a screen or less */
   const [bar, setBar] = useState(true);
   const [rev, setRev] = useState(p.rev);
@@ -1160,14 +1190,32 @@ export function Studio(p: Props) {
             <button type="button" title="The band a phone's browser keeps for itself until the guest scrolls" onClick={() => setBar((x) => !x)} className={`rounded px-2 py-1 ${bar ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Browser bar</button>
           )}
           {view === 'page' && (
-            <select
-              title="Who the page is drawn against. None of it is saved: it is what the canvas draws, not what anybody has."
-              value={sample}
-              onChange={(e) => setSample(e.target.value as Sample)}
-              className="rounded bg-[color:var(--color-sand-200)] px-2 py-1"
-            >
-              {SAMPLES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </select>
+            <>
+              <select
+                title="Who the page is drawn against. None of it is saved: it is what the canvas draws, not what anybody has."
+                value={sample === 'real' && real ? `inv:${real.id}` : sample}
+                onFocus={() => void loadTheirs()}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v.startsWith('inv:')) void drawAgainst(v.slice(4));
+                  else { setSample(v as Sample); setAgainst({ busy: false, error: '' }); }
+                }}
+                className="rounded bg-[color:var(--color-sand-200)] px-2 py-1"
+              >
+                {SAMPLES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                <optgroup label="An invitation on this design">
+                  {theirs === null
+                    ? <option value="" disabled>{against.busy ? 'finding them…' : 'open again to list them'}</option>
+                    : theirs.length === 0
+                      ? <option value="" disabled>none built on this design yet</option>
+                      : theirs.map((t) => <option key={t.id} value={`inv:${t.id}`}>{t.title} · {t.tier.toLowerCase()}{t.status === 'PUBLISHED' ? ' · live' : ''}</option>)}
+                </optgroup>
+              </select>
+              {against.error && <span className="text-[11px] text-[color:var(--bad)]">{against.error}</span>}
+              {sample === 'real' && real && !against.error && (
+                <span className="text-[11px] text-[color:var(--color-ink-500)]">their words, read only</span>
+              )}
+            </>
           )}
           {/*
             * The theme. Its button sits with Day and Night because all three

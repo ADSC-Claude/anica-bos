@@ -105,11 +105,11 @@ export function ExpiredNotice({ invitation }: { invitation: PublicInvitation }) 
  * declares it public — and it stops after Our Story with the way in.
  * No view is counted and no guest's link is involved.
  */
-export async function PeekPage({ slug }: { slug: string }) {
+export async function PeekPage({ slug, embed = false }: { slug: string; embed?: boolean }) {
   const invitation = await loadPublic(slug, { preview: true });
   if (!invitation || invitation.template.demoSlug !== slug) notFound();
   const s = await getSettings();
-  return <Invitation invitation={invitation} guest={null} peek sets={await fontBook()} businessName={s['business.name']} />;
+  return <Invitation invitation={invitation} guest={null} peek embed={embed} sets={await fontBook()} businessName={s['business.name']} />;
 }
 
 /**

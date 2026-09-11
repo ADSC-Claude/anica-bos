@@ -179,9 +179,9 @@ test('Save the Date is included with Luxury and sold to everybody else', () => {
   assert.equal(addOnIncluded('SAVE_THE_DATE', 'COMPLETE'), false);
   assert.equal(addOnIncluded('RUSH', 'LUXURY'), false, 'only the card is given away');
 
-  const luxury: PackageLike = { code: 'WEDDING_LUXURY', name: 'Wedding Luxury', tier: 'LUXURY', priceCents: 750000, dfyFeeCents: 0, conciergeFeeCents: 0 };
+  const luxury: PackageLike = { code: 'WEDDING_LUXURY', name: 'Wedding Luxury', tier: 'LUXURY', priceCents: 800000, dfyFeeCents: 0, conciergeFeeCents: 0 };
   const q = quote({ pkg: luxury, serviceMode: 'DFY', addOns: [std], occasion: 'WEDDING' });
-  assert.equal(q.totalCents, 750000, 'the card adds nothing to the bill');
+  assert.equal(q.totalCents, 800000, 'the card adds nothing to the bill');
   assert.ok(q.items.some((i) => i.code === 'SAVE_THE_DATE' && i.amountCents === 0), 'and is still named on the order');
 });
 

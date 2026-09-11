@@ -58,6 +58,14 @@ export type RenderProps = {
   bare?: boolean;
   /** A visitor's look at a design: the opening, the cover and Our Story, then the way in. Nothing after. */
   peek?: boolean;
+  /**
+   * The peek, framed inside one of our own pages rather than opened as a page
+   * of its own — the landing band's card. What changes is navigation: the
+   * corner controls go, because a card on the landing page has no "back" to
+   * offer, and the two links at the end break out to the whole window instead
+   * of loading a page into a picture frame.
+   */
+  embed?: boolean;
   /** "phone": lay the page out as a phone would whatever the screen, for a showcase column. */
   shape?: 'phone';
   /** A look to set the page in, over the design's and the customer's. For the showcase. */
@@ -1587,7 +1595,7 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, embed = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
@@ -1839,11 +1847,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // A peek is a snippet of a design, not a page that explains itself: the
   // design's name, the way in, and the way back out. What the pages under it
   // hold is the catalogue's to say, not this page's.
+  // Framed, both links leave the frame: a checkout squeezed into a picture on
+  // the landing page is not a way in, it is a dead end with a scrollbar.
+  const out = embed ? { target: '_top' as const } : {};
   const peekEndBlock = peek ? (
     <section key="peek-end" className="inv-section inv-peek">
       <p className="inv-eyebrow">{lang === 'tl' ? `Ang disenyong ${inv.template.name}` : `The ${inv.template.name} design`}</p>
-      <a href={`/checkout?occasion=${inv.occasion}&template=${inv.template.id}${inv.template.premium ? '&tier=COMPLETE' : ''}`} className="inv-btn">{lang === 'tl' ? 'Kunin ang disenyong ito' : 'Get this design'}</a>
-      <p className="inv-peek-back"><a href={PEEK_EXIT}>{lang === 'tl' ? '← Bumalik sa mga disenyo' : '← Back to the designs'}</a></p>
+      <a href={`/checkout?occasion=${inv.occasion}&template=${inv.template.id}${inv.template.premium ? '&tier=COMPLETE' : ''}`} className="inv-btn" {...out}>{lang === 'tl' ? 'Kunin ang disenyong ito' : 'Get this design'}</a>
+      <p className="inv-peek-back"><a href={PEEK_EXIT} {...out}>{lang === 'tl' ? '← Bumalik sa mga disenyo' : '← Back to the designs'}</a></p>
     </section>
   ) : null;
   /**
@@ -2109,7 +2120,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         * they were on /print or not.
         */}
       {print && !!sheetRules(doc) && <style precedence="default" href="inv-sheet">{sheetRules(doc)}</style>}
-      {peek && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
+      {peek && !embed && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}
       {!print && <Motion />}

@@ -189,9 +189,14 @@ export type DesignForm = {
   room: Record<string, number>;
   /** what a photograph has to fit, in words a customer can act on */
   shape: Record<string, string>;
+  /** the design's own line for a box, offered to the customer as a starting point */
+  example: Record<string, { en: string; tl: string }>;
 };
 
-const EMPTY: DesignForm = { rows: {}, room: {}, shape: {} };
+const EMPTY: DesignForm = { rows: {}, room: {}, shape: {}, example: {} };
+
+/** An example's chip: her line, short enough to read at a glance. */
+const chip = (line: string): string => (line.length > 54 ? `${line.slice(0, 53).trimEnd()}\u2026` : line);
 
 export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignForm {
   if (!doc) return EMPTY;
@@ -208,12 +213,46 @@ export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignFor
     else shape[key] = SHAPE_GUIDANCE[a.shape];
   }
   for (const key of Object.keys(shape)) if (!shape[key]) delete shape[key];
-  return { rows, room: roomFor(asks), shape };
+  return { rows, room: roomFor(asks), shape, example: offered(doc) };
+}
+
+/**
+ * The lines a design offers as examples.
+ *
+ * A box on the form can be the hardest thing to fill in, and the person who
+ * knows best what belongs in it is the one who drew the page: she wrote a
+ * line there herself, for the demo, and marked it **offer it as an example**.
+ * It arrives under the customer's box as one more thing to tap.
+ *
+ * Only a line she typed in the design itself is offered. A line that reads
+ * from the look would change with the look the customer picks, so offering it
+ * as fixed words would be offering them something they might never see, and a
+ * line from the app's own copy is not the designer's to offer.
+ *
+ * Two boxes offering for the same field is a design that shows one answer in
+ * two places: the first one drawn wins, because two chips saying nearly the
+ * same thing help nobody.
+ */
+function offered(doc: DesignDoc): Record<string, { en: string; tl: string }> {
+  const out: Record<string, { en: string; tl: string }> = {};
+  for (const page of doc.pages) {
+    for (const el of page.elements ?? []) {
+      if (el.kind !== 'text' || !el.offerLine) continue;
+      const sources = el.lines.flatMap((l) => l.sources);
+      const ref = sources.flatMap((x) => ('bind' in x ? [x.bind] : []))[0];
+      const own = sources.flatMap((x) => ('fixed' in x ? [x.fixed] : []))[0];
+      if (!ref || !own?.en.trim()) continue;
+      const key = `${ref.section}.${ref.field}${ref.sub ? `.${ref.sub}` : ''}`;
+      if (!out[key]) out[key] = { en: own.en, tl: own.tl?.trim() || own.en };
+    }
+  }
+  return out;
 }
 
 /** Whether a design has anything to say about the form at all. */
 export const asksNothing = (form: DesignForm): boolean =>
-  !Object.keys(form.rows).length && !Object.keys(form.room).length && !Object.keys(form.shape).length;
+  !Object.keys(form.rows).length && !Object.keys(form.room).length
+  && !Object.keys(form.shape).length && !Object.keys(form.example).length;
 
 /**
  * One section's fields as this design asks for them.
@@ -238,6 +277,11 @@ export function askedFields(fields: Field[], section: string, form: DesignForm):
     if (Number.isFinite(cap) && cap !== f.max) next = { ...next, max: cap };
     const guide = form.shape[key];
     if (guide) next = { ...next, hint: [f.hint, guide].filter(Boolean).join(' ') };
+    // the design's own line, under the customer's box and after any the app
+    // already offers: hers is the one written for this page, not for the
+    // occasion in general, so it reads last and closest to the box
+    const own = form.example[key];
+    if (own) next = { ...next, examples: [...(f.examples ?? []), { key: 'design', label: chip(own.en), en: own.en, tl: own.tl }] };
     if (f.item) {
       const item = askedFields(f.item, `${section}.${f.key}`, form);
       if (item !== f.item) next = { ...next, item };

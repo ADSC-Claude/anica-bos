@@ -239,3 +239,70 @@ test('a cut frame tells the customer what the cut will do to their photograph', 
   // and the shape itself is untouched: a cut is not a shape
   assert.equal(asks[1].shape, 'square');
 });
+
+test('a line the designer marks is offered to the customer as a starting point', () => {
+  const doc = clone();
+  const story = doc.pages.find((p) => p.key === 'story')!;
+  const label = story.elements!.find((e) => e.id === 'story-label-1') as TextEl;
+  // the box already reads the customer's answer; give it words of its own
+  label.lines[0].sources.push({ fixed: { en: 'The day we first prayed for you', tl: 'Ang araw na una kang ipinagdasal' } });
+  label.offerLine = true;
+  const form = designForm(doc, 'CHRISTENING' as never);
+  const ref = label.lines[0].sources.flatMap((s) => ('bind' in s ? [s.bind] : []))[0];
+  const key = `${ref.section}.${ref.field}${ref.sub ? `.${ref.sub}` : ''}`;
+  assert.deepEqual(form.example[key], { en: 'The day we first prayed for you', tl: 'Ang araw na una kang ipinagdasal' });
+
+  // and it arrives on the field, last, after anything the app already offers
+  const before = fieldsFor('story', 'CHRISTENING' as never);
+  const after = askedFields(before, 'story', form);
+  const find = (fs: typeof before, k: string): typeof before[number] | undefined => fs.find((f) => f.key === k);
+  const list = find(after, ref.field);
+  assert.ok(list?.item, 'the timeline is a list of rows');
+  const box = list!.item!.find((f) => f.key === ref.sub);
+  assert.ok(box, `no ${ref.sub} on the row`);
+  const last = box!.examples![box!.examples!.length - 1];
+  assert.equal(last.key, 'design');
+  assert.equal(last.en, 'The day we first prayed for you');
+  assert.equal(last.tl, 'Ang araw na una kang ipinagdasal');
+  // whatever the app offered is still there, first
+  const was = find(before, ref.field)!.item!.find((f) => f.key === ref.sub)!;
+  assert.equal(box!.examples!.length, (was.examples?.length ?? 0) + 1);
+});
+
+test('an offer needs both a customer field and words of the designer’s own', () => {
+  const key = (d: ReturnType<typeof clone>) => Object.keys(designForm(d, 'CHRISTENING' as never).example);
+  // marked, but the words come from the look rather than from her
+  const fromLook = clone();
+  const a = fromLook.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-label-1') as TextEl;
+  a.lines[0].sources.push({ word: 'storyLine' as never });
+  a.offerLine = true;
+  assert.deepEqual(key(fromLook), []);
+
+  // her words, but nothing on the form reads this box at all
+  const noField = clone();
+  const b = noField.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-head') as TextEl;
+  b.lines = [{ role: 'title', sources: [{ fixed: { en: 'Our Story' } }] }];
+  b.offerLine = true;
+  assert.deepEqual(key(noField), []);
+
+  // her words on a bound box, but never marked
+  const unmarked = clone();
+  const c = unmarked.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-label-1') as TextEl;
+  c.lines[0].sources.push({ fixed: { en: 'Something' } });
+  assert.deepEqual(key(unmarked), []);
+
+  // and with nothing marked anywhere the form is the form it always was
+  const plain = designForm(clone(), 'CHRISTENING' as never);
+  assert.deepEqual(plain.example, {});
+  const fields = fieldsFor('story', 'CHRISTENING' as never);
+  assert.equal(askedFields(fields, 'story', plain), fields);
+});
+
+test('English only is offered in English, rather than left out of Tagalog', () => {
+  const doc = clone();
+  const label = doc.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-label-1') as TextEl;
+  label.lines[0].sources.push({ fixed: { en: 'A first Christmas' } });
+  label.offerLine = true;
+  const one = Object.values(designForm(doc, 'CHRISTENING' as never).example)[0];
+  assert.deepEqual(one, { en: 'A first Christmas', tl: 'A first Christmas' });
+});

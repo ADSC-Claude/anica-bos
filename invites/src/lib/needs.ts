@@ -28,22 +28,34 @@ import {
  * a background's weight in kilobytes) is not here and is not pretended.
  */
 
-export type NeedRule =
-  | 'ground'
-  | 'carries-nothing'
-  | 'off-page'
-  | 'overlap'
-  | 'unlinked'
-  | 'too-many'
-  | 'no-tagalog'
-  | 'too-small'
-  | 'orphan'
-  | 'if-empty'
-  | 'room'
-  | 'browser-bar'
-  | 'no-heading'
-  | 'demo-blank'
-  | 'asks';
+/**
+ * Every line the checklist knows how to say.
+ *
+ * The list is the list, and the type is read off it, so a rule added here
+ * and nowhere else fails the test that every one of them can be made to
+ * fire. A checklist with a rule nobody has ever seen fire is a checklist
+ * with a rule that does not work.
+ */
+export const NEED_RULES = [
+  'ground',
+  'carries-nothing',
+  'off-page',
+  'overlap',
+  'unlinked',
+  'too-many',
+  'no-tagalog',
+  'too-small',
+  'orphan',
+  'if-empty',
+  'room',
+  'browser-bar',
+  'no-heading',
+  'long-offer',
+  'demo-blank',
+  'asks',
+] as const;
+
+export type NeedRule = (typeof NEED_RULES)[number];
 
 export type Need = {
   /** blocks: it will be wrong for somebody. says: worth knowing, hers to ignore. */
@@ -174,6 +186,23 @@ export function pageNeeds({ doc, occasion, content }: Look): Need[] {
           for (const src of line.sources) {
             if ('fixed' in src && src.fixed.en.trim() && src.fixed.tl === undefined) {
               say('blocks', 'no-tagalog', `${nameOf(el, i + 1)} has English but no Tagalog.`, el.id);
+            }
+          }
+        }
+        /*
+         * A line offered to the customer as a starting point, longer than
+         * the room this very box holds. They tap it and the counter goes
+         * red on words the design gave them, which is the design arguing
+         * with itself in front of a customer.
+         */
+        if (t.offerLine && t.room) {
+          for (const line of t.lines) {
+            for (const src of line.sources) {
+              if (!('fixed' in src)) continue;
+              const longest = Math.max(src.fixed.en.trim().length, src.fixed.tl?.trim().length ?? 0);
+              if (longest > t.room) {
+                say('says', 'long-offer', `${nameOf(el, i + 1)} offers ${longest} letters as an example, and the box holds about ${t.room}.`, el.id);
+              }
             }
           }
         }

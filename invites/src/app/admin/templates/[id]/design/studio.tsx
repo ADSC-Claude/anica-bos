@@ -1362,6 +1362,11 @@ const ROLES_TEXT: { key: LineRole; label: string }[] = [
  * keeps its own role, because a heading and the line under it are not the
  * same thing even when they live in one box.
  */
+const offerable = (el: TextEl): boolean => {
+  const sources = el.lines.flatMap((l) => l.sources);
+  return sources.some((x) => 'bind' in x) && sources.some((x) => 'fixed' in x && x.fixed.en.trim());
+};
+
 function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) => Element) => void }) {
   const edit = (fn: (t: TextEl) => TextEl) => onChange((x) => fn(x as TextEl));
   const small = el.size !== undefined && el.size < LEGIBLE_CQW;
@@ -1427,6 +1432,22 @@ function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) =
         </select>
         <span className="hint">For words that sit on a busy picture. Both follow the palette, so both turn themselves down at night.</span>
       </label>
+
+      {/*
+        * A box that reads a customer's answer and has her own words behind
+        * it can offer those words as a starting point. A blank box is the
+        * hardest thing to fill in, and the person who knows best what
+        * belongs in this one is the one who drew the page.
+        */}
+      {offerable(el) && (
+        <label className="mt-2 flex items-start gap-2">
+          <input type="checkbox" checked={Boolean(el.offerLine)} onChange={(e) => edit((t) => ({ ...t, offerLine: e.target.checked ? true : undefined }))} className="mt-0.5 h-4 w-4" />
+          <span>
+            Offer your words as an example
+            <span className="hint block">Under the customer&rsquo;s own box, to tap and edit. Only what you typed here is offered &mdash; a line read from the look would change with the look they pick.</span>
+          </span>
+        </label>
+      )}
 
       <p className="label mt-3">Lines</p>
       <p className="hint">Stacked in flow inside the one box: a heading with its line under it, a name with its sentence. An empty line is dropped and the ones under it close up.</p>

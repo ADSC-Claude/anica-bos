@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { builtinDesign, type DesignDoc, type PhotoEl, type TextEl } from '../src/lib/design';
-import { pageNeeds, needCount, publishable, type Need, type NeedRule } from '../src/lib/needs';
+import { pageNeeds, needCount, publishable, NEED_RULES, type Need, type NeedRule } from '../src/lib/needs';
 
 const base = builtinDesign('babyblue')!;
 const clone = (d: DesignDoc = base): DesignDoc => JSON.parse(JSON.stringify(d));
@@ -241,8 +241,15 @@ test('every rule the type names can be made to fire', () => {
   head.lines[2].sources = [{ bind: { section: 'gallery', field: 'line' } }, ...head.lines[2].sources];
   add(n2);
 
-  assert.deepEqual([...fired].sort(), rules([
-    'ground', 'carries-nothing', 'off-page', 'overlap', 'unlinked', 'too-many', 'no-tagalog',
-    'too-small', 'orphan', 'if-empty', 'room', 'browser-bar', 'no-heading', 'demo-blank', 'asks',
-  ].map((rule) => ({ rule }) as Need)));
+  // a line the design offers as an example, longer than the box it measured:
+  // the customer taps it and the counter goes red on the design's own words
+  const o = clone();
+  const cap = el(o, 'baby-photos', 'photos-caption-1') as TextEl;
+  cap.room = 8;
+  cap.offerLine = true;
+  cap.lines[0].sources = [...cap.lines[0].sources, { fixed: { en: 'Much longer than eight letters' } }];
+  add(o);
+
+  // the list is the type's own, so a rule added and never exercised fails here
+  assert.deepEqual([...fired].sort(), [...NEED_RULES].sort());
 });

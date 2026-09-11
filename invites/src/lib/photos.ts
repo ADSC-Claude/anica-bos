@@ -4,7 +4,8 @@ import { prisma } from './db';
 import { HttpError } from './errors';
 import { contentOf, loadPublic } from './invitations';
 import { guestByToken } from './guests';
-import { hasFeature } from './tiers';
+import { entitled } from './tiers';
+import type { Tier } from '@prisma/client';
 import { notify } from './notifications';
 import { deleteFile, storeFile } from './storage';
 import { bool, str } from './sections';
@@ -37,10 +38,11 @@ export type GuestPhotoInput = z.infer<typeof guestPhotoSchema>;
 
 /** Whether the album is open, and why not when it is closed. */
 export function albumProblem(invitation: {
-  tier: Parameters<typeof hasFeature>[0];
+  tier: Tier;
+  addOns: string[];
   content: unknown;
 }): string | null {
-  if (!hasFeature(invitation.tier, 'photoSharing')) return 'This invitation does not have a shared album.';
+  if (!entitled(invitation, 'photoSharing')) return 'This invitation does not have a shared album.';
   if (!bool(contentOf(invitation.content).photos, 'enabled')) return 'The album is closed.';
   return null;
 }

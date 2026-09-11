@@ -41,15 +41,15 @@ export type Moved = {
  * the seating chart, event-day check-in and the shared album. Merged
  * 2026-09-11T00:49:13Z, live on the next deploy of main.
  *
- * Check-in and the seating chart each have an add-on that grants them, so an
- * invitation can be handed them back one at a time. The shared album has none —
- * and it is the one that matters most, because guests may already have uploaded
- * photos to it that the couple can no longer reach.
+ * All three can be handed back one invitation at a time now. The album could
+ * not when this file was written — it had no add-on behind it, which is half
+ * the reason one was made: a feature somebody was sold and cannot be given back
+ * is a refund conversation, not a fix.
  */
 export const MOVED: readonly Moved[] = [
   { feature: 'seating', was: 'COMPLETE', on: '2026-09-11T00:49:13Z', restoreWith: 'SEATING_VIEWER' },
   { feature: 'checkin', was: 'COMPLETE', on: '2026-09-11T00:49:13Z', restoreWith: 'QR_CHECKIN' },
-  { feature: 'photoSharing', was: 'COMPLETE', on: '2026-09-11T00:49:13Z', restoreWith: null },
+  { feature: 'photoSharing', was: 'COMPLETE', on: '2026-09-11T00:49:13Z', restoreWith: 'PHOTO_SHARING' },
 ];
 
 /** An invitation, as much of one as deciding what it lost needs. */

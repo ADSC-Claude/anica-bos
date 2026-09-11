@@ -143,6 +143,10 @@ export const ADDON_FEATURE: Readonly<Record<string, readonly FeatureKey[]>> = {
   QR_CHECKIN: ['checkin', 'guests.manager', 'guests.import', 'rsvp.personalLinks'],
   SEATING_VIEWER: ['seating', 'guests.manager', 'guests.import', 'rsvp.personalLinks'],
   PASSWORD: ['privacy.password'],
+  // The album needs nothing else with it: guests upload from the invitation
+  // link they already have, so there is no guest list behind it the way
+  // check-in and the seating chart have one.
+  PHOTO_SHARING: ['photoSharing'],
 };
 
 /**
@@ -265,7 +269,7 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: "Seating chart on the guest's page", cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'QR check-in on event day', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'Guestbook / well-wishes wall', cells: { BASIC: false, STANDARD: false, COMPLETE: true, LUXURY: true } },
-  { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: false, STANDARD: false, COMPLETE: false, LUXURY: true } },
+  { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'Save the Date card (a second card, months ahead)', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: 'Included' } },
   { label: 'Link', cells: { BASIC: '/juan-and-maria', STANDARD: '+ custom slug', COMPLETE: '+ password / private option', LUXURY: '+ password / private option' } },
   { label: 'Password on the link', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: true, LUXURY: true } },

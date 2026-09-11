@@ -184,6 +184,7 @@ test('the two messaging rows say what the gates actually allow', () => {
     "Seating chart on the guest's page": 'SEATING_VIEWER',
     'QR check-in on event day': 'QR_CHECKIN',
     'Password on the link': 'PASSWORD',
+    'Post-event photo sharing': 'PHOTO_SHARING',
   };
   for (const row of COMPARISON) {
     if (!TIERS.some((t) => String(row.cells[t]) === 'Add-on')) continue;

@@ -1,7 +1,7 @@
 import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
-import { tierAtLeast, TIER_LABELS } from './tiers';
+import { tierAtLeast, entitled, TIER_LABELS, type FeatureKey } from './tiers';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
   type Lang, type Preset } from './copy';
@@ -139,6 +139,14 @@ export type SectionDef = {
   minTier: Tier;
   /** Occasions where the lowest tier is different from `minTier`. */
   tierOverride?: Partial<Record<Occasion, Tier>>;
+  /**
+   * The feature this section is the editor for, where one exists. It is what
+   * lets an add-on open the section: a customer who buys the shared album on a
+   * package that does not include it needs the section to switch it on with,
+   * or they have paid for a page they cannot reach. Sections with no feature
+   * behind them are opened by the package alone, as they always were.
+   */
+  feature?: FeatureKey;
   labelFor?: Partial<Record<Occasion, string>>;
   /** Built, but not offered yet: not in the builder, not on the page. */
   hidden?: true;
@@ -843,8 +851,10 @@ const SECTION_DEFS: SectionDef[] = [
     // gate and the photoSharing feature must name the same package: the badge
     // in the builder is drawn from this one and the album itself is opened by
     // the other, so a disagreement offers an upgrade to a package that does not
-    // carry it.
+    // carry it. Naming the feature here is what lets the album add-on open the
+    // section on a package below Luxury.
     minTier: 'LUXURY',
+    feature: 'photoSharing',
     fields: () => [
       toggle('enabled', 'Let guests add photos'),
       text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', staff: true }),
@@ -1118,9 +1128,9 @@ export function sectionOffered(key: SectionKey): boolean {
  * (the extras at the end) are never counted: a customer who never opens them
  * has not left anything undone.
  */
-export function blankSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false): SectionKey[] {
+export function blankSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false, addOns: string[] = []): SectionKey[] {
   return sectionsFor(occasion, saveTheDate)
-    .filter((d) => !d.optional && sectionUnlocked(d.key, occasion, tier) && !sectionFilled(d.key, occasion, content[d.key]))
+    .filter((d) => !d.optional && sectionUnlocked(d.key, occasion, tier, addOns) && !sectionFilled(d.key, occasion, content[d.key]))
     .map((d) => d.key);
 }
 
@@ -1132,8 +1142,8 @@ export function blankSections(occasion: Occasion, content: Content, tier: Tier, 
  * whose only content is its switch. A blank one of those is not a page that
  * vanishes, so telling a customer it would vanish would be untrue.
  */
-export function skippedSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false): SectionKey[] {
-  return blankSections(occasion, content, tier, saveTheDate).filter((k) => !sectionAlwaysShows(k));
+export function skippedSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false, addOns: string[] = []): SectionKey[] {
+  return blankSections(occasion, content, tier, saveTheDate, addOns).filter((k) => !sectionAlwaysShows(k));
 }
 
 /** True for the three sections that appear even with nothing in them: the cover, the RSVP form and the countdown's switch. */
@@ -1151,7 +1161,17 @@ export function sectionMinTier(key: SectionKey, occasion: Occasion): Tier {
   return def.tierOverride?.[occasion] ?? def.minTier;
 }
 
-export function sectionUnlocked(key: SectionKey, occasion: Occasion, tier: Tier): boolean {
+/**
+ * Whether this section is open to an invitation.
+ *
+ * The package decides it, unless the section names a feature an add-on can
+ * grant — then the add-on counts too, which is the whole of what buying one
+ * means. `addOns` defaults to none, so a caller that has only a tier gets the
+ * old answer rather than a wrong one.
+ */
+export function sectionUnlocked(key: SectionKey, occasion: Occasion, tier: Tier, addOns: string[] = []): boolean {
+  const feature = SECTION_BY_KEY[key].feature;
+  if (feature && entitled({ tier, addOns }, feature)) return true;
   return tierAtLeast(tier, sectionMinTier(key, occasion));
 }
 

@@ -44,9 +44,9 @@ export default async function InvitationDashboard({ params }: { params: Promise<
   const saveTheDate = Boolean(inv.saveTheDateOfId);
   // What is empty, and which of those parts would simply not appear. Named for
   // the customer at the moment they press Publish, never hidden from them.
-  const blanks = blankSections(inv.occasion, content, inv.tier, saveTheDate).map((k) => ({ key: k, label: sectionLabel(k, inv.occasion) }));
-  const skipped = skippedSections(inv.occasion, content, inv.tier, saveTheDate).map((k) => sectionLabel(k, inv.occasion));
-  const mine = sectionsFor(inv.occasion, saveTheDate).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier)).map((d) => d.key);
+  const blanks = blankSections(inv.occasion, content, inv.tier, saveTheDate, inv.addOns).map((k) => ({ key: k, label: sectionLabel(k, inv.occasion) }));
+  const skipped = skippedSections(inv.occasion, content, inv.tier, saveTheDate, inv.addOns).map((k) => sectionLabel(k, inv.occasion));
+  const mine = sectionsFor(inv.occasion, saveTheDate).filter((d) => sectionUnlocked(d.key, inv.occasion, inv.tier, inv.addOns)).map((d) => d.key);
   const doneCount = doneSections(content.progress).filter((k) => mine.includes(k)).length;
   const complete = mine.length > 0 && doneCount >= mine.length;
   // Their own dates, counted back from the day they said they would send it out.
@@ -221,7 +221,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               // are worth paying for.
               { href: `/account/invitations/${inv.id}/messages`, label: 'Messages to your guests', show: !saveTheDate },
               { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: !saveTheDate, locked: !hasFeature(inv.tier, 'guestbook') },
-              { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: !saveTheDate, locked: !hasFeature(inv.tier, 'photoSharing') },
+              { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: !saveTheDate, locked: !entitled(inv, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },
               { href: `/account/invitations/${inv.id}/dfy`, label: 'Your details & preview', show: Boolean(dfy) },
             ].filter((l) => l.show).map((l) => (

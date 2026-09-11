@@ -2568,15 +2568,61 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 /* The dark band. A wine ground the photograph sits into on the right, with a
    gradient over it so the headline stays readable whatever the photo is. */
 .ed-band { position: relative; background: var(--color-wine-900); color: var(--color-sand-50); overflow: hidden; }
-.ed-band .ed-band-media { position: absolute; inset: 0 0 0 40%; }
-.ed-band .ed-band-media img { width: 100%; height: 100%; object-fit: cover; }
-.ed-band .ed-band-media::after {
+/* Full width, not the right 40%.
+
+   The photograph this slot is for is composed for it: a deep maroon field on
+   the left with nothing in it, and the flower on the right running off the
+   edge. Cropping that to the right-hand 40% throws away the empty half that
+   the headline is supposed to sit in, and butts the photograph's own left
+   edge against our wine as a visible vertical line. Full-bleed, anchored
+   right, and the photograph's dark half IS the ground behind the words. */
+.ed-band .ed-band-media { position: absolute; inset: 0; }
+.ed-band .ed-band-media img { width: 100%; height: 100%; object-fit: cover; object-position: right center; }
+/* The scrim only exists to keep type readable, so it only exists when there is
+   a photograph under the type. Heavy at the left margin, gone by two-thirds,
+   so the flower is never veiled. On the supplied photograph it changes almost
+   nothing — the wine and the photograph's own ground are the same colour —
+   and on a photograph composed the wrong way round it is what saves the
+   headline. */
+.ed-band .ed-band-media[data-photo]::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, var(--color-wine-900) 0%, color-mix(in srgb, var(--color-wine-900) 55%, transparent) 45%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-wine-900) 92%, transparent) 0%,
+    color-mix(in srgb, var(--color-wine-900) 74%, transparent) 34%,
+    color-mix(in srgb, var(--color-wine-900) 22%, transparent) 64%,
+    transparent 100%
+  );
+}
+/* On a phone the band is tall and narrow, so the words sit over the middle of
+   the picture rather than beside it and a left-to-right scrim protects
+   nothing. It goes top-down there instead. */
+@media (max-width: 1023px) {
+  .ed-band .ed-band-media[data-photo]::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-wine-900) 90%, transparent) 0%,
+      color-mix(in srgb, var(--color-wine-900) 82%, transparent) 55%,
+      color-mix(in srgb, var(--color-wine-900) 72%, transparent) 100%
+    );
+  }
 }
 .ed-band .ed-band-inner { position: relative; }
+/* Buttons on the dark band. btn-secondary is a cream fill, which is right on
+   a cream page and two bright blobs on a maroon one — the eye goes to them
+   before it goes to the headline. Outlined here, so the contact channels stay
+   available without competing with the thing they are under. */
+.ed-band .btn-secondary {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-sand-50) 40%, transparent);
+  color: var(--color-sand-50);
+}
+.ed-band .btn-secondary:hover {
+  background: color-mix(in srgb, var(--color-sand-50) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-sand-50) 72%, transparent);
+}
 .ed-band .ed-eyebrow { color: rgba(255, 255, 255, 0.72); }
 .ed-band .ed-link { color: var(--color-sand-50); }
 
@@ -2665,6 +2711,33 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   display: grid;
   place-items: end center;
   isolation: isolate;
+}
+
+/* The owner's photograph, when there is one.
+
+   Its left edge is a shade warmer than the page ground, and the two halves of
+   the hero meet down the middle of the screen, so butted together they show a
+   vertical line exactly where the design wants none. The mask dissolves the
+   photograph's first sixth into the cream underneath it — which is why the
+   scene keeps its own background even when a picture covers it.
+
+   Anchored to the bottom right: that is where the owner's set is — the
+   marble, the plinths, the stems — and it is the corner the phone stands in,
+   so it must survive every crop. */
+.ed-scene-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 17%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 17%);
+}
+/* Below the breakpoint the halves stack, so there is no seam to hide and the
+   mask would only shave the left of the picture off. */
+@media (max-width: 1023px) {
+  .ed-scene-photo { -webkit-mask-image: none; mask-image: none; object-position: 62% 100%; }
 }
 
 /* The alcove. Tall, arched, a shade deeper than the wall, with the light

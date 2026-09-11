@@ -77,11 +77,11 @@ export const PHOTO: { hero?: string; card?: string; band?: string } = {
   // The two were chosen for tonal range as much as for content. Everything
   // else on this page lives between #fbf8f3 and #e9e1d3, and a storefront
   // with no contrast in it reads as dull however well it is set.
-  // The owner's photograph of the set: the alcove, the marble ledge, the
-  // travertine plinths and the dried stems. Commit it to public/brand/ and
-  // uncomment — the hero switches from the CSS stand-in to the real room and
-  // the phone keeps its place on the ledge.
-  // hero: '/brand/hero.jpg',
+  // The owner's own photographs, supplied as PNGs and converted: 1.7 MB and
+  // 1.5 MB of PNG became 58 KB and 52 KB of WebP, which is the difference
+  // between a hero that is there when the page paints and one that arrives
+  // after it.
+  hero: '/brand/hero.webp',        // the alcove, the marble ledge, the travertine plinths, the dried stems
   card: '/covers/capiz.jpg',       // warm gold on the maroon ground; a cool blue fought it
-  // band: '/brand/band.jpg',      // the flower, behind the closing call to action
+  band: '/brand/band.webp',        // the amaryllis, behind the closing call to action
 };

@@ -62,6 +62,13 @@ export default async function Landing() {
     catalogue(),
     prisma.template.findMany({ where: { published: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }] }),
   ]);
+  /*
+   * The two landing photographs. Admin settings win, because the owner can
+   * change them there without a deploy; PHOTO is what the repository ships
+   * with, and an empty both falls through to the CSS set and the plain wine.
+   */
+  const heroPhoto = s['landing.heroImageUrl'] || PHOTO.hero;
+  const bandPhoto = s['landing.bandImageUrl'] || PHOTO.band;
   const weddingPackages = TIERS.map((t) => packages.find((p) => p.occasion === 'WEDDING' && p.tier === t) ?? packages.find((p) => p.occasion === null && p.tier === t)).filter((p): p is NonNullable<typeof p> => Boolean(p));
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -112,8 +119,8 @@ export default async function Landing() {
                 marble, the dried stems, all of it real. Until then the two
                 divs below stand the set up in CSS, and the phone sits in the
                 same place either way. */}
-            {PHOTO.hero
-              ? <img src={PHOTO.hero} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            {heroPhoto
+              ? <img src={heroPhoto} alt="" className="ed-scene-photo" />
               : <><div className="ed-scene-arch" aria-hidden /><div className="ed-scene-ledge" aria-hidden /></>}
             {/* A calm invitation on the screen, not a play button. The
                 mockup's phone is showing a card; the premium opening has its
@@ -126,9 +133,16 @@ export default async function Landing() {
                 </div>
               </div>
             </div>
-            <p className="ed-eyebrow absolute right-6 top-1/2 hidden -translate-y-1/2 whitespace-nowrap text-[color:var(--color-ink-500)] xl:block" style={{ writingMode: 'vertical-rl' }}>
-              Timeless invitations for modern celebrations
-            </p>
+            {/* The vertical rail belongs on the drawn set, where the right
+                margin is empty by construction. Over a photograph it lands on
+                whatever the photograph put there — in the owner's, the dried
+                stems — and a line of type nobody can read is worse than no
+                line of type. */}
+            {!heroPhoto && (
+              <p className="ed-eyebrow absolute right-6 top-1/2 hidden -translate-y-1/2 whitespace-nowrap text-[color:var(--color-ink-500)] xl:block" style={{ writingMode: 'vertical-rl' }}>
+                Timeless invitations for modern celebrations
+              </p>
+            )}
           </div>
         </section>
 
@@ -304,8 +318,8 @@ export default async function Landing() {
             inside it: somebody who has scrolled this far and still has not
             clicked usually has a question, not an objection. */}
         <section className="ed-band">
-          <div className="ed-band-media" aria-hidden>
-            {PHOTO.band ? <img src={PHOTO.band} alt="" loading="lazy" /> : null}
+          <div className="ed-band-media" aria-hidden data-photo={bandPhoto ? '' : undefined}>
+            {bandPhoto ? <img src={bandPhoto} alt="" loading="lazy" /> : null}
           </div>
           <div className="ed-band-inner mx-auto max-w-6xl px-5 py-20 md:py-28">
             <span aria-hidden className="mb-8 block h-px w-10 bg-[color:var(--color-sand-50)]/40" />

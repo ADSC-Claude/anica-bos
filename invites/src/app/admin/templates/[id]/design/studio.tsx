@@ -87,6 +87,8 @@ export function Studio(p: Props) {
   const [night, setNight] = useState(false);
   /** who the canvas is drawn against: the demo, nobody, anybody, or the longest */
   const [sample, setSample] = useState<Sample>('demo');
+  /** pages arriving as pictures, dropped on the strip */
+  const [drop, setDrop] = useState({ busy: false, error: '' });
   /**
    * Who the canvas is drawn against. The checklist above is not switched
    * with it: it is a list about the design, and "the demo has no photo for
@@ -278,11 +280,47 @@ export function Studio(p: Props) {
   }, [sel, page, elements, editEls, undo, redo, fit]);
 
   /** A page's own key, free of every other page's. */
-  function freePageKey(stem: string): string {
-    const taken = new Set(doc.pages.map((x) => x.key));
-    const base = stem.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'page';
-    if (!taken.has(base)) return base;
-    for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+  const freePageKey = (stem: string) => freeKeyIn(new Set(doc.pages.map((x) => x.key)), stem);
+
+  /**
+   * Pages from finished pictures, dropped on the strip.
+   *
+   * The other way round from drawing a page and giving it a background: she
+   * has the pages already \u2014 laid out elsewhere, exported one picture each
+   * \u2014 and wants them in, in order, ready to have frames placed on them.
+   * Each becomes a drawn page at its picture's own proportions, named after
+   * the file so she can tell them apart before she has renamed anything.
+   *
+   * They are ordered the way a person numbers files, so page-2 lands before
+   * page-10 rather than after it. The whole batch is one change, so one undo
+   * takes all of them back and the keys cannot collide with each other.
+   */
+  async function addSheets(files: File[]) {
+    const list = files
+      .filter((f) => f.type.startsWith('image/'))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    if (!list.length) { setDrop({ busy: false, error: 'A page comes in as a picture of the page; those are something else.' }); return; }
+    setDrop({ busy: true, error: '' });
+    try {
+      const taken = new Set(doc.pages.map((x) => x.key));
+      const made: PageSpec[] = [];
+      for (const file of list) {
+        const up = await uploadGround(file, p.templateId);
+        const stem = file.name.replace(/\.[^.]+$/, '');
+        const key = freeKeyIn(taken, stem);
+        taken.add(key);
+        made.push({ key, label: { en: stem }, sections: [], drawn: true, ground: { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom } });
+      }
+      const at = doc.pages.findIndex((x) => x.key === pageKey);
+      const pages = [...doc.pages];
+      pages.splice(at < 0 ? pages.length : at + 1, 0, ...made);
+      change({ ...doc, pages });
+      setPageKey(made[0].key);
+      setSel([]);
+      setDrop({ busy: false, error: '' });
+    } catch (e) {
+      setDrop({ busy: false, error: (e as Error).message });
+    }
   }
 
   /** A new page goes in after the one she is on, so it lands where she is looking. */
@@ -727,7 +765,11 @@ export function Studio(p: Props) {
       <TopBar {...p} state={state} error={error} rev={rev} doc={doc} onSave={() => void save(doc)} />
 
       {/* the pages */}
-      <aside className="card h-fit p-2">
+      <aside
+        className="card h-fit p-2"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+        onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); void addSheets([...e.dataTransfer.files]); } }}
+      >
         <div className="flex items-center justify-between px-1">
           <p className="label">Pages</p>
           <span className="flex gap-1">
@@ -770,6 +812,19 @@ export function Studio(p: Props) {
             </li>
           ))}
         </ol>
+        {/*
+          * The other way round from drawing a page: she has the pages
+          * already, exported one picture each, and drops them here to get
+          * one drawn page apiece, in order, ready for frames.
+          */}
+        <label className={`mt-2 block rounded border border-dashed border-[color:var(--color-sand-300)] px-2 py-3 text-center text-[11px] leading-snug ${drop.busy ? 'opacity-60' : 'cursor-pointer hover:bg-[color:var(--color-sand-100)]'}`}>
+          {drop.busy ? 'Reading the pictures…' : 'Drop finished pages here, or choose them — one drawn page each, in order'}
+          <input
+            type="file" accept="image/*" multiple className="sr-only" disabled={drop.busy}
+            onChange={(e) => { if (e.target.files?.length) { void addSheets([...e.target.files]); e.target.value = ''; } }}
+          />
+        </label>
+        {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
 
         <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
           <p className="label px-1">
@@ -2055,6 +2110,13 @@ function snap(v: number, guides: number[]): number {
 /** A colour role reads from the design's own palette; anything else is a colour. */
 function colourOf(colour: string, vars: Record<string, string>): string {
   return vars[`--inv-${colour}`] ?? colour;
+}
+
+/** A key made from a name, free of the ones already taken. */
+function freeKeyIn(taken: Set<string>, stem: string): string {
+  const base = stem.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'page';
+  if (!taken.has(base)) return base;
+  for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
 }
 
 function freeId(doc: DesignDoc, stem: string): string {

@@ -16,10 +16,15 @@ export type Contact = { phone: string; email: string };
 /**
  * The address out of a stored one.
  *
- * A corporate RSVP with *Ask for department* on stores the two joined —
- * "maria@example.com · Finance" — because the reply has nowhere else to put a
- * department. That is fine on a reply and wrong on a mailing list, so the
- * department comes off here rather than being mailed to anybody.
+ * A corporate reply used to store its department joined onto the address —
+ * "maria@example.com · Finance" — because it had nowhere else to put it. The
+ * department has its own column now and the rows already written were unpacked
+ * with it, so nothing should arrive here joined any more.
+ *
+ * It stays because the cost of being wrong is one-sided: this runs over rows
+ * nobody has looked at in months, on the way to a mailing list, and a stray
+ * value that predates the split — from a restored backup, or a database an
+ * older branch wrote to — should be trimmed rather than mailed.
  */
 export function plainAddress(stored: string): string {
   return (stored ?? '').split('·')[0].trim();

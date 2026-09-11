@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Occasion, Tier } from '@prisma/client';
 import { OCCASIONS } from '@/lib/occasions';
 import type { GalleryTemplate } from '@/lib/gallery';
-import { TIERS, TIER_LABELS } from '@/lib/tiers';
+import { TIERS, TIER_LABELS, RANK, tierAtLeast } from '@/lib/tiers';
 import { collectionsPresent, COLLECTION_BY_KEY } from '@/lib/collections';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { formatPesoShort } from '@/lib/money';
@@ -46,12 +46,11 @@ export function TemplateGallery({ templates, compact = false, collection: fixedC
   const [collection, setCollection] = useState<string>('');
   const occasionsPresent = fixedOccasion ? [] : OCCASIONS.filter((o) => templates.some((t) => t.occasions.includes(o.key)));
   const collections = fixedCollection ? [] : collectionsPresent(templates.map((t) => t.collection));
-  const rank: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
   const visible = templates.filter(
     (t) =>
       (!occasion || t.occasions.includes(occasion as Occasion)) &&
       (!collection || t.collection === collection) &&
-      (!tier || (t.premium ? tier === 'COMPLETE' : rank[t.minTier] <= rank[tier as Tier])),
+      (!tier || (t.premium ? tierAtLeast(tier as Tier, 'COMPLETE') : RANK[t.minTier] <= RANK[tier as Tier])),
   );
   const shown = compact ? visible.slice(0, 8) : visible;
   return (

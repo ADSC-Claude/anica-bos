@@ -67,7 +67,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Select label="Lowest tier" name="minTier" defaultValue={t?.minTier ?? 'BASIC'} options={TIERS.map((x) => ({ value: x, label: x }))} />
           <Select label="Collection" name="collection" defaultValue={t?.collection ?? ''} options={[{ value: '', label: '— none —' }, ...COLLECTIONS.map((c) => ({ value: c.key, label: c.label }))]} hint="The colour family this design is shown under in the gallery." />
           <Select label="Opening" name="opening" defaultValue={t?.opening ?? ''} options={[{ value: '', label: '— none —' }, ...OPENINGS.filter((o) => o.key !== 'none').map((o) => ({ value: o.key, label: `${o.name} — ${o.tagline}` }))]} hint="What this design opens with when the customer has not picked one. Their choice always wins." />
-          <Checkbox label={`${TIER_LABELS.COMPLETE} only (kept out of Basic and Standard)`} name="premium" defaultChecked={t?.premium} />
+          <Checkbox label={`${TIER_LABELS.COMPLETE} and up (kept out of Basic and Standard)`} name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
           <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="The cover page, portrait (9:16), shown in the gallery and the checkout. Leave blank to show the palette." />
           <Field label="Premium opening clip URL" name="openingVideoUrl" defaultValue={t?.openingVideoUrl} hint="Portrait MP4 or WebM, muted, a few seconds. Played for customers who bought the premium opening add-on with this design; it overrides the opening chosen above." />

@@ -1,5 +1,6 @@
 import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
+import { hasFeature, tierAtLeast } from './tiers';
 
 /**
  * A quote is arithmetic on rows the admin can edit: a package, its add-ons, a
@@ -113,8 +114,11 @@ export const DEFAULT_SERVICE_MODE: ServiceMode = 'DFY';
  * never offered both — they are the same purchase under two promises.
  */
 export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): boolean {
-  if (code === RUSH_CODE) return tier !== 'COMPLETE';
-  if (code === PRIORITY_CODE) return tier === 'COMPLETE';
+  // The dividing line is Signature and above, not Signature exactly: an
+  // equality check here would have sold Luxury the 24-hour promise, which is
+  // the one package that certainly cannot be encoded overnight.
+  if (code === RUSH_CODE) return !tierAtLeast(tier, 'COMPLETE');
+  if (code === PRIORITY_CODE) return tierAtLeast(tier, 'COMPLETE');
   if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
   return true;
 }
@@ -147,15 +151,24 @@ const RUSH_BY_TIER: Partial<Record<Tier, number>> = { BASIC: 100_000, STANDARD: 
  * It is a cap, never a bonus: a tier whose ordinary allowance is already lower
  * keeps the lower number. Buying speed does not buy rounds.
  */
-const RUSHED_ROUNDS: Record<Tier, number> = { BASIC: 1, STANDARD: 2, COMPLETE: 2 };
+const RUSHED_ROUNDS: Record<Tier, number> = { BASIC: 1, STANDARD: 2, COMPLETE: 2, LUXURY: 2 };
 
 export function revisionRounds(tier: Tier, rushed: boolean, ordinary: number): number {
   return rushed ? Math.min(ordinary, RUSHED_ROUNDS[tier]) : ordinary;
 }
 
 export function addOnPrice(addOn: AddOnLike, tier: Tier): number {
+  // The second card comes with Luxury. It is still an add-on row rather than a
+  // silent inclusion, so the order names what it carried and activation has the
+  // same thing to look for whoever bought it — it simply costs nothing.
+  if (addOn.code === SAVE_THE_DATE_CODE && hasFeature(tier, 'saveTheDate.included')) return 0;
   if (addOn.code !== RUSH_CODE) return addOn.priceCents;
   return RUSH_BY_TIER[tier] ?? addOn.priceCents;
+}
+
+/** Whether a tier is given this add-on rather than sold it. */
+export function addOnIncluded(code: string, tier: Tier): boolean {
+  return code === SAVE_THE_DATE_CODE && hasFeature(tier, 'saveTheDate.included');
 }
 
 export function serviceFee(pkg: Pick<PackageLike, 'tier' | 'dfyFeeCents' | 'conciergeFeeCents'>, mode: ServiceMode): number {

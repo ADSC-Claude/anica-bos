@@ -120,7 +120,8 @@ async function main() {
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; rounds: number; validity: number; tagline: string }[] = [
     { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, rounds: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
     { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, rounds: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, guestbook, meal choice and Signature-only designs.' },
+    { tier: 'LUXURY', price: 750000, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },
@@ -242,18 +243,18 @@ async function main() {
 
   const demo = await prisma.invitation.create({
     data: {
-      userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'COMPLETE', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
-      content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: 6, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
+      userId: maria.id, templateId: capiz.id, occasion: 'WEDDING', tier: 'LUXURY', title: 'Juan & Maria', slug: 'juan-and-maria', status: 'PUBLISHED', privacy: 'PUBLIC',
+      content: content as never, language: 'en', eventAt: new Date(`${dateKey}T14:00:00+08:00`), expiresAt: addDays(wedding, 365), ogImageUrl: pic('juan-maria-cover', 900, 1200), editsAllowed: 8, publishedAt: addDays(new Date(), -20), viewCount: 412, rsvpDeadline: new Date(`${rsvpBy}T23:59:59+08:00`),
       // the demo bought the premium opening, so the Capiz clip plays on it
       premiumOpening: true,
     },
   });
-  const weddingComplete = await prisma.package.findUniqueOrThrow({ where: { code: 'WEDDING_COMPLETE' } });
+  const weddingLuxury = await prisma.package.findUniqueOrThrow({ where: { code: 'WEDDING_LUXURY' } });
   const demoOrder = await prisma.order.create({
     data: {
-      reference: orderReference(), userId: maria.id, packageId: weddingComplete.id, invitationId: demo.id, occasion: 'WEDDING', tier: 'COMPLETE', serviceMode: 'DIY',
-      subtotalCents: weddingComplete.priceCents, addOnsCents: 19900, totalCents: weddingComplete.priceCents + 19900, status: 'ACTIVE', paidAt: addDays(new Date(), -25), activatedAt: addDays(new Date(), -25), createdAt: addDays(new Date(), -25),
-      items: { create: [{ kind: 'PACKAGE', code: 'WEDDING_COMPLETE', name: weddingComplete.name, amountCents: weddingComplete.priceCents, sortOrder: 0 }, { kind: 'ADDON', code: 'ENVELOPE', name: 'Animated opening', amountCents: 19900, sortOrder: 1 }] },
+      reference: orderReference(), userId: maria.id, packageId: weddingLuxury.id, invitationId: demo.id, occasion: 'WEDDING', tier: 'LUXURY', serviceMode: 'DIY',
+      subtotalCents: weddingLuxury.priceCents, addOnsCents: 19900, totalCents: weddingLuxury.priceCents + 19900, status: 'ACTIVE', paidAt: addDays(new Date(), -25), activatedAt: addDays(new Date(), -25), createdAt: addDays(new Date(), -25),
+      items: { create: [{ kind: 'PACKAGE', code: 'WEDDING_LUXURY', name: weddingLuxury.name, amountCents: weddingLuxury.priceCents, sortOrder: 0 }, { kind: 'ADDON', code: 'ENVELOPE', name: 'Animated opening', amountCents: 19900, sortOrder: 1 }] },
     },
   });
   await prisma.payment.create({ data: { reference: paymentReference(), orderId: demoOrder.id, provider: 'PAYMONGO', status: 'PAID', amountCents: demoOrder.totalCents, channel: 'gcash', gatewaySessionId: 'cs_demo', gatewayPaymentId: 'pay_demo', gatewayEventId: 'evt_demo', paidAt: addDays(new Date(), -25) } });
@@ -354,7 +355,7 @@ async function main() {
     Object.assign(c.program!, { items: [{ time: '10:00 AM', title: 'Christening Mass', note: 'Santuario de San Antonio Parish' }, { time: '12:00 PM', title: 'Lunch reception', note: 'Blue Leaf Cosmopolitan' }, { time: '1:30 PM', title: 'Cake and photos', note: 'With the ninongs and ninangs' }, { time: '2:30 PM', title: 'Games and giveaways', note: 'For the little guests' }], activities: '' });
     Object.assign(c.social!, { hashtag: '#LucasAndreiIsBlessed', instagram: '', tiktok: '', facebook: '', unplugged: false, unpluggedText: '' });
     Object.assign(c.contact!, { name: 'Denise', phone: '0917 555 0142', name2: 'Paolo', phone2: '0918 555 0143', email: '', messenger: '', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
-    Object.assign(c.photos!, { enabled: true, prompt: 'Share your photos from the christening', moderated: true });
+    Object.assign(c.photos!, { enabled: false, prompt: 'Share your photos from the christening', moderated: true });
     Object.assign(c.guestbook!, { enabled: false, prompt: '', moderated: true });
     Object.assign(c.closing!, { message: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.', signature: 'Paolo, Denise & Lucas', photo: '' });
     const lucas = await prisma.invitation.create({

@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt,
+  starterDesign,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
+import { sectionOrder } from '../src/lib/sections';
+import { pageNeeds } from '../src/lib/needs';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
 import { templateData } from '../prisma/templates';
 import { TEMPLATES } from '../prisma/templates';
@@ -535,4 +538,41 @@ test('a crop, a cut and a drawn frame survive the column', () => {
   const bad = JSON.parse(JSON.stringify(raw)) as DesignDoc;
   (bad.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: 0, y: 0, w: 1.4, h: 1 };
   assert.equal(designOf(bad, 'babyblue').dropped.length, 1);
+});
+
+test('a starter is one page per section, cover first, and it is publishable the moment it is made', () => {
+  // in the layout's own order, which is the order the action hands it in
+  const sections = sectionOrder('CHRISTENING' as never, 'babyblue');
+  assert.ok(sections.includes('cover'));
+  const doc = starterDesign([...sections]);
+  assert.equal(doc.pages.length, sections.length);
+  assert.equal(doc.pages[0].key, 'cover');
+  assert.deepEqual(doc.pages[0].sections, ['cover']);
+  // one page per section, in the order the occasion offers them, and nothing twice
+  assert.deepEqual(doc.pages.flatMap((p) => p.sections), [...sections]);
+  assert.equal(new Set(doc.pages.map((p) => p.key)).size, doc.pages.length);
+  // a page key is the section's, spelled the way a page spells it
+  assert.ok(doc.pages.some((p) => p.key === 'dress-code'));
+  // and it reads like an invitation rather than like the form it came from:
+  // the story after the cover, the countdown near the end
+  assert.deepEqual(doc.pages.slice(0, 4).map((p) => p.key), ['cover', 'story', 'ceremony', 'sponsors']);
+  assert.ok(doc.pages.findIndex((p) => p.key === 'countdown') > doc.pages.findIndex((p) => p.key === 'rsvp'));
+  // plain colours, alternating so the seam between two pages can be seen at all
+  assert.deepEqual(doc.pages.map((p) => (p.ground && !isPicture(p.ground) ? p.ground.color : '?')).slice(0, 4), ['bg', 'surface', 'bg', 'surface']);
+  // nothing is drawn by hand and nothing asks for a picture
+  assert.equal(doc.pages.some((p) => p.drawn || p.elements?.length), false);
+  // the peek stops after the second page, which is where it falls back to anyway
+  assert.equal(peekEndPage(doc), doc.pages[1].key);
+  // it survives the column whole, and there is nothing to fix before publishing
+  const { doc: back, dropped } = designOf(JSON.parse(JSON.stringify(doc)), 'babyblue');
+  assert.deepEqual(dropped, []);
+  assert.deepEqual(back, doc);
+  assert.deepEqual(pageNeeds({ doc, occasion: 'CHRISTENING' as never }), []);
+});
+
+test('a starter of an occasion without a cover still opens on one', () => {
+  const doc = starterDesign(['story', 'rsvp']);
+  assert.equal(doc.pages[0].key, 'cover');
+  assert.deepEqual(doc.pages[0].sections, []);
+  assert.deepEqual(doc.pages.map((p) => p.key), ['cover', 'story', 'rsvp']);
 });

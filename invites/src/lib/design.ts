@@ -855,6 +855,46 @@ export function builtinDesign(layout: string): DesignDoc | null {
 }
 
 /**
+ * A design with nothing drawn on it yet.
+ *
+ * Before this, a new template had no pages at all and the studio opened on
+ * "This design has no pages yet" — so the only way to make a design was to
+ * copy one of the two, and everything she built carried their page names and
+ * their proportions whether she wanted them or not.
+ *
+ * A starter is one page per section, in the order it is handed them — the
+ * layout's own order where it has one, so it reads like an invitation and
+ * not like the list of questions it came from — each laid out by its own
+ * words. The cover comes first because it always does. Nothing is drawn by
+ * hand and no picture is asked for: the pages take plain colours from the
+ * design's own palette, alternating between the ground and the surface, and
+ * every one of them becomes a drawn page the moment she gives it a
+ * background. On a palette whose two are nearly the same the run reads as
+ * one long sheet, which is what a design with no artwork yet honestly is.
+ *
+ * The peek stops after the second page, which is what a design with no story
+ * falls back to anyway; saying it here means she can see it and move it.
+ */
+export function starterDesign(sections: PageSectionKey[]): DesignDoc {
+  const rest = sections.filter((k) => k !== 'cover');
+  return {
+    v: 1,
+    pages: [
+      { key: 'cover', label: { en: 'Cover' }, sections: sections.includes('cover') ? ['cover'] : [], ground: { color: 'bg' } },
+      ...rest.map((key, i) => ({
+        key: pageKeyOf(key),
+        sections: [key],
+        ground: { color: i % 2 === 0 ? 'surface' : 'bg' } as ColourGround,
+        ...(i === 0 ? { peekEnd: true as const } : {}),
+      })),
+    ],
+  };
+}
+
+/** A section's key as a page would spell it: `dressCode` becomes `dress-code`. */
+const pageKeyOf = (key: string): string => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+
+/**
  * The document a design renders from, or null for one that has none — which
  * is every design today. An empty column is deliberately NOT the built-in
  * here: the two originals keep the renderer's own path, so nothing about them

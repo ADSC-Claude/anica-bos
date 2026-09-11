@@ -89,6 +89,25 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </div>
         <div className="card space-y-3 p-4">
           <Select label="Layout" name="layout" defaultValue={t?.layout ?? 'classic'} options={LAYOUTS.map((l) => ({ value: l, label: l }))} hint="classic: full-bleed photo hero · editorial: portrait photo, big serif · garden: arched photo · modern: uppercase sans · festive: confetti · quiet: memorial" />
+          {/*
+            * Where its pages come from, asked once and never again: a design
+            * with pages of its own is edited in the studio from then on. A
+            * starter is one page per section this occasion offers, on plain
+            * colours; the layout's own is Baby Blue's or Capiz's pages
+            * exactly, which is the same thing Duplicate makes.
+            */}
+          {isNew && (
+            <Select
+              label="Start the pages from"
+              name="startFrom"
+              defaultValue="starter"
+              options={[
+                { value: 'starter', label: 'A starter — one page per section you tick, on plain colours' },
+                { value: 'layout', label: "The layout's own pages, as Baby Blue and Capiz are built" },
+              ]}
+              hint="Only for a layout built as a run of pages (Capiz, Baby Blue). Everything else ignores it."
+            />
+          )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
           <div className="grid grid-cols-3 gap-2">
             {(['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as const).map((k) => (

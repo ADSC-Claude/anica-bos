@@ -1,6 +1,6 @@
 'use server';
 
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, designOf, blastRadius, type DesignDoc } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSectionKey } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
 import { STAFF_BYLINE } from '@/lib/names';
 import { redirect } from 'next/navigation';
@@ -25,7 +25,7 @@ import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
-import { OCCASION_SECTIONS } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionOrder, isPaged } from '@/lib/sections';
 import { STAFF_ROLES } from '@/lib/rbac';
 import type { Permission } from '@/lib/rbac';
 
@@ -175,7 +175,25 @@ export async function saveTemplateAction(templateId: string | null, back: string
       }) as never,
     };
     if (!data.name) throw new HttpError(400, 'A template needs a name.');
-    const saved = templateId ? await prisma.template.update({ where: { id: templateId }, data }) : await prisma.template.create({ data });
+    /*
+     * A design made here starts with pages, so the studio has something to
+     * open on. Before this it started with nothing and the only way to get a
+     * design was to copy one of the two, which meant carrying their page
+     * names and their proportions whether they were wanted or not.
+     *
+     * It goes in the draft, never in what a guest renders: a design is
+     * published from the studio and nowhere else.
+     */
+    const start = !templateId && isPaged(layout)
+      // in the layout's own order, not the form's: a starter should read like
+      // an invitation — the story and the details, then the forms and the
+      // countdown — rather than like the list of questions it came from
+      ? (s(fd, 'startFrom') === 'layout' ? builtinDesign(layout) : null)
+        ?? starterDesign(sectionOrder(occasion as Occasion, layout).filter((k) => sections.includes(k)))
+      : null;
+    const saved = templateId
+      ? await prisma.template.update({ where: { id: templateId }, data })
+      : await prisma.template.create({ data: { ...data, ...(start ? { designDraft: start as never } : {}) } });
     await audit(user, { module: 'templates', action: templateId ? 'update' : 'create', entityType: 'Template', entityId: saved.id, summary: saved.name });
     if (!templateId) redirect(`/admin/templates/${saved.id}?ok=Created`);
     return 'Template saved.';

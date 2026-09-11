@@ -110,7 +110,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
                     {' '}Your final form is best with us by <b>{formatDate(schedule.comfortableBy)}</b>, and by <b>{formatDate(schedule.finalBy)}</b> at the latest.
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">
-                    We take about {PROCESSING_DAYS} days to build the first version once your form is final. The two weeks after that are yours, for the revisions your package includes{rounds ? ` (${rounds})` : ''}.
+                    We take up to {PROCESSING_DAYS} days to build the first version once your form is final, and often less — it is an estimate, not a queue. The two weeks after that are yours, for the revisions your package includes{rounds ? ` (${rounds})` : ''}.
                   </p>
                   {schedule.late ? (
                     <div className="mt-2"><Notice tone="warn">That day is very close. Message us before you publish and we will tell you honestly what we can promise, and whether a rush is worth it.</Notice></div>
@@ -120,7 +120,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
                 </>
               ) : (
                 <p className="text-sm">
-                  Tell us the day you plan to send this out to your guests, in <Link href={`/account/invitations/${inv.id}/builder?section=cover`} className="underline">the Cover section</Link>, and we will show your dates here. As a guide: your final form about a month before that day, about {PROCESSING_DAYS} days for us to build it, and the two weeks after that for your revisions.
+                  Tell us the day you plan to send this out to your guests, in <Link href={`/account/invitations/${inv.id}/builder?section=cover`} className="underline">the Cover section</Link>, and we will show your dates here. As a guide: your final form about a month before that day, up to {PROCESSING_DAYS} days for us to build it, and the two weeks after that for your revisions.
                 </p>
               )}
             </div>

@@ -1,6 +1,6 @@
 import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
-import { hasFeature } from './tiers';
+import { hasFeature, tierAtLeast } from './tiers';
 
 /**
  * A quote is arithmetic on rows the admin can edit: a package, its add-ons, a
@@ -47,10 +47,16 @@ export type Quote = {
   couponError?: string;
 };
 
+/**
+ * The turnaround printed on the landing page and in the checkout. It has to
+ * agree with dfy.turnaroundDays and dfy.turnaroundDaysMax, which are what a due
+ * date is actually set from; a test holds the two together, because a promise
+ * written in two places becomes two promises.
+ */
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
   // Withdrawn. Kept so an order sold under it still names itself; nothing shows its blurb.
   { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'The customer filled in the builder themselves.', turnaround: 'Instant', revisions: 'None', intake: 'Builder' },
-  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '5 working days to a week', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
+  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '7 to 10 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
   { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
 
@@ -64,9 +70,10 @@ export function serviceModeLabel(mode: ServiceMode): string {
 }
 
 /**
- * The two queue jumps. They are one product bought on top of Done-For-You:
- * rush promises 24 hours, and priority two working days plus a revision round,
- * because a Signature build carries too much to encode overnight.
+ * The two queue jumps, bought on top of Done-For-You. Rush promises 24 hours
+ * and is Basic's and Standard's; priority promises two to three working days
+ * and is what Signature and Luxury can have, because those builds carry too
+ * much to encode overnight.
  */
 export const RUSH_CODE = 'RUSH';
 export const PRIORITY_CODE = 'PRIORITY';
@@ -110,17 +117,22 @@ export const DEFAULT_SERVICE_MODE: ServiceMode = 'DFY';
 /**
  * Whether a package may be sold this add-on.
  *
- * Every add-on is offered to every package. The queue jumps used to be split —
- * rush for Basic and Standard, priority for Signature — on the reasoning that a
- * Signature build cannot be encoded overnight. That reasoning belongs in what
- * each promise says, not in hiding one of them: a customer who wants their
- * invitation tomorrow should be able to ask for it and be told what we can do,
- * rather than not see the option at all.
+ * Every add-on is offered to every package but the two queue jumps, and those
+ * are split because they are not the same offer twice — they are what we can
+ * actually promise on two different amounts of work. A Signature or Luxury
+ * build carries per-guest links, seating, a programme and an album; rush would
+ * be selling a day we cannot deliver on it. Priority is what those can have,
+ * and it is two to three days rather than one for the same reason.
  *
- * The one rule left is not about the package: a memorial is the gathering
+ * The dividing line is Signature and above, not Signature exactly, so the
+ * package that carries the most is not handed the shortest promise.
+ *
+ * The last rule is not about the package at all: a memorial is the gathering
  * nobody announces in advance, so it is not sold a Save the Date.
  */
-export function addOnAvailable(code: string, _tier: Tier, occasion?: Occasion): boolean {
+export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): boolean {
+  if (code === RUSH_CODE) return !tierAtLeast(tier, 'COMPLETE');
+  if (code === PRIORITY_CODE) return tierAtLeast(tier, 'COMPLETE');
   if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
   return true;
 }
@@ -142,17 +154,7 @@ export function saveTheDateOffered(occasion: Occasion): boolean {
  * carries a single priceCents and rush needs two. The row's own price is the
  * fallback, so an add-on with no entry here still prices from the catalogue.
  */
-const RUSH_BY_TIER: Partial<Record<Tier, number>> = {
-  BASIC: 100_000,
-  STANDARD: 150_000,
-  // Signature and Luxury are here only because rush is now offered to them.
-  // Without a row each they would fall back to the catalogue price of 1,000 —
-  // charging less to rush the biggest build than the middle one. Standard's
-  // price is a floor, not a decision: set these when the add-on packages are
-  // priced.
-  COMPLETE: 150_000,
-  LUXURY: 150_000,
-};
+const RUSH_BY_TIER: Partial<Record<Tier, number>> = { BASIC: 100_000, STANDARD: 150_000 };
 
 /**
  * Preview rounds on a build that was paid to be quick. A round is a preview

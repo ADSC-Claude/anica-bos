@@ -8,7 +8,7 @@ import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type Content } from '@/lib/sections';
 import { galleryLimit } from '@/lib/tiers';
-import { formatDateTime, formatDate } from '@/lib/datetime';
+import { formatDateTime, formatDate, turnaroundLabel } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
 import { invitationPath } from '@/lib/app-url';
@@ -94,7 +94,10 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
             <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-2" size="sm" />
           </div>
           <div className="card p-4 text-xs text-[color:var(--color-ink-500)]">
-            <p>Turnaround: {hurried ? (priority ? `${s['concierge.turnaroundDays']} working days` : `${s['rush.turnaroundHours']} hours`) : `${s['dfy.turnaroundDays']} working days`} from the time we receive your details.</p>
+            <p>
+              Turnaround: {hurried ? (priority ? turnaroundLabel(s['concierge.turnaroundDays'], s['concierge.turnaroundDaysMax']) : `${s['rush.turnaroundHours']} hours`) : turnaroundLabel(s['dfy.turnaroundDays'], s['dfy.turnaroundDaysMax'])} from the time we receive your details.
+              {!hurried && ' That is an estimate of the longest it should take, not a queue — if yours is ready sooner, you get it sooner.'}
+            </p>
             <p className="mt-1">Revisions: {job.revisionsAllowed} round{job.revisionsAllowed === 1 ? '' : 's'} included.</p>
             {hurried && <p className="mt-1">Fewer than usual, because you asked for it early: there is limited time to encode, so there is minimal chance to revise.</p>}
           </div>

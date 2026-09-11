@@ -96,14 +96,14 @@ const ADDONS: { code: string; price: number; name: string; description: string; 
     code: 'RUSH',
     price: 1_000,
     name: 'Rush publish (24 hours)',
-    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. A bigger package carries more to encode, so tell us your date and we will say what we can promise.',
+    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual seven to ten working days. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard — a bigger build carries too much to finish overnight, and those are sold priority instead.',
     sortOrder: 5,
   },
   {
     code: 'PRIORITY',
     price: 2_000,
-    name: 'Priority (2 working days)',
-    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. The steadier of the two promises, and the one we would suggest for a big build.',
+    name: 'Priority (2 to 3 working days)',
+    description: 'Your invitation is finished in two to three working days instead of the usual seven to ten. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature and Luxury — those builds carry per-guest links, seating and a programme, which is more than one night of work however much anyone wants it tomorrow.',
     sortOrder: 6,
   },
   {

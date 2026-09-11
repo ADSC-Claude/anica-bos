@@ -180,8 +180,8 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       const days = rush
         ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
         : priority
-          ? s['concierge.turnaroundDays']
-          : s['dfy.turnaroundDays'];
+          ? s['concierge.turnaroundDaysMax']
+          : s['dfy.turnaroundDaysMax'];
       await tx.dfyJob.create({
         data: {
           orderId,

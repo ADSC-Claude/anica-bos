@@ -161,8 +161,11 @@ async function main() {
       // The premium opening video, at the starting price: every package opens
       // with the included opening; this is the designed clip made for a design.
       { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99900, sortOrder: 1 },
-      { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout, for guests who would rather hold it.', priceCents: 29900, sortOrder: 3 },
-      { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99900, sortOrder: 6 },
+      // Off the website, priced and kept — see SHELVED_ADDONS. Seeded inactive
+      // so a fresh database matches a live one rather than briefly offering
+      // something nothing behind the scenes can deliver.
+      { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout, for guests who would rather hold it.', priceCents: 29900, active: false, sortOrder: 3 },
+      { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99900, active: false, sortOrder: 6 },
       ...ADDONS.map((a) => ({
         code: a.code,
         name: a.name,

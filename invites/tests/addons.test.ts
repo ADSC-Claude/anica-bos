@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ADDONS, RETIRED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
+import { ADDONS, RETIRED_ADDONS, SHELVED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
 import { ADDON_FEATURE, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL, TIERS } from '../src/lib/tiers';
 import { addOnAvailable } from '../src/lib/pricing';
 
@@ -138,6 +138,27 @@ test('a withdrawn add-on says why it went, in its own words', () => {
     reasons.add(reason);
   }
   assert.equal(reasons.size, RETIRED_ADDONS.length, 'two add-ons share a reason — one of them is probably wrong');
+});
+
+test('a shelved add-on is off the website, priced, and not confused with a retired one', () => {
+  // Off the website and still in the system: active goes false, the row, its
+  // price and any order that bought one are untouched. The two lists are apart
+  // because the decisions are: retired is "we stopped selling this", shelved is
+  // "we should not have been selling it yet".
+  const retired = new Set(RETIRED_ADDONS.map((r) => r.code));
+  const priced = new Set(ADDONS.map((a) => a.code));
+  const seen = new Set<string>();
+
+  for (const { code, reason } of SHELVED_ADDONS) {
+    assert.ok(reason.trim(), `${code} is hidden without saying why`);
+    assert.equal(retired.has(code), false, `${code} is both retired and shelved`);
+    assert.equal(seen.has(code), false, `${code} is shelved twice`);
+    seen.add(code);
+    // Not in ADDONS, so a pricing run never overrules the admin on what it costs.
+    assert.equal(priced.has(code), false, `${code} is shelved and would also be repriced`);
+  }
+
+  assert.deepEqual(SHELVED_ADDONS.map((s) => s.code).sort(), ['CUSTOM_DOMAIN', 'PRINTABLE']);
 });
 
 test('the catalogue has no duplicate codes, and nothing both sold and retired', () => {

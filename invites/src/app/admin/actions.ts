@@ -347,7 +347,7 @@ export async function savePackageAction(packageId: string, back: string, fd: For
 
 export async function saveAddOnAction(addOnId: string | null, back: string, fd: FormData) {
   return run('settings.edit', back, async (user) => {
-    const data = { code: s(fd, 'code').toUpperCase().replace(/[^A-Z0-9_]/g, ''), name: s(fd, 'name'), description: s(fd, 'description'), priceCents: toCents(s(fd, 'price')), quoted: b(fd, 'quoted'), active: b(fd, 'active'), sortOrder: n(fd, 'sortOrder') };
+    const data = { code: s(fd, 'code').toUpperCase().replace(/[^A-Z0-9_]/g, ''), name: s(fd, 'name'), description: s(fd, 'description'), imageUrl: s(fd, 'imageUrl'), priceCents: toCents(s(fd, 'price')), quoted: b(fd, 'quoted'), active: b(fd, 'active'), sortOrder: n(fd, 'sortOrder') };
     if (!data.code || !data.name) throw new HttpError(400, 'Code and name are required.');
     const saved = addOnId ? await prisma.addOn.update({ where: { id: addOnId }, data }) : await prisma.addOn.create({ data });
     await audit(user, { module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: saved.id, summary: saved.name, sensitive: true });

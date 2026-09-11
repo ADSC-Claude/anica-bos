@@ -5,7 +5,7 @@ import { SERVICE_MODES, DEFAULT_SERVICE_MODE, addOnPriceRises } from '@/lib/pric
 import { formatPesoShort } from '@/lib/money';
 
 export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number; linkValidityDays: number };
-export type AddOnCard = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
+export type AddOnCard = { code: string; name: string; description: string; imageUrl: string; priceCents: number; quoted: boolean };
 
 const HIGHLIGHTS: Record<Tier, string[]> = {
   BASIC: ['1 design from the Basic set, in its own colours', 'Set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form — guests say which group they are from', 'We build it for you, with 2 rounds of changes before we publish', 'Link valid 30 days after the event'],
@@ -18,6 +18,12 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
   // One service, so there is nothing to toggle: the price on the card is the
   // whole price, building included.
   const service = SERVICE_MODES.find((m) => m.key === DEFAULT_SERVICE_MODE)!;
+  const pictured = addOns.filter((a) => a.imageUrl);
+  const plain = addOns.filter((a) => !a.imageUrl);
+  // 'from' only where the price genuinely rises on some package — rush costs
+  // more on Standard than on Basic. Save the Date falls to nothing on Luxury,
+  // which is not something to hedge the price with.
+  const price = (a: AddOnCard) => (a.quoted ? `${addOnPriceRises(a.code) ? 'from ' : ''}${formatPesoShort(a.priceCents)}` : 'Ask us');
   return (
     <div>
       <p className="mb-6 text-center text-sm text-[color:var(--color-ink-500)]">
@@ -43,8 +49,38 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
       </div>
       <div className="mt-8">
         <h3 className="mb-2 text-center font-semibold">Add-ons for any package</h3>
-        <ul className="mx-auto grid max-w-3xl gap-2 text-sm sm:grid-cols-2">
-          {addOns.map((a) => <li key={a.code} className="flex justify-between gap-3 rounded-xl bg-white px-4 py-2"><span>{a.name}<span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span></span><span className="whitespace-nowrap font-semibold">{a.quoted ? `${addOnPriceRises(a.code) ? 'from ' : ''}${formatPesoShort(a.priceCents)}` : 'Ask us'}</span></li>)}
+        {/* The ones with a picture go first and get a card, because what they
+            buy is a thing that happens rather than a thing you hold — a desk at
+            the door, your table name on your own invitation — and a sentence
+            alone asks somebody to imagine it. The rest keep the plain row they
+            always had: a new add-on is sellable the day it is priced, without
+            waiting on a photograph. */}
+        {pictured.length > 0 && (
+          <ul className="mx-auto mb-5 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {pictured.map((a) => (
+              <li key={a.code} className="flex flex-col overflow-hidden rounded-xl border border-[color:var(--color-sand-200)] bg-white">
+                <img src={a.imageUrl} alt="" loading="lazy" className="h-32 w-full border-b border-[color:var(--color-sand-200)] object-cover object-top" />
+                <div className="flex flex-1 flex-col p-4">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-semibold">{a.name}</span>
+                    <span className="whitespace-nowrap text-sm font-semibold">{price(a)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">{a.description}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <ul className="mx-auto grid max-w-4xl gap-x-10 gap-y-3 text-sm sm:grid-cols-2">
+          {plain.map((a) => (
+            <li key={a.code} className="flex justify-between gap-3">
+              <span>
+                {a.name}
+                <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
+              </span>
+              <span className="whitespace-nowrap font-semibold">{price(a)}</span>
+            </li>
+          ))}
         </ul>
       </div>
     </div>

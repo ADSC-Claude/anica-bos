@@ -183,7 +183,7 @@ async function main() {
     if (!a) {
       console.info(`  ${code.padEnd(22)} ${col(cents).trim().padStart(11)}   created${note}`);
       if (!dry) {
-        const made = await prisma.addOn.create({ data: { code, name: spec.name, description: spec.description, priceCents: cents, active, sortOrder: spec.sortOrder } });
+        const made = await prisma.addOn.create({ data: { code, name: spec.name, description: spec.description, imageUrl: spec.image ?? '', priceCents: cents, active, sortOrder: spec.sortOrder } });
         await audit(null, {
           module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: made.id,
           summary: `${code} created (set-pricing)`, after: { priceCents: cents, active }, sensitive: true,
@@ -197,18 +197,25 @@ async function main() {
     // mode that no longer exists — a run that fixed the price and left "your
     // Done-For-You build" on the row would leave the catalogue lying.
     const wordingSame = a.name === spec.name && a.description === spec.description;
-    if (a.priceCents === cents && a.active === active && wordingSame) {
+    // The picture is reconciled the same way, with one difference: a catalogue
+    // row with no `image` has no opinion about the picture rather than an
+    // opinion that there should be none, so a run never wipes one somebody
+    // typed into admin. A picture declared here does win over a typed one,
+    // exactly as the wording does.
+    const image = spec.image ?? '';
+    const pictureSame = !image || a.imageUrl === image;
+    if (a.priceCents === cents && a.active === active && wordingSame && pictureSame) {
       console.info(`  ${code.padEnd(22)} ${col(a.priceCents)}   unchanged${note}`);
       continue;
     }
-    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}${wordingSame ? '' : '   + wording'}${note}`);
+    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}${wordingSame ? '' : '   + wording'}${pictureSame ? '' : '   + picture'}${note}`);
     if (!dry) {
-      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active, name: spec.name, description: spec.description } });
+      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active, name: spec.name, description: spec.description, ...(image ? { imageUrl: image } : {}) } });
       await audit(null, {
         module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
         summary: `${code} price and wording (set-pricing)`,
-        before: { priceCents: a.priceCents, active: a.active, name: a.name, description: a.description },
-        after: { priceCents: cents, active, name: spec.name, description: spec.description },
+        before: { priceCents: a.priceCents, active: a.active, name: a.name, description: a.description, imageUrl: a.imageUrl },
+        after: { priceCents: cents, active, name: spec.name, description: spec.description, imageUrl: image || a.imageUrl },
         sensitive: true,
       });
     }

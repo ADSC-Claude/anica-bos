@@ -1,0 +1,130 @@
+#
+# Moves one invitation onto a different package, on the live database.
+#
+# The same thing as the "Transfer package" control in admin, for the times there
+# is nobody signed in to click it — a demo that should show what the top package
+# includes, a correction after a payment taken outside the site. It writes the
+# same column and records the same audit entry.
+#
+# It touches one row, named by slug, and never the order behind it: an order is
+# the record of what was sold and for how much, and a package moved by hand is a
+# gift or a correction, not a second sale.
+#
+# Dry by default. A dry run prints the invitation, its owner and the move, which
+# is the check that matters here — the one way this goes wrong is moving
+# somebody else's invitation.
+#
+# Setup, once: Settings → Secrets and variables → Actions → New repository secret
+#   INVITES_DIRECT_URL   Supabase → Connect → Session pooler (port 5432)
+#
+# Not DIRECT_URL: that secret belongs to the spa and points at a different
+# database.
+#
+name: Move an invitation onto another package
+
+on:
+  workflow_dispatch:
+    inputs:
+      invitation:
+        description: 'The invitation, by slug (e.g. juan-and-maria) or id.'
+        required: true
+        type: string
+      tier:
+        description: 'The package to move it onto.'
+        required: true
+        default: LUXURY
+        type: choice
+        options: [BASIC, STANDARD, COMPLETE, LUXURY]
+      dry_run:
+        description: 'Show the invitation and the move without writing it.'
+        required: false
+        default: true
+        type: boolean
+      schema:
+        description: 'Which schema to write to.'
+        required: true
+        default: invites
+        type: string
+
+concurrency:
+  group: invites-set-tier
+  cancel-in-progress: false
+
+jobs:
+  set-tier:
+    name: Move package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: invites
+
+    env:
+      DATABASE_SCHEMA: ${{ inputs.schema }}
+      DATABASE_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.INVITES_DIRECT_URL }}
+
+    steps:
+      # Before actions/checkout, so it runs at the workspace root — `invites`
+      # does not exist yet, and a step inheriting the job's working-directory
+      # cannot start there at all.
+      - name: Refuse a schema that is not ours
+        if: inputs.schema == 'public' || inputs.schema == ''
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "::error::Refusing to write to '$DATABASE_SCHEMA'."
+          echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
+          exit 1
+
+      - name: Check the secret is present
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::The INVITES_DIRECT_URL repository secret is not set."
+            echo "Add it under Settings → Secrets and variables → Actions,"
+            echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: invites/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      # Spelled out in the shell rather than as `${{ dry_run && '' || '--apply' }}`.
+      # An empty string is falsy in a GitHub expression, so that tidy one-liner
+      # reads "dry run" and passes --apply.
+      - name: Move it
+        env:
+          DRY: ${{ inputs.dry_run }}
+          INVITATION: ${{ inputs.invitation }}
+          TIER: ${{ inputs.tier }}
+        run: |
+          if [ "$DRY" = "true" ]; then
+            npm run set:tier -- --invitation "$INVITATION" --tier "$TIER"
+          else
+            npm run set:tier -- --invitation "$INVITATION" --tier "$TIER" --apply
+          fi
+
+      - name: Say what landed
+        run: |
+          {
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "### Dry run against \`$DATABASE_SCHEMA\`"
+              echo
+              echo "Nothing was written. Check the invitation and its owner above,"
+              echo "then re-run with **dry_run** unticked."
+            else
+              echo "### \`${{ inputs.invitation }}\` moved onto ${{ inputs.tier }}"
+              echo
+              echo "The order behind it is unchanged. The move is in the audit log."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -45,3 +45,42 @@ export function replyState(reply: SeatReply | null | undefined): 'waiting' | 'ac
   if (!reply) return 'waiting';
   return reply.response === 'ACCEPT' ? 'accepted' : 'declined';
 }
+
+/**
+ * How many people from a party actually walked in.
+ *
+ * Check-in used to be one bit — `checkedInAt` is set or it is not — and the
+ * number the desk announced was `seatsHeld`, which is what the guest confirmed
+ * weeks earlier. So a table of four where one stayed home still counted four:
+ * a plated meal, a laid place, and nothing in the system disagreeing. The
+ * couple found out when they saw the empty chair.
+ *
+ * `arrivedCount` is the door's own number, and null means the door has not
+ * given one. That is deliberate and is what makes this safe to add to a list
+ * already half checked in: every arrival recorded before this existed reads as
+ * the whole party, which is exactly what the system believed at the time.
+ *
+ * It is not capped at what they confirmed. A party of two that turns up with a
+ * cousin is an ordinary Tuesday at a Filipino reception, and a desk that cannot
+ * write down five people standing in front of it is the same bug as the one
+ * above, pointing the other way.
+ */
+export type Arrival = { checkedIn: boolean; arrivedCount: number | null };
+
+export function headsArrived(held: number, arrival: Arrival | null | undefined): number {
+  if (!arrival?.checkedIn) return 0;
+  return Math.max(0, arrival.arrivedCount ?? held);
+}
+
+/**
+ * What the stepper says beside a party.
+ *
+ * "3 of 4" while the number is at or under what they confirmed, because that
+ * is the question being answered — how many of the four came. Above it the
+ * "of" is a lie, so it stops being used: five people arrived against four
+ * confirmed is two facts, not a fraction.
+ */
+export function arrivalLabel(held: number, arrived: number): string {
+  if (arrived > held) return `${arrived} arrived · ${held} confirmed`;
+  return `${arrived} of ${held}`;
+}

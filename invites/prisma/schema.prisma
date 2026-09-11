@@ -525,6 +525,11 @@ model Guest {
   salutation     String    @default("")
   checkedInAt    DateTime?
   checkedInBy    String    @default("")
+  /// How many of this party actually walked in, counted at the door. Null
+  /// means nobody counted — an arrival recorded before the stepper existed, or
+  /// a scan nobody adjusted — and reads as the whole confirmed party. Not
+  /// capped at what they confirmed: parties turn up with an extra cousin.
+  arrivedCount   Int?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 

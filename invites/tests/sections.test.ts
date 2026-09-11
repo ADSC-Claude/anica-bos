@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, guestGroups, GUEST_GROUP_PRESETS, sectionOnCard, SAVE_THE_DATE_SECTIONS, type SectionKey } from '../src/lib/sections';
+import { OCCASION_SECTIONS, sectionsFor, sectionOffered, fieldsFor, customerFields, keepStaffFields, defaultContent, cleanSection, publishProblems, displayTitle, eventInstant, sectionUnlocked, sectionMinTier, sectionLabel, sectionFilled, emptySection, guestGroups, GUEST_GROUP_PRESETS, sectionOnCard, SAVE_THE_DATE_SECTIONS, SECTION_BY_KEY, type SectionKey } from '../src/lib/sections';
 import { OCCASION_KEYS } from '../src/lib/occasions';
 import { saveTheDateOffered, addOnAvailable } from '../src/lib/pricing';
+import { FEATURE_MIN_TIER } from '../src/lib/tiers';
 
 test('every occasion has a cover, an RSVP and a closing, and every section it lists is defined', () => {
   for (const o of OCCASION_KEYS) {
@@ -385,4 +386,32 @@ test('a photo style on its own does not make the cover a filled section', async 
   // cover as started, the same way a toggle or a select does not.
   assert.equal(sectionFilled('cover', 'CHRISTENING', { photoStyle: 'card' }), false);
   assert.equal(sectionFilled('cover', 'CHRISTENING', { photoStyle: 'card', childFull: 'Lucas Andrei' }), true);
+});
+
+test('an add-on opens the section its feature belongs to', () => {
+  // Buying the shared album has to open the section that switches it on, or
+  // the customer has paid ₱1,000 for a page they cannot reach: the builder
+  // draws its list from here, and so does the renderer.
+  assert.equal(sectionUnlocked('photos', 'WEDDING', 'STANDARD'), false);
+  assert.equal(sectionUnlocked('photos', 'WEDDING', 'STANDARD', ['PHOTO_SHARING']), true);
+  assert.equal(sectionUnlocked('photos', 'WEDDING', 'LUXURY'), true, 'included, with no add-on');
+
+  // and only the section its feature belongs to
+  assert.equal(sectionUnlocked('photos', 'WEDDING', 'STANDARD', ['PASSWORD']), false);
+  assert.equal(sectionUnlocked('guestbook', 'WEDDING', 'BASIC', ['PHOTO_SHARING']), false);
+});
+
+test('every section that names a feature names a real one', () => {
+  // A typo here would be a section nothing can ever open.
+  for (const def of Object.values(SECTION_BY_KEY)) {
+    if (!def.feature) continue;
+    assert.ok(FEATURE_MIN_TIER[def.feature], `${def.key} names ${def.feature}, which is not a feature`);
+    // and the section and the feature agree about which package includes it,
+    // or the builder offers an upgrade to a package that does not carry it
+    assert.equal(
+      FEATURE_MIN_TIER[def.feature],
+      def.minTier,
+      `${def.key}: the section says ${def.minTier}, the feature says ${FEATURE_MIN_TIER[def.feature]}`,
+    );
+  }
 });

@@ -3,9 +3,10 @@
 import { TIER_LABELS } from '@/lib/tiers';
 
 import { useState, useTransition } from 'react';
+import type { Tier } from '@prisma/client';
 import { upgradeAction } from '@/app/account/actions';
 
-export function UpgradeButton({ invitationId, tier }: { invitationId: string; tier: 'STANDARD' | 'COMPLETE' }) {
+export function UpgradeButton({ invitationId, tier }: { invitationId: string; tier: Tier }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
   return (

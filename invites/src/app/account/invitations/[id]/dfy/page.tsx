@@ -38,7 +38,7 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   const sections = sectionsFor(inv.occasion).map((d) => {
     // the customer's own fields only: the fixed writings are ours
     const fields = askedFields(customerFields(fieldsFor(d.key, inv.occasion, inv.tier)), d.key, form);
-    const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier);
+    const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier, inv.addOns);
     return {
       key: d.key,
       label: sectionLabel(d.key, inv.occasion),

@@ -8,11 +8,17 @@ import { createOrder } from '@/lib/orders';
 import { startCheckout, submitManualProof } from '@/lib/payments';
 import { couponProblem } from '@/lib/pricing';
 import { OCCASION_KEYS } from '@/lib/occasions';
+import { TIERS } from '@/lib/tiers';
+import type { Tier } from '@prisma/client';
 import { HttpError } from '@/lib/errors';
 
 const placeSchema = z.object({
   occasion: z.enum(OCCASION_KEYS as [string, ...string[]]),
-  tier: z.enum(['BASIC', 'STANDARD', 'COMPLETE']),
+  // From TIERS, never a list typed out here: this one said BASIC | STANDARD |
+  // COMPLETE and went on saying it after Luxury was added, so the landing page
+  // advertised a package the checkout refused. Every tier the site sells has to
+  // be a tier the order can carry.
+  tier: z.enum(TIERS as [Tier, ...Tier[]]),
   templateId: z.string().min(1, 'Pick a template.'),
   addOnCodes: z.array(z.string().max(40)).max(12).default([]),
   couponCode: z.string().max(40).optional(),

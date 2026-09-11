@@ -1688,7 +1688,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // occasion does not have (an anniversary's, on a design ticked for weddings
     // too) is offered the way the invitation's occasion offers it
     (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key)) &&
-    sectionUnlocked(key, occasion, inv.tier) &&
+    sectionUnlocked(key, occasion, inv.tier, inv.addOns) &&
     // the countdown's only content is its switch; the label is the look's to supply
     (key === 'rsvp' || key === 'cover' || key === 'countdown' || sectionFilled(key, occasion, content[key]));
 
@@ -2025,7 +2025,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'guestbook':
         return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
-        return hasFeature(inv.tier, 'photoSharing') ? (
+        return entitled(inv, 'photoSharing') ? (
           <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} />
         ) : null;
       case 'closing':

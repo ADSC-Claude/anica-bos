@@ -42,7 +42,7 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
   const offered = new Set(sectionsFor(occasion).map((d) => d.key));
   // a design drawn in the studio says which page each section lands on
   const doc = documentOf(inv.template);
-  const keys = sectionOrder(occasion, inv.template.layout).filter((k) => offered.has(k) && sectionUnlocked(k, occasion, inv.tier));
+  const keys = sectionOrder(occasion, inv.template.layout).filter((k) => offered.has(k) && sectionUnlocked(k, occasion, inv.tier, inv.addOns));
   const sections = keys.map((key) => ({
     key,
     label: sectionLabel(key, occasion),

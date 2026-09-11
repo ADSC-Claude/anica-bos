@@ -2,12 +2,12 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import type { Occasion, Privacy } from '@prisma/client';
+import type { Occasion, Privacy, Tier } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
 import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
-import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, saveTable, deleteTable, assignTable, checkIn, type GuestInput } from '@/lib/guests';
+import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, saveTable, deleteTable, assignTable, checkIn, setArrived, type GuestInput } from '@/lib/guests';
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
 import { seatsHeld, replyState } from '@/lib/seats';
@@ -283,7 +283,18 @@ export async function checkInAction(invitationId: string, tokenOrId: string, und
     // told the number set aside rather than the number confirmed: a guest
     // offered three places who is bringing one had three laid for them, and a
     // guest who declined and came anyway had their full allotment.
-    return { name: r.guest.name, table: r.guest.table?.name ?? '', alreadyIn: r.alreadyIn, seats: seatsHeld(r.guest.seatsAllotted, r.guest.rsvps[0]), state: replyState(r.guest.rsvps[0]) };
+    return { name: r.guest.name, table: r.guest.table?.name ?? '', alreadyIn: r.alreadyIn, seats: seatsHeld(r.guest.seatsAllotted, r.guest.rsvps[0]), state: replyState(r.guest.rsvps[0]), arrived: r.guest.arrivedCount };
+  });
+}
+
+/** How many of a party walked in, corrected at the door. */
+export async function setArrivedAction(invitationId: string, guestId: string, count: number) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    const g = await setArrived(inv, guestId, count);
+    refresh(invitationId);
+    return { name: g.name, seats: seatsHeld(g.seatsAllotted, g.rsvps[0]), arrived: g.arrivedCount ?? 0 };
   });
 }
 
@@ -425,7 +436,7 @@ export async function approveAction(invitationId: string) {
 
 // --- orders, account ------------------------------------------------------
 
-export async function upgradeAction(invitationId: string, tier: 'STANDARD' | 'COMPLETE') {
+export async function upgradeAction(invitationId: string, tier: Tier) {
   const user = await requireUser();
   const result = await action(async () => {
     await ownInvitation(user, invitationId);

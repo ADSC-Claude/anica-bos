@@ -83,9 +83,10 @@ export const FEATURE_MIN_TIER: Record<FeatureKey, Tier> = {
   'rsvp.personalLinks': 'COMPLETE',
   'rsvp.meal': 'COMPLETE',
   'rsvp.autoClose': 'COMPLETE',
-  // Every guest who leaves an address gets a confirmation of what they
-  // answered, and it costs the couple nothing. Free only at the top, because
-  // below it the same send is the paid e-mail blast.
+  // Every guest who accepts and leaves an address gets a confirmation of their
+  // seats, and it costs the couple nothing. Free only at the top, because below
+  // it the same send is the paid e-mail blast — and a package below it reaches
+  // it by buying one, which is ADDON_EXTRA further down.
   'rsvp.emailConfirmation': 'LUXURY',
   'guests.manager': 'COMPLETE',
   'guests.import': 'COMPLETE',
@@ -143,7 +144,39 @@ export const ADDON_FEATURE: Readonly<Record<string, readonly FeatureKey[]>> = {
   QR_CHECKIN: ['checkin', 'guests.manager', 'guests.import', 'rsvp.personalLinks'],
   SEATING_VIEWER: ['seating', 'guests.manager', 'guests.import', 'rsvp.personalLinks'],
   PASSWORD: ['privacy.password'],
+  // The album needs nothing else with it: guests upload from the invitation
+  // link they already have, so there is no guest list behind it the way
+  // check-in and the seating chart have one.
+  PHOTO_SHARING: ['photoSharing'],
 };
+
+/**
+ * Features an add-on carries along without being the reason anybody buys it.
+ *
+ * Kept apart from ADDON_FEATURE above, because the two answer different
+ * questions and one table cannot answer both. ADDON_FEATURE says what an add-on
+ * is *for*, and its first entry decides who is offered it at all — a package
+ * that already includes the headline is not sold it a second time. This one
+ * says what comes with it anyway, and must not reach that rule: a comms suite
+ * carries the RSVP confirmation, and Luxury already has the confirmation, but
+ * Luxury still buys comms suites. Putting it in the table above would refuse
+ * the sale.
+ *
+ * Matched by pattern rather than listed, because the campaigns are one row per
+ * suite per guest band — sixteen codes for four products — and sixteen hand-typed
+ * entries is sixteen chances to leave one out when a band is added. The codes
+ * are parsed the same way in src/lib/campaigns.ts, which is where they get their
+ * meaning; here only the shape matters.
+ *
+ * Why the confirmation in particular: the guest communication suites are the
+ * ones that write to guests by e-mail. A couple who has paid us to e-mail their
+ * guests on a schedule has paid for the wire, and the receipt a guest gets for
+ * accepting goes down the same one. SMS_REMINDER_* is deliberately not here —
+ * it is texts only, and it would be buying an e-mail with a text pack.
+ */
+export const ADDON_EXTRA: readonly { match: RegExp; features: readonly FeatureKey[] }[] = [
+  { match: /^COMMS_[A-Z]+_\d+$/, features: ['rsvp.emailConfirmation'] },
+];
 
 /**
  * An invitation, as far as what it is allowed to do is concerned: the package
@@ -161,14 +194,18 @@ export type Entitled = { tier: Tier; addOns: string[] };
  * Whether this invitation may use a feature — because its package includes it,
  * or because it was bought on its own.
  *
- * Every gate on a feature reachable through ADDON_FEATURE reads this rather
- * than hasFeature. The two stay separate because most of this codebase is
+ * Every gate on a feature reachable through ADDON_FEATURE or ADDON_EXTRA reads
+ * this rather than hasFeature. The two stay separate because most of this codebase is
  * asking what a *tier* includes — the comparison table, the upgrade page, the
  * builder's padlocks — and that question has no invitation to ask about.
  */
 export function entitled(inv: Entitled, feature: FeatureKey): boolean {
   if (hasFeature(inv.tier, feature)) return true;
-  return inv.addOns.some((code) => ADDON_FEATURE[code]?.includes(feature));
+  return inv.addOns.some(
+    (code) =>
+      ADDON_FEATURE[code]?.includes(feature) ||
+      ADDON_EXTRA.some((e) => e.match.test(code) && e.features.includes(feature)),
+  );
 }
 
 /** The add-on a package without this feature buys to have it anyway. */
@@ -265,7 +302,7 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: "Seating chart on the guest's page", cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'QR check-in on event day', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'Guestbook / well-wishes wall', cells: { BASIC: false, STANDARD: false, COMPLETE: true, LUXURY: true } },
-  { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: false, STANDARD: false, COMPLETE: false, LUXURY: true } },
+  { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'Save the Date card (a second card, months ahead)', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: 'Included' } },
   { label: 'Link', cells: { BASIC: '/juan-and-maria', STANDARD: '+ custom slug', COMPLETE: '+ password / private option', LUXURY: '+ password / private option' } },
   { label: 'Password on the link', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: true, LUXURY: true } },

@@ -8,7 +8,6 @@ import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
 import { appUrl } from '@/lib/app-url';
 import { SiteHeader, SiteFooter, FloatingContact } from '@/components/site-chrome';
-import { PhoneOpening } from '@/components/landing/phone-demo';
 import { TemplateGallery } from '@/components/landing/gallery';
 import { galleryWithPeeks } from '@/lib/peek';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
@@ -63,8 +62,6 @@ export default async function Landing() {
     catalogue(),
     prisma.template.findMany({ where: { published: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }] }),
   ]);
-  // the design whose opening the phone plays: the featured one with a clip
-  const flagship = templates.find((t) => t.openingVideoUrl && t.openingPosterUrl) ?? null;
   const weddingPackages = TIERS.map((t) => packages.find((p) => p.occasion === 'WEDDING' && p.tier === t) ?? packages.find((p) => p.occasion === null && p.tier === t)).filter((p): p is NonNullable<typeof p> => Boolean(p));
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -103,17 +100,29 @@ export default async function Landing() {
             </div>
           </div>
 
-          {/* The cover, full height and bleeding right, with the phone standing
-              in front of it. The arch is drawn on the picture rather than cut
-              out of the block, so the block keeps its edges. */}
-          <Figure src={PHOTO.hero} alt="" className="ed-figure-bleed ed-figure-arched-inside relative min-h-[24rem] lg:min-h-[33rem]">
-            {flagship
-              ? <div className="w-full max-w-[15rem]"><PhoneOpening src={flagship.openingVideoUrl} poster={flagship.openingPosterUrl} name={flagship.name} /></div>
-              : null}
-            <p className="ed-eyebrow absolute right-5 top-1/2 hidden -translate-y-1/2 whitespace-nowrap text-[color:var(--color-ink-700)] xl:block" style={{ writingMode: 'vertical-rl' }}>
+          {/* The set: an alcove, a marble ledge, and the phone standing on
+              it at the size a phone actually is in a room. The scene is built
+              rather than photographed — see .ed-scene — and the template on
+              the screen is a real cover until there is a design made for this
+              spot. */}
+          <div className="ed-scene min-h-[26rem] lg:min-h-[34rem]">
+            <div className="ed-scene-arch" aria-hidden />
+            <div className="ed-scene-ledge" aria-hidden />
+            {/* A calm invitation on the screen, not a play button. The
+                mockup's phone is showing a card; the premium opening has its
+                own place in the templates section, and a video facade here
+                turns the set into an advert for a feature. */}
+            <div className="ed-scene-phone">
+              <div className="phone">
+                <div className="screen">
+                  <img src="/covers/capiz.jpg" alt="" className="h-full w-full object-cover" />
+                </div>
+              </div>
+            </div>
+            <p className="ed-eyebrow absolute right-6 top-1/2 hidden -translate-y-1/2 whitespace-nowrap text-[color:var(--color-ink-500)] xl:block" style={{ writingMode: 'vertical-rl' }}>
               Timeless invitations for modern celebrations
             </p>
-          </Figure>
+          </div>
         </section>
 
         {/* The occasions, numbered. Four, not the mockup's five: corporate
@@ -131,19 +140,23 @@ export default async function Landing() {
           </div>
         </section>
 
-        {/* Invitations made simple.
+        {/* Invitations made simple — the page's dark moment.
 
-            The hero's rhythm, mirrored: the picture bleeds to the LEFT edge
-            this time and the words take the gutter on the right. Alternating
-            which side the block lands on is what gives the page its beat —
-            two inset cards in a row would read as a list of cards. */}
-        <section className="grid items-stretch lg:grid-cols-[1.06fr_1fr]">
-          <Figure src={PHOTO.card} alt="" className="ed-figure-bleed min-h-[20rem] lg:min-h-[29rem]" />
-          <div className="ed-gutter-r flex items-center px-5 py-16 lg:py-20 lg:pl-16">
+            Deep maroon across the whole band, which is where the contrast the
+            mockup has actually comes from: a page of cream needs somewhere to
+            stop. The cover sits on that ground rather than on cream, so the
+            picture reads as an object on a surface instead of a panel butted
+            against a wall. When there is a design made for this spot it takes
+            the same place; capiz stands in until then. */}
+        <section className="ed-maroon grid items-stretch lg:grid-cols-[1.02fr_1fr]">
+          <div className="ed-maroon-plate">
+            <Figure src={PHOTO.card} alt="" className="ed-figure-bleed h-full min-h-[20rem] lg:min-h-[31rem]" />
+          </div>
+          <div className="ed-gutter-r flex items-center px-5 py-16 lg:py-24 lg:pl-16">
             <div className="max-w-lg">
               <span className="ed-eyebrow ed-eyebrow-ruled block">Effortlessly elegant</span>
-              <h2 className="ed-display ed-display-lg mt-7">Invitations<br />Made Simple</h2>
-              <p className="mt-6 text-lg leading-relaxed text-[color:var(--color-ink-700)]">
+              <h2 className="ed-display ed-display-lg mt-7 text-[color:var(--color-sand-50)]">Invitations<br />Made Simple</h2>
+              <p className="mt-6 text-lg leading-relaxed text-white/70">
                 Designed to celebrate what matters, without the hassle. You send us the details however is easiest — our form, Messenger, Viber, even a photo of a list — and we build it.
               </p>
               <Link href="/#templates" className="ed-link mt-10 w-full max-w-xs">Explore templates<Arrow /></Link>

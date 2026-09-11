@@ -2633,3 +2633,131 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   background: linear-gradient(180deg, color-mix(in srgb, var(--color-sand-50) 42%, transparent), transparent 62%);
   pointer-events: none;
 }
+
+/* ---------------------------------------------------------------------------
+   The hero's set.
+
+   The mockup is not a cropped photograph filling half the page — it is a
+   composed scene: an alcove behind, a marble ledge, and a SMALL phone standing
+   on it with its shadow falling across the stone. The size of the phone is
+   most of the difference. Filling the half with a huge one reads as a product
+   shot; a modest one on a plinth reads as a room somebody arranged, which is
+   what makes it feel considered.
+
+   Built rather than photographed, because there is no photograph. Every part
+   is a real thing in the scene: the alcove is a shape, the ledge has a lip and
+   a top highlight because stone catches light on its edge, and the phone casts
+   a shadow and leaves a reflection. Take any of those away and it goes back to
+   looking like a sticker on a background.
+--------------------------------------------------------------------------- */
+
+.ed-scene {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 62% 12%, #fffdfa 0%, #f7f0e6 46%, #efe5d6 100%);
+  display: grid;
+  place-items: end center;
+  isolation: isolate;
+}
+
+/* The alcove. Tall, arched, a shade deeper than the wall, with the light
+   falling from the upper left the way it does in the mockup. */
+.ed-scene-arch {
+  position: absolute;
+  left: 50%;
+  top: -6%;
+  width: min(62%, 27rem);
+  height: 86%;
+  transform: translateX(-50%);
+  border-radius: 999rem 999rem 0 0;
+  background: linear-gradient(155deg, #fffdf9 0%, #f0e4d3 38%, #e2d2bb 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.8), 0 24px 60px -34px rgba(82, 1, 8, 0.28);
+}
+
+/* A second, smaller arch inset in the first — the depth the mockup gets from
+   the wall behind the alcove being further away than its mouth. */
+.ed-scene-arch::after {
+  content: '';
+  position: absolute;
+  inset: 7% 11% 0;
+  border-radius: 999rem 999rem 0 0;
+  background: linear-gradient(165deg, rgba(255, 253, 250, 0.9), rgba(233, 220, 201, 0.55));
+}
+
+/* The ledge the phone stands on: a slab with a lit top edge and a shadowed
+   front face, sitting proud of the wall. */
+.ed-scene-ledge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20%;
+  background: linear-gradient(180deg, #f6efe4 0%, #ede2d1 14%, #e3d5c0 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 -18px 40px -26px rgba(82, 1, 8, 0.22);
+}
+.ed-scene-ledge::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95) 22%, rgba(255, 255, 255, 0.95) 78%, transparent);
+}
+
+/* The phone, standing. Small on purpose — see the note at the top. */
+.ed-scene-phone {
+  position: relative;
+  z-index: 2;
+  /* A quarter of the panel. In the mockup the phone is about that against the
+     alcove, and the restraint is the point: bigger and it stops being a room
+     with a phone in it and becomes a phone with a room behind it. */
+  width: min(26%, 10.5rem);
+  /* Exactly the ledge's height, so its base meets the stone. A smaller number
+     sinks it through the slab, which is what it was doing. */
+  margin-bottom: 20%;
+}
+.ed-scene-phone .phone {
+  width: 100%;
+  border-width: 7px;
+  border-radius: 1.6rem;
+  padding-top: 14px;
+  box-shadow: 0 26px 34px -18px rgba(60, 30, 16, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+.ed-scene-phone .phone > .screen { border-radius: 1.15rem; }
+
+/* What the phone leaves on the stone: a contact shadow tight under it and a
+   faint reflection falling away. Without these it floats. */
+.ed-scene-phone::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5%;
+  width: 150%;
+  height: 9%;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(82, 30, 16, 0.34), transparent 72%);
+  filter: blur(5px);
+}
+
+/* The maroon band in the middle of the page.
+
+   A cream page needs somewhere to stop, and this is it. Deeper than the brand
+   plum and darker than the closing band, so the two dark moments are not the
+   same note twice. The eyebrow and the link both invert here; they read as
+   ink on cream everywhere else and would vanish otherwise. */
+.ed-maroon { background: linear-gradient(150deg, #4a0a12 0%, #3a0a10 55%, #2b070c 100%); }
+.ed-maroon .ed-eyebrow { color: rgba(255, 255, 255, 0.62); }
+.ed-maroon .ed-eyebrow-ruled::after { background: var(--color-gold-400); opacity: 0.7; }
+.ed-maroon .ed-link { color: var(--color-sand-50); }
+
+/* The cover sits ON the maroon rather than butted against it: inset a little,
+   with the ground showing round it and a shadow underneath, so it reads as an
+   object on a surface. Flush to the edge it looked like two flat panels meeting. */
+.ed-maroon-plate { padding: 2.5rem 1.25rem; }
+@media (min-width: 1024px) {
+  .ed-maroon-plate { padding: 3.5rem 0 3.5rem 3.5rem; }
+}
+.ed-maroon-plate .ed-figure {
+  border-radius: 0.25rem;
+  box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.72);
+}

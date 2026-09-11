@@ -80,13 +80,20 @@ export default async function Landing() {
     <>
       <SiteHeader s={s} signedIn={Boolean(session)} />
       <main>
-        {/* Hero */}
-        <section className="ed-section">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-            <div>
+        {/* Hero.
+
+            Two halves that meet in the middle of the page, not two cards in a
+            padded box. The picture runs to the right edge and up under the
+            header — that edge-to-edge block against the cream is where the
+            contrast comes from, and an inset panel with margins all round
+            throws it away. The text half keeps the container's gutter so it
+            still lines up with every section below it. */}
+        <section className="grid items-stretch lg:grid-cols-[1fr_1.06fr]">
+          <div className="ed-gutter-l flex items-center px-5 py-16 lg:py-20 lg:pr-16">
+            <div className="max-w-lg">
               <span className="ed-eyebrow ed-eyebrow-ruled block">More than an invitation</span>
               <h1 className="ed-display ed-display-xl mt-7 text-balance">Beautiful beginnings start here.</h1>
-              <p className="mt-7 max-w-md text-lg leading-relaxed text-[color:var(--color-ink-700)]">
+              <p className="mt-7 text-lg leading-relaxed text-[color:var(--color-ink-700)]">
                 Create elegant digital invitations for life&rsquo;s most meaningful moments — with one-tap RSVP, a QR code, and nothing for your guests to download.
               </p>
               <div className="mt-10">
@@ -94,29 +101,19 @@ export default async function Landing() {
               </div>
               <p className="mt-6 text-sm text-[color:var(--color-ink-500)]">One-time payment · GCash / Maya · No app needed for guests</p>
             </div>
-
-            {/* The photograph, and beside it the line the mockup runs up the
-                right-hand edge. On a phone that rail would be a column of
-                single words, so it only appears once there is room for it. */}
-            <div className="flex items-stretch gap-6">
-              {/* The alcove, with the phone standing in it.
-
-                  The mockup photographs a phone on marble; we have something
-                  better than a photograph of a phone, which is a phone playing
-                  the actual premium opening. So the arch is the set and the
-                  live demo is what stands in it — and the moment a real
-                  photograph arrives it takes the same slot with the phone
-                  still in front of it. */}
-              <Figure src={PHOTO.hero} alt="" arch className="flex-1 place-items-center px-6 py-10 sm:px-10">
-                {flagship
-                  ? <div className="relative w-full max-w-[15rem]"><PhoneOpening src={flagship.openingVideoUrl} poster={flagship.openingPosterUrl} name={flagship.name} /></div>
-                  : null}
-              </Figure>
-              <p className="ed-eyebrow hidden self-center whitespace-nowrap xl:block" style={{ writingMode: 'vertical-rl' }}>
-                Timeless invitations for modern celebrations
-              </p>
-            </div>
           </div>
+
+          {/* The cover, full height and bleeding right, with the phone standing
+              in front of it. The arch is drawn on the picture rather than cut
+              out of the block, so the block keeps its edges. */}
+          <Figure src={PHOTO.hero} alt="" className="ed-figure-bleed ed-figure-arched-inside relative min-h-[24rem] lg:min-h-[33rem]">
+            {flagship
+              ? <div className="w-full max-w-[15rem]"><PhoneOpening src={flagship.openingVideoUrl} poster={flagship.openingPosterUrl} name={flagship.name} /></div>
+              : null}
+            <p className="ed-eyebrow absolute right-5 top-1/2 hidden -translate-y-1/2 whitespace-nowrap text-[color:var(--color-ink-700)] xl:block" style={{ writingMode: 'vertical-rl' }}>
+              Timeless invitations for modern celebrations
+            </p>
+          </Figure>
         </section>
 
         {/* The occasions, numbered. Four, not the mockup's five: corporate
@@ -134,14 +131,19 @@ export default async function Landing() {
           </div>
         </section>
 
-        {/* Invitations made simple */}
-        <section className="ed-section">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 lg:grid-cols-2 lg:gap-20">
-            <Figure src={PHOTO.card} alt="" className="min-h-[20rem] sm:min-h-[26rem]" />
-            <div>
+        {/* Invitations made simple.
+
+            The hero's rhythm, mirrored: the picture bleeds to the LEFT edge
+            this time and the words take the gutter on the right. Alternating
+            which side the block lands on is what gives the page its beat —
+            two inset cards in a row would read as a list of cards. */}
+        <section className="grid items-stretch lg:grid-cols-[1.06fr_1fr]">
+          <Figure src={PHOTO.card} alt="" className="ed-figure-bleed min-h-[20rem] lg:min-h-[29rem]" />
+          <div className="ed-gutter-r flex items-center px-5 py-16 lg:py-20 lg:pl-16">
+            <div className="max-w-lg">
               <span className="ed-eyebrow ed-eyebrow-ruled block">Effortlessly elegant</span>
               <h2 className="ed-display ed-display-lg mt-7">Invitations<br />Made Simple</h2>
-              <p className="mt-6 max-w-md text-lg leading-relaxed text-[color:var(--color-ink-700)]">
+              <p className="mt-6 text-lg leading-relaxed text-[color:var(--color-ink-700)]">
                 Designed to celebrate what matters, without the hassle. You send us the details however is easiest — our form, Messenger, Viber, even a photo of a list — and we build it.
               </p>
               <Link href="/#templates" className="ed-link mt-10 w-full max-w-xs">Explore templates<Arrow /></Link>

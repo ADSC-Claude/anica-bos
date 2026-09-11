@@ -559,6 +559,12 @@ model Rsvp {
   /// friends". Chosen from the list the couple writes on the RSVP section.
   groupName    String       @default("")
   seats        Int          @default(1)
+  /// What the couple settled on, when the guest's own number was never vetted.
+  /// Null means they have not looked and the guest's number stands — which is
+  /// correct for every reply that came through a personal link, since the
+  /// allotment was already applied when the reply was written. See
+  /// seatsHeld() and awaitingDecision() in src/lib/seats.ts.
+  seatsApproved Int?
   attendees    Json
   mealChoice   String       @default("")
   dietary      String       @default("")
@@ -579,6 +585,7 @@ model Rsvp {
   emails     EmailMessage[]
 
   @@index([invitationId, response])
+  @@index([invitationId, seatsApproved])
   @@index([ip, createdAt])
 }
 

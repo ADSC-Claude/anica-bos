@@ -604,6 +604,8 @@ Measured in the browser on a copy of Baby Blue with every flow page dressed, bes
 
 **She can do:** decide which sections share a page, let the invitation text wrap beside a tilted photo on the left or right, give a page its own night picture, and rebuild a copy of Capiz page by page. Each flow page can dress its sections: centred or left, in a card or plain, with a divider from the library.
 
+**Phase 5 is done, and she can also:** say which sections the design refuses altogether, set a page's join and the room at its foot, hang a piece or a rule off a page's head or foot behind the words or over them, and give the design its own column colour, its own colour beside the column, and its own night — seven colours, each one hers only if she says so. Two things the phase found on the way: `paper` and `surround` had been in the document since phase 1 and were read by nothing, and the checklist's box rules were measuring flow pages against a height they do not have. Both are fixed here.
+
 ### Phase 6: fonts and the colour book (5 days)
 
 - `FontFace` and `FontSet` tables seeded from the five looks and the thirty free pairings already in `FONT_PRESETS`; `looksFor`, `LOOK_MIN_TIER` and `resolveTheme` reading them; the `voice` fallback for wording.

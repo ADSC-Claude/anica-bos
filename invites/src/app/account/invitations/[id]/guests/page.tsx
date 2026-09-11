@@ -47,8 +47,8 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
           by the bill for the other. */}
       <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">
         {confirms
-          ? 'Your package sends every guest who leaves an e-mail address a confirmation of their reply, at no charge. The e-mail blast below is free too. An SMS blast is bought separately — texts are charged by the gateway, per message.'
-          : 'The e-mail blast below is free. An SMS blast is bought separately — texts are charged by the gateway, per message. A confirmation e-mail to every guest who replies comes with the Luxury package.'}
+          ? 'Your package sends every guest who leaves an e-mail address a confirmation of their reply, at no charge. The e-mail blast below is free too. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one.'
+          : 'The e-mail blast below is free. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one. A confirmation e-mail to every guest who replies comes with the Luxury package.'}
       </p>
 
       {/* Both channels, side by side. A couple picks by what they have on the

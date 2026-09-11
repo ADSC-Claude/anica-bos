@@ -137,3 +137,35 @@ test('a section and the feature behind it name the same package', () => {
     }
   }
 });
+
+// A cell that says "Add-on" is a price list: it tells a customer they can buy
+// the thing. Both of these said it while nothing in the catalogue sold it —
+// there is no e-mail-confirmation add-on at all, and the SMS blast comes with
+// the guest list manager rather than being bought. So each row is pinned to
+// the gate that actually decides it: a package either has it or it does not,
+// and the table has to say the same thing the code does.
+test('the two messaging rows say what the gates actually allow', () => {
+  const confirmation = COMPARISON.find((r) => r.label.startsWith('E-mail confirmation'))!;
+  for (const tier of TIERS) {
+    assert.equal(
+      Boolean(confirmation.cells[tier]),
+      hasFeature(tier, 'rsvp.emailConfirmation'),
+      `confirmation row disagrees with the gate on ${tier}`,
+    );
+  }
+
+  // The blast itself is the guest list manager's; what costs money is the
+  // texts, which is why the cell quotes rather than prices.
+  const blast = COMPARISON.find((r) => r.label.startsWith('SMS blast'))!;
+  for (const tier of TIERS) {
+    assert.equal(Boolean(blast.cells[tier]), hasFeature(tier, 'guests.manager'), `SMS row disagrees with the gate on ${tier}`);
+  }
+  assert.match(String(blast.cells.COMPLETE), /Ask us/, 'and does not print a price we have not set');
+
+  // Nothing else may claim to be buyable unless it is something we sell.
+  const SOLD = ['Premium opening video', 'Save the Date card'];
+  for (const row of COMPARISON) {
+    const offersPurchase = TIERS.some((t) => String(row.cells[t]) === 'Add-on');
+    if (offersPurchase) assert.ok(SOLD.some((name) => row.label.startsWith(name)), `${row.label} offers an add-on that is not in the catalogue`);
+  }
+});

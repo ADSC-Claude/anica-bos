@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Occasion } from '@prisma/client';
 import { builtinDesign, documentOf, type DesignDoc, type PhotoEl, type TextEl } from '../src/lib/design';
-import { asksOf, askable, roomFor, askCounts, shapeOf, SHAPE_GUIDANCE, fieldOf, designForm, askedFields, askedLimits, asksNothing } from '../src/lib/asks';
+import { asksOf, askable, roomFor, askCounts, shapeOf, SHAPE_GUIDANCE, fieldOf, designForm, askedFields, askedLimits, asksNothing, designBinds, designMedia } from '../src/lib/asks';
 import { sectionsFor, fieldsFor, OCCASION_SECTIONS } from '../src/lib/sections';
+import { pageNeeds } from '../src/lib/needs';
 
 const base = builtinDesign('babyblue')!;
 const clone = (): DesignDoc => JSON.parse(JSON.stringify(base));
@@ -305,4 +306,83 @@ test('English only is offered in English, rather than left out of Tagalog', () =
   label.offerLine = true;
   const one = Object.values(designForm(doc, 'CHRISTENING' as never).example)[0];
   assert.deepEqual(one, { en: 'A first Christmas', tl: 'A first Christmas' });
+});
+
+// --- the media field every part carries ------------------------------------
+
+/**
+ * A place for a picture of the customer's on any part of the invitation,
+ * which exists only where a design drew a frame for it. The point of it is
+ * that a form does not grow for a design that does not use it, so the first
+ * test is that nothing changes.
+ */
+test('the media field is nowhere until a design draws a frame for it', () => {
+  const bare = designForm(null, 'CHRISTENING' as never);
+  for (const section of ['story', 'ceremony', 'reception', 'closing'] as const) {
+    const fields = fieldsFor(section, 'CHRISTENING' as never);
+    const media = fields.find((f) => f.byDesign);
+    // it is in the definition, and it is staff's, and it is dropped
+    if (media) assert.equal(media.staff, true, section);
+    const shown = designMedia(fields, section, bare);
+    assert.equal(shown.some((f) => f.byDesign), false, `${section} still offers it`);
+    // a section that has none hands back the very array
+    if (!media) assert.equal(shown, fields, section);
+  }
+});
+
+test('a design that draws a frame for it makes it the customer’s own question', () => {
+  const doc = builtinDesign('babyblue')!;
+  const story = doc.pages.find((p) => p.key === 'story')!;
+  story.elements = [
+    ...(story.elements ?? []),
+    { id: 'their-picture', kind: 'photo', x: 50, y: 50, w: 40, anchor: 'centre', ask: true, bind: { section: 'story', field: 'photo' } },
+  ];
+  const form = designForm(doc, 'CHRISTENING' as never);
+  assert.equal(designBinds(form, 'story', 'photo'), true);
+  assert.equal(designBinds(form, 'invitation', 'photo'), false);
+
+  const shown = designMedia(fieldsFor('story', 'CHRISTENING' as never), 'story', form);
+  const media = shown.find((f) => f.key === 'photo')!;
+  assert.ok(media, 'the field is there');
+  assert.equal(media.staff, undefined, 'and it is not staff’s any more');
+  assert.equal(media.type, 'image');
+  // and the part next door still does not have it
+  assert.equal(designMedia(fieldsFor('ceremony', 'CHRISTENING' as never), 'ceremony', form).some((f) => f.byDesign), false);
+});
+
+test('the picker offers the media fields, which is how a design can bind one', () => {
+  const offers = askable('CHRISTENING' as never, 'photo');
+  const story = offers.find((o) => o.section === 'story' && o.field === 'photo');
+  assert.ok(story, 'the story part offers a photo of the customer’s');
+  // the encoder's own writings are still never offered
+  assert.equal(offers.some((o) => o.field === 'verse'), false);
+});
+
+test('a frame using a picture without asking for it still counts as a place for it', () => {
+  const doc = builtinDesign('capiz')!;
+  const page = doc.pages.find((p) => (p.elements ?? []).length > 0) ?? doc.pages[0];
+  page.elements = [
+    ...(page.elements ?? []),
+    // no `ask`: the design uses it if it is there
+    { id: 'quiet', kind: 'photo', x: 50, y: 50, w: 30, anchor: 'centre', bind: { section: 'social', field: 'photo' } },
+  ];
+  const form = designForm(doc, 'WEDDING' as never);
+  assert.equal(designBinds(form, 'social', 'photo'), true);
+  assert.equal(designMedia(fieldsFor('social', 'WEDDING' as never), 'social', form).some((f) => f.key === 'photo' && !f.staff), true);
+});
+
+test('a frame on the media field is not an orphan, and the sheet gives it the part’s name', () => {
+  const doc = builtinDesign('babyblue')!;
+  const story = doc.pages.find((p) => p.key === 'story')!;
+  story.elements = [
+    ...(story.elements ?? []),
+    { id: 'their-picture', kind: 'photo', x: 50, y: 50, w: 40, anchor: 'centre', ask: true, bind: { section: 'story', field: 'photo' } },
+  ];
+  const ask = asksOf(doc, 'CHRISTENING' as never).find((a) => a.id === 'their-picture')!;
+  assert.ok(ask, 'it is asked for');
+  assert.equal(ask.orphan, undefined, 'and the occasion has the field');
+  assert.match(ask.label, /A photo for this part/);
+  assert.match(ask.label, /Our story/);
+  // and the checklist says nothing about an orphan either
+  assert.deepEqual(pageNeeds({ doc, occasion: 'CHRISTENING' as never }).filter((n) => n.rule === 'orphan'), []);
 });

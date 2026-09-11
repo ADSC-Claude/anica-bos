@@ -37,7 +37,7 @@ import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
 import { documentOf } from './design';
-import { designForm, askedFields } from './asks';
+import { designForm, askedFields, designMedia } from './asks';
 import { notifyStaff } from './notifications';
 import { formatDate } from './datetime';
 
@@ -247,10 +247,13 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
    * where a design's twenty letters actually become twenty. A design with no
    * document of its own changes nothing, which is every design today.
    */
+  const form = designForm(documentOf(invitation.template), invitation.occasion);
   const fields = askedFields(
-    fieldsFor(key, invitation.occasion, undefined, Boolean(invitation.saveTheDateOfId)),
+    // the media field every part carries is only a field where the design
+    // drew a frame for it, here as much as on the form
+    designMedia(fieldsFor(key, invitation.occasion, undefined, Boolean(invitation.saveTheDateOfId)), key, form),
     key,
-    designForm(documentOf(invitation.template), invitation.occasion),
+    form,
   );
   const { data: cleaned, issues } = cleanSection(fields, raw);
   const content = contentOf(invitation.content);

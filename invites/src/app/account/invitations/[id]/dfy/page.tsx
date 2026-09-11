@@ -8,7 +8,7 @@ import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type Content } from '@/lib/sections';
 import { documentOf } from '@/lib/design';
-import { designForm, askedFields, askedLimits } from '@/lib/asks';
+import { designForm, askedFields, askedLimits, designMedia } from '@/lib/asks';
 import { galleryLimit } from '@/lib/tiers';
 import { formatDateTime, formatDate, turnaroundLabel } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
@@ -37,7 +37,7 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   const form = designForm(documentOf(inv.template), inv.occasion);
   const sections = sectionsFor(inv.occasion).map((d) => {
     // the customer's own fields only: the fixed writings are ours
-    const fields = askedFields(customerFields(fieldsFor(d.key, inv.occasion, inv.tier)), d.key, form);
+    const fields = askedFields(customerFields(designMedia(fieldsFor(d.key, inv.occasion, inv.tier), d.key, form)), d.key, form);
     const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier, inv.addOns);
     return {
       key: d.key,

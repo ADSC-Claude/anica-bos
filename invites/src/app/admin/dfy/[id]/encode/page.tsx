@@ -6,7 +6,7 @@ import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, photoFrames, photoFramesHint, type Content, type SectionKey } from '@/lib/sections';
 import { sectionAnchor } from '@/lib/anchors';
 import { documentOf } from '@/lib/design';
-import { designForm, askedFields, askedLimits, asksOf } from '@/lib/asks';
+import { designForm, askedFields, askedLimits, asksOf, designMedia } from '@/lib/asks';
 import { AsksSheet } from '@/components/asks-sheet';
 import { intakeRows, intakeFilled } from '@/lib/intake';
 import { doneSections } from '@/lib/progress';
@@ -55,7 +55,7 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
   // staff see every field, the fixed writings included — fitted to the design
   // the same way the customer's form is, so an encoder is told the same room
   const form = designForm(doc, occasion);
-  const fields = askedFields(fieldsFor(current, occasion, inv.tier), current, form);
+  const fields = askedFields(designMedia(fieldsFor(current, occasion, inv.tier), current, form), current, form);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const intakeData = intake.content?.[current] ?? null;
   const limit = galleryLimit(inv.tier);

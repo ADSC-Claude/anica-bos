@@ -5,7 +5,7 @@ import { HttpError } from '@/lib/errors';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, sectionAlwaysShows, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type SectionKey } from '@/lib/sections';
 import { documentOf } from '@/lib/design';
-import { designForm, askedFields, askedLimits } from '@/lib/asks';
+import { designForm, askedFields, askedLimits, designMedia } from '@/lib/asks';
 import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
@@ -42,7 +42,10 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
    * it saw before.
    */
   const form = designForm(documentOf(inv.template), inv.occasion);
-  const own = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier, std) : customerFields(fieldsFor(current, inv.occasion, inv.tier, std));
+  // the media field every part carries exists only where the design drew a
+  // frame for it, and there it is the customer's own question
+  const all = designMedia(fieldsFor(current, inv.occasion, inv.tier, std), current, form);
+  const own = isStaff(user.role) ? all : customerFields(all);
   const fields = askedFields(own, current, form);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);

@@ -1,5 +1,5 @@
 import type { Occasion } from '@prisma/client';
-import { fieldsFor, sectionLabel, customerFields, OCCASION_SECTIONS, type Field, type SectionKey } from './sections';
+import { fieldsFor, sectionLabel, OCCASION_SECTIONS, type Field, type SectionKey } from './sections';
 import { frameLists, type DesignDoc, type Element, type FieldRef, type PhotoEl, type TextEl } from './design';
 
 /**
@@ -154,8 +154,10 @@ export function askable(occasion: Occasion, kind: 'photo' | 'text'): Askable[] {
   const out: Askable[] = [];
   for (const key of OCCASION_SECTIONS[occasion]) {
     const label = sectionLabel(key, occasion);
-    // a customer is asked for their own answers, never for the encoder's
-    for (const f of customerFields(fieldsFor(key, occasion))) {
+    // A customer is asked for their own answers, never for the encoder's —
+    // except the media fields every part carries, which are staff's precisely
+    // until a design binds one, so the picker has to offer them.
+    for (const f of fieldsFor(key, occasion).filter((f) => !f.staff || f.byDesign)) {
       if (wanted.includes(f.type)) out.push({ section: key, sectionLabel: label, field: f.key, label: f.label, type: f.type, list: false, max: f.max });
       for (const sub of f.item ?? []) {
         if (wanted.includes(sub.type)) out.push({ section: key, sectionLabel: label, field: f.key, sub: sub.key, label: `${f.label} — ${sub.label}`, type: sub.type, list: true, max: sub.max ?? f.max });
@@ -191,9 +193,18 @@ export type DesignForm = {
   shape: Record<string, string>;
   /** the design's own line for a box, offered to the customer as a starting point */
   example: Record<string, { en: string; tl: string }>;
+  /**
+   * Every field any element on the design points at.
+   *
+   * Unlike the four above this is not about narrowing a form: it is what
+   * opens the media field every part carries. A picture the design draws a
+   * place for is a picture to ask for; one it does not is a box nobody
+   * should be shown.
+   */
+  binds: Record<string, true>;
 };
 
-const EMPTY: DesignForm = { rows: {}, room: {}, shape: {}, example: {} };
+const EMPTY: DesignForm = { rows: {}, room: {}, shape: {}, example: {}, binds: {} };
 
 /** An example's chip: her line, short enough to read at a glance. */
 const chip = (line: string): string => (line.length > 54 ? `${line.slice(0, 53).trimEnd()}\u2026` : line);
@@ -213,7 +224,59 @@ export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignFor
     else shape[key] = SHAPE_GUIDANCE[a.shape];
   }
   for (const key of Object.keys(shape)) if (!shape[key]) delete shape[key];
-  return { rows, room: roomFor(asks), shape, example: offered(doc) };
+  return { rows, room: roomFor(asks), shape, example: offered(doc), binds: bound(doc) };
+}
+
+/**
+ * Every field the design points at, asked for or not.
+ *
+ * A frame can carry a customer's photograph without the form asking for it —
+ * "use it if it is there" — and that still counts: the field has a place on
+ * the page, which is the only question this answers.
+ */
+function bound(doc: DesignDoc): Record<string, true> {
+  const out: Record<string, true> = {};
+  for (const page of doc.pages) {
+    for (const el of page.elements ?? []) {
+      const refs: FieldRef[] = [];
+      if (el.kind === 'photo') {
+        if (!('asset' in el.bind)) refs.push(el.bind);
+        if (el.alt) refs.push(el.alt);
+      }
+      if (el.kind === 'text') refs.push(...el.lines.flatMap((l) => l.sources).flatMap((x) => ('bind' in x ? [x.bind] : [])));
+      for (const r of refs) out[`${r.section}.${r.field}${r.sub ? `.${r.sub}` : ''}`] = true;
+    }
+  }
+  return out;
+}
+
+/** Whether this design has drawn a place for one field. */
+export const designBinds = (form: DesignForm, section: string, field: string, sub?: string): boolean =>
+  Boolean(form.binds[`${section}.${field}${sub ? `.${sub}` : ''}`]);
+
+/**
+ * The media fields this design asked for, and none of the others.
+ *
+ * Every part of an invitation carries a place for a picture of theirs, and
+ * every one of them is nobody's business until a published design draws a
+ * frame for it: unbound, the field is dropped outright rather than left
+ * sitting in an encoder's workspace twenty times over; bound, it stops
+ * being staff's and becomes the customer's own question.
+ *
+ * The fixed writings are staff's for a different reason — they are our
+ * words, not a box waiting for anybody — and are untouched here.
+ *
+ * A design that binds none of them hands back the very array it was given,
+ * which is how today's forms stay exactly as they are.
+ */
+export function designMedia(fields: Field[], section: string, form: DesignForm): Field[] {
+  if (!fields.some((f) => f.byDesign)) return fields;
+  return fields.flatMap((f) => {
+    if (!f.byDesign) return [f];
+    if (!designBinds(form, section, f.key)) return [];
+    const { staff: _staff, ...rest } = f;
+    return [rest as Field];
+  });
 }
 
 /**

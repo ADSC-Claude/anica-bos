@@ -1,6 +1,6 @@
 import type { Template } from '@prisma/client';
 import { paletteFrom, fontsFrom, cssVars, googleFontsUrl } from './theme';
-import { LOOK_BY_KEY, isLook } from './looks';
+import { builtInSets, findSet, type BookSet } from './fonts';
 import { premiumOpeningsFor } from './premium-openings';
 import { templateOccasions } from './occasions';
 import type { PlateWords } from '@/components/invite/renderer';
@@ -46,10 +46,10 @@ export type GalleryTemplate = {
   sample: PlateWords | null;
 };
 
-export function toGalleryTemplate(t: Template): GalleryTemplate {
+export function toGalleryTemplate(t: Template, sets: BookSet[] = builtInSets()): GalleryTemplate {
   const p = paletteFrom(t.palette);
-  // the design's look sets its faces, as it does on the invitation itself (resolveTheme)
-  const fonts = t.look && isLook(t.look) ? LOOK_BY_KEY[t.look].fonts : fontsFrom(t.fonts);
+  // the design's set brings its faces, as it does on the invitation itself (resolveTheme)
+  const fonts = findSet(t.look, sets)?.fonts ?? fontsFrom(t.fonts);
   return {
     id: t.id,
     slug: t.slug,
@@ -70,7 +70,7 @@ export function toGalleryTemplate(t: Template): GalleryTemplate {
     vars: cssVars(p, fonts),
     fontsUrl: googleFontsUrl(fonts),
     peekSlug: '',
-    clip: (() => { const c = premiumOpeningsFor({ slug: t.slug, collection: t.collection }) [0]; return c ? { key: c.key, blurb: c.blurb } : null; })(),
+    clip: (() => { const c = premiumOpeningsFor(t)[0]; return c ? { key: c.key, blurb: c.blurb } : null; })(),
     sample: null,
   };
 }

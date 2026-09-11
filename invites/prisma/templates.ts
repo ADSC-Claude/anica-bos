@@ -105,7 +105,10 @@ export function templateData(t: TemplateSeed, sortOrder: number) {
   // The design's default premium opening: the first clip the catalogue lists
   // for it. It is what the gallery previews and what an invitation plays
   // before its owner picks another, so adding a clip there is enough.
-  const clip = premiumOpeningsFor({ slug: t.slug, collection: t.collection ?? '' })[0];
+  // A seed row has no opening columns of its own — those are filled in the
+  // admin, for a design drawn in the studio — so only a catalogue clip can
+  // be the default here, which is what the two seeded designs have.
+  const clip = premiumOpeningsFor({ slug: t.slug, collection: t.collection ?? '', name: t.name, openingVideoUrl: '', openingPosterUrl: '' })[0];
   return {
     slug: t.slug,
     name: t.name,

@@ -2,10 +2,13 @@ import type { Occasion } from '@prisma/client';
 import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
-  frameLists, pageRatio, valueAt, isPicture, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl,
+  frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl, type AnimEl,
 } from './design';
 import { contrast } from './palette';
+import { GLARE, HEAVY_CLIP_BYTES, LONG_CLIP_MS, VIDEO_BUDGET_BYTES, VIDEO_BUDGET_LABEL } from './clips';
+import { HEAVY_MOVING_BYTES } from './moving';
+import { LOTTIE_PLAYER_BYTES } from './lottie';
 
 /**
  * What a page still needs.
@@ -64,6 +67,13 @@ export const NEED_RULES = [
   'night-ink',
   'slot-lost',
   'no-thumbnail',
+  'clip-weight',
+  'clip-length',
+  'clip-budget',
+  'clip-glare',
+  'not-drawn',
+  'moving',
+  'motion',
   'asks',
 ] as const;
 
@@ -90,6 +100,12 @@ type Look = {
    * with — is not in here, and the weight rule says nothing about it.
    */
   weights?: Record<string, number>;
+  /**
+   * How long each clip runs, in milliseconds, by its address — the same
+   * Media rows as `weights`, which is where the browser's reading of the
+   * file was written down. A clip with no row is unknown rather than short.
+   */
+  lengths?: Record<string, number>;
   /** what the row knows about the shop: whether it is shown there, and whether it has a cover */
   shop?: { shown: boolean; thumbnail: boolean };
 };
@@ -105,8 +121,14 @@ type Box = { left: number; right: number; top: number; bottom: number };
  * not measured here.
  */
 function boxOf(el: Element, ratio: number): Box | undefined {
-  if (el.kind !== 'photo' || el.w === undefined || el.x === undefined) return undefined;
-  const h = (el.w * ((el as PhotoEl).aspect ?? 1)) / ratio;
+  // A clip behind the whole page is the whole page, whatever numbers it
+  // happens to carry: the stylesheet places it, not the document.
+  if (el.kind === 'video' && (el as VideoEl).bg) return { left: 0, right: 100, top: 0, bottom: 100 };
+  // Otherwise a clip is placed exactly as a frame is — its own width, its
+  // own proportion — so the same maths gives its box and nothing is
+  // duplicated.
+  if ((el.kind !== 'photo' && el.kind !== 'video') || el.w === undefined || el.x === undefined) return undefined;
+  const h = (el.w * ((el as PhotoEl | VideoEl).aspect ?? 1)) / ratio;
   const centred = (el.anchor ?? 'centre') === 'centre';
   return {
     left: el.x - el.w / 2,
@@ -157,6 +179,8 @@ export const HEAVY_GROUND = 400 * 1024;
  * to move with the ground.
  */
 const NIGHT_INK = '#f1e9dd';
+/** How many things may move on one page before the page is merely busy. */
+export const MOST_MOVING = 5;
 const WAITING_SLOT = '#e8e3dd';
 /** Where a heading stops being comfortable to read. The standards' own number. */
 const READABLE = 3;
@@ -166,6 +190,7 @@ const SAME_COLOUR = 1.3;
 /** The name a line calls an element: its own word for it, or its id. */
 function nameOf(el: Element, n: number): string {
   if (el.kind === 'photo') return `Frame ${n}`;
+  if (el.kind === 'video') return 'This clip';
   if (el.kind === 'text') {
     const role = (el as TextEl).lines[0]?.role;
     if (role === 'title' || role === 'script') return 'This heading';
@@ -175,7 +200,7 @@ function nameOf(el: Element, n: number): string {
   return 'This box';
 }
 
-export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need[] {
+export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Look): Need[] {
   if (!doc) return [];
   const out: Need[] = [];
   const asks = asksOf(doc, occasion);
@@ -197,6 +222,19 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
     }
     if (page.drawn && elements.length && !elements.some((e) => e.kind === 'text' && (e as TextEl).block === 'head')) {
       say('says', 'no-heading', `${named} has no heading.`);
+    }
+    /*
+     * How much of the page moves at once.
+     *
+     * Not a performance line — a browser animates a dozen small things
+     * without noticing. It is about reading: a guest's eye goes to whatever
+     * is moving, and when six things are moving there is nowhere for it to
+     * land. Five is the number the plan set, and a page over it is saying
+     * everything is important, which is the same as saying nothing is.
+     */
+    const moving = elements.filter(moves);
+    if (moving.length > MOST_MOVING) {
+      say('says', 'motion', `${moving.length} things move on ${named} at once. A guest's eye goes to whatever moves, and past about ${MOST_MOVING} there is nowhere for it to land — the page reads as busy rather than alive.`, moving[MOST_MOVING].id);
     }
     /*
      * What the background weighs. Only ever said about a picture this design
@@ -231,22 +269,52 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
 
     // --- every element ------------------------------------------------------
 
-    frames.forEach((el, i) => {
-      const box = boxOf(el, ratio);
-      if (!box) return;
-      const over = Math.max(BLEED - box.left, box.right - (100 + BLEED), BLEED - box.top, box.bottom - (100 + BLEED));
-      const centreOff = el.x! < 0 || el.x! > 100 || el.y < 0 || el.y > 100;
-      if (centreOff) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the page.`, el.id);
-      else if (over > 0) say('says', 'off-page', `${nameOf(el, i + 1)} sits partly off the page.`, el.id);
-    });
+    /*
+     * Off the page, and one frame on top of another.
+     *
+     * Both are answers about a box, and a box needs a height. A drawn page
+     * has one — it is the ground's proportion — so these are measured there
+     * and only there. A page laid out by its words has no height until a
+     * customer has written; its decorations hang off an edge by a share of
+     * its *width* and its floats have no place at all, so the vertical
+     * question cannot be asked, and asking it anyway would fire on every
+     * decoration ever made. What can still be said is the horizontal, which
+     * is a share of the width on both kinds of page.
+     */
+    if (page.drawn) {
+      frames.forEach((el, i) => {
+        const box = boxOf(el, ratio);
+        if (!box) return;
+        const over = Math.max(BLEED - box.left, box.right - (100 + BLEED), BLEED - box.top, box.bottom - (100 + BLEED));
+        const centreOff = el.x! < 0 || el.x! > 100 || el.y < 0 || el.y > 100;
+        if (centreOff) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the page.`, el.id);
+        else if (over > 0) say('says', 'off-page', `${nameOf(el, i + 1)} sits partly off the page.`, el.id);
+      });
 
-    for (let i = 0; i < frames.length; i++) {
-      for (let j = i + 1; j < frames.length; j++) {
-        const a = boxOf(frames[i], ratio);
-        const b = boxOf(frames[j], ratio);
-        if (!a || !b) continue;
-        if (overlap(a, b) > COVERED) {
-          say('says', 'overlap', `Frames ${i + 1} and ${j + 1} overlap.`, frames[j].id);
+      for (let i = 0; i < frames.length; i++) {
+        for (let j = i + 1; j < frames.length; j++) {
+          const a = boxOf(frames[i], ratio);
+          const b = boxOf(frames[j], ratio);
+          if (!a || !b) continue;
+          if (overlap(a, b) > COVERED) {
+            say('says', 'overlap', `Frames ${i + 1} and ${j + 1} overlap.`, frames[j].id);
+          }
+        }
+      }
+    } else {
+      // the width is a share of the width on either kind of page
+      flowDecor(page).forEach((el, i) => {
+        if (el.x === undefined || el.w === undefined) return;
+        const left = el.x - el.w / 2;
+        const right = el.x + el.w / 2;
+        if (el.x < 0 || el.x > 100) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the side of the page.`, el.id);
+        else if (left < -BLEED || right > 100 + BLEED) say('says', 'off-page', `${nameOf(el, i + 1)} runs off the side of the page.`, el.id);
+      });
+      // words on a page laid out by its words are its sections', so a text
+      // box here is in the document and drawn nowhere
+      for (const el of elements) {
+        if (el.kind === 'text') {
+          say('blocks', 'not-drawn', `${named} is laid out by its words, so its words come from the sections it carries — ${nameOf(el, elements.indexOf(el) + 1)} is never drawn. Put it on a page drawn by hand, or say it in the section's own line.`, el.id);
         }
       }
     }
@@ -264,6 +332,27 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
           say('blocks', 'unlinked', el.ask
             ? `Frame ${frames.indexOf(el) + 1} is asked for but does not say which field, so the form will not ask for it.`
             : `Frame ${frames.indexOf(el) + 1} is not linked to anything.`, el.id);
+        }
+      }
+      /*
+       * A moving picture: a GIF, an animated WebP, an animated PNG.
+       *
+       * Two things are worth saying about one, and both come from the same
+       * fact: it is never re-encoded. Nothing resizes it, so its weight is
+       * the weight every guest downloads — and a frame the *customer* fills
+       * must never carry the flag, or their four-thousand-pixel photograph
+       * would be served whole to every guest as well, which is the one way
+       * this can go wrong quietly.
+       */
+      if (el.kind === 'photo' && (el as PhotoEl).animated) {
+        const moving = el as PhotoEl;
+        const name = nameOf(el, i + 1);
+        if (!('asset' in moving.bind)) {
+          say('blocks', 'moving', `${name} is marked as a moving picture but reads a field the customer fills. A moving picture is the design's own — a customer's photograph would be served at whatever size they uploaded, to every guest. Point it at a piece from the library, or take the mark off.`, el.id);
+        }
+        const bytes = weights?.[('asset' in moving.bind ? moving.bind.asset : '')];
+        if (bytes !== undefined && bytes > HEAVY_MOVING_BYTES) {
+          say('says', 'moving', `${name} is ${Math.round(bytes / 1024)} kB. A moving picture is never resized or re-encoded, so every guest downloads it whole: under ${Math.round(HEAVY_MOVING_BYTES / 1024)} kB is what a phone on mobile data has before they scroll to it. Fewer frames or a smaller export is the only way down.`, el.id);
         }
       }
       if (el.kind === 'text') {
@@ -297,6 +386,72 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
         const sizes = [t.size, ...t.lines.map((l) => l.size)].filter((s): s is number => s !== undefined);
         if (sizes.some((s) => s < LEGIBLE_CQW)) {
           say('blocks', 'too-small', `${nameOf(el, i + 1)} is too small to read on a phone.`, el.id);
+        }
+      }
+      if (el.kind === 'video') {
+        const clip = el as VideoEl;
+        const name = nameOf(el, i + 1);
+        /*
+         * A clip with nothing behind it. The poster is what prints, what a
+         * guest sparing their data is served, and what a phone in Low Power
+         * Mode shows instead of playing — three people who never see the
+         * clip at all. An empty box for all three is not a style.
+         */
+        if (!clip.poster) say('blocks', 'clip-glare', `${name} has no still behind it, so it is an empty box for anyone who prints the page, spares their data, or has Low Power Mode on.`, el.id);
+        /*
+         * What one clip weighs, said where there is still room to act on it.
+         * Only ever about a clip this design uploaded, for the same reason
+         * as a background: those are the ones somebody chose and can choose
+         * again. Unknown is not light.
+         */
+        const bytes = weights?.[clip.url];
+        if (bytes !== undefined && bytes > HEAVY_CLIP_BYTES) {
+          say('says', 'clip-weight', `${name} is ${Math.round(bytes / 1024 / 1024 * 10) / 10} MB. Every guest downloads it whole, and there is no transcoding on this side, so a shorter cut or a smaller export is the only way down.`, el.id);
+        }
+        const ms = lengths?.[clip.url];
+        if (ms !== undefined && ms > LONG_CLIP_MS) {
+          say('says', 'clip-length', `${name} runs ${Math.round(ms / 1000)} seconds. Past about ${LONG_CLIP_MS / 1000} a guest has scrolled on and the rest was downloaded for nobody.`, el.id);
+        }
+        /*
+         * Words laid straight onto a moving picture.
+         *
+         * `glare` is the brightest area the studio saw while it was choosing
+         * the poster — across every frame it decoded, not only the one it
+         * kept, because the frame that swallows a pale letter is often
+         * seconds after the frame worth printing. A backing carries its own
+         * halo and is fine either way, so only bare words are counted.
+         *
+         * It is a sample and the line says so. Nothing short of decoding
+         * every frame could promise otherwise, and a checklist that promised
+         * it would be lying on the one page where it matters.
+         */
+        /*
+         * On a page laid out by its words there is nothing to measure and
+         * nothing to measure against: the words are its sections', they run
+         * down the whole column, and a clip filling the page is behind all
+         * of them. So the question is not which box lands on which — it is
+         * simply whether the clip goes pale, and the answer is about the
+         * page's own words rather than about an element.
+         */
+        if (!page.drawn && clip.bg && clip.poster) {
+          if (clip.glare === undefined) {
+            say('says', 'clip-glare', `${named} is laid out by its words and they sit straight on ${name}, whose brightness was never measured. A clip moves, so one still cannot answer for it: a background of its own behind the words is the safe way.`, el.id);
+          } else if (clip.glare > GLARE) {
+            say('says', 'clip-glare', `${named}'s own words sit straight on ${name}, and the clip goes as pale as ${clip.glare} of 255 somewhere in it. They will be lost there.`, el.id);
+          }
+        }
+        const box = page.drawn ? boxOf(el, ratio) : undefined;
+        const over = box ? elements.filter((e) => e.kind === 'text'
+          && ((e as TextEl).backing ?? 'none') === 'none'
+          && (e.z ?? 0) >= (el.z ?? 0)
+          && e.x !== undefined && e.y !== undefined
+          && e.x >= box.left && e.x <= box.right && e.y >= box.top && e.y <= box.bottom) : [];
+        if (over.length && clip.poster) {
+          if (clip.glare === undefined) {
+            say('says', 'clip-glare', `${nameOf(over[0], elements.indexOf(over[0]) + 1)} sits on ${name} with no backing, and how bright that clip gets was never measured. Give the words a scrim or a shadow: a clip moves, so one still cannot answer for it.`, over[0].id);
+          } else if (clip.glare > GLARE) {
+            say('says', 'clip-glare', `${nameOf(over[0], elements.indexOf(over[0]) + 1)} sits on ${name} with no backing, and the clip goes as pale as ${clip.glare} of 255 somewhere in it. Pale words will be lost there — a scrim or a shadow holds them through the whole clip.`, over[0].id);
+          }
         }
       }
       // the foot of a page drawn to a screen or less is under the browser's bar
@@ -350,6 +505,48 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
       page: '',
       text: 'This design is shown in the shop with no thumbnail, so its card there is its colours rather than its cover.',
     });
+  }
+
+  /*
+   * Everything heavy in the design, added up.
+   *
+   * One clip inside the per-clip ceiling is fine; six of them is tens of
+   * megabytes before a guest has read a word, and no per-clip rule can see
+   * that. A guest of one invitation scrolls the whole of it, so the sum is
+   * across every page rather than per page — which is also why this blocks
+   * rather than says. The same address twice is one download, so it counts
+   * once.
+   *
+   * Animations are in the same total, and a moving picture with them, for
+   * the reason the total exists at all: it is about what a guest's phone
+   * downloads, and a phone does not care which of them was which. A vector
+   * animation is small but it also brings the player, which is a third of a
+   * megabyte on the first one — counted once, because the second animation
+   * on a page reuses it.
+   */
+  if (weights) {
+    const heavy = doc.pages.flatMap((pg) => (pg.elements ?? []).flatMap((e) => {
+      if (e.kind === 'video') return [(e as VideoEl).url];
+      if (e.kind === 'anim') return [(e as AnimEl).url];
+      if (e.kind === 'photo' && (e as PhotoEl).animated) {
+        const bind = (e as PhotoEl).bind;
+        return 'asset' in bind ? [bind.asset] : [];
+      }
+      return [];
+    })).filter(Boolean);
+    const urls = new Set(heavy);
+    const known = [...urls].filter((u) => weights[u] !== undefined);
+    const player = doc.pages.some((pg) => (pg.elements ?? []).some((e) => e.kind === 'anim')) ? LOTTIE_PLAYER_BYTES : 0;
+    const total = known.reduce((sum, u) => sum + weights[u], 0) + player;
+    if (total > VIDEO_BUDGET_BYTES) {
+      const what = player ? `${known.length} moving things and the animation player` : `${known.length} clips`;
+      out.push({
+        level: 'blocks',
+        rule: 'clip-budget',
+        page: '',
+        text: `This design's ${what} weigh ${Math.round(total / 1024 / 1024 * 10) / 10} MB together, and ${VIDEO_BUDGET_LABEL} is the most one invitation may ask a guest to download. Shorten one, or take one off a page.`,
+      });
+    }
   }
 
   const counts = askCounts(asks);

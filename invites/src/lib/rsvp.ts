@@ -8,7 +8,7 @@ import { guestByToken } from './guests';
 import { hasFeature, entitled, type Entitled } from './tiers';
 import { notify } from './notifications';
 import { sendEmail, render, baseVars, mailable } from './email';
-import { getSettings } from './settings';
+import { getSettings, type Settings } from './settings';
 import { str, rows, bool, guestGroups, displayTitle } from './sections';
 import { contentOf } from './invitations';
 import { contactPatch, plainAddress } from './contacts';
@@ -214,6 +214,36 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
 }
 
 /**
+ * The link a confirmation carries, and the sentence that introduces it.
+ *
+ * One function because they are one decision. The link only carries a token
+ * when the reply came through a personal one, and that token is the only
+ * thing that lets submitRsvp() recognise a second answer as the same guest
+ * editing their first. Where it is missing, "update your reply on the same
+ * link" is a promise the link cannot keep — following it makes a second row,
+ * and the couple is left with the same person twice and no way to tell which
+ * answer they meant.
+ *
+ * Deciding both here is what stops them drifting apart: a change to who gets
+ * a token is a change to what we may tell them, and separated by thirty lines
+ * those two would have gone on being changed one at a time.
+ */
+export function confirmationLink(
+  settings: Settings,
+  vars: Record<string, string>,
+  slug: string,
+  token: string | undefined,
+): { link: string; updateLine: string } {
+  const line = token
+    ? settings['email.rsvpConfirmationUpdate']
+    : settings['email.rsvpConfirmationNoUpdate'];
+  // Rendered here rather than left to the body: render() replaces in one pass
+  // and does not look at what it substituted, so a {{hosts}} arriving inside
+  // this line would reach the guest verbatim, braces and all.
+  return { link: invitationUrl(slug, token), updateLine: render(line, vars) };
+}
+
+/**
  * The receipt a guest gets for accepting.
  *
  * Included with the packages that carry it, and bought on its own below them
@@ -262,10 +292,10 @@ async function confirmToGuest(
     eventDate: invitation.eventAt ? formatDate(invitation.eventAt) : '',
     response: 'coming',
     seatsLine: ` for ${seats} seat${seats === 1 ? '' : 's'}`,
-    link: invitationUrl(invitation.slug, guest?.token),
   };
+  const { link, updateLine } = confirmationLink(settings, vars, invitation.slug, guest?.token);
   const subject = render(settings['email.rsvpConfirmationSubject'], vars);
-  const body = render(settings['email.rsvpConfirmation'], vars);
+  const body = render(settings['email.rsvpConfirmation'], { ...vars, link, updateLine });
 
   const result = await sendEmail({ to: address, subject, text: body });
   await prisma.emailMessage.create({
@@ -380,6 +410,47 @@ export async function messageGuest(invitation: Entitled & { id: string }, rsvpId
     },
   });
   return { to: address, name: reply.name, status: result.status };
+}
+
+/**
+ * Taking one reply off the couple's list.
+ *
+ * There was no way to do this at all, which was fine while every reply came
+ * from somebody who meant it and arrived once. Two things make it necessary.
+ * A reply through a plain link cannot be edited — see confirmationLink() — so
+ * a guest who answers twice becomes two rows, and until now the couple could
+ * only look at both. And a couple testing their own invitation before they
+ * send it puts their own name in the list with no way to take it out again.
+ *
+ * The guest stays. Removing a reply says they have not answered, not that
+ * they are not invited: their row on the guest list, their table, their
+ * personal link and their token all survive, and the invitation goes back to
+ * showing them as waiting. Deleting the guest as well would quietly uninvite
+ * somebody the couple only meant to un-answer, and their link would stop
+ * working with nothing to say why.
+ *
+ * What does go is the confirmation we sent about it. Those rows are reachable
+ * only through the reply, and once it is gone they are an address and a name
+ * on file that nothing can show, act on, or explain — which is the wrong half
+ * of a deletion to keep.
+ */
+export async function deleteReply(invitation: { id: string }, rsvpId: string) {
+  // Scoped by invitation as well as id: the id arrives from the browser, and
+  // on its own it would delete a reply belonging to somebody else's wedding.
+  const reply = await prisma.rsvp.findFirst({
+    where: { id: rsvpId, invitationId: invitation.id },
+    select: { id: true, name: true },
+  });
+  if (!reply) throw new HttpError(404, 'That reply is not on this invitation.');
+
+  // Together, so a failure between the two cannot leave the confirmations
+  // deleted and the reply they belong to still standing.
+  await prisma.$transaction([
+    prisma.emailMessage.deleteMany({ where: { rsvpId: reply.id } }),
+    prisma.rsvp.delete({ where: { id: reply.id } }),
+  ]);
+
+  return { name: reply.name };
 }
 
 export const guestbookSchema = z.object({

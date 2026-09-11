@@ -1,6 +1,7 @@
 import type { Occasion, Tier } from '@prisma/client';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, sectionMinTier, sectionOnCard, sectionOffered, sectionUnlocked, type SectionKey } from './sections';
 import { TIER_LABELS } from './tiers';
+import { documentOf, offeredSections } from './design';
 
 /**
  * A whole part added to one invitation.
@@ -71,10 +72,18 @@ export function extraSectionsOf(raw: unknown): SectionKey[] {
  */
 export function partsOf(
   invitation: { occasion: Occasion; tier: Tier; addOns: string[]; extraSections: string[]; saveTheDateOfId?: string | null },
-  template: { sections: string[]; occasion: Occasion },
+  template: { sections: string[]; occasion: Occasion; design?: unknown; layout?: string },
 ): Part[] {
   const extras = new Set(extraSectionsOf(invitation.extraSections));
-  const ticked = new Set(template.sections);
+  /*
+   * What the design offers. A design that carries a document says so itself
+   * — it names what it refuses, and everything else is offered — and only a
+   * design without one is read off the column. The two must not be mixed:
+   * for a document design the column is a copy kept for anything that has
+   * not been taught to read the document, never a second opinion.
+   */
+  const doc = documentOf(template);
+  const ticked = new Set<string>(doc ? offeredSections(doc, template.occasion) : template.sections);
   const saveTheDate = Boolean(invitation.saveTheDateOfId);
   const out: Part[] = [];
 

@@ -3,22 +3,23 @@ import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
+import type { BookSet } from '@/lib/fonts';
 import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
-import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
+import { cssVars, faceRules, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg, qrColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls, Motion } from './client';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
-import { DrawnPage } from './drawn';
+import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
@@ -62,6 +63,12 @@ export type RenderProps = {
   shape?: 'phone';
   /** A look to set the page in, over the design's and the customer's. For the showcase. */
   look?: Look;
+  /**
+   * The owner's faces and pairings. Handed in because this component is
+   * synchronous and the rows are a query; without it the code's own book is
+   * used, which is what the tables were stocked with.
+   */
+  sets?: BookSet[];
   businessName: string;
 };
 
@@ -1626,11 +1633,11 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, shape, look: lookOverride, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
-  const theme = resolveTheme(inv.template, content, inv.tier);
+  const theme = resolveTheme(inv.template, content, inv.tier, sets);
   const { palette } = theme;
   // The design's own words written over the look's, and its own pictures
   // where the encoder set them; a blank slot keeps the layout's own.
@@ -1684,7 +1691,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const personal = Boolean(guest) && entitled(inv, 'rsvp.personalLinks');
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
-  const templateSections = new Set(inv.template.sections);
+  /*
+   * Which sections this design offers at all. The document answers where the
+   * design carries one — it says what it refuses and everything else is
+   * offered — and the column is only consulted for a design with no document
+   * yet. A column that has drifted from the design cannot mislead a guest
+   * this way, because for a document design nothing reads it.
+   */
+  const templateSections = new Set<string>(doc ? offeredSections(doc, inv.template.occasion) : inv.template.sections);
   /**
    * Parts this one invitation carries that its design does not draw. Staff
    * tick them on when a customer asks for a page their design never had; the
@@ -1874,24 +1888,67 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string } = {}) => (
-      <div
-        key={key}
-        className="inv-page"
-        data-page={key}
-        data-bg={o.bg}
-        data-seam={o.seam}
-        data-drawn={o.drawn ? '' : undefined}
-        data-grow={o.grow ? '' : undefined}
-        data-ground={o.colour}
-        style={{
-          ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
-          ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
-        } as CSSProperties}
-      >
-        {parts}
-      </div>
-    );
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle } = {}) => {
+      // how this page dresses its sections: one attribute and a few
+      // variables, which is all the built sections read (sectionDress)
+      const dress = sectionDress(o.dress);
+      return (
+        <div
+          key={key}
+          className="inv-page"
+          data-page={key}
+          data-bg={o.bg}
+          data-seam={o.seam}
+          data-foot={o.foot !== undefined ? '' : undefined}
+          data-drawn={o.drawn ? '' : undefined}
+          data-grow={o.grow ? '' : undefined}
+          data-ground={o.colour}
+          data-dress={dress.kind}
+          style={{
+            ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
+            ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
+            ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+            ...dress.vars,
+          } as CSSProperties}
+        >
+          {parts}
+        </div>
+      );
+    };
+    /**
+     * A flow page's body: its sections, and the pictures its words flow
+     * around where it has any.
+     *
+     * The wrapper is not decoration. `.inv-page` is a flex column, and a
+     * float inside a flex container is not a float — it becomes a flex item
+     * and stacks above the words. So where there is a float, the float and
+     * the sections go into one plain block together and share a block
+     * formatting context, which is the only arrangement in which the words'
+     * line boxes move aside. A page with no float is left exactly as it was.
+     */
+    const flowBody = (spec: PageSpec, parts: ReactNode[]): ReactNode[] => {
+      // A page with nothing to say draws nothing, decorations and all: its
+      // sections have gone with a package or an answer, and a flourish on an
+      // otherwise empty page is not a page.
+      if (!parts.length) return parts;
+      const body = flowFloats(spec).length
+        ? [(
+          <div key="flow" className="inv-flow">
+            <FlowFloats page={spec} content={content as Record<string, unknown>} lang={lang} />
+            {parts}
+          </div>
+        )]
+        : parts;
+      if (!flowDecor(spec).length) return body;
+      // behind the words, then the words, then what the design asked to have
+      // over them: see FlowDecor for why they cannot be one layer
+      return [
+        <FlowDecor key="deco-under" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="under" />,
+        ...body,
+        <FlowDecor key="deco-over" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="over" />,
+      ];
+    };
+
     // The ground behind every page: the backgrounds in order, each trimmed to
     // its page, dissolved into one another at the joins. PageGround lays them.
     // A design that carries a document names a ground per page, and hands
@@ -1916,10 +1973,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // picture and some words — so it is always drawn.
         const parts = spec.drawn
           ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
-          : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
+          : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle }));
       }
     }
     // a section the document does not name gets a page of its own, in its place
@@ -2002,7 +2059,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
         const sides = format ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || line(`moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
         // the couple's own lines where they typed them, the look's where not
-        const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, inv.occasion === 'WEDDING' ? 'gallery.watchPrenup' : 'gallery.video'), sides, strand: art.strand } : undefined;
+        const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, inv.occasion === 'WEDDING' ? 'gallery.watchPrenup' : 'gallery.video'), sides, strand: doc?.strand || art.strand } : undefined;
         if (babyblue) {
           const video = hasFeature(inv.tier, 'video') ? str(data, 'videoUrl') : '';
           // The drawn page holds four frames and that is the page: the form
@@ -2044,11 +2101,27 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     }
   }
 
+  /*
+   * The colours the design itself gives: the column, the colour beside it,
+   * and its own night. They sit beside the palette's on the same element, so
+   * a design that names none of them falls back in the stylesheet to exactly
+   * what it had — which the two shipped designs prove, since they now name
+   * the four literals the stylesheet used to carry for them.
+   */
+  const ownColours = designVars(doc);
   return (
-    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style} lang={lang}>
-      <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
+    // What is beside the column on a laptop. It has to be an element rather
+    // than the body, because the colour is the design's and a variable set on
+    // the invitation cannot be read by its own parent.
+    <div className="inv-stage" style={ownColours as CSSProperties}>
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours }} lang={lang}>
+      {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
+      {/* a face she uploaded, served from our own bucket rather than by Google */}
+      {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}
       {peek && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
+      {/* the arrivals and the idling, and the three questions they ask first */}
+      {!print && <Motion />}
       {preview && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
@@ -2070,6 +2143,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           <a href="#rsvp" className="inv-btn inv-sticky no-print">{t(lang, 'nav.rsvp')}</a>
         )}
       </Shell>
+    </div>
     </div>
   );
 }

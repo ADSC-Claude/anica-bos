@@ -4,7 +4,8 @@ import { prisma } from './db';
 import { toGalleryTemplate, type GalleryTemplate } from './gallery';
 import { cssVars, googleFontsUrl, type Fonts, type Palette } from './theme';
 import { contentOf } from './invitations';
-import { LOOK_BY_KEY, isLook } from './looks';
+import { findSet, type BookSet } from './fonts';
+import { fontBook } from './font-book';
 import { resolveTheme } from './invitations';
 import { premiumOpeningsFor } from './premium-openings';
 import { withWords, wordsOf } from './design';
@@ -43,29 +44,29 @@ async function demosOf(templates: Pick<Template, 'id' | 'demoSlug'>[]): Promise<
  * function the guest page uses, so the preview's sample is the demo as a
  * guest would get it: rename the child in the form and the preview follows.
  */
-function sampleOf(t: Template, demo: Demo): PlateWords {
+function sampleOf(t: Template, demo: Demo, sets: BookSet[]): PlateWords {
   // The look the demo itself is set in, resolved the way the guest page
   // resolves it — the design's, with the demo's own choice over it — and the
   // design's own words written on top: a christening's "The christening of"
   // rather than the wedding line the look was born with.
-  const chosen = resolveTheme(t, contentOf(demo.content), demo.tier).look;
-  const look = chosen ? withWords(chosen, wordsOf(t.words)) : t.look && isLook(t.look) ? withWords(LOOK_BY_KEY[t.look], wordsOf(t.words)) : undefined;
-  const premium = premiumOpeningsFor({ slug: t.slug, collection: t.collection })[0] ?? null;
+  const chosen = resolveTheme(t, contentOf(demo.content), demo.tier, sets).look ?? findSet(t.look, sets)?.look;
+  const look = chosen ? withWords(chosen, wordsOf(t.words)) : undefined;
+  const premium = premiumOpeningsFor(t)[0] ?? null;
   return plateWords(demo.occasion, contentOf(demo.content), demo.language === 'tl' ? 'tl' : 'en', look, premium);
 }
 
 /** The gallery's rows, each with its peek and its sample words where a demo exists. */
 export async function galleryWithPeeks(templates: Template[]): Promise<GalleryTemplate[]> {
-  const demos = await demosOf(templates);
+  const [demos, sets] = await Promise.all([demosOf(templates), fontBook()]);
   return templates.map((t) => {
     const d = demos[t.id];
-    const row = toGalleryTemplate(t);
+    const row = toGalleryTemplate(t, sets);
     if (!d) return { ...row, peekSlug: '', sample: null };
     // The faces the preview sets its words in are the demo's own, not just the
     // design's: change the look on the demo in the builder and the preview's
     // card changes with it, the way the guest page already does.
-    const theme = resolveTheme(t, contentOf(d.content), d.tier);
-    return { ...row, ...themeOf(theme), peekSlug: d.slug, sample: sampleOf(t, d) };
+    const theme = resolveTheme(t, contentOf(d.content), d.tier, sets);
+    return { ...row, ...themeOf(theme), peekSlug: d.slug, sample: sampleOf(t, d, sets) };
   });
 }
 

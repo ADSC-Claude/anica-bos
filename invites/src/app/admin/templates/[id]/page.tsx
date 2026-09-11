@@ -5,10 +5,14 @@ import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
+import { lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
+import { colourFamilies } from '@/lib/palette';
+import { findSet } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
+import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
-import { OCCASION_SECTIONS, SECTION_BY_KEY, isPaged } from '@/lib/sections';
+import { OpeningUpload } from './opening-upload';
+import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, isPaged, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
@@ -33,15 +37,28 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   const pal = paletteFrom(t?.palette);
   const occasion = t?.occasion ?? 'WEDDING';
   const fontsKey = FONT_PRESETS.find((f) => JSON.stringify(f.fonts) === JSON.stringify(t?.fonts))?.key ?? 'serif';
-  // the design's own words and pictures, and the look whose wording they replace
+  // Every pairing she has switched on, and the one this design is set in.
+  const sets = await fontBook();
+  const families = colourFamilies();
+  const set = findSet(t?.look ?? '', sets);
+  // the design's own words and pictures, and the wording they replace
   const words = wordsOf(t?.words);
   const art = artOf(t?.art);
-  const look = t?.look && isLook(t.look) ? LOOK_BY_KEY[t.look] : undefined;
+  const look = set?.look;
   const wordRows: { key: WordKey; label: string; en: string; tl: string }[] = [
     ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}`, en: lookTitle(look, 'en', k) ?? '', tl: lookTitle(look, 'tl', k) ?? '' })),
     ...LINE_KEYS.map((k) => ({ key: k, label: LINE_LABELS[k], en: lookLine(look, 'en', k) ?? '', tl: lookLine(look, 'tl', k) ?? '' })),
   ];
   const tid = t?.id ?? 'new';
+  /*
+   * What the design itself says it offers. Read from the published document,
+   * not the draft: this is the design as it stands, and the draft is the
+   * studio's business until it is published.
+   */
+  const doc = t ? documentOf(t) : null;
+  const drawn = Boolean(doc);
+  const offers = doc ? offeredSections(doc, occasion) : [];
+  const hidden = doc?.hides ?? [];
   return (
     <>
       <BackLink href="/admin/templates">Templates</BackLink>
@@ -79,8 +96,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Checkbox label={`${TIER_LABELS.COMPLETE} and up (kept out of Basic and Standard)`} name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
           <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="The cover page, portrait (9:16), shown in the gallery and the checkout. Leave blank to show the palette." />
-          <Field label="Premium opening clip URL" name="openingVideoUrl" defaultValue={t?.openingVideoUrl} hint="Portrait MP4 or WebM, muted, a few seconds. Played for customers who bought the premium opening add-on with this design; it overrides the opening chosen above." />
-          <Field label="Premium opening poster URL" name="openingPosterUrl" defaultValue={t?.openingPosterUrl} hint="The clip's first frame. It is the whole closed screen until the guest taps, so this one must always be set alongside the clip." />
+          <OpeningUpload templateId={tid} video={t?.openingVideoUrl ?? ''} poster={t?.openingPosterUrl ?? ''} />
           <div className="grid grid-cols-3 gap-2">
             <Field label="Sort order" name="sortOrder" type="number" defaultValue={t?.sortOrder ?? 0} />
             <div className="pt-6"><Checkbox label="Featured" name="featured" defaultChecked={t?.featured} /></div>
@@ -109,22 +125,78 @@ export default async function TemplateEditor({ params, searchParams }: { params:
             />
           )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
+          {/*
+            * The same one-tap the studio's Theme popover has: six roles made
+            * from one family of the colour book. The palest shade is the
+            * paper, the deepest is the ink, and two from the middle carry
+            * the headings — see familyPalette, which guards both ends so the
+            * page can still be read.
+            */}
+          <Select label="…or from a colour family" name="paletteFamily" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...families.map((f) => ({ value: f.key, label: `${f.label} — paper ${f.palette.bg}, ink ${f.palette.ink}` }))]} hint="One family of the colour book, made into the six roles. Clear the six colours below to apply it; a family wins over a preset." />
           <div className="grid grid-cols-3 gap-2">
             {(['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as const).map((k) => (
               <div key={k}><label className="label" htmlFor={k}>{k}</label><input id={k} name={k} type="text" defaultValue={pal[k]} className="field font-mono text-xs" pattern="#[0-9a-fA-F]{6}" /></div>
             ))}
           </div>
           <Select label="Fonts" name="fontsKey" defaultValue={fontsKey} options={FONT_PRESETS.map((f) => ({ value: f.key, label: f.label }))} hint="Used only when no look is set below." />
-          <Select label="Look" name="look" defaultValue={t?.look ?? ''} options={[{ value: '', label: '— none: the fonts above, no lines under the headings —' }, ...LOOKS.map((l) => ({ value: l.key, label: `${l.name} — ${l.tagline}` }))]} hint="A look is a set of faces and the lines under each heading, in English and Tagalog. See /looks for all of them side by side." />
-          <div>
-            <p className="label">Sections this layout renders</p>
-            <div className="grid grid-cols-2 gap-1 text-sm">
-              {OCCASION_SECTIONS[occasion].map((k) => (
-                <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{SECTION_BY_KEY[k].label}</label>
+          <Select label="Font set" name="look" defaultValue={t?.look ?? ''} options={[{ value: '', label: '— none: the fonts above, no lines under the headings —' }, ...sets.map((x) => ({ value: x.key, label: `${x.name} — ${x.tagline}` }))]} hint="A set is the faces a page is set in and, through its voice, the lines under each heading in English and Tagalog. The list is yours to edit under Fonts; see /looks for the five voices side by side." />
+          {/*
+            * Which of her sets a customer on this design may choose between.
+            * Nothing ticked means every one their package allows, which is
+            * what every design does today — a design narrows the choice, it
+            * can never widen it past the package.
+            */}
+          <fieldset>
+            <legend className="label">Sets offered on this design</legend>
+            <p className="hint mb-1">Nothing ticked means every set the customer&rsquo;s package allows.</p>
+            <div className="grid max-h-56 grid-cols-1 gap-0.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-2 sm:grid-cols-2">
+              {sets.map((x) => (
+                <label key={x.key} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" name={`set_${x.key}`} defaultChecked={t?.fontSets?.includes(x.key) ?? false} />
+                  <span className="truncate" style={{ fontFamily: x.fonts.names || x.fonts.display }}>{x.name}</span>
+                </label>
               ))}
             </div>
-            <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept.</p>
-          </div>
+          </fieldset>
+          {/*
+            * Which sections this design offers.
+            *
+            * For a design drawn in the studio this row is retired: the
+            * document says which sections the design declines, and a row of
+            * ticks beside it would be a second opinion that can only ever
+            * drift from the first. The studio is also where the change
+            * belongs, because hiding a section changes every invitation
+            * already on the design and has to pass the publish screen that
+            * says how many that is.
+            *
+            * A design with no document yet keeps the ticks, because for it
+            * there is nothing else to ask.
+            */}
+          {drawn ? (
+            <div>
+              <p className="label">Sections this design offers</p>
+              <p className="mt-1 text-sm">{offers.length ? offers.map((k) => sectionLabel(k as SectionKey, occasion)).join(', ') : 'None yet.'}</p>
+              {hidden.length > 0 && (
+                <p className="mt-1 text-sm text-[color:var(--color-ink-500)]">
+                  Does not do: {hidden.map((k) => sectionLabel(k as SectionKey, occasion)).join(', ')}
+                </p>
+              )}
+              <p className="hint">
+                Read from the design&rsquo;s own pages, so there is nothing to tick here.
+                Change it in <Link href={`/admin/templates/${tid}/design`} className="underline">the Design Studio</Link> &mdash; it publishes with the design, which is how you see how many invitations it would redraw first.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="label">Sections this layout renders</p>
+              <div className="grid grid-cols-2 gap-1 text-sm">
+                {OCCASION_SECTIONS[occasion].map((k) => (
+                  <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{SECTION_BY_KEY[k].label}</label>
+                ))}
+              </div>
+              <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept. A design drawn in the studio says this in its pages instead.</p>
+            </div>
+          )}
         </div>
         <details className="card p-4 lg:col-span-2">
           <summary className="cursor-pointer font-semibold">Words on the page</summary>

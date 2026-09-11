@@ -1,14 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, sliceHeights,
+  starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
+  flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
-  type PhotoEl, type TextEl, type ShapeEl, type PageSpec, type Element, type DesignDoc,
+  type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
-import { sectionOrder } from '../src/lib/sections';
+import { sectionOrder, OCCASION_SECTIONS } from '../src/lib/sections';
 import { pageNeeds } from '../src/lib/needs';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
 import { templateData } from '../prisma/templates';
@@ -677,4 +679,456 @@ test('a ground is cut the way the shipped ones were cut', () => {
   }
   // one screen and a bit is the shortest that can be cut at all
   assert.ok(sliceHeights(100).band > 0);
+});
+
+// --- a clip behind a whole page -------------------------------------------
+
+/**
+ * The page's background becomes the clip's own poster, through the machinery
+ * a background has always used — so the page gets its height, its edge
+ * strips and its seams the ordinary way, and a guest who never sees the clip
+ * still sees the page.
+ */
+test('a clip put behind a page fills it, sits under everything, and its poster becomes the ground', () => {
+  const page: PageSpec = {
+    key: 'p', sections: [],
+    elements: [
+      { id: 'clip', kind: 'video', x: 20, y: 40, w: 44, anchor: 'centre', rotate: 6, aspect: 1.7778, url: 'u/c.mp4', poster: 'u/p.webp', glare: 120 },
+      { id: 'words', kind: 'text', block: 'free', x: 50, y: 50, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'Hi', tl: 'Oy' } }] }] },
+    ],
+  };
+  const out = fillPageWithClip(page, 'clip', { ratio: 1.4, top: '#f0e9dd', bottom: '#111827' });
+  const clip = out.elements!.find((e) => e.id === 'clip')! as VideoEl;
+  // A flag, not an aspect. A page that grows is as tall as its words, so the
+  // height to fill is not known until the browser lays the page out — the
+  // stylesheet's `inset: 0` answers that and no number here could. An aspect
+  // taken off the poster would make the clip the poster's shape and leave the
+  // foot of a long page bare, which is what the first attempt at this did.
+  assert.equal(clip.bg, true);
+  assert.equal(clip.aspect, 1.7778, 'its own aspect is left alone, so taking the flag off restores it');
+  assert.deepEqual({ x: clip.x, y: clip.y, w: clip.w, anchor: clip.anchor }, { x: 50, y: 0, w: 100, anchor: 'top' },
+    'set anyway, so taking the flag off leaves it somewhere sensible');
+  assert.equal(clip.rotate, undefined, 'a background is not turned');
+  // -2, not 0: an element with no z is `auto`, and CSS paints auto and 0
+  // together in tree order, so a clip at 0 would cover words added before it
+  assert.equal(clip.z, -2);
+  const words = out.elements!.find((e) => e.id === 'words')!;
+  assert.ok((words.z ?? 0) > clip.z!, 'the words are above it');
+  assert.equal(out.drawn, true);
+  assert.ok(out.ground && isPicture(out.ground));
+  assert.deepEqual(out.ground, { url: 'u/p.webp', ratio: 1.4, top: '#f0e9dd', bottom: '#111827' });
+  // the clip itself is untouched otherwise
+  assert.equal(clip.url, 'u/c.mp4');
+  assert.equal(clip.glare, 120);
+});
+
+test('the slices of a tall poster are carried onto the ground, and only when there are any', () => {
+  const page: PageSpec = { key: 'p', sections: [], elements: [{ id: 'c', kind: 'video', x: 50, y: 0, w: 50, url: 'u/c.mp4', poster: 'u/p.webp' }] };
+  const cut = fillPageWithClip(page, 'c', { ratio: 3, top: '#fff', bottom: '#000', slices: { top: 'a', mid: 'b', foot: 'c' } });
+  assert.deepEqual((cut.ground as { slices?: unknown }).slices, { top: 'a', mid: 'b', foot: 'c' });
+  assert.equal('slices' in (fillPageWithClip(page, 'c', { ratio: 1, top: '#fff', bottom: '#000' }).ground as object), false);
+});
+
+test('a clip with no poster, or an id that is not a clip, changes nothing', () => {
+  const page: PageSpec = { key: 'p', sections: [], elements: [
+    { id: 'bare', kind: 'video', x: 50, y: 0, w: 50, url: 'u/c.mp4', poster: '' },
+    { id: 'frame', kind: 'photo', x: 50, y: 0, w: 50, bind: { asset: '' } },
+  ] };
+  // no poster means no colours to measure and nothing to show while it loads
+  assert.equal(fillPageWithClip(page, 'bare', { ratio: 1, top: '#fff', bottom: '#000' }), page);
+  assert.equal(fillPageWithClip(page, 'frame', { ratio: 1, top: '#fff', bottom: '#000' }), page);
+  assert.equal(fillPageWithClip(page, 'nobody', { ratio: 1, top: '#fff', bottom: '#000' }), page);
+});
+
+// --- what a design offers, and what it draws ------------------------------
+
+/**
+ * Two different questions, and the reason `hides` exists.
+ *
+ * `Template.sections` has always been a row of ticks kept by hand beside the
+ * design — a second opinion that can only drift from the first. The pages
+ * cannot replace it on their own: the renderer gives a section no page names
+ * a plain page of its own, in its place, which is how Baby Blue's ten drawn
+ * pages sit in front of a plain Contact. So "drawn here" and "offered at
+ * all" are separate, and only a refusal written down can answer the second.
+ */
+test('the pages say what is drawn; hides says what is not offered', () => {
+  const doc = builtinDesign('babyblue')!;
+  const drawn = drawnSections(doc);
+  assert.ok(drawn.includes('story'), 'Baby Blue draws the story');
+  assert.ok(drawn.includes('gallery'), 'and the photographs');
+  assert.ok(!drawn.includes('music'), 'it draws no music page — the renderer gives music a plain one');
+
+  // and yet music is offered, because the design refuses nothing
+  const offered = offeredSections(doc, 'CHRISTENING' as never);
+  assert.ok(offered.includes('music'), 'a design that refuses nothing offers everything its occasion has');
+  assert.deepEqual(offered, OCCASION_SECTIONS.CHRISTENING, 'which is what an empty Template.sections has always meant');
+});
+
+test('a design that hides a section stops offering it, and keeps the rest in occasion order', () => {
+  const doc: DesignDoc = { ...builtinDesign('babyblue')!, hides: ['music', 'social'] };
+  const offered = offeredSections(doc, 'CHRISTENING' as never);
+  assert.ok(!offered.includes('music'));
+  assert.ok(!offered.includes('social'));
+  assert.deepEqual(offered, OCCASION_SECTIONS.CHRISTENING.filter((k) => k !== 'music' && k !== 'social'),
+    'everything else, in the order the occasion has them');
+  // hiding changes nothing about what the pages draw
+  assert.deepEqual(drawnSections(doc), drawnSections(builtinDesign('babyblue')!));
+});
+
+test('drawnSections is in page order and names a section once', () => {
+  const doc: DesignDoc = {
+    v: 1,
+    pages: [
+      { key: 'a', sections: ['cover', 'story'] },
+      { key: 'b', sections: ['story', 'ceremony'] },
+      { key: 'c', sections: [] },
+    ],
+  };
+  assert.deepEqual(drawnSections(doc), ['cover', 'story', 'ceremony']);
+  assert.deepEqual(drawnSections(null), []);
+  assert.deepEqual(drawnSections({ v: 1, pages: [] }), []);
+});
+
+test('a hidden section survives the document being read back', () => {
+  // it has to round-trip, or a publish would quietly un-hide it
+  const doc: DesignDoc = { ...builtinDesign('capiz')!, hides: ['program'] };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(read.doc?.hides, ['program']);
+  assert.deepEqual(read.dropped, []);
+});
+
+test('the join and the room at the foot survive a read-back', () => {
+  // a page's dissolve into the one above it, and its room at the foot: both
+  // in the document, so a design drawn in the studio can have what Capiz's
+  // closing page gets from a CSS rule naming it by key
+  const doc: DesignDoc = { v: 1, pages: [{ key: 'a', sections: ['cover'], seam: 0.42, footPad: 2.5 }] };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.equal(read.doc?.pages[0].seam, 0.42);
+  assert.equal(read.doc?.pages[0].footPad, 2.5);
+  assert.deepEqual(read.dropped, []);
+  // and nonsense is refused rather than carried
+  const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], footPad: 40 }] }, 'capiz');
+  assert.deepEqual(bad.dropped, ['page 1 (a)'], 'a foot of forty times the usual is not a page');
+});
+
+// --- motion ----------------------------------------------------------------
+
+/**
+ * The document describes; it never says when. `data-in` — the moment an
+ * element is actually on a guest's screen — is the page's to add, which is
+ * what makes an arrival an arrival rather than something that happened three
+ * screens above the reader.
+ */
+test('motion is two attributes and one variable, and silence is nothing at all', () => {
+  const bare: Element = { id: 'a', kind: 'shape', shape: 'rect', y: 10 };
+  assert.deepEqual(motionOf(bare), { attrs: {}, vars: {} });
+  assert.deepEqual(motionOf({ ...bare, motion: { enter: 'none', idle: 'none' } }), { attrs: {}, vars: {} }, 'none is not a motion');
+  assert.deepEqual(motionOf({ ...bare, motion: { enter: 'rise' } }), { attrs: { 'data-enter': 'rise' }, vars: {} });
+  assert.deepEqual(motionOf({ ...bare, motion: { idle: 'float', delay: 300 } }), {
+    attrs: { 'data-idle': 'float' },
+    vars: { '--motion-delay': '300ms' },
+  });
+  assert.deepEqual(motionOf({ ...bare, motion: { enter: 'drift', idle: 'sway', delay: 120 } }), {
+    attrs: { 'data-enter': 'drift', 'data-idle': 'sway' },
+    vars: { '--motion-delay': '120ms' },
+  });
+  // a delay on nothing is nothing: it would be a variable no rule reads
+  assert.deepEqual(motionOf({ ...bare, motion: { delay: 400 } }), { attrs: {}, vars: {} });
+});
+
+test('what counts as moving, for the page that counts them', () => {
+  const bare: Element = { id: 'a', kind: 'shape', shape: 'rect', y: 10 };
+  assert.equal(moves(bare), false);
+  assert.equal(moves({ ...bare, motion: {} }), false);
+  assert.equal(moves({ ...bare, motion: { enter: 'none', idle: 'none', delay: 500 } }), false, 'a delay alone moves nothing');
+  assert.equal(moves({ ...bare, motion: { enter: 'fade' } }), true);
+  assert.equal(moves({ ...bare, motion: { idle: 'sway' } }), true);
+});
+
+test('the two shipped designs move nothing at all', () => {
+  for (const layout of ['babyblue', 'capiz']) {
+    const d = builtinDesign(layout)!;
+    const moving = d.pages.flatMap((pg) => (pg.elements ?? []).filter(moves));
+    assert.deepEqual(moving, [], `${layout} is as still as it ever was`);
+  }
+});
+
+// --- the colours a design gives itself ------------------------------------
+
+/**
+ * The column's colour, the colour beside it and the whole of the night were
+ * literals in globals.css keyed by the layout's name, so a design drawn in
+ * the studio wore whatever its layout happened to be and had no way to say
+ * otherwise. They are the document's now, and every one of them falls back
+ * in the stylesheet to what it always was.
+ */
+test('a design with no colours of its own sets no variables at all', () => {
+  assert.deepEqual(designVars(null), {});
+  assert.deepEqual(designVars({ v: 1, pages: [] }), {}, 'so the stylesheet answers exactly as it did');
+});
+
+test('the column and the colour beside it are the design’s', () => {
+  assert.deepEqual(designVars({ v: 1, pages: [], paper: '#f0dccb', surround: '#e9dfd2' }), {
+    '--inv-paper': '#f0dccb',
+    '--inv-surround': '#e9dfd2',
+  });
+  // a role rather than a colour follows the palette, as it does everywhere else
+  assert.equal(designVars({ v: 1, pages: [], paper: 'surface' })['--inv-paper'], 'var(--inv-surface)');
+});
+
+test('the two shipped designs carry the four colours the stylesheet used to', () => {
+  const bb = builtinDesign('babyblue')!;
+  const cap = builtinDesign('capiz')!;
+  assert.equal(bb.paper, '#eef3f9');
+  assert.equal(bb.surround, '#e4ecf5');
+  assert.equal(cap.paper, '#f0dccb');
+  assert.equal(cap.surround, '#e9dfd2');
+  // and the stylesheet no longer carries them, so there is one answer and not two
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  for (const literal of ['#eef3f9', '#f0dccb']) {
+    assert.ok(!css.includes(`background: ${literal}`), `${literal} is the design's now, not the stylesheet's`);
+  }
+  /*
+   * And the variable is read at both places a column colour is painted. This
+   * is not a formality: the two layout literals were hiding a third rule,
+   * `.inv[data-paged] { background-color: #f2e8dc }`, which reaches further
+   * than `.inv` does — so taking the literals out turned both designs that
+   * colour until the variable was read there too. The browser found it; this
+   * keeps it found.
+   */
+  assert.ok(css.includes('background: var(--inv-paper, var(--inv-bg))'), 'the column reads the design’s paper');
+  assert.ok(css.includes('background-color: var(--inv-paper, #f2e8dc)'), 'and so does the paged rule, which reaches further');
+  assert.ok(css.includes('background: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
+});
+
+/**
+ * The last thing a copy of Capiz took from the `art` column. The numbered
+ * backgrounds a page-by-page copy does not use — a page with a ground of its
+ * own sits on that one ground whatever the strips say, which is PageGround's
+ * own rule and was measured in the browser on a copy whose first three pages
+ * carry their own: they drew their own pictures, the strips were then
+ * consumed in order by the pages that still used them (bg-1, bg-3, bg-4…),
+ * and the original Capiz drew exactly what it always drew. The night is each
+ * ground's own. This was the remainder.
+ */
+test('the piece under the prenup photograph can be the design’s own', () => {
+  const doc: DesignDoc = { v: 1, pages: [{ key: 'prenup', sections: ['gallery'] }], strand: '/pieces/strand.webp' };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.strand, '/pieces/strand.webp');
+  // and the two shipped designs say nothing about it, so they read the column
+  assert.equal(builtinDesign('capiz')!.strand, undefined);
+  assert.equal(builtinDesign('babyblue')!.strand, undefined);
+});
+
+test('a design’s night is a set of overrides, one variable each', () => {
+  assert.deepEqual(designVars({ v: 1, pages: [], nightColours: { ink: '#ffe9c9' } }), { '--night-ink': '#ffe9c9' });
+  const all = designVars({
+    v: 1,
+    pages: [],
+    nightColours: { ink: '#a', muted: '#b', surface: '#c', accent: '#d', accent2: '#e', paper: '#f', surround: '#g' },
+  });
+  assert.deepEqual(Object.keys(all).sort(), [
+    '--night-accent', '--night-accent2', '--night-ink', '--night-muted', '--night-paper', '--night-surface', '--night-surround',
+  ]);
+});
+
+/**
+ * The app's own night is written twice — here, where the checklist reads the
+ * ink and the studio shows her what she is changing, and in the stylesheet,
+ * where it is the fallback of every one of those variables. Two copies of a
+ * colour is one too many, so this is the test that keeps them in step: it
+ * reads the stylesheet.
+ */
+test('the app’s own night is the stylesheet’s fallback, colour for colour', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const want: Record<string, string> = {
+    '--night-ink': APP_NIGHT.ink,
+    '--night-muted': APP_NIGHT.muted,
+    '--night-surface': APP_NIGHT.surface,
+    '--night-accent': APP_NIGHT.accent,
+    '--night-accent2': APP_NIGHT.accent2,
+    '--night-paper': APP_NIGHT.paper,
+    '--night-surround': APP_NIGHT.surround,
+  };
+  for (const [name, colour] of Object.entries(want)) {
+    assert.ok(css.includes(`var(${name}, ${colour})`), `${name} should fall back to ${colour} in globals.css`);
+  }
+});
+
+// --- how a page dresses the sections it carries ---------------------------
+
+/**
+ * The sections are the app's own components, the same on every design, and
+ * everything about their dress used to be written once for all of them —
+ * which is why an invitation built in the studio came out looking like the
+ * app. Four fields on the page answer it, and this is the whole of what the
+ * markup gets: one attribute and a few variables.
+ */
+test('a page that says nothing about its sections is dressed as it always was', () => {
+  assert.deepEqual(sectionDress(undefined), { vars: {} });
+  assert.equal(sectionDress(undefined).kind, undefined, 'and carries no attribute, so no rule of the new block bites');
+});
+
+test('the alignment is one choice and carries the divider with it', () => {
+  const left = sectionDress({ align: 'left' });
+  assert.equal(left.kind, 'plain');
+  assert.deepEqual(left.vars, { '--sec-align': 'left', '--sec-rule-x': 'left' });
+  // centred is what every design already was, and it is said out loud rather
+  // than left out, because she chose it
+  assert.deepEqual(sectionDress({ align: 'center' }).vars, { '--sec-align': 'center', '--sec-rule-x': 'center' });
+});
+
+test('a card is the attribute, not a variable', () => {
+  assert.equal(sectionDress({ card: true }).kind, 'card');
+  assert.deepEqual(sectionDress({ card: true }).vars, {}, 'nothing about a card is a measurement');
+  assert.equal(sectionDress({ align: 'right' }).kind, 'plain');
+});
+
+/**
+ * The divider's height is a multiple of the page's own gap for the same
+ * reason `footPad` is: the gap is viewport-relative with a cap, so it holds
+ * on a phone and on a laptop, and a number of pixels would be right on only
+ * one of them.
+ */
+test('the divider is a piece and a height in the page’s own unit', () => {
+  const one = sectionDress({ rule: '/pieces/bow.webp' });
+  assert.equal(one.vars['--sec-rule'], 'url(/pieces/bow.webp)');
+  assert.equal(one.vars['--sec-rule-h'], 'calc(1 * min(11vw, 3.5rem))', 'absent is one gap tall');
+  assert.equal(sectionDress({ rule: '/p.png', ruleHeight: 2.5 }).vars['--sec-rule-h'], 'calc(2.5 * min(11vw, 3.5rem))');
+  // no piece, no height at all: the stylesheet falls back to nought, so the
+  // box is nought high and the gap under it — a share of that height — nought too
+  assert.equal(sectionDress({ align: 'left' }).vars['--sec-rule-h'], undefined);
+  assert.equal(sectionDress({ ruleHeight: 3 }).vars['--sec-rule-h'], undefined, 'a height with nothing to draw draws nothing');
+});
+
+test('a page’s dress survives a read-back, and nonsense in it is refused', () => {
+  const doc: DesignDoc = {
+    v: 1,
+    pages: [{ key: 'a', sections: ['rsvp'], sectionStyle: { align: 'left', card: true, rule: '/pieces/bow.webp', ruleHeight: 1.5 } }],
+  };
+  const read = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.pages[0].sectionStyle, { align: 'left', card: true, rule: '/pieces/bow.webp', ruleHeight: 1.5 });
+  const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], sectionStyle: { align: 'middle' } }] }, 'capiz');
+  assert.deepEqual(bad.dropped, ['page 1 (a)'], 'there is no such alignment');
+});
+
+// --- a picture the words flow around --------------------------------------
+
+/**
+ * `float` and `transform` do not know about each other: a float reserves the
+ * un-rotated box and a rotation draws outside it, so a tilted frame would
+ * hang over the words. So a box big enough for the turned frame is floated,
+ * with a polygon tracing the frame's real corners — which is trigonometry,
+ * and can be asserted without a browser.
+ */
+test('an untilted frame floats as its own box', () => {
+  const square = floatShape(1, 0);
+  assert.equal(square.width, 1);
+  assert.equal(square.height, 1);
+  assert.equal(square.inner, 100, 'the frame fills the box it floats');
+  assert.equal(square.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
+
+  // a portrait frame: taller than it is wide, and still no wider than itself
+  const tall = floatShape(1.5, 0);
+  assert.equal(tall.width, 1);
+  assert.equal(tall.height, 1.5);
+  assert.equal(tall.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
+});
+
+test('a square turned 45° floats a bigger box and its shape is a diamond', () => {
+  const d = floatShape(1, 45);
+  // the bounding box of a square turned an eighth of a turn is √2 on a side
+  assert.ok(Math.abs(d.width - Math.SQRT2) < 0.001, `${d.width} should be about 1.414`);
+  assert.ok(Math.abs(d.height - Math.SQRT2) < 0.001);
+  assert.ok(Math.abs(d.inner - 70.71) < 0.1, 'the frame is about 70% of the box it floats');
+  // the four corners land on the middles of the box's sides
+  assert.equal(d.polygon, 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)');
+});
+
+test('a small tilt grows the box a little and tips the shape', () => {
+  const t = floatShape(1.25, 8);
+  assert.ok(t.width > 1 && t.width < 1.2, `${t.width} is a little wider than the frame`);
+  assert.ok(t.height > 1.25 && t.height < 1.5, `${t.height} is a little taller`);
+  // four corners, none of them at a box corner any more
+  const points = t.polygon.replace(/^polygon\(|\)$/g, '').split(', ');
+  assert.equal(points.length, 4);
+  assert.ok(!points.includes('0% 0%'), 'a tilted frame does not reach the box’s corner');
+  // and the shape is the frame turned the same way in both directions
+  const back = floatShape(1.25, -8);
+  assert.equal(back.width, t.width);
+  assert.equal(back.height, t.height);
+  assert.notEqual(back.polygon, t.polygon, 'tilted the other way is a different outline');
+});
+
+test('a turn of a quarter swaps the box’s sides', () => {
+  const q = floatShape(2, 90);
+  assert.ok(Math.abs(q.width - 2) < 0.001, 'a frame twice as tall as wide, turned upright, is twice as wide');
+  assert.ok(Math.abs(q.height - 1) < 0.001);
+});
+
+// --- a decoration on a page laid out by its words --------------------------
+
+/**
+ * The three answers a flow page can give about something on it, and the rule
+ * that leaves no fourth: a picture naming a side floats, words belong to the
+ * sections, and everything else hangs off the head or the foot. Before this
+ * the last of those was "drawn nowhere", which a document could say and no
+ * page would show.
+ */
+const flowPage = (elements: Element[]): PageSpec => ({ key: 'story', sections: ['story'], elements });
+
+test('a flow page sorts what it carries into floats, decorations and words', () => {
+  const page = flowPage([
+    { id: 'a', kind: 'photo', y: 0, w: 40, float: 'left', bind: { asset: '/a.png' } },
+    { id: 'b', kind: 'photo', y: 0, w: 100, bind: { asset: '/b.png' } },
+    { id: 'c', kind: 'shape', shape: 'line', y: 2, w: 60, from: 'bottom' },
+    { id: 'd', kind: 'text', block: 'free', y: 0, lines: [{ role: 'body', sources: [{ fixed: { en: 'no' } }] }] },
+    { id: 'e', kind: 'video', y: 0, url: '/e.mp4', poster: '/e.jpg', bg: true, z: -2 },
+  ]);
+  assert.deepEqual(flowFloats(page).map((e) => e.id), ['a'], 'only the one that names a side floats');
+  assert.deepEqual(flowDecor(page).map((e) => e.id), ['b', 'c', 'e'], 'the picture, the rule and the clip are decorations');
+  assert.ok(!flowDecor(page).some((e) => e.kind === 'text'), 'a flow page’s words are its sections’');
+});
+
+test('a decoration hangs off an edge by a share of the page’s width', () => {
+  const head = decorStyle({ id: 'b', kind: 'photo', y: 4, x: 50, w: 100, bind: { asset: '/b.png' } });
+  assert.deepEqual(head, { left: '50%', width: '100%', top: '4cqw', transform: 'translateX(-50%)' });
+
+  const foot = decorStyle({ id: 'c', kind: 'shape', shape: 'line', y: 4, x: 50, w: 60, from: 'bottom' });
+  assert.equal(foot.bottom, '4cqw', 'measured up from the foot');
+  assert.equal(foot.top, undefined, 'and not down from the head as well');
+});
+
+/**
+ * The whole point of cqw here. A drawn page's y is a share of its height, and
+ * `elementStyle` needs the page's ratio to place it. A flow page's height is
+ * its customer's words, so there is no ratio to hand over and none is taken:
+ * the gap is the same number of hundredths of the page's width whatever the
+ * words come to, which is why a long sentence cannot drag a flourish down the
+ * page with it.
+ */
+test('a decoration’s gap does not move when the words grow', () => {
+  const el: Element = { id: 'b', kind: 'photo', y: 6, x: 50, w: 30, bind: { asset: '/b.png' } };
+  assert.equal(decorStyle(el).top, '6cqw');
+  assert.equal(decorStyle(el).top, decorStyle({ ...el }).top, 'nothing about the page is passed in at all');
+  assert.equal(decorStyle(el).height, undefined, 'and a decoration is never given one');
+});
+
+test('a decoration is behind the words unless its layer is above zero', () => {
+  const bare: Element = { id: 'b', kind: 'photo', y: 0, bind: { asset: '/b.png' } };
+  assert.equal(decorOver(bare), false, 'behind by default');
+  assert.equal(decorOver({ ...bare, z: 0 }), false, 'and behind at nought, which is auto’s own layer');
+  assert.equal(decorOver({ ...bare, z: -2 }), false, 'a clip filling the page is as far behind as it gets');
+  assert.equal(decorOver({ ...bare, z: 1 }), true, 'over the words is asked for');
+  assert.equal(decorStyle({ ...bare, z: 1 }).zIndex, '1', 'and the layer is kept, for the order among themselves');
+});
+
+test('a decoration keeps its turn and its opacity, and its middle is its x', () => {
+  const st = decorStyle({ id: 'b', kind: 'photo', y: 1, x: 20, w: 30, rotate: -6, opacity: 0.5, bind: { asset: '/b.png' } });
+  assert.equal(st.transform, 'translateX(-50%) rotate(-6deg)');
+  assert.equal(st.opacity, '0.5');
+  assert.equal(st.left, '20%');
 });

@@ -11,7 +11,8 @@ import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
 import { prisma } from '@/lib/db';
 import { invitationPath } from '@/lib/app-url';
-import { LOOKS, looksFor } from '@/lib/looks';
+import { setsFor } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { changeWindow, doneSections } from '@/lib/progress';
 import { InvitationPill } from '@/components/ui';
 
@@ -25,6 +26,10 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   if (inv.order && inv.order.status !== 'ACTIVE' && inv.order.status !== 'PAID') redirect(`/checkout/pay/${inv.order.reference}`);
 
   const content = contentOf(inv.content);
+  // The pairings she has switched on, narrowed by the package and by what
+  // this design offers — the same list the Settings picker draws from.
+  const sets = await fontBook();
+  const offered = setsFor(inv.tier, sets, inv.template.fontSets);
   const std = Boolean(inv.saveTheDateOfId);
   const defs = sectionsFor(inv.occasion, std);
   const sections = defs.map((d) => ({
@@ -82,7 +87,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} previewPath={previewPath} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} previewPath={previewPath} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={sets.length} tier={inv.tier} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { plateChars } from '@/lib/openings';
 import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
@@ -1311,5 +1311,224 @@ export function PeekControls({ href, backLabel, closeLabel }: { href: string; ba
       <a href={href} className="inv-peek-btn" onClick={step} aria-label={backLabel} title={backLabel}>←</a>
       <a href={href} className="inv-peek-btn" aria-label={closeLabel} title={closeLabel}>×</a>
     </div>
+  );
+}
+
+/**
+ * A short clip on a page, loaded and played only while a guest is looking at
+ * it.
+ *
+ * Everything here is about what a guest's phone and connection do, not about
+ * what looks best on a desk:
+ *
+ * - **No `autoplay` attribute.** It is the one thing that would undo the rest:
+ *   a browser given `autoplay` fetches the file when the element mounts,
+ *   whatever `preload` says, so every clip on every page of the invitation
+ *   would download the moment the page opened. `play()` is called by hand
+ *   instead, once the clip is actually in view.
+ * - **`preload="none"`** until then, and `src` is not even set: an unset
+ *   source is a request that cannot happen. This is what the range requests
+ *   the bucket serves are for — the file arrives in pieces as it plays,
+ *   rather than whole before it starts.
+ * - **Half in view, and it plays; out of view, and it pauses.** A guest
+ *   scrolling past a page should not leave four clips running behind them,
+ *   which is battery and data both.
+ * - **`saveData` means never.** A guest who has told their phone to spare
+ *   their data has told us too, and the poster is a perfectly good page.
+ *   Reduced motion is respected the same way: a clip is motion.
+ * - **A refused `play()` is not an error.** iOS in Low Power Mode refuses
+ *   every one, and the honest answer is the poster, which is already there.
+ *
+ * Muted and looping are not choices either: a page that makes noise at
+ * somebody reading an invitation on a bus is a page they close, and it is
+ * also the only way a browser will play anything without a tap.
+ */
+/**
+ * Motion on a guest's page: the arrivals, and the slow idling.
+ *
+ * Everything about it is off until this runs, and that is the safe way
+ * round rather than the timid one. An element that enters starts invisible,
+ * so if the rule that hides it were in the stylesheet unconditionally then a
+ * guest with no JavaScript — or one whose script failed, or a crawler, or a
+ * printed page — would be looking at an invitation with holes in it. So the
+ * hiding is behind `data-motion`, which is set here, after the browser has
+ * been asked whether this guest wants motion at all. No script, no
+ * attribute, nothing hidden.
+ *
+ * `data-in` is added the first time an element is actually on screen and
+ * never taken off: an arrival that happened three screens above the reader
+ * is not an arrival, and one that replays every time they scroll back is a
+ * page that will not settle. The idle animations are keyed on the same
+ * attribute, so nothing is animating on a page nobody is looking at.
+ *
+ * The same three questions as a clip — reduced motion, saveData, in view —
+ * because they are the same question: this is motion, and a guest who has
+ * said no to a clip has not said yes to a floating photograph.
+ */
+export function Motion() {
+  useEffect(() => {
+    const root = document.querySelector('.inv');
+    if (!root) return;
+    const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (save || still) return;
+    root.setAttribute('data-motion', '');
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.setAttribute('data-in', '');
+          io.unobserve(e.target);
+        }
+      },
+      // a tenth of it is enough to count as arrived: a tall element would
+      // otherwise have to be half read before it began
+      { threshold: 0.1 },
+    );
+    for (const el of root.querySelectorAll('[data-enter], [data-idle]')) io.observe(el);
+    return () => {
+      io.disconnect();
+      root.removeAttribute('data-motion');
+    };
+  }, []);
+  return null;
+}
+
+/**
+ * A vector animation on a page: a Lottie, played by lottie-web.
+ *
+ * The player is a third of a megabyte, so it is imported *inside* the
+ * observer's callback rather than at the top of this file: a guest whose
+ * invitation carries no animation never downloads a byte of it, and a guest
+ * whose animation is four pages down does not download it until they get
+ * there. That is also why the poster exists — it is what stands in until the
+ * player has arrived, and what stands in for ever for the three people who
+ * will never see the animation at all:
+ *
+ * - a guest who asked their phone for less motion,
+ * - a guest sparing their data,
+ * - a printed page.
+ *
+ * The poster and the player have a box each, side by side, because React
+ * owns one and lottie-web owns the other and neither should be reaching into
+ * the other's children.
+ */
+export function LazyLottie({ src, poster, loop = true, speed = 1, className, style }: {
+  src: string; poster?: string; loop?: boolean; speed?: number; className?: string; style?: CSSProperties;
+}) {
+  const stage = useRef<HTMLDivElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (save || still) return;
+
+    let anim: import('lottie-web/build/player/esm/lottie_light.min.js').LottieAnimation | null = null;
+    let gone = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) { anim?.pause(); continue; }
+          if (anim) { anim.play(); continue; }
+          // the first time it is on screen is the first time the player is
+          // fetched at all
+          void (async () => {
+            const lottie = (await import('lottie-web/build/player/esm/lottie_light.min.js')).default;
+            if (gone || !stage.current) return;
+            anim = lottie.loadAnimation({
+              container: stage.current,
+              renderer: 'svg',
+              loop,
+              autoplay: true,
+              path: src,
+              rendererSettings: { preserveAspectRatio: 'xMidYMid meet' },
+            });
+            anim.setSpeed(speed);
+            setPlaying(true);
+          })();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    io.observe(el);
+    return () => {
+      gone = true;
+      io.disconnect();
+      anim?.destroy();
+      setPlaying(false);
+    };
+  }, [src, loop, speed]);
+
+  return (
+    <div className={className} style={style} data-anim={playing ? 'on' : ''}>
+      <div ref={stage} className="inv-anim-stage" />
+      {!playing && poster && <img className="inv-anim-poster" src={poster} alt="" />}
+    </div>
+  );
+}
+
+export function LazyVideo({ src, webm, poster, loop = true, className, style }: { src: string; webm?: string; poster?: string; loop?: boolean; className?: string; style?: CSSProperties }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [refused, setRefused] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Asked once, on the client, where the answer exists. A guest sparing
+    // their data, or asking for less motion, gets the poster and no request.
+    const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (save || still) return;
+
+    let armed = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            // the first time it comes into view is the first time the file is
+            // asked for at all: the sources are written in only now
+            if (!armed) {
+              armed = true;
+              for (const s of el.querySelectorAll('source')) s.setAttribute('src', s.dataset.src ?? '');
+              el.load();
+            }
+            el.play().catch(() => setRefused(true));
+          } else if (!el.paused) {
+            el.pause();
+          }
+        }
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <video
+      ref={ref}
+      className={className}
+      style={style}
+      poster={poster}
+      muted
+      // A clip that does not loop stops on its last frame and stays there,
+      // which is right for a message to camera and wrong for a ribbon
+      // turning in the wind. The design says which it is.
+      loop={loop}
+      playsInline
+      preload="none"
+      // A refused play leaves the poster showing, which is the point; the
+      // controls are not offered, because a page's clip is decoration and a
+      // play button on decoration invites a guest to think they missed
+      // something.
+      data-refused={refused ? '' : undefined}
+      aria-hidden
+    >
+      {webm && <source data-src={webm} type="video/webm" />}
+      <source data-src={src} type="video/mp4" />
+    </video>
   );
 }

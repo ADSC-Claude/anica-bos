@@ -147,3 +147,31 @@ test('canAddPart refuses a part already drawn, one already added, and one this o
     assert.equal(no.ok, false, key);
   }
 });
+
+/**
+ * A design that carries a document answers for itself, and the column beside
+ * it is not consulted. The two must not be mixed: a column that has drifted
+ * would otherwise offer staff a part the design refuses.
+ */
+test('a document design’s own refusal decides what can be added, not its column', () => {
+  const doc = builtinDesign('babyblue')!;
+  const inv = { occasion: 'CHRISTENING' as Occasion, tier: 'COMPLETE' as Tier, addOns: [], extraSections: [] };
+
+  // the column says only the cover; the document refuses nothing
+  const both = partsOf(inv, { sections: ['cover'], occasion: 'CHRISTENING' as Occasion, design: doc, layout: 'babyblue' });
+  assert.ok(both.every((p) => p.state === 'carried'), 'the document offers everything, so there is nothing to add');
+
+  // and with the document refusing one, that one becomes addable
+  const hiding = { ...doc, hides: ['music'] };
+  const some = partsOf(inv, { sections: [], occasion: 'CHRISTENING' as Occasion, design: hiding, layout: 'babyblue' });
+  const music = some.find((p) => p.key === 'music');
+  assert.ok(music, 'music is a part of a christening');
+  assert.notEqual(music.state, 'carried', 'a section the design refuses is one staff can put back on one invitation');
+});
+
+test('a design with no document is still read off its column', () => {
+  const inv = { occasion: 'CHRISTENING' as Occasion, tier: 'COMPLETE' as Tier, addOns: [], extraSections: [] };
+  const parts = partsOf(inv, { sections: ['cover'], occasion: 'CHRISTENING' as Occasion });
+  const music = parts.find((p) => p.key === 'music');
+  assert.ok(music && music.state !== 'carried', 'the column said only the cover, so music is addable');
+});

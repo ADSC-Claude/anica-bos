@@ -4,8 +4,11 @@ import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { isPaged } from '@/lib/sections';
-import { cssVars, paletteFrom, fontsFrom, fontSetKey } from '@/lib/theme';
+import { cssVars, paletteFrom, fontsFrom, allFacesUrl } from '@/lib/theme';
+import { setForFaces } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { studioDoc, documentOf, wordsOf, withWords } from '@/lib/design';
+import { designFiles } from '@/lib/design-files';
 import { signDraftLink } from '@/lib/draft-link';
 import { absoluteUrl } from '@/lib/app-url';
 import { BackLink } from '@/components/ui';
@@ -48,7 +51,8 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
     ? absoluteUrl(`/${t.demoSlug}?design=draft&key=${await signDraftLink(t.id, t.shareNonce)}`)
     : '';
 
-  const theme = resolveTheme(t, demo ? contentOf(demo.content) : {});
+  const sets = await fontBook();
+  const theme = resolveTheme(t, demo ? contentOf(demo.content) : {}, undefined, sets);
   const look = withWords(theme.look, wordsOf(t.words));
   const vars = cssVars(theme.palette, theme.fonts);
   /*
@@ -63,14 +67,14 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
     prisma.invitation.count({ where: { templateId: t.id, status: 'PUBLISHED' } }),
     prisma.invitation.count({ where: { templateId: t.id, status: { not: 'PUBLISHED' } } }),
     /*
-     * What this design's own uploads weigh. The checklist says so about a
-     * background too heavy for a phone, and this is where it can be known
-     * without fetching anything: the row recorded it when the file arrived.
-     * The pictures the app ships with have no row and are not in here.
+     * What this design's own uploads weigh and how long its clips run. The
+     * checklist says so about a background too heavy for a phone and a clip
+     * longer than a page holds, and this is where both can be known without
+     * fetching anything: the row recorded them when the file arrived. The
+     * pictures the app ships with have no row and are not in here.
      */
-    prisma.media.findMany({ where: { templateId: t.id }, select: { url: true, bytes: true }, take: 500 }),
+    designFiles(t.id),
   ]);
-  const weights: Record<string, number> = Object.fromEntries(files.filter((f) => (f.bytes ?? 0) > 0).map((f) => [f.url, f.bytes as number]));
 
   return (
     <>
@@ -88,15 +92,18 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         content={demo ? (contentOf(demo.content) as Record<string, unknown>) : {}}
         look={look}
         vars={vars}
-        weights={weights}
+        weights={files.weights}
+        lengths={files.lengths}
         shop={{ shown: t.published || t.featured, thumbnail: Boolean(t.thumbnailUrl) }}
         theme={{
           palette: own,
-          fontsKey: fontSetKey(fontsFrom(t.fonts)),
+          fontsKey: setForFaces(fontsFrom(t.fonts), sets)?.key ?? '',
           look: theme.look?.name ?? '',
           overridden: JSON.stringify(own) !== JSON.stringify(theme.palette),
           live,
           drafts,
+          sets: sets.map((x) => ({ key: x.key, name: x.name, tagline: x.tagline, fonts: x.fonts })),
+          facesUrl: allFacesUrl(sets),
         }}
         canPublish={can(user.role, 'templates.publish')}
         shareLink={shareLink}

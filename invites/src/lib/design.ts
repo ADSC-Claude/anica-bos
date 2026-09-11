@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import type { Occasion } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Look, LineKey, TitleKey } from './looks';
-import type { SectionKey } from './sections';
+import { OCCASION_SECTIONS, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
@@ -247,6 +248,71 @@ export type DesignDoc = {
   paper?: string;
   /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
   surround?: string;
+  /**
+   * This design's own colours by night.
+   *
+   * Night was one fixed set of colours for every design — an ivory ink, a
+   * pale gold accent, dark glass behind the cards — written in the
+   * stylesheet and the same whether the design was a christening in baby
+   * blue or a wedding in capiz and shell. A design can now say its own, and
+   * each one it does not name keeps the app's, so a design that says nothing
+   * has exactly the night it always had.
+   *
+   * There is no `bg` here, and that is deliberate rather than an omission:
+   * by night the column's own colour *is* the background, and it is `paper`.
+   * The day palette's `bg` is still read inside the pages by a handful of
+   * small things — the dot on a story bullet, two cards — which are pale on
+   * purpose and are not the page's ground; turning it down here would change
+   * those and nothing else.
+   */
+  nightColours?: NightPalette;
+  /**
+   * The piece drawn under the prenup photograph, on a paged design.
+   *
+   * It is the last thing a copy of Capiz needed from the `art` column. The
+   * numbered backgrounds a page-by-page copy does not use at all — a page
+   * with a ground of its own always sits on that one ground, whatever the
+   * strips say — and the night is each ground's own. This was the remainder,
+   * and a design whose document says nothing about it still reads the column
+   * exactly as it did, so the original Capiz keeps its strips and its art.
+   */
+  strand?: string;
+  /**
+   * The sections this design does not do at all.
+   *
+   * Stated as a refusal rather than as a list of what it accepts, because
+   * the pages already say what is *drawn* and that is a different question:
+   * a section no page names still gets a plain page of its own from the
+   * renderer, which is how Baby Blue's ten drawn pages sit in front of a
+   * plain Contact. So "offers nothing here" has to be said out loud, and an
+   * empty list means the design offers everything its occasion has — the
+   * same thing an empty `Template.sections` has always meant.
+   *
+   * A customer's answers for a hidden section are kept, untouched. Hiding is
+   * about this design, not about their data.
+   */
+  hides?: PageSectionKey[];
+};
+
+/**
+ * The colours a design gives the night: the roles the night actually sets,
+ * and the two colours of the column itself.
+ *
+ * Every one of them is optional and every one falls back to the app's own
+ * night, in the stylesheet, where it has always been — so this is a set of
+ * overrides rather than a palette to be filled in, and a design that names
+ * one colour changes one colour.
+ */
+export type NightPalette = {
+  ink?: string;
+  muted?: string;
+  surface?: string;
+  accent?: string;
+  accent2?: string;
+  /** the column's own colour by night */
+  paper?: string;
+  /** the colour beside the column by night */
+  surround?: string;
 };
 
 export type PageSpec = {
@@ -257,6 +323,20 @@ export type PageSpec = {
   ground?: Ground;
   /** how long the dissolve into this page is, as a share of the width */
   seam?: number;
+  /**
+   * Room at the foot of the page, as a multiple of the usual.
+   *
+   * A multiple rather than a measurement, because the usual is already
+   * `min(11vw, 3.5rem)` — viewport-relative with a cap, so it holds on a
+   * phone and on a laptop — and a number of pixels written here would be
+   * right on only one of them. 2 is twice the usual gap; absent is 1.
+   *
+   * What it is for: a ground whose artwork runs along the bottom. Capiz's
+   * closing page keeps clear of the shells there, and does it with a CSS
+   * rule naming that page by its key — which a design drawn in the studio
+   * cannot have without a release.
+   */
+  footPad?: number;
   /** a drawn page: its height is the ground's ratio times its width, and its elements are placed */
   drawn?: true;
   /**
@@ -280,7 +360,42 @@ export type PageSpec = {
    * strip, the two-picture difference, or a PDF. A page drawn here has none.
    */
   importedFrom?: 'picture' | 'diff' | 'pdf';
+  /** how this page dresses the sections it carries; a drawn page has none */
+  sectionStyle?: SectionStyle;
   elements?: Element[];
+};
+
+/**
+ * How a page laid out by its words dresses the sections it carries.
+ *
+ * The sections are the app's own components — the RSVP form, the program
+ * list, the venue with its map link — and they are the same components on
+ * every design, which is why an invitation built in the studio has always
+ * come out looking like the app rather than like the design. This is the
+ * whole of the answer to that: four settings on the page, read by the
+ * sections through a handful of CSS variables and one attribute, so the
+ * same RSVP form is centred on a card in one design and left on bare paper
+ * with a flourish over it in another, and no component knows.
+ *
+ * A drawn page has none of this and cannot: its words are placed by hand,
+ * one box at a time, which is the other way of getting the same freedom.
+ */
+export type SectionStyle = {
+  /** where this page's headings sit; absent is centred, as they always were */
+  align?: 'left' | 'center' | 'right';
+  /** the sections sit on a card of the surface colour rather than on the page itself */
+  card?: true;
+  /** a piece from the library, drawn above each section's first words */
+  rule?: string;
+  /**
+   * How tall that piece is drawn, as a multiple of the page's own gap.
+   *
+   * A multiple rather than a measurement, for the same reason `footPad` is
+   * one: the gap is already `min(11vw, 3.5rem)`, viewport-relative with a
+   * cap, so it holds on a phone and on a laptop, and a number of pixels
+   * written here would be right on only one of them. Absent is 1.
+   */
+  ruleHeight?: number;
 };
 
 /**
@@ -334,7 +449,18 @@ type Base = {
   ask?: boolean;
   /** what an asked-for frame or box shows when the customer leaves it empty */
   ifEmpty?: { piece: string } | 'leave';
-  /** phase 4 */
+  /**
+   * How this element arrives, and what it does while it is read.
+   *
+   * Two different things with one name. `enter` happens once, when the
+   * element first comes into view: it fades, rises, or drifts in from the
+   * side. `idle` never stops: a slow float, a slow sway. `delay` holds both
+   * back, which is what stops three petals moving in lockstep.
+   *
+   * All of it is off unless the guest's browser says they want motion, and
+   * off entirely without JavaScript — see `.inv[data-motion]` in globals.css
+   * for why that is the safe way round rather than the timid one.
+   */
   motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
@@ -380,6 +506,15 @@ export type PhotoEl = Base & {
   mask?: 'none' | 'circle' | 'arch';
   /** a moving picture: never re-encoded, never sent through imageUrl() */
   animated?: boolean;
+  /**
+   * On a page laid out by its words: the side the words flow around it on.
+   *
+   * Only a flow page reads it. A drawn page places everything by hand and
+   * has no words to flow, so a float there would mean nothing; the studio
+   * offers this only where it applies. See `floatShape` for why a tilted
+   * one needs a box of its own.
+   */
+  float?: 'left' | 'right';
 };
 
 export type TextEl = Base & {
@@ -398,7 +533,32 @@ export type TextEl = Base & {
   offerLine?: boolean;
 };
 
-export type VideoEl = Base & { kind: 'video'; url: string; poster: string; aspect?: number; loop?: boolean };
+/**
+ * A clip on a page. `webm` is the optional second file, offered only to a
+ * browser that asks for it; `url` is the MP4 every phone can play.
+ *
+ * `glare` is the brightest area the studio saw in the frames it decoded
+ * while choosing the poster, 0 to 255. It is here rather than measured later
+ * because measuring it needs a decoder and the server has none — and the
+ * checklist needs it to warn about words laid over a bright clip. It is
+ * about the clip's frames rather than about the poster, so replacing the
+ * poster by hand leaves it true. Absent on an element the studio did not
+ * add, which the checklist says rather than assumes.
+ */
+export type VideoEl = Base & {
+  kind: 'video'; url: string; webm?: string; poster: string; aspect?: number; loop?: boolean; glare?: number;
+  /**
+   * Behind the whole page rather than in a box on it.
+   *
+   * A size, not a placement — which is why it is a flag and not four
+   * numbers. A page that grows takes its height from its words, so the
+   * height a clip must fill is not known until the browser has laid the page
+   * out; the stylesheet answers that with `inset: 0` and no element of the
+   * document could. A frame's `aspect` cannot do it either: it would make
+   * the clip its poster's shape and leave the foot of a long page bare.
+   */
+  bg?: true;
+};
 export type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };
 export type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: string; stroke?: string; strokeWidth?: number; radius?: number; h?: number };
 
@@ -674,6 +834,7 @@ const zElement = z.union([
     crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
     frame: z.enum(['none', 'thin', 'polaroid']).optional(),
     mask: z.enum(['none', 'circle', 'arch']).optional(),
+    float: z.enum(['left', 'right']).optional(),
     animated: z.boolean().optional(),
   }).strict(),
   z.object({
@@ -687,7 +848,7 @@ const zElement = z.union([
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
   }).strict(),
-  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional() }).strict(),
+  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional(), glare: z.number().int().min(0).max(255).optional(), bg: z.literal(true).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('shape'), shape: z.enum(['rect', 'ellipse', 'line']), fill: zColour.optional(), stroke: zColour.optional(), strokeWidth: z.number().min(0).max(40).optional(), radius: z.number().min(0).max(100).optional(), h: z.number().min(0).max(200).optional() }).strict(),
 ]);
@@ -697,6 +858,7 @@ const zPage = z.object({
   sections: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(30),
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
+  footPad: z.number().min(0).max(5).optional(),
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
@@ -707,12 +869,25 @@ const zPage = z.object({
     photoScale: zPlace(0.2, 3).optional(),
   }).strict().optional(),
   importedFrom: z.enum(['picture', 'diff', 'pdf']).optional(),
+  sectionStyle: z.object({
+    align: z.enum(['left', 'center', 'right']).optional(),
+    card: z.literal(true).optional(),
+    rule: z.string().min(1).max(500).optional(),
+    ruleHeight: zPlace(0, 6).optional(),
+  }).strict().optional(),
 }).strict();
 const zDoc = z.object({
   v: z.literal(1),
   overflowGround: zGround.optional(),
   paper: zColour.optional(),
   surround: zColour.optional(),
+  strand: z.string().min(1).max(500).optional(),
+  nightColours: z.object({
+    ink: zColour.optional(), muted: zColour.optional(), surface: zColour.optional(),
+    accent: zColour.optional(), accent2: zColour.optional(),
+    paper: zColour.optional(), surround: zColour.optional(),
+  }).strict().optional(),
+  hides: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(40).optional(),
 }).strict();
 
 /**
@@ -897,7 +1072,9 @@ function babyblueDesign(): DesignDoc {
     // a clip has no frame to sit in, so it takes a page of its own after the photographs
     if (def.key === 'baby-photos') pages.push({ key: 'baby-photos-more', sections: ['gallery-video'], ground: g(BABYBLUE_OVERFLOW) });
   }
-  return { v: 1, pages, overflowGround: g(BABYBLUE_OVERFLOW) };
+  // the column and the colour beside it: the two literals the stylesheet
+  // carried under `.inv[data-layout='babyblue']`, said by the design now
+  return { v: 1, pages, overflowGround: g(BABYBLUE_OVERFLOW), paper: '#eef3f9', surround: '#e4ecf5' };
 }
 
 /**
@@ -927,6 +1104,9 @@ function capizDesign(): DesignDoc {
   return {
     v: 1,
     pages: CAPIZ_PAGES.map((def) => ({ key: def.key, sections: [...def.sections], ...(def.key === 'story' ? { peekEnd: true as const } : {}) })),
+    // as above: Capiz's own two, out of the stylesheet and into the design
+    paper: '#f0dccb',
+    surround: '#e9dfd2',
   };
 }
 
@@ -1056,6 +1236,175 @@ export function canAttach(elements: Element[], id: string, to: string): boolean 
 }
 
 /**
+ * A photograph the words flow around, on a page laid out by its words.
+ *
+ * A drawn page places everything by hand, and a flow page has always placed
+ * nothing at all: its height is its words, so there is no coordinate to put
+ * a picture at. This is the third thing — a picture the *text* makes room
+ * for, which is what a float is for and what `shape-outside` makes follow a
+ * tilt instead of a rectangle.
+ *
+ * The hard part is that `float` and `transform` do not know about each
+ * other. A float reserves the element's un-rotated box and a rotation simply
+ * draws outside it, so a tilted frame would hang over the words. The answer
+ * is to float a box big enough to hold the *rotated* frame — its bounding
+ * box — put the frame inside it turned, and give the box a `shape-outside`
+ * polygon tracing the frame's real corners. The words then follow the tilt.
+ *
+ * `aspect` is the frame's height over its width, as everywhere else in this
+ * file. The returned `width` and `height` are the bounding box as multiples
+ * of the frame's own width: 1 and `aspect` when nothing is turned. `inner`
+ * is how wide the frame is inside that box, as a percentage of it.
+ *
+ * Pure trigonometry, so the polygon can be asserted without a browser — a
+ * square turned 45° has to come out a diamond, and it does.
+ */
+export function floatShape(aspect: number, rotate = 0): { width: number; height: number; inner: number; polygon: string } {
+  const h = Math.max(0.01, aspect);
+  const rad = (rotate * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  // the bounding box of the turned frame, in multiples of the frame's width
+  const W = Math.abs(cos) + Math.abs(h * sin);
+  const H = Math.abs(sin) + Math.abs(h * cos);
+  // the frame's four corners, turned, as percentages of that box
+  const corners: [number, number][] = [[-0.5, -h / 2], [0.5, -h / 2], [0.5, h / 2], [-0.5, h / 2]];
+  const points = corners.map(([x, y]) => {
+    const rx = x * cos - y * sin;
+    const ry = x * sin + y * cos;
+    return `${round(((rx + W / 2) / W) * 100)}% ${round(((ry + H / 2) / H) * 100)}%`;
+  });
+  return { width: round(W), height: round(H), inner: round((1 / W) * 100), polygon: `polygon(${points.join(', ')})` };
+}
+
+const round = (n: number) => Math.round(n * 1e4) / 1e4;
+
+/**
+ * The pictures a flow page's words flow around, and the decorations pinned
+ * to its head and its foot.
+ *
+ * A flow page is laid out by its words, and until now the only thing it
+ * could carry was a float. Everything else on it — a piece from the library,
+ * a rule, a clip — was in the document and drawn nowhere, which is the worst
+ * of the three possible answers. So the rule is now complete and has no
+ * silent case: on a page laid out by its words, a picture that names a side
+ * floats and the words flow past it; anything else is a decoration, hung
+ * from the head of the page or from its foot.
+ *
+ * Words are not offered as a decoration, and that is deliberate: a flow
+ * page's words are its sections' and putting a text box over them is how a
+ * flow page stops being one. The studio does not offer them there.
+ */
+export const flowFloats = (page: PageSpec): PhotoEl[] =>
+  (page.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean(e.float));
+
+/** The decorations on a flow page: everything but the floats and the words. */
+export const flowDecor = (page: PageSpec): Element[] =>
+  (page.elements ?? []).filter((e) => e.kind !== 'text' && !(e.kind === 'photo' && e.float));
+
+/**
+ * Whether a decoration sits over the page's words or behind them.
+ *
+ * Behind unless it says otherwise, because that is what a decoration is for
+ * and because words a guest cannot read are the one thing a design must not
+ * be able to do by accident. A number above zero is the way to say
+ * otherwise, and it is said on the element the same way a layer is said
+ * everywhere else in the document.
+ */
+export const decorOver = (el: Element): boolean => (el.z ?? 0) > 0;
+
+/**
+ * Where a decoration sits on a page laid out by its words.
+ *
+ * `y` means something different here from what it means on a drawn page, and
+ * it has to. A drawn page has a height, so y is a share of it; a flow page's
+ * height is whatever its customer's words come to, so a share of *that*
+ * would move as they typed. Here y is the gap from the edge the decoration
+ * hangs off, as a share of the page's **width** — the one measurement of a
+ * flow page that does not move — written in `cqw` against the band, which is
+ * the page's width exactly. So the same number means the same gap on a phone
+ * and on a laptop, and a customer's long sentence does not drag a flourish
+ * down the page with it.
+ *
+ * The band is also why a height in `cqw` works at all: a flow page is not a
+ * container, so a shape's height and a frame's card would otherwise be
+ * measured against the viewport. See `.inv-deco` in globals.css.
+ */
+export function decorStyle(el: Element): Record<string, string> {
+  const st: Record<string, string> = {};
+  // written in the order elementStyle writes it: across, down, wide
+  if (el.x !== undefined) st.left = `${el.x}%`;
+  const gap = `${place(el.y)}cqw`;
+  if (el.from === 'bottom') st.bottom = gap;
+  else st.top = gap;
+  if (el.w !== undefined) st.width = `${el.w}%`;
+  const parts: string[] = [];
+  // x is the middle of the box, as it is on every drawn page
+  if (el.x !== undefined) parts.push('translateX(-50%)');
+  if (el.rotate) parts.push(`rotate(${el.rotate}deg)`);
+  if (parts.length) st.transform = parts.join(' ');
+  if (el.opacity !== undefined && el.opacity !== 1) st.opacity = String(el.opacity);
+  if (el.z !== undefined) st.zIndex = String(el.z);
+  return st;
+}
+
+/**
+ * A clip behind a whole page: the page and the element it takes.
+ *
+ * Two things happen, and the second is the one worth explaining. The clip is
+ * marked as the page's background — `bg`, a size and not a placement, which
+ * the stylesheet answers with `inset: 0` because a page that grows takes its
+ * height from its words and no number in the document could know it — and
+ * laid at z -2.
+ *
+ * Not z 0, which is what the studio plan says. An element with no z of its
+ * own is `auto`, and CSS paints auto and 0 together in tree order, so a clip
+ * at 0 added after the words would cover them and whether it did would
+ * depend on the order somebody happened to draw things in. -1 is already
+ * taken by a shape, which is the card a design puts *behind* its words and
+ * therefore in front of a background. -2 is the only unambiguous answer.
+ *
+ * Then the page's ground becomes the clip's own poster — the picture itself,
+ * through the machinery a background has always used, rather than a colour
+ * sampled off it. That way the page has a real height, the edge strips and
+ * the seams into the pages above and below take their colours the way every
+ * other page's do, and a guest sees the poster while the clip is still off
+ * screen, on a phone in Low Power Mode, or in print. Nothing new to draw and
+ * nothing to blend by hand.
+ *
+ * `measured` is what the browser read off the poster: its proportions and
+ * its two edge colours. Only the browser can read those, which is why they
+ * are passed in rather than found here — and why this is the pure half,
+ * testable without one.
+ */
+export function fillPageWithClip(
+  page: PageSpec,
+  id: string,
+  measured: { ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string } },
+): PageSpec {
+  const clip = (page.elements ?? []).find((e) => e.id === id);
+  if (!clip || clip.kind !== 'video' || !clip.poster) return page;
+  return {
+    ...page,
+    drawn: true,
+    ground: {
+      url: clip.poster,
+      ratio: measured.ratio,
+      top: measured.top,
+      bottom: measured.bottom,
+      ...(measured.slices ? { slices: measured.slices } : {}),
+    },
+    // x, y and w are set to the page-filling values the flag makes moot, so
+    // that taking the flag off leaves a clip somewhere sensible rather than
+    // wherever it happened to be when she pressed the button. Its own aspect
+    // is left alone for the same reason.
+    elements: (page.elements ?? []).map((e) => (e.id === id
+      ? { ...e, x: 50, y: 0, w: 100, anchor: 'top' as const, z: -2, rotate: undefined, bg: true as const }
+      : e)),
+  };
+}
+
+/**
  * Put a section on a page.
  *
  * A section belongs to one page. Two pages naming it would draw the same
@@ -1171,10 +1520,62 @@ export type DocChange = {
   frames: FrameChange[];
 };
 
+/**
+ * The sections a design's pages actually draw, in page order.
+ *
+ * Not the same thing as what the design *offers* — see `offeredSections`.
+ * The renderer draws a section no page names in its own generic page, in
+ * occasion order, after the drawn ones, which is how Baby Blue's ten drawn
+ * pages sit in front of a plain Contact and a plain Music without anybody
+ * drawing those. So this answers "what is drawn by hand", and nothing else.
+ *
+ * Deduped: a section belongs to one page (see `putSection`), so the order is
+ * the order a guest meets them.
+ */
+export function drawnSections(doc: DesignDoc | null): PageSectionKey[] {
+  const out: PageSectionKey[] = [];
+  const seen = new Set<string>();
+  for (const page of doc?.pages ?? []) {
+    for (const key of page.sections) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(key);
+    }
+  }
+  return out;
+}
+
+/**
+ * The sections a design offers: everything its occasion has, less what the
+ * design says it does not do.
+ *
+ * `Template.sections` has always been a second opinion about this — a row of
+ * ticks in the admin, kept by hand. For a design that carries a document
+ * that is one source of truth too many, so the document carries it and the
+ * column becomes a copy of the answer rather than a rival to it.
+ *
+ * It is stated as what the design *refuses* rather than what it accepts, and
+ * that is the whole reason this is not simply `drawnSections`. A design that
+ * draws no Music page still offers Music — the renderer gives it a plain page
+ * of its own — so "the pages name it" and "the design offers it" are
+ * different questions, and the pages cannot answer the second one. An empty
+ * `hides` therefore means "everything", which is exactly what an empty
+ * `Template.sections` has always meant.
+ *
+ * Whether the *product* offers a section at all — the six features held back
+ * for now — is `sectionOffered`'s to answer, and the renderer asks it
+ * separately. Repeating that judgement here would be the second opinion this
+ * function exists to remove.
+ */
+export function offeredSections(doc: DesignDoc, occasion: Occasion): PageSectionKey[] {
+  const hidden = new Set(doc.hides ?? []);
+  return (OCCASION_SECTIONS[occasion] as readonly string[]).filter((k) => !hidden.has(k as PageSectionKey)) as PageSectionKey[];
+}
+
 /** What the second document does that the first did not. */
 export function designChange(before: DesignDoc | null, after: DesignDoc | null): DocChange {
   const keys = (d: DesignDoc | null) => (d?.pages ?? []).map((p) => p.key);
-  const sections = (d: DesignDoc | null) => new Set((d?.pages ?? []).flatMap((p) => p.sections));
+  const sections = (d: DesignDoc | null) => new Set(drawnSections(d));
   const was = new Set(keys(before));
   const now = new Set(keys(after));
   const wasSec = sections(before);
@@ -1301,6 +1702,126 @@ export function coverOf(doc: DesignDoc | null): CoverSpec | undefined {
  * where it always did.
  */
 const NAMES_AT: Record<NonNullable<CoverSpec['names']>, string> = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+/**
+ * A page's dress, as the one attribute and the few variables the built
+ * sections read it through.
+ *
+ * Everything here could have been a class per setting, and then every
+ * combination would have needed a rule. This way the stylesheet has one
+ * block, the document has four fields, and the combinations are the
+ * browser's to work out.
+ *
+ * The gap under the divider is a share of the divider's own height rather
+ * than a number, so a piece set taller pushes the words further down and a
+ * page with no piece at all has no gap and no box: the height falls to zero
+ * and `calc(0px * 0.35)` is nought.
+ *
+ * `--sec-rule-x` is the divider's own alignment and is not a second choice:
+ * a flourish over a heading follows the heading. It is a separate variable
+ * only because a text alignment and a background position are different
+ * kinds of value to CSS.
+ */
+/**
+ * The app's own night, which is what the stylesheet falls back to.
+ *
+ * Written here as well as there because the checklist has to read the ink to
+ * ask whether a colour she typed will be legible against it, and because a
+ * studio that offers a design its own night has to be able to show her what
+ * she is changing. The stylesheet keeps the literals as `var()` fallbacks,
+ * so a page rendered with no variables at all still has a night — and these
+ * two have to be kept in step, which the test asserts.
+ */
+export const APP_NIGHT: Required<NightPalette> = {
+  ink: '#f1e9dd',
+  muted: '#cfc3b3',
+  surface: 'rgba(38, 36, 50, 0.72)',
+  accent: '#d9b98c',
+  accent2: '#b39468',
+  paper: '#1a1b26',
+  surround: '#12131c',
+};
+
+const NIGHT_VAR: Record<keyof NightPalette, string> = {
+  ink: '--night-ink', muted: '--night-muted', surface: '--night-surface',
+  accent: '--night-accent', accent2: '--night-accent2',
+  paper: '--night-paper', surround: '--night-surround',
+};
+
+/**
+ * A design's own colours, as the variables the stylesheet reads.
+ *
+ * The column's colour and the colour beside it were two literals per layout
+ * in the stylesheet, keyed by the layout's name, which meant a design drawn
+ * in the studio had whatever its layout's happened to be and no way to say
+ * otherwise. They are the document's now, pinned to those same literals for
+ * the two shipped designs so neither moves by a shade, and every colour that
+ * is not named falls back in the stylesheet to what it has always been.
+ */
+export function designVars(doc: DesignDoc | null): Record<string, string> {
+  const vars: Record<string, string> = {};
+  if (!doc) return vars;
+  if (doc.paper) vars['--inv-paper'] = colourVar(doc.paper);
+  if (doc.surround) vars['--inv-surround'] = colourVar(doc.surround);
+  for (const [role, name] of Object.entries(NIGHT_VAR) as [keyof NightPalette, string][]) {
+    const colour = doc.nightColours?.[role];
+    // a role name by night would follow the *day* palette, which is the one
+    // thing a night colour cannot be, so these are colours and not roles
+    if (colour) vars[name] = colour;
+  }
+  return vars;
+}
+
+export const ENTERS = ['none', 'fade', 'rise', 'drift'] as const;
+export const IDLES = ['none', 'float', 'sway'] as const;
+
+/**
+ * An element's motion, as the two attributes and the one variable the
+ * stylesheet reads.
+ *
+ * Attributes rather than classes because the stylesheet has to be able to
+ * say "anything that enters" in one rule, and one variable rather than an
+ * inline animation because the timing is the design system's to decide and
+ * the delay is hers.
+ *
+ * Nothing here says when: the attributes only describe. A guest's page adds
+ * `data-in` when the element is actually on screen (`Motion` in client.tsx),
+ * which is what makes an enter an arrival rather than something that
+ * happened while the page was still three screens above.
+ */
+export function motionOf(el: Element): { attrs: Record<string, string>; vars: Record<string, string> } {
+  const m = el.motion;
+  const attrs: Record<string, string> = {};
+  const vars: Record<string, string> = {};
+  if (!m) return { attrs, vars };
+  if (m.enter && m.enter !== 'none') attrs['data-enter'] = m.enter;
+  if (m.idle && m.idle !== 'none') attrs['data-idle'] = m.idle;
+  // the delay holds back both, which is how three petals stop moving as one
+  if (m.delay && (attrs['data-enter'] || attrs['data-idle'])) vars['--motion-delay'] = `${Math.round(m.delay)}ms`;
+  return { attrs, vars };
+}
+
+/** Does this element move at all? The checklist counts these per page. */
+export const moves = (el: Element): boolean => {
+  const m = el.motion;
+  return Boolean(m && ((m.enter && m.enter !== 'none') || (m.idle && m.idle !== 'none')));
+};
+
+export function sectionDress(dress: SectionStyle | undefined): { kind?: 'card' | 'plain'; vars: Record<string, string> } {
+  if (!dress) return { vars: {} };
+  const vars: Record<string, string> = {};
+  if (dress.align) {
+    vars['--sec-align'] = dress.align;
+    vars['--sec-rule-x'] = dress.align === 'center' ? 'center' : dress.align;
+  }
+  if (dress.rule) {
+    vars['--sec-rule'] = `url(${dress.rule})`;
+    // the page's own gap is the unit, so the piece holds its size on a phone
+    // and on a laptop the way every other measurement on the page does
+    vars['--sec-rule-h'] = `calc(${place(dress.ruleHeight ?? 1)} * min(11vw, 3.5rem))`;
+  }
+  return { kind: dress.card ? 'card' : 'plain', vars };
+}
+
 export function coverStyle(cover: CoverSpec | undefined): Record<string, string> {
   const st: Record<string, string> = {};
   if (!cover) return st;

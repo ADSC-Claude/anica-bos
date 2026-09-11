@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { COMPARISON_ALL } from '../src/lib/tiers';
+import { DEFAULT_SETTINGS } from '../src/lib/settings-defaults';
+import { confirmationLink } from '../src/lib/rsvp';
 
 const rsvp = readFileSync(new URL('../src/lib/rsvp.ts', import.meta.url), 'utf8');
 const copy = readFileSync(new URL('../src/lib/copy.ts', import.meta.url), 'utf8');
@@ -47,4 +49,37 @@ test('the package tables do not call it a prenup video', () => {
     }
   }
   assert.doesNotMatch(packages, /prenup/i, 'a package card says prenup');
+});
+
+test('only a guest whose link remembers them is offered the edit', () => {
+  const vars = { hosts: 'Juan & Maria' };
+
+  // With a token, submitRsvp() finds their first answer and updates it, so
+  // the promise is one the link keeps.
+  const withToken = confirmationLink(DEFAULT_SETTINGS, vars, 'juan-and-maria', 'abc123');
+  assert.match(withToken.updateLine, /update your reply/i);
+  assert.match(withToken.link, /juan-and-maria\/abc123$/, 'the token is on the link it describes');
+
+  // Without one there is nothing to match a second answer against, so it
+  // would arrive as a second row. The sentence must not invite that.
+  const plain = confirmationLink(DEFAULT_SETTINGS, vars, 'juan-and-maria', undefined);
+  assert.doesNotMatch(plain.updateLine, /update your reply/i, 'a plain link still promises an edit it cannot do');
+  assert.match(plain.updateLine, /Juan & Maria/, 'and it sends them to the hosts by name');
+  assert.match(plain.link, /juan-and-maria$/);
+
+  // Rendered on the way out, not left for the body: render() replaces in one
+  // pass, so a placeholder substituted into the body is never looked at again.
+  assert.doesNotMatch(plain.updateLine, /\{\{/, 'a placeholder reached the guest unrendered');
+});
+
+test('the confirmation body has somewhere to put that sentence', () => {
+  // The two halves ship separately — a template that dropped the variable
+  // would send a confirmation with no link line at all, and nothing else
+  // would notice.
+  assert.match(DEFAULT_SETTINGS['email.rsvpConfirmation'], /\{\{updateLine\}\}\n\{\{link\}\}/);
+  assert.doesNotMatch(
+    DEFAULT_SETTINGS['email.rsvpConfirmation'],
+    /update your reply/i,
+    'the body makes the promise itself again, whatever the link turns out to be',
+  );
 });

@@ -11,7 +11,7 @@ import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, save
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
 import { seatsHeld, replyState } from '@/lib/seats';
-import { decideSeats, messageGuest } from '@/lib/rsvp';
+import { decideSeats, messageGuest, deleteReply } from '@/lib/rsvp';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
@@ -162,6 +162,21 @@ export async function messageGuestAction(invitationId: string, rsvpId: string, s
     const r = await messageGuest(inv, rsvpId, subject, body);
     refresh(invitationId);
     return { to: r.to, name: r.name, status: r.status };
+  });
+}
+
+/**
+ * The couple's own list is the couple's to correct. Gated by nothing but
+ * ownership: a reply they cannot remove is a duplicate they have to explain
+ * to their caterer.
+ */
+export async function deleteReplyAction(invitationId: string, rsvpId: string) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    const r = await deleteReply(inv, rsvpId);
+    refresh(invitationId);
+    return { name: r.name };
   });
 }
 

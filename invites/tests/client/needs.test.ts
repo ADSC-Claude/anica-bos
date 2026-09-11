@@ -39,3 +39,24 @@ test('the sample switcher loads outside a server component', async () => {
   assert.match(valueAt(anybody, { section: 'story', field: 'timeline', index: 2, sub: 'photo' }), /placeholder-photo/);
   assert.deepEqual(sampleContent('empty', { doc, occasion: 'CHRISTENING' as never, demo: { a: 1 } }), {});
 });
+
+/**
+ * The two-picture import is arithmetic over a canvas's pixels, so it runs in
+ * the browser and nowhere else. It reaches the document module for `place`
+ * and the element types, which is exactly the reach that could quietly pull
+ * something server-only in. The import is the test; the assertion proves the
+ * reader came with it.
+ */
+test('the two-picture import loads outside a server component', async () => {
+  const { framesFromDifference } = await import('../../src/lib/importing');
+  const W = 200, H = 300;
+  const blank = () => ({ data: new Uint8ClampedArray(W * H * 4).fill(255), width: W, height: H });
+  const plain = blank();
+  const filled = blank();
+  // a quarter of the page, painted black in one of the two
+  for (let y = 30; y < 180; y++) for (let x = 20; x < 120; x++) {
+    const i = (y * W + x) * 4;
+    filled.data[i] = 0; filled.data[i + 1] = 0; filled.data[i + 2] = 0;
+  }
+  assert.deepEqual(framesFromDifference(plain, filled), [{ left: 10, top: 10, width: 50, height: 50 }]);
+});

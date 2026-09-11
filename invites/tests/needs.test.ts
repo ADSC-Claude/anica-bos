@@ -85,8 +85,14 @@ test('a frame linked to nothing and not asked for blocks', () => {
   const n = run(d).filter((x) => x.rule === 'unlinked');
   assert.equal(n.length, 1);
   assert.equal(n[0].level, 'blocks');
-  // asked for, it is the customer's to fill and no longer a fault
+  // asked for but naming no field is still a fault, and a quieter one: the
+  // form is built from the field, so nobody is ever asked and it stays empty
   (el(d, 'story', 'story-photo-1') as PhotoEl).ask = true;
+  const asked = run(d).filter((x) => x.rule === 'unlinked');
+  assert.equal(asked.length, 1);
+  assert.match(asked[0].text, /does not say which field/);
+  // named, it is the customer's to fill and no longer a fault
+  (el(d, 'story', 'story-photo-1') as PhotoEl).bind = { section: 'gallery', field: 'photos', index: 0 };
   assert.deepEqual(run(d).filter((x) => x.rule === 'unlinked'), []);
 });
 

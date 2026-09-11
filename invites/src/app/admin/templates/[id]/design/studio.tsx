@@ -16,8 +16,9 @@ import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } fro
 import { pageNeeds, needCount, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
+import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction } from '../../../actions';
-import { uploadGround } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, type ReadPicture, type Uploaded } from './ground';
 
 /**
  * The Design Studio.
@@ -81,7 +82,7 @@ export function Studio(p: Props) {
   const [sel, setSel] = useState<string[]>([]);
   const [width, setWidth] = useState(390);
   /** the page under her hand, or the whole invitation as a guest scrolls it */
-  const [view, setView] = useState<'page' | 'whole'>('page');
+  const [view, setView] = useState<'page' | 'whole' | 'import'>('page');
   const [shown, setShown] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
@@ -309,7 +310,7 @@ export function Studio(p: Props) {
         const stem = file.name.replace(/\.[^.]+$/, '');
         const key = freeKeyIn(taken, stem);
         taken.add(key);
-        made.push({ key, label: { en: stem }, sections: [], drawn: true, ground: { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom } });
+        made.push({ key, label: { en: stem }, sections: [], drawn: true, importedFrom: 'picture', ground: { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom } });
       }
       const at = doc.pages.findIndex((x) => x.key === pageKey);
       const pages = [...doc.pages];
@@ -321,6 +322,37 @@ export function Studio(p: Props) {
     } catch (e) {
       setDrop({ busy: false, error: (e as Error).message });
     }
+  }
+
+  /**
+   * A page brought in from somewhere else, with the frames the studio found.
+   *
+   * The background is the export *without* the placeholder photographs, so
+   * the frames land on empty artwork rather than on a printed photograph of
+   * somebody else's baby. A frame she did not name comes in asked for and
+   * pointing at nothing, which the checklist says out loud rather than
+   * leaving her to notice: an unnamed frame asks the customer for nothing.
+   */
+  function addImported(name: string, up: Uploaded, frames: { rect: Rect; bind?: FieldRef }[]) {
+    const key = freePageKey(name);
+    const ids = new Set(doc.pages.flatMap((x) => (x.elements ?? []).map((e) => e.id)));
+    const elements = frames.map((f) => {
+      const id = freeIdIn(ids, 'photo');
+      ids.add(id);
+      return photoFromRect(id, f.rect, up.ratio, f.bind ?? { asset: '' });
+    });
+    const made: PageSpec = {
+      key, label: { en: name }, sections: [], drawn: true, importedFrom: 'diff',
+      ground: { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom },
+      ...(elements.length ? { elements } : {}),
+    };
+    const at = doc.pages.findIndex((x) => x.key === pageKey);
+    const pages = [...doc.pages];
+    pages.splice(at < 0 ? pages.length : at + 1, 0, made);
+    change({ ...doc, pages });
+    setPageKey(key);
+    setSel([]);
+    setView('page');
   }
 
   /** A new page goes in after the one she is on, so it lands where she is looking. */
@@ -761,7 +793,9 @@ export function Studio(p: Props) {
   };
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[15rem_1fr_19rem]">
+    // Bringing a page in is one screen: the properties column steps aside
+    // rather than describing a page she is not looking at.
+    <div className={`grid gap-3 ${view === 'import' ? 'lg:grid-cols-[15rem_1fr]' : 'lg:grid-cols-[15rem_1fr_19rem]'}`}>
       <TopBar {...p} state={state} error={error} rev={rev} doc={doc} onSave={() => void save(doc)} />
 
       {/* the pages */}
@@ -825,6 +859,17 @@ export function Studio(p: Props) {
           />
         </label>
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
+        {/*
+          * The same page, but with its frames found rather than placed by
+          * hand. Two exports instead of one is the whole price of it.
+          */}
+        <button
+          type="button"
+          onClick={() => setView('import')}
+          className="mt-1 block w-full rounded border border-dashed border-[color:var(--color-sand-300)] px-2 py-2 text-[11px] leading-snug hover:bg-[color:var(--color-sand-100)]"
+        >
+          Or bring one in from Canva &mdash; export it twice and the studio finds the frames
+        </button>
 
         <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
           <p className="label px-1">
@@ -923,7 +968,10 @@ export function Studio(p: Props) {
           * where she is working.
           */}
         <div className="mb-3 flex gap-1 text-sm">
-          {([['page', 'This page'], ['whole', 'The whole invitation']] as const).map(([k, lbl]) => (
+          {(view === 'import'
+            ? ([['import', 'Bringing a page in']] as const)
+            : ([['page', 'This page'], ['whole', 'The whole invitation']] as const)
+          ).map(([k, lbl]) => (
             <button
               key={k}
               type="button"
@@ -934,6 +982,15 @@ export function Studio(p: Props) {
             </button>
           ))}
         </div>
+
+        {view === 'import' && (
+          <ImportPair
+            templateId={p.templateId}
+            occasion={p.occasion}
+            onClose={() => setView('page')}
+            onAdd={addImported}
+          />
+        )}
 
         {view === 'whole' && (
           <div className="flex justify-center bg-[color:var(--color-sand-100)] p-4">
@@ -1022,11 +1079,11 @@ export function Studio(p: Props) {
         </div>
         {view === 'whole'
           ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
-          : !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background and which sections it carries are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
+          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background and which sections it carries are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
       </section>
 
       {/* what is selected */}
-      <aside className="card h-fit space-y-3 p-3 text-sm">
+      <aside className={`card h-fit space-y-3 p-3 text-sm ${view === 'import' ? 'hidden' : ''}`}>
         {group.length > 1 ? (
           <GroupProps
             group={group}
@@ -1836,6 +1893,225 @@ function GroupProps({ group, others, attached, onLineUp, onSameWidth, onSpaceDow
       </div>
       <p className="hint">Shift and a click adds one, or takes one away. Drag any of them and the rest come along.</p>
     </>
+  );
+}
+
+/**
+ * Bringing a page in from Canva, by the difference between two exports.
+ *
+ * Canva hands another system nothing about a design, so a link is a locked
+ * door and one picture of a page is only paint. What works is two pictures:
+ * the page as designed, and the same page with the placeholder photographs
+ * deleted. The second is the background, and everything that differs
+ * between them is where a photograph belongs.
+ *
+ * She says which file is which rather than the studio guessing. A guess
+ * here is cheap to make and expensive to be wrong about — it would put the
+ * frames on a printed photograph of somebody else's baby and look almost
+ * right — and naming two files is two taps.
+ *
+ * Nothing is written until she presses Add the page: the background is not
+ * even uploaded before then, so an import she thinks better of leaves
+ * nothing behind.
+ */
+type Proposal = { rect: Rect; keep: boolean; pick: string; index: number };
+
+function ImportPair({ templateId, occasion, onClose, onAdd }: {
+  templateId: string;
+  occasion: Occasion;
+  onClose: () => void;
+  onAdd: (name: string, up: Uploaded, frames: { rect: Rect; bind?: FieldRef }[]) => void;
+}) {
+  const [designed, setDesigned] = useState<File | null>(null);
+  const [emptied, setEmptied] = useState<File | null>(null);
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [found, setFound] = useState<{ read: ReadPicture; url: string; name: string } | null>(null);
+  const [rows, setRows] = useState<Proposal[]>([]);
+  const offers = useMemo(() => askable(occasion, 'photo'), [occasion]);
+
+  // the picture is shown from the blob in hand, so the page is on screen
+  // before anything has been sent anywhere
+  useEffect(() => () => { if (found) URL.revokeObjectURL(found.url); }, [found]);
+
+  async function read() {
+    if (!designed || !emptied) return;
+    setBusy('Reading the two pictures…');
+    setError('');
+    try {
+      const plain = await readPicture(emptied, true);
+      if (!plain.pixels) throw new Error('This browser cannot read the picture.');
+      const filled = await drawAt(designed, plain.width, plain.height);
+      const rects = framesFromDifference(plain.pixels, filled);
+      if (!rects.length) {
+        throw new Error('Those two pictures are the same page. Check that the photographs were deleted from the second one rather than hidden or moved off the canvas.');
+      }
+      setFound({ read: { ...plain, pixels: undefined }, url: URL.createObjectURL(plain.blob), name: emptied.name.replace(/\.[^.]+$/, '') });
+      setRows(rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy('');
+  }
+
+  /** The field a row points at, or nothing while she has not said. */
+  function refOf(row: Proposal): FieldRef | undefined {
+    const at = offers.find((o) => key(o) === row.pick);
+    if (!at) return undefined;
+    return { section: at.section, field: at.field, ...(at.sub ? { sub: at.sub } : {}), ...(at.list ? { index: row.index } : {}) };
+  }
+
+  /**
+   * Picking a list field for one frame puts the next frame on the next one
+   * along, because six frames on a page are six photographs and never the
+   * same photograph six times. She can still change any of them.
+   */
+  function pick(at: number, value: string) {
+    setRows((old) => old.map((r, i) => {
+      if (i !== at) return r;
+      const taken = old.filter((o, j) => j !== at && o.pick === value).map((o) => o.index);
+      let index = 0;
+      while (taken.includes(index)) index++;
+      return { ...r, pick: value, index };
+    }));
+  }
+
+  async function add() {
+    if (!found) return;
+    setBusy('Sending the background…');
+    setError('');
+    try {
+      const up = await sendPicture(found.read, `${found.name}.webp`, templateId);
+      onAdd(found.name, up, rows.filter((r) => r.keep).map((r) => ({ rect: r.rect, bind: refOf(r) })));
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy('');
+    }
+  }
+
+  const kept = rows.filter((r) => r.keep).length;
+
+  return (
+    <div className="rounded bg-[color:var(--color-sand-100)] p-4">
+      {!found ? (
+        <div className="mx-auto max-w-xl">
+          <h2 className="display text-lg">A page you designed in Canva</h2>
+          <p className="hint mt-1">
+            Export the page twice at the same size: once as it is, and once with the placeholder photographs deleted.
+            The second one becomes the page&rsquo;s background, and everything that differs between the two is a frame.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {([
+              ['The page as designed', 'with the placeholder photographs in their frames', designed, setDesigned],
+              ['The same page, photographs deleted', 'this one becomes the background', emptied, setEmptied],
+            ] as const).map(([label, note, file, set]) => (
+              <label
+                key={label}
+                className={`block cursor-pointer rounded border border-dashed px-3 py-4 text-center text-xs leading-snug ${file ? 'border-[color:var(--color-plum-600)] bg-white' : 'border-[color:var(--color-sand-300)] hover:bg-white'}`}
+                onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+                onDrop={(e) => { const f = e.dataTransfer.files[0]; if (f?.type.startsWith('image/')) { e.preventDefault(); set(f); } }}
+              >
+                <span className="block font-semibold">{label}</span>
+                <span className="block text-[color:var(--color-ink-500)]">{file ? file.name : note}</span>
+                <input
+                  type="file" accept="image/*" className="sr-only"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) set(f); e.target.value = ''; }}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <button type="button" className="btn btn-primary btn-sm" disabled={!designed || !emptied || Boolean(busy)} onClick={() => void read()}>
+              {busy || 'Find the frames'}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
+          </div>
+          {error && <p className="hint mt-2 text-[color:var(--bad)]">{error}</p>}
+          <p className="hint mt-3">
+            A PDF is read a different way and is not this. If Canva flattened the page or turned the words into
+            outlines, this is the way in: outlines are paint, and paint cannot be reworded.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
+          {/* the page as it will be, with a numbered tag on every frame */}
+          <div className="relative self-start shadow-lg" style={{ width: '100%', maxWidth: '20rem' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={found.url} alt="" className="block w-full" />
+            {rows.map((r, i) => (
+              <span
+                key={i}
+                className={`absolute border-2 ${r.keep ? 'border-[color:var(--color-plum-600)] bg-[rgba(122,58,118,0.14)]' : 'border-dashed border-[color:var(--color-ink-500)] opacity-40'}`}
+                style={{ left: `${r.rect.left}%`, top: `${r.rect.top}%`, width: `${r.rect.width}%`, height: `${r.rect.height}%` }}
+              >
+                <span className="absolute left-0 top-0 bg-[color:var(--color-plum-600)] px-1 text-[10px] font-semibold text-white">{i + 1}</span>
+              </span>
+            ))}
+          </div>
+
+          <div>
+            <h2 className="display text-lg">
+              {rows.length === 1 ? 'One frame' : `${rows.length} frames`} found{kept !== rows.length && `, ${kept} kept`}
+            </h2>
+            <p className="hint mt-1">
+              Say what each one holds. A frame you leave unnamed still comes in &mdash; the checklist will ask for it
+              &mdash; and one that is not a frame at all can be discarded here.
+            </p>
+            <ol className="mt-3 space-y-2">
+              {rows.map((r, i) => {
+                const at = offers.find((o) => key(o) === r.pick);
+                return (
+                  <li key={i} className={`flex flex-wrap items-end gap-2 rounded bg-white p-2 ${r.keep ? '' : 'opacity-50'}`}>
+                    <span className="rounded bg-[color:var(--color-plum-600)] px-1.5 py-0.5 text-[11px] font-semibold text-white">{i + 1}</span>
+                    <span className="text-[11px] text-[color:var(--color-ink-500)]">{r.rect.width}% &times; {r.rect.height}%</span>
+                    <label className="min-w-[12rem] flex-1">
+                      <select
+                        className="input w-full" value={r.pick} disabled={!r.keep}
+                        onChange={(e) => pick(i, e.target.value)}
+                      >
+                        <option value="">&mdash; what is it? &mdash;</option>
+                        {Object.entries(groupBy(offers)).map(([section, list]) => (
+                          <optgroup key={section} label={section}>
+                            {list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </label>
+                    {at?.list && (
+                      <label className="w-20">
+                        <span className="label">Which</span>
+                        <input
+                          type="number" min={1} max={40} className="input w-full" disabled={!r.keep}
+                          value={r.index + 1}
+                          onChange={(e) => setRows((old) => old.map((x, j) => (j === i ? { ...x, index: Math.max(0, Math.round(Number(e.target.value)) - 1) } : x)))}
+                        />
+                      </label>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => setRows((old) => old.map((x, j) => (j === i ? { ...x, keep: !x.keep } : x)))}
+                    >
+                      {r.keep ? 'Discard' : 'Keep'}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" className="btn btn-primary btn-sm" disabled={Boolean(busy)} onClick={() => void add()}>
+                {busy || 'Add the page'}
+              </button>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={Boolean(busy)} onClick={() => { setFound(null); setRows([]); }}>
+                Start again
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" disabled={Boolean(busy)} onClick={onClose}>Cancel</button>
+            </div>
+            {error && <p className="hint mt-2 text-[color:var(--bad)]">{error}</p>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

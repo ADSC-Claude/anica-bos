@@ -11,9 +11,15 @@
 /** No page is ever drawn wider than this, so nothing needs to be. */
 export const MAX_WIDTH = 1536;
 
-export type ReadPicture = { blob: Blob; width: number; height: number; ratio: number; top: string; bottom: string };
+export type ReadPicture = { blob: Blob; width: number; height: number; ratio: number; top: string; bottom: string; pixels?: ImageData };
 
-export async function readPicture(file: File): Promise<ReadPicture> {
+/**
+ * `keepPixels` is for the two-picture import, which needs the picture itself
+ * and not only its measurements. It is off by default because a page at full
+ * width is some tens of megabytes of pixels and an ordinary upload has no use
+ * for them.
+ */
+export async function readPicture(file: File, keepPixels = false): Promise<ReadPicture> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_WIDTH / bitmap.width);
   const width = Math.max(1, Math.round(bitmap.width * scale));
@@ -32,7 +38,33 @@ export async function readPicture(file: File): Promise<ReadPicture> {
     ratio: Math.round((height / width) * 1e4) / 1e4,
     top: edge(ctx, width, 0),
     bottom: edge(ctx, width, height - 1),
+    ...(keepPixels ? { pixels: ctx.getImageData(0, 0, width, height) } : {}),
   };
+}
+
+/**
+ * A second picture drawn at the size the first one came out at.
+ *
+ * The two exports of one page are meant to be identical but for the
+ * photographs, and they are the same page, so a difference in proportion of
+ * more than a hair means they are not a pair. Anything closer than that is
+ * the export rounding a half pixel and is simply drawn to fit.
+ */
+export async function drawAt(file: File, width: number, height: number): Promise<ImageData> {
+  const bitmap = await createImageBitmap(file);
+  const off = Math.abs(bitmap.width / bitmap.height - width / height);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('This browser cannot read the picture.');
+  if (off > 0.01) {
+    bitmap.close?.();
+    throw new Error('Those two pictures are different shapes, so they are not two exports of one page.');
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close?.();
+  return ctx.getImageData(0, 0, width, height);
 }
 
 /** The average colour of one row of pixels, as a hex the CSS can use. */
@@ -50,9 +82,13 @@ export type Uploaded = { url: string; width: number; height: number; ratio: numb
 
 /** Read it, shrink it, send it, and come back with everything the document needs. */
 export async function uploadGround(file: File, templateId: string): Promise<Uploaded> {
-  const read = await readPicture(file);
+  return sendPicture(await readPicture(file), file.name, templateId);
+}
+
+/** Send a picture already read, for a caller that needed its pixels first. */
+export async function sendPicture(read: ReadPicture, name: string, templateId: string): Promise<Uploaded> {
   const fd = new FormData();
-  fd.set('file', new File([read.blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
+  fd.set('file', new File([read.blob], `${name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
   fd.set('templateId', templateId);
   fd.set('width', String(read.width));
   fd.set('height', String(read.height));

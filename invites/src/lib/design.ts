@@ -258,6 +258,12 @@ export type PageSpec = {
   peekEnd?: true;
   /** the cover page's own settings; ignored on any other page */
   cover?: CoverSpec;
+  /**
+   * How a page that was designed somewhere else arrived, so the checklist
+   * can say what could and could not be read: a picture dropped on the
+   * strip, the two-picture difference, or a PDF. A page drawn here has none.
+   */
+  importedFrom?: 'picture' | 'diff' | 'pdf';
   elements?: Element[];
 };
 
@@ -684,6 +690,7 @@ const zPage = z.object({
     photoStyle: z.enum(['none', 'veil', 'arch', 'oval', 'round', 'card']).optional(),
     photoScale: zPlace(0.2, 3).optional(),
   }).strict().optional(),
+  importedFrom: z.enum(['picture', 'diff', 'pdf']).optional(),
 }).strict();
 const zDoc = z.object({
   v: z.literal(1),

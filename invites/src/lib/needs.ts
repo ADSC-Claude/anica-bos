@@ -176,7 +176,15 @@ export function pageNeeds({ doc, occasion, content }: Look): Need[] {
       if (el.kind === 'photo') {
         const bind = (el as PhotoEl).bind;
         const blank = 'asset' in bind ? !bind.asset : false;
-        if (blank && !el.ask) say('blocks', 'unlinked', `Frame ${frames.indexOf(el) + 1} is not linked to anything.`, el.id);
+        // Asked for and still blank is its own fault, and a quieter one: the
+        // form is built from the field a frame names, so a frame that names
+        // none asks the customer for nothing and stays empty on every
+        // invitation. It is the state a page imported from Canva starts in.
+        if (blank) {
+          say('blocks', 'unlinked', el.ask
+            ? `Frame ${frames.indexOf(el) + 1} is asked for but does not say which field, so the form will not ask for it.`
+            : `Frame ${frames.indexOf(el) + 1} is not linked to anything.`, el.id);
+        }
       }
       if (el.kind === 'text') {
         const t = el as TextEl;

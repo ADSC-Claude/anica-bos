@@ -7,6 +7,7 @@ import { HttpError } from './errors';
 import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './album';
 import { VIDEO_TYPES } from './clips';
 import { MOVING_TYPES } from './moving';
+import { fontType, FONT_TYPES } from './fontfile';
 
 /**
  * Supabase Storage over its REST API — no SDK, and the service-role key never
@@ -39,6 +40,15 @@ function sniff(buffer: Buffer): string | null {
   const gif = buffer.subarray(0, 6).toString('ascii');
   if (gif === 'GIF87a' || gif === 'GIF89a') return 'image/gif';
   if (buffer.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
+  /*
+   * A font file she uploaded. Read here rather than trusted, for the usual
+   * reason and one of its own: a browser's idea of a font's type is a
+   * lottery — application/x-font-ttf on Windows, font/ttf on a Mac, and
+   * often nothing at all — so the extension and the header are all there is,
+   * and only one of those is the file itself.
+   */
+  const font = fontType(new Uint8Array(buffer.subarray(0, 8)));
+  if (font) return font;
   // MP3: an ID3 tag in front, or a bare frame — its sync bits set, layer III
   if (buffer.subarray(0, 3).toString('ascii') === 'ID3') return 'audio/mpeg';
   if (buffer[0] === 0xff && (buffer[1] & 0xe6) === 0xe2) return 'audio/mpeg';
@@ -98,6 +108,10 @@ const EXTENSIONS: Record<string, string> = {
   'audio/mp4': 'm4a',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
+  'font/woff2': 'woff2',
+  'font/woff': 'woff',
+  'font/ttf': 'ttf',
+  'font/otf': 'otf',
 };
 
 const IMAGE_TYPES = [...PHOTO_TYPES];
@@ -106,7 +120,7 @@ export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
 /** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */
 export const AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 
-export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video' | 'moving' | 'lottie';
+export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video' | 'moving' | 'lottie' | 'font';
 const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
   images: { types: IMAGE_TYPES, message: 'Only JPEG, PNG and WebP images are accepted.' },
   'images-and-pdf': { types: [...IMAGE_TYPES, 'application/pdf'], message: 'Only JPEG, PNG, WebP and PDF files are accepted.' },
@@ -122,6 +136,8 @@ const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
   moving: { types: [...MOVING_TYPES], message: 'A moving picture must be a GIF, an animated WebP or an animated PNG.' },
   /* A vector animation is JSON; whether that JSON is a Lottie is asked by the route, which can say why not. */
   lottie: { types: ['application/json'], message: 'A vector animation must be a Lottie JSON file.' },
+  /* A face she licensed. `whyNotAFace` says more than this about a near miss. */
+  font: { types: [...FONT_TYPES], message: 'A font file must be a .woff2, .woff, .ttf or .otf.' },
 };
 
 /**

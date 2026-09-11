@@ -3,7 +3,7 @@ import { t, type Lang } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, lineText, valueAt, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  elementStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
   type PageSpec, type Element, type PhotoEl, type TextEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
 
@@ -43,30 +43,33 @@ export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec;
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey) : lookLine(look, lang, key as LineKey)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
+  // A page that grows places by its width rather than by its height: see
+  // elementStyle. The ratio is what turns one into the other.
+  const grow = page.grow ? pageRatio(page) : undefined;
   return (
     <section id={page.key} className={`inv-section inv-bb-art inv-bb-${page.key}`}>
-      {(page.elements ?? []).map((el) => <Fragment key={el.id}>{draw(el, read)}</Fragment>)}
+      {(page.elements ?? []).map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
     </section>
   );
 }
 
 type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView };
 
-function draw(el: Element, read: Read) {
-  if (el.kind === 'photo') return <Frame el={el} read={read} />;
-  if (el.kind === 'text') return <Block el={el} read={read} />;
+function draw(el: Element, read: Read, grow?: number) {
+  if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} />;
+  if (el.kind === 'text') return <Block el={el} read={read} grow={grow} />;
   // video, animation and shape arrive with phases 3, 4 and 2; a document that
   // names one is read and kept, it simply has nothing to draw yet
   return null;
 }
 
 /** A photograph in its frame. An empty binding draws nothing, as today. */
-function Frame({ el, read }: { el: PhotoEl; read: Read }) {
+function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
   if (!url && el.hidden !== 'never' && !read.edit) return null;
   const alt = el.alt ? valueAt(read.content, el.alt) : '';
   return (
-    <figure className="inv-bb-slot" style={elementStyle(el) as CSSProperties} data-el={read.edit ? el.id : undefined} data-empty={read.edit && !url ? '' : undefined}>
+    <figure className="inv-bb-slot" style={elementStyle(el, grow) as CSSProperties} data-el={read.edit ? el.id : undefined} data-foot={grow && el.from === 'bottom' ? '' : undefined} data-empty={read.edit && !url ? '' : undefined}>
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
         ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" />
@@ -80,13 +83,15 @@ function Frame({ el, read }: { el: PhotoEl; read: Read }) {
  * line under it, or a milestone's name with its sentence. An empty line is
  * dropped; a block whose every line is empty draws nothing.
  */
-function Block({ el, read }: { el: TextEl; read: Read }) {
+function Block({ el, read, grow }: { el: TextEl; read: Read; grow?: number }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
   if (blank && el.hidden !== 'never' && !read.edit) return null;
-  const style = { ...elementStyle(el), ...blockType(el) } as CSSProperties;
+  const style = { ...elementStyle(el, grow), ...blockType(el) } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
-  const mark = read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {};
+  // `data-foot` says this one is placed from the foot: what holds the bottom
+  // of a page that grows follows the page down and is never what pushes it
+  const mark = { ...(read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {}), ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}) };
   // the caption is the paragraph itself, the way the polaroid's strip is written
   if (el.block === 'caption') {
     const own = { ...style, ...(el.face ? { fontFamily: `var(--inv-${el.face})` } : {}), ...(el.size ? { fontSize: `${el.size}cqw` } : {}) };

@@ -970,6 +970,35 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         if (before?.hasAttribute('data-drawn')) return { above: drawnOut, below: 0 };
         return { above: Math.round(seam / 2), below: seam - Math.round(seam / 2) };
       };
+      /*
+       * A page that grows, before anything else is measured: its floor comes
+       * from the stylesheet, and what its elements need comes from the
+       * elements. Their places are set from the page's width rather than its
+       * height (see elementStyle), so raising the page does not move them and
+       * the measurement settles in one pass. It is done here because this is
+       * the pass that already holds every page's box, and because the ground
+       * below is laid from heights this changes.
+       */
+      for (const p of pages) {
+        if (!p.hasAttribute('data-grow')) continue;
+        const art = p.firstElementChild as HTMLElement | null;
+        if (!art) continue;
+        const top = p.getBoundingClientRect().top;
+        let low = 0;
+        for (const child of Array.from(art.children) as HTMLElement[]) {
+          // what holds the foot is placed from the foot, so it follows the
+          // page down and can never be what pushes it — counting it would
+          // make the page grow by its own height on every pass. The mark is
+          // read rather than the style: an absolutely placed box reports a
+          // used `bottom` in pixels, never `auto`, so the style cannot say.
+          if (child.hasAttribute('data-foot')) continue;
+          const r = child.getBoundingClientRect();
+          if (r.height) low = Math.max(low, r.bottom - top);
+        }
+        // a little air under the lowest thing, the same as the seam allows above
+        const want = low ? `${Math.ceil(low + width * 0.04)}px` : '';
+        if (p.style.minHeight !== want) p.style.minHeight = want;
+      }
       // the background by number — by night, the night one where the design has it
       const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
       const byNumber = (n: number) => (dark ? night?.[(n - 1) % backgrounds.length] : '') || backgrounds[(n - 1) % backgrounds.length];

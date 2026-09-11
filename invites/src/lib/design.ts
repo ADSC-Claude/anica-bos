@@ -243,6 +243,17 @@ export type PageSpec = {
   seam?: number;
   /** a drawn page: its height is the ground's ratio times its width, and its elements are placed */
   drawn?: true;
+  /**
+   * A drawn page that stretches. Its ground's proportion is a floor rather
+   * than a measurement: if a customer's words run past the foot the page
+   * grows to hold them, and the ground keeps its head and its foot whole
+   * and stretches the band between (`slices`).
+   *
+   * On a page like this a place is measured from the page's *width* rather
+   * than from its height, because a height that moves would carry every
+   * element down with it and nothing would stay where it was drawn.
+   */
+  grow?: true;
   /** the public peek stops after this page */
   peekEnd?: true;
   elements?: Element[];
@@ -265,6 +276,14 @@ type Base = {
   w?: number;
   anchor?: Anchor;
   rotate?: number;
+  /**
+   * Which edge the place is measured from. The foot is for what holds the
+   * bottom of a page that grows — a closing line, a flourish — so that it
+   * stays at the foot however far the words above it push it down. It means
+   * nothing on a page that does not grow, where the two edges are a fixed
+   * distance apart.
+   */
+  from?: 'top' | 'bottom';
   z?: number;
   opacity?: number;
   hidden?: 'never' | 'whenEmpty';
@@ -362,14 +381,33 @@ export const LINE_TAG: Record<LineRole, 'h2' | 'p'> = {
  * for Baby Blue is asserted equal to `slotStyle`, `labelStyle` and
  * `captionStyle` in tests/design.test.ts, to the last decimal.
  */
-export function elementStyle(el: Element): Record<string, string> {
+/**
+ * Where an element sits, as the style the page is drawn with.
+ *
+ * `grow` is the page's ratio when the page stretches, and nothing otherwise.
+ * A page of fixed proportion places by percentage, which is what it has
+ * always done: y is a share of the height and the height cannot move. A page
+ * that can grow has to place by the width instead — `cqw`, a hundredth of
+ * the page, the page being the query container — or every element would
+ * slide down as the page grew and the design would come apart the moment a
+ * customer wrote a long sentence. y is still a share of the page's *base*
+ * height, so the same number means the same place on both.
+ */
+export function elementStyle(el: Element, grow?: number): Record<string, string> {
   const st: Record<string, string> = {};
   if (el.x !== undefined) st.left = `${el.x}%`;
-  st.top = `${el.y}%`;
+  if (grow) {
+    const down = place(el.y * grow);
+    if (el.from === 'bottom') st.bottom = `${place((100 - el.y) * grow)}cqw`;
+    else st.top = `${down}cqw`;
+  } else {
+    st.top = `${el.y}%`;
+  }
   if (el.w !== undefined) st.width = `${el.w}%`;
   const anchor = el.anchor ?? (el.kind === 'text' ? 'top' : 'centre');
   const parts: string[] = [];
   if (el.x !== undefined) parts.push(anchor === 'centre' ? 'translate(-50%, -50%)' : 'translateX(-50%)');
+  else if (anchor === 'centre' && grow && el.from === 'bottom') parts.push('translateY(50%)');
   if (el.rotate) parts.push(`rotate(${el.rotate}deg)`);
   if (parts.length) st.transform = parts.join(' ');
   if (el.opacity !== undefined && el.opacity !== 1) st.opacity = String(el.opacity);
@@ -434,6 +472,7 @@ const zBase = {
   w: zPlace(0.01, 200).optional(),
   anchor: z.enum(['centre', 'top']).optional(),
   rotate: zPlace(-180, 180).optional(),
+  from: z.enum(['top', 'bottom']).optional(),
   z: z.number().int().min(-50).max(50).optional(),
   opacity: z.number().min(0).max(1).optional(),
   hidden: z.enum(['never', 'whenEmpty']).optional(),
@@ -478,6 +517,7 @@ const zPage = z.object({
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
   drawn: z.literal(true).optional(),
+  grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
 }).strict();
 const zDoc = z.object({

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
-  type PhotoEl, type TextEl, type PageSpec, type Element,
+  type PhotoEl, type TextEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
@@ -371,4 +371,52 @@ test('the way a box is set survives the column', () => {
 
   // the floor the studio warns at is a real size, not a placeholder
   assert.ok(LEGIBLE_CQW > 1 && LEGIBLE_CQW < 5);
+});
+
+/**
+ * A page that grows places by its width, not by its height.
+ *
+ * y stays what it always was — a share of the page's base height — but on a
+ * page whose height can move, a percentage would carry every element down as
+ * the page grew. The same number therefore comes out as `cqw`: y% of the base
+ * height is y × ratio hundredths of the width, which is the same place on a
+ * page that has not grown and the *same* place on one that has.
+ */
+test('elementStyle: a growing page measures from the width, and the foot holds', () => {
+  const el = { id: 'a', kind: 'text', block: 'free', y: 40, x: 50, w: 60, lines: [] } as unknown as Element;
+  assert.equal(elementStyle(el).top, '40%');
+  assert.equal(elementStyle(el).bottom, undefined);
+  // 40% of a page 1.777 times its width is 71.08 hundredths of the width
+  assert.equal(elementStyle(el, 1.777).top, '71.08cqw');
+  assert.equal(elementStyle(el, 1.777).bottom, undefined);
+  // measured from the foot: the remaining 60% of the height
+  const foot = { ...el, from: 'bottom' } as Element;
+  assert.equal(elementStyle(foot, 1.777).bottom, '106.62cqw');
+  assert.equal(elementStyle(foot, 1.777).top, undefined);
+  // on a page of fixed proportion the two edges cannot move apart, so it is ignored
+  assert.equal(elementStyle(foot).top, '40%');
+  assert.equal(elementStyle(foot).bottom, undefined);
+  // the numbers are held to the same ten places as everything else
+  assert.equal(elementStyle({ ...el, y: 33.3333333333 } as Element, 2.989).top, '99.6333333332cqw');
+});
+
+test('elementStyle: a foot-held element with no x of its own is pulled up by its own half', () => {
+  const centred = { id: 'a', kind: 'photo', y: 90, from: 'bottom', anchor: 'centre', bind: { asset: '' } } as unknown as Element;
+  assert.equal(elementStyle(centred, 1.777).transform, 'translateY(50%)');
+  // with an x it already has the pair, and nothing is added
+  assert.equal(elementStyle({ ...centred, x: 50 } as Element, 1.777).transform, 'translate(-50%, -50%)');
+});
+
+test('grow and from survive the column', () => {
+  const doc = builtinDesign('babyblue')!;
+  const raw = JSON.parse(JSON.stringify(doc)) as DesignDoc;
+  raw.pages[1].grow = true;
+  (raw.pages[1].elements![0] as { from?: string }).from = 'bottom';
+  const { doc: back, dropped } = designOf(raw, 'babyblue');
+  assert.deepEqual(dropped, []);
+  assert.equal(back!.pages[1].grow, true);
+  assert.equal(back!.pages[1].elements![0].from, 'bottom');
+  // nothing else sets them, so the two designs as shipped carry neither
+  assert.equal(doc.pages.some((p) => p.grow), false);
+  assert.equal(builtinDesign('capiz')!.pages.some((p) => p.grow), false);
 });

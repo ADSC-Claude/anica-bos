@@ -1245,6 +1245,21 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * so that nothing about the original can move.
  */
 .inv[data-doc] .inv-page[data-drawn] { aspect-ratio: 1 / var(--page-ratio, 1.777); padding: 0; display: block; container-type: inline-size; }
+/*
+  A drawn page that grows. Its ground's proportion becomes a floor rather
+  than a measurement, so a customer's long sentence pushes the page down
+  instead of spilling over the join onto the next one. The floor is a
+  percentage padding on a pseudo-element because a percentage padding
+  resolves against the element's own WIDTH, which is the one thing the page
+  knows before anything has been measured — `aspect-ratio` would pin the
+  height and `100cqw` would ask the page about itself. Growth past the floor
+  is set in pixels by the pass that lays the grounds, which is the only
+  place the real boxes are known. The ground stretches to follow, keeping
+  its head and foot whole (`slices`).
+*/
+.inv[data-doc] .inv-page[data-drawn][data-grow] { aspect-ratio: auto; }
+.inv[data-doc] .inv-page[data-drawn][data-grow]::before { content: ''; display: block; float: left; width: 0; padding-top: calc(var(--page-ratio, 1.777) * 100%); }
+.inv[data-doc] .inv-page[data-drawn][data-grow]::after { content: ''; display: block; clear: both; }
 .inv[data-doc] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
 /*
  * The studio only. A frame or a box with nothing in it is never invisible

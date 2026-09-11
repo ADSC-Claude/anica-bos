@@ -1859,7 +1859,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; ratio?: number; colour?: string } = {}) => (
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string } = {}) => (
       <div
         key={key}
         className="inv-page"
@@ -1867,6 +1867,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         data-bg={o.bg}
         data-seam={o.seam}
         data-drawn={o.drawn ? '' : undefined}
+        data-grow={o.grow ? '' : undefined}
         data-ground={o.colour}
         style={{
           ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
@@ -1903,7 +1904,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, ratio: spec.drawn ? pageRatio(spec) : undefined }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
       }
     } else {
       for (const def of babyblue ? BABYBLUE_PAGES : CAPIZ_PAGES) {

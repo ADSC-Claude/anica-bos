@@ -92,12 +92,15 @@ export function Studio(p: Props) {
    * stylesheet gives them one. A handle has to sit on what a guest sees.
    */
   const [boxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  /** how far down the lowest thing reaches, in pixels: what a page that grows grows to */
+  const [grown, setGrown] = useState(0);
   useLayoutEffect(() => {
     const root = stage.current;
     if (!root) return;
     const b = root.getBoundingClientRect();
     if (!b.width || !b.height) return;
     const next: Record<string, { x: number; y: number; w: number; h: number }> = {};
+    let low = 0;
     for (const node of Array.from(root.querySelectorAll<HTMLElement>('[data-el]'))) {
       const r = node.getBoundingClientRect();
       next[node.dataset.el!] = {
@@ -106,12 +109,15 @@ export function Studio(p: Props) {
         w: (r.width / b.width) * 100,
         h: (r.height / b.height) * 100,
       };
+      // what holds the foot follows the page down and never pushes it
+      if (!node.hasAttribute('data-foot') && r.height) low = Math.max(low, r.bottom - b.top);
     }
     setBoxes(next);
+    setGrown((was) => (Math.abs(was - low) < 0.5 ? was : low));
     // `view` is in the list because the stage is kept mounted but hidden while
     // the whole invitation is shown: a hidden box measures zero, the guard
     // above keeps the last good numbers, and this measures again on her return
-  }, [doc, page, width, night, p.content, view]);
+  }, [doc, page, width, night, p.content, view, grown]);
 
   // --- changing the document ------------------------------------------------
 
@@ -573,7 +579,11 @@ export function Studio(p: Props) {
   const ground = page?.ground;
   const stageStyle: CSSProperties = {
     width,
-    ...(page?.drawn ? { aspectRatio: `1 / ${ratio}` } : { minHeight: width * 1.2 }),
+    // a page that grows is at least its ground and taller when its words are,
+    // so the canvas gives it a floor where a fixed page gets a proportion
+    ...(page?.drawn
+      ? (page.grow ? { minHeight: Math.max(width * ratio, grown + width * 0.04) } : { aspectRatio: `1 / ${ratio}` })
+      : { minHeight: width * 1.2 }),
     ...(ground && isPicture(ground)
       ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
       : ground ? { background: colourOf(ground.color, p.vars) } : {}),
@@ -719,6 +729,7 @@ export function Studio(p: Props) {
                 className="inv-page relative"
                 data-page={page?.key}
                 data-drawn={page?.drawn ? '' : undefined}
+                data-grow={page?.drawn && page.grow ? '' : undefined}
                 style={{ ...stageStyle, ['--page-ratio' as string]: ratio }}
                 onPointerMove={onMove}
                 onPointerUp={endDrag}
@@ -809,6 +820,7 @@ export function Studio(p: Props) {
             label={label(selected)}
             measureRoom={() => measureRoom(selected.id)}
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
+            grows={Boolean(page?.grow)}
           />
         ) : (
           <PageProps
@@ -901,13 +913,14 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable, grows }: {
   el: Element; ratio: number; label: string; occasion: Occasion;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
   measureRoom: () => number | undefined;
   attachable: Named[];
+  grows: boolean;
 }) {
   const num = (v: number | undefined, set: (n: number) => void, step = 0.1) => (
     <input type="number" value={v ?? ''} step={step} onChange={(e) => set(place(Number(e.target.value)))} className="input w-full" />
@@ -926,6 +939,15 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <label className="block"><span className="label">Turn</span>{num(el.rotate, (n) => onChange((e) => ({ ...e, rotate: n })), 0.5)}</label>
       </div>
       <p className="hint">Across and width are a share of the page&rsquo;s width; down is a share of its height. This page is {ratio.toFixed(2)} screens tall.</p>
+      {grows && (
+        <label className="block">
+          <span className="label">Measured from</span>
+          <select className="input w-full" value={el.from ?? 'top'} onChange={(e) => onChange((x) => ({ ...x, from: e.target.value === 'bottom' ? 'bottom' : undefined }))}>
+            <option value="top">The head of the page</option>
+            <option value="bottom">The foot &mdash; it holds the bottom however far the words push it</option>
+          </select>
+        </label>
+      )}
       <Attach value={el.attachTo} options={attachable} onChange={(to) => onChange((e) => ({ ...e, attachTo: to }))} />
       {el.kind === 'photo' && (
         <label className="block"><span className="label">Shape (height over width)</span>{num((el as PhotoEl).aspect, (n) => onChange((e) => ({ ...(e as PhotoEl), aspect: n })), 0.05)}</label>
@@ -1401,6 +1423,25 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
             />
             <span>Drawn page &mdash; things are placed on it by hand</span>
           </label>
+        )}
+        {page.drawn && (
+          <label className="mt-2 flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={Boolean(page.grow)}
+              onChange={(e) => onChange((p) => ({ ...p, grow: e.target.checked ? true : undefined }))}
+              className="h-4 w-4"
+            />
+            <span>It grows &mdash; longer words push the page down</span>
+          </label>
+        )}
+        {page.drawn && page.grow && (
+          <p className="hint">
+            The proportion above becomes the least it can be, and anything set to hold the foot stays at the foot.
+            {ground && isPicture(ground)
+              ? ' The picture keeps its head and its foot whole and stretches the band between, so it wants a plain middle — sky, paper, a wash. A picture with things painted all the way down will pull them away from whatever you have placed on top of them.'
+              : ' A plain colour stretches perfectly, so a page like this can grow as far as it needs to.'}
+          </p>
         )}
         {page.drawn && ground && !isPicture(ground) && (
           <label className="mt-2 block">

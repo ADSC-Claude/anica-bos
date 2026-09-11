@@ -13,9 +13,13 @@ import { companionsOf, attendeeLine } from '@/lib/attendees';
 
 export const dynamic = 'force-dynamic';
 
-/** A reply's name as the couple should read it: theirs, with what the guest typed beside it. */
-function NameCell({ name, alias, group, personal }: { name: string; alias: string; group: string; personal: boolean }) {
-  const under = [group, alias && `replied as ${alias}`, personal ? 'personal link' : ''].filter(Boolean).join(' · ');
+/**
+ * A reply's name as the couple should read it: theirs, with what the guest
+ * typed beside it. A corporate reply's department sits here rather than in the
+ * contact column, because it says who somebody is from, not how to reach them.
+ */
+function NameCell({ name, alias, group, department, personal }: { name: string; alias: string; group: string; department: string; personal: boolean }) {
+  const under = [department, group, alias && `replied as ${alias}`, personal ? 'personal link' : ''].filter(Boolean).join(' · ');
   return (
     <td>
       {name}
@@ -28,7 +32,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, updatedAt: true, guestId: true, guest: { select: { name: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
+  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, department: true, updatedAt: true, guestId: true, guest: { select: { name: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
   const dashboard = hasFeature(inv.tier, 'rsvp.dashboard');
   return (
     <>
@@ -49,7 +53,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
             <tbody>
               {rsvps.map((r) => (
                 <tr key={r.id}>
-                  <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} personal={Boolean(r.guestId)} />
+                  <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} department={r.department} personal={Boolean(r.guestId)} />
                   <td><span className={`pill ${r.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{r.response === 'ACCEPT' ? 'Accepted' : 'Declined'}</span></td>
                   <td>{r.response === 'ACCEPT' ? r.seats : '—'}</td>
                   {/* Each companion with what they are to the guest, which is the

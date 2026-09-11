@@ -153,7 +153,11 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     dietary: input.dietary ?? '',
     message: input.message ?? '',
     phone: input.phone ?? '',
-    email: input.department ? `${input.email ?? ''}${input.email ? ' · ' : ''}${input.department}` : input.email ?? '',
+    email: input.email ?? '',
+    // Its own column. A department is not a contact detail, and while it rode
+    // along on the address it was both a department on a mailing list and an
+    // address nowhere a blast could read.
+    department: input.department ?? '',
     ip,
   };
 
@@ -168,9 +172,9 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   // list the system believes has no numbers in it. The rule for which copy
   // wins is contactPatch, shared with the back-fill so the two cannot drift.
   //
-  // input.email rather than data.email: what is stored may have a department
-  // packed onto it, and while contactPatch takes that off anyway, there is no
-  // reason to hand it something to undo.
+  // input.email is now the same as what is stored — the department has its own
+  // column — but the reply's own fields stay the source here, so a later change
+  // to how a row is shaped cannot quietly reach the guest list.
   if (guest) {
     const patch = contactPatch({ phone: input.phone, email: input.email }, guest);
     if (Object.keys(patch).length) await prisma.guest.update({ where: { id: guest.id }, data: patch });

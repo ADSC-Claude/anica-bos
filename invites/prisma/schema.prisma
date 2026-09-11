@@ -531,6 +531,11 @@ model Rsvp {
   message      String       @default("")
   phone        String       @default("")
   email        String       @default("")
+  /// Corporate events ask which department or company the guest is from. Its
+  /// own column because it is not a contact detail: it used to ride along on
+  /// `email` as "address · department", which put a department on a mailing
+  /// list and an address nowhere a blast could read it.
+  department   String       @default("")
   ip           String       @default("")
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt

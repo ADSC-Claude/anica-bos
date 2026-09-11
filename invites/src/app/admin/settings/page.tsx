@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 const BUSINESS = ['business.name', 'business.tagline', 'business.intro', 'business.email', 'business.phone', 'business.address', 'business.logoUrl', 'business.facebook', 'business.instagram', 'business.invitesCreatedLabel', 'business.rsvpsCollectedLabel', 'site.comingSoon', 'site.demoSlug'];
 const CONTACT = ['contact.messenger', 'contact.viber', 'contact.whatsapp', 'contact.hoursNote'];
 const PAYMENTS = ['payments.manualEnabled', 'payments.gcashName', 'payments.gcashNumber', 'payments.gcashQrUrl', 'payments.mayaName', 'payments.mayaNumber', 'payments.bankAccounts', 'payments.manualNote', 'orders.unpaidExpiryDays'];
-const SERVICE = ['dfy.turnaroundDays', 'concierge.turnaroundDays', 'rush.turnaroundHours'];
+const SERVICE = ['dfy.turnaroundDays', 'dfy.turnaroundDaysMax', 'concierge.turnaroundDays', 'concierge.turnaroundDaysMax', 'rush.turnaroundHours'];
 const POLICY = ['policy.refund', 'policy.privacy'];
 const TEMPLATES = ['email.orderReceived', 'email.orderActive', 'email.previewReady', 'email.rsvpReceived', 'sms.rsvpReminder', 'sms.senderName'];
 
@@ -66,8 +66,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <form className="card space-y-3 p-4">
           <h2 className="font-semibold">Service levels</h2>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="DFY turnaround (working days)" name="dfy.turnaroundDays" type="number" defaultValue={s['dfy.turnaroundDays']} />
-            <Field label="Priority turnaround (days)" name="concierge.turnaroundDays" type="number" defaultValue={s['concierge.turnaroundDays']} />
+            {/* Both ends of each promise. The near one is what we quote, the far
+                one is what a due date is set from. */}
+            <Field label="Build turnaround, from (working days)" name="dfy.turnaroundDays" type="number" defaultValue={s['dfy.turnaroundDays']} />
+            <Field label="Build turnaround, to (working days)" name="dfy.turnaroundDaysMax" type="number" defaultValue={s['dfy.turnaroundDaysMax']} />
+            <Field label="Priority turnaround, from (days)" name="concierge.turnaroundDays" type="number" defaultValue={s['concierge.turnaroundDays']} />
+            <Field label="Priority turnaround, to (days)" name="concierge.turnaroundDaysMax" type="number" defaultValue={s['concierge.turnaroundDaysMax']} />
             <Field label="Rush publish (hours)" name="rush.turnaroundHours" type="number" defaultValue={s['rush.turnaroundHours']} />
           </div>
           <Save keys={SERVICE} />

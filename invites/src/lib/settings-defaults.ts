@@ -44,14 +44,27 @@ export const DEFAULT_SETTINGS = {
   'orders.unpaidExpiryDays': 7,
 
   // --- service levels ---
-  /** The ordinary Done-For-You promise: five working days to a week. */
-  'dfy.turnaroundDays': 7,
   /**
-   * Priority, the Signature queue jump: two working days. Its revision rounds
-   * are not here — a rushed build's rounds are capped by tier in pricing.ts,
-   * because buying speed reduces the rounds rather than setting them.
+   * The ordinary Done-For-You promise, as a range: seven to ten working days.
+   *
+   * Both ends do work. The near end is what we quote, the far end is what a
+   * due date is set from, because the far end is the promise. Neither is a
+   * queue: an invitation finished on the eighth day is sent on the eighth day,
+   * and nobody is held to the end of an estimate because it was written down.
+   */
+  'dfy.turnaroundDays': 7,
+  'dfy.turnaroundDaysMax': 10,
+  /**
+   * Priority, the queue jump Signature and Luxury are sold: two to three
+   * working days. Not one — those builds carry too much to encode overnight,
+   * which is the same reason rush is not offered with them at all.
+   *
+   * Its revision rounds are not here: a hurried build's rounds are capped by
+   * tier in pricing.ts, because buying speed reduces the rounds rather than
+   * setting them.
    */
   'concierge.turnaroundDays': 2,
+  'concierge.turnaroundDaysMax': 3,
   /** Rush, the Basic and Standard queue jump. */
   'rush.turnaroundHours': 24,
 
@@ -93,6 +106,17 @@ export const DEFAULT_SETTINGS = {
     'Hi {{guestName}},\n\nThank you — we have you down as {{response}}{{seatsLine}}.\n\n{{hosts}} · {{eventDate}}\n\nIf anything changes, you can update your reply on the same link:\n{{link}}\n\nSee you soon!\n{{hosts}}',
   /** Semaphore sender ID. Blank uses the account default. */
   'sms.senderName': '',
+  /**
+   * Whether the daily job sends the scheduled campaigns.
+   *
+   * Off, and deliberately the one setting in this file that starts off. It is
+   * the difference between a job that reads some rows and a job that texts a
+   * thousand strangers at six in the morning at our expense, and the two are
+   * one boolean apart. Turn it on when the sender ID is registered and the
+   * campaign rows are actually on sale — not before, because until then every
+   * invitation it would find is one nobody paid for a campaign on.
+   */
+  'campaigns.enabled': false,
 
   // --- the public site ---
   'site.comingSoon': false,

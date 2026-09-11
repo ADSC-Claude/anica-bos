@@ -5,13 +5,13 @@ import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS, templateSuits } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { TIERS, TIER_LABELS, COMPARISON, tierAtLeast } from '@/lib/tiers';
-import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
+import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnIncluded, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
 import { invitationPath } from '@/lib/app-url';
 
 export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number };
-export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
+export type WizardAddOn = { code: string; name: string; description: string; imageUrl: string; priceCents: number; quoted: boolean };
 export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; occasions: Occasion[]; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
 export type WizardProps = {
@@ -182,6 +182,14 @@ export function CheckoutWizard(p: WizardProps) {
               return (
               <label key={a.code} className={`card flex items-start gap-3 p-3 ${!offered ? 'opacity-70' : ''}`}>
                 <input type="checkbox" className="mt-1 h-4 w-4" disabled={!offered} checked={offered && addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />
+                {a.imageUrl && (
+                  <img
+                    src={a.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="hidden h-16 w-24 shrink-0 rounded-lg border border-[color:var(--color-sand-200)] object-cover object-top sm:block"
+                  />
+                )}
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">{a.name}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
@@ -189,7 +197,7 @@ export function CheckoutWizard(p: WizardProps) {
                     ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours in the builder.' : '.'}</span>
                     : <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>)}
                 </span>
-                <span className="text-sm font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span>
+                <span className="text-sm font-semibold">{addOnIncluded(a.code, tier) ? 'Included' : a.quoted ? formatPesoShort(addOnPrice(a, tier)) : 'Ask us'}</span>
               </label>
               );
             })}

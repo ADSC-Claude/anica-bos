@@ -153,6 +153,12 @@ const PHRASES = {
   'story.proposal': { en: 'The proposal', tl: 'Ang pag-propose' },
   'gallery.title': { en: 'Gallery', tl: 'Mga Larawan' },
   'gallery.video': { en: 'Watch our video', tl: 'Panoorin ang video' },
+  /**
+   * Weddings only. A prenup is a wedding thing, and this line is on the guest's
+   * own invitation — a christening that invited people to watch its prenup
+   * video was saying something the family never said. The renderer falls back
+   * to gallery.video for every other occasion.
+   */
   'gallery.watchPrenup': { en: 'Watch our prenup video', tl: 'Panoorin ang aming prenup video' },
   'program.title': { en: 'Program', tl: 'Programa' },
   'program.agenda': { en: 'Agenda', tl: 'Agenda' },

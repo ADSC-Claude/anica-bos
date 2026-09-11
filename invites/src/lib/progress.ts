@@ -55,7 +55,13 @@ export function withDone(progress: Progress | undefined, key: SectionKey, done: 
  * Calendar days, not working days: a customer counts on a calendar, and a
  * promise made in working days is a promise they have to translate.
  */
-export const PROCESSING_DAYS = 7;
+/**
+ * What we tell a customer to plan against: the far end of the build estimate,
+ * not the near one. A date that turns out early is a good surprise; one that
+ * turns out late is a promise we broke. Keep it in step with
+ * dfy.turnaroundDaysMax — a test holds the two together.
+ */
+export const PROCESSING_DAYS = 10;
 /** The latest a final form can reach us and still leave room for revisions. */
 export const FINAL_FORM_DAYS = 21;
 /** What we ask for by preference, so nothing is rushed. */

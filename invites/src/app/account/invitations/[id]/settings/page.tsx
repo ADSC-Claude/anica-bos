@@ -5,7 +5,7 @@ import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { offeredFor } from '@/lib/occasions';
 import { contentOf, resolveTheme } from '@/lib/invitations';
-import { hasFeature, TIER_LABELS } from '@/lib/tiers';
+import { hasFeature, entitled, TIER_LABELS } from '@/lib/tiers';
 import { PALETTE_PRESETS } from '@/lib/theme';
 import { LOOKS, looksFor } from '@/lib/looks';
 import { hasPremiumOpening, PREMIUM_OPENING_CODE } from '@/lib/openings';
@@ -39,7 +39,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5">
           <h2 className="mb-3 font-semibold">Link & privacy</h2>
-          <SettingsForm invitationId={inv.id} host={displayHost()} slug={inv.slug} title={inv.title} privacy={inv.privacy} language={inv.language} canCustomSlug={hasFeature(inv.tier, 'slug.custom')} canPassword={hasFeature(inv.tier, 'privacy.password')} hasPassword={Boolean(inv.passwordHash)} />
+          <SettingsForm invitationId={inv.id} host={displayHost()} slug={inv.slug} title={inv.title} privacy={inv.privacy} language={inv.language} canCustomSlug={hasFeature(inv.tier, 'slug.custom')} canPassword={entitled(inv, 'privacy.password')} hasPassword={Boolean(inv.passwordHash)} />
         </div>
         <div className="card p-5">
           <h2 className="mb-3 font-semibold">Colours &amp; fonts</h2>

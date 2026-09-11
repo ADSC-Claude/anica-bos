@@ -9,6 +9,7 @@ import { formatDate } from './datetime';
 import { displayTitle } from './sections';
 import { contentOf } from './invitations';
 import type { Occasion, Tier } from '@prisma/client';
+import { resolveMessages, type MessageKind } from './messages';
 
 /**
  * RSVP reminders, by text and by e-mail.
@@ -52,6 +53,8 @@ type PlanInvitation = {
   tier: Tier;
   eventAt: Date | null;
   content: unknown;
+  /** The tone and any rewritten line. Only the campaigns read it. */
+  guestMessages?: unknown;
 };
 
 /**
@@ -303,4 +306,119 @@ export async function recentEmails(invitationId: string, take = 50) {
     take,
     include: { guest: { select: { name: true } } },
   });
+}
+
+// ---------------------------------------------------------------------------
+// The scheduled campaigns
+// ---------------------------------------------------------------------------
+
+/**
+ * One campaign message, to everyone it is still owed to.
+ *
+ * Different from the two blasts above in the ways that matter for something
+ * nobody is watching:
+ *
+ *   • It is one fixed message, already written and already approved by the
+ *     couple on their messages page — not a template rendered from settings.
+ *   • It skips a guest who has had THIS message, not a guest written to today.
+ *     A seven-day reminder and a one-day reminder are six days apart and both
+ *     must land; the quiet-hours rule that protects a hand-pressed blast from
+ *     a double click would be wrong here.
+ *   • It does not skip a guest who has replied. Someone who accepted still
+ *     needs telling what time to arrive, and a thank-you is owed to exactly
+ *     the people who came.
+ *   • It stops at the band the couple paid for, in list order.
+ */
+export type CampaignOutcome = {
+  kind: string;
+  texts: { sent: number; logged: number; failed: number };
+  emails: { sent: number; logged: number; failed: number };
+  /** Guests beyond the paid band, who got nothing. */
+  overBand: number;
+};
+
+export async function sendCampaign(
+  invitation: PlanInvitation,
+  kind: MessageKind,
+  opts: { email: boolean; guests: number },
+): Promise<CampaignOutcome> {
+  const { hosts, eventDate } = saysWho(invitation);
+  const message = resolveMessages(invitation.occasion, invitation.guestMessages).find((m) => m.kind === kind);
+  const outcome: CampaignOutcome = {
+    kind,
+    texts: { sent: 0, logged: 0, failed: 0 },
+    emails: { sent: 0, logged: 0, failed: 0 },
+    overBand: 0,
+  };
+  if (!message) return outcome;
+
+  // The band is a count of guests, not of messages: a guest reachable by both
+  // text and e-mail is one guest. Ordered oldest first so the same people are
+  // inside the band every time, rather than the band moving under them when a
+  // name is added.
+  const all = await prisma.guest.findMany({
+    where: { invitationId: invitation.id },
+    include: {
+      texts: { where: { campaign: kind }, take: 1 },
+      emails: { where: { campaign: kind }, take: 1 },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  const within = all.slice(0, opts.guests);
+  outcome.overBand = all.length - within.length;
+
+  const vars = (guest: (typeof all)[number]) => ({
+    guestName: guest.salutation || guest.name,
+    hosts,
+    eventDate,
+    link: invitationUrl(invitation.slug, guest.token),
+  });
+
+  for (const guest of within) {
+    if (!guest.texts.length) {
+      const number = phMobile(guest.phone);
+      if (number) {
+        const text = render(message.text.sms, vars(guest));
+        const result = await sendSms({ to: number, text });
+        await prisma.smsMessage.create({
+          data: {
+            invitationId: invitation.id,
+            guestId: guest.id,
+            to: number,
+            body: text,
+            campaign: kind,
+            status: result.status === 'sent' ? 'SENT' : result.status === 'logged' ? 'LOGGED' : 'FAILED',
+            error: result.error ?? '',
+          },
+        });
+        if (result.status === 'sent') outcome.texts.sent++;
+        else if (result.status === 'logged') outcome.texts.logged++;
+        else outcome.texts.failed++;
+      }
+    }
+
+    if (!opts.email || guest.emails.length) continue;
+    const address = mailable(guest.email);
+    if (!address) continue;
+    const subject = render(message.text.emailSubject, vars(guest));
+    const body = render(message.text.emailBody, vars(guest));
+    const result = await sendEmail({ to: address, subject, text: body });
+    await prisma.emailMessage.create({
+      data: {
+        invitationId: invitation.id,
+        guestId: guest.id,
+        to: address,
+        subject,
+        body,
+        campaign: kind,
+        status: result.status === 'sent' ? 'SENT' : result.status === 'logged' ? 'LOGGED' : 'FAILED',
+        error: result.error ?? '',
+      },
+    });
+    if (result.status === 'sent') outcome.emails.sent++;
+    else if (result.status === 'logged') outcome.emails.logged++;
+    else outcome.emails.failed++;
+  }
+
+  return outcome;
 }

@@ -29,6 +29,7 @@
  */
 import type { Occasion, Tier } from '@prisma/client';
 import { prisma } from '../src/lib/db';
+import { ADDONS, RETIRED_ADDONS, SHELVED_ADDONS } from '../src/lib/addon-catalogue';
 import { audit } from '../src/lib/audit';
 import { formatPeso } from '../src/lib/money';
 import { TIERS, TIER_LABELS } from '../src/lib/tiers';
@@ -57,7 +58,7 @@ const FEES: Record<Tier, { base: number; dfy: number; concierge: number; rounds:
   // check-in desk, the album afterwards — and two more rounds of drafting on
   // top, because the package with the most on its page is the one that takes
   // the most passes to get right.
-  LUXURY: { base: 7_500, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
+  LUXURY: { base: 8_000, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
 };
 
 /**
@@ -75,44 +76,6 @@ const OCCASION_PACKAGES: { occasion: Occasion | null; label: string }[] = [
   { occasion: 'CHRISTENING', label: 'Christening' },
   { occasion: 'KIDS_BIRTHDAY', label: "Kids' Birthday" },
   { occasion: null, label: 'Celebration' },
-];
-
-/**
- * Nothing about a published invitation is the customer's to switch, so there is
- * nothing for the template-switch add-on to sell. It is deactivated rather than
- * deleted: orders that bought one keep their line item.
- */
-const RETIRED_ADDONS = ['TEMPLATE_SWITCH'];
-
-/**
- * The queue jumps, in pesos. Rush is Basic's and Standard's and promises 24
- * hours; priority is Signature's and promises two working days, because that
- * build carries too much to encode overnight. addOnAvailable in
- * src/lib/pricing.ts decides which tier is offered which; addOnPrice charges
- * rush 1,500 on Standard, which is the one price not held on its own row.
- */
-const ADDONS: { code: string; price: number; name: string; description: string; sortOrder: number }[] = [
-  {
-    code: 'RUSH',
-    price: 1_000,
-    name: 'Rush publish (24 hours)',
-    description: 'Your invitation jumps the queue and is published within 24 hours instead of the usual five days to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Basic and Standard.',
-    sortOrder: 5,
-  },
-  {
-    code: 'PRIORITY',
-    price: 2_000,
-    name: 'Priority (2 working days)',
-    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
-    sortOrder: 6,
-  },
-  {
-    code: 'SAVE_THE_DATE',
-    price: 299,
-    name: 'Save the Date card',
-    description: 'A second card on the same design, with its own link, for sending months ahead. Your names, your date and your cover photo — the venue, the programme and the RSVP wait for the invitation itself. It publishes on its own, so announcing early does not use up the rounds of changes on your invitation.',
-    sortOrder: 2,
-  },
 ];
 
 const dry = process.argv.includes('--dry');
@@ -209,16 +172,21 @@ async function main() {
     const { code } = spec;
     const a = await prisma.addOn.findUnique({ where: { code } });
     const cents = pesos(spec.price);
+    // A held row is catalogued and not for sale: the price is settled and
+    // editable, and `active: false` keeps it off the landing page and out of
+    // the checkout, both of which read only active rows.
+    const active = !spec.held;
+    const note = spec.held ? '   held' : '';
     // Priority is new, so a database seeded before it has no row to update.
     // Creating it is the difference between a run that finishes and a
     // catalogue that still cannot sell the thing the code offers.
     if (!a) {
-      console.info(`  ${code.padEnd(22)} ${col(cents).trim().padStart(11)}   created`);
+      console.info(`  ${code.padEnd(22)} ${col(cents).trim().padStart(11)}   created${note}`);
       if (!dry) {
-        const made = await prisma.addOn.create({ data: { code, name: spec.name, description: spec.description, priceCents: cents, sortOrder: spec.sortOrder } });
+        const made = await prisma.addOn.create({ data: { code, name: spec.name, description: spec.description, imageUrl: spec.image ?? '', priceCents: cents, active, sortOrder: spec.sortOrder } });
         await audit(null, {
           module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: made.id,
-          summary: `${code} created (set-pricing)`, after: { priceCents: cents }, sensitive: true,
+          summary: `${code} created (set-pricing)`, after: { priceCents: cents, active }, sensitive: true,
         });
       }
       changed++;
@@ -229,37 +197,67 @@ async function main() {
     // mode that no longer exists — a run that fixed the price and left "your
     // Done-For-You build" on the row would leave the catalogue lying.
     const wordingSame = a.name === spec.name && a.description === spec.description;
-    if (a.priceCents === cents && a.active && wordingSame) {
-      console.info(`  ${code.padEnd(22)} ${col(a.priceCents)}   unchanged`);
+    // The picture is reconciled the same way, with one difference: a catalogue
+    // row with no `image` has no opinion about the picture rather than an
+    // opinion that there should be none, so a run never wipes one somebody
+    // typed into admin. A picture declared here does win over a typed one,
+    // exactly as the wording does.
+    const image = spec.image ?? '';
+    const pictureSame = !image || a.imageUrl === image;
+    if (a.priceCents === cents && a.active === active && wordingSame && pictureSame) {
+      console.info(`  ${code.padEnd(22)} ${col(a.priceCents)}   unchanged${note}`);
       continue;
     }
-    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}${wordingSame ? '' : '   + wording'}`);
+    console.info(`  ${code.padEnd(22)} ${col(a.priceCents)} → ${col(cents)}${wordingSame ? '' : '   + wording'}${pictureSame ? '' : '   + picture'}${note}`);
     if (!dry) {
-      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active: true, name: spec.name, description: spec.description } });
+      await prisma.addOn.update({ where: { id: a.id }, data: { priceCents: cents, active, name: spec.name, description: spec.description, ...(image ? { imageUrl: image } : {}) } });
       await audit(null, {
         module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
         summary: `${code} price and wording (set-pricing)`,
-        before: { priceCents: a.priceCents, active: a.active, name: a.name, description: a.description },
-        after: { priceCents: cents, active: true, name: spec.name, description: spec.description },
+        before: { priceCents: a.priceCents, active: a.active, name: a.name, description: a.description, imageUrl: a.imageUrl },
+        after: { priceCents: cents, active, name: spec.name, description: spec.description, imageUrl: image || a.imageUrl },
         sensitive: true,
       });
     }
     changed++;
   }
 
-  for (const code of RETIRED_ADDONS) {
+  for (const { code, reason } of RETIRED_ADDONS) {
     const a = await prisma.addOn.findUnique({ where: { code } });
     if (!a) continue;
     if (!a.active) {
       console.info(`  ${code.padEnd(22)} already withdrawn`);
       continue;
     }
-    console.info(`  ${code.padEnd(22)} withdrawn (the design is settled at publish)`);
+    console.info(`  ${code.padEnd(22)} withdrawn (${reason})`);
     if (!dry) {
       await prisma.addOn.update({ where: { id: a.id }, data: { active: false } });
       await audit(null, {
         module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
-        summary: `${code} withdrawn (set-pricing)`, before: { active: true }, after: { active: false }, sensitive: true,
+        summary: `${code} withdrawn — ${reason} (set-pricing)`, before: { active: true }, after: { active: false }, sensitive: true,
+      });
+    }
+    changed++;
+  }
+
+  // Off the website, still in the system. Same deactivation as retiring and a
+  // different decision, so it is reported in its own words: these come back.
+  for (const { code, reason } of SHELVED_ADDONS) {
+    const a = await prisma.addOn.findUnique({ where: { code } });
+    if (!a) continue;
+    if (!a.active) {
+      console.info(`  ${code.padEnd(22)} already off the website`);
+      continue;
+    }
+    console.info(`  ${code.padEnd(22)} off the website (${reason})`);
+    if (!dry) {
+      // Price and wording untouched: hiding a row is not a reason to overrule
+      // the admin about what it costs.
+      await prisma.addOn.update({ where: { id: a.id }, data: { active: false } });
+      await audit(null, {
+        module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
+        summary: `${code} off the website — ${reason} (set-pricing)`,
+        before: { active: true }, after: { active: false }, sensitive: true,
       });
     }
     changed++;

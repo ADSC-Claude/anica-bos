@@ -70,3 +70,18 @@ export function relative(d: Date, from = new Date()): string {
   const unit = abs < 3_600_000 ? [Math.round(abs / 60_000), 'min'] : abs < 86_400_000 ? [Math.round(abs / 3_600_000), 'h'] : [Math.round(abs / 86_400_000), 'd'];
   return diff < 0 ? `${unit[0]}${unit[1]} ago` : `in ${unit[0]}${unit[1]}`;
 }
+
+/**
+ * How long something takes, in the words we promise it in.
+ *
+ * A range where there is one — "7 to 10 working days" — and a single number
+ * where the two ends agree. Written once because the landing page, the
+ * checkout and the customer's own page all say it, and three copies of a
+ * promise drift into three different promises.
+ */
+export function turnaroundLabel(min: number, max: number): string {
+  const near = Math.min(min, max);
+  const far = Math.max(min, max);
+  if (far > near) return `${near} to ${far} working days`;
+  return `${far} working day${far === 1 ? '' : 's'}`;
+}

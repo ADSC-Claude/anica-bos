@@ -4,7 +4,7 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { listGuests, rsvpSummary } from '@/lib/guests';
-import { hasFeature } from '@/lib/tiers';
+import { entitled, hasFeature } from '@/lib/tiers';
 import { invitationUrl } from '@/lib/app-url';
 import { PageHeader, Stat } from '@/components/ui';
 import { GuestManager } from './manager';
@@ -18,7 +18,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  if (!hasFeature(inv.tier, 'guests.manager')) redirect(`/account/invitations/${inv.id}/upgrade`);
+  if (!entitled(inv, 'guests.manager')) redirect(`/account/invitations/${inv.id}/upgrade`);
   const confirms = hasFeature(inv.tier, 'rsvp.emailConfirmation');
   const [guests, tables, summary, texts, emails] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10), recentEmails(inv.id, 10)]);
   // Newest first across both, then the ten that matter. Each carries the word
@@ -47,8 +47,8 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
           by the bill for the other. */}
       <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">
         {confirms
-          ? 'Your package sends every guest who leaves an e-mail address a confirmation of their reply, at no charge. The e-mail blast below is free too. An SMS blast is bought separately — texts are charged by the gateway, per message.'
-          : 'The e-mail blast below is free. An SMS blast is bought separately — texts are charged by the gateway, per message. A confirmation e-mail to every guest who replies comes with the Luxury package.'}
+          ? 'Your package writes back to every guest who accepts and leaves an e-mail address, confirming their seats, at no charge. Guests who decline are not written to. The e-mail blast below is free too. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one.'
+          : 'The e-mail blast below is free. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one. A confirmation e-mail to every guest who accepts comes with the Luxury package.'}
       </p>
 
       {/* Both channels, side by side. A couple picks by what they have on the
@@ -86,7 +86,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
         slug={inv.slug}
         baseUrl={invitationUrl(inv.slug)}
         reminder={`Hi {name}! Please RSVP for ${inv.title} here: {link}`}
-        canSeating={hasFeature(inv.tier, 'seating')}
+        canSeating={entitled(inv, 'seating')}
         tables={tables.map((t) => ({ id: t.id, name: t.name, capacity: t.capacity }))}
         guests={guests.map((g) => ({ id: g.id, name: g.name, salutation: g.salutation, groupName: g.groupName, seatsAllotted: g.seatsAllotted, plusOneAllowed: g.plusOneAllowed, phone: g.phone, email: g.email, notes: g.notes, token: g.token, tableId: g.tableId, checkedIn: Boolean(g.checkedInAt), response: g.rsvps[0] ? { response: g.rsvps[0].response, seats: g.rsvps[0].seats } : null }))}
       />

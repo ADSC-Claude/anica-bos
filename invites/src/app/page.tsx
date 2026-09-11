@@ -24,7 +24,7 @@ const FAQ = [
   { q: 'Can my lola open it?', a: 'That is exactly who we built it for. Big text, big buttons, loads fast on mobile data, and there is a “Download as image” button so you can forward a picture version to relatives who prefer that.' },
   { q: 'Can I print it?', a: 'Yes. Every invitation has a print view (Save as PDF from your phone or laptop) and a downloadable image with a QR code that opens the full invitation.' },
   { q: 'Can I change details after publishing?', a: 'Message us and we will sort it out. Most of the changing happens before we publish: you review a preview and tell us what to fix, with two rounds included. After it is live, guests always see the latest version at the same link — there is nothing for them to re-download.' },
-  { q: 'Do I have to design or build anything?', a: 'No. Pick a package and a design, pay, and then send us the details however is easiest — our form, Messenger, Viber or an Excel file. Photos and screenshots are fine. An encoder builds it in five working days to a week, you review a preview on your phone, ask for changes (two rounds included), approve, and we publish.' },
+  { q: 'Do I have to design or build anything?', a: 'No. Pick a package and a design, pay, and then send us the details however is easiest — our form, Messenger, Viber or an Excel file. Photos and screenshots are fine. An encoder builds it in 7 to 10 working days — an estimate, not a queue, so if yours is ready sooner you get it sooner — you review a preview on your phone, ask for changes (two rounds included), approve, and we publish.' },
   { q: 'What is the refund policy?', a: 'Because each invitation is built to order, payments are non-refundable once published or once our team has started building it. If we cannot deliver, you get a full refund.' },
   { q: 'Is my guest list safe?', a: 'Guest lists are personal data. We collect only what an invitation needs, never sell or share it, and keep personal links unguessable. Your dashboard has a Your data page that downloads everything we hold about you and deletes all of it on request — in line with the Data Privacy Act of 2012.' },
 ];
@@ -93,7 +93,7 @@ export default async function Landing() {
             {[
               { title: 'Pick and pay', sub: 'A few minutes', steps: ['Choose the occasion, a package and a design', 'Pay with GCash, Maya, card or a bank transfer'] },
               { title: 'Tell us the details', sub: 'At your own pace', steps: ['Fill in one form — names, entourage, venues, photos, RSVP', 'Or send them over Messenger, Viber or Excel; screenshots are fine'] },
-              { title: 'We build it', sub: 'Five working days to a week', steps: ['An encoder lays out your invitation on the design you chose', 'We prepare the photos and the music so it opens the way it should'] },
+              { title: 'We build it', sub: '7 to 10 working days, usually less', steps: ['An encoder lays out your invitation on the design you chose', 'We prepare the photos and the music so it opens the way it should'] },
               { title: 'Approve and share', sub: 'Two rounds of changes', steps: ['Review a preview on your phone and tell us what to change', 'We publish; you share the link and QR on Messenger, Viber or SMS'] },
             ].map((flow) => (
               <div key={flow.title} className="card p-6">
@@ -124,7 +124,7 @@ export default async function Landing() {
             <h2 className="display mt-2 text-center text-3xl">Simple pricing, paid once</h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[color:var(--color-ink-700)]">Wedding pricing shown. Debut, christening and birthday packages follow the same three tiers; pick your occasion at checkout to see its price.</p>
             <div className="mt-8">
-              <Packages packages={weddingPackages.map((p) => ({ tier: p.tier, name: p.name, tagline: p.tagline, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds, linkValidityDays: p.linkValidityDays }))} addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, priceCents: a.priceCents, quoted: a.quoted }))} />
+              <Packages packages={weddingPackages.map((p) => ({ tier: p.tier, name: p.name, tagline: p.tagline, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds, linkValidityDays: p.linkValidityDays }))} addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))} />
             </div>
           </div>
         </section>

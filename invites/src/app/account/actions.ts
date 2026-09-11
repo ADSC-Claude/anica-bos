@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import type { Privacy } from '@prisma/client';
+import type { Occasion, Privacy } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
@@ -19,7 +19,9 @@ import { planReminders, sendReminders, planEmailReminders, sendEmailReminders } 
 import { eraseCustomer } from '@/lib/privacy';
 import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
-import { hasFeature } from '@/lib/tiers';
+import { entitled } from '@/lib/tiers';
+import { withTone, withOverride, withPicked, type MessageKind, type Tone } from '@/lib/messages';
+import { CAMPAIGN_KINDS } from '@/lib/campaigns';
 
 /**
  * Every customer action re-checks ownership through ownInvitation(); the id
@@ -321,7 +323,7 @@ export async function previewRemindersAction(invitationId: string, everyone: boo
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const plan = await planReminders(inv, { everyone });
     return {
       count: plan.send.length,
@@ -336,7 +338,7 @@ export async function sendRemindersAction(invitationId: string, everyone: boolea
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const outcome = await sendReminders(inv, { everyone });
     refresh(invitationId);
     return outcome;
@@ -354,7 +356,7 @@ export async function previewEmailRemindersAction(invitationId: string, everyone
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const plan = await planEmailReminders(inv, { everyone });
     return {
       count: plan.send.length,
@@ -368,7 +370,7 @@ export async function sendEmailRemindersAction(invitationId: string, everyone: b
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    if (!hasFeature(inv.tier, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
+    if (!entitled(inv, 'guests.manager')) throw new HttpError(403, 'Upgrade to send reminders.');
     const outcome = await sendEmailReminders(inv, { everyone });
     refresh(invitationId);
     return outcome;
@@ -463,5 +465,85 @@ export async function supportMessageAction(invitationId: string | null, fd: Form
     await prisma.supportMessage.create({ data: { userId: user.id, invitationId, body, channel: 'app' } });
     await notifyStaff('support.view', `Message from ${user.name}`, body.slice(0, 120), '/admin/support');
     revalidatePath('/account/support');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// What the guests are sent
+// ---------------------------------------------------------------------------
+
+/**
+ * These three are posted from plain forms on a server-rendered page, so they
+ * return nothing and send the reader back to the page rather than handing a
+ * result to a client component the way the builder's actions do. Same shape as
+ * the admin tables, for the same reason: there is nothing to show except the
+ * page with the change on it.
+ */
+async function messagesAction(invitationId: string, fn: (inv: { id: string; occasion: Occasion; guestMessages: unknown }) => Promise<void>): Promise<void> {
+  const user = await requireUser();
+  const inv = await ownInvitation(user, invitationId);
+  const back = `/account/invitations/${invitationId}/messages`;
+  try {
+    await fn(inv);
+  } catch (err) {
+    if (typeof (err as { digest?: string })?.digest === 'string') throw err;
+    const text = err instanceof HttpError ? err.message : 'Something went wrong.';
+    console.error('[messages action]', err);
+    refresh(invitationId);
+    redirect(`${back}?error=${encodeURIComponent(text)}`);
+  }
+  refresh(invitationId);
+  redirect(back);
+}
+
+/**
+ * The tone, and any line the couple rewrites.
+ *
+ * Both write the whole preferences object back rather than patching the column
+ * in place, because the merge rules — a line equal to the stock one is not an
+ * override, and changing tone keeps the rewrites — live in src/lib/messages.ts
+ * next to the words they are about.
+ */
+export async function setMessageToneAction(invitationId: string, tone: string): Promise<void> {
+  return messagesAction(invitationId, async (inv) => {
+    const picked: Tone = tone === 'formal' ? 'formal' : 'heartfelt';
+    await prisma.invitation.update({ where: { id: inv.id }, data: { guestMessages: withTone(inv.guestMessages, picked) } });
+  });
+}
+
+export async function saveMessageAction(invitationId: string, kind: MessageKind, fd: FormData): Promise<void> {
+  return messagesAction(invitationId, async (inv) => {
+    // A text is charged by the segment and an inbox is not, so only the text is
+    // capped — at roughly four segments, which is already more than anyone
+    // should send and well short of where Semaphore starts refusing.
+    const sms = String(fd.get('sms') ?? '').slice(0, 600);
+    const emailSubject = String(fd.get('emailSubject') ?? '').slice(0, 200);
+    const emailBody = String(fd.get('emailBody') ?? '').slice(0, 4000);
+    await prisma.invitation.update({
+      where: { id: inv.id },
+      data: { guestMessages: withOverride(inv.guestMessages, inv.occasion, kind, { sms, emailSubject, emailBody }) },
+    });
+  });
+}
+
+/** Puts one message back to the library's words for this occasion and tone. */
+export async function resetMessageAction(invitationId: string, kind: MessageKind): Promise<void> {
+  return messagesAction(invitationId, async (inv) => {
+    await prisma.invitation.update({
+      where: { id: inv.id },
+      data: { guestMessages: withOverride(inv.guestMessages, inv.occasion, kind, { sms: '', emailSubject: '', emailBody: '' }) },
+    });
+  });
+}
+
+/** Which of the scheduled messages go out, for a campaign that covers some. */
+export async function setPickedMessagesAction(invitationId: string, fd: FormData): Promise<void> {
+  return messagesAction(invitationId, async (inv) => {
+    const picked = fd.getAll('picked').map(String).filter((k): k is MessageKind =>
+      CAMPAIGN_KINDS.includes(k as MessageKind));
+    await prisma.invitation.update({
+      where: { id: inv.id },
+      data: { guestMessages: withPicked(inv.guestMessages, picked) },
+    });
   });
 }

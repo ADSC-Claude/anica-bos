@@ -2,6 +2,7 @@
 
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, designOf, blastRadius, type DesignDoc } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
+import { STAFF_BYLINE } from '@/lib/names';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -458,7 +459,7 @@ export async function supportReplyAction(userId: string, back: string, fd: FormD
     if (!body) throw new HttpError(400, 'Write a reply.');
     await prisma.supportMessage.create({ data: { userId, fromStaff: true, body, channel: 'app' } });
     await prisma.supportMessage.updateMany({ where: { userId, fromStaff: false, readAt: null }, data: { readAt: new Date() } });
-    await notify(userId, `Reply from ${user.name}`, body.slice(0, 120), '/account/support');
+    await notify(userId, `Reply from ${STAFF_BYLINE}`, body.slice(0, 120), '/account/support');
     return 'Reply sent.';
   });
 }
@@ -506,7 +507,7 @@ export async function savePackageAction(packageId: string, back: string, fd: For
 
 export async function saveAddOnAction(addOnId: string | null, back: string, fd: FormData) {
   return run('settings.edit', back, async (user) => {
-    const data = { code: s(fd, 'code').toUpperCase().replace(/[^A-Z0-9_]/g, ''), name: s(fd, 'name'), description: s(fd, 'description'), priceCents: toCents(s(fd, 'price')), quoted: b(fd, 'quoted'), active: b(fd, 'active'), sortOrder: n(fd, 'sortOrder') };
+    const data = { code: s(fd, 'code').toUpperCase().replace(/[^A-Z0-9_]/g, ''), name: s(fd, 'name'), description: s(fd, 'description'), imageUrl: s(fd, 'imageUrl'), priceCents: toCents(s(fd, 'price')), quoted: b(fd, 'quoted'), active: b(fd, 'active'), sortOrder: n(fd, 'sortOrder') };
     if (!data.code || !data.name) throw new HttpError(400, 'Code and name are required.');
     const saved = addOnId ? await prisma.addOn.update({ where: { id: addOnId }, data }) : await prisma.addOn.create({ data });
     await audit(user, { module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: saved.id, summary: saved.name, sensitive: true });

@@ -159,11 +159,22 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
   await prisma.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { status: 'ACTIVE', paidAt: order.paidAt ?? now, activatedAt: now } });
     if (order.invitationId) {
-      // the premium opening add-on, bought with this order, unlocks the design's clip
-      const premiumOpening = order.items.some((it) => it.kind === 'ADDON' && it.code === PREMIUM_OPENING_CODE);
+      // What was bought beside the package, copied onto the invitation: some of
+      // it decides what the invitation may do (see ADDON_FEATURE in
+      // src/lib/tiers.ts), and a gate should not have to walk back to an order
+      // to answer. Merged rather than replaced, because an upgrade is a second
+      // order against the same invitation and must not drop what the first
+      // one bought.
+      const bought = order.items.filter((it) => it.kind === 'ADDON').map((it) => it.code);
+      const already = order.invitation?.addOns ?? [];
+      const addOns = [...new Set([...already, ...bought])];
       await tx.invitation.update({
         where: { id: order.invitationId },
-        data: premiumOpening ? { premiumOpening: true } : {},
+        data: {
+          addOns,
+          // the premium opening add-on, bought with this order, unlocks the design's clip
+          ...(bought.includes(PREMIUM_OPENING_CODE) ? { premiumOpening: true } : {}),
+        },
       });
     }
     if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {
@@ -174,11 +185,14 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
       const bought = (code: string) => order.items.some((it) => it.kind === 'ADDON' && it.code === code);
       const priority = bought(PRIORITY_CODE);
       const rush = bought(RUSH_CODE);
-      const days = priority
-        ? s['concierge.turnaroundDays']
-        : rush
-          ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
-          : s['dfy.turnaroundDays'];
+      // Rush is read first, not priority. Both may now be on one order — they
+      // are offered to every package — and the promise we keep has to be the
+      // tighter of the two, not whichever the code happened to test first.
+      const days = rush
+        ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
+        : priority
+          ? s['concierge.turnaroundDaysMax']
+          : s['dfy.turnaroundDaysMax'];
       await tx.dfyJob.create({
         data: {
           orderId,

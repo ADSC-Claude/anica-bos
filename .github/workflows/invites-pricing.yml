@@ -1,0 +1,144 @@
+#
+# Applies the agreed price grid to the live invitations database.
+#
+# Like the design sync and unlike the seed, this deletes nothing. It writes the
+# grid in invites/scripts/set-pricing.ts — the base price, fees and revision
+# rounds on every package — and the add-on catalogue in
+# invites/src/lib/addon-catalogue.ts, creating rows that do not exist yet and
+# withdrawing the ones listed as retired. A row the catalogue has no opinion
+# about is left exactly as the admin set it.
+#
+# Orders already placed are unaffected: an order snapshots its own subtotal,
+# fees and line items at checkout, so nothing downstream re-reads a package or
+# an add-on to price a sale that already happened. Every write is recorded in
+# the audit log as `sensitive`, the same as a price changed by hand in admin.
+#
+# That is why it needs no confirmation phrase: the worst it can do is put a
+# wrong price on the live catalogue, and the fix is to correct the grid and run
+# it again. It still defaults to a dry run, because the thing it writes is
+# money and reading the diff first costs nothing.
+#
+# Setup, once: Settings → Secrets and variables → Actions → New repository secret
+#   INVITES_DIRECT_URL   Supabase → Connect → Session pooler (port 5432)
+#
+# Not DIRECT_URL: that secret belongs to the spa and points at a different
+# database.
+#
+name: Apply the invitation pricing
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List the changes without writing them.'
+        required: false
+        default: true
+        type: boolean
+      schema:
+        description: 'Which schema to write to.'
+        required: true
+        default: invites
+        type: string
+
+concurrency:
+  group: invites-pricing
+  cancel-in-progress: false
+
+jobs:
+  pricing:
+    name: Apply pricing
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: invites
+
+    env:
+      DATABASE_SCHEMA: ${{ inputs.schema }}
+      DATABASE_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.INVITES_DIRECT_URL }}
+
+    steps:
+      # Before actions/checkout, so it runs at the workspace root — `invites`
+      # does not exist yet, and a step inheriting the job's working-directory
+      # cannot start there at all.
+      - name: Refuse a schema that is not ours
+        if: inputs.schema == 'public' || inputs.schema == ''
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "::error::Refusing to write to '$DATABASE_SCHEMA'."
+          echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
+          exit 1
+
+      - name: Check the secret is present
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::The INVITES_DIRECT_URL repository secret is not set."
+            echo "Add it under Settings → Secrets and variables → Actions,"
+            echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+
+      # Prisma reports a refused password, a TLS mismatch and a pooler hangup
+      # all as P1001, "can't reach database server", which reads as a network
+      # fault and usually is not one. psql prints what the server actually said.
+      - name: Ask Postgres what is actually wrong
+        working-directory: ${{ github.workspace }}
+        run: |
+          if ! command -v psql >/dev/null; then
+            echo "psql not on this runner; skipping"
+            exit 0
+          fi
+          if out=$(PGCONNECT_TIMEOUT=15 psql "$DIRECT_URL" -tAc 'select current_user' 2>&1); then
+            echo "connected as $out"
+          else
+            printf '%s\n' "$out" | head -4
+            if printf '%s' "$out" | grep -q 'password authentication failed'; then
+              echo "::error::The password in INVITES_DIRECT_URL is wrong. The pooler found the"
+              echo "right database and refused the password. Supabase → Settings → Database →"
+              echo "Reset database password, then paste the whole Session pooler URI into the"
+              echo "secret — the Connect dialog hands it to you with [YOUR-PASSWORD] still in it."
+              exit 1
+            fi
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: invites/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      # Through scripts/migrate.mjs, which knows about DATABASE_SCHEMA. The
+      # bare CLI does not, and would migrate into `public`. The grid may name
+      # columns the live database does not have yet — revisionRounds and the
+      # add-on `quoted` flag both arrived this way.
+      - name: Apply migrations
+        run: npm run db:deploy
+
+      - name: Apply the pricing
+        run: npm run db:pricing ${{ inputs.dry_run && '-- --dry' || '' }}
+
+      - name: Say what landed
+        run: |
+          {
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "### Dry run against \`$DATABASE_SCHEMA\`"
+              echo
+              echo "Nothing was written. The step above lists every row that would change."
+              echo "Re-run with **dry_run** unticked to apply it."
+            else
+              echo "### Pricing applied to \`$DATABASE_SCHEMA\`"
+              echo
+              echo "See the step above for what changed. Every write is in the audit log."
+              echo "- Packages and add-ons: \`/admin/settings/pricing\`"
+              echo "- What customers see: \`/\` and \`/checkout\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

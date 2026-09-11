@@ -215,19 +215,19 @@ async function main() {
     changed++;
   }
 
-  for (const code of RETIRED_ADDONS) {
+  for (const { code, reason } of RETIRED_ADDONS) {
     const a = await prisma.addOn.findUnique({ where: { code } });
     if (!a) continue;
     if (!a.active) {
       console.info(`  ${code.padEnd(22)} already withdrawn`);
       continue;
     }
-    console.info(`  ${code.padEnd(22)} withdrawn (the design is settled at publish)`);
+    console.info(`  ${code.padEnd(22)} withdrawn (${reason})`);
     if (!dry) {
       await prisma.addOn.update({ where: { id: a.id }, data: { active: false } });
       await audit(null, {
         module: 'settings', action: 'addon.save', entityType: 'AddOn', entityId: a.id,
-        summary: `${code} withdrawn (set-pricing)`, before: { active: true }, after: { active: false }, sensitive: true,
+        summary: `${code} withdrawn — ${reason} (set-pricing)`, before: { active: true }, after: { active: false }, sensitive: true,
       });
     }
     changed++;

@@ -126,10 +126,24 @@ test('the à la carte prices are the ones agreed', () => {
   assert.equal(price('SAVE_THE_DATE'), 500);
 });
 
+test('a withdrawn add-on says why it went, in its own words', () => {
+  // The reason reaches an operator's log and the audit entry, which is the only
+  // lasting record of why a row customers could buy last week is gone this
+  // week. One sentence used to be hardcoded for all of them, so withdrawing the
+  // SMS pack announced that "the design is settled at publish".
+  const reasons = new Set<string>();
+  for (const { code, reason } of RETIRED_ADDONS) {
+    assert.ok(reason.trim(), `${code} is withdrawn without saying why`);
+    assert.equal(reason, reason.trim().replace(/\.$/, ''), `${code}: the reason is printed inside brackets, so no trailing stop`);
+    reasons.add(reason);
+  }
+  assert.equal(reasons.size, RETIRED_ADDONS.length, 'two add-ons share a reason — one of them is probably wrong');
+});
+
 test('the catalogue has no duplicate codes, and nothing both sold and retired', () => {
   const codes = ADDONS.map((a) => a.code);
   assert.equal(new Set(codes).size, codes.length, 'a duplicate code would have one row overwrite the other');
-  for (const code of RETIRED_ADDONS) {
+  for (const { code } of RETIRED_ADDONS) {
     assert.equal(codes.includes(code), false, `${code} is retired and priced at the same time`);
   }
   // Every add-on that grants a feature is a row somebody can actually buy.

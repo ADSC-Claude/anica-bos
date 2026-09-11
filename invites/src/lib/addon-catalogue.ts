@@ -18,12 +18,18 @@
  * Withdrawn, and deactivated rather than deleted so an order that bought one
  * keeps its line item.
  *
- * Nothing about a published invitation is the customer's to switch, so the
- * template-switch add-on has nothing to sell. The SMS credit pack went when
- * the reminder campaigns below replaced it: it was one "ask us" row standing
- * in for a service with no shape, and the bands give it one.
+ * Each carries its own reason, because they were withdrawn for different ones
+ * and the run that withdraws them says so out loud — in the log an operator
+ * reads, and in the audit entry that is the only lasting record of why a row
+ * customers could buy last week is gone this week. A single hardcoded sentence
+ * stood here before and told everybody the SMS pack went because "the design
+ * is settled at publish", which is true of the template switch and nonsense
+ * about a credit pack.
  */
-export const RETIRED_ADDONS = ['TEMPLATE_SWITCH', 'SMS_PACK'];
+export const RETIRED_ADDONS: { code: string; reason: string }[] = [
+  { code: 'TEMPLATE_SWITCH', reason: 'the design is settled at publish' },
+  { code: 'SMS_PACK', reason: 'the reminder bands replaced it' },
+];
 
 export type AddOnSpec = {
   code: string;

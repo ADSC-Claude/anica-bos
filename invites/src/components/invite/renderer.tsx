@@ -14,9 +14,8 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, BABYBLUE_PAGES, CAPIZ_PAGES, documentOf, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
 import { DrawnPage } from './drawn';
-import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '@/lib/babyblue';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
@@ -1038,65 +1037,6 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
 
 type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[]; strand: string };
 
-/**
- * The Baby Blue story: six milestones on the designer's drawn timeline. The
- * photographs go into the frames drawn on the ground; the words are set live
- * where the designer set hers, so staff and the client can name each moment.
- */
-function StoryMilestones({ data, title, tagline }: { data: SectionData; title: string; tagline?: string }) {
-  const timeline = rows<{ title: string; text: string; photo: string }>(data, 'timeline');
-  return (
-    <section id="story" className="inv-section inv-bb-art inv-bb-story">
-      <header className="inv-bb-head" style={{ top: `${STORY_HEAD.titleTop}%` }}>
-        <h2 className="inv-title">{title}</h2>
-        {tagline && <p className="inv-bb-sub">{tagline}</p>}
-      </header>
-      {STORY_SLOTS.map((slot, i) => {
-        const m = timeline[i];
-        if (!m) return null;
-        return (
-          <Fragment key={i}>
-            {m.photo && (
-              <figure className="inv-bb-slot" style={slotStyle(slot)}>
-                <img src={imageUrl(m.photo, IMAGE.grid)} alt="" loading="lazy" />
-              </figure>
-            )}
-            {(m.title || m.text) && (
-              <div className="inv-bb-label" style={labelStyle(STORY_LABELS[i])}>
-                {m.title && <p className="t">{m.title}</p>}
-                {m.text && <p className="x">{m.text}</p>}
-              </div>
-            )}
-          </Fragment>
-        );
-      })}
-    </section>
-  );
-}
-
-/** The Baby Blue photo page: the first four photographs in the frames drawn on the ground. */
-function BabyPhotos({ photos, eyebrow, title, tagline }: { photos: { url: string; caption: string }[]; eyebrow?: string; title: string; tagline?: string }) {
-  return (
-    <section id="baby-photos" className="inv-section inv-bb-art inv-bb-photos">
-      <header className="inv-bb-head" style={{ top: `${PHOTO_HEAD.eyebrowTop}%` }}>
-        {eyebrow && <p className="inv-bb-eyebrow">{eyebrow}</p>}
-        <h2 className="inv-bb-script">{title}</h2>
-        {tagline && <p className="inv-bb-sub">{tagline}</p>}
-      </header>
-      {PHOTO_SLOTS.map((slot, i) =>
-        photos[i] ? (
-          <Fragment key={i}>
-            <figure className="inv-bb-slot" style={slotStyle(slot)}>
-              <img src={imageUrl(photos[i].url, IMAGE.grid)} alt={photos[i].caption || ''} loading="lazy" />
-            </figure>
-            {/* the client's word for the photo, written on the polaroid's strip in the design's script */}
-            {photos[i].caption && <p className="inv-bb-caption" style={captionStyle(slot)}>{photos[i].caption}</p>}
-          </Fragment>
-        ) : null,
-      )}
-    </section>
-  );
-}
 
 function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat }) {
   const limit = galleryLimit(tier);
@@ -1659,12 +1599,20 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const capiz = layout === 'capiz';
   const babyblue = layout === 'babyblue';
   /**
-   * The design's document, when its column carries one. An empty column —
-   * every design today, Capiz and Baby Blue included — means the constants
-   * below, walked exactly as they always have been. Only a design the studio
-   * wrote takes the document path, which is what makes a copy safe to make.
+   * The design's document. Its own column when it carries one — a design the
+   * studio has published — and otherwise the layout's built-in, compiled from
+   * the same numbers the pages were drawn to.
+   *
+   * So there is one path now, and every paged design is on it. Baby Blue and
+   * Capiz took the constants path until this commit; they were moved onto
+   * this one only after the two were rendered side by side and measured, and
+   * every element on every page of both designs landed within 0.07 px of
+   * where it had been, at two column widths, by day and by night. The path
+   * they are on now is the path a publish from the studio would have put
+   * them on anyway; this is that step taken deliberately, with the
+   * measurement, rather than the first time somebody presses Publish.
    */
-  const doc = documentOf(inv.template);
+  const doc = documentOf(inv.template) ?? builtinDesign(layout);
   // A page with a ground of its own hands it to PageGround under the page's
   // key; the ground for a page the map does not name goes under a key no
   // page can have (page keys carry no underscore).
@@ -1897,8 +1845,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     );
     if (doc) {
       // The document's own page list. A drawn page is its elements; every
-      // other page is the sections it names, exactly as the constant maps
-      // below. The clip that no frame can hold rides on 'gallery-video'.
+      // other page is the sections it names. The clip that no frame can hold
+      // rides on 'gallery-video'.
       for (const spec of doc.pages) {
         // A drawn page that names sections comes and goes with them, the way
         // the photographs page goes when a package has no gallery. One that
@@ -1911,16 +1859,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
         if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));
       }
-    } else {
-      for (const def of babyblue ? BABYBLUE_PAGES : CAPIZ_PAGES) {
-        const parts = def.sections.map((k) => drawn.get(k)).filter(Boolean) as ReactNode[];
-        def.sections.forEach((k) => placed.add(k));
-        if (parts.length) out.push(page(def.key, parts, { bg: def.bg, seam: def.seam, drawn: def.drawn }));
-        if (def.key === 'baby-photos' && parts.length && babyMore) out.push(page('baby-photos-more', [babyMore], { bg: 'venue' }));
-      }
     }
-    // a section the map does not name gets a page of its own, in its place
-    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc ? (doc.overflowGround ? OVERFLOW_BG : undefined) : babyblue ? 'venue' : undefined }));
+    // a section the document does not name gets a page of its own, in its place
+    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
     if (peek) {
       // the ground, then the pages up to the one the design ends the peek on
       const ground = out.slice(0, 2);
@@ -1994,7 +1935,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'rsvp':
         return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} />;
       case 'story':
-        if (babyblue) return <StoryMilestones key={key} data={data} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} />;
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery': {
         if (!(rows<{ url: string }>(data, 'photos').some((r) => r.url) || str(data, 'videoUrl'))) return null;
@@ -2002,14 +1942,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // the couple's own lines where they typed them, the look's where not
         const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, inv.occasion === 'WEDDING' ? 'gallery.watchPrenup' : 'gallery.video'), sides, strand: art.strand } : undefined;
         if (babyblue) {
-          const limit = galleryLimit(inv.tier);
-          const all = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
           const video = hasFeature(inv.tier, 'video') ? str(data, 'videoUrl') : '';
           // The drawn page holds four frames and that is the page: the form
           // stops at four for this design. A video, which no frame can hold,
-          // gets a page of its own after it.
+          // gets a page of its own after it, which the document names
+          // 'gallery-video'.
           babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} /> : null;
-          return <BabyPhotos key={key} photos={all.slice(0, PHOTO_SLOTS.length)} eyebrow={lang === 'tl' ? '' : 'Share'} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'line') || line('gallery')} />;
         }
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
       }

@@ -216,6 +216,10 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               { href: `/account/invitations/${inv.id}/rsvps`, label: 'RSVP responses', show: !saveTheDate },
               { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: !saveTheDate && featureOffered('guests.manager'), locked: !entitled(inv, 'guests.manager') },
               { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: !saveTheDate && featureOffered('checkin'), locked: !entitled(inv, 'checkin') },
+              // Open to every package: the words are the couple's whatever they
+              // bought, and reading them is how a couple decides the reminders
+              // are worth paying for.
+              { href: `/account/invitations/${inv.id}/messages`, label: 'Messages to your guests', show: !saveTheDate },
               { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: !saveTheDate, locked: !hasFeature(inv.tier, 'guestbook') },
               { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: !saveTheDate, locked: !hasFeature(inv.tier, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },

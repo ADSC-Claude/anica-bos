@@ -457,6 +457,16 @@ model Invitation {
   /// not mean editing what they were billed.
   addOns          String[] @default([])
 
+  /// What this couple's guests are sent, and how it is worded: the tone they
+  /// picked, and any message they rewrote. Only what differs from the library
+  /// in src/lib/messages.ts is stored, so improving a stock line improves it
+  /// for everyone who never touched it.
+  ///
+  /// Not `messages`: that is already the support thread with this invitation's
+  /// owner, and two things called messages on one row is how you end up
+  /// e-mailing a guest a reply meant for staff.
+  guestMessages   Json     @default("{}")
+
   user          User        @relation(fields: [userId], references: [id])
   template      Template    @relation(fields: [templateId], references: [id])
   order         Order?

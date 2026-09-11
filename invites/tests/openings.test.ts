@@ -15,9 +15,19 @@ import { withWords } from '../src/lib/design';
 import { LOOK_BY_KEY } from '../src/lib/looks';
 import { STORY_SLOTS, PHOTO_SLOTS } from '../src/lib/babyblue';
 import { tierAtLeast } from '../src/lib/tiers';
-import { PREMIUM_OPENINGS, premiumOpeningsFor, premiumOpeningOf, premiumOpeningAllowed, hasPremiumClip } from '../src/lib/premium-openings';
+import { PREMIUM_OPENINGS, premiumOpeningsFor, premiumOpeningOf, premiumOpeningAllowed, hasPremiumClip, OWN_OPENING_KEY } from '../src/lib/premium-openings';
 import { existsSync } from 'node:fs';
 import { PALETTE_PRESETS } from '../src/lib/theme';
+
+/**
+ * A seeded design as the catalogue sees it. The two opening columns are
+ * blank, which is the real state of a seed row — they are filled in the
+ * admin, for a design drawn in the studio — so nothing here can be a
+ * design's own synthetic opening.
+ */
+const asDesign = (t: (typeof TEMPLATES)[number]) => ({
+  slug: t.slug, collection: t.collection ?? '', name: t.name, openingVideoUrl: '', openingPosterUrl: '',
+});
 
 test('the opening catalogue is complete and every key is declared', () => {
   assert.equal(OPENINGS.length, OPENING_KEYS.length);
@@ -143,7 +153,7 @@ test('Capiz is the Filipiniana flagship and its opening is one it can reach', ()
   assert.equal(capiz.opening, 'universal');
   assert.equal(capiz.premium, false);
   assert.equal(capiz.minTier, 'STANDARD');
-  assert.ok(hasPremiumClip({ slug: capiz.slug, collection: capiz.collection ?? '' }), 'Capiz has a premium opening clip to add on');
+  assert.ok(hasPremiumClip(asDesign(capiz)), 'Capiz has a premium opening clip to add on');
   assert.equal(capiz.thumb, '/covers/capiz.jpg', 'the gallery shows its cover, not the clip');
   const filipiniana = TEMPLATES.filter((t) => t.collection === 'filipiniana');
   assert.ok(filipiniana.length >= 1);
@@ -356,7 +366,7 @@ test('a christening tells its story in six milestones, the design’s own to sta
 test('a design is offered its own theme’s premium openings and no other’s', () => {
   const capiz = TEMPLATES.find((t) => t.slug === 'capiz')!;
   const babyBlue = TEMPLATES.find((t) => t.slug === 'baby-blue')!;
-  const design = (t: (typeof TEMPLATES)[number]) => ({ slug: t.slug, collection: t.collection ?? '' });
+  const design = asDesign;
 
   const forCapiz = premiumOpeningsFor(design(capiz));
   const forBabyBlue = premiumOpeningsFor(design(babyBlue));
@@ -386,14 +396,14 @@ test('every premium opening names a design, carries both files, and is unique', 
     }
     // Somebody has to be offered it, or it is artwork nobody can buy.
     assert.ok(clip.designs.length || clip.collections?.length, `${clip.key} names a design`);
-    const reachable = TEMPLATES.some((t) => premiumOpeningsFor({ slug: t.slug, collection: t.collection ?? '' }).includes(clip));
+    const reachable = TEMPLATES.some((t) => premiumOpeningsFor(asDesign(t)).includes(clip));
     assert.ok(reachable, `${clip.key} reaches a design in the catalogue`);
   }
 });
 
 test('a chosen opening that no longer fits the design falls back to the design’s own', () => {
-  const babyBlue = { slug: 'baby-blue', collection: 'babyblue' };
-  const capiz = { slug: 'capiz', collection: 'filipiniana' };
+  const babyBlue = { slug: 'baby-blue', collection: 'babyblue', name: 'Baby Blue', openingVideoUrl: '', openingPosterUrl: '' };
+  const capiz = { slug: 'capiz', collection: 'filipiniana', name: 'Capiz', openingVideoUrl: '', openingPosterUrl: '' };
   // Chosen and still theirs.
   assert.equal(premiumOpeningOf(babyBlue, 'baby-blue-bow')?.key, 'baby-blue-bow');
   // Chosen, then the couple switched design: they get their new design's clip,
@@ -402,7 +412,7 @@ test('a chosen opening that no longer fits the design falls back to the design�
   // Nothing chosen yet.
   assert.equal(premiumOpeningOf(babyBlue, '')?.key, 'baby-blue-bow');
   // A design with no clips has none to fall back to.
-  assert.equal(premiumOpeningOf({ slug: 'plain', collection: '' }, 'capiz'), null);
+  assert.equal(premiumOpeningOf({ slug: 'plain', collection: '', name: 'Plain', openingVideoUrl: '', openingPosterUrl: '' }, 'capiz'), null);
   // What may be stored: the design's own, or blank for "the design's first".
   assert.equal(premiumOpeningAllowed(babyBlue, 'baby-blue-bow'), true);
   assert.equal(premiumOpeningAllowed(babyBlue, ''), true);
@@ -494,4 +504,53 @@ test('a design names the demo a visitor may peek at, and the row carries it', ()
   assert.equal(row('capiz').demoSlug, 'juan-and-maria');
   // a design with no demo has no peek
   assert.equal(templateData(PLAIN, 0).demoSlug, '');
+});
+
+// --- a design's own opening ----------------------------------------------
+
+/**
+ * The whole point of the studio is a design somebody draws without a
+ * developer. A clip she uploads for its opening has always *played* — the
+ * renderer has fallen back to these two columns since before the catalogue
+ * existed — but with nothing in the catalogue the add-on could not be
+ * bought, the customer's picker was empty and the admin's "which opening"
+ * never appeared. It worked and could not be sold, which is the wrong way
+ * round.
+ */
+const own = { slug: 'her-design', collection: '', name: 'Sampaguita', openingVideoUrl: '/u/d/clip.mp4', openingPosterUrl: '/u/d/clip-poster.webp' };
+
+test('a design with its own clip and no catalogue entry can sell an opening', () => {
+  const offered = premiumOpeningsFor(own);
+  assert.equal(offered.length, 1);
+  assert.equal(offered[0].key, OWN_OPENING_KEY);
+  assert.equal(offered[0].video, own.openingVideoUrl);
+  assert.equal(offered[0].poster, own.openingPosterUrl);
+  assert.match(offered[0].name, /Sampaguita/, 'it is named after the design, not "own"');
+  assert.equal(hasPremiumClip(own), true);
+  assert.equal(premiumOpeningOf(own, '')?.key, OWN_OPENING_KEY, 'nothing chosen yet still plays it');
+  assert.equal(premiumOpeningAllowed(own, OWN_OPENING_KEY), true);
+});
+
+test('a design’s own clip never carries the couple’s names', () => {
+  // Whether the artwork leaves a card blank for them is a fact only the
+  // person who drew it knows, and names set over a clip that has its own is
+  // worse than no names at all.
+  assert.equal(premiumOpeningsFor(own)[0].words, false);
+});
+
+test('one column without the other sells nothing', () => {
+  // The poster is the whole closed screen until the guest taps.
+  assert.deepEqual(premiumOpeningsFor({ ...own, openingPosterUrl: '' }), []);
+  assert.deepEqual(premiumOpeningsFor({ ...own, openingVideoUrl: '' }), []);
+  assert.equal(hasPremiumClip({ ...own, openingVideoUrl: '' }), false);
+});
+
+test('a catalogue clip wins over a design’s own columns', () => {
+  // Baby Blue with a clip pasted into its columns still sells the bow: a
+  // catalogue entry is somebody's deliberate artwork with a real blurb and
+  // names set on its card, and the columns are the fallback for a design
+  // that has none.
+  const babyBlueWithOwn = { slug: 'baby-blue', collection: 'babyblue', name: 'Baby Blue', openingVideoUrl: '/u/d/x.mp4', openingPosterUrl: '/u/d/x.webp' };
+  assert.deepEqual(premiumOpeningsFor(babyBlueWithOwn).map((o) => o.key), ['baby-blue-bow']);
+  assert.equal(premiumOpeningAllowed(babyBlueWithOwn, OWN_OPENING_KEY), false);
 });

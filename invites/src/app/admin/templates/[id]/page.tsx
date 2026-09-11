@@ -8,6 +8,7 @@ import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme
 import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
+import { OpeningUpload } from './opening-upload';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, isPaged } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
@@ -79,8 +80,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <Checkbox label={`${TIER_LABELS.COMPLETE} and up (kept out of Basic and Standard)`} name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
           <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="The cover page, portrait (9:16), shown in the gallery and the checkout. Leave blank to show the palette." />
-          <Field label="Premium opening clip URL" name="openingVideoUrl" defaultValue={t?.openingVideoUrl} hint="Portrait MP4 or WebM, muted, a few seconds. Played for customers who bought the premium opening add-on with this design; it overrides the opening chosen above." />
-          <Field label="Premium opening poster URL" name="openingPosterUrl" defaultValue={t?.openingPosterUrl} hint="The clip's first frame. It is the whole closed screen until the guest taps, so this one must always be set alongside the clip." />
+          <OpeningUpload templateId={tid} video={t?.openingVideoUrl ?? ''} poster={t?.openingPosterUrl ?? ''} />
           <div className="grid grid-cols-3 gap-2">
             <Field label="Sort order" name="sortOrder" type="number" defaultValue={t?.sortOrder ?? 0} />
             <div className="pt-6"><Checkbox label="Featured" name="featured" defaultChecked={t?.featured} /></div>

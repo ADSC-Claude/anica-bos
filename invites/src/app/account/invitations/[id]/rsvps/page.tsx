@@ -123,6 +123,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
                   invitationId={inv.id}
                   hosts={hosts}
                   link={invitationUrl(inv.slug, r.guest?.token)}
+                  canEmail={confirms}
                   reply={{
                     id: r.id,
                     guestName: r.guest?.salutation || r.guest?.name || r.name,

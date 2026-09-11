@@ -9,6 +9,8 @@ import { designForm, askedFields, askedLimits, designMedia } from '@/lib/asks';
 import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
+import { prisma } from '@/lib/db';
+import { invitationPath } from '@/lib/app-url';
 import { setsFor } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { changeWindow, doneSections } from '@/lib/progress';
@@ -58,6 +60,18 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   // Nothing disappears without being said first: a part left empty is allowed,
   // and the form tells the customer what an empty one means for their page.
   const hidesWhenEmpty = !sectionAlwaysShows(current);
+  /*
+   * The check-in pass is not on the invitation, so the phone beside the form
+   * would otherwise show a page that none of these fields touch. One guest's
+   * own pass stands in — the owner is looking at their own guest list, and the
+   * pass page is behind the same door as the invitation. No guests yet means
+   * nothing to stand in, and the invitation preview is what is left.
+   */
+  const sample = current === 'checkin'
+    ? await prisma.guest.findFirst({ where: { invitationId: inv.id }, orderBy: { createdAt: 'asc' }, select: { token: true } })
+    : null;
+  const previewPath = sample ? `${invitationPath(inv.slug, sample.token)}/pass` : undefined;
+
   const w = changeWindow(inv.eventAt);
   const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
 
@@ -73,7 +87,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={sets.length} tier={inv.tier} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} previewPath={previewPath} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={sets.length} tier={inv.tier} />
     </>
   );
 }

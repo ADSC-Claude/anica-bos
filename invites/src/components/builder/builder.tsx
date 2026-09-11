@@ -34,6 +34,7 @@ export function Builder({
   completedAt,
   window,
   hidesWhenEmpty = false,
+  previewPath,
 }: {
   invitationId: string;
   /** The sections the couple has marked Done, when the form was completed, and when changes close. */
@@ -42,6 +43,8 @@ export function Builder({
   window: { closesAt: string; finalAt: string; closed: boolean } | null;
   /** True where leaving this section empty means the part simply does not appear on the invitation. */
   hidesWhenEmpty?: boolean;
+  /** What the phone beside the form shows, when it is not the invitation. */
+  previewPath?: string;
   slug: string;
   status: string;
   /** The look the page is set in ('' for the design's own) and the looks to choose from. */
@@ -64,6 +67,13 @@ export function Builder({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [previewKey, setPreviewKey] = useState(0);
+  /*
+   * The phone shows the invitation, except where the part being filled in is
+   * not on the invitation. Arranging how the check-in pass looks beside a
+   * preview of something else is the same mistake as keeping its controls in
+   * RSVP: the thing being changed has to be the thing on screen.
+   */
+  const previewSrc = previewPath ?? `${invitationPath(slug)}?preview=1`;
   const [device, setDevice] = useState<'phone' | 'desktop'>('phone');
   const [pending, start] = useTransition();
   const [done, setDone] = useState<SectionKey[]>(doneInitial);
@@ -234,14 +244,14 @@ export function Builder({
         </div>
         {device === 'phone' ? (
           <div className="phone mx-auto">
-            <iframe key={previewKey} src={`${invitationPath(slug)}?preview=1`} title="Preview" />
+            <iframe key={previewKey} src={previewSrc} title="Preview" />
           </div>
         ) : (
           <div className="aspect-[4/5] w-full overflow-hidden rounded-xl border border-[color:var(--color-sand-200)] bg-white">
-            <iframe key={previewKey} src={`${invitationPath(slug)}?preview=1`} title="Preview" className="h-full w-full border-0" />
+            <iframe key={previewKey} src={previewSrc} title="Preview" className="h-full w-full border-0" />
           </div>
         )}
-        <p className="mt-2 text-center text-xs text-[color:var(--color-ink-500)]"><a href={`${invitationPath(slug)}?preview=1`} target="_blank" rel="noopener" className="underline">Open preview in a new tab</a></p>
+        <p className="mt-2 text-center text-xs text-[color:var(--color-ink-500)]"><a href={previewSrc} target="_blank" rel="noopener" className="underline">Open preview in a new tab</a></p>
       </aside>
     </div>
   );

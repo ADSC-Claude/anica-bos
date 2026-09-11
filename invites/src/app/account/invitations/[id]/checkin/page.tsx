@@ -20,8 +20,8 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
-      <PageHeader title="Event-day check-in" subtitle="Scan a guest's QR with any camera app, paste the link here, or search by name — a companion's name finds their party too. A scan counts the whole party in; if some of them did not come, correct the number beside them." />
-      <CheckInDesk invitationId={inv.id} guests={guests.map((g) => ({ id: g.id, name: g.name, groupName: g.groupName, seats: seatsHeld(g.seatsAllotted, g.rsvps[0]), state: replyState(g.rsvps[0]), table: g.table?.name ?? '', checkedIn: Boolean(g.checkedInAt), arrived: g.arrivedCount, companions: g.rsvps[0] ? companionsOf(g.rsvps[0].attendees).map((a) => attendeeLine(a)) : [], token: g.token }))} />
+      <PageHeader title="Event-day check-in" subtitle="Scan a guest's QR with any camera app, paste the link here, or search by name — a companion's name finds their party too. You see who they are before you let them in, and a check-in counts the whole party; if some of them did not come, correct the number afterwards." />
+      <CheckInDesk invitationId={inv.id} guests={guests.map((g) => ({ id: g.id, name: g.name, groupName: g.groupName, seats: seatsHeld(g.seatsAllotted, g.rsvps[0]), state: replyState(g.rsvps[0]), table: g.table?.name ?? '', checkedIn: Boolean(g.checkedInAt), arrived: g.arrivedCount, companions: g.rsvps[0] ? companionsOf(g.rsvps[0].attendees).map((a) => attendeeLine(a)) : [], meal: g.rsvps[0]?.mealChoice ?? '', dietary: g.rsvps[0]?.dietary ?? '', token: g.token }))} />
     </>
   );
 }

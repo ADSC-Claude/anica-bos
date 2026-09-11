@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, sectionDress,
+  flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -809,6 +810,89 @@ test('the join and the room at the foot survive a read-back', () => {
   // and nonsense is refused rather than carried
   const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], footPad: 40 }] }, 'capiz');
   assert.deepEqual(bad.dropped, ['page 1 (a)'], 'a foot of forty times the usual is not a page');
+});
+
+// --- the colours a design gives itself ------------------------------------
+
+/**
+ * The column's colour, the colour beside it and the whole of the night were
+ * literals in globals.css keyed by the layout's name, so a design drawn in
+ * the studio wore whatever its layout happened to be and had no way to say
+ * otherwise. They are the document's now, and every one of them falls back
+ * in the stylesheet to what it always was.
+ */
+test('a design with no colours of its own sets no variables at all', () => {
+  assert.deepEqual(designVars(null), {});
+  assert.deepEqual(designVars({ v: 1, pages: [] }), {}, 'so the stylesheet answers exactly as it did');
+});
+
+test('the column and the colour beside it are the design’s', () => {
+  assert.deepEqual(designVars({ v: 1, pages: [], paper: '#f0dccb', surround: '#e9dfd2' }), {
+    '--inv-paper': '#f0dccb',
+    '--inv-surround': '#e9dfd2',
+  });
+  // a role rather than a colour follows the palette, as it does everywhere else
+  assert.equal(designVars({ v: 1, pages: [], paper: 'surface' })['--inv-paper'], 'var(--inv-surface)');
+});
+
+test('the two shipped designs carry the four colours the stylesheet used to', () => {
+  const bb = builtinDesign('babyblue')!;
+  const cap = builtinDesign('capiz')!;
+  assert.equal(bb.paper, '#eef3f9');
+  assert.equal(bb.surround, '#e4ecf5');
+  assert.equal(cap.paper, '#f0dccb');
+  assert.equal(cap.surround, '#e9dfd2');
+  // and the stylesheet no longer carries them, so there is one answer and not two
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  for (const literal of ['#eef3f9', '#f0dccb']) {
+    assert.ok(!css.includes(`background: ${literal}`), `${literal} is the design's now, not the stylesheet's`);
+  }
+  /*
+   * And the variable is read at both places a column colour is painted. This
+   * is not a formality: the two layout literals were hiding a third rule,
+   * `.inv[data-paged] { background-color: #f2e8dc }`, which reaches further
+   * than `.inv` does — so taking the literals out turned both designs that
+   * colour until the variable was read there too. The browser found it; this
+   * keeps it found.
+   */
+  assert.ok(css.includes('background: var(--inv-paper, var(--inv-bg))'), 'the column reads the design’s paper');
+  assert.ok(css.includes('background-color: var(--inv-paper, #f2e8dc)'), 'and so does the paged rule, which reaches further');
+  assert.ok(css.includes('background: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
+});
+
+test('a design’s night is a set of overrides, one variable each', () => {
+  assert.deepEqual(designVars({ v: 1, pages: [], nightColours: { ink: '#ffe9c9' } }), { '--night-ink': '#ffe9c9' });
+  const all = designVars({
+    v: 1,
+    pages: [],
+    nightColours: { ink: '#a', muted: '#b', surface: '#c', accent: '#d', accent2: '#e', paper: '#f', surround: '#g' },
+  });
+  assert.deepEqual(Object.keys(all).sort(), [
+    '--night-accent', '--night-accent2', '--night-ink', '--night-muted', '--night-paper', '--night-surface', '--night-surround',
+  ]);
+});
+
+/**
+ * The app's own night is written twice — here, where the checklist reads the
+ * ink and the studio shows her what she is changing, and in the stylesheet,
+ * where it is the fallback of every one of those variables. Two copies of a
+ * colour is one too many, so this is the test that keeps them in step: it
+ * reads the stylesheet.
+ */
+test('the app’s own night is the stylesheet’s fallback, colour for colour', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const want: Record<string, string> = {
+    '--night-ink': APP_NIGHT.ink,
+    '--night-muted': APP_NIGHT.muted,
+    '--night-surface': APP_NIGHT.surface,
+    '--night-accent': APP_NIGHT.accent,
+    '--night-accent2': APP_NIGHT.accent2,
+    '--night-paper': APP_NIGHT.paper,
+    '--night-surround': APP_NIGHT.surround,
+  };
+  for (const [name, colour] of Object.entries(want)) {
+    assert.ok(css.includes(`var(${name}, ${colour})`), `${name} should fall back to ${colour} in globals.css`);
+  }
 });
 
 // --- how a page dresses the sections it carries ---------------------------

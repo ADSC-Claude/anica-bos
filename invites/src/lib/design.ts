@@ -249,6 +249,24 @@ export type DesignDoc = {
   /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
   surround?: string;
   /**
+   * This design's own colours by night.
+   *
+   * Night was one fixed set of colours for every design — an ivory ink, a
+   * pale gold accent, dark glass behind the cards — written in the
+   * stylesheet and the same whether the design was a christening in baby
+   * blue or a wedding in capiz and shell. A design can now say its own, and
+   * each one it does not name keeps the app's, so a design that says nothing
+   * has exactly the night it always had.
+   *
+   * There is no `bg` here, and that is deliberate rather than an omission:
+   * by night the column's own colour *is* the background, and it is `paper`.
+   * The day palette's `bg` is still read inside the pages by a handful of
+   * small things — the dot on a story bullet, two cards — which are pale on
+   * purpose and are not the page's ground; turning it down here would change
+   * those and nothing else.
+   */
+  nightColours?: NightPalette;
+  /**
    * The sections this design does not do at all.
    *
    * Stated as a refusal rather than as a list of what it accepts, because
@@ -263,6 +281,27 @@ export type DesignDoc = {
    * about this design, not about their data.
    */
   hides?: PageSectionKey[];
+};
+
+/**
+ * The colours a design gives the night: the roles the night actually sets,
+ * and the two colours of the column itself.
+ *
+ * Every one of them is optional and every one falls back to the app's own
+ * night, in the stylesheet, where it has always been — so this is a set of
+ * overrides rather than a palette to be filled in, and a design that names
+ * one colour changes one colour.
+ */
+export type NightPalette = {
+  ink?: string;
+  muted?: string;
+  surface?: string;
+  accent?: string;
+  accent2?: string;
+  /** the column's own colour by night */
+  paper?: string;
+  /** the colour beside the column by night */
+  surround?: string;
 };
 
 export type PageSpec = {
@@ -820,6 +859,11 @@ const zDoc = z.object({
   overflowGround: zGround.optional(),
   paper: zColour.optional(),
   surround: zColour.optional(),
+  nightColours: z.object({
+    ink: zColour.optional(), muted: zColour.optional(), surface: zColour.optional(),
+    accent: zColour.optional(), accent2: zColour.optional(),
+    paper: zColour.optional(), surround: zColour.optional(),
+  }).strict().optional(),
   hides: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(40).optional(),
 }).strict();
 
@@ -1005,7 +1049,9 @@ function babyblueDesign(): DesignDoc {
     // a clip has no frame to sit in, so it takes a page of its own after the photographs
     if (def.key === 'baby-photos') pages.push({ key: 'baby-photos-more', sections: ['gallery-video'], ground: g(BABYBLUE_OVERFLOW) });
   }
-  return { v: 1, pages, overflowGround: g(BABYBLUE_OVERFLOW) };
+  // the column and the colour beside it: the two literals the stylesheet
+  // carried under `.inv[data-layout='babyblue']`, said by the design now
+  return { v: 1, pages, overflowGround: g(BABYBLUE_OVERFLOW), paper: '#eef3f9', surround: '#e4ecf5' };
 }
 
 /**
@@ -1035,6 +1081,9 @@ function capizDesign(): DesignDoc {
   return {
     v: 1,
     pages: CAPIZ_PAGES.map((def) => ({ key: def.key, sections: [...def.sections], ...(def.key === 'story' ? { peekEnd: true as const } : {}) })),
+    // as above: Capiz's own two, out of the stylesheet and into the design
+    paper: '#f0dccb',
+    surround: '#e9dfd2',
   };
 }
 
@@ -1632,6 +1681,56 @@ const NAMES_AT: Record<NonNullable<CoverSpec['names']>, string> = { top: 'flex-s
  * only because a text alignment and a background position are different
  * kinds of value to CSS.
  */
+/**
+ * The app's own night, which is what the stylesheet falls back to.
+ *
+ * Written here as well as there because the checklist has to read the ink to
+ * ask whether a colour she typed will be legible against it, and because a
+ * studio that offers a design its own night has to be able to show her what
+ * she is changing. The stylesheet keeps the literals as `var()` fallbacks,
+ * so a page rendered with no variables at all still has a night — and these
+ * two have to be kept in step, which the test asserts.
+ */
+export const APP_NIGHT: Required<NightPalette> = {
+  ink: '#f1e9dd',
+  muted: '#cfc3b3',
+  surface: 'rgba(38, 36, 50, 0.72)',
+  accent: '#d9b98c',
+  accent2: '#b39468',
+  paper: '#1a1b26',
+  surround: '#12131c',
+};
+
+const NIGHT_VAR: Record<keyof NightPalette, string> = {
+  ink: '--night-ink', muted: '--night-muted', surface: '--night-surface',
+  accent: '--night-accent', accent2: '--night-accent2',
+  paper: '--night-paper', surround: '--night-surround',
+};
+
+/**
+ * A design's own colours, as the variables the stylesheet reads.
+ *
+ * The column's colour and the colour beside it were two literals per layout
+ * in the stylesheet, keyed by the layout's name, which meant a design drawn
+ * in the studio had whatever its layout's happened to be and no way to say
+ * otherwise. They are the document's now, pinned to those same literals for
+ * the two shipped designs so neither moves by a shade, and every colour that
+ * is not named falls back in the stylesheet to what it has always been.
+ */
+export function designVars(doc: DesignDoc | null): Record<string, string> {
+  const vars: Record<string, string> = {};
+  if (!doc) return vars;
+  if (doc.paper) vars['--inv-paper'] = colourVar(doc.paper);
+  if (doc.surround) vars['--inv-surround'] = colourVar(doc.surround);
+  for (const [role, name] of Object.entries(NIGHT_VAR) as [keyof NightPalette, string][]) {
+    const colour = doc.nightColours?.[role];
+    // a role name by night would follow the *day* palette, which is the one
+    // thing a night colour cannot be, so these are colours and not roles
+    if (colour) vars[name] = colour;
+  }
+  return vars;
+}
+
 export function sectionDress(dress: SectionStyle | undefined): { kind?: 'card' | 'plain'; vars: Record<string, string> } {
   if (!dress) return { vars: {} };
   const vars: Record<string, string> = {};

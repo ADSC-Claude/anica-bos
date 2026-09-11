@@ -5,10 +5,10 @@ import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor,
+  cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
-  type Source, type WordKey, type SectionStyle,
+  type Source, type WordKey, type SectionStyle, type NightPalette,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
@@ -676,6 +676,31 @@ export function Studio(p: Props) {
   }
 
   /**
+   * The design's own colours: the column, the colour beside it on a laptop,
+   * and the colours it gives the night.
+   *
+   * All three are the document's, so they are in the draft and publish with
+   * it — unlike the palette and the faces in the Theme popover, which are
+   * columns on the row and reach every invitation the moment they save. A
+   * colour taken off is taken out of the document rather than written blank,
+   * so the stylesheet's own answer comes back.
+   */
+  function setColumnColour(key: 'paper' | 'surround', colour: string | undefined) {
+    const next: DesignDoc = { ...doc, [key]: colour };
+    if (!colour) delete next[key];
+    change(next);
+  }
+
+  function setNightColour(role: keyof NightPalette, colour: string | undefined) {
+    const night = { ...(doc.nightColours ?? {}) };
+    if (colour) night[role] = colour;
+    else delete night[role];
+    const next: DesignDoc = { ...doc, nightColours: Object.keys(night).length ? night : undefined };
+    if (!next.nightColours) delete next.nightColours;
+    change(next);
+  }
+
+  /**
    * A picture the words flow around, on a page laid out by its words.
    *
    * A flow page has no canvas — its height is its words, so there is nothing
@@ -1234,6 +1259,7 @@ export function Studio(p: Props) {
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
         {said && <p className="hint mt-1">{said}</p>}
         <HidesPanel occasion={p.occasion} hides={doc.hides ?? []} onToggle={toggleHide} />
+        <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} />
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -1766,6 +1792,101 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
  * a book — "Dusty Rose" is a colour a person can talk about on the phone,
  * and #dba8a8 is not.
  */
+/**
+ * The colours this design gives the column and the night.
+ *
+ * Night used to be one set of colours for every design, in the stylesheet:
+ * an ivory ink, a pale gold accent, cards on dark glass, the same for a
+ * christening in baby blue as for a wedding in capiz and shell. Each row
+ * here is an override and nothing more — left alone it says *the app's own*
+ * and the stylesheet answers as it always has, so a design is only as
+ * different by night as she has asked it to be.
+ *
+ * The column and the colour beside it are the same kind of thing by day, and
+ * were the same kind of literal: two per layout, in the stylesheet, which is
+ * why a design drawn here wore its layout's and could not say otherwise.
+ */
+function ColoursPanel({ doc, onColumn, onNight }: {
+  doc: DesignDoc;
+  onColumn: (key: 'paper' | 'surround', colour: string | undefined) => void;
+  onNight: (role: keyof NightPalette, colour: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const night = doc.nightColours ?? {};
+  const set = (doc.paper ? 1 : 0) + (doc.surround ? 1 : 0) + Object.keys(night).length;
+  return (
+    <div className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
+      <button type="button" onClick={() => setOpen((x) => !x)} className="flex w-full items-center justify-between text-left">
+        <span className="label mb-0">Its own colours</span>
+        <span className="text-[11px] text-[color:var(--color-ink-500)]">{set ? `${set} of its own` : 'all ours'} {open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="mt-1 space-y-2">
+          <div className="space-y-1">
+            <p className="hint">The column itself, and what is beside it on a laptop.</p>
+            <OwnColour label="The column" colour={doc.paper} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('paper', c)} />
+            <OwnColour label="Beside it" colour={doc.surround} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('surround', c)} />
+          </div>
+          <div className="space-y-1">
+            <p className="hint">By night. Anything you leave alone stays ours.</p>
+            {NIGHT_ROWS.map((r) => (
+              <OwnColour
+                key={r.key}
+                label={r.label}
+                colour={night[r.key]}
+                fallback={NIGHT_SWATCH[r.key]}
+                onPick={(c) => onNight(r.key, c)}
+              />
+            ))}
+          </div>
+          <p className="hint">
+            These are the design&rsquo;s own, so they are in the draft and go live when you publish it &mdash; unlike the palette and the faces under <strong>Theme</strong>, which are the design&rsquo;s row and reach every invitation the moment they save.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The night rows, in the order a page is read: the words, then what is behind them. */
+const NIGHT_ROWS: { key: keyof NightPalette; label: string }[] = [
+  { key: 'ink', label: 'The words' },
+  { key: 'muted', label: 'Quiet words' },
+  { key: 'surface', label: 'Cards and fields' },
+  { key: 'accent', label: 'Accent' },
+  { key: 'accent2', label: 'Second accent' },
+  { key: 'paper', label: 'The column' },
+  { key: 'surround', label: 'Beside it' },
+];
+
+/**
+ * What a swatch shows for a colour the design has not given.
+ *
+ * The app's own night surface is dark glass — `rgba(38, 36, 50, 0.72)` — and
+ * a colour input cannot hold a colour with a hole in it, so the swatch shows
+ * the same colour solid. Picking it writes a solid colour, which is the
+ * honest thing: the studio cannot offer a transparency it cannot show.
+ */
+const NIGHT_SWATCH: Record<keyof NightPalette, string> = { ...APP_NIGHT, surface: '#262432' };
+/** and for the column by day, whose own answer is the palette's background */
+const PALETTE_FALLBACK = '#ffffff';
+
+/** One colour the design may give, or leave to us. */
+function OwnColour({ label, colour, fallback, onPick }: {
+  label: string; colour?: string; fallback: string; onPick: (c: string | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <div className="min-w-0 flex-1">
+        <RoleRow label={label} colour={colour && /^#[0-9a-f]{6}$/i.test(colour) ? colour : fallback} onPick={(c) => onPick(c)} />
+      </div>
+      {colour
+        ? <button type="button" title="Leave it to us" onClick={() => onPick(undefined)} className="rounded bg-white px-1.5 text-xs text-red-700">✕</button>
+        : <span className="w-14 shrink-0 text-[10px] leading-tight text-[color:var(--color-ink-500)]">ours</span>}
+    </div>
+  );
+}
+
 function RoleRow({ label, colour, onPick }: { label: string; colour: string; onPick: (c: string) => void }) {
   const [text, setText] = useState(colour);
   useEffect(() => setText(colour), [colour]);

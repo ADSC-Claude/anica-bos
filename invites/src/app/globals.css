@@ -333,8 +333,19 @@ table.data tr:hover td {
    inline on .inv by the renderer, per template.
    ------------------------------------------------------------------------ */
 
+/*
+ * The column, and what is beside it.
+ *
+ * Both were literals in this file, one pair per layout, which meant a design
+ * drawn in the studio wore whatever its layout happened to be. They are the
+ * design's now (`designVars`), and every one of them falls back here to what
+ * it always was — the two shipped designs name the same four colours the two
+ * layout rules used to carry, so neither moves by a shade.
+ */
+.inv-stage { background: var(--inv-surround, var(--inv-bg)); }
+.inv-stage:has(.inv[data-paged][data-mode='night']) { background: var(--night-surround, #12131c); }
 .inv {
-  background: var(--inv-bg);
+  background: var(--inv-paper, var(--inv-bg));
   color: var(--inv-ink);
   font-family: var(--inv-body);
   min-height: 100dvh;
@@ -601,8 +612,11 @@ table.data tr:hover td {
   line-height: 1.55;
   /* The ground: draped silk, one image that repeats down the page without a
      join, so the page is a single length of cloth rather than a stack of
-     sections. */
-  background-color: #f2e8dc;
+     sections. The design's own column colour where it names one — this rule
+     reaches further than `.inv` above, so the variable has to be read here
+     too or the design would not be heard. The literal is what a paged design
+     that names none has always had. */
+  background-color: var(--inv-paper, #f2e8dc);
 }
 /* No strung side border on this theme — the shell lives in clusters. */
 .inv[data-paged]::before,
@@ -627,7 +641,6 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    way an invitation is; the cover alone is a whole background, the names in
    its upper part and the verse at its foot. */
 .inv[data-paged] { --capiz-bg: min(264.5vw, 84.6rem); }
-.inv[data-layout='capiz'] { background: #f0dccb; }
 .inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .inv-paper {
   position: absolute; left: 0; right: 0;
@@ -1330,7 +1343,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the client's photographs; those pages keep the ground's own proportions so
    the frames land where they were drawn.
    =========================================================================== */
-.inv[data-layout='babyblue'] { background: #eef3f9; --bb-cover: min(298.9vw, 95.6rem); }
+.inv[data-layout='babyblue'] { --bb-cover: min(298.9vw, 95.6rem); }
 /* room at the foot of every plain page, so a short page's words end above the ground's foot art */
 .inv[data-layout='babyblue'] .inv-page { padding-bottom: min(22vw, 7rem); }
 /* The cover is one screen, not one whole ground: the opening lands on it
@@ -1409,7 +1422,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-bb-art > .inv-bb-text { position: absolute; text-align: center; }
 .inv-bb-text .inv-bb-body { font-family: var(--inv-body); font-size: 2.6cqw; line-height: 1.5; color: var(--inv-ink); }
 /* The paper role is the one colour the night block sets on .inv rather than on the variable. */
-.inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: #1a1b26; }
+.inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: var(--night-paper, #1a1b26); }
 .inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 2.3cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
@@ -2408,10 +2421,24 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the cards and fields go on dark glass either way. */
 .inv-mode { position: fixed; right: 1rem; top: 1rem; z-index: 40; width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent); background: color-mix(in srgb, var(--inv-surface) 88%, transparent); color: var(--inv-ink); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); cursor: pointer; backdrop-filter: blur(6px); }
 .inv-mode:hover { transform: translateY(-1px); }
-.inv[data-paged][data-mode='night'] { background: #1a1b26; }
+.inv[data-paged][data-mode='night'] { background: var(--night-paper, #1a1b26); }
 /* The palette's variables are set inline on .inv by the theme, so the night
-   ones are set one level down, on everything in the page but the opening. */
-.inv[data-paged][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
+   ones are set one level down, on everything in the page but the opening.
+   Each is the design's own colour where it named one (--night-*, set on the
+   invitation by `designVars`) and the app's where it did not — which is why
+   these five literals are still here, as the fallbacks, and why they have to
+   stay in step with APP_NIGHT in design.ts. A test asserts they do.
+   There is no --inv-bg among them on purpose: by night the column's colour is
+   the background and it is painted above. The day bg is still read inside the
+   pages by a few pale things that are not the ground. */
+.inv[data-paged][data-mode='night'] > :not(.inv-open) {
+  --inv-ink: var(--night-ink, #f1e9dd);
+  --inv-muted: var(--night-muted, #cfc3b3);
+  --inv-surface: var(--night-surface, rgba(38, 36, 50, 0.72));
+  --inv-accent: var(--night-accent, #d9b98c);
+  --inv-accent2: var(--night-accent2, #b39468);
+  color: var(--inv-ink);
+}
 body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-mode='night'] .inv-paper:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
 .inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }

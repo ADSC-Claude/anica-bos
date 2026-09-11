@@ -21,7 +21,8 @@
     "build:local": "prisma generate && next build",
     "check:erasure": "tsx --conditions=react-server scripts/check-erasure.ts",
     "backfill:contacts": "tsx --conditions=react-server scripts/backfill-contacts.ts",
-    "grandfather": "tsx --conditions=react-server scripts/grandfather-features.ts"
+    "grandfather": "tsx --conditions=react-server scripts/grandfather-features.ts",
+    "set:tier": "tsx --conditions=react-server scripts/set-tier.ts"
   },
   "prisma": {
     "seed": "tsx --conditions=react-server prisma/seed.ts"

@@ -408,6 +408,12 @@ export function emailSender(businessName: string, occasion: Occasion): string {
 export type MessagePrefs = {
   tone?: Tone;
   overrides?: Partial<Record<MessageKind, Partial<MessageText>>>;
+  /**
+   * Which of the scheduled messages the couple chose, when their campaign
+   * covers fewer than all four. Empty or absent means they have not chosen and
+   * the earliest ones go — see pickedKinds in src/lib/campaigns.ts.
+   */
+  picked?: MessageKind[];
 };
 
 export const DEFAULT_TONE: Tone = 'heartfelt';
@@ -431,7 +437,16 @@ export function prefsOf(raw: unknown): MessagePrefs {
       if (Object.keys(picked).length) overrides[k.key] = picked;
     }
   }
-  return { ...(tone ? { tone } : {}), ...(Object.keys(overrides).length ? { overrides } : {}) };
+  const kinds = new Set(MESSAGE_KINDS.map((k) => k.key as string));
+  const picked = Array.isArray(obj.picked)
+    ? (obj.picked.filter((k): k is MessageKind => typeof k === 'string' && kinds.has(k)) as MessageKind[])
+    : undefined;
+
+  return {
+    ...(tone ? { tone } : {}),
+    ...(Object.keys(overrides).length ? { overrides } : {}),
+    ...(picked?.length ? { picked } : {}),
+  };
 }
 
 export type ResolvedMessage = {
@@ -506,11 +521,23 @@ export function withOverride(
   if (Object.keys(merged).length) overrides[kind] = merged;
   else delete overrides[kind];
 
-  return { ...(prefs.tone ? { tone: prefs.tone } : {}), ...(Object.keys(overrides).length ? { overrides } : {}) };
+  return {
+    ...(prefs.tone ? { tone: prefs.tone } : {}),
+    ...(Object.keys(overrides).length ? { overrides } : {}),
+    ...(prefs.picked?.length ? { picked: prefs.picked } : {}),
+  };
 }
 
 /** Changes the tone, keeping every line the couple rewrote themselves. */
 export function withTone(raw: unknown, tone: Tone): MessagePrefs {
   const prefs = prefsOf(raw);
   return { ...prefs, tone };
+}
+
+/** Records which scheduled messages the couple chose, keeping everything else. */
+export function withPicked(raw: unknown, picked: MessageKind[]): MessagePrefs {
+  const prefs = prefsOf(raw);
+  const kinds = new Set(MESSAGE_KINDS.map((k) => k.key));
+  const clean = picked.filter((k) => kinds.has(k));
+  return { ...prefs, ...(clean.length ? { picked: clean } : { picked: undefined }) };
 }

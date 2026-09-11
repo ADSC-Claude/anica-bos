@@ -20,7 +20,8 @@ import { eraseCustomer } from '@/lib/privacy';
 import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
 import { entitled } from '@/lib/tiers';
-import { withTone, withOverride, type MessageKind, type Tone } from '@/lib/messages';
+import { withTone, withOverride, withPicked, type MessageKind, type Tone } from '@/lib/messages';
+import { CAMPAIGN_KINDS } from '@/lib/campaigns';
 
 /**
  * Every customer action re-checks ownership through ownInvitation(); the id
@@ -531,6 +532,18 @@ export async function resetMessageAction(invitationId: string, kind: MessageKind
     await prisma.invitation.update({
       where: { id: inv.id },
       data: { guestMessages: withOverride(inv.guestMessages, inv.occasion, kind, { sms: '', emailSubject: '', emailBody: '' }) },
+    });
+  });
+}
+
+/** Which of the scheduled messages go out, for a campaign that covers some. */
+export async function setPickedMessagesAction(invitationId: string, fd: FormData): Promise<void> {
+  return messagesAction(invitationId, async (inv) => {
+    const picked = fd.getAll('picked').map(String).filter((k): k is MessageKind =>
+      CAMPAIGN_KINDS.includes(k as MessageKind));
+    await prisma.invitation.update({
+      where: { id: inv.id },
+      data: { guestMessages: withPicked(inv.guestMessages, picked) },
     });
   });
 }

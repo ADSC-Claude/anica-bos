@@ -93,6 +93,17 @@ export const DEFAULT_SETTINGS = {
     'Hi {{guestName}},\n\nThank you — we have you down as {{response}}{{seatsLine}}.\n\n{{hosts}} · {{eventDate}}\n\nIf anything changes, you can update your reply on the same link:\n{{link}}\n\nSee you soon!\n{{hosts}}',
   /** Semaphore sender ID. Blank uses the account default. */
   'sms.senderName': '',
+  /**
+   * Whether the daily job sends the scheduled campaigns.
+   *
+   * Off, and deliberately the one setting in this file that starts off. It is
+   * the difference between a job that reads some rows and a job that texts a
+   * thousand strangers at six in the morning at our expense, and the two are
+   * one boolean apart. Turn it on when the sender ID is registered and the
+   * campaign rows are actually on sale — not before, because until then every
+   * invitation it would find is one nobody paid for a campaign on.
+   */
+  'campaigns.enabled': false,
 
   // --- the public site ---
   'site.comingSoon': false,

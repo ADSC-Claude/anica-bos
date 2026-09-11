@@ -732,6 +732,11 @@ model SmsMessage {
   guestId      String?
   to           String
   body         String
+  /// Which scheduled message this was — sevenDay, oneDay, sameDay, thankYou.
+  /// Blank for a reminder the couple sent by hand. It is what stops the daily
+  /// job sending the same campaign twice, so without it the job cannot tell a
+  /// seven-day reminder from the one-day it sends six days later.
+  campaign     String    @default("")
   status       SmsStatus @default(LOGGED)
   error        String    @default("")
   createdAt    DateTime  @default(now())
@@ -741,6 +746,7 @@ model SmsMessage {
 
   @@index([invitationId, createdAt])
   @@index([guestId, createdAt])
+  @@index([invitationId, campaign])
 }
 
 /// One e-mail sent to one guest, kept for the same two reasons as SmsMessage:
@@ -756,6 +762,8 @@ model EmailMessage {
   to           String
   subject      String
   body         String
+  /// Which scheduled message this was. See SmsMessage.campaign.
+  campaign     String    @default("")
   status       SmsStatus @default(LOGGED)
   error        String    @default("")
   createdAt    DateTime  @default(now())
@@ -767,6 +775,7 @@ model EmailMessage {
   @@index([invitationId, createdAt])
   @@index([guestId, createdAt])
   @@index([rsvpId])
+  @@index([invitationId, campaign])
 }
 
 /// Shared with EmailMessage: sent, written to the log because no key is set,

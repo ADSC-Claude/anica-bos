@@ -10,7 +10,9 @@ import { formatDate } from '@/lib/datetime';
 import { displayTitle } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
 import { PageHeader, BackLink, Card, Notice, Pill } from '@/components/ui';
-import { setMessageToneAction, saveMessageAction, resetMessageAction } from '@/app/account/actions';
+import { setMessageToneAction, saveMessageAction, resetMessageAction, setPickedMessagesAction } from '@/app/account/actions';
+import { campaignFor, pickedKinds, CAMPAIGN_KINDS, dueDateKey } from '@/lib/campaigns';
+import { formatDate as fmtDate } from '@/lib/datetime';
 import { SmsPreview, EmailPreview, VariableHints, sampleVars, fill } from './preview';
 
 export const dynamic = 'force-dynamic';
@@ -42,6 +44,11 @@ export default async function MessagesPage({ params }: { params: Promise<{ id: s
   const messages = resolveMessages(inv.occasion, inv.guestMessages);
   const vars = sampleVars(hosts, eventDate, link);
 
+  // What they bought, which of the four it covers, and which are going out.
+  const campaign = campaignFor(inv.addOns);
+  const scheduled = campaign ? pickedKinds(campaign, prefs.picked) : [];
+  const sending = settings['campaigns.enabled'];
+
   const registered = settings['sms.senderName']?.trim() ?? '';
   const sender = smsSender(registered);
   const from = emailSender(settings['business.name'] ?? 'You Are Invited', inv.occasion);
@@ -63,6 +70,44 @@ export default async function MessagesPage({ params }: { params: Promise<{ id: s
             {smsSenderTooLong(sender) ? ', so it will most likely need shortening before it can be registered' : ''}.
             Nothing about your words changes either way.
           </Notice>
+        </div>
+      )}
+
+      {campaign && (
+        <div className="mb-4">
+          <Card title="What goes out, and when">
+            <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">
+              Your plan covers <strong>{campaign.allowance} of the 4</strong> scheduled messages
+              {campaign.email ? ', by text and e-mail' : ', by text'}, for up to{' '}
+              <strong>{campaign.guests.toLocaleString('en-PH')} guests</strong>.
+              {!sending && ' Scheduled sending is not switched on yet, so nothing will go out until we turn it on.'}
+            </p>
+            <form action={setPickedMessagesAction.bind(null, inv.id)} className="grid gap-2">
+              {CAMPAIGN_KINDS.map((kind) => {
+                const m = messages.find((x) => x.kind === kind)!;
+                const on = scheduled.includes(kind);
+                const day = inv.eventAt ? dueDateKey(kind, inv.eventAt) : null;
+                return (
+                  <label key={kind} className="flex items-start gap-3 rounded-lg border border-[color:var(--color-ink-200,#e7e5e4)] px-3 py-2">
+                    <input type="checkbox" name="picked" value={kind} defaultChecked={on} className="mt-1 h-4 w-4" />
+                    <span className="text-sm">
+                      <span className="font-medium">{m.label}</span>
+                      <span className="block text-xs text-[color:var(--color-ink-500)]">
+                        {m.when}
+                        {day && inv.eventAt ? ` · ${fmtDate(new Date(`${day}T00:00:00+08:00`))}` : ''}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+              <div className="flex items-center gap-3">
+                <button className="btn btn-primary btn-sm" type="submit">Save what goes out</button>
+                <span className="text-xs text-[color:var(--color-ink-500)]">
+                  Tick more than {campaign.allowance} and the earliest {campaign.allowance} are sent.
+                </span>
+              </div>
+            </form>
+          </Card>
         </div>
       )}
 
@@ -105,6 +150,11 @@ export default async function MessagesPage({ params }: { params: Promise<{ id: s
               actions={
                 <span className="flex items-center gap-2">
                   <Pill tone="muted">{m.when}</Pill>
+                  {campaign && CAMPAIGN_KINDS.includes(m.kind) && (
+                    <Pill tone={scheduled.includes(m.kind) ? 'ok' : 'muted'}>
+                      {scheduled.includes(m.kind) ? 'Going out' : 'Not sending'}
+                    </Pill>
+                  )}
                   {edited && <Pill tone="ok">Your words</Pill>}
                 </span>
               }

@@ -59,10 +59,18 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
    * hand with no explanation.
    */
   const own = paletteFrom(t.palette);
-  const [live, drafts] = await Promise.all([
+  const [live, drafts, files] = await Promise.all([
     prisma.invitation.count({ where: { templateId: t.id, status: 'PUBLISHED' } }),
     prisma.invitation.count({ where: { templateId: t.id, status: { not: 'PUBLISHED' } } }),
+    /*
+     * What this design's own uploads weigh. The checklist says so about a
+     * background too heavy for a phone, and this is where it can be known
+     * without fetching anything: the row recorded it when the file arrived.
+     * The pictures the app ships with have no row and are not in here.
+     */
+    prisma.media.findMany({ where: { templateId: t.id }, select: { url: true, bytes: true }, take: 500 }),
   ]);
+  const weights: Record<string, number> = Object.fromEntries(files.filter((f) => (f.bytes ?? 0) > 0).map((f) => [f.url, f.bytes as number]));
 
   return (
     <>
@@ -80,6 +88,8 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         content={demo ? (contentOf(demo.content) as Record<string, unknown>) : {}}
         look={look}
         vars={vars}
+        weights={weights}
+        shop={{ shown: t.published || t.featured, thumbnail: Boolean(t.thumbnailUrl) }}
         theme={{
           palette: own,
           fontsKey: fontSetKey(fontsFrom(t.fonts)),

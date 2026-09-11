@@ -5,6 +5,7 @@ import {
   frameLists, pageRatio, valueAt, isPicture, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl,
 } from './design';
+import { contrast } from './palette';
 
 /**
  * What a page still needs.
@@ -21,11 +22,18 @@ import {
  * be wrong for somebody, and publishing it is publishing a fault — or it
  * merely **says**: worth knowing, hers to ignore.
  *
- * Everything here is read from the document. Nothing is measured in a
- * browser and nothing is fetched, so the studio keeps the list live as she
- * draws and the publish screen reads the same list from the same function.
- * What genuinely needs a browser (how the words actually wrap in five looks,
- * a background's weight in kilobytes) is not here and is not pretended.
+ * Everything here is read from the document, or from what the design's own
+ * row already knows and hands in — the weight of each picture it uploaded,
+ * whether it has a thumbnail. Nothing is measured in a browser and nothing
+ * is fetched, so the studio keeps the list live as she draws and the publish
+ * screen reads the same list from the same function. What genuinely needs a
+ * browser — how the words actually wrap in five looks and two languages — is
+ * not here and is not pretended.
+ *
+ * A rule that needs something the caller did not hand in stays quiet rather
+ * than guessing. The weight of a file nobody recorded is not zero; it is
+ * unknown, and a checklist that says "fine" about something it cannot see is
+ * worse than one that says nothing.
  */
 
 /**
@@ -52,6 +60,10 @@ export const NEED_RULES = [
   'no-heading',
   'long-offer',
   'demo-blank',
+  'ground-weight',
+  'night-ink',
+  'slot-lost',
+  'no-thumbnail',
   'asks',
 ] as const;
 
@@ -68,7 +80,19 @@ export type Need = {
   text: string;
 };
 
-type Look = { doc: DesignDoc | null; occasion: Occasion; content?: Record<string, unknown> };
+type Look = {
+  doc: DesignDoc | null;
+  occasion: Occasion;
+  content?: Record<string, unknown>;
+  /**
+   * What each picture this design uploaded weighs, by its address, straight
+   * off the Media rows. A picture that has no row — the files the app ships
+   * with — is not in here, and the weight rule says nothing about it.
+   */
+  weights?: Record<string, number>;
+  /** what the row knows about the shop: whether it is shown there, and whether it has a cover */
+  shop?: { shown: boolean; thumbnail: boolean };
+};
 
 /** A frame's box on the page, both axes as a share of the page's own height and width. */
 type Box = { left: number; right: number; top: number; bottom: number };
@@ -113,6 +137,32 @@ const BLEED = 2;
  */
 const COVERED = 0.45;
 
+/**
+ * How heavy a page's background may be before a guest on mobile data feels
+ * it. The ten backgrounds the app ships with are 50 to 103 kB each; a page
+ * exported straight out of a design tool as a PNG is two to four megabytes,
+ * and a guest scrolling an invitation waits for every one of them.
+ */
+export const HEAVY_GROUND = 400 * 1024;
+
+/**
+ * Night, as the stylesheet actually does it.
+ *
+ * At night the words are drawn in a pale cream and a picture behind them is
+ * turned down to under a half. A ground named by one of the six roles turns
+ * down with everything else; a colour of her own is painted exactly as she
+ * gave it and does not, which is the whole reason these two numbers are
+ * here. And the grey a frame shows while it waits for a photograph is fixed
+ * in both modes, so it is the one thing on the page that cannot be relied on
+ * to move with the ground.
+ */
+const NIGHT_INK = '#f1e9dd';
+const WAITING_SLOT = '#e8e3dd';
+/** Where a heading stops being comfortable to read. The standards' own number. */
+const READABLE = 3;
+/** Close enough to the same colour that a frame waiting for a photo is lost in the page. */
+const SAME_COLOUR = 1.3;
+
 /** The name a line calls an element: its own word for it, or its id. */
 function nameOf(el: Element, n: number): string {
   if (el.kind === 'photo') return `Frame ${n}`;
@@ -125,7 +175,7 @@ function nameOf(el: Element, n: number): string {
   return 'This box';
 }
 
-export function pageNeeds({ doc, occasion, content }: Look): Need[] {
+export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need[] {
   if (!doc) return [];
   const out: Need[] = [];
   const asks = asksOf(doc, occasion);
@@ -147,6 +197,36 @@ export function pageNeeds({ doc, occasion, content }: Look): Need[] {
     }
     if (page.drawn && elements.length && !elements.some((e) => e.kind === 'text' && (e as TextEl).block === 'head')) {
       say('says', 'no-heading', `${named} has no heading.`);
+    }
+    /*
+     * What the background weighs. Only ever said about a picture this design
+     * uploaded, because those are the ones somebody chose and can choose
+     * again: a ground cut in three is the sum of its cuts, since a guest
+     * fetches all of them.
+     */
+    if (page.ground && isPicture(page.ground) && weights) {
+      const parts = [page.ground.url, ...(page.ground.slices ? [page.ground.slices.top, page.ground.slices.mid, page.ground.slices.foot] : [])];
+      const bytes = parts.reduce((sum, url) => sum + (weights[url] ?? 0), 0);
+      if (bytes > HEAVY_GROUND) {
+        say('says', 'ground-weight', `${named}'s background is ${Math.round(bytes / 1024)} kB. A guest on mobile data waits for every page's background, so keep one under ${Math.round(HEAVY_GROUND / 1024)} kB — saved as WebP rather than PNG it usually is.`);
+      }
+    }
+    /*
+     * A ground she typed rather than named. A role colour turns itself down
+     * at night with the ink; a colour of her own keeps exactly the colour
+     * she gave it while the ink turns pale, so pale ground and pale ink meet
+     * and the words go. Words with a backing carry their own halo and are
+     * fine, so the line only fires where something on the page has none.
+     */
+    if (page.ground && !isPicture(page.ground) && page.ground.color.startsWith('#')) {
+      const ground = page.ground.color;
+      const bare = elements.filter((e) => e.kind === 'text' && ((e as TextEl).backing ?? 'none') === 'none');
+      if (bare.length && contrast(ground, NIGHT_INK) < READABLE) {
+        say('says', 'night-ink', `${named} is a colour of your own, so it stays ${ground} at night while the words turn pale — they will be hard to read. A role colour turns itself down with them, or give the words a backing.`, bare[0].id);
+      }
+      if (frames.length && contrast(ground, WAITING_SLOT) < SAME_COLOUR) {
+        say('says', 'slot-lost', `${named}'s frames show a fixed pale grey while they wait for a photograph, and on ${ground} that is nearly the page itself: an empty frame will not be visible.`, frames[0].id);
+      }
     }
 
     // --- every element ------------------------------------------------------
@@ -256,6 +336,20 @@ export function pageNeeds({ doc, occasion, content }: Look): Need[] {
         text: `${sectionLabel(list.section as SectionKey, occasion)} allows up to ${field.max} on ${occasionWord(occasion)}; this page has ${list.count} frames.`,
       });
     }
+  }
+
+  /*
+   * A design in the shop with no cover. Blank is not broken — the gallery
+   * card falls back to the design's own colours, which is deliberate — but
+   * a card of colours beside cards of covers is the one nobody taps.
+   */
+  if (shop && shop.shown && !shop.thumbnail) {
+    out.push({
+      level: 'says',
+      rule: 'no-thumbnail',
+      page: '',
+      text: 'This design is shown in the shop with no thumbnail, so its card there is its colours rather than its cover.',
+    });
   }
 
   const counts = askCounts(asks);

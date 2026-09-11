@@ -185,3 +185,27 @@ export function familyPalette(family: string): { bg: string; surface: string; in
 export function colourFamilies(): { key: string; label: string; palette: ReturnType<typeof familyPalette> }[] {
   return PALETTE.filter((g) => g.swatches.length >= 3).map((g) => ({ key: g.key, label: g.label, palette: familyPalette(g.key) }));
 }
+
+/**
+ * The contrast between two colours: 1 is none at all, 21 is black on white.
+ *
+ * The standards' own ratio, which is not the difference of the two
+ * lightnesses above: the eye's response to light is not linear, so each
+ * channel is straightened out first (the sRGB transfer function) before the
+ * three are weighted. It matters at the ends — two pale colours can look
+ * far apart and be 1.2 apart — which is exactly where a page stops being
+ * readable. Under 3 is where words the size of a heading stop being
+ * comfortable and under 4.5 where body words do.
+ */
+export function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    const channel = (shift: number) => {
+      const c = ((n >> shift) & 255) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}

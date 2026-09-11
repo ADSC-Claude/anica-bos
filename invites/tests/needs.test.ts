@@ -7,6 +7,9 @@ const base = builtinDesign('babyblue')!;
 const clone = (d: DesignDoc = base): DesignDoc => JSON.parse(JSON.stringify(d));
 const run = (doc: DesignDoc, content?: Record<string, unknown>) =>
   pageNeeds({ doc, occasion: 'CHRISTENING' as never, content });
+/** the same, plus what only the design's own row knows: weights, and the shop */
+const runRow = (doc: DesignDoc, row: Partial<Parameters<typeof pageNeeds>[0]>) =>
+  pageNeeds({ doc, occasion: 'CHRISTENING' as never, ...row });
 const rules = (n: Need[]): NeedRule[] => [...new Set(n.map((x) => x.rule))].sort();
 const on = (doc: DesignDoc, key: string) => doc.pages.find((p) => p.key === key)!;
 const el = (doc: DesignDoc, page: string, id: string) => on(doc, page).elements!.find((e) => e.id === id)!;
@@ -218,6 +221,84 @@ test('needCount counts the whole design or one page', () => {
   assert.deepEqual(needCount(n, 'closing'), { blocks: 0, says: 0 });
 });
 
+/**
+ * What a background weighs. Only ever said about a picture this design
+ * uploaded and whose weight the row recorded — the ten the app ships with
+ * have no row, so nothing is said about them, which is the difference
+ * between a checklist that knows and one that guesses.
+ */
+test('a heavy background says so, and an unrecorded one says nothing', () => {
+  const d = clone();
+  const ground = on(d, 'story').ground!;
+  const url = (ground as { url: string }).url;
+  assert.deepEqual(runRow(d, {}), [], 'nothing is claimed with no weights handed in');
+  assert.deepEqual(runRow(d, { weights: { [url]: 200 * 1024 } }), [], 'a background within the budget is silent');
+  const n = runRow(d, { weights: { [url]: 1_800_000 } }).filter((x) => x.rule === 'ground-weight');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.equal(n[0].page, 'story');
+  assert.match(n[0].text, /1758 kB/);
+  assert.match(n[0].text, /under 400 kB/);
+  // a ground cut in three is the sum of its cuts: a guest fetches all of them
+  const cut = clone();
+  const cover = on(cut, 'cover').ground as { url: string; slices: { top: string; mid: string; foot: string } };
+  const each = Object.fromEntries([cover.url, cover.slices.top, cover.slices.mid, cover.slices.foot].map((u) => [u, 120 * 1024]));
+  assert.equal(runRow(cut, { weights: each }).filter((x) => x.rule === 'ground-weight').length, 1, '4 × 120 kB is over the budget together');
+});
+
+/**
+ * A ground she typed rather than named. The night palette turns the words
+ * pale and a colour of her own does not turn down with them, so a pale
+ * ground and pale words meet at night — the one case the six roles cannot
+ * produce, which is why only a typed colour is checked.
+ */
+test('a pale ground of her own says the words will be lost at night', () => {
+  const d = clone();
+  on(d, 'story').ground = { color: '#fef5df', ratio: 2.989 };
+  const n = run(d).filter((x) => x.rule === 'night-ink');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /#fef5df at night/);
+  assert.ok(n[0].id, 'it points at a box with no backing');
+  // a role colour follows the palette, so it is never the subject of this line
+  const role = clone();
+  on(role, 'story').ground = { color: 'bg', ratio: 2.989 };
+  assert.deepEqual(run(role).filter((x) => x.rule === 'night-ink'), []);
+  // and words that carry their own halo are fine on any ground
+  const haloed = clone();
+  on(haloed, 'story').ground = { color: '#fef5df', ratio: 2.989 };
+  for (const e of on(haloed, 'story').elements!) if (e.kind === 'text') (e as TextEl).backing = 'scrim';
+  assert.deepEqual(run(haloed).filter((x) => x.rule === 'night-ink'), []);
+});
+
+/**
+ * The grey a frame shows while it waits for a photograph is fixed in both
+ * modes — it is the one colour on the page that cannot be relied on to move
+ * with the ground — so a ground within a hair of it hides every empty frame.
+ */
+test('a ground the colour of the waiting grey hides the empty frames', () => {
+  const d = clone();
+  on(d, 'story').ground = { color: '#e9e4de', ratio: 2.989 };
+  const n = run(d).filter((x) => x.rule === 'slot-lost');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /will not be visible/);
+  // a ground plainly darker than the grey is not the subject of it
+  const deep = clone();
+  on(deep, 'story').ground = { color: '#1c2e56', ratio: 2.989 };
+  assert.deepEqual(run(deep).filter((x) => x.rule === 'slot-lost'), []);
+});
+
+/** A design in the shop with no cover: not broken, but the card nobody taps. */
+test('a design shown in the shop with no thumbnail says so once', () => {
+  const n = runRow(clone(), { shop: { shown: true, thumbnail: false } }).filter((x) => x.rule === 'no-thumbnail');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.equal(n[0].page, '', 'it is about the design, not any one page');
+  assert.deepEqual(runRow(clone(), { shop: { shown: true, thumbnail: true } }).filter((x) => x.rule === 'no-thumbnail'), []);
+  assert.deepEqual(runRow(clone(), { shop: { shown: false, thumbnail: false } }).filter((x) => x.rule === 'no-thumbnail'), []);
+});
+
 test('every rule the type names can be made to fire', () => {
   const fired = new Set<NeedRule>();
   const add = (d: DesignDoc, content?: Record<string, unknown>) => run(d, content).forEach((x) => fired.add(x.rule));
@@ -255,6 +336,16 @@ test('every rule the type names can be made to fire', () => {
   cap.offerLine = true;
   cap.lines[0].sources = [...cap.lines[0].sources, { fixed: { en: 'Much longer than eight letters' } }];
   add(o);
+
+  // and the three the row knows about: a heavy background, a ground she typed
+  // that the night palette cannot save, and a shop card with no cover
+  const q = clone();
+  const heavy = on(q, 'story').ground as { url: string };
+  runRow(q, { weights: { [heavy.url]: 2_000_000 } }).forEach((x) => fired.add(x.rule));
+  const r = clone();
+  on(r, 'story').ground = { color: '#fef5df', ratio: 2.989 };
+  add(r);
+  runRow(clone(), { shop: { shown: true, thumbnail: false } }).forEach((x) => fired.add(x.rule));
 
   // the list is the type's own, so a rule added and never exercised fails here
   assert.deepEqual([...fired].sort(), [...NEED_RULES].sort());

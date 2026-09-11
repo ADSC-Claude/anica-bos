@@ -13,7 +13,7 @@ import {
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
-import { pageNeeds, needCount, type Need } from '@/lib/needs';
+import { pageNeeds, needCount, HEAVY_GROUND, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
@@ -62,6 +62,10 @@ type Props = {
   content: Record<string, unknown>;
   look?: Look;
   vars: Record<string, string>;
+  /** what each of this design's own uploads weighs, by address, for the checklist */
+  weights: Record<string, number>;
+  /** what the row knows about the shop, for the checklist */
+  shop: { shown: boolean; thumbnail: boolean };
   /**
    * The design's own colours and faces — the two columns the Theme popover
    * edits — as against `vars`, which is what the canvas is drawn in and has
@@ -944,7 +948,10 @@ export function Studio(p: Props) {
    * is recomputed on every change because it is pure and cheap, and because
    * a checklist that lags is worse than none.
    */
-  const needs = useMemo(() => pageNeeds({ doc, occasion: p.occasion, content: p.content }), [doc, p.occasion, p.content]);
+  const needs = useMemo(
+    () => pageNeeds({ doc, occasion: p.occasion, content: p.content, weights: p.weights, shop: p.shop }),
+    [doc, p.occasion, p.content, p.weights, p.shop],
+  );
   const here = useMemo(() => needs.filter((n) => n.page === pageKey), [needs, pageKey]);
   /** lines about the design rather than about any one page */
   const overall = useMemo(() => needs.filter((n) => !n.page), [needs]);
@@ -2850,6 +2857,7 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [heavy, setHeavy] = useState('');
   const [kept, setKept] = useState(false);
   if (!page) return <p className="hint">This design has no pages yet.</p>;
   const ground = page.ground;
@@ -2857,6 +2865,16 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
   async function pick(file: File) {
     setBusy(true);
     setError('');
+    /*
+     * What it weighs, said here rather than only on the checklist. The
+     * checklist knows the weight of everything already uploaded, from the
+     * rows; this knows it while the file is still in her hand, which is the
+     * one moment when going back to the design tool and saving it smaller is
+     * cheap. The number and the advice are the checklist's own.
+     */
+    setHeavy(file.size > HEAVY_GROUND
+      ? `That file is ${Math.round(file.size / 1024)} kB. Under ${Math.round(HEAVY_GROUND / 1024)} kB is what a guest on mobile data can carry for every page — a WebP export rather than a PNG usually gets there.`
+      : '');
     try {
       // A flow page's height comes from its words, so it can run past the
       // picture behind it — which is what the three cuts are for. A drawn
@@ -2949,6 +2967,7 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
           </div>
         </div>
         {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
+        {heavy && <p className="hint text-amber-800">{heavy}</p>}
         <p className="label mt-2">or a colour</p>
         <div className="mt-1 flex flex-wrap gap-1">
           {ROLES.map((r) => (

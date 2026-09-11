@@ -7,7 +7,7 @@ import {
   isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
@@ -1791,6 +1791,75 @@ function groupBy(list: Askable[]): Record<string, Askable[]> {
   return out;
 }
 
+/** How the cover carries its photograph, when the customer has not chosen. */
+const COVER_PHOTO: { key: NonNullable<CoverSpec['photoStyle']>; label: string }[] = [
+  { key: 'veil', label: 'A veil behind the names' },
+  { key: 'arch', label: 'An arch above them' },
+  { key: 'oval', label: 'An oval, double-lined' },
+  { key: 'round', label: 'A round medallion' },
+  { key: 'card', label: 'A tucked photo card' },
+  { key: 'none', label: 'No photograph on the cover' },
+];
+
+/**
+ * The cover's own settings.
+ *
+ * Every one of them is a nothing by default, and a nothing writes nothing:
+ * a design that has never been here renders the cover it always rendered.
+ * The photograph's is a *default* rather than a rule — a customer who picks
+ * a style on their own form still gets theirs.
+ */
+function CoverBlock({ cover, onChange }: { cover?: CoverSpec; onChange: (fn: (p: PageSpec) => PageSpec) => void }) {
+  const set = (next: Partial<CoverSpec>) => onChange((p) => {
+    const merged = { ...(p.cover ?? {}), ...next };
+    for (const k of Object.keys(merged) as (keyof CoverSpec)[]) if (merged[k] === undefined) delete merged[k];
+    return { ...p, cover: Object.keys(merged).length ? merged : undefined };
+  });
+  const scale = cover?.photoScale ?? 1;
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <p className="label">The cover</p>
+      <label className="block">
+        <span className="label">Where the names sit</span>
+        <select className="input w-full" value={cover?.names ?? ''} onChange={(e) => set({ names: (e.target.value || undefined) as CoverSpec['names'] })}>
+          <option value="">As this design was drawn</option>
+          <option value="top">Near the top</option>
+          <option value="middle">In the middle</option>
+          <option value="bottom">Near the foot</option>
+        </select>
+      </label>
+      <label className="block">
+        <span className="label">Air above and below them</span>
+        <input
+          type="number" min={0} max={40} step={0.5}
+          value={cover?.inset ?? ''}
+          placeholder="as drawn"
+          onChange={(e) => set({ inset: e.target.value === '' ? undefined : place(Math.min(40, Math.max(0, Number(e.target.value)))) })}
+          className="input w-full"
+        />
+        <span className="hint">A share of the page&rsquo;s width, so it holds at every phone size.</span>
+      </label>
+      <label className="block">
+        <span className="label">The photograph, unless the customer chooses</span>
+        <select className="input w-full" value={cover?.photoStyle ?? ''} onChange={(e) => set({ photoStyle: (e.target.value || undefined) as CoverSpec['photoStyle'] })}>
+          <option value="">As this design was drawn</option>
+          {COVER_PHOTO.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+      </label>
+      <label className="block">
+        <span className="label">Its size &mdash; {scale.toFixed(2)}&times; the size it was drawn</span>
+        <input
+          type="range" min={0.4} max={2} step={0.05}
+          value={scale}
+          onChange={(e) => set({ photoScale: Number(e.target.value) === 1 ? undefined : place(Number(e.target.value)) })}
+          className="w-full"
+        />
+      </label>
+      {cover && <button type="button" onClick={() => onChange((p) => ({ ...p, cover: undefined }))} className="btn btn-ghost btn-sm">Put the cover back as drawn</button>}
+    </div>
+  );
+}
+
 /** The six roles a colour background can take, so night mode keeps working. */
 const ROLES = [
   { key: 'bg', label: 'Paper' }, { key: 'surface', label: 'Card' }, { key: 'ink', label: 'Ink' },
@@ -1957,6 +2026,14 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
           <p className="hint mt-1">{ground.ratio.toFixed(3)} screens tall, from the picture itself.</p>
         )}
       </div>
+
+      {/*
+        * The cover is the one page no design lays out by hand: the names,
+        * the date and the portrait are the app's. What the design says is
+        * where they sit and how big they are, and saying nothing leaves
+        * every one of them exactly where it was.
+        */}
+      {page.sections.includes('cover') && <CoverBlock cover={page.cover} onChange={onChange} />}
 
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={Boolean(page.peekEnd)} onChange={(e) => onChange((p) => ({ ...p, peekEnd: e.target.checked ? true : undefined }))} className="h-4 w-4" />

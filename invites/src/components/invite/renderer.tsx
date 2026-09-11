@@ -14,7 +14,7 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, BABYBLUE_PAGES, CAPIZ_PAGES, documentOf, pageRatio, peekEndPage, isPicture, type PictureGround } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, BABYBLUE_PAGES, CAPIZ_PAGES, documentOf, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
 import { DrawnPage } from './drawn';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '@/lib/babyblue';
 import { Drawn } from './figures';
@@ -184,7 +184,7 @@ function dottedDate(dateKey: string): string {
   return m ? `${m[2]} · ${m[3]} · ${m[1]}` : '';
 }
 
-function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyebrow: lookEyebrow }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; saveTheDate?: boolean; eyebrow?: string }) {
+function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyebrow: lookEyebrow, spec }: { occasion: Occasion; content: Content; lang: Lang; layout: string; format?: boolean; look?: Look; saveTheDate?: boolean; eyebrow?: string; spec?: CoverSpec }) {
   const cover = content.cover;
   const copy = heroCopy(occasion, cover, lang);
   // A Save the Date says so above the names, over anything the design or the
@@ -217,10 +217,15 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // client saying they want the cover to be the design alone. The photograph
   // they uploaded is still the link preview and still opens the photos page —
   // this decides the cover and nothing else.
-  const portraitStyle = str(cover, 'photoStyle') || (layout === 'babyblue' ? 'card' : 'veil');
+  // the customer's choice first, then the design's own, then the layout's
+  const portraitStyle = str(cover, 'photoStyle') || spec?.photoStyle || (layout === 'babyblue' ? 'card' : 'veil');
+  // a design that says nothing about its cover emits no style at all, so the
+  // markup of a design drawn before any of this existed does not move
+  const set = coverStyle(spec);
+  const heroStyle = Object.keys(set).length ? (set as CSSProperties) : undefined;
   const portrait = format && isPaged(layout) && photo && portraitStyle !== 'none';
   return (
-    <header className="inv-hero" id="top">
+    <header className="inv-hero" id="top" style={heroStyle}>
       {photo && <img src={imageUrl(photo, IMAGE.hero)} alt="" className="inv-hero-photo" />}
       <div className="inv-hero-scrim" />
       <div className="inv-hero-body">
@@ -1930,7 +1935,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     const data = content[key] ?? {};
     switch (key) {
       case 'cover':
-        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} />;
+        return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} spec={coverOf(doc)} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
           <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
-  photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES,
+  photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type PageSpec, type Element, type DesignDoc,
@@ -618,4 +618,40 @@ test('a shape survives the column, and nothing shipped carries one', () => {
   for (const layout of ['babyblue', 'capiz'] as const) {
     assert.equal(builtinDesign(layout)!.pages.some((p) => (p.elements ?? []).some((e) => e.kind === 'shape')), false);
   }
+});
+
+test('the cover says nothing until she says something, and then only that', () => {
+  assert.deepEqual(coverStyle(undefined), {});
+  assert.deepEqual(coverStyle({}), {});
+  // a scale of exactly one is the size it was drawn, which is not a setting
+  assert.deepEqual(coverStyle({ photoScale: 1 }), {});
+  // the photograph's style is the hero's to read, not a style on the box
+  assert.deepEqual(coverStyle({ photoStyle: 'arch' }), {});
+  assert.deepEqual(coverStyle({ names: 'top' }), { alignItems: 'flex-start' });
+  assert.deepEqual(coverStyle({ names: 'middle' }), { alignItems: 'center' });
+  assert.deepEqual(coverStyle({ names: 'bottom' }), { alignItems: 'flex-end' });
+  assert.deepEqual(coverStyle({ inset: 7.5 }), { paddingBlock: '7.5%' });
+  assert.deepEqual(coverStyle({ photoScale: 1.25 }), { '--inv-portrait-scale': '1.25' });
+  // and all of it together, held to the same ten places as everything else
+  assert.deepEqual(coverStyle({ names: 'middle', inset: 1 / 3, photoScale: 2 / 3, photoStyle: 'none' }), {
+    alignItems: 'center', paddingBlock: '0.3333333333%', '--inv-portrait-scale': '0.6666666667',
+  });
+});
+
+test('coverOf finds the page that carries the cover, whatever it is called', () => {
+  const doc = JSON.parse(JSON.stringify(builtinDesign('capiz'))) as DesignDoc;
+  assert.equal(coverOf(doc), undefined, 'nothing shipped sets one');
+  assert.equal(coverOf(null), undefined);
+  const page = doc.pages.find((p) => p.sections.includes('cover'))!;
+  page.key = 'the-front';
+  page.cover = { names: 'bottom', photoStyle: 'oval', photoScale: 1.4, inset: 6 };
+  assert.deepEqual(coverOf(doc), { names: 'bottom', photoStyle: 'oval', photoScale: 1.4, inset: 6 });
+  // and it survives the column whole
+  const { doc: back, dropped } = designOf(JSON.parse(JSON.stringify(doc)), 'capiz');
+  assert.deepEqual(dropped, []);
+  assert.deepEqual(coverOf(back), page.cover);
+  // a scale outside what a cover can hold is refused rather than drawn
+  const silly = JSON.parse(JSON.stringify(doc)) as DesignDoc;
+  silly.pages.find((p) => p.sections.includes('cover'))!.cover!.photoScale = 40;
+  assert.equal(designOf(silly, 'capiz').dropped.length, 1);
 });

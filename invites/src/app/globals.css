@@ -808,6 +808,11 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='capiz'] .inv-hero-body { position: relative; }
 .inv[data-layout='capiz'] .inv-hero-body > .inv-hero-names,
 .inv[data-layout='capiz'] .inv-hero-body > .inv-hero-details { position: relative; z-index: 1; }
+/* Every portrait width below is multiplied by --inv-portrait-scale, which a
+   design sets on its hero when it wants the cover photograph larger or
+   smaller than the size it was drawn with. Unset it is 1, and `calc(X * 1)`
+   is X, so the two designs as shipped measure exactly what they measured
+   before the variable existed — checked in a browser, not argued. */
 .inv-portrait { position: relative; margin: 0.2rem auto 1.7rem; z-index: 0; }
 .inv-portrait img { display: block; width: 100%; object-fit: cover; }
 .inv-portrait[data-style='veil'] {
@@ -815,9 +820,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   left: 50%;
   top: -3.2rem;
   translate: -50% 0;
-  width: 100vw;
-  max-width: 32rem;
-  height: 34rem;
+  width: calc(100vw * var(--inv-portrait-scale, 1));
+  max-width: calc(32rem * var(--inv-portrait-scale, 1));
+  height: calc(34rem * var(--inv-portrait-scale, 1));
   margin: 0;
   opacity: 0.72;
   -webkit-mask-image: radial-gradient(ellipse 64% 58% at 50% 46%, #000 44%, rgba(0, 0, 0, 0.6) 68%, transparent 100%);
@@ -827,7 +832,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* room for the couple above the names, so they are seen before they are read */
 .inv[data-layout='capiz'] .inv-hero-body:has(.inv-portrait[data-style='veil']) > .inv-hero-names { padding-top: 14rem; }
 .inv-portrait[data-style='arch'] {
-  width: min(66%, 15.5rem);
+  width: calc(min(66%, 15.5rem) * var(--inv-portrait-scale, 1));
   padding: 0.3rem;
   border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 75%, transparent);
   border-radius: 999px 999px 0.9rem 0.9rem;
@@ -836,7 +841,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv-portrait[data-style='arch'] img { aspect-ratio: 4 / 5; border-radius: 999px 999px 0.65rem 0.65rem; }
 .inv-portrait[data-style='oval'] {
-  width: min(60%, 14.5rem);
+  width: calc(min(60%, 14.5rem) * var(--inv-portrait-scale, 1));
   padding: 0.4rem;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 80%, transparent);
@@ -848,7 +853,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv-portrait[data-style='oval'] img { aspect-ratio: 3 / 4; border-radius: 50%; }
 .inv-portrait[data-style='round'] {
-  width: min(52%, 12.5rem);
+  width: calc(min(52%, 12.5rem) * var(--inv-portrait-scale, 1));
   padding: 0.45rem;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--inv-accent, #b08d57) 85%, transparent);
@@ -857,7 +862,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 }
 .inv-portrait[data-style='round'] img { aspect-ratio: 1 / 1; border-radius: 50%; }
 .inv-portrait[data-style='card'] {
-  width: min(58%, 14rem);
+  width: calc(min(58%, 14rem) * var(--inv-portrait-scale, 1));
   padding: 0.45rem 0.45rem 1.6rem;
   border-radius: 2px;
   background: #fbf7f0;
@@ -895,9 +900,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='veil'] {
   top: 0;
   translate: -50% -14%;
-  width: min(100%, 20rem);
+  width: calc(min(100%, 20rem) * var(--inv-portrait-scale, 1));
   max-width: none;
-  height: min(46dvh, 21rem);
+  height: calc(min(46dvh, 21rem) * var(--inv-portrait-scale, 1));
   opacity: 0.62;
   -webkit-mask-image: radial-gradient(46% 42% at 50% 44%, #000 34%, rgba(0, 0, 0, 0.5) 66%, transparent 100%);
   mask-image: radial-gradient(46% 42% at 50% 44%, #000 34%, rgba(0, 0, 0, 0.5) 66%, transparent 100%);
@@ -906,21 +911,21 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* the name sits over the wash's lower half, where the sky comes back */
 .inv[data-layout='babyblue'] .inv-hero-body:has(.inv-portrait[data-style='veil']) > .inv-hero-names { padding-top: min(22dvh, 9rem); }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='arch'] {
-  width: min(66%, 15.5rem, 21dvh);
+  width: calc(min(66%, 15.5rem, 21dvh) * var(--inv-portrait-scale, 1));
   background: color-mix(in srgb, #fff 55%, transparent);
   box-shadow: 0 22px 44px -26px rgba(74, 91, 122, 0.5);
 }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='oval'] {
-  width: min(60%, 14.5rem, 20dvh);
+  width: calc(min(60%, 14.5rem, 20dvh) * var(--inv-portrait-scale, 1));
   background: rgba(255, 255, 255, 0.45);
   box-shadow: 0 22px 44px -26px rgba(74, 91, 122, 0.5);
 }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='round'] {
-  width: min(52%, 12.5rem, 24dvh);
+  width: calc(min(52%, 12.5rem, 24dvh) * var(--inv-portrait-scale, 1));
   box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.55), 0 0 0 6px color-mix(in srgb, var(--inv-accent, #8fb0d8) 40%, transparent), 0 20px 40px -24px rgba(74, 91, 122, 0.5);
 }
 .inv[data-layout='babyblue'] .inv-portrait[data-style='card'] {
-  width: min(50%, 11.5rem, 20dvh);
+  width: calc(min(50%, 11.5rem, 20dvh) * var(--inv-portrait-scale, 1));
   padding: 0.4rem 0.4rem 1.4rem;
   background: #fff;
   box-shadow: 0 16px 32px -18px rgba(74, 91, 122, 0.5), 0 1px 2px rgba(74, 91, 122, 0.12);

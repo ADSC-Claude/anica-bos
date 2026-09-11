@@ -256,7 +256,28 @@ export type PageSpec = {
   grow?: true;
   /** the public peek stops after this page */
   peekEnd?: true;
+  /** the cover page's own settings; ignored on any other page */
+  cover?: CoverSpec;
   elements?: Element[];
+};
+
+/**
+ * How the cover carries the names and the photograph.
+ *
+ * The cover is the one page every design has and the one page no design
+ * lays out by hand: the names, the date and the portrait are the app's, and
+ * the design's part is where they sit and how big they are. Left alone,
+ * every design carries them exactly where it always did.
+ */
+export type CoverSpec = {
+  /** where the names sit in the cover's height */
+  names?: 'top' | 'middle' | 'bottom';
+  /** the air above and below them, as a share of the width */
+  inset?: number;
+  /** how the portrait sits, when the customer has not chosen for themselves */
+  photoStyle?: 'none' | 'veil' | 'arch' | 'oval' | 'round' | 'card';
+  /** the portrait's size against the one the design was drawn with: 1 is as drawn */
+  photoScale?: number;
 };
 
 export type Anchor = 'centre' | 'top';
@@ -657,6 +678,12 @@ const zPage = z.object({
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
+  cover: z.object({
+    names: z.enum(['top', 'middle', 'bottom']).optional(),
+    inset: zPlace(0, 40).optional(),
+    photoStyle: z.enum(['none', 'veil', 'arch', 'oval', 'round', 'card']).optional(),
+    photoScale: zPlace(0.2, 3).optional(),
+  }).strict().optional(),
 }).strict();
 const zDoc = z.object({
   v: z.literal(1),
@@ -1206,6 +1233,34 @@ export function valueAt(content: Record<string, unknown> | undefined, ref: Field
   const row = list[ref.index];
   if (!row) return '';
   return text(ref.sub ? row[ref.sub] : row.value);
+}
+
+/**
+ * The cover's own settings, from the page that carries it.
+ *
+ * The cover is found by the section it carries rather than by its key, the
+ * same way every other page is found, so a design that names its first page
+ * something else still has a cover.
+ */
+export function coverOf(doc: DesignDoc | null): CoverSpec | undefined {
+  return doc?.pages.find((p) => p.sections.includes('cover'))?.cover;
+}
+
+/**
+ * What the cover's settings do to the hero: where the names sit in its
+ * height, and how much air is above and below them. A setting she has not
+ * touched says nothing at all, so every design carries its names exactly
+ * where it always did.
+ */
+const NAMES_AT: Record<NonNullable<CoverSpec['names']>, string> = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+export function coverStyle(cover: CoverSpec | undefined): Record<string, string> {
+  const st: Record<string, string> = {};
+  if (!cover) return st;
+  if (cover.names) st.alignItems = NAMES_AT[cover.names];
+  // a share of the width, so the air holds its proportion at every phone size
+  if (cover.inset !== undefined) st.paddingBlock = `${place(cover.inset)}%`;
+  if (cover.photoScale !== undefined && cover.photoScale !== 1) st['--inv-portrait-scale'] = String(place(cover.photoScale));
+  return st;
 }
 
 /** A design's word, through the look it is written over. */

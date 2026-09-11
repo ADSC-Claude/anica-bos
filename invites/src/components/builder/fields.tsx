@@ -279,73 +279,42 @@ function StyleThumb({ kind }: { kind: string }) {
 /**
  * The three check-in fronts, drawn rather than described.
  *
- * Each tile has to show that the pass is a printed card — the engraved rule,
- * the monogram, the code on a plate — because an earlier set drew a plain
- * white box three times and a couple would have picked from a picture of the
- * wrong thing. What differs between them is only where the picture goes.
+ * Each tile has to read as a poster — picture edge to edge, the dark falling
+ * off the bottom, big words on it and the code small in a corner. An earlier
+ * set drew a bordered card three times, which is the thing these fronts took
+ * out, and a couple would have been choosing from a picture of the wrong page.
  */
-function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: string }) {
-  const line = (w: string, colour = ink, o = 0.6) => (
-    <span style={{ display: 'block', height: 2.5, width: w, borderRadius: 2, background: colour, opacity: o, margin: '0 auto' }} />
+function PassThumb({ look, photo }: { look: string; ink: string; photo: string }) {
+  const line = (w: string, h = 3, o = 0.95) => (
+    <span style={{ display: 'block', height: h, width: w, borderRadius: 1, background: '#fff', opacity: o }} />
   );
-  const eye = (pos: CSSProperties) => (
-    <span style={{ position: 'absolute', width: '30%', height: '30%', border: '2px solid var(--color-ink-900)', borderRadius: 1, ...pos }} />
-  );
-  const mod = (l: string, t: string) => (
-    <span style={{ position: 'absolute', left: l, top: t, width: '14%', height: '14%', background: 'var(--color-ink-900)' }} />
-  );
-  const gold = 'var(--color-gold-500)';
-  // The code on its plate: paper, a hairline, and a second rule held inside.
-  const plate = (
-    <span style={{ position: 'relative', display: 'block', padding: '9%', border: `1px solid ${gold}`, borderRadius: 1 }}>
-      <span style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1' }}>
-        {eye({ left: 0, top: 0 })}
-        {eye({ right: 0, top: 0 })}
-        {eye({ left: 0, bottom: 0 })}
-        {mod('44%', '6%')}
-        {mod('44%', '32%')}
-        {mod('64%', '46%')}
-        {mod('44%', '60%')}
-        {mod('80%', '60%')}
-        {mod('6%', '46%')}
-        {mod('24%', '46%')}
-        {mod('64%', '78%')}
-        {mod('44%', '80%')}
+  // The code, small and cornered, on its own paper.
+  const mark = (
+    <span style={{ position: 'absolute', right: '9%', bottom: '7%', width: '24%', aspectRatio: '1', background: '#fff', borderRadius: 1, padding: 2 }}>
+      <span style={{ position: 'relative', display: 'block', width: '100%', height: '100%' }}>
+        {[[0, 0], [62, 0], [0, 62]].map(([l, t]) => (
+          <span key={`${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '38%', height: '38%', border: '1.5px solid var(--color-ink-900)' }} />
+        ))}
+        <span style={{ position: 'absolute', right: '4%', bottom: '4%', width: '26%', height: '26%', background: 'var(--color-ink-900)' }} />
       </span>
     </span>
   );
-  // The monogram, ringed — a seal where the design has a ground to press into.
-  const seal = (filled = false) => (
-    <span
-      style={{
-        display: 'block', width: 14, height: 14, margin: '0 auto', borderRadius: 999,
-        border: `1px solid ${filled ? 'transparent' : gold}`,
-        background: filled ? 'var(--color-plum-600)' : 'transparent',
-      }}
-    />
-  );
-  // A picture rather than a flat grey rectangle: two figures against a sky.
+  // A picture rather than a flat rectangle: two figures against a sky.
   const picture = (
     <>
-      <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, var(--color-sand-300) 0%, var(--color-sand-100) 55%, var(--color-sand-200) 100%)' }} />
-      <span style={{ position: 'absolute', left: '16%', bottom: '-8%', width: '32%', height: '50%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.92 }} />
-      <span style={{ position: 'absolute', left: '44%', bottom: '-10%', width: '34%', height: '56%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.78 }} />
+      <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, var(--color-sand-200) 0%, var(--color-sand-100) 42%, var(--color-sand-300) 100%)' }} />
+      <span style={{ position: 'absolute', left: '14%', bottom: '18%', width: '34%', height: '46%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.9 }} />
+      <span style={{ position: 'absolute', left: '44%', bottom: '16%', width: '36%', height: '52%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.75 }} />
     </>
   );
-  // The card itself: paper with a rule held in from its edge.
-  const card = (inset: string, body: React.ReactNode) => (
-    <span style={{ position: 'absolute', inset, background: 'var(--card-bg)', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.22)' }}>
-      <span style={{ position: 'absolute', inset: 3, border: `1px solid ${gold}`, borderRadius: 1 }} />
-      <span style={{ position: 'absolute', inset: '9% 14%' }}>{body}</span>
-    </span>
-  );
+  const fall = (css: string) => <span style={{ position: 'absolute', inset: 0, background: css }} />;
   const words = (
     <>
-      {seal()}
-      <span style={{ display: 'block', height: 5 }} />
-      {line('100%')}
-      <span style={{ display: 'block', height: 3 }} />
-      {line('52%', gold, 1)}
+      {line('58%', 2, 0.75)}
+      <span style={{ display: 'block', height: 4 }} />
+      {line('92%', 7)}
+      <span style={{ display: 'block', height: 4 }} />
+      {line('46%', 2, 0.6)}
     </>
   );
   return (
@@ -354,30 +323,32 @@ function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: str
       className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)]"
       style={{ aspectRatio: '3 / 5', background: 'var(--color-sand-50)' }}
     >
-      {/* the card laid on the picture */}
-      {look === 'photo' && (
-        <>
-          {picture}
-          {card('9% 12%', <>{words}<span style={{ display: 'block', height: 7 }} />{plate}</>)}
-        </>
-      )}
-      {/* the picture in an arch cut into the card */}
-      {look === 'arch' && (
-        <>
-          <span style={{ position: 'absolute', inset: 0, background: 'var(--card-bg)' }} />
-          <span style={{ position: 'absolute', inset: 3, border: `1px solid ${gold}`, borderRadius: 1 }} />
-          <span style={{ position: 'absolute', inset: '8% 14% auto', height: '34%', borderRadius: '999px 999px 1px 1px', overflow: 'hidden' }}>{picture}</span>
-          <span style={{ position: 'absolute', left: '14%', right: '14%', top: '46%' }}>{words}</span>
-          <span style={{ position: 'absolute', left: '24%', right: '24%', top: '62%' }}>{plate}</span>
-        </>
-      )}
-      {/* the design's own ground behind the card, the seal pressed into it */}
+      {look !== 'ground' && picture}
       {look === 'ground' && (
+        <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px), var(--color-sand-200)` }} />
+      )}
+      {/* the poster: the dark comes up off the bottom, the words sit in it */}
+      {look !== 'cover' && (
         <>
-          <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px)` }} />
-          {card('9% 12%', <>{seal(true)}<span style={{ display: 'block', height: 5 }} />{line('100%')}<span style={{ display: 'block', height: 3 }} />{line('52%', gold, 1)}<span style={{ display: 'block', height: 7 }} />{plate}</>)}
+          {fall('linear-gradient(to bottom, rgba(12,10,8,0.3) 0%, rgba(12,10,8,0) 24%, rgba(12,10,8,0) 40%, rgba(12,10,8,0.72) 66%, rgba(12,10,8,0.96) 100%)')}
+          <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '34%' }}>{words}</span>
         </>
       )}
+      {/* the masthead: the dark at the top, the words across it */}
+      {look === 'cover' && (
+        <>
+          {fall('linear-gradient(to bottom, rgba(12,10,8,0.9) 0%, rgba(12,10,8,0.5) 24%, rgba(12,10,8,0) 48%, rgba(12,10,8,0) 60%, rgba(12,10,8,0.85) 92%, rgba(12,10,8,0.96) 100%)')}
+          <span style={{ position: 'absolute', left: '9%', right: '9%', top: '8%' }}>{words}</span>
+        </>
+      )}
+      {/* the hairline and the code, on every one */}
+      <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '25%', height: 1, background: 'rgba(255,255,255,0.28)' }} />
+      <span style={{ position: 'absolute', left: '9%', bottom: '8%', width: '42%' }}>
+        {line('86%', 5, 0.9)}
+        <span style={{ display: 'block', height: 4 }} />
+        {line('100%', 2, 0.45)}
+      </span>
+      {mark}
     </span>
   );
 }

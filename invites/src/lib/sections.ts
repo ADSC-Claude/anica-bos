@@ -684,7 +684,7 @@ const SECTION_DEFS: SectionDef[] = [
       // other, so the backdrop field is gone and this answers for both — the
       // pass and the code block on the invitation.
       styles('look', 'How the pass looks', PASS_LOOKS.map((l) => ({
-        value: l.value === 'photo' ? '' : l.value,
+        value: l.value === 'poster' ? '' : l.value,
         label: l.label,
         hint: l.note,
         art: `pass-${l.value}`,

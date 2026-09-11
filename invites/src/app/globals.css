@@ -541,222 +541,151 @@ table.data tr:hover td {
 /*
  * The pass page: one guest's check-in screen, at its own link.
  *
- * Built to be read in a doorway — one screen, one-handed, the code the biggest
- * thing on it. The sheet takes the invitation's own palette through the same
- * --inv-* variables the invitation uses, so a pass always looks like the thing
- * it belongs to.
- */
-/*
- * The pass page: one guest's check-in screen, at its own link.
+ * The photograph is the design. It fills the screen, it is never washed out,
+ * and the words sit on it — there is no card, no frame, no border and no
+ * panel anywhere on the front of this page, because three earlier attempts
+ * were exactly that and a bordered rectangle is not what a guest wants to
+ * hold up at a door.
  *
- * Built to be read in a doorway — one screen, one-handed, the code the biggest
- * thing on it. The sheet takes the invitation's own palette through the same
- * --inv-* variables the invitation uses, so a pass always looks like the thing
- * it belongs to.
- *
- * The photograph is never washed out, never darkened and never has type laid
- * over it. The words and the code sit on the invitation's own paper; the
- * picture is the ground behind that paper and keeps its full strength. That is
- * what makes veils, scrims and blurs unnecessary here, and all three are gone.
+ * What carries the type is the fall: the dark that comes up off the bottom
+ * the way it does on a film poster, deep where the words are and clear where
+ * the faces are. That is a composition, not a scrim over a photograph — the
+ * picture is at full strength everywhere above it.
  */
 .pass {
   position: relative;
   min-height: 100dvh;
-  background: var(--inv-bg);
-  color: var(--inv-ink);
+  background: #14110e;
+  color: #fff;
   font-family: var(--inv-body);
   display: grid;
-  place-items: center;
-  padding: clamp(14px, 5vw, 40px);
+  overflow: hidden;
+  isolation: isolate;
 }
-/* Where there is a picture behind the card, stand the card further off it —
-   at the page's own padding the photograph was a thirty-pixel border rather
-   than a photograph. */
-.pass[data-look='photo'],
-.pass[data-look='ground'][data-art='yes'] { padding: clamp(26px, 9vw, 72px) clamp(22px, 8vw, 64px); }
-/* The picture behind everything, at full strength. */
 .pass-picture {
-  /* Absolute against .pass, not fixed: .pass is the page and already fills the
-     viewport, so this covers the same ground without escaping its own box — a
-     fixed child leaves the sheet behind wherever the pass is embedded. */
   position: absolute;
   inset: 0;
   background-size: cover;
   background-position: center;
+  background-color: var(--inv-bg);
   z-index: 0;
 }
-.pass-sheet {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 23rem;
-  background: var(--inv-surface);
-  border-radius: 0.6rem;
-  display: grid;
-  gap: 0;
-  padding: 0.85rem;
-  box-shadow: 0 20px 55px -18px rgba(0, 0, 0, 0.45), 0 2px 8px -4px rgba(0, 0, 0, 0.2);
-}
-/*
- * The engraved rule: one hairline held in from the paper's edge, which is what
- * the whole card turns on. It is the oldest mark on printed stationery and it
- * is the difference between a card and a white box — without it the pass was
- * a rectangle with type in the middle of it, which is what it looked like.
- */
-.pass-sheet::before {
-  content: '';
+/* The fall. Clear through the top two fifths, then down to near black — the
+   proportions a poster uses, so the faces keep the light and the words get
+   the dark. */
+.pass-fall {
   position: absolute;
-  inset: 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 80%, transparent);
-  border-radius: 0.25rem;
-  pointer-events: none;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(to bottom, rgba(12, 10, 8, 0.34) 0%, rgba(12, 10, 8, 0) 22%, rgba(12, 10, 8, 0) 38%, rgba(12, 10, 8, 0.62) 62%, rgba(12, 10, 8, 0.92) 84%, rgba(12, 10, 8, 0.97) 100%);
 }
-/* The photograph is the ground; the card floats on it and needs no border of
-   its own. On flat colour the card is the page, so it takes a hairline edge
-   instead of a shadow that has nothing to fall on. */
-.pass[data-look='ground'][data-art='no'] .pass-sheet {
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
-  box-shadow: none;
-}
-
-/* An arch cut into the paper, which is the shape this whole trade draws a
-   photograph in. Inside the engraved rule, not over it. */
-.pass-arch {
-  aspect-ratio: 5 / 6;
-  margin: 1.15rem 1.15rem 0;
-  background-size: cover;
-  background-position: center;
-  border-radius: 999px 999px 0.2rem 0.2rem;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--inv-accent2) 70%, transparent);
-}
-
-.pass-head { padding: 1.7rem 1.9rem 0.5rem; text-align: center; display: grid; gap: 0.4rem; justify-items: center; }
-.pass[data-look='arch'] .pass-head { padding-top: 1.1rem; }
-/* The couple's initials, ringed. A wax seal where the design has a ground of
-   its own to press it into. */
-.pass-monogram {
-  font-family: var(--inv-display);
-  font-size: 0.95rem;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  margin: 0 0 0.35rem;
-  width: 2.6rem;
-  height: 2.6rem;
+.pass-stage {
+  position: relative;
+  z-index: 2;
   display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 85%, transparent);
-  color: var(--inv-accent);
+  align-content: end;
+  gap: 1.5rem;
+  padding: clamp(1.6rem, 7vw, 2.6rem) clamp(1.5rem, 6vw, 2.2rem) clamp(1.5rem, 6vw, 2.2rem);
+  min-height: 100dvh;
 }
-.pass[data-look='ground'][data-art='yes'] .pass-monogram {
-  background: var(--inv-accent);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 4px 12px -5px rgba(0, 0, 0, 0.5);
-}
+
+/* ── the words ──────────────────────────────────────────────────────── */
+.pass-words { display: grid; gap: 0.5rem; max-width: 22rem; }
 .pass-intro {
   font-size: 0.625rem;
-  /* 0.26em plus a narrow column put "OF" alone on a second line. */
-  letter-spacing: 0.2em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: var(--inv-muted);
   font-weight: 600;
   margin: 0;
-  text-wrap: balance;
-  max-width: 15rem;
+  color: rgba(255, 255, 255, 0.82);
 }
+/* The size is the point. A guest holds this up and somebody two feet away
+   reads the names off it; three lines of the same size is what made every
+   earlier attempt read as a form. */
 .pass-names {
   font-family: var(--inv-display);
   font-weight: 500;
-  font-size: 1.95rem;
-  line-height: 1.08;
+  font-size: clamp(2.6rem, 13vw, 3.4rem);
+  line-height: 0.94;
+  letter-spacing: -0.015em;
+  margin: 0.1rem 0 0;
+  text-wrap: balance;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.5);
+}
+.pass-when {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.88);
+  text-transform: uppercase;
+}
+/* Under it, and in sentence case: a venue in caps at this size is a shout,
+   and the date above it is the line that wants the emphasis. */
+.pass-venue {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.74);
+  max-width: 17rem;
+  text-wrap: pretty;
+}
+
+/* ── the foot: whose pass, and the code ─────────────────────────────── */
+.pass-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1.1rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+}
+.pass-who { min-width: 0; display: grid; gap: 0.3rem; }
+/* The guest's own name, in the display face. It is their pass and it is the
+   line the desk reads before they scan. */
+.pass-for {
+  font-family: var(--inv-display);
+  font-size: 1.4rem;
+  line-height: 1.1;
   margin: 0;
   text-wrap: balance;
 }
-/* The short rule under the names, the same one the invitation sets. */
-.pass-rule { display: block; width: 2.4rem; height: 1px; margin: 0.45rem 0 0.15rem; background: var(--inv-accent2); }
-.pass-when { font-size: 0.75rem; color: var(--inv-muted); margin: 0; letter-spacing: 0.01em; }
-.pass-where { font-size: 0.75rem; color: var(--inv-muted); margin: 0.1rem 0 0; line-height: 1.45; text-wrap: balance; max-width: 15rem; }
-/* Whose pass this is, in the display face's italic. */
-.pass-for { font-size: 0.8125rem; color: var(--inv-ink); margin: 0.5rem 0 0; }
-.pass-for em { font-family: var(--inv-display); font-style: italic; font-size: 1.0625rem; }
-
-/* The code, and the quiet zone it is owed. */
-.pass-code { display: grid; justify-items: center; gap: 0.55rem; padding: 1.25rem 1.9rem 0.5rem; min-width: 0; }
-/* The caption between two hairlines, the way the invitation sets a heading —
-   it reads as engraving rather than as a label stuck above a square. */
-.pass-cta {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  font-size: 0.625rem;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--inv-muted);
-}
-.pass-cta::before,
-.pass-cta::after {
-  content: '';
-  flex: 1 1 0;
-  height: 1px;
-  background: color-mix(in srgb, var(--inv-accent2) 75%, transparent);
-}
-.pass-cta > span { flex: 0 1 auto; }
-/* The code on a plate: paper, a hairline, and a second rule held inside it. A
-   bare code is a sticker; a plate is something that was printed. */
-.pass-plate {
-  position: relative;
+.pass-note { font-size: 0.6875rem; line-height: 1.5; margin: 0; color: rgba(255, 255, 255, 0.66); max-width: 15rem; text-wrap: pretty; }
+/* The code, the way a magazine carries its barcode: small, cornered, on its
+   own paper, and the smallest thing on the screen. */
+.pass-mark { display: grid; justify-items: center; gap: 0.35rem; }
+.pass-code-art {
   display: block;
-  width: 100%;
-  max-width: 15.5rem;
-  padding: 0.85rem;
-  background: var(--inv-surface);
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 70%, transparent);
-  border-radius: 0.2rem;
+  line-height: 0;
+  width: 5.4rem;
+  padding: 0.3rem;
+  background: #fff;
+  border-radius: 0.15rem;
 }
-.pass-plate::before {
-  content: '';
-  position: absolute;
-  inset: 0.34rem;
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 40%, transparent);
-  border-radius: 0.1rem;
-  pointer-events: none;
-}
-/* The code is drawn at 232px and then allowed to shrink to the phone it is
-   on: an SVG with a viewBox scales without losing a module, and a fixed width
-   here is the difference between a pass that works on an iPhone SE and one
-   that does not. */
-.pass-code-art { position: relative; display: block; line-height: 0; width: 100%; max-width: 232px; margin: 0 auto; }
 .pass-code-art svg { width: 100%; height: auto; display: block; }
-.pass-note { font-size: 0.6875rem; text-align: center; margin: 0.15rem 0 0; line-height: 1.55; color: var(--inv-muted); max-width: 20rem; text-wrap: pretty; min-width: 0; }
-
-.pass-greet-title { font-family: var(--inv-display); font-weight: 500; font-size: 1.15rem; margin: 0; line-height: 1.25; }
-.pass-greet-body { font-size: 0.8125rem; color: var(--inv-muted); margin: 0; line-height: 1.5; }
-
-/* The code, and the quiet zone it is owed. */
-.pass-code { display: grid; justify-items: center; gap: 0.7rem; padding: 1.35rem 1.35rem 0.35rem; min-width: 0; }
 .pass-cta {
-  font-size: 0.6875rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  font-weight: 700;
   margin: 0;
-  min-width: 0;
+  font-size: 0.5rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 600;
 }
-/* The code is drawn at 232px and then allowed to shrink to the phone it is
-   on: an SVG with a viewBox scales without losing a module, and a fixed width
-   here is the difference between a pass that works on an iPhone SE and one
-   that does not. */
-.pass-code-art { display: block; line-height: 0; width: 100%; max-width: 232px; }
-.pass-code-art svg { width: 100%; height: auto; display: block; }
-.pass-note { font-size: 0.75rem; text-align: center; margin: 0; line-height: 1.5; color: var(--inv-muted); max-width: 22rem; text-wrap: pretty; min-width: 0; }
 
-/* After the scan. The tick is the whole message; the rest is the day. */
-.pass-arrived { padding: 1.5rem 1.9rem 0.4rem; text-align: center; display: grid; gap: 0.4rem; justify-items: center; }
+/* ── after the scan: the paper comes up over the picture ────────────── */
+.pass-after {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  width: 100%;
+  background: var(--inv-surface);
+  color: var(--inv-ink);
+  border-radius: 1.25rem 1.25rem 0 0;
+  margin-top: 22vh;
+  padding-bottom: 0.5rem;
+  box-shadow: 0 -18px 50px -20px rgba(0, 0, 0, 0.6);
+}
+.pass-arrived { padding: 1.6rem 1.5rem 0.4rem; text-align: center; display: grid; gap: 0.4rem; justify-items: center; }
 .pass-tick {
   width: 3rem;
   height: 3rem;
@@ -769,9 +698,11 @@ table.data tr:hover td {
   line-height: 1;
   margin: 0 0 0.35rem;
 }
+.pass-greet-title { font-family: var(--inv-display); font-weight: 500; font-size: 1.35rem; margin: 0; line-height: 1.2; }
+.pass-greet-body { font-size: 0.8125rem; color: var(--inv-muted); margin: 0; line-height: 1.5; }
 .pass-stamp { font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--inv-muted); margin: 0.2rem 0 0; }
 
-.pass-links { margin: 1.15rem 1.9rem 0; display: grid; gap: 8px; }
+.pass-links { margin: 1.15rem 1.5rem 0; display: grid; gap: 8px; }
 .pass-link {
   display: grid;
   gap: 0.1rem;
@@ -786,7 +717,7 @@ table.data tr:hover td {
 .pass-link-label { font-size: 0.9375rem; }
 
 .pass-details {
-  margin: 1.15rem 1.9rem 0;
+  margin: 1.15rem 1.5rem 0;
   display: grid;
   gap: 1px;
   background: color-mix(in srgb, var(--inv-accent2) 45%, transparent);
@@ -794,26 +725,36 @@ table.data tr:hover td {
   border-radius: 0.75rem;
   overflow: hidden;
 }
-/* Stacked, not two columns. A fixed label column is a fixed width inside a
-   sheet that has to fit a phone, and on the narrow looks it left "Table 7"
-   wrapping to "Tabl / 7". The label is small and uppercase; above its value is
-   where it belongs anyway, and it is the same shape as .pass-link. */
-.pass-detail {
-  background: var(--inv-surface);
-  display: grid;
-  gap: 0.1rem;
-  padding: 0.6rem 0.85rem;
-}
+/* Stacked, not two columns: a fixed label column is a fixed width inside a
+   sheet that has to fit a phone, and it left "Table 7" wrapping to "Tabl 7". */
+.pass-detail { background: var(--inv-surface); display: grid; gap: 0.1rem; padding: 0.6rem 0.85rem; }
 .pass-detail dt { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inv-muted); font-weight: 600; }
 .pass-detail dd { margin: 0; font-size: 0.875rem; }
 
-.pass-again { margin: 1.15rem 1.9rem 0; text-align: center; }
+.pass-again { margin: 1.15rem 1.5rem 0; text-align: center; }
 .pass-again summary { font-size: 0.8125rem; color: var(--inv-accent); cursor: pointer; }
-.pass-again .pass-code-small { margin: 0.75rem auto 0; max-width: 168px; }
+.pass-again .pass-code-small { width: 10.5rem; margin: 0.75rem auto 0; padding: 0; background: none; }
 
-.pass-foot { padding: 1rem 1.9rem 1.6rem; text-align: center; }
+.pass-foot { padding: 1.15rem 1.5rem 1.6rem; text-align: center; }
 .pass-back { font-size: 0.8125rem; color: var(--inv-accent); text-decoration: none; }
 .pass-back:hover { text-decoration: underline; }
+
+/* ── the masthead: the names across the top, the picture under them ──── */
+.pass[data-look='cover'] .pass-fall {
+  background:
+    linear-gradient(to bottom, rgba(12, 10, 8, 0.9) 0%, rgba(12, 10, 8, 0.62) 22%, rgba(12, 10, 8, 0) 46%, rgba(12, 10, 8, 0) 58%, rgba(12, 10, 8, 0.78) 88%, rgba(12, 10, 8, 0.95) 100%);
+}
+.pass[data-look='cover'] .pass-stage { align-content: space-between; }
+.pass[data-look='cover'] .pass-words { max-width: none; }
+.pass[data-look='cover'] .pass-names {
+  font-size: clamp(2.4rem, 12.5vw, 3.2rem);
+  line-height: 0.92;
+}
+.pass[data-look='cover'] .pass-when { margin-top: 0.6rem; }
+
+/* A design with no artwork has no picture to fall onto, so the ground is its
+   own deep colour and the words sit on that. */
+.pass[data-look='ground'] .pass-picture { background-color: var(--inv-ink); }
 
 /*
  * The check-in pass block on the invitation: the guest's own code, and the

@@ -155,37 +155,42 @@ export function passSubject(occasion: Occasion, content: Content, fallback: stri
 }
 
 /**
- * How the pass is laid out, which is the same question as where the
- * photograph goes.
+ * How the pass is laid out.
  *
- * All three are the same piece of stationery — engraved double rules, a
- * monogram, the names in the design's display face, the guest's own name in
- * italic, and the code set as a plate rather than dropped in as a black
- * square. What differs is the picture: behind the card, in an arched window
- * cut into it, or the design's own ground.
+ * Not a card. There is no frame, no border, no panel and no tidy centred list
+ * of details — three attempts at this page were exactly that, and a bordered
+ * rectangle with the photograph pushed to the outside of it is the opposite of
+ * what a pass should be.
  *
- * The photograph is never washed out, darkened or written over. The words and
- * the code sit on the invitation's own paper, which is what makes veils and
- * scrims unnecessary rather than merely tuned.
+ * The photograph is the design. It fills the screen, it is never washed out,
+ * and the words live on it: a small letterspaced line, the names very large,
+ * and the guest's own name. The dark falls off the bottom the way it does on a
+ * poster — deep where the words are, clear where the faces are — so the type
+ * reads because the picture was composed for it, not because a scrim was laid
+ * over the top.
+ *
+ * The code is the smallest thing on the screen and sits in a corner, the way a
+ * magazine carries its barcode. It is what the desk scans; it is not what the
+ * guest looks at.
  */
-export type PassLook = 'photo' | 'arch' | 'ground';
+export type PassLook = 'poster' | 'cover' | 'ground';
 
 export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string }[] = [
-  { value: 'photo', label: 'Card on your photo', note: 'The picture fills the pass and the card is laid on it, like a card on a table.' },
-  { value: 'arch', label: 'Arched window', note: 'The picture in an arch cut into the card, the way it sits on your invitation.' },
-  { value: 'ground', label: 'Your invitation’s design', note: 'The design’s own background behind the card, with your seal on it.' },
+  { value: 'poster', label: 'Poster', note: 'Your photograph full bleed, your names large across the foot of it.' },
+  { value: 'cover', label: 'Magazine cover', note: 'Your names across the top like a masthead, the picture running under them.' },
+  { value: 'ground', label: 'Your invitation’s design', note: 'The design’s own artwork instead of a photograph, set the same way.' },
 ];
 
 /**
- * Blank is the photograph, and so are the two photo backdrops the old picker
- * offered: a couple who chose "photo behind the card" or "photo behind the
- * code" asked for their picture behind their code. Only the invitation's own
- * colours map to `ground`.
+ * Blank is the poster, and so are the retired photo backdrops and the card
+ * looks that came before: a couple who chose any of them asked for their
+ * picture behind their code. Only the invitation's own colours map to
+ * `ground`.
  */
 export function passLookFrom(raw: string): PassLook {
   if (raw === 'ground') return 'ground';
-  if (raw === 'split') return 'arch';
-  return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'photo';
+  if (raw === 'arch' || raw === 'split') return 'cover';
+  return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'poster';
 }
 
 export type PassDetail = { label: string; value: string };

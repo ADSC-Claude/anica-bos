@@ -274,7 +274,7 @@ type Base = {
   ifEmpty?: { piece: string } | 'leave';
   /** phase 4 */
   motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
-  /** the id of a photo this element follows when that photo is moved */
+  /** the id of another element this one follows when that element is moved */
   attachTo?: string;
 };
 
@@ -601,6 +601,8 @@ function babyblueDesign(): DesignDoc {
   const storyLabels: TextEl[] = STORY_LABELS.map((l, i) => ({
     id: `story-label-${i + 1}`, kind: 'text', block: 'label', x: place(l.cx), y: place(l.top), w: place(l.width), anchor: 'top',
     hidden: 'whenEmpty',
+    // the milestone's words belong to its photograph: move one and the other follows
+    attachTo: `story-photo-${i + 1}`,
     lines: [
       { role: 'label-title', sources: [{ bind: { section: 'story', field: 'timeline', index: i, sub: 'title' } }] },
       { role: 'label-text', sources: [{ bind: { section: 'story', field: 'timeline', index: i, sub: 'text' } }] },
@@ -629,6 +631,7 @@ function babyblueDesign(): DesignDoc {
     const away = s.size / 2 + PHOTO_STRIP.below;
     return {
       id: `photos-caption-${i + 1}`, kind: 'text', block: 'caption', anchor: 'centre',
+      attachTo: `photos-photo-${i + 1}`,
       x: place(s.cx - away * Math.sin(rad)),
       y: place((s.cy * PHOTO_ASPECT + away * Math.cos(rad)) / photoRatio),
       w: place(s.size * PHOTO_STRIP.width),
@@ -737,6 +740,36 @@ export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: 
  * 2.6% of the column is about nine pixels at 360 across, which is where a
  * caption stops being a caption and becomes a smudge.
  */
+/**
+ * Everything that travels with the given elements, themselves included.
+ *
+ * A caption written under a polaroid is not part of the polaroid — it is its
+ * own box, set in its own face — but a designer who drags the polaroid means
+ * the caption to come along. `attachTo` says so, and the walk is transitive:
+ * a sticker attached to the caption travels too. The answer comes back in the
+ * page's own order, so a caller can rely on it for layering as well.
+ */
+export function withFollowers(elements: Element[], ids: string[]): string[] {
+  const out = new Set(ids);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const el of elements) {
+      if (el.attachTo && out.has(el.attachTo) && !out.has(el.id)) { out.add(el.id); grew = true; }
+    }
+  }
+  return elements.filter((e) => out.has(e.id)).map((e) => e.id);
+}
+
+/**
+ * Whether `id` may be attached to `to`. Nothing follows itself, and nothing
+ * follows something that already follows it: a ring of attachments would move
+ * for ever, so the studio never offers one.
+ */
+export function canAttach(elements: Element[], id: string, to: string): boolean {
+  if (id === to) return false;
+  return !withFollowers(elements, [id]).includes(to);
+}
+
 export const LEGIBLE_CQW = 2.6;
 
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */

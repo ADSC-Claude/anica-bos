@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  builtinDesign, designChange, blastRadius, filledRows, frameLists, studioDoc,
-  type DesignDoc, type PhotoEl,
+  builtinDesign, designChange, blastRadius, filledRows, frameLists, studioDoc, withFollowers, canAttach,
+  type DesignDoc, type PhotoEl, type Element,
 } from '../src/lib/design';
 import { can, PERMISSIONS } from '../src/lib/rbac';
 
@@ -123,4 +123,55 @@ test('publishing a design is the owner’s, drawing one is not', () => {
   assert.equal(can('ENCODER', 'templates.edit'), true);
   assert.equal(can('SUPPORT', 'templates.publish'), false);
   assert.equal(can('CUSTOMER', 'templates.publish'), false);
+});
+
+// ---------------------------------------------------------------------------
+// What travels with what
+// ---------------------------------------------------------------------------
+
+const tied = (id: string, attachTo?: string): Element =>
+  ({ id, kind: 'text', block: 'free', y: 10, lines: [], ...(attachTo ? { attachTo } : {}) }) as Element;
+
+test('withFollowers: a caption travels with its frame, and so does what follows the caption', () => {
+  const els = [tied('frame'), tied('caption', 'frame'), tied('sticker', 'caption'), tied('alone')];
+  assert.deepEqual(withFollowers(els, ['frame']), ['frame', 'caption', 'sticker']);
+  assert.deepEqual(withFollowers(els, ['caption']), ['caption', 'sticker']);
+  // an attachment pulls one way only: the caption does not drag the frame along
+  assert.deepEqual(withFollowers(els, ['sticker']), ['sticker']);
+  assert.deepEqual(withFollowers(els, ['alone']), ['alone']);
+  assert.deepEqual(withFollowers(els, []), []);
+  // the answer comes back in the page's own order, whatever order it was asked in
+  assert.deepEqual(withFollowers(els, ['alone', 'frame']), ['frame', 'caption', 'sticker', 'alone']);
+});
+
+test('withFollowers: a ring already in the document is walked once, not for ever', () => {
+  const els = [tied('a', 'b'), tied('b', 'a')];
+  assert.deepEqual(withFollowers(els, ['a']), ['a', 'b']);
+});
+
+test('canAttach: nothing follows itself, and nothing follows what already follows it', () => {
+  const els = [tied('frame'), tied('caption', 'frame'), tied('sticker', 'caption'), tied('alone')];
+  assert.equal(canAttach(els, 'caption', 'frame'), true);
+  assert.equal(canAttach(els, 'alone', 'sticker'), true);
+  assert.equal(canAttach(els, 'frame', 'frame'), false);
+  assert.equal(canAttach(els, 'frame', 'caption'), false);
+  // two steps away is still a ring
+  assert.equal(canAttach(els, 'frame', 'sticker'), false);
+});
+
+/**
+ * The built-in design is what a designer starts from when she duplicates
+ * Baby Blue, so the pairs that have to move together are already paired.
+ */
+test('Baby Blue ties every caption and every milestone to its own photograph', () => {
+  const photos = base.pages.find((p) => p.key === 'baby-photos')!.elements!;
+  for (let i = 1; i <= 4; i++) {
+    assert.equal(photos.find((e) => e.id === `photos-caption-${i}`)!.attachTo, `photos-photo-${i}`);
+  }
+  const story = base.pages.find((p) => p.key === 'story')!.elements!;
+  for (let i = 1; i <= 6; i++) {
+    assert.equal(story.find((e) => e.id === `story-label-${i}`)!.attachTo, `story-photo-${i}`);
+  }
+  // dragging one frame carries its caption and nothing else
+  assert.deepEqual(withFollowers(photos, ['photos-photo-2']), ['photos-photo-2', 'photos-caption-2']);
 });

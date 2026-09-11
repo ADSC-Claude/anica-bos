@@ -33,26 +33,51 @@ async function main() {
   let made = 0;
   let redone = 0;
 
-  for (const f of book.faces) {
-    const data = { ...f, source: f.source === 'file' ? ('FILE' as const) : ('GOOGLE' as const) };
-    if (!haveFaces.has(f.key)) {
-      if (!dry) await prisma.fontFace.create({ data });
-      made++;
-      console.info(`  face  + ${f.key.padEnd(24)} ${f.family}`);
-    } else if (refresh) {
+  /*
+   * One statement per table, not one per row.
+   *
+   * Found in a preview build, which is the only place the shape of this was
+   * ever going to show: the build runs in Washington and the database is in
+   * Singapore, so a row at a time is ninety round trips of about six hundred
+   * milliseconds, and the build's sixty-second deadline killed it forty rows
+   * short. **A half-stocked pair of tables is worse than an empty one.** The
+   * reader falls back to the book in the code only when a table is *empty*
+   * (`fontBook`), and the faces are written before the sets — so what
+   * actually happened was forty-nine faces, one pairing, and a reader that
+   * used the rows as it found them. Every design set in any of the other
+   * forty pairings would have lost its faces.
+   *
+   * `createMany` makes each table one statement, so there is no half-way:
+   * either the rows are there or the table is untouched and the fallback is
+   * the honest one. `skipDuplicates` keeps this create-only without a
+   * second round trip to ask what exists.
+   *
+   * `--refresh` still goes a row at a time, because an update is per row and
+   * there is no batched form of it. That is a command somebody runs on
+   * purpose, at a terminal, with no deadline over it — not the build path.
+   */
+  const newFaces = book.faces
+    .filter((f) => !haveFaces.has(f.key))
+    .map((f) => ({ ...f, source: f.source === 'file' ? ('FILE' as const) : ('GOOGLE' as const) }));
+  const newSets = book.sets.filter((s) => !haveSets.has(s.key)).map((s) => ({ ...s, minTier: s.minTier as Tier }));
+
+  for (const f of newFaces) console.info(`  face  + ${f.key.padEnd(24)} ${f.family}`);
+  for (const s of newSets) console.info(`  set   + ${s.key.padEnd(24)} ${s.name}`);
+  if (!dry && newFaces.length) await prisma.fontFace.createMany({ data: newFaces, skipDuplicates: true });
+  if (!dry && newSets.length) await prisma.fontSet.createMany({ data: newSets, skipDuplicates: true });
+  made = newFaces.length + newSets.length;
+
+  if (refresh) {
+    for (const f of book.faces) {
+      if (!haveFaces.has(f.key)) continue;
+      const data = { ...f, source: f.source === 'file' ? ('FILE' as const) : ('GOOGLE' as const) };
       if (!dry) await prisma.fontFace.update({ where: { key: f.key }, data });
       redone++;
       console.info(`  face  ~ ${f.key.padEnd(24)} ${f.family}`);
     }
-  }
-
-  for (const s of book.sets) {
-    const data = { ...s, minTier: s.minTier as Tier };
-    if (!haveSets.has(s.key)) {
-      if (!dry) await prisma.fontSet.create({ data });
-      made++;
-      console.info(`  set   + ${s.key.padEnd(24)} ${s.name}`);
-    } else if (refresh) {
+    for (const s of book.sets) {
+      if (!haveSets.has(s.key)) continue;
+      const data = { ...s, minTier: s.minTier as Tier };
       if (!dry) await prisma.fontSet.update({ where: { key: s.key }, data });
       redone++;
       console.info(`  set   ~ ${s.key.padEnd(24)} ${s.name}`);

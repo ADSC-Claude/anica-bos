@@ -10,6 +10,7 @@ import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
 import { str, rows, bool, guestGroups } from './sections';
 import { contentOf } from './invitations';
+import { contactPatch } from './contacts';
 import { attendeesOf } from './attendees';
 
 /**
@@ -160,6 +161,20 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   const saved = existing
     ? await prisma.rsvp.update({ where: { id: existing.id }, data })
     : await prisma.rsvp.create({ data });
+
+  // What a guest tells us about themselves goes back on their own row, because
+  // that is the row a blast reads. Two copies of the same details on file and
+  // only one of them read is how a couple ends up buying an SMS add-on for a
+  // list the system believes has no numbers in it. The rule for which copy
+  // wins is contactPatch, shared with the back-fill so the two cannot drift.
+  //
+  // input.email rather than data.email: what is stored may have a department
+  // packed onto it, and while contactPatch takes that off anyway, there is no
+  // reason to hand it something to undo.
+  if (guest) {
+    const patch = contactPatch({ phone: input.phone, email: input.email }, guest);
+    if (Object.keys(patch).length) await prisma.guest.update({ where: { id: guest.id }, data: patch });
+  }
 
   // Tell the host, but not on every edit of the same response.
   if (!existing) {

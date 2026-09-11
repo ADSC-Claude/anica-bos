@@ -36,6 +36,8 @@ import { hasPremiumOpening } from './openings';
 import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
 import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
+import { documentOf } from './design';
+import { designForm, askedFields } from './asks';
 import { notifyStaff } from './notifications';
 import { formatDate } from './datetime';
 
@@ -226,7 +228,10 @@ export function unlocked(invitation: { order: { status: string } | null }): bool
 }
 
 export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown, opts: { done?: boolean } = {}) {
-  const invitation = await prisma.invitation.findUnique({ where: { id: invitationId }, include: { order: { select: { status: true } } } });
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    include: { order: { select: { status: true } }, template: { select: { design: true, layout: true } } },
+  });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
   assertNotPublished(user, invitation);
   assertOpenForChanges(user, invitation);
@@ -236,7 +241,17 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   }
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet. The builder unlocks once payment is confirmed.');
 
-  const fields = fieldsFor(key, invitation.occasion, undefined, Boolean(invitation.saveTheDateOfId));
+  /*
+   * Fitted to the design before it is cleaned, so the cap the form counted
+   * down from is the cap the save keeps. The form is a courtesy; this is
+   * where a design's twenty letters actually become twenty. A design with no
+   * document of its own changes nothing, which is every design today.
+   */
+  const fields = askedFields(
+    fieldsFor(key, invitation.occasion, undefined, Boolean(invitation.saveTheDateOfId)),
+    key,
+    designForm(documentOf(invitation.template), invitation.occasion),
+  );
   const { data: cleaned, issues } = cleanSection(fields, raw);
   const content = contentOf(invitation.content);
   // the fixed writings are ours: a customer's save keeps them as they were

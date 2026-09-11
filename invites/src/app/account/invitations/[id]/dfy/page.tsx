@@ -7,6 +7,8 @@ import { RUSH_CODE, PRIORITY_CODE } from '@/lib/pricing';
 import { getSettings } from '@/lib/settings';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionUnlocked, sectionMinTier, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type Content } from '@/lib/sections';
+import { documentOf } from '@/lib/design';
+import { designForm, askedFields, askedLimits } from '@/lib/asks';
 import { galleryLimit } from '@/lib/tiers';
 import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
@@ -30,9 +32,11 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
   // include. Those come through locked rather than missing, the way the
   // builder's sidebar shows them: a customer who cannot see that a guest photo
   // album exists cannot ask for one, and Done-For-You is where they would ask.
+  // what the design asks for; empty for a design with no document of its own
+  const form = designForm(documentOf(inv.template), inv.occasion);
   const sections = sectionsFor(inv.occasion).map((d) => {
     // the customer's own fields only: the fixed writings are ours
-    const fields = customerFields(fieldsFor(d.key, inv.occasion, inv.tier));
+    const fields = askedFields(customerFields(fieldsFor(d.key, inv.occasion, inv.tier)), d.key, form);
     const unlocked = sectionUnlocked(d.key, inv.occasion, inv.tier);
     return {
       key: d.key,
@@ -43,7 +47,7 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
       minTier: sectionMinTier(d.key, inv.occasion),
       initial: { ...emptySection(fields), ...(existing[d.key] ?? {}), ...(intake.content?.[d.key] ?? {}) },
       // a photo page drawn with frames holds so many, whatever the package
-      ...(d.key === 'gallery' ? { listLimits: { photos: Math.min(galleryLimit(inv.tier) === Infinity ? 200 : galleryLimit(inv.tier), photoFrames(inv.template.layout)) }, listHints: photoFramesHint(inv.template.layout) } : {}),
+      ...(d.key === 'gallery' ? { listLimits: { photos: Math.min(galleryLimit(inv.tier) === Infinity ? 200 : galleryLimit(inv.tier), photoFrames(inv.template.layout)), ...askedLimits(d.key, form) }, listHints: photoFramesHint(inv.template.layout) } : { ...(Object.keys(askedLimits(d.key, form)).length ? { listLimits: askedLimits(d.key, form) } : {}) }),
     };
   });
 

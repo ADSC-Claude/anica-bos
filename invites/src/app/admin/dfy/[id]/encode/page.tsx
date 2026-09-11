@@ -6,6 +6,7 @@ import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, photoFrames, photoFramesHint, type Content, type SectionKey } from '@/lib/sections';
 import { sectionAnchor } from '@/lib/anchors';
 import { documentOf } from '@/lib/design';
+import { designForm, askedFields, askedLimits } from '@/lib/asks';
 import { intakeRows, intakeFilled } from '@/lib/intake';
 import { doneSections } from '@/lib/progress';
 import { galleryLimit } from '@/lib/tiers';
@@ -50,8 +51,10 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
     fromClient: intakeFilled(fieldsFor(key, occasion), intake.content?.[key]),
   }));
   const current = (sections.find((s) => s.key === sp.section)?.key ?? sections[0]?.key) as SectionKey;
-  // staff see every field, the fixed writings included
-  const fields = fieldsFor(current, occasion, inv.tier);
+  // staff see every field, the fixed writings included — fitted to the design
+  // the same way the customer's form is, so an encoder is told the same room
+  const form = designForm(doc, occasion);
+  const fields = askedFields(fieldsFor(current, occasion, inv.tier), current, form);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const intakeData = intake.content?.[current] ?? null;
   const limit = galleryLimit(inv.tier);
@@ -95,7 +98,7 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
         intakeData={intakeData}
         intakeNotes={intake.notes ?? ''}
         lang={inv.language === 'tl' ? 'tl' : 'en'}
-        listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)) }}
+        listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }}
         listHints={photoFramesHint(inv.template.layout)}
         done={doneSections(content.progress)}
       />

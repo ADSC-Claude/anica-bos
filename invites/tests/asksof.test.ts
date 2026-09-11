@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { builtinDesign, type DesignDoc, type PhotoEl, type TextEl } from '../src/lib/design';
-import { asksOf, askable, roomFor, askCounts, shapeOf, SHAPE_GUIDANCE, fieldOf } from '../src/lib/asks';
+import type { Occasion } from '@prisma/client';
+import { builtinDesign, documentOf, type DesignDoc, type PhotoEl, type TextEl } from '../src/lib/design';
+import { asksOf, askable, roomFor, askCounts, shapeOf, SHAPE_GUIDANCE, fieldOf, designForm, askedFields, askedLimits, asksNothing } from '../src/lib/asks';
+import { sectionsFor, fieldsFor, OCCASION_SECTIONS } from '../src/lib/sections';
 
 const base = builtinDesign('babyblue')!;
 const clone = (): DesignDoc => JSON.parse(JSON.stringify(base));
@@ -116,4 +118,103 @@ test('the picker offers a customer’s fields, by kind, and never a staff one', 
   // and a debut, which has no Our Story, is never offered its fields
   assert.equal(askable('DEBUT', 'photo').some((a) => a.section === 'story'), false);
   assert.ok(askable('DEBUT', 'photo').some((a) => a.section === 'gallery'));
+});
+
+// ---------------------------------------------------------------------------
+// The form this design asks for
+// ---------------------------------------------------------------------------
+
+/**
+ * The contract, and the reason this can be wired into a live form at all: a
+ * design that says nothing about a field gives back the very field it was
+ * given, and a section it says nothing about gives back the very array. Not
+ * an equal one — the same one. Identity is the plainest way to say "today's
+ * form, untouched", and every design in the catalogue today says nothing.
+ */
+test('a design asking for nothing leaves every form exactly as it is', () => {
+  const nothing = designForm(null, 'WEDDING' as never);
+  assert.equal(asksNothing(nothing), true);
+  let checked = 0;
+  for (const occasion of Object.keys(OCCASION_SECTIONS) as Occasion[]) {
+    const form = designForm(null, occasion);
+    for (const def of sectionsFor(occasion)) {
+      const fields = fieldsFor(def.key, occasion);
+      assert.equal(askedFields(fields, def.key, form), fields);
+      assert.deepEqual(askedLimits(def.key, form), {});
+      checked++;
+    }
+  }
+  assert.ok(checked > 100, `only ${checked} sections checked`);
+});
+
+test('the two designs as published say nothing about the form', () => {
+  // their `design` column is empty: the document is the studio's, not theirs
+  assert.equal(asksNothing(designForm(documentOf({ design: {}, layout: 'babyblue' }), 'CHRISTENING' as never)), true);
+});
+
+test('a design drawn with frames caps the list at what it draws', () => {
+  const form = designForm(builtinDesign('babyblue'), 'CHRISTENING' as never);
+  assert.equal(form.rows['gallery.photos'], 4);
+  assert.equal(form.rows['story.timeline'], 6);
+  assert.deepEqual(askedLimits('gallery', form), { photos: 4 });
+  assert.deepEqual(askedLimits('story', form), { timeline: 6 });
+  assert.deepEqual(askedLimits('closing', form), {});
+
+  const fields = fieldsFor('gallery', 'CHRISTENING' as never);
+  const photos = fields.find((f) => f.key === 'photos')!;
+  assert.ok((photos.max ?? 0) > 4, 'the occasion allows more than the design draws');
+  const asked = askedFields(fields, 'gallery', form);
+  assert.notEqual(asked, fields);
+  assert.equal(asked.find((f) => f.key === 'photos')!.max, 4);
+  // and nothing else in the section moved
+  for (const f of asked) if (f.key !== 'photos') assert.equal(f, fields.find((x) => x.key === f.key));
+});
+
+test('a box she measured caps the question, and never raises it', () => {
+  const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
+  const label = doc.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-label-1') as TextEl;
+  label.ask = true;
+  label.room = 9;
+  const form = designForm(doc, 'CHRISTENING' as never);
+  assert.equal(form.room['story.timeline.title'], 9);
+
+  const fields = fieldsFor('story', 'CHRISTENING' as never);
+  const timeline = fields.find((f) => f.key === 'timeline')!;
+  const title = timeline.item!.find((f) => f.key === 'title')!;
+  assert.ok((title.max ?? 0) > 9);
+  const asked = askedFields(fields, 'story', form);
+  assert.equal(asked.find((f) => f.key === 'timeline')!.item!.find((f) => f.key === 'title')!.max, 9);
+
+  // a box roomier than the question leaves the question alone
+  label.room = 500;
+  const roomy = designForm(doc, 'CHRISTENING' as never);
+  assert.equal(askedFields(fields, 'story', roomy).find((f) => f.key === 'timeline')!.item!.find((f) => f.key === 'title')!.max, title.max);
+});
+
+test('the shape she drew becomes the hint, after whatever the field already said', () => {
+  const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
+  const frame = doc.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-photo-1') as PhotoEl;
+  frame.ask = true;
+  frame.aspect = 1.5;
+  const form = designForm(doc, 'CHRISTENING' as never);
+  assert.match(form.shape['story.timeline.photo'], /Upright, taller than it is wide/);
+
+  const fields = fieldsFor('story', 'CHRISTENING' as never);
+  const own = fields.find((f) => f.key === 'timeline')!.item!.find((f) => f.key === 'photo')!;
+  const asked = askedFields(fields, 'story', form).find((f) => f.key === 'timeline')!.item!.find((f) => f.key === 'photo')!;
+  assert.match(asked.hint!, /Upright, taller than it is wide/);
+  if (own.hint) assert.ok(asked.hint!.startsWith(own.hint), 'the field keeps what it already said');
+});
+
+test('two frames of different shapes on one field say nothing rather than half a truth', () => {
+  const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
+  const els = doc.pages.find((p) => p.key === 'story')!.elements!;
+  const a = els.find((e) => e.id === 'story-photo-1') as PhotoEl;
+  const b = els.find((e) => e.id === 'story-photo-2') as PhotoEl;
+  a.ask = true; a.aspect = 1.5;
+  b.ask = true; b.aspect = 0.6;
+  assert.equal(designForm(doc, 'CHRISTENING' as never).shape['story.timeline.photo'], undefined);
+  // agreeing, they speak
+  b.aspect = 1.5;
+  assert.match(designForm(doc, 'CHRISTENING' as never).shape['story.timeline.photo'], /Upright/);
 });

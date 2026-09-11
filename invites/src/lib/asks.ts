@@ -150,3 +150,99 @@ export function askable(occasion: Occasion, kind: 'photo' | 'text'): Askable[] {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// The form this design asks for
+// ---------------------------------------------------------------------------
+
+/**
+ * What a published design changes about its customers' form.
+ *
+ * Three things, and only three, because only three are the design's to say.
+ * How many rows a list offers, because the design draws a fixed number of
+ * frames and a seventh photograph has nowhere to go. How many letters a box
+ * holds, because she measured it. What shape a photograph has to be, because
+ * she drew the frame. Everything else — which sections exist, which the
+ * package unlocks, what each field is called — is the occasion's and the
+ * package's, and a design has no business moving it.
+ *
+ * Keyed `section.field`, and `section.field.sub` for a field inside a list.
+ */
+export type DesignForm = {
+  /** a list's cap, from the frames drawn for it */
+  rows: Record<string, number>;
+  /** the letters a box holds, from the box she drew */
+  room: Record<string, number>;
+  /** what a photograph has to fit, in words a customer can act on */
+  shape: Record<string, string>;
+};
+
+const EMPTY: DesignForm = { rows: {}, room: {}, shape: {} };
+
+export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignForm {
+  if (!doc) return EMPTY;
+  const asks = asksOf(doc, occasion);
+  const rows: Record<string, number> = {};
+  for (const list of frameLists(doc)) rows[`${list.section}.${list.field}`] = list.count;
+  const shape: Record<string, string> = {};
+  for (const a of asks) {
+    if (a.kind !== 'photo' || !a.shape) continue;
+    const key = `${a.ref.section}.${a.ref.field}${a.ref.sub ? `.${a.ref.sub}` : ''}`;
+    // two frames on one field agree only if they agree; otherwise say nothing
+    // rather than tell a customer to crop for a shape half her photos are not
+    if (shape[key] && shape[key] !== SHAPE_GUIDANCE[a.shape]) shape[key] = '';
+    else shape[key] = SHAPE_GUIDANCE[a.shape];
+  }
+  for (const key of Object.keys(shape)) if (!shape[key]) delete shape[key];
+  return { rows, room: roomFor(asks), shape };
+}
+
+/** Whether a design has anything to say about the form at all. */
+export const asksNothing = (form: DesignForm): boolean =>
+  !Object.keys(form.rows).length && !Object.keys(form.room).length && !Object.keys(form.shape).length;
+
+/**
+ * One section's fields as this design asks for them.
+ *
+ * A design that says nothing about a field gives back the very field it was
+ * given, and a section it says nothing about gives back the very array: the
+ * contract is that a design asking for nothing leaves today's form exactly as
+ * it is, and identity is the plainest way to keep it and to test it.
+ *
+ * Where a design does speak it only ever narrows. A box measured at twenty
+ * letters caps a field the occasion allowed forty; it never raises a cap,
+ * because the occasion's number is about what the words are for and the
+ * design's is about what fits.
+ */
+export function askedFields(fields: Field[], section: string, form: DesignForm): Field[] {
+  if (asksNothing(form)) return fields;
+  let moved = false;
+  const out = fields.map((f) => {
+    const key = `${section}.${f.key}`;
+    let next = f;
+    const cap = Math.min(form.rows[key] ?? Infinity, form.room[key] ?? Infinity, f.max ?? Infinity);
+    if (Number.isFinite(cap) && cap !== f.max) next = { ...next, max: cap };
+    const guide = form.shape[key];
+    if (guide) next = { ...next, hint: [f.hint, guide].filter(Boolean).join(' ') };
+    if (f.item) {
+      const item = askedFields(f.item, `${section}.${f.key}`, form);
+      if (item !== f.item) next = { ...next, item };
+    }
+    if (next !== f) moved = true;
+    return next;
+  });
+  return moved ? out : fields;
+}
+
+/**
+ * A list's cap for this section, for the forms that pass limits separately
+ * from the fields. Only the lists the design actually draws frames for.
+ */
+export function askedLimits(section: string, form: DesignForm): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, n] of Object.entries(form.rows)) {
+    const [s, field] = key.split('.');
+    if (s === section) out[field] = n;
+  }
+  return out;
+}

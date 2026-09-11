@@ -4,6 +4,8 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, sectionAlwaysShows, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type SectionKey } from '@/lib/sections';
+import { documentOf } from '@/lib/design';
+import { designForm, askedFields, askedLimits } from '@/lib/asks';
 import { isStaff } from '@/lib/rbac';
 import { galleryLimit } from '@/lib/tiers';
 import { Builder } from '@/components/builder/builder';
@@ -33,7 +35,15 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
   }));
   const current = (sections.find((s) => s.key === section && s.unlocked)?.key ?? sections.find((s) => s.unlocked)!.key) as SectionKey;
   // the fixed writings are ours: staff editing for the customer see them, the customer does not
-  const fields = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier, std) : customerFields(fieldsFor(current, inv.occasion, inv.tier, std));
+  /*
+   * The form this design asks for. A design that says nothing gives back the
+   * very fields it was handed, so every invitation on a design with no
+   * document of its own — which is all of them today — sees exactly the form
+   * it saw before.
+   */
+  const form = designForm(documentOf(inv.template), inv.occasion);
+  const own = isStaff(user.role) ? fieldsFor(current, inv.occasion, inv.tier, std) : customerFields(fieldsFor(current, inv.occasion, inv.tier, std));
+  const fields = askedFields(own, current, form);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
   const done = doneSections(content.progress);
@@ -55,7 +65,7 @@ export default async function BuilderPage({ params, searchParams }: { params: Pr
           <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
         </div>
       </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
+      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} tier={inv.tier} />
     </>
   );
 }

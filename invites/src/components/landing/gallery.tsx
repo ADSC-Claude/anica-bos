@@ -139,7 +139,7 @@ function CoverCard({ t, premiumPriceCents }: { t: GalleryTemplate; premiumPriceC
         </div>
       )}
       {clip && (
-        <button type="button" onClick={() => setPreview(true)} className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-white shadow backdrop-blur transition hover:bg-black/75" aria-label={`Watch the premium opening of ${t.name}`}>
+        <button type="button" onClick={() => setPreview(true)} className="absolute bottom-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-sand-50)] shadow backdrop-blur transition hover:bg-black/75" aria-label={`Watch the premium opening of ${t.name}`}>
           <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
           Premium opening
         </button>

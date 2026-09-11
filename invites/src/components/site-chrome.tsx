@@ -20,25 +20,59 @@ const NAV = [
   { href: '/#faq', label: 'FAQ' },
 ];
 
-export function SiteHeader({ s, signedIn }: { s: Settings; signedIn: boolean }) {
+/**
+ * The wordmark, at the size the header was built around.
+ *
+ * The full stacked lockup and nothing beside it. The name used to sit next to
+ * the mark as type, which is what a mark-only logo wants — but this logo has
+ * the word in it already, and printing "Invited" twice beside itself is the
+ * one thing a header must not do. The alt text carries the name for anybody
+ * who cannot see the image.
+ */
+function Wordmark({ s }: { s: Settings }) {
+  // The file in the repo is the default rather than something an operator has
+  // to go and configure, so a fresh deploy has the logo rather than a gap.
+  // business.logoUrl still wins where it is set, which is what that setting is
+  // for — swapping the mark without a deploy.
+  return <img src={s['business.logoUrl'] || '/logo.png'} alt={s['business.name']} className="h-12 w-auto md:h-14" />;
+}
+
+function Arrow() {
   return (
-    <header className="sticky top-0 z-30 border-b border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
-        <Link href="/" className="flex items-center gap-2" aria-label={`${s['business.name']} — home`}>
-          {s['business.logoUrl'] ? <img src={s['business.logoUrl']} alt="" className="h-9 w-auto" /> : null}
-          <span className="display text-xl">{s['business.name']}</span>
+    <svg className="ed-arrow" width="16" height="10" viewBox="0 0 16 10" fill="none" aria-hidden>
+      <path d="M1 5h13M10 1l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * @param overlay The landing page's hero photograph runs to the very top of
+ *   the page, so there the header sits ON it rather than above it: no ground,
+ *   no rule. Everywhere else the header has cream under it and keeps both —
+ *   a transparent header over a dense page is a header you cannot read.
+ */
+export function SiteHeader({ s, signedIn, overlay = false }: { s: Settings; signedIn: boolean; overlay?: boolean }) {
+  return (
+    <header className={overlay
+      ? 'absolute inset-x-0 top-0 z-30'
+      : 'sticky top-0 z-30 border-b border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]/95 backdrop-blur'}>
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
+        <Link href="/" aria-label={`${s['business.name']} — home`}>
+          <Wordmark s={s} />
         </Link>
-        <nav aria-label="Main" className="hidden items-center gap-5 text-sm md:flex">
-          {NAV.map((n) => <Link key={n.href} href={n.href} className="hover:text-[color:var(--color-plum-600)]">{n.label}</Link>)}
-          {s['contact.messenger'] && <a href={s['contact.messenger']} target="_blank" rel="noopener" className="flex items-center gap-1 hover:text-[color:var(--color-plum-600)]" aria-label="Messenger"><span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#0084ff]" />Messenger</a>}
-          {signedIn && <Link href="/account" className="hover:text-[color:var(--color-plum-600)]">My invitations</Link>}
-          <Link href="/checkout" className="btn btn-primary btn-sm">Create invitation</Link>
+        <nav aria-label="Main" className="ed-nav hidden items-center gap-8 lg:flex">
+          {NAV.map((n) => <Link key={n.href} href={n.href}>{n.label}</Link>)}
+          {signedIn && <Link href="/account">My invitations</Link>}
         </nav>
-        <details className="relative md:hidden">
+        <div className="hidden items-center gap-4 lg:flex">
+          <Link href="/checkout" className="ed-cta ed-cta-outline">Create invitation<Arrow /></Link>
+        </div>
+        <details className="relative lg:hidden">
           <summary className="btn btn-secondary btn-sm cursor-pointer list-none">Menu</summary>
-          <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[color:var(--color-sand-200)] bg-white p-2 shadow-lg">
+          <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--card-bg)] p-2 shadow-lg">
             {NAV.map((n) => <Link key={n.href} href={n.href} className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">{n.label}</Link>)}
             {signedIn && <Link href="/account" className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">My invitations</Link>}
+            {s['contact.messenger'] && <a href={s['contact.messenger']} target="_blank" rel="noopener" className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">Messenger</a>}
             <Link href="/checkout" className="btn btn-primary btn-sm mt-1 w-full">Create invitation</Link>
           </div>
         </details>
@@ -47,40 +81,57 @@ export function SiteHeader({ s, signedIn }: { s: Settings; signedIn: boolean }) 
   );
 }
 
+/** One social mark. Outline only — four filled brand colours in a footer pull
+ *  harder than anything above them, and none of them is ours. */
+function Social({ href, label, d }: { href: string; label: string; d: string }) {
+  return (
+    <a href={href} target="_blank" rel="noopener" aria-label={label} title={label}
+       className="text-[color:var(--color-ink-500)] transition-colors hover:text-[color:var(--color-wine-800)]">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d={d} /></svg>
+    </a>
+  );
+}
+
+const IG = 'M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.7.1 4.9s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.7.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4 1.3-.1 1.7-.1 4.8-.1zm0 3.2a6.6 6.6 0 1 0 0 13.2 6.6 6.6 0 0 0 0-13.2zm0 10.9a4.3 4.3 0 1 1 0-8.6 4.3 4.3 0 0 1 0 8.6zm8.4-11.2a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z';
+const FB = 'M22 12a10 10 0 1 0-11.6 9.9v-7h-2.5V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.4h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z';
+
 export function SiteFooter({ s }: { s: Settings }) {
   return (
-    <footer className="border-t border-[color:var(--color-sand-200)] bg-white">
-      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-10 md:grid-cols-4">
-        <div className="md:col-span-2">
-          <p className="display text-xl">{s['business.name']}</p>
-          <p className="mt-1 max-w-sm text-sm text-[color:var(--color-ink-500)]">{s['business.tagline']}. Made in the Philippines for Filipino celebrations.</p>
-          <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">{s['business.address']}</p>
+    <footer className="border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]">
+      <div className="mx-auto max-w-6xl px-5 py-12">
+        <div className="flex flex-col items-start gap-8 md:flex-row md:items-center md:justify-between">
+          <Link href="/" aria-label={`${s['business.name']} — home`}>
+            <Wordmark s={s} />
+          </Link>
+
+          <nav aria-label="Footer" className="ed-nav flex flex-wrap items-center gap-x-7 gap-y-2">
+            <Link href="/templates">Templates</Link>
+            <Link href="/#packages">Pricing</Link>
+            <Link href="/occasions">By occasion</Link>
+            <Link href="/#how">How it works</Link>
+            <a href={`mailto:${s['business.email']}`}>Contact</a>
+          </nav>
+
+          <div className="flex items-center gap-5">
+            {s['business.instagram'] && <Social href={s['business.instagram']} label="Instagram" d={IG} />}
+            {s['business.facebook'] && <Social href={s['business.facebook']} label="Facebook" d={FB} />}
+            <span aria-hidden className="hidden h-px w-8 bg-[color:var(--color-sand-300)] sm:block" />
+            <span className="ed-eyebrow">Made with love</span>
+          </div>
         </div>
-        <div className="text-sm">
-          <p className="mb-2 font-semibold">Product</p>
-          <ul className="space-y-1">
-            <li><Link href="/templates" className="hover:underline">Templates</Link></li>
-            <li><Link href="/occasions" className="hover:underline">Designs by occasion</Link></li>
-            <li><Link href="/#packages" className="hover:underline">Packages & pricing</Link></li>
-            <li><Link href="/demo" className="hover:underline">Live demo</Link></li>
-            <li><Link href="/#how" className="hover:underline">How it works</Link></li>
-          </ul>
-        </div>
-        <div className="text-sm">
-          <p className="mb-2 font-semibold">Company</p>
-          <ul className="space-y-1">
-            {s['contact.messenger'] && <li><a href={s['contact.messenger']} className="hover:underline" target="_blank" rel="noopener">Messenger</a></li>}
-            {s['contact.viber'] && <li><a href={s['contact.viber']} className="hover:underline">Viber</a></li>}
-            <li><a href={`mailto:${s['business.email']}`} className="hover:underline">{s['business.email']}</a></li>
-            {s['business.facebook'] && <li><a href={s['business.facebook']} className="hover:underline" target="_blank" rel="noopener">Facebook</a></li>}
-            {s['business.instagram'] && <li><a href={s['business.instagram']} className="hover:underline" target="_blank" rel="noopener">Instagram</a></li>}
-            <li><Link href="/terms" className="hover:underline">Terms</Link></li>
-            <li><Link href="/privacy" className="hover:underline">Privacy</Link></li>
-            <li><Link href="/refund-policy" className="hover:underline">Refund policy</Link></li>
-          </ul>
+
+        {/* The small print stays. It is the part a customer actually needs
+            when something has gone wrong, and an editorial footer is not a
+            reason to make the refund policy harder to find. */}
+        <div className="mt-10 flex flex-col gap-3 border-t border-[color:var(--color-sand-200)] pt-6 text-xs text-[color:var(--color-ink-500)] sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} {s['business.name']} · One-time payment, no subscription · GCash · Maya · Cards · Bank transfer</p>
+          <p className="flex flex-wrap gap-4">
+            <Link href="/terms" className="hover:underline">Terms</Link>
+            <Link href="/privacy" className="hover:underline">Privacy</Link>
+            <Link href="/refund-policy" className="hover:underline">Refunds</Link>
+          </p>
         </div>
       </div>
-      <p className="border-t border-[color:var(--color-sand-100)] px-5 py-4 text-center text-xs text-[color:var(--color-ink-500)]">© {new Date().getFullYear()} {s['business.name']} · One-time payment, no subscription · GCash · Maya · Cards · Bank transfer</p>
     </footer>
   );
 }

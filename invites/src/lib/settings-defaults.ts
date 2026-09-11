@@ -13,6 +13,19 @@ export const DEFAULT_SETTINGS = {
   'business.phone': '+63 900 000 0000',
   'business.address': 'Quezon City, Metro Manila, Philippines',
   'business.logoUrl': '',
+  /*
+   * The landing page's two photographs, uploaded from admin settings rather
+   * than committed to the repository — the owner changes the picture on the
+   * front page without a deploy, and without us.
+   *
+   * Empty falls back to what the code ships with: the CSS alcove behind the
+   * hero's phone, and plain wine under the closing band. Both slots are
+   * wide — roughly 3:2 for the hero, wider still for the band — and the band's
+   * photograph wants its subject on the right, because the headline sits on
+   * the left of it.
+   */
+  'landing.heroImageUrl': '',
+  'landing.bandImageUrl': '',
   'business.facebook': '',
   'business.instagram': '',
   /** Shown in the trust bar. Updated by the owner, not computed, so it can be honest and round. */

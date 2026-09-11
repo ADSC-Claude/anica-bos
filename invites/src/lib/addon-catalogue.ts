@@ -57,6 +57,46 @@ export const SHELVED_ADDONS: { code: string; reason: string }[] = [
   { code: 'CUSTOM_DOMAIN', reason: 'no one is set up to do the domain yet' },
 ];
 
+/**
+ * The rows only the seed creates, and whose prices are the admin's.
+ *
+ * They live here rather than inline in prisma/seed.ts for one reason: the seed
+ * writes every add-on in a single createMany, so a code that appears in both
+ * lists violates AddOn_code_key and takes the whole seed down. That is exactly
+ * what happened when the printable came back — it was in the seed at ₱299 and
+ * in ADDONS at ₱199 at the same time, and CI went red on a database error that
+ * no amount of typechecking could have caught.
+ *
+ * With both lists in one file a test can hold them apart, which is the test
+ * directly below this file's own name in tests/addons.test.ts.
+ *
+ * Nothing here is repriced by a pricing run: set-pricing reads ADDONS only, so
+ * these keep whatever the admin last typed.
+ */
+export type SeedOnlyAddOn = {
+  code: string;
+  name: string;
+  description: string;
+  priceCents: number;
+  sortOrder: number;
+  active?: boolean;
+  quoted?: boolean;
+};
+
+export const SEED_ONLY_ADDONS: SeedOnlyAddOn[] = [
+  // The premium opening video, at the starting price: every package opens with
+  // the included opening; this is the designed clip made for a design.
+  { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99_900, sortOrder: 1 },
+  // Off the website, priced and kept — see SHELVED_ADDONS. Seeded inactive so a
+  // fresh database matches a live one rather than briefly offering something
+  // nothing behind the scenes can deliver.
+  { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99_900, active: false, sortOrder: 6 },
+  // Withdrawn, and seeded withdrawn so a fresh database matches a live one: an
+  // order that bought either keeps its line item either way.
+  { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19_900, active: false, sortOrder: 4 },
+  { code: 'SMS_PACK', name: 'SMS reminder blast (credit pack)', description: 'RSVP reminders by text. Priced per pack — ask us.', priceCents: 0, quoted: false, active: false, sortOrder: 7 },
+];
+
 export type AddOnSpec = {
   code: string;
   price: number;

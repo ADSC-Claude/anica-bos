@@ -16,7 +16,7 @@ import { TIER_LABELS } from '../src/lib/tiers';
 import { guestToken, orderReference, paymentReference } from '../src/lib/codes';
 import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } from '../src/lib/copy';
 import { addDays } from '../src/lib/datetime';
-import { ADDONS } from '../src/lib/addon-catalogue';
+import { ADDONS, SEED_ONLY_ADDONS } from '../src/lib/addon-catalogue';
 
 const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
 
@@ -156,16 +156,12 @@ async function main() {
   // Date, the three features sold on their own, and the held reminder bands —
   // come from src/lib/addon-catalogue.ts, so a fresh database and a pricing run
   // agree. The rest are this seed's own: their prices are the admin's.
+  // One createMany, so a code in both lists is a unique-constraint violation
+  // that fails the whole seed. Both lists are in addon-catalogue.ts and a test
+  // holds them apart.
   await prisma.addOn.createMany({
     data: [
-      // The premium opening video, at the starting price: every package opens
-      // with the included opening; this is the designed clip made for a design.
-      { code: 'PREMIUM_OPENING', name: 'Premium opening', description: 'Our premium designed opening video for your design — a seal breaks, the card slides out with your names and date on it. Starting price.', priceCents: 99900, sortOrder: 1 },
-      // Off the website, priced and kept — see SHELVED_ADDONS. Seeded inactive
-      // so a fresh database matches a live one rather than briefly offering
-      // something nothing behind the scenes can deliver.
-      { code: 'PRINTABLE', name: 'Printable PDF / A5 layout + image export', description: 'A print-ready layout, for guests who would rather hold it.', priceCents: 29900, active: false, sortOrder: 3 },
-      { code: 'CUSTOM_DOMAIN', name: 'Custom domain setup', description: 'Your own domain (excludes domain cost).', priceCents: 99900, active: false, sortOrder: 6 },
+      ...SEED_ONLY_ADDONS,
       ...ADDONS.map((a) => ({
         code: a.code,
         name: a.name,
@@ -175,10 +171,6 @@ async function main() {
         active: !a.held,
         sortOrder: a.sortOrder,
       })),
-      // Withdrawn, and seeded withdrawn so a fresh database matches a live one:
-      // an order that bought either keeps its line item either way.
-      { code: 'TEMPLATE_SWITCH', name: 'Extra template switch', description: 'Change design after publishing. Withdrawn: the design is settled at publish.', priceCents: 19900, active: false, sortOrder: 4 },
-      { code: 'SMS_PACK', name: 'SMS reminder blast (credit pack)', description: 'RSVP reminders by text. Priced per pack — ask us.', priceCents: 0, quoted: false, active: false, sortOrder: 7 },
     ],
   });
 

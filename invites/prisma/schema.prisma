@@ -241,6 +241,10 @@ model Template {
   /// the revision they loaded, so the second save is refused rather than
   /// silently overwriting the first.
   designDraftRev   Int        @default(0)
+  /// The secret in a Share-draft link. Blank means the design is not shared;
+  /// changing it makes every link handed out so far stop working, which is
+  /// what Stop sharing does.
+  shareNonce       String     @default("")
   sections         String[]
   featured         Boolean    @default(false)
   published        Boolean    @default(true)

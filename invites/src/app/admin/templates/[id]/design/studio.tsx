@@ -16,7 +16,7 @@ import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } fro
 import { pageNeeds, needCount, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
-import { saveDesignDraftAction } from '../../../actions';
+import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction } from '../../../actions';
 import { uploadGround } from './ground';
 
 /**
@@ -55,6 +55,8 @@ type Props = {
   look?: Look;
   vars: Record<string, string>;
   canPublish: boolean;
+  /** the live Share-draft link, or blank when the design is not shared */
+  shareLink: string;
 };
 
 type Drag =
@@ -1019,7 +1021,7 @@ export function Studio(p: Props) {
 
 // ---------------------------------------------------------------------------
 
-function TopBar({ name, demoSlug, canPublish, templateId, state, error, published, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
+function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
   const said: Record<string, string> = { clean: 'No unsaved changes', dirty: 'Not saved yet', saving: 'Saving…', saved: 'Draft saved', error: 'Not saved' };
   return (
     <div className="card col-span-full flex flex-wrap items-center gap-2 p-3">
@@ -1030,10 +1032,31 @@ function TopBar({ name, demoSlug, canPublish, templateId, state, error, publishe
       <span className="ml-auto flex flex-wrap items-center gap-2">
         <button type="button" onClick={onSave} className="btn btn-ghost btn-sm">Save draft</button>
         {demoSlug && <Link href={`/i/${demoSlug}`} target="_blank" className="btn btn-ghost btn-sm">Open as guest</Link>}
+        {!shareLink && demoSlug && (
+          <form action={shareDesignDraftAction.bind(null, templateId, `/admin/templates/${templateId}/design`)}>
+            <button type="submit" className="btn btn-ghost btn-sm">Share the draft</button>
+          </form>
+        )}
         {canPublish
           ? <Link href={`/admin/templates/${templateId}/design/publish`} className="btn btn-primary btn-sm">Publish design…</Link>
           : <span className="text-xs text-[color:var(--color-ink-500)]">Publishing is the owner&rsquo;s to press.</span>}
       </span>
+      {/*
+        * The link to the unfinished design, for somebody with no account. It
+        * opens this design's own demo and nothing else, and Stop sharing
+        * ends it and every copy of it at once.
+        */}
+      {shareLink && (
+        <div className="flex w-full flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-300)] pt-2">
+          <span className="label">Shared</span>
+          <input readOnly value={shareLink} onFocus={(e) => e.currentTarget.select()} className="input min-w-0 flex-1 font-mono text-xs" />
+          <button type="button" onClick={() => void navigator.clipboard?.writeText(shareLink)} className="btn btn-secondary btn-sm">Copy</button>
+          <form action={stopSharingDesignDraftAction.bind(null, templateId, `/admin/templates/${templateId}/design`)}>
+            <button type="submit" className="btn btn-ghost btn-sm text-red-700">Stop sharing</button>
+          </form>
+          <p className="hint w-full">Anyone with this link sees the draft on {demoSlug}, and nothing else of yours. It lasts thirty days, or until you stop it.</p>
+        </div>
+      )}
     </div>
   );
 }

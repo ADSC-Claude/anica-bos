@@ -134,6 +134,12 @@ jobs:
           page 'http://127.0.0.1:3000/juan-and-maria?design=draft' > /tmp/draft.html
           test -s /tmp/plain.html || { echo '::error::the invitation served nothing'; exit 1; }
           diff -q /tmp/plain.html /tmp/draft.html || { echo '::error::?design=draft changed the page for a signed-out guest'; exit 1; }
+          # A Share-draft key is the one thing that opens a draft without an
+          # account, and it is checked against the design's own secret. A made
+          # up one must change nothing either, or the flag is open to anybody
+          # who guesses that a key exists.
+          page 'http://127.0.0.1:3000/juan-and-maria?design=draft&key=not.a.key' > /tmp/faked.html
+          diff -q /tmp/plain.html /tmp/faked.html || { echo '::error::an invented ?key= opened the draft'; exit 1; }
           # Anything shared under the old prefix keeps working.
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/i/juan-and-maria)" = "308"
           # A slug cannot swallow a real page: static routes win, which is what

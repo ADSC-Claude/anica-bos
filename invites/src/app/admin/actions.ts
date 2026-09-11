@@ -3,6 +3,7 @@
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSectionKey } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
 import { STAFF_BYLINE } from '@/lib/names';
+import { freshNonce } from '@/lib/draft-link';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -294,6 +295,41 @@ export async function saveDesignDraftAction(templateId: string, baseRev: number,
     select: { designDraftRev: true },
   });
   return { ok: true as const, rev: saved.designDraftRev };
+}
+
+/**
+ * A link to the unfinished design, for somebody with no account.
+ *
+ * `?design=draft` is a previewer's view and stays one; this hands out a key
+ * beside it. The key names one design and is honoured only on that design's
+ * own demo invitation, so it can never be pointed at a customer's
+ * invitation to read their names and their guest list.
+ *
+ * Sharing again gives back the same link rather than a second one: two live
+ * links to one design is two things to remember to stop.
+ */
+export async function shareDesignDraftAction(templateId: string, back: string) {
+  return run('templates.edit', back, async (user) => {
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId }, select: { shareNonce: true, demoSlug: true, name: true } });
+    if (!t.demoSlug) throw new HttpError(400, 'This design has no demo invitation, so there is no page to share. Give it one on the template\u2019s own page.');
+    if (t.shareNonce) return 'It is already shared. The link is in the top bar.';
+    await prisma.template.update({ where: { id: templateId }, data: { shareNonce: freshNonce() } });
+    await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: templateId, summary: `${t.name}: the draft design is shared by link` });
+    // the link itself is drawn by the studio from the secret, so it is always
+    // the current one rather than whatever a flash message said once
+    return 'Shared. The link is in the top bar, to copy and send.';
+  });
+}
+
+/** Stop sharing: one new secret, and every link handed out so far is dead. */
+export async function stopSharingDesignDraftAction(templateId: string, back: string) {
+  return run('templates.edit', back, async (user) => {
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId }, select: { shareNonce: true, name: true } });
+    if (!t.shareNonce) return 'That design was not shared.';
+    await prisma.template.update({ where: { id: templateId }, data: { shareNonce: '' } });
+    await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: templateId, summary: `${t.name}: the draft link was stopped` });
+    return 'Stopped. Every link you handed out has stopped working.';
+  });
 }
 
 /**

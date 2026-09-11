@@ -6,6 +6,8 @@ import { contentOf, resolveTheme } from '@/lib/invitations';
 import { isPaged } from '@/lib/sections';
 import { cssVars } from '@/lib/theme';
 import { studioDoc, documentOf, wordsOf, withWords } from '@/lib/design';
+import { signDraftLink } from '@/lib/draft-link';
+import { absoluteUrl } from '@/lib/app-url';
 import { BackLink } from '@/components/ui';
 import { Studio } from './studio';
 
@@ -37,6 +39,15 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
    * it the same way the guest page does or she would be drawing in a face
    * nobody ever sees.
    */
+  /*
+   * The link to the unfinished design, when she has shared it. It is drawn
+   * from the secret on the row rather than remembered from a flash message,
+   * so what the top bar shows is always the link that currently works.
+   */
+  const shareLink = t.shareNonce && t.demoSlug
+    ? absoluteUrl(`/${t.demoSlug}?design=draft&key=${await signDraftLink(t.id, t.shareNonce)}`)
+    : '';
+
   const theme = resolveTheme(t, demo ? contentOf(demo.content) : {});
   const look = withWords(theme.look, wordsOf(t.words));
   const vars = cssVars(theme.palette, theme.fonts);
@@ -58,6 +69,7 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         look={look}
         vars={vars}
         canPublish={can(user.role, 'templates.publish')}
+        shareLink={shareLink}
       />
     </>
   );

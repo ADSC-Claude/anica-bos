@@ -5,6 +5,7 @@ import { loadPublic, recordView, contentOf, type PublicInvitation } from '@/lib/
 import { guestByToken } from '@/lib/guests';
 import { hasGuestAccess } from '@/lib/guest-access';
 import { isStaff } from '@/lib/rbac';
+import { readDraftLink, keyOpens } from '@/lib/draft-link';
 import { getSettings } from '@/lib/settings';
 import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
 import { str, eventInstant } from '@/lib/sections';
@@ -16,7 +17,7 @@ import { Invitation, type GuestForPage } from '@/components/invite/renderer';
  * what. A published invitation is public (or unlisted, or behind a password).
  * A draft is visible only to its owner and to staff, as a preview.
  */
-export async function resolveInvitation(slug: string, token?: string) {
+export async function resolveInvitation(slug: string, token?: string, key?: string) {
   const invitation = await loadPublic(slug, { preview: true });
   if (!invitation) notFound();
 
@@ -25,15 +26,24 @@ export async function resolveInvitation(slug: string, token?: string) {
   const staff = session ? isStaff(session.role) : false;
   const previewer = owner || staff;
 
+  /*
+   * A Share-draft key. It says one thing — "you may see this design on its
+   * own demo" — and it is checked against the design's current secret, so
+   * Stop sharing ends every link at once. It is not a session and it is not
+   * previewer standing: it opens the page and the draft design, and nothing
+   * else. A password on the page still holds.
+   */
+  const keyed = key ? keyOpens(await readDraftLink(key), invitation.template, slug) : false;
+
   const live = invitation.status === 'PUBLISHED' && !invitation.expired;
-  if (!live && !previewer) notFound();
+  if (!live && !previewer && !keyed) notFound();
 
   const guest = token ? await guestByToken(token) : null;
   if (token && (!guest || guest.invitationId !== invitation.id)) notFound();
 
   const locked = !previewer && !(await hasGuestAccess(invitation));
 
-  return { invitation, guest: guest as GuestForPage | null, preview: !live, previewer, locked };
+  return { invitation, guest: guest as GuestForPage | null, preview: !live, previewer, keyed, locked };
 }
 
 export async function invitationMetadata(slug: string): Promise<Metadata> {
@@ -111,15 +121,16 @@ export async function PeekPage({ slug }: { slug: string }) {
  * she is drawing would serve it. Like `bare` it is a previewer's view only,
  * so an unfinished design cannot be handed to anybody through a link.
  */
-export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean }) {
-  const { invitation, guest, previewer, locked } = await resolveInvitation(slug, token);
+export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false, designKey }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean; designKey?: string }) {
+  const { invitation, guest, previewer, keyed, locked } = await resolveInvitation(slug, token, designKey);
   if (locked) return <PasswordGate slug={slug} token={token} error={wrongPassword} />;
   const live = invitation.status === 'PUBLISHED' && !invitation.expired;
-  if (!live && !previewer) notFound();
-  if (invitation.expired && !previewer) return <ExpiredNotice invitation={invitation} />;
-  if (live && !previewer && !print) await recordView(invitation.id);
+  if (!live && !previewer && !keyed) notFound();
+  if (invitation.expired && !previewer && !keyed) return <ExpiredNotice invitation={invitation} />;
+  // somebody looking at an unfinished design is not a guest, and is not counted as one
+  if (live && !previewer && !keyed && !print) await recordView(invitation.id);
   const s = await getSettings();
-  const shown = draft && previewer
+  const shown = draft && (previewer || keyed)
     ? { ...invitation, template: { ...invitation.template, design: invitation.template.designDraft } }
     : invitation;
   return <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} businessName={s['business.name']} />;

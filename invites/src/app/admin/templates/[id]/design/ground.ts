@@ -105,3 +105,32 @@ export async function sendPicture(read: ReadPicture, name: string, templateId: s
   if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
   return { url: json.url as string, width: read.width, height: read.height, ratio: read.ratio, top: read.top, bottom: read.bottom };
 }
+
+/**
+ * Everything a ground needs about a picture already on the server.
+ *
+ * A piece from the library has been uploaded once and is not being
+ * uploaded again, but a page's background has to know its proportions and
+ * the colour of its top and bottom edges — the strips beyond the picture
+ * take those. The file is ours and same-origin, so the browser can read it
+ * back off a canvas rather than the server measuring it a second time.
+ */
+export async function groundFromUrl(url: string): Promise<{ ratio: number; top: string; bottom: string }> {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = url;
+  await img.decode();
+  const width = Math.max(1, img.naturalWidth);
+  const height = Math.max(1, img.naturalHeight);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('This browser cannot read the picture.');
+  ctx.drawImage(img, 0, 0);
+  return {
+    ratio: Math.round((height / width) * 1e4) / 1e4,
+    top: edge(ctx, width, 0),
+    bottom: edge(ctx, width, height - 1),
+  };
+}

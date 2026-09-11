@@ -106,6 +106,7 @@ function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !url ? '' : undefined}
+      data-own={'asset' in el.bind ? '' : undefined}
       data-crop={el.crop ? '' : undefined}
       data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
       data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}

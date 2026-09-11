@@ -20,8 +20,10 @@ import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing'
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import type { Fonts } from '@/lib/theme';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction } from '../../../actions';
-import { uploadGround, readPicture, drawAt, sendPicture, type ReadPicture, type Uploaded } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
+import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
+import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction } from '../../../actions';
 
 /**
  * The Design Studio.
@@ -93,6 +95,8 @@ export function Studio(p: Props) {
   const [sample, setSample] = useState<Sample>('demo');
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
+  /** the left column: the pages, or the pieces any design can be built from */
+  const [drawer, setDrawer] = useState<'pages' | 'library'>('pages');
   /**
    * Who the canvas is drawn against. The checklist above is not switched
    * with it: it is a list about the design, and "the demo has no photo for
@@ -372,6 +376,52 @@ export function Studio(p: Props) {
     setPageKey(made[0].key);
     setSel([]);
     setView('page');
+  }
+
+  /**
+   * A piece placed on the page: the design's own picture, not a question.
+   *
+   * What is copied in is the piece's *address*. A page never holds a
+   * reference to a library row, so taking a piece out of the library can
+   * never blank a page that used it — which is the one thing a library of
+   * shared pieces has to promise.
+   */
+  async function placePiece(url: string, aspect?: number) {
+    if (!page) return;
+    // Its own shape, or the browser's reading of it: a strand of flowers
+    // dropped into a square frame is a strand of flowers with most of it
+    // cut off, which is not what anybody meant by placing it.
+    let shape = aspect;
+    if (!shape) {
+      try { shape = (await groundFromUrl(url)).ratio; } catch { shape = 1; }
+    }
+    const id = freeId(doc, 'piece');
+    const made: PhotoEl = {
+      id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre',
+      aspect: place(shape), frame: 'none', bind: { asset: url },
+    };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A piece as this page's background.
+   *
+   * A built-in ground already knows its proportions and the colour of its
+   * two edges, because those were measured from the file when it shipped.
+   * One she uploaded does not, so the browser reads them off the picture —
+   * the file is ours and same-origin, so nothing has to be uploaded twice.
+   */
+  async function groundFromPiece(url: string) {
+    const found = builtinPieces().find((x) => x.url === url);
+    setDrop({ busy: true, error: '' });
+    try {
+      const g = found?.ground ?? await groundFromUrl(url);
+      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom });
+      setDrop({ busy: false, error: '' });
+    } catch (e) {
+      setDrop({ busy: false, error: (e as Error).message });
+    }
   }
 
   /** A new page goes in after the one she is on, so it lands where she is looking. */
@@ -823,6 +873,29 @@ export function Studio(p: Props) {
         onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
         onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); void addSheets([...e.dataTransfer.files]); } }}
       >
+        {/* the pages, or the pieces any design can be built from */}
+        <div className="mb-1 flex gap-1 text-xs">
+          {([['pages', 'Pages'], ['library', 'Library']] as const).map(([k, lbl]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setDrawer(k)}
+              className={`rounded px-2 py-1 ${drawer === k ? 'bg-[color:var(--color-sand-200)] font-semibold' : 'text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]'}`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        {drawer === 'library' ? (
+          <LibraryDrawer
+            selected={selected}
+            onPlace={(url, aspect) => void placePiece(url, aspect)}
+            onGround={(url) => void groundFromPiece(url)}
+            onIfEmpty={(url) => { if (selected?.kind === 'photo') editEls([selected.id], (e) => ({ ...e, ifEmpty: { piece: url } })); }}
+          />
+        ) : (
+        <>
         <div className="flex items-center justify-between px-1">
           <p className="label">Pages</p>
           <span className="flex gap-1">
@@ -889,6 +962,8 @@ export function Studio(p: Props) {
         >
           Or bring one in from Canva &mdash; export it twice and the studio finds the frames
         </button>
+        </>
+        )}
 
         <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
           <p className="label px-1">
@@ -1815,12 +1890,17 @@ function AskBlock({ el, occasion, onChange, measureRoom }: {
                 </select>
               </label>
               {el.ifEmpty && el.ifEmpty !== 'leave' && (
-                <input
-                  className="input w-full font-mono text-xs"
-                  placeholder="/babyblue/cloud.webp"
-                  value={el.ifEmpty.piece}
-                  onChange={(e) => onChange((x) => ({ ...x, ifEmpty: { piece: e.target.value } }))}
-                />
+                <>
+                  <input
+                    className="input w-full font-mono text-xs"
+                    placeholder="/babyblue/cloud.webp"
+                    value={el.ifEmpty.piece}
+                    onChange={(e) => onChange((x) => ({ ...x, ifEmpty: { piece: e.target.value } }))}
+                  />
+                  {el.ifEmpty.piece
+                    ? <span className="mt-1 block h-12 w-12 rounded border border-black/10 bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url(${el.ifEmpty.piece})` }} />
+                    : <span className="hint">Pick one in the <strong>Library</strong>, on the left, with this frame still selected.</span>}
+                </>
               )}
             </>
           )}
@@ -2350,6 +2430,7 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [kept, setKept] = useState(false);
   if (!page) return <p className="hint">This design has no pages yet.</p>;
   const ground = page.ground;
 
@@ -2420,6 +2501,27 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
               <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
             </label>
             {ground && <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm w-full">No background</button>}
+            {/*
+              * A background she liked once is a background she will want
+              * again. Keeping it costs one tap and no second upload: the
+              * library points at the same file.
+              */}
+            {ground && isPicture(ground) && ground.url.startsWith('/uploads/') && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const res = await keepPieceAction(ground.url, page.label?.en ?? page.key, 'background');
+                  setBusy(false);
+                  setError(res.ok ? '' : res.error ?? 'It would not save.');
+                  if (res.ok) setKept(true);
+                }}
+                className="btn btn-ghost btn-sm w-full"
+              >
+                {kept ? 'In the library' : 'Keep it in the library'}
+              </button>
+            )}
           </div>
         </div>
         {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
@@ -2572,4 +2674,179 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
       sources: [{ fixed: { en: words } }],
     })),
   };
+}
+
+/**
+ * The library, in the left column.
+ *
+ * Every piece any design can be built from, in one place: the artwork the
+ * app ships — Baby Blue's ten grounds, Capiz's eight and its strand, and
+ * the wardrobe's hundred and nine drawings — and everything she has
+ * uploaded herself, named and tagged so she can find it again.
+ *
+ * A piece is used three ways, and the drawer says which are open: put it
+ * on the page as the design's own picture, make it this page's background,
+ * or make it what a frame shows when the customer leaves it empty. Each of
+ * them copies the piece's address, never a reference to the row, so
+ * deleting a piece from the library cannot blank a page that used it.
+ */
+function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty }: {
+  selected: Element | null;
+  onPlace: (url: string, aspect?: number) => void;
+  onGround: (url: string) => void;
+  onIfEmpty: (url: string) => void;
+}) {
+  const built = useMemo(() => builtinPieces(), []);
+  const [mine, setMine] = useState<Piece[]>([]);
+  const [query, setQuery] = useState('');
+  const [group, setGroup] = useState<PieceGroup | 'all'>('all');
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  const [open, setOpen] = useState<string>('');
+
+  const load = useCallback(async () => {
+    try { setMine(await listPiecesAction()); } catch (e) { setError((e as Error).message); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+
+  const all = useMemo(() => [...mine, ...built], [mine, built]);
+  const shown = useMemo(() => shownPieces(all, query, group), [all, query, group]);
+  const piece = shown.find((x) => x.url === open) ?? null;
+
+  async function upload(file: File) {
+    setBusy('Reading the picture…');
+    setError('');
+    try {
+      const read = await readPicture(file);
+      const fd = new FormData();
+      fd.set('file', new File([read.blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
+      fd.set('library', '1');
+      fd.set('name', file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '));
+      fd.set('width', String(read.width));
+      fd.set('height', String(read.height));
+      const res = await fetch('/api/admin/design-upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
+      await load();
+      setOpen(json.url as string);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy('');
+  }
+
+  return (
+    <div>
+      <input
+        className="input w-full text-sm"
+        placeholder="Search by name or tag"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <div className="mt-1 flex flex-wrap gap-1 text-[11px]">
+        {([['all', 'All'], ...PIECE_GROUPS.map((g) => [g.key, g.label] as const)] as const).map(([k, lbl]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setGroup(k as PieceGroup | 'all')}
+            className={`rounded-full px-2 py-0.5 ${group === k ? 'bg-[color:var(--color-plum-600)] text-white' : 'bg-[color:var(--color-sand-200)] hover:bg-[color:var(--color-sand-300)]'}`}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      <p className="hint mt-1">
+        {shown.length === 0 ? 'Nothing by that name.' : `${shown.length} ${shown.length === 1 ? 'piece' : 'pieces'}`}
+        {group === 'all' && !query.trim() && ' · the wardrobe is its own group, or search for it'}
+      </p>
+
+      <div className="mt-1 grid max-h-72 grid-cols-3 gap-1 overflow-auto">
+        {shown.slice(0, 240).map((x) => (
+          <button
+            key={x.url}
+            type="button"
+            title={`${x.name}${x.tags.length ? ` · ${x.tags.join(', ')}` : ''}`}
+            onClick={() => setOpen(x.url === open ? '' : x.url)}
+            className={`aspect-square rounded border bg-white bg-contain bg-center bg-no-repeat ${x.url === open ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : 'border-black/10 hover:border-black/30'}`}
+            style={{ backgroundImage: `url(${x.url})` }}
+          />
+        ))}
+      </div>
+
+      {piece && (
+        <div className="mt-2 rounded bg-[color:var(--color-sand-100)] p-2">
+          <p className="truncate text-sm font-semibold">{piece.name}</p>
+          <p className="hint truncate">{piece.builtin ? 'The app’s own — it cannot be renamed or removed' : piece.tags.join(', ') || 'no tags yet'}</p>
+          <div className="mt-1 grid gap-1">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPlace(piece.url, piece.width && piece.height ? piece.height / piece.width : undefined)}>
+              Put it on the page
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => onGround(piece.url)}>
+              Make it this page’s background
+            </button>
+            {selected?.kind === 'photo' && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => onIfEmpty(piece.url)}>
+                Show it when the frame is left empty
+              </button>
+            )}
+          </div>
+          {!piece.builtin && piece.id && (
+            <PieceDetails
+              piece={piece}
+              onSaved={() => void load()}
+              onError={setError}
+            />
+          )}
+        </div>
+      )}
+
+      <label className={`mt-2 block rounded border border-dashed border-[color:var(--color-sand-300)] px-2 py-3 text-center text-[11px] leading-snug ${busy ? 'opacity-60' : 'cursor-pointer hover:bg-[color:var(--color-sand-100)]'}`}>
+        {busy || 'Add a piece — a bow, a cloud, a flourish. It stays in the library for every design.'}
+        <input
+          type="file" accept="image/*" className="sr-only" disabled={Boolean(busy)}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }}
+        />
+      </label>
+      {error && <p className="hint mt-1 text-[color:var(--bad)]">{error}</p>}
+    </div>
+  );
+}
+
+/** Renaming, retagging and removing one of her own pieces. */
+function PieceDetails({ piece, onSaved, onError }: { piece: Piece; onSaved: () => void; onError: (s: string) => void }) {
+  const [name, setName] = useState(piece.name);
+  const [tags, setTags] = useState(piece.tags.join(', '));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setName(piece.name); setTags(piece.tags.join(', ')); }, [piece.url, piece.name, piece.tags]);
+
+  async function save() {
+    if (!piece.id) return;
+    setBusy(true);
+    const res = await namePieceAction(piece.id, name, tags);
+    setBusy(false);
+    if (!res.ok) onError(res.error ?? 'It would not save.');
+    else onSaved();
+  }
+
+  async function drop() {
+    if (!piece.id) return;
+    setBusy(true);
+    const res = await dropPieceAction(piece.id);
+    setBusy(false);
+    if (!res.ok) onError(res.error ?? 'It would not go.');
+    else onSaved();
+  }
+
+  return (
+    <div className="mt-2 space-y-1 border-t border-[color:var(--color-sand-300)] pt-2">
+      <input className="input w-full text-xs" value={name} placeholder="What it is" onChange={(e) => setName(e.target.value)} />
+      <input className="input w-full text-xs" value={tags} placeholder="words to find it by, separated by commas" onChange={(e) => setTags(e.target.value)} />
+      <div className="flex gap-1">
+        <button type="button" className="btn btn-secondary btn-sm flex-1" disabled={busy} onClick={() => void save()}>Save</button>
+        <button type="button" className="btn btn-ghost btn-sm text-red-700" disabled={busy} onClick={() => void drop()}>Remove</button>
+      </div>
+      <p className="hint">Removing it takes it out of the drawer. Pages already using it keep it: they hold its address, not this row.</p>
+    </div>
+  );
 }

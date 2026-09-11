@@ -4,6 +4,7 @@ import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS,
 import { pageNeeds } from '@/lib/needs';
 import { STAFF_BYLINE } from '@/lib/names';
 import { freshNonce } from '@/lib/draft-link';
+import { pieceOf, cleanName, cleanTags, type Piece } from '@/lib/library';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -330,6 +331,84 @@ export async function stopSharingDesignDraftAction(templateId: string, back: str
     await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: templateId, summary: `${t.name}: the draft link was stopped` });
     return 'Stopped. Every link you handed out has stopped working.';
   });
+}
+
+// --- the library -----------------------------------------------------------
+
+/**
+ * The pieces she has uploaded, newest first.
+ *
+ * Called from the studio rather than rendered into it, because the drawer
+ * has to show a piece the moment it is uploaded and a page reload in the
+ * middle of drawing would lose her place.
+ */
+export async function listPiecesAction(): Promise<Piece[]> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const rows = await prisma.media.findMany({
+    where: { kind: 'DESIGN_PIECE' },
+    orderBy: { createdAt: 'desc' },
+    take: 300,
+    select: { id: true, url: true, name: true, tags: true, width: true, height: true },
+  });
+  return rows.map(pieceOf);
+}
+
+/**
+ * Keep a picture already uploaded to a design in the library too.
+ *
+ * The file is not copied: a second row points at the same object, because
+ * the picture is the same picture and storing it twice would only make two
+ * things to delete. The row is what the library lists.
+ */
+export async function keepPieceAction(url: string, name: string, tags: string): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const from = await prisma.media.findFirst({
+    where: { url, kind: { in: ['DESIGN_IMAGE', 'DESIGN_PIECE'] } },
+    select: { storagePath: true, contentType: true, width: true, height: true, bytes: true },
+  });
+  if (!from) return { ok: false, error: 'That picture is not one of this design\u2019s own uploads, so there is nothing to keep.' };
+  const already = await prisma.media.findFirst({ where: { url, kind: 'DESIGN_PIECE' }, select: { id: true } });
+  if (already) return { ok: false, error: 'It is in the library already.' };
+  await prisma.media.create({
+    data: {
+      userId: user.id, kind: 'DESIGN_PIECE', url,
+      storagePath: from.storagePath, contentType: from.contentType,
+      width: from.width, height: from.height, bytes: from.bytes,
+      name: cleanName(name), tags: cleanTags(tags),
+    },
+  });
+  await audit(user, { module: 'templates', action: 'create', entityType: 'Media', entityId: url, summary: `a piece was kept in the library: ${cleanName(name) || url}` });
+  return { ok: true };
+}
+
+/** Rename a piece, or change the words she would find it by. */
+export async function namePieceAction(id: string, name: string, tags: string): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const row = await prisma.media.findFirst({ where: { id, kind: 'DESIGN_PIECE' }, select: { id: true } });
+  if (!row) return { ok: false, error: 'That piece is not in the library.' };
+  await prisma.media.update({ where: { id }, data: { name: cleanName(name), tags: cleanTags(tags) } });
+  return { ok: true };
+}
+
+/**
+ * Take a piece out of the library.
+ *
+ * The row goes; the file stays. By the time a piece has been in the library
+ * a week it may be on any number of pages, and those pages keep its address
+ * rather than a reference to this row \u2014 so deleting the file would break
+ * them silently, which is the one thing the library promises not to do.
+ */
+export async function dropPieceAction(id: string): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const row = await prisma.media.findFirst({ where: { id, kind: 'DESIGN_PIECE' }, select: { id: true, name: true, url: true } });
+  if (!row) return { ok: false, error: 'That piece is not in the library.' };
+  await prisma.media.delete({ where: { id } });
+  await audit(user, { module: 'templates', action: 'delete', entityType: 'Media', entityId: row.url, summary: `a piece was taken out of the library: ${row.name || row.url}` });
+  return { ok: true };
 }
 
 /**

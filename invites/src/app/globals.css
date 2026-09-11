@@ -1289,6 +1289,12 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-bb-head .inv-bb-eyebrow { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.34em; text-indent: 0.34em; font-size: 2.9cqw; color: var(--inv-ink); margin-bottom: 0.4cqw; }
 .inv[data-paged] .inv-bb-head .inv-bb-script { font-family: var(--inv-names); font-weight: 400; font-size: 9.6cqw; line-height: 1.15; color: var(--inv-ink); margin: 0 0 1.4cqw; text-transform: none; letter-spacing: 0; }
 .inv[data-paged] .inv-bb-art > .inv-bb-slot { position: absolute; aspect-ratio: 1; margin: 0; overflow: hidden; background: #e8e3dd; }
+/* A picture the design supplies itself — a piece from the library, a
+   flourish — is not a frame waiting to be filled, so it gets no card behind
+   it: a piece drawn with transparency around it would otherwise sit on a
+   grey square. Written before the frame rules and at the same reach, so a
+   piece she does give a frame still gets one. */
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-own] { background: none; }
 .inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; border-radius: 0; }
 /* A crop is a window on the source, not a re-encoded file: the picture is
    blown up until that window is the size of the frame and slid so the window

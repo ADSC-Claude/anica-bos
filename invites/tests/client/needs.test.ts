@@ -60,3 +60,18 @@ test('the two-picture import loads outside a server component', async () => {
   }
   assert.deepEqual(framesFromDifference(plain, filled), [{ left: 10, top: 10, width: 50, height: 50 }]);
 });
+
+/**
+ * The library is drawn in the studio, so it loads in a browser. It reaches
+ * the document module for the grounds the app ships and the wardrobe's own
+ * manifest, and either could have pulled something server-only in without
+ * `npm test` noticing.
+ */
+test('the library loads outside a server component', async () => {
+  const { builtinPieces, shownPieces } = await import('../../src/lib/library');
+  const all = builtinPieces();
+  assert.equal(all.length, 128);
+  // the Capiz strand is found by a word from its name and by one of its tags
+  assert.equal(shownPieces(all, 'strand', 'all').length, 1);
+  assert.equal(shownPieces(all, 'flowers', 'all').length, 1);
+});

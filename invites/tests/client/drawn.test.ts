@@ -154,6 +154,23 @@ test('a frame says nothing about its shape, its card, its cut or its fitting unl
   }
 });
 
+/**
+ * A piece from the library is the design's own picture, not a frame waiting
+ * for somebody's photograph, so the slot says so and the stylesheet gives
+ * it no card — a strand of flowers drawn with transparency round it would
+ * otherwise sit on a grey square.
+ */
+test('a picture the design supplies itself is marked as its own; a customer\'s is not', () => {
+  const own = JSON.parse(JSON.stringify(page('baby-photos'))) as PageSpec;
+  const frame = own.elements!.find((e) => e.kind === 'photo')!;
+  Object.assign(frame, { bind: { asset: '/capiz/strand-b.webp' } });
+  const markup = renderToStaticMarkup(DrawnPage({ page: own, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.equal([...markup.matchAll(/data-own=""/g)].length, 1);
+  assert.match(markup, /src="[^"]*strand-b/);
+  // the other three frames are the customer's and say nothing
+  assert.doesNotMatch(html('baby-photos'), /data-own/);
+});
+
 test('a fitted frame in a card with an arch cut says exactly those four things', () => {
   const dressed = JSON.parse(JSON.stringify(page('baby-photos'))) as PageSpec;
   const frame = dressed.elements!.find((e) => e.kind === 'photo')!;

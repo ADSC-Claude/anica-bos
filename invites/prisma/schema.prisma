@@ -630,6 +630,9 @@ enum MediaKind {
   DESIGN_IMAGE
   /// A design's own clip, uploaded in the studio.
   DESIGN_VIDEO
+  /// A piece in the library: uploaded once, usable in any design, so it
+  /// belongs to no template and to no couple.
+  DESIGN_PIECE
   OTHER
 }
 
@@ -659,6 +662,10 @@ model Media {
   height       Int?
   bytes        Int?
   durationMs   Int?
+  /// A library piece's own name and the words she would search for it by.
+  /// Blank on everything else: a guest photo is not something anybody tags.
+  name         String    @default("")
+  tags         String[]  @default([])
   createdAt    DateTime  @default(now())
 
   user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -668,6 +675,7 @@ model Media {
   @@index([invitationId, kind, sortOrder])
   @@index([invitationId, kind, approved, createdAt])
   @@index([templateId, kind, sortOrder])
+  @@index([kind, createdAt])
   @@index([ip, createdAt])
 }
 

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { ADDONS, RETIRED_ADDONS, SHELVED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
+import { existsSync, readFileSync } from 'node:fs';
+import { ADDONS, SEED_ONLY_ADDONS, RETIRED_ADDONS, SHELVED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
 import { ADDON_FEATURE, ADDON_EXTRA, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL, TIERS } from '../src/lib/tiers';
 import { addOnAvailable } from '../src/lib/pricing';
 
@@ -200,8 +200,28 @@ test('the reminder campaigns are priced as agreed, and none is for sale', () => 
   }
 });
 
+test('the printable is sold as a thing we send, never as a button', () => {
+  // It was shelved because the Print / PDF route puts the live page on A4 —
+  // seventeen sheets on a real wedding. What changed to bring it back is the
+  // promise, not the layout: arranging pages by hand is work this business
+  // already does. So the wording must not describe a file the customer makes.
+  const row = ADDONS.find((a) => a.code === 'PRINTABLE');
+  assert.ok(row, 'the printable is not for sale');
+  assert.equal(row.price, 199);
+  assert.notEqual(row.held, true, 'the printable is priced but not sellable');
+  assert.equal(SHELVED_ADDONS.some((x) => x.code === 'PRINTABLE'), false, 'it is on sale and hidden at the same time');
+
+  for (const promise of [/download/i, /instant/i, /button/i, /straight away/i, /yourself/i]) {
+    assert.doesNotMatch(row.description, promise, `the printable promises "${promise}"`);
+  }
+  // And it says when, because "we send it to you" with no when is the sentence
+  // that generates the first support message.
+  assert.match(row.description, /within a working day/);
+});
+
 test('the à la carte prices are the ones agreed', () => {
   const price = (code: string) => ADDONS.find((a) => a.code === code)?.price;
+  assert.equal(price('PRINTABLE'), 199);
   assert.equal(price('QR_CHECKIN'), 1_000);
   assert.equal(price('SEATING_VIEWER'), 1_000);
   assert.equal(price('PASSWORD'), 300);
@@ -240,7 +260,7 @@ test('a shelved add-on is off the website, priced, and not confused with a retir
     assert.equal(priced.has(code), false, `${code} is shelved and would also be repriced`);
   }
 
-  assert.deepEqual(SHELVED_ADDONS.map((s) => s.code).sort(), ['CUSTOM_DOMAIN', 'PRINTABLE']);
+  assert.deepEqual(SHELVED_ADDONS.map((s) => s.code).sort(), ['CUSTOM_DOMAIN']);
 });
 
 test('the catalogue has no duplicate codes, and nothing both sold and retired', () => {
@@ -255,6 +275,46 @@ test('the catalogue has no duplicate codes, and nothing both sold and retired', 
     assert.ok(row, `${code} unlocks a feature but is not in the catalogue`);
     assert.notEqual(row.held, true, `${code} unlocks a feature but is not for sale`);
   }
+});
+
+test('the seed writes each add-on code exactly once', () => {
+  // prisma/seed.ts puts every add-on in a single createMany, so a code in both
+  // lists violates AddOn_code_key and takes the whole seed down — which is a
+  // database error no typecheck can see. It happened for real: the printable
+  // was in the seed at ₱299 and in ADDONS at ₱199 on the same commit, and CI
+  // went red on the insert.
+  const codes = [...SEED_ONLY_ADDONS.map((a) => a.code), ...ADDONS.map((a) => a.code)];
+  const seen = new Set<string>();
+  const twice = codes.filter((c) => (seen.has(c) ? true : (seen.add(c), false)));
+  assert.deepEqual(twice, [], `both lists create ${twice.join(', ')} — the seed will fail on AddOn_code_key`);
+});
+
+test('the seed writes no add-on code of its own', () => {
+  // The two tests above only hold if every row in that createMany comes from
+  // one of the two lists. An inline row put back into prisma/seed.ts would be
+  // invisible to them and would fail the seed again, in CI, on a database
+  // error — so the createMany is read here and required to be two spreads.
+  const seed = readFileSync(new URL('../prisma/seed.ts', import.meta.url), 'utf8');
+  const i = seed.indexOf('prisma.addOn.createMany');
+  assert.notEqual(i, -1, 'the seed no longer creates add-ons the way this test expects');
+  const call = seed.slice(i, seed.indexOf('});', i));
+  // A literal code, not `code: a.code` — that one is the spread mapping its own
+  // field across and is the whole point of the spread.
+  assert.doesNotMatch(call, /code:\s*['"`]/, 'the seed writes an add-on code inline again — put it in a catalogue list');
+  assert.match(call, /\.\.\.SEED_ONLY_ADDONS/);
+  assert.match(call, /\.\.\.ADDONS\.map/);
+});
+
+test('a row the catalogue prices is not also one the seed alone owns', () => {
+  // The two lists mean different things: ADDONS is repriced by every pricing
+  // run, SEED_ONLY_ADDONS keeps whatever the admin last typed. A code in both
+  // would have a price that changes depending on which ran last.
+  const seedOnly = new Set(SEED_ONLY_ADDONS.map((a) => a.code));
+  for (const a of ADDONS) {
+    assert.equal(seedOnly.has(a.code), false, `${a.code} is priced by the catalogue and owned by the seed`);
+  }
+  // Today: the premium opening, the domain, and the two withdrawn rows.
+  assert.deepEqual([...seedOnly].sort(), ['CUSTOM_DOMAIN', 'PREMIUM_OPENING', 'SMS_PACK', 'TEMPLATE_SWITCH']);
 });
 
 test('every picture an add-on promises is a file that exists', () => {

@@ -1,6 +1,6 @@
 'use server';
 
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSectionKey } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
 import { STAFF_BYLINE } from '@/lib/names';
 import { freshNonce } from '@/lib/draft-link';
@@ -331,6 +331,60 @@ export async function stopSharingDesignDraftAction(templateId: string, back: str
     await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: templateId, summary: `${t.name}: the draft link was stopped` });
     return 'Stopped. Every link you handed out has stopped working.';
   });
+}
+
+// --- a page from another design --------------------------------------------
+
+/**
+ * The pages of every other design, to copy one from.
+ *
+ * A page she has already drawn is the best starting point for the next one
+ * like it, and designs accumulate: the third christening wants the second's
+ * story page. Each design is read the way a guest would see it — the
+ * published document if it has one, the draft if not, and the layout's
+ * built-in if neither — because that is the version she has actually
+ * looked at.
+ */
+export async function pagesToCopyAction(exceptId: string): Promise<{ id: string; name: string; pages: { key: string; label: string; drawn: boolean; elements: number; ground?: string }[] }[]> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const rows = await prisma.template.findMany({
+    where: { id: { not: exceptId } },
+    orderBy: { name: 'asc' },
+    take: 60,
+    select: { id: true, name: true, layout: true, design: true, designDraft: true },
+  });
+  const out = [];
+  for (const t of rows) {
+    const doc = studioDoc(t);
+    if (!doc?.pages.length) continue;
+    out.push({
+      id: t.id,
+      name: t.name,
+      pages: doc.pages.map((pg) => ({
+        key: pg.key,
+        label: pg.label?.en ?? pg.key,
+        drawn: Boolean(pg.drawn),
+        elements: pg.elements?.length ?? 0,
+        ...(pg.ground && 'url' in pg.ground ? { ground: pg.ground.url } : {}),
+      })),
+    });
+  }
+  return out;
+}
+
+/** One page of another design, whole, to drop into this one. */
+export async function copyPageAction(templateId: string, key: string): Promise<{ ok: true; page: PageSpec } | { ok: false; error: string }> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const t = await prisma.template.findUnique({ where: { id: templateId }, select: { layout: true, design: true, designDraft: true } });
+  if (!t) return { ok: false, error: 'That design is not there any more.' };
+  const page = studioDoc(t)?.pages.find((p) => p.key === key);
+  if (!page) return { ok: false, error: 'That page is not on that design any more.' };
+  // its own address for the ground and for every picture on it: the file is
+  // shared rather than copied, so nothing is uploaded twice and neither
+  // design can break the other by being edited
+  return { ok: true, page };
 }
 
 // --- the library -----------------------------------------------------------

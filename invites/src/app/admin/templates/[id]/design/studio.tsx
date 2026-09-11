@@ -23,7 +23,8 @@ import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAc
 import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
-import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction } from '../../../actions';
+import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
+import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pagesToCopyAction, copyPageAction } from '../../../actions';
 
 /**
  * The Design Studio.
@@ -96,7 +97,9 @@ export function Studio(p: Props) {
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
   /** the left column: the pages, or the pieces any design can be built from */
-  const [drawer, setDrawer] = useState<'pages' | 'library'>('pages');
+  const [drawer, setDrawer] = useState<'pages' | 'library' | 'guide'>('pages');
+  /** what just happened, when it is worth saying and is not a fault */
+  const [said, setSaid] = useState('');
   /**
    * Who the canvas is drawn against. The checklist above is not switched
    * with it: it is a list about the design, and "the demo has no photo for
@@ -426,6 +429,50 @@ export function Studio(p: Props) {
     } catch (e) {
       setDrop({ busy: false, error: (e as Error).message });
     }
+  }
+
+  /**
+   * A page brought over from another design.
+   *
+   * Its pictures come as addresses, so the file is shared rather than
+   * copied and neither design can break the other by being edited. Its key
+   * and every element id are made free of this design's, and anything that
+   * followed something else on the page it came from follows the same thing
+   * here — a caption that travelled with its polaroid still does.
+   *
+   * What it does not bring is a section this design already carries
+   * somewhere else. A section belongs to one page — two pages naming it
+   * would print a couple's ceremony twice — and which parts a page carries
+   * is this design's business, where the artwork and the layout are the
+   * thing worth copying.
+   */
+  function addBrought(from: PageSpec) {
+    const taken = new Set(doc.pages.map((x) => x.key));
+    const ids = new Set(doc.pages.flatMap((x) => (x.elements ?? []).map((e) => e.id)));
+    const carried = new Set(doc.pages.flatMap((x) => x.sections));
+    const copy = JSON.parse(JSON.stringify(from)) as PageSpec;
+    const dropped = copy.sections.filter((k) => carried.has(k));
+    copy.sections = copy.sections.filter((k) => !carried.has(k));
+    const renamed = new Map<string, string>();
+    for (const el of copy.elements ?? []) {
+      const id = ids.has(el.id) ? freeIdIn(ids, el.id.replace(/-\d+$/, '')) : el.id;
+      ids.add(id);
+      renamed.set(el.id, id);
+      el.id = id;
+    }
+    for (const el of copy.elements ?? []) {
+      if (el.attachTo) el.attachTo = renamed.get(el.attachTo) ?? undefined;
+    }
+    const made: PageSpec = { ...copy, key: freeKeyIn(taken, copy.key), peekEnd: undefined };
+    const at = doc.pages.findIndex((x) => x.key === pageKey);
+    const pages = [...doc.pages];
+    pages.splice(at < 0 ? pages.length : at + 1, 0, made);
+    change({ ...doc, pages });
+    setPageKey(made.key);
+    setSel([]);
+    setSaid(dropped.length
+      ? `Brought in without ${dropped.length === 1 ? 'the part' : 'the parts'} this design already has elsewhere: ${dropped.join(', ')}.`
+      : '');
   }
 
   /** A new page goes in after the one she is on, so it lands where she is looking. */
@@ -879,7 +926,7 @@ export function Studio(p: Props) {
       >
         {/* the pages, or the pieces any design can be built from */}
         <div className="mb-1 flex gap-1 text-xs">
-          {([['pages', 'Pages'], ['library', 'Library']] as const).map(([k, lbl]) => (
+          {([['pages', 'Pages'], ['library', 'Library'], ['guide', 'Guide']] as const).map(([k, lbl]) => (
             <button
               key={k}
               type="button"
@@ -891,7 +938,9 @@ export function Studio(p: Props) {
           ))}
         </div>
 
-        {drawer === 'library' ? (
+        {drawer === 'guide' ? (
+          <GuideDrawer />
+        ) : drawer === 'library' ? (
           <LibraryDrawer
             selected={selected}
             onPlace={(url, aspect) => void placePiece(url, aspect)}
@@ -907,6 +956,7 @@ export function Studio(p: Props) {
             <button type="button" title="A copy of this page after it" onClick={() => page && addPage(page)} className="rounded bg-[color:var(--color-sand-200)] px-2 text-xs leading-6">copy</button>
           </span>
         </div>
+        <CopyFrom templateId={p.templateId} onCopy={addBrought} />
         <ol className="mt-1 space-y-1">
           {doc.pages.map((pg, i) => (
             <li key={pg.key}>
@@ -955,6 +1005,7 @@ export function Studio(p: Props) {
           />
         </label>
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
+        {said && <p className="hint mt-1">{said}</p>}
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -2855,6 +2906,173 @@ function PieceDetails({ piece, onSaved, onError }: { piece: Piece; onSaved: () =
         <button type="button" className="btn btn-ghost btn-sm text-red-700" disabled={busy} onClick={() => void drop()}>Remove</button>
       </div>
       <p className="hint">Removing it takes it out of the drawer. Pages already using it keep it: they hold its address, not this row.</p>
+    </div>
+  );
+}
+
+/**
+ * A page brought over from another design.
+ *
+ * The second christening design wants the first one's story page, and
+ * redrawing it from nothing is an afternoon. Every other design is offered
+ * as its studio version — its draft if it has one, else what is published,
+ * else the layout's built-in — because that is the version she has looked
+ * at, and because a design still on its built-in is the one with the most
+ * worth copying.
+ *
+ * The list is fetched when she opens it rather than rendered into the page:
+ * a studio session lasts hours and designs are added in that time.
+ */
+function CopyFrom({ templateId, onCopy }: { templateId: string; onCopy: (page: PageSpec) => void }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [designs, setDesigns] = useState<Awaited<ReturnType<typeof pagesToCopyAction>>>([]);
+
+  async function show() {
+    setOpen(true);
+    if (designs.length) return;
+    setBusy(true);
+    try { setDesigns(await pagesToCopyAction(templateId)); } catch (e) { setError((e as Error).message); }
+    setBusy(false);
+  }
+
+  async function take(id: string, key: string) {
+    setBusy(true);
+    setError('');
+    const res = await copyPageAction(id, key);
+    setBusy(false);
+    if (!res.ok) { setError(res.error); return; }
+    onCopy(res.page);
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => void show()} className="mt-1 block w-full rounded px-2 py-1 text-left text-[11px] text-[color:var(--color-plum-600)] hover:bg-[color:var(--color-sand-100)]">
+        Copy a page from another design…
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1 rounded bg-[color:var(--color-sand-100)] p-2">
+      <div className="flex items-center justify-between">
+        <p className="label">From another design</p>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs text-[color:var(--color-ink-500)] hover:underline">close</button>
+      </div>
+      {busy && <p className="hint">Reading the other designs…</p>}
+      {!busy && !designs.length && <p className="hint">There is no other design with pages yet.</p>}
+      <div className="max-h-64 space-y-2 overflow-auto">
+        {designs.map((d) => (
+          <div key={d.id}>
+            <p className="text-xs font-semibold">{d.name}</p>
+            <ol className="mt-0.5 space-y-0.5">
+              {d.pages.map((pg) => (
+                <li key={pg.key}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void take(d.id, pg.key)}
+                    className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[11px] hover:bg-white disabled:opacity-50"
+                  >
+                    <span
+                      className="h-6 w-4 shrink-0 rounded-sm border border-black/10 bg-cover bg-top"
+                      style={pg.ground ? { backgroundImage: `url(${pg.ground})` } : { background: 'var(--color-sand-200)' }}
+                    />
+                    <span className="min-w-0 flex-1 truncate">{pg.label}</span>
+                    <span className="text-[color:var(--color-ink-500)]">{pg.drawn ? 'drawn' : 'flows'}{pg.elements ? ` · ${pg.elements}` : ''}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      </div>
+      {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
+      <p className="hint mt-1">Its pictures are shared, not copied: editing one design cannot change the other.</p>
+    </div>
+  );
+}
+
+/**
+ * The Guide: what to export artwork at.
+ *
+ * Every number here is read from the constants the studio and the renderer
+ * actually work in — the widest a ground is stored at, what one screen's
+ * proportion is, the band a phone's browser keeps, the smallest readable
+ * type — so a guide that says 1080 × 1920 says it because that is what the
+ * page will be drawn at, and cannot drift from it.
+ *
+ * The sizes double as Canva custom sizes, which is the one number she needs
+ * before she starts drawing anything.
+ */
+function GuideDrawer() {
+  const [open, setOpen] = useState<'sizes' | 'kinds' | 'rules'>('sizes');
+  return (
+    <div className="text-xs">
+      <div className="mb-2 flex gap-1">
+        {([['sizes', 'Sizes'], ['kinds', 'Page kinds'], ['rules', 'Rules of thumb']] as const).map(([k, lbl]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setOpen(k)}
+            className={`rounded-full px-2 py-0.5 ${open === k ? 'bg-[color:var(--color-plum-600)] text-white' : 'bg-[color:var(--color-sand-200)] hover:bg-[color:var(--color-sand-300)]'}`}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      {open === 'sizes' && (
+        <>
+          <p className="hint">Type the first size into Canva&rsquo;s <strong>Custom size</strong>, in pixels. The second is for artwork with fine detail; nothing needs more.</p>
+          <ul className="mt-2 space-y-2">
+            {PAGE_SHAPES.map((sh) => {
+              const px = pixelsFor(sh.ratio);
+              return (
+                <li key={sh.key} className="rounded bg-[color:var(--color-sand-100)] p-2">
+                  <p className="font-semibold">{sh.label}</p>
+                  <p className="font-mono text-[11px]">{px.small[0]} &times; {px.small[1]} px</p>
+                  <p className="text-[10px] text-[color:var(--color-ink-500)]">or {px.large[0]} &times; {px.large[1]} &middot; {sh.ratio} tall for its width</p>
+                  <p className="mt-0.5 text-[color:var(--color-ink-700)]">{sh.use}</p>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="label mt-3">The ten that shipped</p>
+          <ul className="mt-1 space-y-0.5">
+            {shippedExamples().map((e) => (
+              <li key={e.name} className="flex justify-between gap-2">
+                <span className="truncate text-[color:var(--color-ink-700)]">{e.name}</span>
+                <span className="shrink-0 font-mono text-[10px]">{e.size}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {open === 'kinds' && (
+        <ul className="space-y-2">
+          {KINDS.map((k) => (
+            <li key={k.label} className="rounded bg-[color:var(--color-sand-100)] p-2">
+              <p className="font-semibold">{k.label}</p>
+              <p className="mt-0.5 text-[color:var(--color-ink-700)]">{k.wants}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {open === 'rules' && (
+        <ul className="space-y-1.5">
+          {RULES.map((r) => (
+            <li key={r} className="flex gap-1.5 text-[color:var(--color-ink-700)]">
+              <span aria-hidden>&middot;</span>
+              <span>{r}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

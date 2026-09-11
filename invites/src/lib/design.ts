@@ -1082,6 +1082,14 @@ export function shiftSection(doc: DesignDoc, pageKey: string, key: string, by: n
 
 export const LEGIBLE_CQW = 2.6;
 
+/**
+ * The widest a ground is ever stored at, and the widest column a guest ever
+ * gets. A page is drawn at most 512 CSS pixels across — the laptop column —
+ * so 1536 is three pixels for every one, and nothing needs more.
+ */
+export const MAX_GROUND = 1536;
+export const WIDEST_COLUMN = 512;
+
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */
 export const ONE_SCREEN = 1.777;
 

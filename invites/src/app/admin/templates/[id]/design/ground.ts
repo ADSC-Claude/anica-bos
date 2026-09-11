@@ -8,10 +8,10 @@
  * re-encodes to something a phone can download while it is at it.
  */
 
-import { sliceHeights } from '@/lib/design';
+import { sliceHeights, MAX_GROUND } from '@/lib/design';
 
 /** No page is ever drawn wider than this, so nothing needs to be. */
-export const MAX_WIDTH = 1536;
+export const MAX_WIDTH = MAX_GROUND;
 
 export type ReadPicture = { blob: Blob; width: number; height: number; ratio: number; top: string; bottom: string; pixels?: ImageData };
 

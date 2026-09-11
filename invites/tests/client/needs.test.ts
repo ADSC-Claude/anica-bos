@@ -75,3 +75,14 @@ test('the library loads outside a server component', async () => {
   assert.equal(shownPieces(all, 'strand', 'all').length, 1);
   assert.equal(shownPieces(all, 'flowers', 'all').length, 1);
 });
+
+/**
+ * The Guide is drawn in the studio, so it loads in a browser, and it reads
+ * the document module for the numbers it quotes.
+ */
+test('the guide loads outside a server component', async () => {
+  const { PAGE_SHAPES, canvaSize } = await import('../../src/lib/guide');
+  const { ONE_SCREEN } = await import('../../src/lib/design');
+  assert.equal(PAGE_SHAPES.length, 4);
+  assert.equal(canvaSize(ONE_SCREEN), '1080 × 1919 px');
+});

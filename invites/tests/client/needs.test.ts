@@ -23,3 +23,19 @@ test('the checklist loads outside a server component', async () => {
   assert.equal(needCount(needs).blocks, 1);
   assert.equal(publishable(needs), false);
 });
+
+/**
+ * The sample switcher runs in the studio as she draws, so it has to load in
+ * a browser too. It reaches the field list and the occasion's own words to
+ * find each box's cap, and `npm test` runs under `--conditions=react-server`
+ * where `server-only` is an empty module and would not notice. The import is
+ * the test; the assertion proves it did the work as well as loading.
+ */
+test('the sample switcher loads outside a server component', async () => {
+  const { sampleContent } = await import('../../src/lib/samples');
+  const { builtinDesign, valueAt } = await import('../../src/lib/design');
+  const doc = builtinDesign('babyblue')!;
+  const anybody = sampleContent('anybody', { doc, occasion: 'CHRISTENING' as never, demo: {} });
+  assert.match(valueAt(anybody, { section: 'story', field: 'timeline', index: 2, sub: 'photo' }), /placeholder-photo/);
+  assert.deepEqual(sampleContent('empty', { doc, occasion: 'CHRISTENING' as never, demo: { a: 1 } }), {});
+});

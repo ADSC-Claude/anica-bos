@@ -14,6 +14,7 @@ import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import { pageNeeds, needCount, type Need } from '@/lib/needs';
+import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { saveDesignDraftAction } from '../../../actions';
 import { uploadGround } from './ground';
@@ -82,6 +83,17 @@ export function Studio(p: Props) {
   const [shown, setShown] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
+  /** who the canvas is drawn against: the demo, nobody, anybody, or the longest */
+  const [sample, setSample] = useState<Sample>('demo');
+  /**
+   * Who the canvas is drawn against. The checklist above is not switched
+   * with it: it is a list about the design, and "the demo has no photo for
+   * frame 4" is about the demo, not about whoever the canvas is showing.
+   */
+  const shownContent = useMemo(
+    () => sampleContent(sample, { doc, occasion: p.occasion, demo: p.content }),
+    [sample, doc, p.occasion, p.content],
+  );
   /** the band a phone's browser keeps: shown on a page drawn to a screen or less */
   const [bar, setBar] = useState(true);
   const [rev, setRev] = useState(p.rev);
@@ -132,7 +144,7 @@ export function Studio(p: Props) {
     // `view` is in the list because the stage is kept mounted but hidden while
     // the whole invitation is shown: a hidden box measures zero, the guard
     // above keeps the last good numbers, and this measures again on her return
-  }, [doc, page, width, night, p.content, view, grown]);
+  }, [doc, page, width, night, shownContent, view, grown]);
 
   // --- changing the document ------------------------------------------------
 
@@ -832,6 +844,16 @@ export function Studio(p: Props) {
           {view === 'page' && page?.drawn && ratio <= ONE_SCREEN + 0.02 && (
             <button type="button" title="The band a phone's browser keeps for itself until the guest scrolls" onClick={() => setBar((x) => !x)} className={`rounded px-2 py-1 ${bar ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Browser bar</button>
           )}
+          {view === 'page' && (
+            <select
+              title="Who the page is drawn against. None of it is saved: it is what the canvas draws, not what anybody has."
+              value={sample}
+              onChange={(e) => setSample(e.target.value as Sample)}
+              className="rounded bg-[color:var(--color-sand-200)] px-2 py-1"
+            >
+              {SAMPLES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          )}
           <button type="button" onClick={() => setNight((n) => !n)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">{night ? '☾ Night' : '☀ Day'}</button>
           <button type="button" onClick={undo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Undo</button>
           <button type="button" onClick={redo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Redo</button>
@@ -889,7 +911,7 @@ export function Studio(p: Props) {
                 onPointerCancel={endDrag}
                 onPointerDown={() => { if (!fit) setSel([]); }}
               >
-                {page && <DrawnPage page={page} content={p.content} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />}
+                {page && <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />}
                 {/*
                   * The handles, over the real page. The layer itself lets the
                   * pointer through, so a click on bare ground still deselects;

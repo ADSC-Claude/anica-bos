@@ -5,6 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
+  invitationPages, stdPage, sheetRules, SHEET_SIZES, designOf,
   flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
@@ -1131,4 +1132,143 @@ test('a decoration keeps its turn and its opacity, and its middle is its x', () 
   assert.equal(st.transform, 'translateX(-50%) rotate(-6deg)');
   assert.equal(st.opacity, '0.5');
   assert.equal(st.left, '20%');
+});
+
+
+/**
+ * A page kept for the Save the Date leaves the invitation.
+ *
+ * The hazard this is really about: a Save the Date names the cover section,
+ * because a card is names and a date. If `coverOf` found that page it would
+ * hand the invitation's hero the *card's* settings, and which one won would
+ * come down to the order of the page list — the same shape of fault as two
+ * lists sharing a key. So every question about the invitation goes through
+ * `invitationPages`, and this asserts it of each one.
+ */
+test('a Save the Date page is not part of the invitation, and is not its cover', () => {
+  const base = builtinDesign('babyblue')!;
+  const card: PageSpec = {
+    key: 'the-card',
+    sections: ['cover'],
+    drawn: true,
+    peekEnd: true,
+    only: 'std',
+    // settings that would be wrong on the invitation if they leaked
+    cover: { names: 'bottom' },
+  };
+  const withCard: DesignDoc = { ...base, pages: [card, ...base.pages] };
+
+  // it is in the document, and it is the card
+  assert.equal(withCard.pages.length, base.pages.length + 1);
+  assert.equal(stdPage(withCard)?.key, 'the-card');
+  assert.equal(stdPage(base), undefined, 'a design that has not drawn one has none');
+
+  // and it is in none of the invitation's answers
+  assert.deepEqual(invitationPages(withCard).map((p) => p.key), base.pages.map((p) => p.key));
+  assert.equal(invitationPages(null).length, 0);
+  // the card is listed first *and* marks the peek end, so order cannot save us
+  assert.notEqual(coverOf(withCard)?.names, 'bottom');
+  assert.deepEqual(coverOf(withCard), coverOf(base), 'the invitation keeps its own cover settings');
+  assert.equal(peekEndPage(withCard), peekEndPage(base), 'the peek ends where the invitation says');
+  assert.equal(pageOfSection(withCard, 'cover')?.key, pageOfSection(base, 'cover')?.key);
+  assert.deepEqual(drawnSections(withCard), drawnSections(base));
+  assert.deepEqual(offeredSections(withCard, 'CHRISTENING'), offeredSections(base, 'CHRISTENING'));
+});
+
+/**
+ * What a design says about paper. Before this there was no `@page` rule
+ * anywhere, so the browser cut the column wherever it landed; a design that
+ * still says nothing must print exactly as it did, which is the first case.
+ */
+test('the paper settings come to the CSS a browser needs, and nothing when unset', () => {
+  const base = builtinDesign('capiz')!;
+  assert.equal(sheetRules(base), '', 'a design with no paper settings adds no rules');
+  assert.equal(sheetRules(null), '');
+  assert.equal(sheetRules({ ...base, sheet: {} }), '', 'an empty sheet is the same as none');
+
+  const sized = sheetRules({ ...base, sheet: { size: 'a5', margin: 0 } });
+  assert.match(sized, /@page \{ size: A5; margin: 0mm; \}/);
+  // 0 is a real answer and must not be dropped as falsy — a ground running to
+  // the edge of the sheet is exactly why somebody would ask for it
+  assert.match(sheetRules({ ...base, sheet: { margin: 0 } }), /margin: 0mm/);
+  assert.equal(sheetRules({ ...base, sheet: { size: 'a4' } }).includes('margin'), false);
+
+  const each = sheetRules({ ...base, sheet: { perPage: true } });
+  assert.match(each, /break-after: page/);
+  assert.match(each, /break-inside: avoid/, 'a page given its own sheet must not then be split');
+  assert.match(each, /:last-of-type \{ break-after: auto/, 'no blank sheet after the last page');
+
+  const hidden = sheetRules({ ...base, sheet: { hide: ['rsvp', 'contact'] } });
+  assert.match(hidden, /\[data-page="rsvp"\] \{ display: none/);
+  assert.match(hidden, /\[data-page="contact"\] \{ display: none/);
+
+  // every size offered is a real CSS page size
+  for (const [key, css] of Object.entries(SHEET_SIZES)) {
+    assert.match(sheetRules({ ...base, sheet: { size: key as keyof typeof SHEET_SIZES } }), new RegExp(`size: ${css.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`));
+  }
+});
+
+/**
+ * A page key reaches the stylesheet inside a quoted selector, and the studio
+ * makes keys from names she types. A quote or a backslash in one would end
+ * the string and let the rest of the key be read as CSS, so it is escaped.
+ */
+test('a page key cannot break out of the rule it is quoted in', () => {
+  const base = builtinDesign('capiz')!;
+  const nasty = sheetRules({ ...base, sheet: { hide: ['a"] { color: red } .x ['] } });
+  /*
+   * The text of the key is still in there — it is the selector's own string
+   * and is meant to be. What must not happen is that it stops being a
+   * string: the check is on the *delimiters*, not on the payload. Strip
+   * every escaped pair and exactly two quotes may remain, the two this rule
+   * opened and closed with. A first attempt asserted the payload was absent
+   * and failed for the right reason: quoted data survives, and should.
+   */
+  const unescaped = nasty.replace(/\\./g, '');
+  assert.equal((unescaped.match(/"/g) ?? []).length, 2, 'the key closed the string early');
+  assert.match(nasty, /\\"/, 'the quote is escaped');
+  const lines = sheetRules({ ...base, sheet: { hide: ['a\nb'] } });
+  assert.equal(lines.split('\n').length, 1, 'a newline cannot split the rule in two');
+});
+
+
+/**
+ * The settings survive being written to the column and read back.
+ *
+ * This is here because a browser probe found the fault it guards, and a
+ * unit test is what would have found it first. `zDoc` and `zPage` are
+ * `.strict()`, so a key they do not know is not quietly dropped — the page
+ * is discarded and named, and an unknown key on the document fails the
+ * whole parse and falls the design back to its built-in. Adding a field to
+ * the *type* therefore does nothing at all until the schema knows it: the
+ * studio would save a card and paper settings, and a guest would be served
+ * the design as though neither had been asked for.
+ *
+ * `designOf` is the round trip, so this asserts on what comes back out.
+ */
+test('a Save the Date page and the paper settings survive the column', () => {
+  const base = builtinDesign('capiz')!;
+  const card: PageSpec = { key: 'the-card', sections: ['cover'], drawn: true, only: 'std' };
+  const sheet = { size: 'a5' as const, margin: 8, perPage: true as const, hide: ['rsvp'] };
+  const written = JSON.parse(JSON.stringify({ ...base, pages: [...base.pages, card], sheet }));
+
+  const { doc, dropped } = designOf(written, 'capiz');
+  assert.deepEqual(dropped, [], 'nothing was dropped on the way in');
+  assert.ok(doc, 'the document parsed at all — an unknown key on it fails the lot');
+  assert.equal(stdPage(doc)?.key, 'the-card', 'the card page came back, and is still the card');
+  assert.equal(doc!.pages.length, base.pages.length + 1);
+  assert.deepEqual(doc!.sheet, sheet, 'the paper settings came back whole');
+  assert.match(sheetRules(doc), /size: A5/);
+
+  // and the two ways it used to go wrong, asserted as the failures they are
+  const strayOnDoc = designOf({ ...written, notAThing: 1 }, 'capiz');
+  assert.equal(strayOnDoc.doc, null, 'an unknown key on the document is refused, not ignored');
+  const strayOnPage = designOf({ ...written, pages: [{ ...card, notAThing: 1 }] }, 'capiz');
+  assert.deepEqual(strayOnPage.dropped, ['page 1 (the-card)'], 'an unknown key on a page drops it by name');
+
+  // the bounds the schema puts on the paper settings
+  assert.equal(designOf({ ...written, sheet: { margin: 41 } }, 'capiz').doc, null, '41mm leaves no page to print on');
+  assert.equal(designOf({ ...written, sheet: { size: 'a3' } }, 'capiz').doc, null, 'a size we do not offer');
+  assert.equal(designOf({ ...written, sheet: { hide: ['not a key'] } }, 'capiz').doc, null, 'a hidden page must be named like a page');
+  assert.deepEqual(designOf({ ...written, sheet: { margin: 0 } }, 'capiz').doc?.sheet, { margin: 0 }, '0mm is a real answer');
 });

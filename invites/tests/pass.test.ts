@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PASS_COPY, passIntro, passSubject, passDetails, arrivalLine, arrivedLinks } from '../src/lib/pass';
+import { PASS_COPY, PASS_LOOKS, passIntro, passSubject, passDetails, arrivalLine, arrivedLinks } from '../src/lib/pass';
+import { fieldsFor, sectionAlwaysShows } from '../src/lib/sections';
 import type { Occasion } from '@prisma/client';
 
 const OCCASIONS: Occasion[] = ['WEDDING', 'DEBUT', 'CHRISTENING', 'KIDS_BIRTHDAY', 'MILESTONE_BIRTHDAY', 'BABY_SHOWER', 'ANNIVERSARY', 'ENGAGEMENT', 'GRADUATION', 'COMMUNION', 'CORPORATE', 'HOUSEWARMING', 'REUNION', 'MEMORIAL'];
@@ -221,4 +222,42 @@ test('the ticket’s perforation is visible on a palette whose ground and sheet 
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
   const block = css.slice(css.indexOf('.pass-tear::before,'), css.indexOf('.pass-stub {'));
   assert.match(block, /border: 1px solid color-mix\(in srgb, var\(--inv-accent2\)/, 'the notch has no ring, so it is invisible on a low-contrast palette');
+});
+
+test('the look picker offers three looks, each drawn and explained, and no phantom fourth', () => {
+  // The controls were unfindable in RSVP; a picker of three identical grey
+  // tiles would be the same failure one step later. Portrait carries the
+  // blank value because blank already means portrait (passLookFrom), so a
+  // separate "the design's own" tile would be a second way to say the same
+  // thing — and StylesInput only leaves that tile off when an option owns ''.
+  const look = fieldsFor('checkin', 'WEDDING', 'LUXURY', false).find((f) => f.key === 'look');
+  assert.ok(look, 'the check-in section has no look picker');
+  const options = look.options ?? [];
+  assert.equal(options.length, PASS_LOOKS.length);
+  assert.ok(options.some((o) => o.value === ''), 'no option holds the blank value, so a fourth tile appears');
+  assert.equal(options.find((o) => o.value === '')?.label, 'Portrait');
+  for (const o of options) {
+    assert.ok(o.hint && o.hint.length > 12, `${o.label} has no note under it`);
+    // Our Card is a plain sheet; the cover photograph's "card" is a tilted
+    // snapshot. Same word, different drawing, so the art is named separately.
+    assert.match(o.art ?? '', /^pass-(portrait|card|ticket)$/, `${o.label} would borrow another field's drawing`);
+  }
+  assert.deepEqual(options.map((o) => o.art), PASS_LOOKS.map((l) => `pass-${l.value}`));
+});
+
+test('an empty check-in section is never said to remove anything', () => {
+  // The warning the builder shows on an empty section — "will not appear on
+  // your invitation at all" — is false twice over here: the pass is not on the
+  // invitation, and it exists because the package does. Blank means defaults.
+  assert.equal(sectionAlwaysShows('checkin'), true);
+});
+
+test('the phone beside the check-in form shows the pass, not the invitation', () => {
+  const builderPage = readFileSync(new URL('../src/app/account/invitations/[id]/builder/page.tsx', import.meta.url), 'utf8');
+  assert.match(builderPage, /current === 'checkin'/, 'the builder never asks for a sample guest');
+  assert.match(builderPage, /invitationPath\(inv\.slug, sample\.token\)\}\/pass/, 'the preview does not point at a pass');
+  assert.match(builderPage, /previewPath=\{previewPath\}/, 'the preview path is never handed to the builder');
+  const builder = readFileSync(new URL('../src/components/builder/builder.tsx', import.meta.url), 'utf8');
+  // One source for the src, or the two devices and the new-tab link drift.
+  assert.equal((builder.match(/previewSrc/g) ?? []).length, 4);
 });

@@ -29,6 +29,13 @@ export type Option = {
   when?: string[];
   /** Shown but not selectable below this tier. The renderer gates it again. */
   lockedTier?: Tier;
+  /** styles: a line under the label, for a choice a picture cannot finish explaining. */
+  hint?: string;
+  /**
+   * styles: which drawing to put on the tile, when it is not the value's own.
+   * Two fields can both offer a "card" and mean different things by it.
+   */
+  art?: string;
 };
 
 export type FieldType =
@@ -667,7 +674,16 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'LUXURY',
     feature: 'checkin',
     fields: () => [
-      styles('look', 'How the pass looks', PASS_LOOKS.map((l) => ({ value: l.value, label: l.label, hint: l.note })), {
+      // Portrait carries the blank value because portrait is what an
+      // untouched pass is (passLookFrom), and two tiles that mean the same
+      // thing is not a choice. `art` keeps our Card off the cover
+      // photograph's tilted-card drawing, which is a different card.
+      styles('look', 'How the pass looks', PASS_LOOKS.map((l) => ({
+        value: l.value === 'portrait' ? '' : l.value,
+        label: l.label,
+        hint: l.note,
+        art: `pass-${l.value}`,
+      })), {
         hint: 'Each guest gets their own, with their name and their code on it.',
       }),
       image('photo', 'Photograph on the pass', { hint: 'Blank uses your cover photo. A bright, uncluttered picture works best.' }),
@@ -1204,7 +1220,11 @@ export function skippedSections(occasion: Occasion, content: Content, tier: Tier
 
 /** True for the three sections that appear even with nothing in them: the cover, the RSVP form and the countdown's switch. */
 export function sectionAlwaysShows(key: SectionKey): boolean {
-  return key === 'cover' || key === 'rsvp' || key === 'countdown';
+  // Two different reasons to never warn that an empty one disappears: the
+  // invitation always carries it (cover, RSVP, the countdown), or it is not on
+  // the invitation at all and an empty one only means "use our defaults" — the
+  // check-in pass exists because the package does, not because this is filled.
+  return key === 'cover' || key === 'rsvp' || key === 'countdown' || key === 'checkin';
 }
 
 export function sectionLabel(key: SectionKey, occasion: Occasion): string {

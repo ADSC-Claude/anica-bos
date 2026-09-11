@@ -225,8 +225,9 @@ function StylesInput({ field, value, onChange }: { field: Field; value: string; 
               // the next one.
               className={`min-w-0 rounded-xl border p-1.5 text-left transition ${on ? 'border-[color:var(--color-ink-700)] bg-[color:var(--color-sand-100)] shadow-sm' : 'border-[color:var(--color-sand-200)] hover:border-[color:var(--color-sand-300)]'}`}
             >
-              <StyleThumb kind={o.value} />
+              <StyleThumb kind={o.art ?? o.value} />
               <span className="mt-1 block break-words text-[11px] leading-tight text-[color:var(--color-ink-700)]">{o.label}</span>
+              {o.hint && <span className="mt-0.5 block break-words text-[10px] leading-tight text-[color:var(--color-ink-500)]">{o.hint}</span>}
             </button>
           );
         })}
@@ -241,6 +242,7 @@ function StyleThumb({ kind }: { kind: string }) {
   const ink = 'var(--color-ink-500)';
   const photo = 'color-mix(in srgb, var(--color-ink-500) 38%, transparent)';
   const line = (w: string) => <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: ink, opacity: 0.55, margin: '0 auto' }} />;
+  if (kind.startsWith('pass-')) return <PassThumb look={kind.slice(5)} ink={ink} photo={photo} />;
   const frame: Record<string, CSSProperties> = {
     arch: { width: '58%', aspectRatio: '4 / 5', borderRadius: '999px 999px 3px 3px' },
     oval: { width: '52%', aspectRatio: '3 / 4', borderRadius: '50%', outline: `1px solid ${ink}`, outlineOffset: 2 },
@@ -270,6 +272,80 @@ function StyleThumb({ kind }: { kind: string }) {
         <span style={{ display: 'block', height: 5 }} />
         {line('44%')}
       </span>
+    </span>
+  );
+}
+
+/**
+ * The three check-in passes, drawn rather than described.
+ *
+ * The same reasoning as StyleThumb: "Ticket" tells a couple nothing, and the
+ * difference between these three is entirely where the photograph goes — which
+ * is a thing to look at, not to read. Boxes and radii again, so they cost
+ * nothing and cannot 404.
+ */
+function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: string }) {
+  const line = (w: string, o = 0.55) => <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: ink, opacity: o, margin: '0 auto' }} />;
+  // The code: a square with three corner eyes, which is the shape a phone
+  // camera recognises and so the shape a person does too.
+  const eye = (pos: CSSProperties) => (
+    <span style={{ position: 'absolute', width: '26%', height: '26%', border: `2px solid ${ink}`, borderRadius: 1, opacity: 0.75, ...pos }} />
+  );
+  const qr = (w: string) => (
+    <span style={{ position: 'relative', display: 'block', width: w, aspectRatio: '1 / 1', border: `1px solid ${ink}`, borderRadius: 2, opacity: 0.9, margin: '0 auto' }}>
+      {eye({ left: '8%', top: '8%' })}
+      {eye({ right: '8%', top: '8%' })}
+      {eye({ left: '8%', bottom: '8%' })}
+      <span style={{ position: 'absolute', right: '14%', bottom: '14%', width: '22%', height: '22%', background: ink, opacity: 0.5 }} />
+    </span>
+  );
+  return (
+    <span
+      aria-hidden
+      className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]"
+      style={{ aspectRatio: '3 / 5' }}
+    >
+      {look === 'portrait' && (
+        <>
+          {/* edge to edge, and the names sit on it */}
+          <span style={{ display: 'block', height: '42%', background: photo, position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '12%', right: '12%', bottom: '12%' }}>
+              {line('80%', 0.9)}
+              <span style={{ display: 'block', height: 4 }} />
+              {line('54%', 0.7)}
+            </span>
+          </span>
+          <span style={{ display: 'block', padding: '12% 14%' }}>{qr('100%')}</span>
+        </>
+      )}
+      {look === 'card' && (
+        <span style={{ display: 'block', padding: '12% 14%' }}>
+          {line('72%')}
+          <span style={{ display: 'block', height: 4 }} />
+          {line('48%')}
+          <span style={{ display: 'block', height: 8 }} />
+          <span style={{ display: 'block', width: '100%', aspectRatio: '16 / 10', background: photo, borderRadius: 2 }} />
+          <span style={{ display: 'block', height: 8 }} />
+          {qr('72%')}
+        </span>
+      )}
+      {look === 'ticket' && (
+        <>
+          <span style={{ display: 'block', padding: '12% 14% 0' }}>
+            {line('72%')}
+            <span style={{ display: 'block', height: 4 }} />
+            {line('48%')}
+            <span style={{ display: 'block', height: 8 }} />
+            <span style={{ display: 'block', width: '100%', aspectRatio: '16 / 7', background: photo, borderRadius: 2 }} />
+          </span>
+          {/* the perforation, notches and all — it is the whole point of this one */}
+          <span style={{ position: 'relative', display: 'block', margin: '10% 0 0', height: 1, background: `repeating-linear-gradient(to right, ${ink} 0 4px, transparent 4px 8px)`, opacity: 0.6 }}>
+            <span style={{ position: 'absolute', left: -5, top: '50%', translate: '0 -50%', width: 10, height: 10, borderRadius: 999, background: 'var(--color-sand-100)', border: `1px solid ${ink}` }} />
+            <span style={{ position: 'absolute', right: -5, top: '50%', translate: '0 -50%', width: 10, height: 10, borderRadius: 999, background: 'var(--color-sand-100)', border: `1px solid ${ink}` }} />
+          </span>
+          <span style={{ display: 'block', padding: '10% 20% 0' }}>{qr('100%')}</span>
+        </>
+      )}
     </span>
   );
 }

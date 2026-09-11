@@ -77,7 +77,11 @@ export const PHOTO: { hero?: string; card?: string; band?: string } = {
   // The two were chosen for tonal range as much as for content. Everything
   // else on this page lives between #fbf8f3 and #e9e1d3, and a storefront
   // with no contrast in it reads as dull however well it is set.
-  hero: '/covers/capiz.jpg',       // warm, behind the phone in the arch
+  // The owner's photograph of the set: the alcove, the marble ledge, the
+  // travertine plinths and the dried stems. Commit it to public/brand/ and
+  // uncomment — the hero switches from the CSS stand-in to the real room and
+  // the phone keeps its place on the ledge.
+  // hero: '/brand/hero.jpg',
   card: '/covers/capiz.jpg',       // warm gold on the maroon ground; a cool blue fought it
   // band: '/brand/band.jpg',      // the flower, behind the closing call to action
 };

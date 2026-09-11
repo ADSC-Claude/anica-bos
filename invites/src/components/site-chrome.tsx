@@ -45,9 +45,17 @@ function Arrow() {
   );
 }
 
-export function SiteHeader({ s, signedIn }: { s: Settings; signedIn: boolean }) {
+/**
+ * @param overlay The landing page's hero photograph runs to the very top of
+ *   the page, so there the header sits ON it rather than above it: no ground,
+ *   no rule. Everywhere else the header has cream under it and keeps both —
+ *   a transparent header over a dense page is a header you cannot read.
+ */
+export function SiteHeader({ s, signedIn, overlay = false }: { s: Settings; signedIn: boolean; overlay?: boolean }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]/95 backdrop-blur">
+    <header className={overlay
+      ? 'absolute inset-x-0 top-0 z-30'
+      : 'sticky top-0 z-30 border-b border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]/95 backdrop-blur'}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
         <Link href="/" aria-label={`${s['business.name']} — home`}>
           <Wordmark s={s} />
@@ -61,7 +69,7 @@ export function SiteHeader({ s, signedIn }: { s: Settings; signedIn: boolean }) 
         </div>
         <details className="relative lg:hidden">
           <summary className="btn btn-secondary btn-sm cursor-pointer list-none">Menu</summary>
-          <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[color:var(--color-sand-200)] bg-white p-2 shadow-lg">
+          <div className="absolute right-0 mt-2 w-56 rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--card-bg)] p-2 shadow-lg">
             {NAV.map((n) => <Link key={n.href} href={n.href} className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">{n.label}</Link>)}
             {signedIn && <Link href="/account" className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">My invitations</Link>}
             {s['contact.messenger'] && <a href={s['contact.messenger']} target="_blank" rel="noopener" className="block rounded-lg px-3 py-2 text-sm hover:bg-[color:var(--color-sand-100)]">Messenger</a>}

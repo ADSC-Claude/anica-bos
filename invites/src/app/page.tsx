@@ -75,7 +75,7 @@ export default async function Landing() {
 
   return (
     <>
-      <SiteHeader s={s} signedIn={Boolean(session)} />
+      <SiteHeader s={s} signedIn={Boolean(session)} overlay />
       <main>
         {/* Hero.
 
@@ -86,12 +86,14 @@ export default async function Landing() {
             throws it away. The text half keeps the container's gutter so it
             still lines up with every section below it. */}
         <section className="grid items-stretch lg:grid-cols-[1fr_1.06fr]">
-          <div className="ed-gutter-l flex items-center px-5 py-16 lg:py-20 lg:pr-16">
+          {/* pt clears the overlaid header — the section itself starts at y=0
+              so the photograph beside it can run to the top of the page. */}
+          <div className="ed-gutter-l flex items-center px-5 pb-16 pt-32 lg:pb-20 lg:pr-16 lg:pt-36">
             <div className="max-w-lg">
               <span className="ed-eyebrow ed-eyebrow-ruled block">More than an invitation</span>
-              <h1 className="ed-display ed-display-xl mt-7 text-balance">Beautiful beginnings start here.</h1>
+              <h1 className="ed-display ed-display-xl mt-7 text-balance">Everything your guests need, all in one invitation.</h1>
               <p className="mt-7 text-lg leading-relaxed text-[color:var(--color-ink-700)]">
-                Create elegant digital invitations for life&rsquo;s most meaningful moments — with one-tap RSVP, a QR code, and nothing for your guests to download.
+                A personalized digital invitation with a custom link and QR code, featuring your event details, entourage, venue directions via Google Maps and Waze, GCash gift QR, and RSVP. Send us your information, and we&rsquo;ll build the invitation for your review before sharing it with your guests.
               </p>
               <div className="mt-10">
                 <Link href="/checkout" className="ed-cta">Create your invitation<Arrow /></Link>
@@ -105,9 +107,14 @@ export default async function Landing() {
               rather than photographed — see .ed-scene — and the template on
               the screen is a real cover until there is a design made for this
               spot. */}
-          <div className="ed-scene min-h-[26rem] lg:min-h-[34rem]">
-            <div className="ed-scene-arch" aria-hidden />
-            <div className="ed-scene-ledge" aria-hidden />
+          <div className="ed-scene min-h-[26rem] lg:min-h-[38rem]">
+            {/* The owner's photograph when there is one — the alcove, the
+                marble, the dried stems, all of it real. Until then the two
+                divs below stand the set up in CSS, and the phone sits in the
+                same place either way. */}
+            {PHOTO.hero
+              ? <img src={PHOTO.hero} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              : <><div className="ed-scene-arch" aria-hidden /><div className="ed-scene-ledge" aria-hidden /></>}
             {/* A calm invitation on the screen, not a play button. The
                 mockup's phone is showing a card; the premium opening has its
                 own place in the templates section, and a video facade here
@@ -128,7 +135,7 @@ export default async function Landing() {
         {/* The occasions, numbered. Four, not the mockup's five: corporate
             events are not on sale yet, and a storefront that lists something
             it cannot take an order for is a storefront that wastes a click. */}
-        <section className="border-y border-[color:var(--color-sand-200)] bg-white">
+        <section className="border-y border-[color:var(--color-sand-200)]">
           <div className="mx-auto flex max-w-6xl flex-wrap justify-center gap-x-16 gap-y-8 px-5 py-10 text-center">
             {OCCASIONS.filter((o) => o.phase === 1).map((o, i) => (
               <Link key={o.key} href={`/occasions/${o.key.toLowerCase().replace(/_/g, '-')}`} className="group">
@@ -156,7 +163,7 @@ export default async function Landing() {
             <div className="max-w-lg">
               <span className="ed-eyebrow ed-eyebrow-ruled block">Effortlessly elegant</span>
               <h2 className="ed-display ed-display-lg mt-7 text-[color:var(--color-sand-50)]">Invitations<br />Made Simple</h2>
-              <p className="mt-6 text-lg leading-relaxed text-white/70">
+              <p className="mt-6 text-lg leading-relaxed text-[color:var(--color-sand-50)]/70">
                 Designed to celebrate what matters, without the hassle. You send us the details however is easiest — our form, Messenger, Viber, even a photo of a list — and we build it.
               </p>
               <Link href="/#templates" className="ed-link mt-10 w-full max-w-xs">Explore templates<Arrow /></Link>
@@ -165,7 +172,7 @@ export default async function Landing() {
         </section>
 
         {/* The four promises */}
-        <section className="border-y border-[color:var(--color-sand-200)] bg-white">
+        <section className="border-y border-[color:var(--color-sand-200)]">
           <div className="ed-divided mx-auto grid max-w-6xl gap-0 px-5 py-14 md:grid-cols-4">
             {PROMISES.map((f) => (
               <div key={f.title} className="text-center">
@@ -204,14 +211,14 @@ export default async function Landing() {
               <div key={flow.title} className="card p-6">
                 <h3 className="display text-2xl">{flow.title}</h3>
                 <p className="text-sm text-[color:var(--color-ink-500)]">{flow.sub}</p>
-                <ol className="mt-4 space-y-3">{flow.steps.map((st, i) => <li key={i} className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-plum-600)] text-sm font-semibold text-white">{i + 1}</span><span className="text-sm">{st}</span></li>)}</ol>
+                <ol className="mt-4 space-y-3">{flow.steps.map((st, i) => <li key={i} className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--color-plum-600)] text-sm font-semibold text-[color:var(--color-sand-50)]">{i + 1}</span><span className="text-sm">{st}</span></li>)}</ol>
               </div>
             ))}
           </div>
         </section>
 
         {/* Templates */}
-        <section id="templates" className="ed-section bg-white">
+        <section id="templates" className="ed-section">
           <div className="mx-auto max-w-6xl px-5">
             <span className="ed-eyebrow ed-eyebrow-ruled is-centred block text-center">Templates</span>
             <h2 className="ed-display ed-display-lg mt-6 text-center">Our designs</h2>
@@ -223,7 +230,7 @@ export default async function Landing() {
         </section>
 
         {/* Packages */}
-        <section id="packages" className="ed-section bg-white">
+        <section id="packages" className="ed-section">
           <div className="mx-auto max-w-6xl px-5">
             <span className="ed-eyebrow ed-eyebrow-ruled is-centred block text-center">Packages</span>
             <h2 className="ed-display ed-display-lg mt-6 text-center">Simple pricing, paid once</h2>
@@ -246,7 +253,7 @@ export default async function Landing() {
         </section>
 
         {/* Feature highlights */}
-        <section className="ed-section bg-white">
+        <section className="ed-section">
           <div className="mx-auto max-w-6xl px-5">
             <h2 className="ed-display ed-display-lg text-center">Built around how Filipino events really work</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -277,7 +284,7 @@ export default async function Landing() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="ed-section bg-white">
+        <section id="faq" className="ed-section">
           <div className="mx-auto max-w-3xl px-5">
             <h2 className="ed-display ed-display-lg text-center">Questions people ask us on Messenger</h2>
             <div className="mt-8 space-y-2">
@@ -298,14 +305,14 @@ export default async function Landing() {
             {PHOTO.band ? <img src={PHOTO.band} alt="" loading="lazy" /> : null}
           </div>
           <div className="ed-band-inner mx-auto max-w-6xl px-5 py-20 md:py-28">
-            <span aria-hidden className="mb-8 block h-px w-10 bg-white/40" />
-            <h2 className="ed-display ed-display-lg max-w-2xl text-white">
+            <span aria-hidden className="mb-8 block h-px w-10 bg-[color:var(--color-sand-50)]/40" />
+            <h2 className="ed-display ed-display-lg max-w-2xl text-[color:var(--color-sand-50)]">
               Life&rsquo;s special moments deserve a beautiful invitation.
             </h2>
             {/* hoursNote already names the channels and the hours, so the
                 lead-in must not: the two together used to say "Messenger and
                 Viber" twice in one breath. */}
-            <p className="mt-6 max-w-md text-white/70">
+            <p className="mt-6 max-w-md text-[color:var(--color-sand-50)]/70">
               Start now, or send us a message. {s['contact.hoursNote']}
             </p>
             <div className="mt-10 flex flex-wrap items-center gap-8">

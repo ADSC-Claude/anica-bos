@@ -81,6 +81,16 @@ export const DEFAULT_SETTINGS = {
   'email.rsvpReminderSubject': 'RSVP for {{hosts}} — {{eventDate}}',
   'email.rsvpReminder':
     'Hi {{guestName}},\n\n{{hosts}} would love to know if you can make it on {{eventDate}}.\n\nYour invitation, and the RSVP, are here:\n{{link}}\n\nThe link is yours — it already knows your name and the seats set aside for you, so there is nothing to look up.\n\nSee you soon!\n{{hosts}}',
+  /**
+   * What a guest gets back for replying: proof they did, and the link again.
+   *
+   * It is written to be read once and then found in a search months later,
+   * which is why the subject carries the hosts and the day rather than the
+   * word "confirmation" — nobody searches their inbox for that.
+   */
+  'email.rsvpConfirmationSubject': 'Your RSVP for {{hosts}} — {{eventDate}}',
+  'email.rsvpConfirmation':
+    'Hi {{guestName}},\n\nThank you — we have you down as {{response}}{{seatsLine}}.\n\n{{hosts}} · {{eventDate}}\n\nIf anything changes, you can update your reply on the same link:\n{{link}}\n\nSee you soon!\n{{hosts}}',
   /** Semaphore sender ID. Blank uses the account default. */
   'sms.senderName': '',
 

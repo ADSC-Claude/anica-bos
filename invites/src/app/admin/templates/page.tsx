@@ -26,7 +26,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
               <div className="aspect-[9/16]" style={{ background: t.thumbnailUrl ? `top/cover url(${t.thumbnailUrl})` : `linear-gradient(160deg, ${pal.bg}, ${pal.accent2})` }} />
               <div className="p-3">
                 <p className="font-semibold">{t.name} {t.featured && <Pill tone="info">Featured</Pill>} {!t.published && <Pill tone="warn">Unpublished</Pill>}</p>
-                <p className="text-xs text-[color:var(--color-ink-500)]">{templateOccasions(t).map(occasionLabel).join(', ')} · {t.premium ? `${TIER_LABELS.COMPLETE} only` : TIER_LABELS[t.minTier]} · {t.layout} · used {t._count.invitations}×</p>
+                <p className="text-xs text-[color:var(--color-ink-500)]">{templateOccasions(t).map(occasionLabel).join(', ')} · {t.premium ? `${TIER_LABELS.COMPLETE} and up` : TIER_LABELS[t.minTier]} · {t.layout} · used {t._count.invitations}×</p>
               </div>
             </Link>
           );

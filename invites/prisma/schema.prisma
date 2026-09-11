@@ -121,7 +121,10 @@ enum Occasion {
 enum Tier {
   BASIC
   STANDARD
+  /// Shown as "Signature". Renaming the label was cheaper than renaming the
+  /// value, which every order ever sold is stored as.
   COMPLETE
+  LUXURY
 }
 
 enum ServiceMode {
@@ -540,8 +543,9 @@ model Rsvp {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
-  guest      Guest?     @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  invitation Invitation       @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  guest      Guest?            @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  emails     EmailMessage[]
 
   @@index([invitationId, response])
   @@index([ip, createdAt])
@@ -725,6 +729,9 @@ model EmailMessage {
   id           String    @id @default(cuid())
   invitationId String
   guestId      String?
+  /// Set when this is the confirmation of one reply, so the couple's RSVP list
+  /// can say whether that guest was written to. A blast carries no rsvpId.
+  rsvpId       String?
   to           String
   subject      String
   body         String
@@ -734,9 +741,11 @@ model EmailMessage {
 
   invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
   guest      Guest?     @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  rsvp       Rsvp?      @relation(fields: [rsvpId], references: [id], onDelete: SetNull)
 
   @@index([invitationId, createdAt])
   @@index([guestId, createdAt])
+  @@index([rsvpId])
 }
 
 /// Shared with EmailMessage: sent, written to the log because no key is set,

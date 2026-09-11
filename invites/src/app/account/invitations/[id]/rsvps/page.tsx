@@ -28,12 +28,34 @@ function NameCell({ name, alias, group, department, personal }: { name: string; 
   );
 }
 
+/**
+ * Whether this guest was written back to.
+ *
+ * Three answers, and the one that matters is the third: a guest who left no
+ * address got no confirmation, and the couple is the only one who can fix that
+ * — by asking them for one. Saying nothing would leave them assuming everybody
+ * was told.
+ */
+function Confirmation({ sent, address }: { sent?: { status: string; error: string }; address: string }) {
+  const [text, tone] = !address
+    ? ['no e-mail address — nothing sent', 'var(--color-ink-500)']
+    : sent?.status === 'SENT'
+      ? ['confirmation sent', 'var(--color-ink-500)']
+      : sent?.status === 'LOGGED'
+        ? ['confirmation logged (no e-mail key set)', 'var(--color-ink-500)']
+        : sent?.status === 'FAILED'
+          ? [`confirmation failed — ${sent.error || 'the mail server refused it'}`, '#8f1d17']
+          : ['no confirmation sent', '#8f1d17'];
+  return <span className="mt-0.5 block text-xs" style={{ color: tone }}>{text}</span>;
+}
+
 export default async function RsvpsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, department: true, updatedAt: true, guestId: true, guest: { select: { name: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
+  const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, department: true, updatedAt: true, guestId: true, guest: { select: { name: true } }, emails: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, error: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
   const dashboard = hasFeature(inv.tier, 'rsvp.dashboard');
+  const confirms = hasFeature(inv.tier, 'rsvp.emailConfirmation');
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
@@ -61,7 +83,10 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
                   <td className="text-xs">{companionsOf(r.attendees).map((a) => attendeeLine(a)).join(', ')}</td>
                   {dashboard && <><td>{r.mealChoice}</td><td className="text-xs">{r.dietary}</td></>}
                   <td className="max-w-xs text-xs">{r.message}</td>
-                  <td className="text-xs">{[r.phone, r.email].filter(Boolean).join(' · ')}</td>
+                  <td className="text-xs">
+                    {[r.phone, r.email].filter(Boolean).join(' · ')}
+                    {confirms && <Confirmation sent={r.emails[0]} address={r.email} />}
+                  </td>
                   <td className="text-xs">{formatDateTime(r.updatedAt)}</td>
                 </tr>
               ))}

@@ -5,7 +5,7 @@ import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
 import { quote, serviceModeAvailable, saveTheDateOffered, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
-import { TIER_LABELS } from './tiers';
+import { TIER_LABELS, hasFeature } from './tiers';
 import { createDraft, createSaveTheDate } from './invitations';
 import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
@@ -194,7 +194,12 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
   // Outside the transaction: it needs a unique slug, which means reading rows
   // the transaction has not committed yet, and a Save the Date that failed to
   // be created must not roll back a payment that succeeded.
-  if (order.invitationId && saveTheDateOffered(order.occasion) && order.items.some((it) => it.kind === 'ADDON' && it.code === SAVE_THE_DATE_CODE)) {
+  // Bought as an add-on, or included because the package carries it. Luxury
+  // gets the second card without ticking anything, which is the difference
+  // between a package that lists it and a package that gives it.
+  const boughtStd = order.items.some((it) => it.kind === 'ADDON' && it.code === SAVE_THE_DATE_CODE);
+  const includedStd = hasFeature(order.tier, 'saveTheDate.included');
+  if (order.invitationId && saveTheDateOffered(order.occasion) && (boughtStd || includedStd)) {
     const parent = await prisma.invitation.findUnique({ where: { id: order.invitationId } });
     if (parent) await createSaveTheDate(parent);
   }

@@ -8,9 +8,10 @@ export type PackageCard = { tier: Tier; name: string; tagline: string; priceCent
 export type AddOnCard = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
 
 const HIGHLIGHTS: Record<Tier, string[]> = {
-  BASIC: ['1 design from the Basic set', 'Your own colours, set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form — guests say which group they are from', 'We build it for you, with 2 rounds of changes before we publish', 'Link valid 30 days after the event'],
-  STANDARD: ['Any template, 3 font styles to choose from', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', 'Gallery up to 10 photos + background music', 'RSVP dashboard, Excel export, printable headcount sheet · custom link', 'We build it for you, with 4 rounds of changes before we publish', 'Link valid 6 months after the event'],
-  COMPLETE: ['Signature-only designs, all 5 font styles', 'Everything in Standard', 'Meal choice on the RSVP, counted for your caterer', 'Auto-close RSVP on your deadline', 'Program, travel tips, guestbook, unlimited gallery + video', 'We build it for you, with 6 rounds of changes before we publish', 'Password option · link valid 1 year after the event'],
+  BASIC: ['1 design from the Basic set, in its own colours', 'Set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form — guests say which group they are from', 'We build it for you, with 2 rounds of changes before we publish', 'Link valid 30 days after the event'],
+  STANDARD: ['Any template, 3 font styles to choose from', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', '5 to 7 photos + background music', 'RSVP dashboard, Excel export, printable headcount sheet · custom link', 'We build it for you, with 4 rounds of changes before we publish', 'Link valid 6 months after the event'],
+  COMPLETE: ['Signature-only designs, all 5 font styles', 'Everything in Standard', 'Meal choice on the RSVP, counted for your caterer', 'Auto-close RSVP on your deadline', 'Program, guestbook, 10 to 15 photos + prenup video', 'Guest list manager with a personal link per guest', 'We build it for you, with 6 rounds of changes before we publish', 'Password option · link valid 1 year after the event'],
+  LUXURY: ['Everything in Signature', 'Seating chart your guests can look themselves up on', 'QR check-in at the door on the day', 'Shared album your guests add photos to afterwards', 'Save the Date card included, not an add-on', 'E-mail confirmation to every guest who replies, free', 'Unlimited gallery · link valid 1 year after the event'],
 };
 
 export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns: AddOnCard[] }) {
@@ -22,7 +23,7 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
       <p className="mb-6 text-center text-sm text-[color:var(--color-ink-500)]">
         Every package is built for you. You fill in a form, we encode and lay it out — {service.turnaround.toLowerCase()} — and you approve a preview before it goes live.
       </p>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {TIERS.map((t) => {
           const p = packages.find((x) => x.tier === t);
           if (!p) return null;

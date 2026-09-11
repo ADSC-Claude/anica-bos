@@ -120,7 +120,8 @@ async function main() {
   const tiers: { tier: Tier; price: number; dfy: number; concierge: number; rounds: number; validity: number; tagline: string }[] = [
     { tier: 'BASIC', price: 250000, dfy: 0, concierge: 0, rounds: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
     { tier: 'STANDARD', price: 400000, dfy: 0, concierge: 0, rounds: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
-    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, seating, QR check-in, guestbook and Signature-only designs.' },
+    { tier: 'COMPLETE', price: 600000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, guestbook, meal choice and Signature-only designs.' },
+    { tier: 'LUXURY', price: 750000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
   ];
   const occasionPackages: { occasion: Occasion | null; label: string; scale: number }[] = [
     { occasion: 'WEDDING', label: 'Wedding', scale: 1 },

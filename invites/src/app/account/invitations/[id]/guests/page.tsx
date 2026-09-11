@@ -19,6 +19,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   if (!hasFeature(inv.tier, 'guests.manager')) redirect(`/account/invitations/${inv.id}/upgrade`);
+  const confirms = hasFeature(inv.tier, 'rsvp.emailConfirmation');
   const [guests, tables, summary, texts, emails] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10), recentEmails(inv.id, 10)]);
   // Newest first across both, then the ten that matter. Each carries the word
   // for how it travelled, which is the only thing the list needs to keep them
@@ -39,6 +40,17 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
         <Stat label="Declined" value={summary.declined} />
         <Stat label="No response" value={summary.pending} tone={summary.pending ? 'warn' : undefined} />
       </div>
+      {/* What each of these costs, said once and above them, because the
+          difference is not visible from the buttons: a text is bought by the
+          message from a gateway, an e-mail is not bought at all. A couple who
+          does not know that will either not use the free one or be surprised
+          by the bill for the other. */}
+      <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">
+        {confirms
+          ? 'Your package sends every guest who leaves an e-mail address a confirmation of their reply, at no charge. The e-mail blast below is free too. An SMS blast is bought separately — texts are charged by the gateway, per message.'
+          : 'The e-mail blast below is free. An SMS blast is bought separately — texts are charged by the gateway, per message. A confirmation e-mail to every guest who replies comes with the Luxury package.'}
+      </p>
+
       {/* Both channels, side by side. A couple picks by what they have on the
           list: a number for the titas, an address for the ninong in Dubai. */}
       <div className="grid gap-4 lg:grid-cols-2">

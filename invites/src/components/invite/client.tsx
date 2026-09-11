@@ -1004,7 +1004,7 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * a multiple of the width (Baby Blue). `seam` is how far one ground dissolves
  * into the next, as a share of the width — longer where the tones differ.
  */
-type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string } };
+type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string };
 export function PageGround({ ratio, order, last, backgrounds, night, grounds, seam: seamShare = 0.24 }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[]; grounds?: Record<string, Ground>; seam?: number }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
@@ -1039,10 +1039,56 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         if (before?.hasAttribute('data-drawn')) return { above: drawnOut, below: 0 };
         return { above: Math.round(seam / 2), below: seam - Math.round(seam / 2) };
       };
-      // the background by number — by night, the night one where the design has it
-      const dark = inv.dataset.mode === 'night' && Boolean(night?.length);
-      const byNumber = (n: number) => (dark ? night?.[(n - 1) % backgrounds.length] : '') || backgrounds[(n - 1) % backgrounds.length];
-      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground }[] = [];
+      /*
+       * A page that grows, before anything else is measured: its floor comes
+       * from the stylesheet, and what its elements need comes from the
+       * elements. Their places are set from the page's width rather than its
+       * height (see elementStyle), so raising the page does not move them and
+       * the measurement settles in one pass. It is done here because this is
+       * the pass that already holds every page's box, and because the ground
+       * below is laid from heights this changes.
+       */
+      for (const p of pages) {
+        if (!p.hasAttribute('data-grow')) continue;
+        const art = p.firstElementChild as HTMLElement | null;
+        if (!art) continue;
+        const top = p.getBoundingClientRect().top;
+        let low = 0;
+        for (const child of Array.from(art.children) as HTMLElement[]) {
+          // what holds the foot is placed from the foot, so it follows the
+          // page down and can never be what pushes it — counting it would
+          // make the page grow by its own height on every pass. The mark is
+          // read rather than the style: an absolutely placed box reports a
+          // used `bottom` in pixels, never `auto`, so the style cannot say.
+          if (child.hasAttribute('data-foot')) continue;
+          const r = child.getBoundingClientRect();
+          if (r.height) low = Math.max(low, r.bottom - top);
+        }
+        // a little air under the lowest thing, the same as the seam allows above
+        const want = low ? `${Math.ceil(low + width * 0.04)}px` : '';
+        if (p.style.minHeight !== want) p.style.minHeight = want;
+      }
+      /*
+       * Night, per paper rather than per design.
+       *
+       * A picture drawn for the night is drawn as it is; a picture drawn for
+       * the day is darkened and tinted. Those are two different papers and a
+       * design may want one of each — a cover shot at dusk over pages that
+       * are only turned down — so the choice is made where the picture is
+       * chosen, and each paper carries the answer on itself.
+       *
+       * A design with a night picture for every page therefore comes out
+       * exactly as it did when this was all-or-nothing, and a design with
+       * none comes out exactly as it did too. Both shipped designs are the
+       * second case: neither carries night art, so every paper is darkened.
+       */
+      const dark = inv.dataset.mode === 'night';
+      const byNumber = (n: number) => {
+        const i = (n - 1) % backgrounds.length;
+        const dusk = dark ? night?.[i] : '';
+        return dusk ? { url: dusk, night: true } : { url: backgrounds[i], night: false };
+      };
+      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean }[] = [];
       let k = 0;
       pages.forEach((p, i) => {
         const r = p.getBoundingClientRect();
@@ -1062,10 +1108,18 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const share = r.height / count;
         for (let j = 0; j < count; j++) {
           const foot = lastPage && j === count - 1;
-          const url = own ? own.url : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
+          /*
+           * A page's own ground is drawn by night from its `night` picture
+           * where it has one. The cut-in-three path below has no night cut of
+           * its own — a ground is cut once, for the day — so a page tall
+           * enough to need the slices is darkened whatever its night picture
+           * says, and says so by not carrying the mark.
+           */
+          const dusk = own && dark && own.night ? own.night : '';
+          const picked = own ? { url: dusk || own.url, night: Boolean(dusk) } : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
           // a page split over several backgrounds joins itself half and half
           const half = Math.round(seam / 2);
-          segs.push({ url, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own });
+          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own });
         }
       });
       // The papers to draw: one per segment, and under a page shorter than its
@@ -1101,6 +1155,8 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
             el.style.backgroundSize = '100% auto';
             el.style.backgroundPosition = 'center bottom';
             el.style.backgroundRepeat = 'no-repeat';
+            // the cut foot is the day picture: it is darkened like any other
+            el.toggleAttribute('data-night-art', false);
           } });
         }
         papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: 0, out, z, draw: (el) => {
@@ -1121,11 +1177,16 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
             el.style.backgroundSize = '100% auto, 100% auto, 100% 100%';
             el.style.backgroundPosition = `center ${startY}px, center bottom, center top`;
           } else {
-            el.style.backgroundImage = `url("${g.url}"), linear-gradient(to bottom, ${g.top} 0, ${g.top} ${startY}px, ${g.bottom} ${startY + bgH}px, ${g.bottom} 100%)`;
+            el.style.backgroundImage = `url("${s.url}"), linear-gradient(to bottom, ${g.top} 0, ${g.top} ${startY}px, ${g.bottom} ${startY + bgH}px, ${g.bottom} 100%)`;
             el.style.backgroundSize = `${tall ? `auto ${Math.round(s.height + half)}px` : '100% auto'}, 100% 100%`;
             el.style.backgroundPosition = `center ${startY}px, center top`;
           }
           el.style.backgroundRepeat = 'no-repeat';
+          // Drawn for the night, so drawn as it is. The cut-in-three path
+          // above has only the day's cuts, so a page tall enough to need them
+          // is darkened even where a night picture exists — said here rather
+          // than left to be discovered from a page that came out wrong.
+          el.toggleAttribute('data-night-art', s.night && !(tall && Boolean(g.slices)));
         } else {
           // taller than its background: drawn to the box's height, the sides trimmed
           el.style.backgroundSize = box > s.bg ? 'auto 100%' : '100% auto';
@@ -1133,6 +1194,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           el.style.backgroundRepeat = '';
           const src = `url("${s.url}")`;
           if (el.style.backgroundImage !== src) el.style.backgroundImage = src;
+          el.toggleAttribute('data-night-art', s.night);
         }
         } });
       });
@@ -1151,7 +1213,17 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         el.style.setProperty('--out', `${pp.out}px`);
         pp.draw(el);
       });
-      ground.toggleAttribute('data-night-art', dark);
+      /*
+       * The whole ground is night art only when every paper is. The tint on
+       * the ground shows through the dissolves where the papers meet, so it
+       * belongs to the joins rather than to any one page: a design drawn for
+       * the night throughout wants none of it, and a design with one night
+       * page among darkened ones still wants its joins to read as night.
+       * Read off what was actually drawn, so the mark and the pictures cannot
+       * disagree.
+       */
+      const papersDrawn = [...ground.children] as HTMLElement[];
+      ground.toggleAttribute('data-night-art', dark && papersDrawn.length > 0 && papersDrawn.every((el) => el.hasAttribute('data-night-art')));
     };
     const queue = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(lay); };
     queue();

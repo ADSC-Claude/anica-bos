@@ -122,3 +122,90 @@ export function swatchStyle(hex: string, metallic = false): string {
   if (!metallic || !/^#[0-9a-f]{6}$/i.test(hex)) return hex;
   return `linear-gradient(135deg, ${mix(hex, 255, 0.45)} 0%, ${hex} 48%, ${mix(hex, 0, 0.28)} 100%)`;
 }
+
+/**
+ * The six colour roles, made from one family of the book in one tap.
+ *
+ * A design's palette is six colours that have to work together: a ground, a
+ * surface, ink to read, a muted ink, and two accents. Picking six by hand
+ * from two hundred swatches is a long afternoon; picking a family is a
+ * decision a person can make in a second, and one family's shades work
+ * together by construction — that is what a family is.
+ *
+ * The shape of it: the palest shade is the ground, the second palest is the
+ * quiet accent, the darkest is the ink, and the two from the middle are the
+ * muted ink and the accent that carries the headings. The surface stays
+ * white, because a card has to lift off the page whatever the family is.
+ *
+ * Two guards, and both are about being able to read the page. A family of
+ * pale shades has no shade dark enough to read as ink — every neutral in the
+ * book is paler than the grey a person can read comfortably — so where the
+ * darkest shade is still pale, the ink is the book's own near-black instead.
+ * And a family of deep shades has nothing pale enough to be a ground: the
+ * palest red in the book is a pillar-box red, and ink on it cannot be read
+ * at all, so the ground becomes a very pale tint of that shade, which is
+ * what a designer reaches for anyway. A palette that cannot be read is not
+ * a palette.
+ */
+export const READABLE_INK = '#2b2b28';
+
+/** 0 for black, 1 for white: the eye's own weighting of the channels. */
+export function lightness(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/** How pale the darkest shade may be and still read as ink. */
+const INK_CEILING = 0.36;
+/** How deep the palest shade may be and still be a page to read on. */
+const GROUND_FLOOR = 0.62;
+/** How far toward white a deep shade is taken to become a ground. */
+const TINT = 0.86;
+
+export function familyPalette(family: string): { bg: string; surface: string; ink: string; muted: string; accent: string; accent2: string } {
+  const group = PALETTE.find((g) => g.key === family);
+  if (!group || !group.swatches.length) throw new Error(`No colour family "${family}" in the book.`);
+  const shades = [...group.swatches].sort((a, b) => lightness(b.hex) - lightness(a.hex)).map((s) => s.hex);
+  const at = (i: number) => shades[Math.min(Math.max(i, 0), shades.length - 1)];
+  const darkest = at(shades.length - 1);
+  const palest = at(0);
+  const middle = Math.floor((shades.length - 1) / 2);
+  return {
+    bg: lightness(palest) >= GROUND_FLOOR ? palest : mix(palest, 255, TINT),
+    surface: '#ffffff',
+    ink: lightness(darkest) <= INK_CEILING ? darkest : READABLE_INK,
+    muted: at(middle),
+    accent: at(middle + 1),
+    accent2: at(1),
+  };
+}
+
+/** The families, for a picker: the key, the name, and what it would make. */
+export function colourFamilies(): { key: string; label: string; palette: ReturnType<typeof familyPalette> }[] {
+  return PALETTE.filter((g) => g.swatches.length >= 3).map((g) => ({ key: g.key, label: g.label, palette: familyPalette(g.key) }));
+}
+
+/**
+ * The contrast between two colours: 1 is none at all, 21 is black on white.
+ *
+ * The standards' own ratio, which is not the difference of the two
+ * lightnesses above: the eye's response to light is not linear, so each
+ * channel is straightened out first (the sRGB transfer function) before the
+ * three are weighted. It matters at the ends — two pale colours can look
+ * far apart and be 1.2 apart — which is exactly where a page stops being
+ * readable. Under 3 is where words the size of a heading stop being
+ * comfortable and under 4.5 where body words do.
+ */
+export function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    const channel = (shift: number) => {
+      const c = ((n >> shift) & 255) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}

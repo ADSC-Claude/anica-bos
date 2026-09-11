@@ -23,6 +23,12 @@ export const PERMISSIONS = [
 
   'templates.view',
   'templates.edit',
+  /**
+   * Making a drawn design live. Saving a draft in the studio is `templates.edit`
+   * and touches nobody; publishing redraws every invitation already built on
+   * the design, live ones included, so it is the owner's to press.
+   */
+  'templates.publish',
 
   'customers.view',
   'customers.edit',

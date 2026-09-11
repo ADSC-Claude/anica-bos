@@ -4,6 +4,7 @@ import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { isPaged, SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
 import { documentOf, builtinDesign, blastRadius } from '@/lib/design';
+import { pageNeeds } from '@/lib/needs';
 import { PageHeader, BackLink, Notice } from '@/components/ui';
 import { Flash, type FlashParams } from '../../../../flash';
 import { publishDesignAction, discardDesignDraftAction, restoreDesignAction } from '../../../../actions';
@@ -32,6 +33,8 @@ export default async function PublishDesignPage({ params, searchParams }: { para
   const before = documentOf(t) ?? builtinDesign(t.layout);
   const invitations = await prisma.invitation.findMany({ where: { templateId: id }, select: { status: true, content: true } });
   const r = draft ? blastRadius(before, draft, invitations) : null;
+  // the same list the studio keeps and the action enforces
+  const wrong = draft ? pageNeeds({ doc: draft, occasion: t.occasion }).filter((n) => n.level === 'blocks') : [];
   const back = `/admin/templates/${id}/design/publish`;
   const published = Boolean(documentOf(t));
 
@@ -72,9 +75,21 @@ export default async function PublishDesignPage({ params, searchParams }: { para
             {r.sectionsAdded.map((k) => <li key={`sa-${k}`} className="rounded bg-[color:var(--color-sand-100)] p-3"><strong>{name(k)}</strong> is now carried, so what customers already wrote there starts appearing.</li>)}
           </ul>
 
+          {wrong.length > 0 && (
+            <div className="rounded border border-[color:var(--bad,#b3261e)] bg-red-50 p-3">
+              <p className="font-semibold text-red-800">
+                {wrong.length} {wrong.length === 1 ? 'thing' : 'things'} to fix first.
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-red-800">
+                {wrong.map((n, i) => <li key={i}>{n.text}</li>)}
+              </ul>
+              <p className="hint mt-1">Each of these will be wrong on somebody&rsquo;s invitation. Fix them in the studio and come back.</p>
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2 border-t border-[color:var(--color-sand-300)] pt-4">
             <form action={publishDesignAction.bind(null, id, back)}>
-              <button className="btn btn-primary" type="submit">Publish it</button>
+              <button className="btn btn-primary" type="submit" disabled={wrong.length > 0}>Publish it</button>
             </form>
             <form action={discardDesignDraftAction.bind(null, id, back)}>
               <button className="btn btn-ghost" type="submit">Discard the draft</button>

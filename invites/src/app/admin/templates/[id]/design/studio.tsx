@@ -12,6 +12,7 @@ import {
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
+import { pageNeeds, needCount, type Need } from '@/lib/needs';
 import type { Occasion } from '@prisma/client';
 import { saveDesignDraftAction } from '../../../actions';
 import { uploadGround } from './ground';
@@ -548,6 +549,16 @@ export function Studio(p: Props) {
   /** What this design asks for, recomputed as she draws. */
   const asks = useMemo(() => asksOf(doc, p.occasion), [doc, p.occasion]);
   const counts = askCounts(asks);
+  /**
+   * What is still wrong with it, the same list the publish screen reads. It
+   * is recomputed on every change because it is pure and cheap, and because
+   * a checklist that lags is worse than none.
+   */
+  const needs = useMemo(() => pageNeeds({ doc, occasion: p.occasion, content: p.content }), [doc, p.occasion, p.content]);
+  const here = useMemo(() => needs.filter((n) => n.page === pageKey), [needs, pageKey]);
+  /** lines about the design rather than about any one page */
+  const overall = useMemo(() => needs.filter((n) => !n.page), [needs]);
+  const tally = needCount(needs);
 
   /**
    * The letters this box holds, measured from the box she drew and the face
@@ -620,7 +631,12 @@ export function Studio(p: Props) {
                   <span className="block truncate">{pg.label?.en ?? pg.key}</span>
                   <span className="block text-[11px] text-[color:var(--color-ink-500)]">
                     {i + 1}. {pg.drawn ? 'drawn' : 'flows'}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}
-                    {!pg.drawn && pg.sections.length === 0 && <span className="text-amber-800"> · carries nothing</span>}
+                    {(() => {
+                      const c = needCount(needs, pg.key);
+                      if (c.blocks) return <span className="font-semibold text-red-700"> · {c.blocks} to fix</span>;
+                      if (c.says) return <span className="text-amber-800"> · {c.says} to know</span>;
+                      return null;
+                    })()}
                   </span>
                 </span>
               </button>
@@ -634,6 +650,34 @@ export function Studio(p: Props) {
             </li>
           ))}
         </ol>
+
+        <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
+          <p className="label px-1">
+            This page{tally.blocks > 0 && <span className="ml-1 font-normal text-red-700">· {tally.blocks} to fix in all</span>}
+          </p>
+          {here.length === 0 ? (
+            <p className="hint px-1">{tally.blocks ? 'Nothing on this page. Another page has something.' : 'Nothing to fix.'}</p>
+          ) : (
+            <ol className="mt-1 space-y-0.5">
+              {here.map((n, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => { if (n.id) setSel([n.id]); }}
+                    className={`w-full rounded px-2 py-1 text-left text-[11px] leading-snug hover:bg-[color:var(--color-sand-100)] ${n.level === 'blocks' ? 'text-red-800' : 'text-[color:var(--color-ink-500)]'}`}
+                  >
+                    {n.level === 'blocks' ? '✗' : '·'} {n.text}
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          {overall.map((n, i) => (
+            <p key={i} className={`px-2 pt-1 text-[11px] leading-snug ${n.level === 'blocks' ? 'text-red-800' : 'text-[color:var(--color-ink-500)]'}`}>
+              {n.level === 'blocks' ? '✗' : '·'} {n.text}
+            </p>
+          ))}
+        </div>
 
         <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
           <p className="label px-1">What this design asks for</p>

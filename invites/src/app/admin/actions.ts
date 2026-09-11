@@ -1,6 +1,7 @@
 'use server';
 
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign, designOf, blastRadius, type DesignDoc } from '@/lib/design';
+import { pageNeeds } from '@/lib/needs';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -287,6 +288,17 @@ export async function publishDesignAction(templateId: string, back: string) {
     const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId } });
     const draft = documentOf({ design: t.designDraft, layout: t.layout });
     if (!draft) throw new HttpError(400, 'There is no draft to publish.');
+    /*
+     * The checklist is a promise, not a decoration: a line that says the
+     * design will be wrong for somebody has to stop the publish, and it has
+     * to stop it here rather than only on the screen — the screen is a
+     * courtesy and this is the door. The page lists them; this repeats the
+     * first, so a refusal is never mysterious.
+     */
+    const wrong = pageNeeds({ doc: draft, occasion: t.occasion }).filter((n) => n.level === 'blocks');
+    if (wrong.length) {
+      throw new HttpError(400, `${wrong.length} thing${wrong.length === 1 ? '' : 's'} to fix before this can be published. The first: ${wrong[0].text}`);
+    }
     const before = documentOf(t) ?? builtinDesign(t.layout);
     const invitations = await prisma.invitation.findMany({ where: { templateId }, select: { status: true, content: true } });
     const radius = blastRadius(before, draft, invitations);

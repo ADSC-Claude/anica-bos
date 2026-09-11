@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
-  photoStyle, maskRadius, cropStyle, cropWindow, cropAt,
+  photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES,
   starterDesign,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
-  type PhotoEl, type TextEl, type PageSpec, type Element, type DesignDoc,
+  type PhotoEl, type TextEl, type ShapeEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
 import { sectionOrder } from '../src/lib/sections';
@@ -575,4 +575,47 @@ test('a starter of an occasion without a cover still opens on one', () => {
   assert.equal(doc.pages[0].key, 'cover');
   assert.deepEqual(doc.pages[0].sections, []);
   assert.deepEqual(doc.pages.map((p) => p.key), ['cover', 'story', 'rsvp']);
+});
+
+test('colourVar: a role follows the palette, a colour of her own does not', () => {
+  assert.equal(colourVar('accent'), 'var(--inv-accent)');
+  assert.equal(colourVar('surface'), 'var(--inv-surface)');
+  assert.equal(colourVar('#f0dccb'), '#f0dccb');
+  // every role in the list resolves, and nothing else does
+  for (const r of COLOR_ROLES) assert.equal(colourVar(r), `var(--inv-${r})`);
+  assert.equal(colourVar('paper'), 'paper');
+});
+
+test('shapeStyle: a card, an ellipse and a rule, all measured against the width', () => {
+  const base = { id: 's', kind: 'shape', y: 40, x: 50, w: 70 } as const;
+  // a card: its height, its fill and its corners, all in cqw off the width
+  assert.deepEqual(shapeStyle({ ...base, shape: 'rect', h: 30, fill: 'surface', radius: 1.6 } as ShapeEl), {
+    height: '30cqw', background: 'var(--inv-surface)', borderRadius: '1.6cqw',
+  });
+  // an outline needs a thickness to draw at all, and corners are a rectangle's
+  assert.deepEqual(shapeStyle({ ...base, shape: 'ellipse', h: 70, stroke: '#333', strokeWidth: 0.4, radius: 9 } as ShapeEl), {
+    height: '70cqw', border: '0.4cqw solid #333',
+  });
+  assert.equal(shapeStyle({ ...base, shape: 'rect', h: 10, stroke: 'ink' } as ShapeEl).border, undefined);
+  // a line is the thin rectangle: its thickness is its height, in its own colour
+  assert.deepEqual(shapeStyle({ ...base, shape: 'line', strokeWidth: 0.25, stroke: 'muted' } as ShapeEl), {
+    height: '0.25cqw', background: 'var(--inv-muted)',
+  });
+  // a line with no thickness is still a hairline rather than nothing at all
+  assert.equal(shapeStyle({ ...base, shape: 'line', stroke: 'ink' } as ShapeEl).height, '0.3cqw');
+  // with no height of its own a shape is as tall as it is wide
+  assert.equal(shapeStyle({ ...base, shape: 'ellipse' } as ShapeEl).height, '70cqw');
+  // and everything is held to the same ten places as every other measurement
+  assert.equal(shapeStyle({ ...base, shape: 'rect', h: 1 / 3 } as ShapeEl).height, '0.3333333333cqw');
+});
+
+test('a shape survives the column, and nothing shipped carries one', () => {
+  const raw = JSON.parse(JSON.stringify(builtinDesign('capiz'))) as DesignDoc;
+  raw.pages[0].elements = [{ id: 'card', kind: 'shape', shape: 'rect', x: 50, y: 40, w: 70, h: 30, z: -1, fill: 'surface', radius: 1.6 } as ShapeEl];
+  const { doc: back, dropped } = designOf(raw, 'capiz');
+  assert.deepEqual(dropped, []);
+  assert.deepEqual(back!.pages[0].elements![0], raw.pages[0].elements[0]);
+  for (const layout of ['babyblue', 'capiz'] as const) {
+    assert.equal(builtinDesign(layout)!.pages.some((p) => (p.elements ?? []).some((e) => e.kind === 'shape')), false);
+  }
 });

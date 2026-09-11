@@ -515,6 +515,44 @@ export function cropAt(crop: NonNullable<PhotoEl['crop']>, aspect = 1, nw = 1, n
   return { zoom: fit / crop.w, cx: crop.x + crop.w / 2, cy: crop.y + crop.h / 2 };
 }
 
+/** The six roles a colour can take, so night mode keeps working. */
+export const COLOR_ROLES: readonly ColorRole[] = ['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'];
+
+/**
+ * A colour as CSS: one of the palette's six roles becomes its variable, so
+ * it follows the theme and turns itself down at night; anything else is the
+ * colour she picked and stays exactly that.
+ */
+export const colourVar = (colour: string): string =>
+  (COLOR_ROLES as readonly string[]).includes(colour) ? `var(--inv-${colour})` : colour;
+
+/**
+ * A shape: a card behind some words, a rule across the page, a dot.
+ *
+ * It is a div and nothing else — no SVG, no script, nothing to download.
+ * Its width is a share of the page's width like every other element; its
+ * height, its outline and its corners are in cqw, which on a drawn page is
+ * the same share of the same width, so a shape keeps its proportions at
+ * every phone size without a second number to keep in step.
+ *
+ * A line is the degenerate rectangle: its thickness is its height, and it
+ * takes the outline colour because that is what a line is drawn in.
+ */
+export function shapeStyle(el: ShapeEl): Record<string, string> {
+  const st: Record<string, string> = {};
+  if (el.shape === 'line') {
+    st.height = `${place(el.strokeWidth ?? 0.3)}cqw`;
+    const ink = el.stroke ?? el.fill;
+    if (ink) st.background = colourVar(ink);
+    return st;
+  }
+  st.height = `${place(el.h ?? el.w ?? 10)}cqw`;
+  if (el.fill) st.background = colourVar(el.fill);
+  if (el.stroke && el.strokeWidth) st.border = `${place(el.strokeWidth)}cqw solid ${colourVar(el.stroke)}`;
+  if (el.shape === 'rect' && el.radius) st.borderRadius = `${place(el.radius)}cqw`;
+  return st;
+}
+
 // ---------------------------------------------------------------------------
 // Reading the column
 // ---------------------------------------------------------------------------

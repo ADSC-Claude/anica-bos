@@ -3,8 +3,8 @@ import { t, type Lang } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, photoStyle, cropStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  type PageSpec, type Element, type PhotoEl, type TextEl, type Line, type WordKey, type FieldRef,
+  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
 
 /**
@@ -68,9 +68,27 @@ type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>;
 function draw(el: Element, read: Read, grow?: number) {
   if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} />;
   if (el.kind === 'text') return <Block el={el} read={read} grow={grow} />;
-  // video, animation and shape arrive with phases 3, 4 and 2; a document that
-  // names one is read and kept, it simply has nothing to draw yet
+  if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} />;
+  // video and animation arrive with phases 3 and 4; a document that names one
+  // is read and kept, it simply has nothing to draw yet
   return null;
+}
+
+/**
+ * A card behind some words, a rule across the page, a dot. A div and
+ * nothing else: no SVG, no script, nothing for a guest to download.
+ */
+function Shape({ el, read, grow }: { el: ShapeEl; read: Read; grow?: number }) {
+  return (
+    <div
+      className="inv-bb-shape"
+      aria-hidden
+      data-shape={el.shape}
+      style={{ ...elementStyle(el, grow), ...shapeStyle(el) } as CSSProperties}
+      data-el={read.edit ? el.id : undefined}
+      data-foot={grow && el.from === 'bottom' ? '' : undefined}
+    />
+  );
 }
 
 /** A photograph in its frame. An empty binding draws nothing, as today. */
@@ -122,7 +140,14 @@ function Block({ el, read, grow }: { el: TextEl; read: Read; grow?: number }) {
   const cls = BLOCK_CLASS[el.block];
   // `data-foot` says this one is placed from the foot: what holds the bottom
   // of a page that grows follows the page down and is never what pushes it
-  const mark = { ...(read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {}), ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}) };
+  const mark = {
+    ...(read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {}),
+    ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}),
+    // what sits behind the words on a busy picture: a halo in the surface
+    // colour, or a pale card. Both are the stylesheet's, so both scale with
+    // the column and both follow the palette into night.
+    ...(el.backing && el.backing !== 'none' ? { 'data-backing': el.backing } : {}),
+  };
   // the caption is the paragraph itself, the way the polaroid's strip is written
   if (el.block === 'caption') {
     const own = { ...style, ...(el.face ? { fontFamily: `var(--inv-${el.face})` } : {}), ...(el.size ? { fontSize: `${el.size}cqw` } : {}) };
@@ -163,7 +188,6 @@ function blockType(el: TextEl): CSSProperties {
   if (el.size) style.fontSize = `${el.size}cqw`;
   if (el.weight) style.fontWeight = el.weight;
   if (el.tracking !== undefined) style.letterSpacing = `${el.tracking}em`;
-  if (el.backing === 'shadow') style.textShadow = '0 1px 3px rgba(0,0,0,0.35)';
   return style;
 }
 

@@ -1312,6 +1312,19 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    with no second set of geometry to keep in step. */
 .inv-bb-art > .inv-bb-ghost { position: absolute; aspect-ratio: 1; margin: 0; overflow: visible; pointer-events: none; opacity: 0.34; }
 .inv-bb-ghost img { position: absolute; display: block; max-width: none; object-fit: cover; }
+/* A shape: a card behind some words, a rule across the page, a dot. A div
+   and nothing else — no SVG, no script, nothing for a guest to download.
+   Everything but its width is set inline in cqw (shapeStyle), which on a
+   drawn page is the same share of the same width, so it keeps its
+   proportions at every phone size. */
+.inv[data-paged] .inv-bb-art > .inv-bb-shape { position: absolute; margin: 0; }
+.inv-bb-shape[data-shape='ellipse'] { border-radius: 50%; }
+/* What sits behind words on a busy picture. A halo in the surface colour
+   lifts them off it without a box; a scrim is the box, pale enough to read
+   the picture through. Both follow the palette into night, and both are in
+   cqw so they scale with the type rather than with the screen. */
+.inv-bb-art [data-backing='shadow'] { text-shadow: 0 0.16cqw 0.55cqw var(--inv-surface), 0 0 1cqw var(--inv-surface); }
+.inv-bb-art [data-backing='scrim'] { padding: 0.9cqw 1.6cqw; background: color-mix(in srgb, var(--inv-surface) 70%, transparent); border-radius: 0.9cqw; }
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
 .inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }

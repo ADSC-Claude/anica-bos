@@ -7,7 +7,7 @@ import {
   isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
@@ -304,12 +304,15 @@ export function Studio(p: Props) {
   }
 
   /** Something new on the page, in the middle of it, selected and ready to drag. */
-  function addElement(kind: 'text' | 'photo') {
+  function addElement(kind: 'text' | 'photo' | 'shape') {
     if (!page) return;
-    const id = freeId(doc, kind === 'photo' ? 'photo' : 'words');
+    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : 'words');
     const made: Element = kind === 'photo'
       ? { id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
-      : { id, kind: 'text', block: 'free', x: 50, y: 40, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+      : kind === 'shape'
+        // behind the words, not over them: a card is what a shape is usually for
+        ? { id, kind: 'shape', shape: 'rect', x: 50, y: 40, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
+        : { id, kind: 'text', block: 'free', x: 50, y: 40, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -820,6 +823,7 @@ export function Studio(p: Props) {
             <>
               <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
+              <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
             </>
           ) : (
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
@@ -974,6 +978,7 @@ export function Studio(p: Props) {
             grows={Boolean(page?.grow)}
             onFit={() => (fit ? keepFit() : startFit(selected.id))}
             fitting={fit?.id === selected.id}
+            vars={p.vars}
           />
         ) : (
           <PageProps
@@ -1076,7 +1081,7 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable, grows, onFit, fitting }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
@@ -1086,6 +1091,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   grows: boolean;
   onFit: () => void;
   fitting: boolean;
+  vars: Record<string, string>;
 }) {
   const num = (v: number | undefined, set: (n: number) => void, step = 0.1) => (
     <input type="number" value={v ?? ''} step={step} onChange={(e) => set(place(Number(e.target.value)))} className="input w-full" />
@@ -1093,7 +1099,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind}</p>
+        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind}</p>
         <p className="text-[11px] text-[color:var(--color-ink-500)]">{el.id}</p>
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
@@ -1117,6 +1123,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       {el.kind === 'photo' && (
         <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} />
       )}
+      {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
@@ -1132,6 +1139,110 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <button type="button" onClick={onRemove} className="btn btn-ghost btn-sm text-red-700">Delete</button>
       </div>
     </>
+  );
+}
+
+/**
+ * A swatch row: the palette's six roles, a colour of her own, and nothing.
+ *
+ * A role follows the theme, so it turns itself down at night with everything
+ * else; a colour of her own is the colour she picked and stays exactly that,
+ * which the row says rather than leaving her to find out at six in the
+ * evening.
+ */
+function Swatches({ value, onPick, vars, none = 'none' }: { value?: string; onPick: (c: string | undefined) => void; vars: Record<string, string>; none?: string }) {
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1">
+      {ROLES.map((r) => (
+        <button
+          key={r.key}
+          type="button"
+          title={r.label}
+          onClick={() => onPick(r.key)}
+          className={`h-6 w-6 rounded border ${value === r.key ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
+          style={{ background: colourOf(r.key, vars) }}
+        />
+      ))}
+      <input
+        type="color"
+        title="A colour of your own"
+        value={value?.startsWith('#') ? value : '#ffffff'}
+        onChange={(e) => onPick(e.target.value)}
+        className="h-6 w-6 cursor-pointer rounded border border-black/15 p-0"
+      />
+      <button type="button" onClick={() => onPick(undefined)} className={`rounded px-1.5 text-[11px] ${value === undefined ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{none}</button>
+    </div>
+  );
+}
+
+/** The three shapes, and what each is usually for. */
+const SHAPES: { key: ShapeEl['shape']; label: string }[] = [
+  { key: 'rect', label: 'A card — a rectangle, with corners as round as you like' },
+  { key: 'ellipse', label: 'An ellipse — a circle when it is as tall as it is wide' },
+  { key: 'line', label: 'A line — a rule across the page' },
+];
+
+/**
+ * A shape: a card behind some words, a rule across the page, a dot.
+ *
+ * Its width is a share of the page like everything else; its height, its
+ * outline and its corners are in cqw, which on a drawn page is the same
+ * share of the same width — so the panel says "of the width" rather than
+ * giving her two units to hold in her head.
+ *
+ * A new one arrives behind the words, because that is what a shape is
+ * usually for; Bring forward is there when it is not.
+ */
+function ShapeBlock({ el, onChange, vars, num }: {
+  el: ShapeEl;
+  onChange: (fn: (e: Element) => Element) => void;
+  vars: Record<string, string>;
+  num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+}) {
+  const edit = (fn: (x: ShapeEl) => ShapeEl) => onChange((x) => fn(x as ShapeEl));
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <label className="block">
+        <span className="label">Shape</span>
+        {/*
+          * A line is drawn in its outline colour, so a card turned into one
+          * takes its fill with it. Without this the page would keep drawing
+          * the colour she chose while the panel showed no colour at all.
+          */}
+        <select
+          className="input w-full"
+          value={el.shape}
+          onChange={(e) => {
+            const shape = e.target.value as ShapeEl['shape'];
+            edit((x) => (shape === 'line' ? { ...x, shape, stroke: x.stroke ?? x.fill } : { ...x, shape }));
+          }}
+        >
+          {SHAPES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+      </label>
+      {el.shape !== 'line' && (
+        <label className="block"><span className="label">Height, as a share of the width</span>{num(el.h, (n) => edit((x) => ({ ...x, h: n })), 0.5)}</label>
+      )}
+      {el.shape === 'rect' && (
+        <label className="block"><span className="label">Corners</span>{num(el.radius, (n) => edit((x) => ({ ...x, radius: n })), 0.2)}</label>
+      )}
+      {el.shape !== 'line' && (
+        <div>
+          <p className="label">Fill</p>
+          <Swatches value={el.fill} onPick={(c) => edit((x) => ({ ...x, fill: c }))} vars={vars} none="none" />
+        </div>
+      )}
+      <div>
+        <p className="label">{el.shape === 'line' ? 'Colour' : 'Outline'}</p>
+        <Swatches value={el.stroke} onPick={(c) => edit((x) => ({ ...x, stroke: c }))} vars={vars} none="none" />
+      </div>
+      <label className="block">
+        <span className="label">{el.shape === 'line' ? 'Thickness' : 'Outline thickness'}</span>
+        {num(el.strokeWidth, (n) => edit((x) => ({ ...x, strokeWidth: n })), 0.1)}
+      </label>
+      <p className="hint">Height, corners and thickness are all shares of the page&rsquo;s width, so the shape keeps itself at every phone size.</p>
+      {el.shape !== 'line' && el.stroke && !el.strokeWidth && <p className="hint text-amber-800">An outline with no thickness draws nothing. Give it one.</p>}
+    </div>
   );
 }
 
@@ -1289,10 +1400,10 @@ function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) =
         <span className="label">Behind the words</span>
         <select className="input w-full" value={el.backing ?? 'none'} onChange={(e) => edit((t) => ({ ...t, backing: e.target.value === 'none' ? undefined : (e.target.value as TextEl['backing']) }))}>
           <option value="none">Nothing</option>
-          <option value="shadow">A soft shadow</option>
+          <option value="shadow">A soft halo, in the card colour</option>
           <option value="scrim">A pale card</option>
         </select>
-        <span className="hint">For words that sit on a busy picture.</span>
+        <span className="hint">For words that sit on a busy picture. Both follow the palette, so both turn themselves down at night.</span>
       </label>
 
       <p className="label mt-3">Lines</p>

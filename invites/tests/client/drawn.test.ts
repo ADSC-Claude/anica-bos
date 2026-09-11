@@ -194,3 +194,32 @@ test('the ghost is drawn for the frame being fitted, for the studio alone', () =
   const guest = html('baby-photos');
   assert.doesNotMatch(guest, /inv-bb-ghost/);
 });
+
+/**
+ * A shape is a div and nothing else, and a backing is the stylesheet's: the
+ * page says which one it wants and the rules do the rest, so both scale with
+ * the column and both follow the palette into night.
+ */
+test('a shape draws as one div, and words say what sits behind them', () => {
+  const dressed = JSON.parse(JSON.stringify(page('baby-photos'))) as PageSpec;
+  dressed.elements = [
+    { id: 'card', kind: 'shape', shape: 'rect', x: 50, y: 30, w: 70, h: 24, z: -1, fill: 'surface', radius: 1.6 },
+    { id: 'rule', kind: 'shape', shape: 'line', x: 50, y: 44, w: 40, stroke: 'muted', strokeWidth: 0.25 },
+    { id: 'over', kind: 'text', block: 'free', x: 50, y: 30, w: 60, backing: 'scrim', lines: [{ role: 'body', sources: [{ fixed: { en: 'On a busy picture' } }] }] },
+  ] as PageSpec['elements'];
+  const markup = renderToStaticMarkup(DrawnPage({ page: dressed, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(markup, /<div class="inv-bb-shape" aria-hidden="true" data-shape="rect" style="left:50%;top:30%;width:70%;transform:translate\(-50%, -50%\);z-index:-1;height:24cqw;background:var\(--inv-surface\);border-radius:1\.6cqw"><\/div>/);
+  assert.match(markup, /data-shape="line" style="[^"]*height:0\.25cqw;background:var\(--inv-muted\)"/);
+  // a shape is empty and hidden from anyone listening: it is decoration
+  assert.equal([...markup.matchAll(/inv-bb-shape/g)].length, 2);
+  assert.equal([...markup.matchAll(/aria-hidden="true"/g)].length, 2);
+  // the words say what they want behind them and nothing more
+  assert.match(markup, /<div class="inv-bb-text" style="left:50%;top:30%;width:60%;transform:translateX\(-50%\)" data-backing="scrim">/);
+  assert.doesNotMatch(markup, /text-shadow/);
+});
+
+test('words with nothing behind them say nothing, as they always did', () => {
+  const markup = html('story');
+  assert.doesNotMatch(markup, /data-backing/);
+  assert.doesNotMatch(markup, /text-shadow/);
+});

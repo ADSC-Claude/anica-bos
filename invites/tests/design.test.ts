@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  builtinDesign, designOf, elementStyle, BABYBLUE_PAGES, BABYBLUE_GROUNDS,
+  builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
+  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES,
   type PhotoEl, type TextEl, type PageSpec, type Element,
 } from '../src/lib/design';
+import { sectionAnchor } from '../src/lib/anchors';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
 import { templateData } from '../prisma/templates';
 import { TEMPLATES } from '../prisma/templates';
@@ -40,7 +42,7 @@ test('every Baby Blue photo frame lands exactly where slotStyle puts it', () => 
     assert.deepEqual(elementStyle(e), slotStyle(slot), `photo frame ${i + 1}`);
     // the four frames read the photographs that have a picture, in order:
     // BabyPhotos filters the empty rows out before it indexes them
-    assert.deepEqual(e.bind, { section: 'gallery', field: 'photos', index: i, sub: 'url', skipEmpty: true });
+    assert.deepEqual(e.bind, { section: 'gallery', field: 'photos', index: i, sub: 'url', skipEmpty: 'url' });
     assert.equal(e.aspect, 1);
   });
 });
@@ -82,7 +84,7 @@ test('every polaroid caption lands exactly where captionStyle puts it', () => {
     assert.ok(Math.abs(pc(mine.width) - cqw(theirs.width)) < 1e-9, `caption ${i + 1} width`);
     // top is a share of the height here and of the width there: the page's ratio is the bridge
     assert.ok(Math.abs(pc(mine.top) * ratio - cqw(theirs.top)) < 1e-9, `caption ${i + 1} top`);
-    assert.deepEqual(e.lines[0].sources, [{ bind: { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: true } }]);
+    assert.deepEqual(e.lines[0].sources, [{ bind: { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: 'url' } }]);
   });
 });
 
@@ -164,6 +166,31 @@ test('templateData emits no design, no draft and no art', () => {
   }
 });
 
+/**
+ * A document is written to a JSON column and read back. The database keeps a
+ * number to sixteen significant digits, so an unrounded product of two
+ * doubles is not the number that comes back — and the studio, which refuses
+ * to autosave a draft it cannot round-trip, would never save at all.
+ */
+test('every measurement survives the trip through the database', () => {
+  const sixteen = (n: number) => Number(n.toPrecision(16));
+  for (const p of doc.pages) {
+    for (const el of p.elements ?? []) {
+      for (const [what, v] of [['x', el.x], ['y', el.y], ['w', el.w], ['rotate', el.rotate]] as const) {
+        if (v === undefined) continue;
+        assert.equal(sixteen(v), v, `${el.id}.${what} is ${v}, which the column would round`);
+        assert.equal(place(v), v, `${el.id}.${what} is finer than a thousandth of a pixel`);
+      }
+    }
+  }
+  // and reading a document rounds one written by anything else
+  assert.equal(place(27.3 * 0.92), 25.116);
+  const bent = JSON.parse(JSON.stringify(doc));
+  bent.pages[1].elements[1].x = 27.3 * 0.92;
+  const el = designOf(bent, 'babyblue').doc!.pages[1].elements![1];
+  assert.equal(el.x, 25.116);
+});
+
 /** An empty column is the built-in, and a broken element is dropped by name, not silently. */
 test('designOf: empty means the built-in, and what will not parse is named', () => {
   assert.deepEqual(designOf({}, 'babyblue').doc, builtinDesign('babyblue'));
@@ -191,4 +218,98 @@ test('designOf: empty means the built-in, and what will not parse is named', () 
 
   // and something that is not a document at all is not half a document
   assert.equal(designOf({ v: 9, pages: [] }, 'babyblue').doc, null);
+});
+
+/** Capiz has no drawn page: its document is the page map, which is what a copy of it needs. */
+test('Capiz is a document too, and it is the page map the renderer walks', () => {
+  const capiz = builtinDesign('capiz')!;
+  assert.deepEqual(capiz.pages.map((p) => p.key), CAPIZ_PAGES.map((d) => d.key));
+  assert.deepEqual(capiz.pages.map((p) => p.sections), CAPIZ_PAGES.map((d) => d.sections));
+  // no ground of its own: the numbered backgrounds are the layout's machinery
+  assert.equal(capiz.pages.every((p) => p.ground === undefined), true);
+  assert.equal(capiz.pages.every((p) => p.elements === undefined), true);
+  assert.equal(capiz.pages.find((p) => p.peekEnd)?.key, 'story');
+  assert.equal(builtinDesign('classic'), null);
+});
+
+/**
+ * The originals must not take the document path, whatever is compiled for
+ * them: an empty column is the renderer's own constants, and only a design
+ * the studio wrote renders from a document.
+ */
+test('documentOf: an empty column is no document, however good the built-in is', () => {
+  assert.equal(documentOf({ design: {}, layout: 'babyblue' }), null);
+  assert.equal(documentOf({ design: null, layout: 'babyblue' }), null);
+  assert.equal(documentOf({ layout: 'babyblue' }), null);
+  const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue')));
+  assert.deepEqual(documentOf({ design: doc, layout: 'babyblue' }), builtinDesign('babyblue'));
+});
+
+/** What a design shows is what its form should ask for. */
+test('frameCount: six for the timeline, four for the photographs, none for anything else', () => {
+  assert.equal(frameCount(doc, 'story', 'timeline'), 6);
+  assert.equal(frameCount(doc, 'gallery', 'photos'), 4);
+  assert.equal(frameCount(doc, 'gallery', 'months'), 0);
+  assert.equal(frameCount(null, 'story', 'timeline'), 0);
+  assert.equal(frameCount(builtinDesign('capiz'), 'story', 'timeline'), 0);
+});
+
+/** A drawn page is as tall as its ground, and that is where the page's height comes from. */
+test('pageRatio reads the ground, and falls back to one screen', () => {
+  assert.equal(pageRatio(page('story')), BABYBLUE_GROUNDS.story.ratio);
+  assert.equal(pageRatio(page('baby-photos')), BABYBLUE_GROUNDS.babyphotos.ratio);
+  assert.equal(pageRatio({ key: 'x', sections: [] }), 1.777);
+  assert.equal(pageRatio({ key: 'x', sections: [], ground: { color: 'bg' } }), 1.777);
+  assert.equal(pageRatio({ key: 'x', sections: [], ground: { color: 'bg', ratio: 3 } }), 3);
+});
+
+/**
+ * The photographs page counts the rows that have a picture and the story page
+ * counts all of them. Getting this backwards would put every caption under
+ * the wrong photograph the moment a customer left a row blank.
+ */
+test('valueAt: skipEmpty counts the rows that are filled, and nothing else does', () => {
+  const content = {
+    gallery: { photos: [{ url: '', caption: 'blank' }, { url: '/a.jpg', caption: 'A' }, { url: '/b.jpg', caption: 'B' }] },
+    story: { line: 'A line', timeline: [{ title: '', photo: '' }, { title: 'Second', photo: '/2.jpg' }] },
+  };
+  assert.equal(valueAt(content, { section: 'gallery', field: 'photos', index: 0, sub: 'url', skipEmpty: 'url' }), '/a.jpg');
+  assert.equal(valueAt(content, { section: 'gallery', field: 'photos', index: 0, sub: 'caption', skipEmpty: 'url' }), 'A');
+  assert.equal(valueAt(content, { section: 'gallery', field: 'photos', index: 2, sub: 'url', skipEmpty: 'url' }), '');
+  // no skipEmpty: row by row, blanks included, as the timeline has always been read
+  assert.equal(valueAt(content, { section: 'story', field: 'timeline', index: 0, sub: 'title' }), '');
+  assert.equal(valueAt(content, { section: 'story', field: 'timeline', index: 1, sub: 'title' }), 'Second');
+  assert.equal(valueAt(content, { section: 'story', field: 'line' }), 'A line');
+  assert.equal(valueAt(content, { section: 'nope', field: 'line' }), '');
+  assert.equal(valueAt(undefined, { section: 'story', field: 'line' }), '');
+});
+
+/** A preview scrolls to the block a section is drawn in; on a drawn page that is the page. */
+test('sectionAnchor follows the document when there is one', () => {
+  assert.equal(sectionAnchor('gallery', 'babyblue'), 'baby-photos');
+  assert.equal(sectionAnchor('gallery', 'babyblue', doc), 'baby-photos');
+  assert.equal(sectionAnchor('story', 'babyblue', doc), 'story');
+  // a section on a page that is not drawn keeps its own block's id
+  assert.equal(sectionAnchor('reception', 'babyblue', doc), 'reception');
+  assert.equal(pageOfSection(doc, 'gallery')?.key, 'baby-photos');
+  assert.equal(pageOfSection(doc, 'nothing'), undefined);
+  // a design renamed its pages: the anchor follows the rename
+  const renamed = { ...doc, pages: doc.pages.map((p) => (p.key === 'baby-photos' ? { ...p, key: 'the-photos' } : p)) };
+  assert.equal(sectionAnchor('gallery', 'babyblue', renamed), 'the-photos');
+});
+
+/**
+ * The peek is a snippet of a design: the pages up to the one it ends on. It
+ * used to be the page literally called 'story', which a design the owner
+ * renames would lose. Now the design says so, and a design that says nothing
+ * shows its first page only — the safe way round, not the whole invitation.
+ */
+test('the peek stops where the design says, whatever the page is called', () => {
+  assert.equal(peekEndPage(doc), 'story');
+  assert.equal(peekEndPage(builtinDesign('capiz')), 'story');
+  assert.equal(peekEndPage(null), undefined);
+  const renamed = { ...doc, pages: doc.pages.map((p) => (p.peekEnd ? { ...p, key: 'how-we-prayed' } : p)) };
+  assert.equal(peekEndPage(renamed), 'how-we-prayed');
+  const unmarked = { ...doc, pages: doc.pages.map(({ peekEnd, ...p }) => { void peekEnd; return p; }) };
+  assert.equal(peekEndPage(unmarked), undefined);
 });

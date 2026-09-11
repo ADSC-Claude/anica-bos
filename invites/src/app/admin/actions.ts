@@ -1,6 +1,6 @@
 'use server';
 
-import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS } from '@/lib/design';
+import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, builtinDesign } from '@/lib/design';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import type { DfyStatus, Occasion, Tier, DiscountType } from '@prisma/client';
@@ -177,6 +177,65 @@ export async function saveTemplateAction(templateId: string | null, back: string
     await audit(user, { module: 'templates', action: templateId ? 'update' : 'create', entityType: 'Template', entityId: saved.id, summary: saved.name });
     if (!templateId) redirect(`/admin/templates/${saved.id}?ok=Created`);
     return 'Template saved.';
+  });
+}
+
+/**
+ * Copy a design, so the studio has something to draw on.
+ *
+ * The copy starts life holding the original's document: for Capiz and Baby
+ * Blue that is the built-in compiled from the constants the renderer draws
+ * with, so the copy renders exactly like the original from the first minute.
+ * It goes in `designDraft`, not `design` — the copy is unpublished and a
+ * guest sees nothing of it until she presses Publish in the studio.
+ *
+ * The copy points at the original's pictures rather than taking its own
+ * copies of them. For the two designs this exists to copy that is simply
+ * right: their grounds are files shipped with the app. A ground she uploads
+ * in the studio is written under the copy's own id, so the two only ever
+ * share a picture neither of them owns.
+ */
+export async function duplicateTemplateAction(templateId: string, back: string) {
+  return run('templates.edit', back, async (user) => {
+    const src = await prisma.template.findUniqueOrThrow({ where: { id: templateId } });
+    const doc = documentOf(src) ?? builtinDesign(src.layout);
+    if (!doc) throw new HttpError(400, 'Only a design with pages of its own can be copied — Capiz, Baby Blue, or a copy of one.');
+    const taken = new Set((await prisma.template.findMany({ select: { slug: true } })).map((t) => t.slug));
+    const stem = slugify(`${src.slug}-copy`);
+    let slug = stem;
+    for (let i = 2; taken.has(slug); i++) slug = `${stem}-${i}`;
+    const made = await prisma.template.create({
+      data: {
+        name: `${src.name} copy`,
+        slug,
+        occasion: src.occasion,
+        occasions: src.occasions,
+        minTier: src.minTier,
+        premium: src.premium,
+        description: src.description,
+        thumbnailUrl: src.thumbnailUrl,
+        layout: src.layout,
+        collection: src.collection,
+        opening: src.opening,
+        openingVideoUrl: src.openingVideoUrl,
+        openingPosterUrl: src.openingPosterUrl,
+        palette: src.palette as never,
+        fonts: src.fonts as never,
+        look: src.look,
+        words: src.words as never,
+        art: src.art as never,
+        sections: src.sections,
+        // a copy is nobody's design yet: not published, not featured, and no
+        // demo of its own until one is made for it
+        demoSlug: '',
+        featured: false,
+        published: false,
+        sortOrder: src.sortOrder,
+        designDraft: doc as never,
+      },
+    });
+    await audit(user, { module: 'templates', action: 'create', entityType: 'Template', entityId: made.id, summary: `${made.name} (copied from ${src.name})` });
+    redirect(`/admin/templates/${made.id}?ok=${encodeURIComponent('Copied. It is unpublished until you say otherwise.')}`);
   });
 }
 

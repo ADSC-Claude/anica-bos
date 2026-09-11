@@ -279,12 +279,14 @@ type Base = {
 };
 
 /**
- * Where an answer is read from. `index` walks a list field; `skipEmpty` says
- * the list is read the way the photographs page reads it — the rows that have
- * something in them, in order — rather than the way the story page reads its
- * timeline, which is row by row including the blanks.
+ * Where an answer is read from. `index` walks a list field; `skipEmpty` names
+ * the field a row must have filled to be counted, so the list is read the way
+ * the photographs page reads it — the rows that have a picture, in order —
+ * rather than the way the story page reads its timeline, which is row by row
+ * including the blanks. It names a field rather than being a flag because a
+ * frame and the caption beside it must count the same rows.
  */
-export type FieldRef = { section: string; field: string; index?: number; sub?: string; skipEmpty?: true };
+export type FieldRef = { section: string; field: string; index?: number; sub?: string; skipEmpty?: string };
 
 /** One text source. A line tries its sources in order and shows the first that has something. */
 export type Source =
@@ -379,6 +381,21 @@ export function elementStyle(el: Element): Record<string, string> {
 // Reading the column
 // ---------------------------------------------------------------------------
 
+/**
+ * A place on a page, rounded so the document survives the round trip.
+ *
+ * The database keeps a JSON number to sixteen significant digits, so a value
+ * that comes out of a multiplication — 27.3 x 0.92 is 25.116000000000003 in
+ * a double — is not the number that comes back out of the column. The studio
+ * refuses to autosave a draft it cannot round-trip, so a document that drifts
+ * on every save would never save at all. Ten decimal places is a thousandth
+ * of a pixel on a phone and round-trips exactly, so every measurement is held
+ * to it: here, and in the schema below, so a document written by anything
+ * else is normalised on the way in.
+ */
+export const place = (n: number): number => Math.round(n * 1e10) / 1e10;
+const zPlace = (min: number, max: number) => z.number().min(min).max(max).transform(place);
+
 const KEY = /^[a-z][a-z0-9-]{0,30}$/;
 const FIELD = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const zColour = z.string().min(1).max(60);
@@ -394,7 +411,7 @@ const zGround = z.union([zPictureGround, zColourGround]);
 const zFieldRef = z.object({
   section: z.string().regex(FIELD), field: z.string().regex(FIELD),
   index: z.number().int().min(0).max(199).optional(), sub: z.string().regex(FIELD).optional(),
-  skipEmpty: z.literal(true).optional(),
+  skipEmpty: z.string().regex(FIELD).optional(),
 }).strict();
 const zSource = z.union([
   z.object({ bind: zFieldRef }).strict(),
@@ -412,11 +429,11 @@ const zLine = z.object({
 
 const zBase = {
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/),
-  x: z.number().min(-50).max(150).optional(),
-  y: z.number().min(-50).max(150),
-  w: z.number().positive().max(200).optional(),
+  x: zPlace(-50, 150).optional(),
+  y: zPlace(-50, 150),
+  w: zPlace(0.01, 200).optional(),
   anchor: z.enum(['centre', 'top']).optional(),
-  rotate: z.number().min(-180).max(180).optional(),
+  rotate: zPlace(-180, 180).optional(),
   z: z.number().int().min(-50).max(50).optional(),
   opacity: z.number().min(0).max(1).optional(),
   hidden: z.enum(['never', 'whenEmpty']).optional(),
@@ -570,19 +587,19 @@ function babyblueDesign(): DesignDoc {
   const photoRatio = BABYBLUE_GROUNDS.babyphotos.ratio;
 
   const frame = (id: string, s: Slot, bind: FieldRef, alt?: FieldRef): PhotoEl => ({
-    id, kind: 'photo', x: s.cx, y: s.cy, w: s.size, anchor: 'centre', rotate: s.tilt,
+    id, kind: 'photo', x: place(s.cx), y: place(s.cy), w: place(s.size), anchor: 'centre', rotate: place(s.tilt),
     aspect: 1, frame: 'none', bind, ...(alt ? { alt } : {}),
   });
 
   const storyHead: TextEl = {
-    id: 'story-head', kind: 'text', block: 'head', y: STORY_HEAD.titleTop, anchor: 'top',
+    id: 'story-head', kind: 'text', block: 'head', y: place(STORY_HEAD.titleTop), anchor: 'top',
     lines: [
       { role: 'title', sources: [{ word: titleWord('story') }, { copy: 'story.title' }] },
       { role: 'sub', sources: [{ bind: { section: 'story', field: 'line' } }, { word: 'story' }] },
     ],
   };
   const storyLabels: TextEl[] = STORY_LABELS.map((l, i) => ({
-    id: `story-label-${i + 1}`, kind: 'text', block: 'label', x: l.cx, y: l.top, w: l.width, anchor: 'top',
+    id: `story-label-${i + 1}`, kind: 'text', block: 'label', x: place(l.cx), y: place(l.top), w: place(l.width), anchor: 'top',
     hidden: 'whenEmpty',
     lines: [
       { role: 'label-title', sources: [{ bind: { section: 'story', field: 'timeline', index: i, sub: 'title' } }] },
@@ -591,7 +608,7 @@ function babyblueDesign(): DesignDoc {
   }));
 
   const photosHead: TextEl = {
-    id: 'photos-head', kind: 'text', block: 'head', y: PHOTO_HEAD.eyebrowTop, anchor: 'top',
+    id: 'photos-head', kind: 'text', block: 'head', y: place(PHOTO_HEAD.eyebrowTop), anchor: 'top',
     lines: [
       // written in English only, as the page has always been
       { role: 'eyebrow', sources: [{ fixed: { en: 'Share', tl: '' } }] },
@@ -612,22 +629,23 @@ function babyblueDesign(): DesignDoc {
     const away = s.size / 2 + PHOTO_STRIP.below;
     return {
       id: `photos-caption-${i + 1}`, kind: 'text', block: 'caption', anchor: 'centre',
-      x: s.cx - away * Math.sin(rad),
-      y: (s.cy * PHOTO_ASPECT + away * Math.cos(rad)) / photoRatio,
-      w: s.size * PHOTO_STRIP.width,
-      rotate: s.tilt,
+      x: place(s.cx - away * Math.sin(rad)),
+      y: place((s.cy * PHOTO_ASPECT + away * Math.cos(rad)) / photoRatio),
+      w: place(s.size * PHOTO_STRIP.width),
+      rotate: place(s.tilt),
       hidden: 'whenEmpty',
-      lines: [{ role: 'caption', sources: [{ bind: { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: true } }] }],
+      lines: [{ role: 'caption', sources: [{ bind: { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: 'url' } }] }],
     };
   });
 
   const elementsFor = (key: string): Element[] | undefined => {
-    if (key === 'story') return [storyHead, ...STORY_SLOTS.map((s, i) => frame(`story-photo-${i + 1}`, s, { section: 'story', field: 'timeline', index: i, sub: 'photo' })), ...storyLabels];
+    // frame then label, frame then label: the order StoryMilestones renders in
+    if (key === 'story') return [storyHead, ...STORY_SLOTS.flatMap((s, i) => [frame(`story-photo-${i + 1}`, s, { section: 'story', field: 'timeline', index: i, sub: 'photo' }), storyLabels[i]])];
     if (key === 'baby-photos') {
       const photoFrames = PHOTO_SLOTS.map((s, i) => frame(
         `photos-photo-${i + 1}`, s,
-        { section: 'gallery', field: 'photos', index: i, sub: 'url', skipEmpty: true },
-        { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: true },
+        { section: 'gallery', field: 'photos', index: i, sub: 'url', skipEmpty: 'url' },
+        { section: 'gallery', field: 'photos', index: i, sub: 'caption', skipEmpty: 'url' },
       ));
       return [photosHead, ...photoFrames.flatMap((f, i) => [f, captions[i]])];
     }
@@ -652,10 +670,144 @@ function babyblueDesign(): DesignDoc {
 }
 
 /**
- * The document a design with an empty column renders from: the layout's own
- * pages, exactly as the code draws them today. Capiz keeps its own list in
- * the renderer until phase 0's second commit moves it here too.
+ * The Capiz pages. Capiz has no drawn page and no ground of its own per page:
+ * its ground is the designer's numbered backgrounds laid down the whole
+ * invitation in order (CAPIZ_BG_RATIO and STRIP_ORDER in the renderer), which
+ * is the layout's machinery and stays there. So its document is the page map
+ * and nothing else — which is exactly what a copy of it needs.
+ */
+export const CAPIZ_PAGES: PageDef[] = [
+  { key: 'cover', sections: ['cover', 'verse'] },
+  { key: 'story', sections: ['story'] },
+  { key: 'invitation', sections: ['ceremony'] },
+  { key: 'entourage', sections: ['entourage'] },
+  { key: 'prenup', sections: ['gallery'] },
+  { key: 'venue', sections: ['reception'] },
+  { key: 'dress-code', sections: ['dressCode'] },
+  { key: 'gift', sections: ['gift'] },
+  { key: 'program', sections: ['program', 'social'] },
+  { key: 'guestbook', sections: ['guestbook'] },
+  { key: 'photos', sections: ['photos'] },
+  { key: 'rsvp', sections: ['rsvp'] },
+  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
+];
+
+function capizDesign(): DesignDoc {
+  return {
+    v: 1,
+    pages: CAPIZ_PAGES.map((def) => ({ key: def.key, sections: [...def.sections], ...(def.key === 'story' ? { peekEnd: true as const } : {}) })),
+  };
+}
+
+/**
+ * A layout's own pages as a document: what a copy of that design starts life
+ * holding, and what the studio then edits. The originals do not render from
+ * this — their columns are empty and the renderer walks the constants — which
+ * is what makes a copy safe to make.
  */
 export function builtinDesign(layout: string): DesignDoc | null {
-  return layout === 'babyblue' ? babyblueDesign() : null;
+  if (layout === 'babyblue') return babyblueDesign();
+  if (layout === 'capiz') return capizDesign();
+  return null;
+}
+
+/**
+ * The document a design renders from, or null for one that has none — which
+ * is every design today. An empty column is deliberately NOT the built-in
+ * here: the two originals keep the renderer's own path, so nothing about them
+ * can move, and only a design whose column was written by the studio takes
+ * the document path.
+ */
+export function documentOf(t: { design?: unknown; layout?: string }): DesignDoc | null {
+  if (!isRecord(t.design) || Object.keys(t.design).length === 0) return null;
+  return designOf(t.design, t.layout ?? '').doc;
+}
+
+/** A drawn page's height, as a multiple of its width. One screen is 1.777. */
+export const ONE_SCREEN = 1.777;
+export function pageRatio(page: PageSpec): number {
+  const g = page.ground;
+  if (!g) return ONE_SCREEN;
+  return (isPicture(g) ? g.ratio : g.ratio ?? ONE_SCREEN);
+}
+
+/**
+ * How many frames this design gives one list — six for Baby Blue's timeline,
+ * four for its photographs. What a design shows is what its form should ask
+ * for, so this is the cap the form reads (phase 2) and the number the asks
+ * sheet quotes.
+ */
+export function frameCount(doc: DesignDoc | null, section: string, field: string): number {
+  if (!doc) return 0;
+  let n = 0;
+  for (const page of doc.pages) {
+    for (const el of page.elements ?? []) {
+      if (el.kind !== 'photo') continue;
+      const bind = el.bind as FieldRef;
+      if (bind.section === section && bind.field === field && bind.index !== undefined) n = Math.max(n, bind.index + 1);
+    }
+  }
+  return n;
+}
+
+/**
+ * Where the public peek stops: the page the design marks, and no fallback to
+ * a page called 'story' — a design that marks none shows its first page only,
+ * which is the safe way round. A design that renames its story page keeps its
+ * peek, because the mark travels with the page and not with its name.
+ */
+export function peekEndPage(doc: DesignDoc | null): string | undefined {
+  return doc?.pages.find((p) => p.peekEnd)?.key;
+}
+
+/** The page a section is drawn on, for the anchor a preview scrolls to. */
+export function pageOfSection(doc: DesignDoc | null, key: string): PageSpec | undefined {
+  return doc?.pages.find((p) => p.sections.includes(key as PageSectionKey));
+}
+
+// ---------------------------------------------------------------------------
+// Reading an answer out of the invitation, for a bound element
+// ---------------------------------------------------------------------------
+
+type Rowish = Record<string, unknown>;
+const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
+
+/**
+ * What a binding points at, as a string. A list binding walks the rows: by
+ * their place in the list, or — where `skipEmpty` names a field — by their
+ * place among the rows that have that field filled, which is how the
+ * photographs page counts and why a frame and its caption agree.
+ */
+export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef): string {
+  const data = isRecord(content?.[ref.section]) ? (content![ref.section] as Rowish) : undefined;
+  if (!data) return '';
+  if (ref.index === undefined) return text(data[ref.field]);
+  const raw = data[ref.field];
+  if (!Array.isArray(raw)) return '';
+  const all = raw.filter(isRecord) as Rowish[];
+  const list = ref.skipEmpty ? all.filter((r) => text(r[ref.skipEmpty!])) : all;
+  const row = list[ref.index];
+  if (!row) return '';
+  return text(ref.sub ? row[ref.sub] : row.value);
+}
+
+/** A design's word, through the look it is written over. */
+export type WordReader = (key: WordKey) => string;
+
+/**
+ * A line shows the first of its sources that has something: the client's own
+ * answer, then the design's word, then the app's copy, then a fixed writing.
+ * That order is the renderer's today — a one-of source would blank the line
+ * under a heading for every customer who typed nothing.
+ */
+export function lineText(sources: Source[], read: { content?: Record<string, unknown>; word: WordReader; copy: (key: string) => string; lang: Lang }): string {
+  for (const s of sources) {
+    let v = '';
+    if ('bind' in s) v = valueAt(read.content, s.bind);
+    else if ('word' in s) v = read.word(s.word);
+    else if ('copy' in s) v = read.copy(s.copy);
+    else v = (read.lang === 'tl' ? s.fixed.tl ?? s.fixed.en : s.fixed.en) ?? '';
+    if (v) return v;
+  }
+  return '';
 }

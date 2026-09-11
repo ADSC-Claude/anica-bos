@@ -1237,6 +1237,15 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: 0; padding-top: 0.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
+/*
+ * A drawn page in a design that carries a document (the studio's own): its
+ * height is its ground's ratio, whatever the page is called, and its elements
+ * are placed on it absolutely. The two rules under this one are the same
+ * thing written by hand for Baby Blue, which carries no document — they stay
+ * so that nothing about the original can move.
+ */
+.inv[data-doc] .inv-page[data-drawn] { aspect-ratio: 1 / var(--page-ratio, 1.777); padding: 0; display: block; container-type: inline-size; }
+.inv[data-doc] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }

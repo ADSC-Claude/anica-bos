@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { contentOf } from '@/lib/invitations';
 import { sectionsFor, sectionLabel, sectionOrder, sectionUnlocked, sectionFilled, fieldsFor, emptySection, photoFrames, photoFramesHint, type Content, type SectionKey } from '@/lib/sections';
 import { sectionAnchor } from '@/lib/anchors';
+import { documentOf } from '@/lib/design';
 import { intakeRows, intakeFilled } from '@/lib/intake';
 import { doneSections } from '@/lib/progress';
 import { galleryLimit } from '@/lib/tiers';
@@ -37,12 +38,14 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
 
   // The segments in the order the page shows them, the ones this package has.
   const offered = new Set(sectionsFor(occasion).map((d) => d.key));
+  // a design drawn in the studio says which page each section lands on
+  const doc = documentOf(inv.template);
   const keys = sectionOrder(occasion, inv.template.layout).filter((k) => offered.has(k) && sectionUnlocked(k, occasion, inv.tier));
   const sections = keys.map((key) => ({
     key,
     label: sectionLabel(key, occasion),
     description: sectionsFor(occasion).find((d) => d.key === key)?.description ?? '',
-    anchor: sectionAnchor(key, inv.template.layout),
+    anchor: sectionAnchor(key, inv.template.layout, doc),
     filled: sectionFilled(key, occasion, content[key]),
     fromClient: intakeFilled(fieldsFor(key, occasion), intake.content?.[key]),
   }));

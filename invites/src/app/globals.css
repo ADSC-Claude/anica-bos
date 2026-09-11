@@ -383,6 +383,92 @@ table.data tr:hover td {
   padding: 1.25rem;
 }
 /*
+ * The check-in desk's two big screens.
+ *
+ * Sized for arm's length rather than for a desktop: the person on the door is
+ * holding a phone, looking at a queue, and glancing down. So one thing per
+ * screen, the name as the largest thing on it, and a confirm button you cannot
+ * miss with a thumb.
+ */
+.desk-stage {
+  background: var(--card-bg);
+  /* Its own ink as well as its own paper: a panel that paints a background
+     and inherits its text colour is one theme change away from cream on
+     cream. */
+  color: var(--color-ink-900);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 1.25rem;
+  padding: 1.75rem 1.35rem 1.5rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  position: relative;
+  max-width: 30rem;
+  margin: 0 auto;
+}
+.desk-back {
+  position: absolute;
+  top: 0.9rem;
+  left: 1rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  background: none;
+  border: 0;
+  color: var(--color-plum-600);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+.desk-monogram {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-sand-100);
+  color: var(--color-plum-600);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+}
+.desk-name { font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; line-height: 1.15; margin: 0.35rem 0 0; text-wrap: balance; }
+
+.desk-rows { width: 100%; display: grid; gap: 1px; margin: 0.9rem 0 0; background: var(--color-sand-200); border: 1px solid var(--color-sand-200); border-radius: 0.75rem; overflow: hidden; text-align: left; }
+.desk-rows > div { background: var(--card-bg); display: grid; grid-template-columns: minmax(0, 5.5rem) minmax(0, 1fr); gap: 0.75rem; padding: 0.6rem 0.85rem; align-items: baseline; }
+.desk-rows dt { font-size: 0.6875rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--color-ink-500); font-weight: 600; }
+.desk-rows dd { margin: 0; font-size: 0.9375rem; }
+.desk-quiet { color: var(--color-ink-500); }
+
+/* The confirm is green rather than plum: it is the one action on the screen
+   and it is an affirmation, not a brand moment. */
+.desk-go {
+  width: 100%;
+  margin-top: 1.1rem;
+  min-height: 3.25rem;
+  font-size: 1rem;
+  background: var(--ok);
+  color: #fff;
+}
+.desk-go:hover { background: #276b43; }
+.desk-go.btn-primary { background: var(--color-plum-600); }
+.desk-go.btn-primary:hover { background: var(--color-plum-700); }
+.desk-already { font-size: 0.875rem; color: var(--color-ink-500); margin: 1rem 0 0; }
+
+.desk-done { padding-top: 2.25rem; }
+.desk-tick {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #e3f3e8;
+  color: var(--ok);
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.desk-said { font-size: 1rem; line-height: 1.5; margin: 0.2rem 0 0; max-width: 24rem; }
+
+/*
  * The pass page: one guest's check-in screen, at its own link.
  *
  * Built to be read in a doorway — one screen, one-handed, the code the biggest
@@ -483,6 +569,40 @@ table.data tr:hover td {
 }
 .pass-detail dt { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inv-muted); font-weight: 600; }
 .pass-detail dd { margin: 0; font-size: 0.875rem; }
+
+/* After the scan. The tick is the whole message; the rest is the day. */
+.pass-arrived { padding: 1.4rem 1.35rem 0.4rem; text-align: center; display: grid; gap: 0.4rem; justify-items: center; }
+.pass-tick {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--inv-accent) 16%, transparent);
+  color: var(--inv-accent);
+  font-size: 1.5rem;
+  line-height: 1;
+  margin: 0 0 0.35rem;
+}
+.pass-stamp { font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--inv-muted); margin: 0.2rem 0 0; }
+
+.pass-links { margin: 1.15rem 1.35rem 0; display: grid; gap: 8px; }
+.pass-link {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
+  text-decoration: none;
+  color: inherit;
+}
+.pass-link:hover { background: color-mix(in srgb, var(--inv-accent2) 18%, transparent); }
+.pass-link-note { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inv-muted); font-weight: 600; }
+.pass-link-label { font-size: 0.9375rem; }
+
+.pass-again { margin: 1.15rem 1.35rem 0; text-align: center; }
+.pass-again summary { font-size: 0.8125rem; color: var(--inv-accent); cursor: pointer; }
+.pass-again .pass-code-small { margin: 0.75rem auto 0; max-width: 168px; }
 
 .pass-foot { padding: 1.15rem 1.35rem 1.5rem; text-align: center; }
 .pass-back { font-size: 0.8125rem; color: var(--inv-accent); text-decoration: none; }

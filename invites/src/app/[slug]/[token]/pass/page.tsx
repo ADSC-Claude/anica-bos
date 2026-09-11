@@ -4,7 +4,8 @@ import { resolveInvitation, PasswordGate } from '../../shared';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { entitled } from '@/lib/tiers';
 import { invitationUrl } from '@/lib/app-url';
-import { displayTitle } from '@/lib/sections';
+import { formatDateTime } from '@/lib/datetime';
+import { displayTitle, rows } from '@/lib/sections';
 import { Pass } from '@/components/invite/pass';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export default async function PassPage({ params }: Params) {
   if (!entitled(invitation, 'checkin')) notFound();
 
   const content = contentOf(invitation.content);
+  const checkedInAt = (guest as { checkedInAt?: Date | null }).checkedInAt ?? null;
   const { palette, fonts } = resolveTheme(invitation.template, content, invitation.tier);
   const reply = guest.rsvps?.[0];
 
@@ -49,8 +51,20 @@ export default async function PassPage({ params }: Params) {
         groupName: guest.groupName,
         token: guest.token,
         table: guest.table,
-        checkedIn: Boolean((guest as { checkedInAt?: Date | null }).checkedInAt),
+        checkedIn: Boolean(checkedInAt),
+        checkedInAt: checkedInAt ? formatDateTime(checkedInAt) : '',
         declined: reply?.response === 'DECLINE',
+      }}
+      features={{
+        // Each one gated on what this invitation actually carries. Seating is
+        // gated twice over in the component: an invitation may have the
+        // feature and still have set no tables.
+        seating: entitled(invitation, 'seating'),
+        guestbook: entitled(invitation, 'guestbook'),
+        photos: entitled(invitation, 'photoSharing'),
+        // The programme is a section rather than a feature: it is there if the
+        // couple wrote one, at whatever package their occasion opens it.
+        programme: rows(content.program ?? {}, 'items').length > 0,
       }}
     />
   );

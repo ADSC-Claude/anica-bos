@@ -245,10 +245,44 @@ function marriedSince(content: Content): string {
 export function arrivalLine(name: string, checkedIn: boolean, declined: boolean): { title: string; body: string } {
   const first = name.split(' ')[0] || name;
   if (checkedIn) {
-    return { title: `You are checked in, ${first}.`, body: 'Enjoy the day — this pass stays here if you need it again.' };
+    return { title: `Welcome, ${name}.`, body: `You are checked in, ${first}. Everything below is yours for the rest of the day.` };
   }
   if (declined) {
     return { title: `Welcome, ${name}.`, body: 'Your reply said you could not make it, so there may not be a seat set aside — show this to the desk and they will sort it out.' };
   }
   return { title: `Welcome, ${name}.`, body: 'Show this screen at the door and we will scan you in.' };
+}
+
+/**
+ * What opens up once somebody is through the door.
+ *
+ * None of it is on the front of the pass. Before the scan the pass has one
+ * job — be the thing that gets scanned — and a screen offering a guestbook and
+ * a photo album to somebody standing in a queue is a screen that gets read
+ * instead of held up. After the scan the queue is behind them and the same
+ * phone becomes the thing they use for the rest of the day.
+ *
+ * Each one is gated on what the couple actually bought, and the seat is gated
+ * twice over: an invitation may carry seating and still have set no tables.
+ */
+export type ArrivedLink = { href: string; label: string; note: string };
+
+export function arrivedLinks(
+  url: string,
+  opts: { table: string; seating: boolean; guestbook: boolean; programme: boolean; photos: boolean },
+): ArrivedLink[] {
+  const out: ArrivedLink[] = [];
+  if (opts.seating && opts.table) {
+    out.push({ href: `${url}#rsvp`, label: opts.table, note: 'Your table' });
+  }
+  if (opts.programme) {
+    out.push({ href: `${url}#program`, label: 'What happens when', note: 'The programme' });
+  }
+  if (opts.guestbook) {
+    out.push({ href: `${url}#guestbook`, label: 'Leave them a message', note: 'Guestbook' });
+  }
+  if (opts.photos) {
+    out.push({ href: `${url}#photos`, label: 'Add your photographs', note: 'Shared album' });
+  }
+  return out;
 }

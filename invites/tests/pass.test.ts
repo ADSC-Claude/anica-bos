@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PASS_COPY, passIntro, passSubject, passDetails, arrivalLine } from '../src/lib/pass';
+import { PASS_COPY, passIntro, passSubject, passDetails, arrivalLine, arrivedLinks } from '../src/lib/pass';
 import type { Occasion } from '@prisma/client';
 
 const OCCASIONS: Occasion[] = ['WEDDING', 'DEBUT', 'CHRISTENING', 'KIDS_BIRTHDAY', 'MILESTONE_BIRTHDAY', 'BABY_SHOWER', 'ANNIVERSARY', 'ENGAGEMENT', 'GRADUATION', 'COMMUNION', 'CORPORATE', 'HOUSEWARMING', 'REUNION', 'MEMORIAL'];
@@ -92,10 +92,42 @@ test('the door greets somebody who declined and came anyway', () => {
   assert.doesNotMatch(declined.body, /error|invalid|not allowed/i);
 });
 
-test('somebody already through the door is told so, by their first name', () => {
+test('somebody already through the door is welcomed, then told so', () => {
+  // The welcome is the same line in every state — it is their name, and it is
+  // what the brief asked for. What changes underneath it is whether they are
+  // still being asked to do something.
   const inside = arrivalLine('Maria Santos', true, false);
-  assert.match(inside.title, /^You are checked in, Maria\./);
-  assert.doesNotMatch(inside.body, /show this at the door/i, 'it still asks them to check in');
+  assert.equal(inside.title, 'Welcome, Maria Santos.');
+  assert.match(inside.body, /checked in, Maria\b/, 'it does not say they are in');
+  assert.doesNotMatch(inside.body, /show this|scan/i, 'it still asks them to check in');
+});
+
+test('the day opens up only as far as the package goes', () => {
+  // Each of these is something the couple either bought or did not, and a pass
+  // offering a shared album to an invitation without one is an advertisement
+  // in somebody's pocket at a wedding.
+  const all = { table: 'Table 7', seating: true, guestbook: true, programme: true, photos: true };
+  assert.deepEqual(arrivedLinks('https://x.test/a', all).map((l) => l.note), ['Your table', 'The programme', 'Guestbook', 'Shared album']);
+  assert.deepEqual(arrivedLinks('https://x.test/a', { ...all, guestbook: false, photos: false }).map((l) => l.note), ['Your table', 'The programme']);
+  assert.deepEqual(arrivedLinks('https://x.test/a', { table: '', seating: false, guestbook: false, programme: false, photos: false }), []);
+});
+
+test('a seat needs both the feature and an actual table', () => {
+  // An invitation may carry seating and have set no tables at all.
+  assert.deepEqual(arrivedLinks('https://x.test/a', { table: '', seating: true, guestbook: false, programme: false, photos: false }), []);
+  assert.deepEqual(arrivedLinks('https://x.test/a', { table: 'Table 7', seating: false, guestbook: false, programme: false, photos: false }), []);
+});
+
+test('none of the day is offered before the scan', () => {
+  // The front of the pass has one job: be the thing that gets scanned. A
+  // guestbook and an album offered to somebody in a queue is a screen that
+  // gets read instead of held up.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  const front = pass.slice(pass.indexOf('{!guest.checkedIn && ('), pass.indexOf('{guest.checkedIn && ('));
+  assert.doesNotMatch(front, /pass-links|arrivedLinks|pass-arrived/, 'the arrived panel is drawn before the scan');
+  assert.match(front, /pass-code/, 'the front lost its code');
+  const after = pass.slice(pass.indexOf('{guest.checkedIn && ('));
+  assert.match(after, /pass-links/, 'nothing opens up after the scan');
 });
 
 test('the pass is behind the same door as the invitation, and behind check-in', () => {

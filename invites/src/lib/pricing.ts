@@ -1,6 +1,6 @@
 import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
-import { hasFeature, tierAtLeast } from './tiers';
+import { ADDON_FEATURE, hasFeature, tierAtLeast } from './tiers';
 
 /**
  * A quote is arithmetic on rows the admin can edit: a package, its add-ons, a
@@ -120,6 +120,13 @@ export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): b
   if (code === RUSH_CODE) return !tierAtLeast(tier, 'COMPLETE');
   if (code === PRIORITY_CODE) return tierAtLeast(tier, 'COMPLETE');
   if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
+  // Check-in and the seating chart belong to Luxury, the password to Signature,
+  // and each is sold on its own to the packages below whichever one includes it.
+  // Read from the feature rather than named here, so a package that is given
+  // one of them stops being offered it without anybody remembering to come back
+  // — which is what would have gone wrong when #127 moved two of the three up.
+  const headline = ADDON_FEATURE[code]?.[0];
+  if (headline) return !hasFeature(tier, headline);
   return true;
 }
 

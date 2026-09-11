@@ -5,7 +5,7 @@ import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { rsvpSummary } from '@/lib/guests';
 import { occasionLabel } from '@/lib/occasions';
-import { TIER_LABELS, hasFeature, featureOffered, nextTier } from '@/lib/tiers';
+import { TIER_LABELS, hasFeature, entitled, featureOffered, nextTier } from '@/lib/tiers';
 import { formatDate, formatDateTime } from '@/lib/datetime';
 import { replyIdentity } from '@/lib/names';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
@@ -173,7 +173,7 @@ export default async function InvitationDashboard({ params }: { params: Promise<
             <Stat label="Page views" value={inv.viewCount} />
             <Stat label="Accepted" value={summary.accepted} hint={`${summary.seats} seat${summary.seats === 1 ? '' : 's'} confirmed`} />
             <Stat label="Declined" value={summary.declined} />
-            {hasFeature(inv.tier, 'guests.manager') ? <Stat label="No response" value={summary.pending} hint={`of ${summary.guests} on your list`} /> : <Stat label="Responses" value={summary.accepted + summary.declined} />}
+            {entitled(inv, 'guests.manager') ? <Stat label="No response" value={summary.pending} hint={`of ${summary.guests} on your list`} /> : <Stat label="Responses" value={summary.accepted + summary.declined} />}
           </div>
           )}
 
@@ -214,8 +214,12 @@ export default async function InvitationDashboard({ params }: { params: Promise<
               // A Save the Date collects nothing: no RSVP, no guestbook, no
               // photographs. Those all belong to the invitation it announces.
               { href: `/account/invitations/${inv.id}/rsvps`, label: 'RSVP responses', show: !saveTheDate },
-              { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: !saveTheDate && featureOffered('guests.manager'), locked: !hasFeature(inv.tier, 'guests.manager') },
-              { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: !saveTheDate && featureOffered('checkin'), locked: !hasFeature(inv.tier, 'checkin') },
+              { href: `/account/invitations/${inv.id}/guests`, label: 'Guest list & personal links', show: !saveTheDate && featureOffered('guests.manager'), locked: !entitled(inv, 'guests.manager') },
+              { href: `/account/invitations/${inv.id}/checkin`, label: 'Event-day check-in', show: !saveTheDate && featureOffered('checkin'), locked: !entitled(inv, 'checkin') },
+              // Open to every package: the words are the couple's whatever they
+              // bought, and reading them is how a couple decides the reminders
+              // are worth paying for.
+              { href: `/account/invitations/${inv.id}/messages`, label: 'Messages to your guests', show: !saveTheDate },
               { href: `/account/invitations/${inv.id}/guestbook`, label: 'Guestbook moderation', show: !saveTheDate, locked: !hasFeature(inv.tier, 'guestbook') },
               { href: `/account/invitations/${inv.id}/photos`, label: 'Guest photos', show: !saveTheDate, locked: !hasFeature(inv.tier, 'photoSharing') },
               { href: `/account/invitations/${inv.id}/settings`, label: 'Link, privacy, language & design', show: true },

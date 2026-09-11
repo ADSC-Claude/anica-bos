@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { listGuests } from '@/lib/guests';
-import { hasFeature } from '@/lib/tiers';
+import { entitled } from '@/lib/tiers';
 import { seatsHeld, replyState } from '@/lib/seats';
 import { PageHeader } from '@/components/ui';
 import { CheckInDesk } from './desk';
@@ -14,7 +14,7 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  if (!hasFeature(inv.tier, 'checkin')) redirect(`/account/invitations/${inv.id}/upgrade`);
+  if (!entitled(inv, 'checkin')) redirect(`/account/invitations/${inv.id}/upgrade`);
   const guests = await listGuests(inv.id);
   return (
     <>

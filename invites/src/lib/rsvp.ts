@@ -5,7 +5,7 @@ import { prisma } from './db';
 import { HttpError } from './errors';
 import { loadPublic, rsvpOpen } from './invitations';
 import { guestByToken } from './guests';
-import { hasFeature } from './tiers';
+import { hasFeature, entitled } from './tiers';
 import { notify } from './notifications';
 import { sendEmail, render, baseVars, mailable } from './email';
 import { getSettings } from './settings';
@@ -110,7 +110,7 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   const guest = input.token ? await guestByToken(input.token) : null;
   if (input.token && (!guest || guest.invitationId !== invitation.id)) throw new HttpError(404, 'That personal link is not valid.');
 
-  const personal = Boolean(guest) && hasFeature(invitation.tier, 'rsvp.personalLinks');
+  const personal = Boolean(guest) && entitled(invitation, 'rsvp.personalLinks');
   const accepting = input.response === 'ACCEPT';
 
   // Seats: capped by the allotment on a personal link (plus one if allowed).

@@ -134,7 +134,7 @@ export function framesFromDifference(plain: Pixels, filled: Pixels, opts: DiffOp
     // that box costs one more pass over the frame and puts the edge where
     // the photograph's edge actually is, rather than within four pixels of
     // it. It can only ever shrink the box, never reach past it.
-    rects.push(snap(tighten(changed, width, height, x0 * cell, y0 * cell, Math.min(width, (x1 + 1) * cell), Math.min(height, (y1 + 1) * cell))));
+    rects.push(snapRect(tighten(changed, width, height, x0 * cell, y0 * cell, Math.min(width, (x1 + 1) * cell), Math.min(height, (y1 + 1) * cell))));
   }
   return mergeBoxes(rects, merge).sort((a, b) => a.top - b.top || a.left - b.left);
 }
@@ -159,7 +159,7 @@ function tighten(changed: Uint8Array, width: number, height: number, px0: number
 }
 
 /** A box in fractions of the page, snapped to the whole percents elements are placed in. */
-function snap({ left, top, right, bottom }: Edges): Rect {
+export function snapRect({ left, top, right, bottom }: Edges): Rect {
   const l = Math.round(left * 100), t = Math.round(top * 100);
   return {
     left: l, top: t,

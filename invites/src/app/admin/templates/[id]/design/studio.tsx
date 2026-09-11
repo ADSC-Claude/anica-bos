@@ -17,8 +17,11 @@ import { pageNeeds, needCount, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
+import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
+import type { Fonts } from '@/lib/theme';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction } from '../../../actions';
 import { uploadGround, readPicture, drawAt, sendPicture, type ReadPicture, type Uploaded } from './ground';
+import { readPdfFile } from './pdf';
 
 /**
  * The Design Studio.
@@ -325,32 +328,48 @@ export function Studio(p: Props) {
   }
 
   /**
-   * A page brought in from somewhere else, with the frames the studio found.
+   * Pages brought in from somewhere else, with what the studio found on them.
    *
-   * The background is the export *without* the placeholder photographs, so
-   * the frames land on empty artwork rather than on a printed photograph of
+   * The background is the artwork alone — the export *without* the
+   * placeholder photographs, or the PDF page drawn without them — so the
+   * frames land on empty artwork rather than on a printed photograph of
    * somebody else's baby. A frame she did not name comes in asked for and
    * pointing at nothing, which the checklist says out loud rather than
    * leaving her to notice: an unnamed frame asks the customer for nothing.
+   *
+   * The whole batch is one change, so one undo takes all of it back and the
+   * keys cannot collide with each other.
    */
-  function addImported(name: string, up: Uploaded, frames: { rect: Rect; bind?: FieldRef }[]) {
-    const key = freePageKey(name);
+  function addImported(brought: Brought[]) {
+    if (!brought.length) return;
+    const taken = new Set(doc.pages.map((x) => x.key));
     const ids = new Set(doc.pages.flatMap((x) => (x.elements ?? []).map((e) => e.id)));
-    const elements = frames.map((f) => {
-      const id = freeIdIn(ids, 'photo');
-      ids.add(id);
-      return photoFromRect(id, f.rect, up.ratio, f.bind ?? { asset: '' });
+    const made = brought.map((b) => {
+      const key = freeKeyIn(taken, b.name);
+      taken.add(key);
+      const elements: Element[] = [];
+      for (const f of b.frames) {
+        const id = freeIdIn(ids, 'photo');
+        ids.add(id);
+        elements.push(photoFromRect(id, f.rect, b.up.ratio, f.bind ?? { asset: '' }));
+      }
+      for (const t of b.texts) {
+        const id = freeIdIn(ids, 'words');
+        ids.add(id);
+        elements.push(wordsFromPdf(id, t));
+      }
+      const page: PageSpec = {
+        key, label: { en: b.name }, sections: [], drawn: true, importedFrom: b.from,
+        ground: { url: b.up.url, ratio: b.up.ratio, top: b.up.top, bottom: b.up.bottom },
+        ...(elements.length ? { elements } : {}),
+      };
+      return page;
     });
-    const made: PageSpec = {
-      key, label: { en: name }, sections: [], drawn: true, importedFrom: 'diff',
-      ground: { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom },
-      ...(elements.length ? { elements } : {}),
-    };
     const at = doc.pages.findIndex((x) => x.key === pageKey);
     const pages = [...doc.pages];
-    pages.splice(at < 0 ? pages.length : at + 1, 0, made);
+    pages.splice(at < 0 ? pages.length : at + 1, 0, ...made);
     change({ ...doc, pages });
-    setPageKey(key);
+    setPageKey(made[0].key);
     setSel([]);
     setView('page');
   }
@@ -987,6 +1006,7 @@ export function Studio(p: Props) {
           <ImportPair
             templateId={p.templateId}
             occasion={p.occasion}
+            fonts={p.look?.fonts}
             onClose={() => setView('page')}
             onAdd={addImported}
           />
@@ -1897,44 +1917,69 @@ function GroupProps({ group, others, attached, onLineUp, onSameWidth, onSpaceDow
 }
 
 /**
- * Bringing a page in from Canva, by the difference between two exports.
+ * Bringing a page in from Canva, two ways into one screen.
  *
  * Canva hands another system nothing about a design, so a link is a locked
- * door and one picture of a page is only paint. What works is two pictures:
- * the page as designed, and the same page with the placeholder photographs
- * deleted. The second is the background, and everything that differs
- * between them is where a photograph belongs.
+ * door and one picture of a page is only paint. Two things are not:
  *
- * She says which file is which rather than the studio guessing. A guess
- * here is cheap to make and expensive to be wrong about — it would put the
- * frames on a printed photograph of somebody else's baby and look almost
- * right — and naming two files is two taps.
+ * - **Two pictures.** The page as designed, and the same page with the
+ *   placeholder photographs deleted. The second is the background, and
+ *   everything that differs between them is where a photograph belongs.
+ *   She says which file is which rather than the studio guessing: a guess
+ *   is cheap to make and expensive to be wrong about — it would put the
+ *   frames on a printed photograph of somebody else's baby and look almost
+ *   right — and naming two files is two taps.
+ * - **The PDF.** Every photograph in it is an object with its own
+ *   rectangle and the words are usually still words, so both are lifted
+ *   off and the background is drawn without them.
  *
- * Nothing is written until she presses Add the page: the background is not
- * even uploaded before then, so an import she thinks better of leaves
- * nothing behind.
+ * Either way what comes back is a list of pages, each with its background
+ * and what was found on it, and the same confirm screen: every frame drawn
+ * on the page with a numbered tag, a field picker beside it, and Discard on
+ * any it got wrong. Nothing is written until she presses Add — the
+ * backgrounds are not even uploaded before then, so an import she thinks
+ * better of leaves nothing behind.
  */
 type Proposal = { rect: Rect; keep: boolean; pick: string; index: number };
+type Wording = { text: PdfText; keep: boolean };
 
-function ImportPair({ templateId, occasion, onClose, onAdd }: {
+/** One page waiting to be brought in, whichever way it was read. */
+type Sheet = {
+  name: string;
+  from: 'diff' | 'pdf';
+  /** the background as it will be, already read but not yet sent anywhere */
+  read?: ReadPicture;
+  url?: string;
+  frames: Proposal[];
+  texts: Wording[];
+  /** why this page could not be read, in the owner's words */
+  trouble?: string;
+};
+
+function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
   templateId: string;
   occasion: Occasion;
+  fonts?: Fonts;
   onClose: () => void;
-  onAdd: (name: string, up: Uploaded, frames: { rect: Rect; bind?: FieldRef }[]) => void;
+  onAdd: (pages: Brought[]) => void;
 }) {
   const [designed, setDesigned] = useState<File | null>(null);
   const [emptied, setEmptied] = useState<File | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const [found, setFound] = useState<{ read: ReadPicture; url: string; name: string } | null>(null);
-  const [rows, setRows] = useState<Proposal[]>([]);
+  const [sheets, setSheets] = useState<Sheet[] | null>(null);
   const offers = useMemo(() => askable(occasion, 'photo'), [occasion]);
 
-  // the picture is shown from the blob in hand, so the page is on screen
-  // before anything has been sent anywhere
-  useEffect(() => () => { if (found) URL.revokeObjectURL(found.url); }, [found]);
+  // the pages are shown from the blobs in hand, so they are on screen before
+  // anything has been sent anywhere
+  useEffect(() => () => { for (const s of sheets ?? []) if (s.url) URL.revokeObjectURL(s.url); }, [sheets]);
 
-  async function read() {
+  const carry = (rects: Rect[], texts: PdfText[] = []): Pick<Sheet, 'frames' | 'texts'> => ({
+    frames: rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })),
+    texts: texts.map((text) => ({ text, keep: true })),
+  });
+
+  async function readPair() {
     if (!designed || !emptied) return;
     setBusy('Reading the two pictures…');
     setError('');
@@ -1946,61 +1991,104 @@ function ImportPair({ templateId, occasion, onClose, onAdd }: {
       if (!rects.length) {
         throw new Error('Those two pictures are the same page. Check that the photographs were deleted from the second one rather than hidden or moved off the canvas.');
       }
-      setFound({ read: { ...plain, pixels: undefined }, url: URL.createObjectURL(plain.blob), name: emptied.name.replace(/\.[^.]+$/, '') });
-      setRows(rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })));
+      setSheets([{
+        name: emptied.name.replace(/\.[^.]+$/, ''), from: 'diff',
+        read: { ...plain, pixels: undefined }, url: URL.createObjectURL(plain.blob),
+        ...carry(rects),
+      }]);
     } catch (e) {
       setError((e as Error).message);
     }
     setBusy('');
   }
 
-  /** The field a row points at, or nothing while she has not said. */
+  async function readPdf(file: File) {
+    setBusy('Reading the PDF…');
+    setError('');
+    try {
+      const read = await readPdfFile(file, fonts);
+      if (!read.length) throw new Error('That PDF has no pages.');
+      const stem = file.name.replace(/\.[^.]+$/, '');
+      setSheets(read.map(({ sheet, ground }) => ({
+        name: read.length > 1 ? `${stem} ${sheet.n}` : stem,
+        from: 'pdf' as const,
+        ...(ground ? { read: ground, url: URL.createObjectURL(ground.blob) } : {}),
+        ...carry(sheet.frames, sheet.texts),
+        ...(sheet.trouble ? { trouble: PDF_TROUBLE[sheet.trouble] } : {}),
+      })));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy('');
+  }
+
+  /** The field a frame points at, or nothing while she has not said. */
   function refOf(row: Proposal): FieldRef | undefined {
     const at = offers.find((o) => key(o) === row.pick);
     if (!at) return undefined;
     return { section: at.section, field: at.field, ...(at.sub ? { sub: at.sub } : {}), ...(at.list ? { index: row.index } : {}) };
   }
 
+  const edit = (s: number, fn: (sheet: Sheet) => Sheet) => setSheets((old) => (old ?? []).map((x, i) => (i === s ? fn(x) : x)));
+
   /**
    * Picking a list field for one frame puts the next frame on the next one
    * along, because six frames on a page are six photographs and never the
    * same photograph six times. She can still change any of them.
    */
-  function pick(at: number, value: string) {
-    setRows((old) => old.map((r, i) => {
-      if (i !== at) return r;
-      const taken = old.filter((o, j) => j !== at && o.pick === value).map((o) => o.index);
-      let index = 0;
-      while (taken.includes(index)) index++;
-      return { ...r, pick: value, index };
+  function pick(s: number, at: number, value: string) {
+    edit(s, (sheet) => ({
+      ...sheet,
+      frames: sheet.frames.map((r, i) => {
+        if (i !== at) return r;
+        const taken = sheet.frames.filter((o, j) => j !== at && o.pick === value).map((o) => o.index);
+        let index = 0;
+        while (taken.includes(index)) index++;
+        return { ...r, pick: value, index };
+      }),
     }));
   }
 
   async function add() {
-    if (!found) return;
-    setBusy('Sending the background…');
+    const usable = (sheets ?? []).filter((s) => s.read && !s.trouble);
+    if (!usable.length) return;
+    setBusy('Sending the backgrounds…');
     setError('');
     try {
-      const up = await sendPicture(found.read, `${found.name}.webp`, templateId);
-      onAdd(found.name, up, rows.filter((r) => r.keep).map((r) => ({ rect: r.rect, bind: refOf(r) })));
+      const pages: Brought[] = [];
+      for (const s of usable) {
+        const up = await sendPicture(s.read as ReadPicture, `${s.name}.webp`, templateId);
+        pages.push({
+          name: s.name, up, from: s.from,
+          frames: s.frames.filter((r) => r.keep).map((r) => ({ rect: r.rect, bind: refOf(r) })),
+          texts: s.texts.filter((t) => t.keep).map((t) => t.text),
+        });
+      }
+      onAdd(pages);
     } catch (e) {
       setError((e as Error).message);
       setBusy('');
     }
   }
 
-  const kept = rows.filter((r) => r.keep).length;
+  const usable = (sheets ?? []).filter((s) => s.read && !s.trouble);
 
-  return (
-    <div className="rounded bg-[color:var(--color-sand-100)] p-4">
-      {!found ? (
+  if (!sheets) {
+    return (
+      <div className="rounded bg-[color:var(--color-sand-100)] p-4">
         <div className="mx-auto max-w-xl">
           <h2 className="display text-lg">A page you designed in Canva</h2>
           <p className="hint mt-1">
-            Export the page twice at the same size: once as it is, and once with the placeholder photographs deleted.
-            The second one becomes the page&rsquo;s background, and everything that differs between the two is a frame.
+            Canva hands another system nothing about a design, so the way in is a file you export.
+            The best of the two is the first: it is the one that leaves the artwork behind your frames whole.
           </p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+
+          <p className="label mt-4">Two pictures &mdash; the studio finds the frames</p>
+          <p className="hint">
+            Export the page twice at the same size: once as it is, and once with the placeholder photographs
+            deleted. The second becomes the page&rsquo;s background, and everything that differs between the two is a frame.
+          </p>
+          <div className="mt-2 grid gap-3 sm:grid-cols-2">
             {([
               ['The page as designed', 'with the placeholder photographs in their frames', designed, setDesigned],
               ['The same page, photographs deleted', 'this one becomes the background', emptied, setEmptied],
@@ -2020,25 +2108,49 @@ function ImportPair({ templateId, occasion, onClose, onAdd }: {
               </label>
             ))}
           </div>
-          <div className="mt-3 flex items-center gap-2">
-            <button type="button" className="btn btn-primary btn-sm" disabled={!designed || !emptied || Boolean(busy)} onClick={() => void read()}>
-              {busy || 'Find the frames'}
-            </button>
+          <button type="button" className="btn btn-primary btn-sm mt-2" disabled={!designed || !emptied || Boolean(busy)} onClick={() => void readPair()}>
+            {busy || 'Find the frames'}
+          </button>
+
+          <p className="label mt-5">Or the PDF &mdash; one file, frames and words together</p>
+          <p className="hint">
+            A PDF is not flat: every photograph in it is a separate object with its own rectangle, and the words
+            are usually still words. Both are lifted off, so the background comes through as the artwork alone.
+            Where Canva flattened the page or turned the words into outlines there is nothing to read, and the
+            studio says so rather than guessing.
+          </p>
+          <label
+            className="mt-2 block cursor-pointer rounded border border-dashed border-[color:var(--color-sand-300)] px-3 py-4 text-center text-xs leading-snug hover:bg-white"
+            onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+            onDrop={(e) => { const f = e.dataTransfer.files[0]; if (f?.type === 'application/pdf') { e.preventDefault(); void readPdf(f); } }}
+          >
+            <span className="block font-semibold">Drop the PDF here, or choose it</span>
+            <span className="block text-[color:var(--color-ink-500)]">every page becomes a page of the design, in order</span>
+            <input
+              type="file" accept="application/pdf,.pdf" className="sr-only" disabled={Boolean(busy)}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPdf(f); e.target.value = ''; }}
+            />
+          </label>
+
+          <div className="mt-4">
             <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           </div>
           {error && <p className="hint mt-2 text-[color:var(--bad)]">{error}</p>}
-          <p className="hint mt-3">
-            A PDF is read a different way and is not this. If Canva flattened the page or turned the words into
-            outlines, this is the way in: outlines are paint, and paint cannot be reworded.
-          </p>
         </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-          {/* the page as it will be, with a numbered tag on every frame */}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded bg-[color:var(--color-sand-100)] p-4">
+      {sheets.map((sheet, s) => (
+        <div key={s} className="grid gap-4 lg:grid-cols-[20rem_1fr]">
           <div className="relative self-start shadow-lg" style={{ width: '100%', maxWidth: '20rem' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={found.url} alt="" className="block w-full" />
-            {rows.map((r, i) => (
+            {sheet.url
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={sheet.url} alt="" className="block w-full" />
+              : <div className="aspect-[3/4] w-full bg-[color:var(--color-sand-200)]" />}
+            {sheet.frames.map((r, i) => (
               <span
                 key={i}
                 className={`absolute border-2 ${r.keep ? 'border-[color:var(--color-plum-600)] bg-[rgba(122,58,118,0.14)]' : 'border-dashed border-[color:var(--color-ink-500)] opacity-40'}`}
@@ -2047,70 +2159,93 @@ function ImportPair({ templateId, occasion, onClose, onAdd }: {
                 <span className="absolute left-0 top-0 bg-[color:var(--color-plum-600)] px-1 text-[10px] font-semibold text-white">{i + 1}</span>
               </span>
             ))}
+            {sheet.texts.map((t, i) => (
+              <span
+                key={`t${i}`}
+                className={`absolute border border-dashed ${t.keep ? 'border-[color:var(--color-ink-700)]' : 'border-[color:var(--color-ink-500)] opacity-30'}`}
+                style={{ left: `${t.text.left}%`, top: `${t.text.top}%`, width: `${t.text.width}%`, minHeight: 4 }}
+              />
+            ))}
           </div>
 
           <div>
-            <h2 className="display text-lg">
-              {rows.length === 1 ? 'One frame' : `${rows.length} frames`} found{kept !== rows.length && `, ${kept} kept`}
-            </h2>
-            <p className="hint mt-1">
-              Say what each one holds. A frame you leave unnamed still comes in &mdash; the checklist will ask for it
-              &mdash; and one that is not a frame at all can be discarded here.
-            </p>
-            <ol className="mt-3 space-y-2">
-              {rows.map((r, i) => {
-                const at = offers.find((o) => key(o) === r.pick);
-                return (
-                  <li key={i} className={`flex flex-wrap items-end gap-2 rounded bg-white p-2 ${r.keep ? '' : 'opacity-50'}`}>
-                    <span className="rounded bg-[color:var(--color-plum-600)] px-1.5 py-0.5 text-[11px] font-semibold text-white">{i + 1}</span>
-                    <span className="text-[11px] text-[color:var(--color-ink-500)]">{r.rect.width}% &times; {r.rect.height}%</span>
-                    <label className="min-w-[12rem] flex-1">
-                      <select
-                        className="input w-full" value={r.pick} disabled={!r.keep}
-                        onChange={(e) => pick(i, e.target.value)}
+            <h2 className="display text-lg">{sheet.name}</h2>
+            {sheet.trouble ? (
+              <p className="mt-1 rounded bg-white p-3 text-sm text-[color:var(--color-ink-700)]">{sheet.trouble}</p>
+            ) : (
+              <>
+                <p className="hint mt-1">
+                  {sheet.frames.length === 1 ? 'One frame' : `${sheet.frames.length} frames`}
+                  {sheet.texts.length > 0 && `, ${sheet.texts.length === 1 ? 'one writing' : `${sheet.texts.length} writings`}`}.
+                  Say what each frame holds. One you leave unnamed still comes in &mdash; the checklist will ask for it &mdash;
+                  and one that is not a frame at all can be discarded here.
+                  {sheet.from === 'pdf' && ' The words are lifted off the background, so a writing you discard takes its words with it.'}
+                </p>
+                <ol className="mt-3 space-y-2">
+                  {sheet.frames.map((r, i) => {
+                    const at = offers.find((o) => key(o) === r.pick);
+                    return (
+                      <li key={i} className={`flex flex-wrap items-end gap-2 rounded bg-white p-2 ${r.keep ? '' : 'opacity-50'}`}>
+                        <span className="rounded bg-[color:var(--color-plum-600)] px-1.5 py-0.5 text-[11px] font-semibold text-white">{i + 1}</span>
+                        <span className="text-[11px] text-[color:var(--color-ink-500)]">{r.rect.width}% &times; {r.rect.height}%</span>
+                        <label className="min-w-[12rem] flex-1">
+                          <select className="input w-full" value={r.pick} disabled={!r.keep} onChange={(e) => pick(s, i, e.target.value)}>
+                            <option value="">&mdash; what is it? &mdash;</option>
+                            {Object.entries(groupBy(offers)).map(([section, list]) => (
+                              <optgroup key={section} label={section}>
+                                {list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}
+                              </optgroup>
+                            ))}
+                          </select>
+                        </label>
+                        {at?.list && (
+                          <label className="w-20">
+                            <span className="label">Which</span>
+                            <input
+                              type="number" min={1} max={40} className="input w-full" disabled={!r.keep}
+                              value={r.index + 1}
+                              onChange={(e) => edit(s, (x) => ({ ...x, frames: x.frames.map((y, j) => (j === i ? { ...y, index: Math.max(0, Math.round(Number(e.target.value)) - 1) } : y)) }))}
+                            />
+                          </label>
+                        )}
+                        <button
+                          type="button" className="btn btn-ghost btn-sm"
+                          onClick={() => edit(s, (x) => ({ ...x, frames: x.frames.map((y, j) => (j === i ? { ...y, keep: !y.keep } : y)) }))}
+                        >
+                          {r.keep ? 'Discard' : 'Keep'}
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {sheet.texts.map((t, i) => (
+                    <li key={`t${i}`} className={`flex flex-wrap items-center gap-2 rounded bg-white p-2 ${t.keep ? '' : 'opacity-50'}`}>
+                      <span className="rounded bg-[color:var(--color-ink-700)] px-1.5 py-0.5 text-[11px] font-semibold text-white">&ldquo;&rdquo;</span>
+                      <span className="min-w-[12rem] flex-1 truncate text-sm">{t.text.lines.join(' / ')}</span>
+                      <span className="text-[11px] text-[color:var(--color-ink-500)]">{t.text.size.toFixed(1)}cqw{t.text.face ? ` · the ${t.text.face} face` : ''}</span>
+                      <button
+                        type="button" className="btn btn-ghost btn-sm"
+                        onClick={() => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, keep: !y.keep } : y)) }))}
                       >
-                        <option value="">&mdash; what is it? &mdash;</option>
-                        {Object.entries(groupBy(offers)).map(([section, list]) => (
-                          <optgroup key={section} label={section}>
-                            {list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}
-                          </optgroup>
-                        ))}
-                      </select>
-                    </label>
-                    {at?.list && (
-                      <label className="w-20">
-                        <span className="label">Which</span>
-                        <input
-                          type="number" min={1} max={40} className="input w-full" disabled={!r.keep}
-                          value={r.index + 1}
-                          onChange={(e) => setRows((old) => old.map((x, j) => (j === i ? { ...x, index: Math.max(0, Math.round(Number(e.target.value)) - 1) } : x)))}
-                        />
-                      </label>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setRows((old) => old.map((x, j) => (j === i ? { ...x, keep: !x.keep } : x)))}
-                    >
-                      {r.keep ? 'Discard' : 'Keep'}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button type="button" className="btn btn-primary btn-sm" disabled={Boolean(busy)} onClick={() => void add()}>
-                {busy || 'Add the page'}
-              </button>
-              <button type="button" className="btn btn-secondary btn-sm" disabled={Boolean(busy)} onClick={() => { setFound(null); setRows([]); }}>
-                Start again
-              </button>
-              <button type="button" className="btn btn-ghost btn-sm" disabled={Boolean(busy)} onClick={onClose}>Cancel</button>
-            </div>
-            {error && <p className="hint mt-2 text-[color:var(--bad)]">{error}</p>}
+                        {t.keep ? 'Discard' : 'Keep'}
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
           </div>
         </div>
-      )}
+      ))}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-300)] pt-3">
+        <button type="button" className="btn btn-primary btn-sm" disabled={Boolean(busy) || !usable.length} onClick={() => void add()}>
+          {busy || (usable.length > 1 ? `Add ${usable.length} pages` : 'Add the page')}
+        </button>
+        <button type="button" className="btn btn-secondary btn-sm" disabled={Boolean(busy)} onClick={() => { setSheets(null); setDesigned(null); setEmptied(null); }}>Start again</button>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={Boolean(busy)} onClick={onClose}>Cancel</button>
+        {!usable.length && <span className="hint">Nothing here can be brought in.</span>}
+      </div>
+      {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
     </div>
   );
 }
@@ -2403,4 +2538,38 @@ function freeId(doc: DesignDoc, stem: string): string {
 function freeIdIn(taken: Set<string>, stem: string): string {
   const base = stem.replace(/[^a-z0-9-]/g, '') || 'element';
   for (let i = 2; ; i++) if (!taken.has(`${base}-${i}`)) return `${base}-${i}`;
+}
+
+/** One page read out of a file, ready to become a page of the design. */
+type Brought = {
+  name: string;
+  up: Uploaded;
+  from: 'diff' | 'pdf';
+  frames: { rect: Rect; bind?: FieldRef }[];
+  texts: PdfText[];
+};
+
+/**
+ * A writing read off a PDF, as the box it becomes.
+ *
+ * It arrives as the design's own words rather than as a question, because
+ * that is what it was on the page she designed: a heading, a line of
+ * welcome, the words under a photograph. The Tagalog is deliberately left
+ * unwritten, so the checklist asks for it — English with no Tagalog beside
+ * it is a line half the country cannot read.
+ */
+function wordsFromPdf(id: string, t: PdfText): TextEl {
+  return {
+    id, kind: 'text', block: 'free', anchor: 'top',
+    x: place(t.left + t.width / 2),
+    y: place(t.top),
+    w: place(t.width),
+    size: t.size,
+    ...(t.face ? { face: t.face } : {}),
+    lines: t.lines.map((words) => ({
+      role: 'body' as const,
+      align: t.align,
+      sources: [{ fixed: { en: words } }],
+    })),
+  };
 }

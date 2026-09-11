@@ -2,7 +2,7 @@
   "name": "anica-invites",
   "version": "1.0.0",
   "private": true,
-  "description": "Digital invitation platform for the Philippines \u2014 DIY builder + Done-For-You encoding, per-guest RSVP links, one-time PHP pricing",
+  "description": "Digital invitation platform for the Philippines — DIY builder + Done-For-You encoding, per-guest RSVP links, one-time PHP pricing",
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/build.mjs",
@@ -33,6 +33,7 @@
     "bcryptjs": "3.0.2",
     "jose": "6.2.5",
     "next": "15.5.22",
+    "pdfjs-dist": "6.3.289",
     "qrcode-generator": "2.0.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",

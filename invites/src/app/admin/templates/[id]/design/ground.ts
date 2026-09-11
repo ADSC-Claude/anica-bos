@@ -31,6 +31,12 @@ export async function readPicture(file: File, keepPixels = false): Promise<ReadP
   if (!ctx) throw new Error('This browser cannot read the picture.');
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close?.();
+  return fromCanvas(canvas, ctx, keepPixels);
+}
+
+/** Everything the document needs about a picture already drawn on a canvas. */
+export async function fromCanvas(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, keepPixels = false): Promise<ReadPicture> {
+  const { width, height } = canvas;
   const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, 'image/webp', 0.9));
   if (!blob) throw new Error('The picture could not be re-encoded.');
   return {

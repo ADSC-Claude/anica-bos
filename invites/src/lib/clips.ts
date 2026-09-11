@@ -114,3 +114,51 @@ export function clipFault(file: { type: string; size: number }, meta: { duration
   }
   return null;
 }
+
+/**
+ * Whether a captured frame is too blank to use as a poster.
+ *
+ * The first frame of a clip is very often useless: a fade from black, a
+ * white flash, a title card that has not drawn yet. And the poster is not a
+ * nicety here — it is what prints, what a guest sparing their data sees, and
+ * what an iPhone in Low Power Mode shows instead of playing. A black
+ * rectangle in all three places is worse than the clip having no poster at
+ * all, because it looks like a fault rather than a choice.
+ *
+ * So a frame is judged before it is kept: mean brightness near either end,
+ * or almost no variation across the picture, and it is blank. Variation is
+ * what separates a real dark frame — a night shot, which is fine — from an
+ * empty one: a night shot still has a spread of values in it.
+ *
+ * `pixels` is RGBA from a canvas, as `getImageData().data` gives it.
+ */
+export function looksBlank(pixels: Uint8ClampedArray | number[]): boolean {
+  const n = Math.floor(pixels.length / 4);
+  if (n === 0) return true;
+  let sum = 0;
+  let sumSq = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    // Rec. 601 luma is close enough to judge emptiness by, and it is cheap
+    const y = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+    sum += y;
+    sumSq += y * y;
+  }
+  const mean = sum / n;
+  const sd = Math.sqrt(Math.max(0, sumSq / n - mean * mean));
+  // near-black or near-white, or flat: a real picture is none of these
+  return mean < 12 || mean > 243 || sd < 6;
+}
+
+/**
+ * Where to look for a poster frame, in order.
+ *
+ * Not the very first frame — see `looksBlank`. A tenth of the way in is past
+ * most fades and still early enough to be the clip's own subject; the later
+ * tries are for a long slow open. Seconds, not fractions, because that is
+ * what `currentTime` takes.
+ */
+export function posterTimes(durationMs: number): number[] {
+  const s = Math.max(0, durationMs / 1000);
+  if (!s) return [0];
+  return [s * 0.1, s * 0.3, s * 0.5, 0].map((t) => Math.min(t, Math.max(0, s - 0.05)));
+}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4 } from '../src/lib/clips';
+import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4, looksBlank, posterTimes } from '../src/lib/clips';
 import { designFolder } from '../src/lib/storage';
 
 /**
@@ -160,4 +160,45 @@ test('a browser with no H.264 decoder is known not to be able to judge one', () 
   // a real desktop browser
   const desktop = (t: string) => (t.startsWith('video/mp4') ? 'probably' : '');
   assert.equal(canJudgeMp4(desktop), true);
+});
+
+// --- choosing a poster frame ----------------------------------------------
+
+/**
+ * The poster is what prints, what a guest sparing their data sees, and what
+ * an iPhone in Low Power Mode shows instead of playing. A black rectangle in
+ * all three places looks like a fault rather than a choice, so a frame is
+ * judged before it is kept.
+ */
+const frame = (make: (i: number) => [number, number, number], n = 400) => {
+  const px: number[] = [];
+  for (let i = 0; i < n; i++) { const [r, g, b] = make(i); px.push(r, g, b, 255); }
+  return px;
+};
+
+test('a black frame, a white flash and a flat grey are all blank', () => {
+  assert.equal(looksBlank(frame(() => [0, 0, 0])), true, 'black');
+  assert.equal(looksBlank(frame(() => [255, 255, 255])), true, 'white');
+  assert.equal(looksBlank(frame(() => [128, 128, 128])), true, 'flat grey has no variation');
+  assert.equal(looksBlank([]), true, 'nothing at all');
+});
+
+test('a real picture is not blank, and neither is a dark one with a picture in it', () => {
+  // a spread of values, which is what a photograph has
+  assert.equal(looksBlank(frame((i) => [i % 256, (i * 7) % 256, (i * 13) % 256])), false);
+  // a night shot: dark on average, but with a real range in it
+  assert.equal(looksBlank(frame((i) => (i % 20 === 0 ? [90, 95, 110] : [6, 8, 14]))), false, 'a night shot with lights in it is a picture');
+});
+
+test('poster frames are tried a tenth in first, not at the very start', () => {
+  const t = posterTimes(10_000);
+  assert.equal(t.length, 4);
+  assert.ok(t[0] > 0 && t[0] <= 1.01, `first try ${t[0]} should be about a second into a ten-second clip`);
+  assert.ok(t[1] > t[0] && t[2] > t[1], 'the later tries move further in');
+  assert.equal(t[3], 0, 'the very first frame is the last resort, not the first choice');
+});
+
+test('every poster time is inside a very short clip', () => {
+  for (const t of posterTimes(200)) assert.ok(t >= 0 && t <= 0.2, `${t} is outside a 0.2s clip`);
+  assert.deepEqual(posterTimes(0), [0]);
 });

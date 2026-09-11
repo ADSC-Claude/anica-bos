@@ -200,8 +200,28 @@ test('the reminder campaigns are priced as agreed, and none is for sale', () => 
   }
 });
 
+test('the printable is sold as a thing we send, never as a button', () => {
+  // It was shelved because the Print / PDF route puts the live page on A4 —
+  // seventeen sheets on a real wedding. What changed to bring it back is the
+  // promise, not the layout: arranging pages by hand is work this business
+  // already does. So the wording must not describe a file the customer makes.
+  const row = ADDONS.find((a) => a.code === 'PRINTABLE');
+  assert.ok(row, 'the printable is not for sale');
+  assert.equal(row.price, 199);
+  assert.notEqual(row.held, true, 'the printable is priced but not sellable');
+  assert.equal(SHELVED_ADDONS.some((x) => x.code === 'PRINTABLE'), false, 'it is on sale and hidden at the same time');
+
+  for (const promise of [/download/i, /instant/i, /button/i, /straight away/i, /yourself/i]) {
+    assert.doesNotMatch(row.description, promise, `the printable promises "${promise}"`);
+  }
+  // And it says when, because "we send it to you" with no when is the sentence
+  // that generates the first support message.
+  assert.match(row.description, /within a working day/);
+});
+
 test('the à la carte prices are the ones agreed', () => {
   const price = (code: string) => ADDONS.find((a) => a.code === code)?.price;
+  assert.equal(price('PRINTABLE'), 199);
   assert.equal(price('QR_CHECKIN'), 1_000);
   assert.equal(price('SEATING_VIEWER'), 1_000);
   assert.equal(price('PASSWORD'), 300);
@@ -240,7 +260,7 @@ test('a shelved add-on is off the website, priced, and not confused with a retir
     assert.equal(priced.has(code), false, `${code} is shelved and would also be repriced`);
   }
 
-  assert.deepEqual(SHELVED_ADDONS.map((s) => s.code).sort(), ['CUSTOM_DOMAIN', 'PRINTABLE']);
+  assert.deepEqual(SHELVED_ADDONS.map((s) => s.code).sort(), ['CUSTOM_DOMAIN']);
 });
 
 test('the catalogue has no duplicate codes, and nothing both sold and retired', () => {

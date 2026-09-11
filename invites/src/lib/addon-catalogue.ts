@@ -9,11 +9,11 @@
  * SAVE_THE_DATE came to be ₱299 in the seed and ₱500 in the price list at the
  * same time.
  *
- * Rows the catalogue has no opinion about — PREMIUM_OPENING, PRINTABLE,
- * CUSTOM_DOMAIN — are deliberately absent from ADDONS: their prices are the
- * admin's, and a pricing run should not quietly put them back to whatever was
- * typed here. Two of them appear in SHELVED_ADDONS below, which takes a row off
- * the website without touching what it costs.
+ * Rows the catalogue has no opinion about — PREMIUM_OPENING, CUSTOM_DOMAIN —
+ * are deliberately absent from ADDONS: their prices are the admin's, and a
+ * pricing run should not quietly put them back to whatever was typed here. The
+ * second appears in SHELVED_ADDONS below, which takes a row off the website
+ * without touching what it costs.
  */
 
 /**
@@ -40,10 +40,13 @@ export const RETIRED_ADDONS: { code: string; reason: string }[] = [
  * and the checkout stop offering it while the row, its price and any order that
  * bought one all stay exactly as they are — but not the same decision, which is
  * why it is not the same list. A retired add-on is one we have stopped selling.
- * These two are ones we should not have been selling yet: a customer could pay
- * ₱299 for a printable PDF and ₱999 to have a domain set up, and neither is
- * referred to anywhere in the app outside a comment. Custom domain at least a
- * person could do by hand; the printable needs a layout that does not exist.
+ * This one is an add-on we should not have been selling yet: a customer could
+ * pay ₱999 to have a domain set up, and nobody here is set up to do it.
+ *
+ * The printable sat beside it and has come back, at ₱199 and with a description
+ * that says what actually happens — see ADDONS. The difference is not that the
+ * layout got built: it is that arranging pages by hand is work this business
+ * already does, and a domain is not.
  *
  * Their prices are untouched on purpose. The catalogue has no opinion about
  * what these cost — see the note at the top — and hiding a row is not a reason
@@ -51,7 +54,6 @@ export const RETIRED_ADDONS: { code: string; reason: string }[] = [
  * ticking `active` in admin, or deleting a line here.
  */
 export const SHELVED_ADDONS: { code: string; reason: string }[] = [
-  { code: 'PRINTABLE', reason: 'nothing produces the layout yet' },
   { code: 'CUSTOM_DOMAIN', reason: 'no one is set up to do the domain yet' },
 ];
 
@@ -111,6 +113,31 @@ export const ADDONS: AddOnSpec[] = [
     name: 'Save the Date card',
     description: 'A second card on the same design, with its own link, for sending months ahead. Your names, your date and your cover photo — the venue, the programme and the RSVP wait for the invitation itself. It publishes on its own, so announcing early does not use up the rounds of changes on your invitation.',
     sortOrder: 2,
+  },
+
+  /*
+   * The printable, back on sale at ₱199.
+   *
+   * It was shelved because the Print / PDF button produces the live page on A4
+   * — seventeen sheets on a real wedding, three of them a form, an upload box
+   * and a countdown — and nothing produced a layout fit for paper.
+   *
+   * What changed is the promise, not the layout. This is not sold as a button
+   * that makes a file; it is sold as a thing we arrange and send, which is what
+   * this whole business already is. That is deliverable the day it goes on sale
+   * and it stays true afterwards: when the A5 card is built, the same sentence
+   * describes a faster version of the same deliverable.
+   *
+   * The description therefore promises a PDF by hand within a day, and does not
+   * mention a download. Whoever builds the card should leave the promise alone
+   * and simply stop doing the arranging by hand.
+   */
+  {
+    code: 'PRINTABLE',
+    price: 199,
+    name: 'Printable PDF',
+    description: 'A print version of your invitation, laid out for paper and sent to you as a PDF — for the copy on the reception desk, the one taped inside the church door, and the lola who is not scanning anything. We arrange it once your invitation is published and send it to you within a working day.',
+    sortOrder: 3,
   },
 
   // Three whole features, each already built and already included in some

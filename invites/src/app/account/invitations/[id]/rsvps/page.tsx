@@ -4,7 +4,7 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { rsvpSummary } from '@/lib/guests';
-import { hasFeature } from '@/lib/tiers';
+import { hasFeature, entitled } from '@/lib/tiers';
 import { formatDateTime } from '@/lib/datetime';
 import { replyIdentity } from '@/lib/names';
 import { PageHeader, Stat, Empty } from '@/components/ui';
@@ -55,7 +55,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   const [rsvps, summary] = await Promise.all([prisma.rsvp.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true, groupName: true, response: true, seats: true, attendees: true, mealChoice: true, dietary: true, message: true, phone: true, email: true, department: true, updatedAt: true, guestId: true, guest: { select: { name: true } }, emails: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, error: true } } }, orderBy: { updatedAt: 'desc' } }), rsvpSummary(inv.id)]);
   const dashboard = hasFeature(inv.tier, 'rsvp.dashboard');
-  const confirms = hasFeature(inv.tier, 'rsvp.emailConfirmation');
+  const confirms = entitled(inv, 'rsvp.emailConfirmation');
   return (
     <>
       <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>

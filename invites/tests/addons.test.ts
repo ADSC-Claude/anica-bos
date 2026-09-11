@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { ADDONS, RETIRED_ADDONS, SHELVED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
-import { ADDON_FEATURE, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL, TIERS } from '../src/lib/tiers';
+import { ADDON_FEATURE, ADDON_EXTRA, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL, TIERS } from '../src/lib/tiers';
 import { addOnAvailable } from '../src/lib/pricing';
 
 test('a package that includes a feature is not sold it again', () => {
@@ -50,6 +50,86 @@ test('check-in and seating carry the guest list they cannot work without', () =>
   }
   // The password has no such dependency and grants nothing else.
   assert.deepEqual([...ADDON_FEATURE.PASSWORD], ['privacy.password']);
+});
+
+test('a guest communication suite buys the RSVP confirmation; a text pack does not', () => {
+  // Luxury writes back to every guest who accepts, free. Below it the same send
+  // is the paid e-mail blast, and the way to have it there is to buy one — a
+  // comms suite, which is the product that e-mails guests for a couple.
+  assert.equal(entitled({ tier: 'COMPLETE', addOns: [] }, 'rsvp.emailConfirmation'), false);
+  assert.equal(entitled({ tier: 'COMPLETE', addOns: ['COMMS_BASIC_100'] }, 'rsvp.emailConfirmation'), true);
+  assert.equal(entitled({ tier: 'BASIC', addOns: ['COMMS_EXCLUSIVE_1000'] }, 'rsvp.emailConfirmation'), true);
+
+  // Texts only, so no. Selling an e-mail with a text pack is the same mistake
+  // as refusing one with a comms suite, in the other direction.
+  assert.equal(entitled({ tier: 'BASIC', addOns: ['SMS_REMINDER_1000'] }, 'rsvp.emailConfirmation'), false);
+
+  // And it carries the confirmation, not the rest of the top package.
+  assert.equal(entitled({ tier: 'BASIC', addOns: ['COMMS_EXCLUSIVE_1000'] }, 'checkin'), false);
+  assert.equal(entitled({ tier: 'BASIC', addOns: ['COMMS_EXCLUSIVE_1000'] }, 'photoSharing'), false);
+
+  // Every catalogued suite, not only the two written out above: the codes are
+  // matched by pattern, and a new band must not fall outside it.
+  for (const row of campaigns()) {
+    const bought = { tier: 'BASIC' as const, addOns: [row.code] };
+    assert.equal(
+      entitled(bought, 'rsvp.emailConfirmation'),
+      row.code.startsWith('COMMS_'),
+      `${row.code} and the confirmation`,
+    );
+  }
+});
+
+test('an add-on that carries a feature along is still sold to a package that has it', () => {
+  // This is why ADDON_EXTRA is not another line in ADDON_FEATURE. The first
+  // entry there decides who is offered an add-on at all — a package that
+  // includes the headline is not sold it twice — and Luxury already has the
+  // confirmation. Reaching that rule would refuse Luxury a comms suite, which
+  // is the package most likely to buy one.
+  for (const row of campaigns()) {
+    for (const tier of TIERS) {
+      assert.equal(addOnAvailable(row.code, tier), true, `${row.code} refused to ${tier}`);
+    }
+  }
+});
+
+test('what an add-on carries along is a real feature some package includes', () => {
+  // The same rule as the headline features below: a second door to a room that
+  // exists, never a promise of one.
+  for (const { match, features } of ADDON_EXTRA) {
+    assert.ok(features.length > 0, `${match} carries nothing`);
+    for (const f of features) {
+      assert.ok(FEATURE_MIN_TIER[f], `${match} carries ${f}, which is not a feature`);
+      assert.equal(hasFeature('LUXURY', f), true, `${match} carries ${f}, which no package includes`);
+      // Not a headline anywhere, or addOnAvailable would read it after all.
+      assert.equal(addOnForFeature(f), undefined, `${f} is both carried along and a headline`);
+    }
+    // The pattern has to match something in the catalogue, or it is a rule
+    // about codes that do not exist.
+    assert.ok(ADDONS.some((a) => match.test(a.code)), `${match} matches no add-on`);
+  }
+});
+
+test('the confirmation row offers an add-on only once that add-on is for sale', () => {
+  // Every comms suite is held — priced, catalogued, not sellable, because the
+  // guest count at checkout that holds a band to its number does not exist. So
+  // the row below Luxury is an honest blank today rather than "Add-on".
+  //
+  // #129 took the rows out of this table that offered what nobody could buy.
+  // This keeps one from walking back in, and fails on the day the suites go on
+  // sale, so the row is changed with them instead of a year later.
+  const row = COMPARISON_ALL.find((r) => r.label.startsWith('E-mail confirmation'));
+  assert.ok(row, 'the comparison row is gone');
+
+  const sellable = ADDONS.some(
+    (a) => !a.held && ADDON_EXTRA.some((e) => e.match.test(a.code) && e.features.includes('rsvp.emailConfirmation')),
+  );
+  assert.equal(sellable, false, 'a comms suite is for sale now — the row below Luxury should say "Add-on"');
+
+  for (const tier of TIERS) {
+    const includes = hasFeature(tier, 'rsvp.emailConfirmation');
+    assert.equal(row.cells[tier], includes ? true : sellable ? 'Add-on' : false, `${row.label} on ${tier}`);
+  }
 });
 
 test('every add-on feature is already built and sold on some tier', () => {

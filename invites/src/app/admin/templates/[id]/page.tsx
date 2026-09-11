@@ -5,7 +5,9 @@ import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { LOOKS, LOOK_BY_KEY, isLook, lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
+import { lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
+import { findSet } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
@@ -34,10 +36,13 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   const pal = paletteFrom(t?.palette);
   const occasion = t?.occasion ?? 'WEDDING';
   const fontsKey = FONT_PRESETS.find((f) => JSON.stringify(f.fonts) === JSON.stringify(t?.fonts))?.key ?? 'serif';
-  // the design's own words and pictures, and the look whose wording they replace
+  // Every pairing she has switched on, and the one this design is set in.
+  const sets = await fontBook();
+  const set = findSet(t?.look ?? '', sets);
+  // the design's own words and pictures, and the wording they replace
   const words = wordsOf(t?.words);
   const art = artOf(t?.art);
-  const look = t?.look && isLook(t.look) ? LOOK_BY_KEY[t.look] : undefined;
+  const look = set?.look;
   const wordRows: { key: WordKey; label: string; en: string; tl: string }[] = [
     ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}`, en: lookTitle(look, 'en', k) ?? '', tl: lookTitle(look, 'tl', k) ?? '' })),
     ...LINE_KEYS.map((k) => ({ key: k, label: LINE_LABELS[k], en: lookLine(look, 'en', k) ?? '', tl: lookLine(look, 'tl', k) ?? '' })),
@@ -124,7 +129,25 @@ export default async function TemplateEditor({ params, searchParams }: { params:
             ))}
           </div>
           <Select label="Fonts" name="fontsKey" defaultValue={fontsKey} options={FONT_PRESETS.map((f) => ({ value: f.key, label: f.label }))} hint="Used only when no look is set below." />
-          <Select label="Look" name="look" defaultValue={t?.look ?? ''} options={[{ value: '', label: '— none: the fonts above, no lines under the headings —' }, ...LOOKS.map((l) => ({ value: l.key, label: `${l.name} — ${l.tagline}` }))]} hint="A look is a set of faces and the lines under each heading, in English and Tagalog. See /looks for all of them side by side." />
+          <Select label="Font set" name="look" defaultValue={t?.look ?? ''} options={[{ value: '', label: '— none: the fonts above, no lines under the headings —' }, ...sets.map((x) => ({ value: x.key, label: `${x.name} — ${x.tagline}` }))]} hint="A set is the faces a page is set in and, through its voice, the lines under each heading in English and Tagalog. The list is yours to edit under Fonts; see /looks for the five voices side by side." />
+          {/*
+            * Which of her sets a customer on this design may choose between.
+            * Nothing ticked means every one their package allows, which is
+            * what every design does today — a design narrows the choice, it
+            * can never widen it past the package.
+            */}
+          <fieldset>
+            <legend className="label">Sets offered on this design</legend>
+            <p className="hint mb-1">Nothing ticked means every set the customer&rsquo;s package allows.</p>
+            <div className="grid max-h-56 grid-cols-1 gap-0.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-2 sm:grid-cols-2">
+              {sets.map((x) => (
+                <label key={x.key} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" name={`set_${x.key}`} defaultChecked={t?.fontSets?.includes(x.key) ?? false} />
+                  <span className="truncate" style={{ fontFamily: x.fonts.names || x.fonts.display }}>{x.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           {/*
             * Which sections this design offers.
             *

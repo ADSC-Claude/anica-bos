@@ -3,13 +3,14 @@ import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
+import type { BookSet } from '@/lib/fonts';
 import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
 import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
-import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
+import { cssVars, faceRules, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
@@ -61,6 +62,12 @@ export type RenderProps = {
   shape?: 'phone';
   /** A look to set the page in, over the design's and the customer's. For the showcase. */
   look?: Look;
+  /**
+   * The owner's faces and pairings. Handed in because this component is
+   * synchronous and the rows are a query; without it the code's own book is
+   * used, which is what the tables were stocked with.
+   */
+  sets?: BookSet[];
   businessName: string;
 };
 
@@ -1580,11 +1587,11 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, shape, look: lookOverride, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
-  const theme = resolveTheme(inv.template, content, inv.tier);
+  const theme = resolveTheme(inv.template, content, inv.tier, sets);
   const { palette } = theme;
   // The design's own words written over the look's, and its own pictures
   // where the encoder set them; a blank slot keeps the layout's own.
@@ -2062,7 +2069,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
     <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours }} lang={lang}>
-      <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />
+      {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
+      {/* a face she uploaded, served from our own bucket rather than by Google */}
+      {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}
       {peek && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}

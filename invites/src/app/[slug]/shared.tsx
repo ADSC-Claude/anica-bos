@@ -7,6 +7,7 @@ import { hasGuestAccess } from '@/lib/guest-access';
 import { isStaff } from '@/lib/rbac';
 import { readDraftLink, keyOpens } from '@/lib/draft-link';
 import { getSettings } from '@/lib/settings';
+import { fontBook } from '@/lib/font-book';
 import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
 import { str, eventInstant } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
@@ -108,7 +109,7 @@ export async function PeekPage({ slug }: { slug: string }) {
   const invitation = await loadPublic(slug, { preview: true });
   if (!invitation || invitation.template.demoSlug !== slug) notFound();
   const s = await getSettings();
-  return <Invitation invitation={invitation} guest={null} peek businessName={s['business.name']} />;
+  return <Invitation invitation={invitation} guest={null} peek sets={await fontBook()} businessName={s['business.name']} />;
 }
 
 /**
@@ -133,5 +134,5 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
   const shown = draft && (previewer || keyed)
     ? { ...invitation, template: { ...invitation.template, design: invitation.template.designDraft } }
     : invitation;
-  return <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} businessName={s['business.name']} />;
+  return <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} sets={await fontBook()} businessName={s['business.name']} />;
 }

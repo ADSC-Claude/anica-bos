@@ -27,7 +27,8 @@ import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { isLook } from '@/lib/looks';
+import { findSet } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
@@ -168,7 +169,10 @@ export async function saveTemplateAction(templateId: string | null, back: string
       description: s(fd, 'description'),
       thumbnailUrl: s(fd, 'thumbnailUrl'),
       layout,
-      look: isLook(s(fd, 'look')) ? s(fd, 'look') : '',
+      look: findSet(s(fd, 'look'), await fontBook())?.key ?? '',
+      // Nothing ticked is "every set the package allows", so an empty array
+      // is the default rather than a design that offers nothing at all.
+      fontSets: (await fontBook()).filter((x) => fd.get(`set_${x.key}`) === 'on').map((x) => x.key),
       collection: isCollection(s(fd, 'collection')) ? s(fd, 'collection') : '',
       // A clip with no poster would leave the guest on a blank screen until it
       // buffered, so the pair only takes effect together.
@@ -478,7 +482,7 @@ export async function themeAction(templateId: string, colours: Record<string, st
   const labels: Record<string, string> = { bg: 'The paper', surface: 'The card', ink: 'The ink', muted: 'The muted ink', accent: 'The accent', accent2: 'The second accent' };
   const bad = roles.find((r) => !/^#[0-9a-f]{6}$/i.test(colours[r] ?? ''));
   if (bad) return { ok: false, error: `${labels[bad]} is not a colour. Each of the six is a six-digit hex, like #f7f5f0.` };
-  const set = fontsKey ? FONT_PRESETS.find((f) => f.key === fontsKey) : undefined;
+  const set = fontsKey ? findSet(fontsKey, await fontBook()) : undefined;
   if (fontsKey && !set) return { ok: false, error: 'That font set is not one of ours.' };
   const t = await prisma.template.findUnique({ where: { id: templateId }, select: { name: true, palette: true, fonts: true } });
   if (!t) return { ok: false, error: 'That design is not there any more.' };
@@ -493,7 +497,7 @@ export async function themeAction(templateId: string, colours: Record<string, st
   });
   await audit(user, {
     module: 'templates', action: 'theme', entityType: 'Template', entityId: templateId,
-    summary: `${t.name}: ${set ? set.label : 'the faces unchanged'}, ${live} live and ${drafts} draft invitations`,
+    summary: `${t.name}: ${set ? set.name : 'the faces unchanged'}, ${live} live and ${drafts} draft invitations`,
     before: { palette: t.palette, fonts: t.fonts } as never,
     after: { palette, fonts: set ? set.fonts : t.fonts } as never,
   });

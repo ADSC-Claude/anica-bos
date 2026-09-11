@@ -30,8 +30,10 @@ import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
-import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
-import { LOOK_BY_KEY, BASE_LOOK, isLook, lookAllowed, type Look } from './looks';
+import { PALETTE_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
+import { type Look } from './looks';
+import { builtInSets, findSet, findFaces, setAllowed, baseSet, type BookSet } from './fonts';
+import { fontBook } from './font-book';
 import { hasPremiumOpening } from './openings';
 import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
@@ -311,15 +313,17 @@ export async function updateTheme(user: SessionUser, invitationId: string, theme
   // Colours are every package's: the presets and the picker alike.
   if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) clean.paletteKey = theme.paletteKey;
   if (theme.palette) clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
-  if (theme.fontsKey && FONT_PRESETS.some((f) => f.key === theme.fontsKey)) {
+  const sets = await fontBook();
+  if (theme.fontsKey && findFaces(theme.fontsKey, sets)) {
     if (!hasFeature(invitation.tier, 'fonts.custom')) throw new HttpError(403, `Font presets are included in the ${TIER_LABELS.COMPLETE} package.`);
     clean.fontsKey = theme.fontsKey;
   }
   // A look is the faces and the lines under the headings. Basic keeps the
-  // design's own; Standard chooses among three, Signature among five.
+  // design's own; Standard chooses among three, Signature among five — and
+  // how many each package sees is now hers to change, a row at a time.
   if (theme.lookKey !== undefined) {
-    const key = isLook(theme.lookKey) ? theme.lookKey : '';
-    if (!lookAllowed(invitation.tier, key)) {
+    const key = findSet(theme.lookKey, sets)?.key ?? '';
+    if (!setAllowed(invitation.tier, key, sets)) {
       throw new HttpError(403, hasFeature(invitation.tier, 'fonts.choice')
         ? `That font style is included in the ${TIER_LABELS.COMPLETE} package.`
         : `The Basic package is set in one font style. Standard chooses among three, ${TIER_LABELS.COMPLETE} among five.`);
@@ -348,20 +352,35 @@ export async function setPremiumOpening(user: SessionUser, invitationId: string,
   return prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
 }
 
-/** The palette and fonts a page renders with: the template's, overridden by the customer's. */
 /**
- * The palette, the fonts and the look a page is set in. The design's own
- * first, then what the customer chose over it. A look brings its fonts with
- * it — that is what a look is — so a chosen look wins over a chosen font
- * preset, and a design with a look ignores its own `fonts` column.
+ * The palette, the fonts and the wording a page is set in. The design's own
+ * first, then what the customer chose over it.
+ *
+ * A set brings its wording with it — that is what a set's `voice` is — so a
+ * chosen set wins over a chosen pair of faces, and a design with a set
+ * ignores its own `fonts` column. A pair of faces chosen on its own
+ * (`fontsKey`) is the one case where the faces change and the wording does
+ * not: the design keeps its own lines under its own headings.
+ *
+ * The sets are handed in rather than fetched, because this is called from
+ * the renderer and the renderer is synchronous. A caller with no book gets
+ * the book the code itself is, which is what the tables were stocked with —
+ * so the answer is the same either way until she edits a row.
  */
-export function resolveTheme(template: { palette: unknown; fonts: unknown; look?: string }, content: StoredContent, tier?: Tier): { palette: Palette; fonts: Fonts; look?: Look } {
+export function resolveTheme(
+  template: { palette: unknown; fonts: unknown; look?: string },
+  content: StoredContent,
+  tier?: Tier,
+  sets: BookSet[] = builtInSets(),
+): { palette: Palette; fonts: Fonts; look?: Look } {
   let palette = paletteFrom(template.palette);
   let fonts = fontsFrom(template.fonts);
-  let look: Look | undefined = template.look && isLook(template.look) ? LOOK_BY_KEY[template.look] : undefined;
-  // A design drawn in a look above the package is set in the one every package
+  let set = findSet(template.look ?? '', sets);
+  // A design drawn in a set above the package is set in the one every package
   // has: Basic is Modern, whatever the design ships in.
-  if (tier && look && !lookAllowed(tier, look.key)) look = LOOK_BY_KEY[BASE_LOOK];
+  if (tier && set && !setAllowed(tier, set.key, sets)) set = baseSet(sets);
+  // Faces without the voice: the design keeps its own lines.
+  let voiceless = false;
   const t = content.theme;
   if (t?.paletteKey) {
     const preset = PALETTE_PRESETS.find((p) => p.key === t.paletteKey);
@@ -369,17 +388,23 @@ export function resolveTheme(template: { palette: unknown; fonts: unknown; look?
   }
   if (t?.palette) palette = paletteFrom({ ...palette, ...t.palette });
   if (t?.fontsKey) {
-    const preset = FONT_PRESETS.find((f) => f.key === t.fontsKey);
-    if (preset) {
-      fonts = preset.fonts;
-      look = undefined;
+    const chosen = findFaces(t.fontsKey, sets);
+    if (chosen) {
+      set = chosen;
+      voiceless = true;
     }
   }
-  // A look chosen above the package — an invitation downgraded after the fact —
+  // A set chosen above the package — an invitation downgraded after the fact —
   // is ignored, so the page shows only what was paid for.
-  if (t?.lookKey && isLook(t.lookKey) && (!tier || lookAllowed(tier, t.lookKey))) look = LOOK_BY_KEY[t.lookKey];
-  if (look) fonts = look.fonts;
-  return { palette, fonts, look };
+  if (t?.lookKey && (!tier || setAllowed(tier, t.lookKey, sets))) {
+    const chosen = findSet(t.lookKey, sets);
+    if (chosen) {
+      set = chosen;
+      voiceless = false;
+    }
+  }
+  if (set) fonts = set.fonts;
+  return { palette, fonts, look: set && !voiceless ? set.look : undefined };
 }
 
 export async function updateSettings(

@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtInBook, bookSets, fontsOf, mergeWeights, familyOf, faceKey, loadEntry,
-  PRESET_VOICE, RENAMED_SETS, DEFAULT_WEIGHTS, type FaceRow, type SetRow,
+  PRESET_VOICE, RENAMED_SETS, DEFAULT_WEIGHTS, builtInSets, findSet, setsFor, setAllowed, baseSet,
+  type FaceRow, type SetRow,
 } from '../src/lib/fonts';
+import { resolveTheme } from '../src/lib/invitations';
 import { FONT_PRESETS, faceRules, fontsFrom, googleFontsUrl } from '../src/lib/theme';
 import { LOOKS, LOOK_MIN_TIER, isLook } from '../src/lib/looks';
 
@@ -128,4 +130,67 @@ test('a face key is the family, and a Google entry is the family and its axes', 
   assert.equal(familyOf('Georgia, serif'), 'Georgia');
   assert.equal(loadEntry(faces.get('italiana')!), 'Italiana:wght@400');
   assert.match(googleFontsUrl(fontsOf(setOf('heritage'), faces)!), /family=Cormorant\+Garamond:ital,wght@/);
+});
+
+test('what a package may choose from is the old rule, against rows', () => {
+  assert.deepEqual(setsFor('BASIC').map((s) => s.key), ['modern'], 'Basic is set in Modern and picks nothing');
+  assert.deepEqual(setsFor('STANDARD').map((s) => s.key), ['modern', 'romance', 'editorial']);
+  // and Complete now sees every pairing she has switched on, not just five
+  const all = setsFor('COMPLETE');
+  assert.equal(all.length, book.sets.length);
+  assert.deepEqual(all.slice(0, 5).map((s) => s.key), ['modern', 'romance', 'editorial', 'heritage', 'regal']);
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) assert.equal(setAllowed(tier, ''), true, tier);
+  assert.equal(setAllowed('BASIC', 'romance'), false);
+  assert.equal(setAllowed('STANDARD', 'playfair-lato'), false, 'a pairing is the top package’s');
+  assert.equal(setAllowed('COMPLETE', 'playfair-lato'), true);
+  assert.equal(setAllowed('COMPLETE', 'nonsense'), false);
+});
+
+test('a design narrows the choice and can never widen it past the package', () => {
+  const offered = ['romance', 'playfair-lato', 'regal'];
+  assert.deepEqual(setsFor('COMPLETE', builtInSets(), offered).map((s) => s.key), ['romance', 'regal', 'playfair-lato']);
+  // Standard may not have the pairing, and the design offering it changes nothing
+  assert.deepEqual(setsFor('STANDARD', builtInSets(), offered).map((s) => s.key), ['romance']);
+  // nothing offered is everything the package allows
+  assert.equal(setsFor('STANDARD', builtInSets(), []).length, 3);
+});
+
+test('she can switch a set off, and an invitation set in it falls back rather than breaking', () => {
+  const off = builtInBook();
+  off.sets = off.sets.map((s) => (s.key === 'regal' ? { ...s, enabled: false } : s));
+  const sets = bookSets(off);
+  assert.equal(findSet('regal', sets), undefined);
+  const design = { palette: {}, fonts: {}, look: 'regal' };
+  // the design's own set is gone: its fonts column alone, and no wording
+  assert.equal(resolveTheme(design, {}, undefined, sets).look, undefined);
+  // and a customer who had chosen it keeps the design's, not a blank page
+  assert.equal(resolveTheme({ ...design, look: 'heritage' }, { theme: { lookKey: 'regal' } }, 'COMPLETE', sets).look?.key, 'heritage');
+});
+
+test('a set above the package falls back to the one every package has', () => {
+  const design = { palette: {}, fonts: {}, look: 'heritage' };
+  assert.equal(resolveTheme(design, {}, 'COMPLETE').look?.key, 'heritage');
+  assert.equal(resolveTheme(design, {}, 'BASIC').look?.key, 'modern');
+  assert.equal(baseSet()?.key, 'modern');
+  // a design set in a pairing, bought at Basic, is set in the base set's faces
+  assert.equal(resolveTheme({ ...design, look: 'playfair-lato' }, {}, 'BASIC').fonts.display, findSet('modern')!.fonts.display);
+});
+
+test('a design set in a pairing speaks in the pairing’s voice', () => {
+  // This is the new capability: faces she paired, wording from a look, and
+  // no blank lines under the headings.
+  const design = { palette: {}, fonts: {}, look: 'alex-brush-sanchez' };
+  const theme = resolveTheme(design, {}, 'COMPLETE');
+  assert.match(theme.fonts.names ?? '', /Alex Brush/);
+  assert.equal(theme.look?.key, 'romance', 'the voice the pairing was given');
+  assert.equal(theme.look?.lines.cover.en, 'Together with their families');
+});
+
+test('a pairing’s line for a picker names what each face does', () => {
+  assert.equal(findSet('heritage')!.tagline, LOOKS[0].tagline, 'a look keeps the line written for it');
+  assert.equal(
+    findSet('alex-brush-sanchez')!.tagline,
+    'Alex Brush for the names, Sanchez for the headings.',
+  );
+  assert.equal(findSet('playfair-lato')!.tagline, 'Playfair Display for the headings, Lato to read.');
 });

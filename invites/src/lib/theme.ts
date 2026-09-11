@@ -202,19 +202,6 @@ export function googleFontsUrl(fonts: Fonts): string {
 }
 
 /**
- * The set in the list a stored pair of faces is, if it is one of them.
- *
- * Compared face by face rather than as JSON, so a set saved before a field
- * was added to the type is still recognised as itself: what makes two sets
- * the same is that they draw the same letters.
- */
-export function fontSetKey(fonts: Fonts): string {
-  const same = (a: Fonts, b: Fonts) =>
-    a.display === b.display && a.body === b.body && (a.names ?? '') === (b.names ?? '') && (a.script ?? '') === (b.script ?? '');
-  return FONT_PRESETS.find((f) => same(f.fonts, fonts))?.key ?? '';
-}
-
-/**
  * The stylesheet that draws a menu of font sets in the faces it offers.
  *
  * One request for all of them, because forty sets would otherwise be forty
@@ -224,9 +211,9 @@ export function fontSetKey(fonts: Fonts): string {
  * single weight asked of a family that has it can never fail the whole
  * request and leave every face in the menu drawn in the fallback.
  */
-export function allFacesUrl(): string {
+export function allFacesUrl(sets: { fonts: Fonts }[] = FONT_PRESETS): string {
   const best = new Map<string, string>();
-  for (const set of FONT_PRESETS) {
+  for (const set of sets) {
     for (const entry of set.fonts.load) {
       const family = entry.split(':')[0];
       const had = best.get(family);

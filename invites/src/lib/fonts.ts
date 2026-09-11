@@ -1,7 +1,8 @@
 import type { Tier } from '@prisma/client';
-import type { LookKey } from './looks';
-import { LOOKS, LOOK_MIN_TIER } from './looks';
+import type { Look, LookKey } from './looks';
+import { LOOKS, LOOK_BY_KEY, LOOK_MIN_TIER, BASE_LOOK, isLook } from './looks';
 import { FONT_PRESETS, type Fonts } from './theme';
+import { tierAtLeast, RANK } from './tiers';
 
 /**
  * The owner's faces and pairings, as data rather than as code.
@@ -76,7 +77,16 @@ export type SetRow = {
 export type FontBook = { faces: FaceRow[]; sets: SetRow[] };
 
 /** A set with its faces already looked up: what a picker and `resolveTheme` want. */
-export type BookSet = { key: string; name: string; fonts: Fonts; voice: LookKey; minTier: Tier };
+export type BookSet = {
+  key: string;
+  name: string;
+  fonts: Fonts;
+  /** Which look's wording it speaks in, as the look itself. */
+  look: Look;
+  minTier: Tier;
+  /** One line for a picker: the look's own, or the faces this pairing draws in. */
+  tagline: string;
+};
 
 /** The family a CSS stack begins with: `'Cormorant Garamond', Georgia, serif` → `Cormorant Garamond`. */
 export function familyOf(stack: string): string {
@@ -189,6 +199,26 @@ export function fontsOf(set: SetRow, faces: Map<string, FaceRow>): Fonts | null 
   };
 }
 
+/**
+ * One line about a set, for a picker.
+ *
+ * A look already has one written for it — five sentences about five voices,
+ * and better than anything derived. A pairing's name already says its faces,
+ * so the line says what each one does instead, which is the part a name
+ * leaves out.
+ */
+function taglineOf(set: SetRow, faces: Map<string, FaceRow>): string {
+  if (isLook(set.key)) return LOOK_BY_KEY[set.key].tagline;
+  const name = (key: string) => faces.get(key)?.name ?? '';
+  const parts = [
+    name(set.namesKey) && `${name(set.namesKey)} for the names`,
+    name(set.displayKey) && `${name(set.displayKey)} for the headings`,
+    name(set.scriptKey) && name(set.scriptKey) !== name(set.namesKey) && `${name(set.scriptKey)} for the lines under them`,
+    name(set.bodyKey) && name(set.bodyKey) !== name(set.displayKey) && `${name(set.bodyKey)} to read`,
+  ].filter(Boolean);
+  return parts.length ? `${parts.join(', ')}.` : '';
+}
+
 /** Every set the book can draw, in its order, skipping any whose display face is gone. */
 export function bookSets(book: FontBook): BookSet[] {
   const faces = new Map(book.faces.map((f) => [f.key, f]));
@@ -197,8 +227,94 @@ export function bookSets(book: FontBook): BookSet[] {
     .sort((a, b) => a.sortOrder - b.sortOrder || a.key.localeCompare(b.key))
     .flatMap((s) => {
       const fonts = fontsOf(s, faces);
-      return fonts ? [{ key: s.key, name: s.name, fonts, voice: s.voice, minTier: s.minTier }] : [];
+      const look = LOOK_BY_KEY[isLook(s.voice) ? s.voice : BASE_LOOK];
+      return fonts ? [{ key: s.key, name: s.name, fonts, look, minTier: s.minTier, tagline: taglineOf(s, faces) }] : [];
     });
+}
+
+/**
+ * The book the code is, resolved, worked out once.
+ *
+ * Every reader takes the sets it should use as an argument and falls back to
+ * this — so a page rendered before the tables have been read, or against a
+ * database migrated but not yet stocked, is the page the code always drew
+ * rather than a page with no faces at all.
+ */
+let builtIn: BookSet[] | null = null;
+export function builtInSets(): BookSet[] {
+  if (!builtIn) builtIn = bookSets(builtInBook());
+  return builtIn;
+}
+
+/**
+ * The set behind a stored key, whatever list it was stored against.
+ *
+ * `RENAMED_SETS` is consulted second, not first: if she ever makes a set of
+ * her own called `modern-inter` the alias must not shadow it.
+ */
+export function findSet(key: string, sets: BookSet[] = builtInSets()): BookSet | undefined {
+  if (!key) return undefined;
+  return sets.find((s) => s.key === key) ?? (RENAMED_SETS[key] ? sets.find((s) => s.key === RENAMED_SETS[key]) : undefined);
+}
+
+/**
+ * The set behind a stored `fontsKey`, which is a different question.
+ *
+ * `fontsKey` was written against the pairings' key space and `lookKey`
+ * against the looks', and the two spaces share `modern` and `editorial`.
+ * The look kept the key, so a `lookKey` is looked up directly — but a
+ * `fontsKey` of `editorial` meant Playfair and DM Sans, never the Editorial
+ * look's Bodoni, and resolving it the other way would silently re-set a
+ * paid-for invitation in a different typeface. So here the rename is
+ * consulted first and the direct key second.
+ */
+export function findFaces(key: string, sets: BookSet[] = builtInSets()): BookSet | undefined {
+  if (!key) return undefined;
+  return (RENAMED_SETS[key] ? sets.find((s) => s.key === RENAMED_SETS[key]) : undefined) ?? sets.find((s) => s.key === key);
+}
+
+/**
+ * The set in the book a stored pair of faces is, if it is one of them.
+ *
+ * Compared face by face rather than as JSON, so a pair saved before a field
+ * was added to the type is still recognised as itself: what makes two sets
+ * the same is that they draw the same letters.
+ */
+export function setForFaces(fonts: Fonts, sets: BookSet[] = builtInSets()): BookSet | undefined {
+  const same = (a: Fonts, b: Fonts) =>
+    a.display === b.display && a.body === b.body && (a.names ?? '') === (b.names ?? '') && (a.script ?? '') === (b.script ?? '');
+  return sets.find((s) => same(s.fonts, fonts));
+}
+
+/**
+ * The sets this package may choose from, the ones it already had first.
+ *
+ * This was `looksFor`, and it was five looks with their tiers written in
+ * code. It is the same rule against rows: Basic sees the one set that asks
+ * for nothing, Standard the three it always had, Complete everything she has
+ * switched on. A design may narrow the list further — `Template.fontSets` —
+ * but never widen it past the package.
+ */
+export function setsFor(tier: Tier, sets: BookSet[] = builtInSets(), offered: string[] = []): BookSet[] {
+  const allowed = sets.filter((s) => tierAtLeast(tier, s.minTier));
+  const narrowed = offered.length ? allowed.filter((s) => offered.includes(s.key)) : allowed;
+  return narrowed.sort((a, b) => RANK[a.minTier] - RANK[b.minTier] || sets.indexOf(a) - sets.indexOf(b));
+}
+
+/** Whether this package may set that set. Blank — the design's own — is always allowed. */
+export function setAllowed(tier: Tier, key: string, sets: BookSet[] = builtInSets()): boolean {
+  if (!key) return true;
+  const set = findSet(key, sets);
+  return !!set && tierAtLeast(tier, set.minTier);
+}
+
+/**
+ * The set every package has, and the one a design falls back to when its own
+ * is above the package: a design drawn in Regal, bought at Basic, is set in
+ * whatever the cheapest set is rather than in nothing.
+ */
+export function baseSet(sets: BookSet[] = builtInSets()): BookSet | undefined {
+  return findSet(BASE_LOOK, sets) ?? sets.find((s) => s.minTier === 'BASIC') ?? sets[0];
 }
 
 /**

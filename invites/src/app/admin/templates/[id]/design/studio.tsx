@@ -18,7 +18,7 @@ import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
-import { cssVars, fontsFrom, FONT_PRESETS, PALETTE_PRESETS, allFacesUrl, type Fonts, type Palette } from '@/lib/theme';
+import { cssVars, fontsFrom, PALETTE_PRESETS, type Fonts, type Palette } from '@/lib/theme';
 import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
 import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
@@ -85,6 +85,14 @@ type Props = {
     overridden: boolean;
     live: number;
     drafts: number;
+    /**
+     * Every pairing she has switched on, drawn in its own faces. Handed in
+     * rather than imported, because the list is rows now and the studio is
+     * a client component.
+     */
+    sets: { key: string; name: string; tagline: string; fonts: Fonts }[];
+    /** One stylesheet drawing the whole menu in the faces it offers. */
+    facesUrl: string;
   };
   canPublish: boolean;
   /** the live Share-draft link, or blank when the design is not shared */
@@ -164,10 +172,10 @@ export function Studio(p: Props) {
    * the column underneath is set, and the popover says so.
    */
   const varsFor = useCallback((t: Tried, preview = false) => {
-    const set = !preview && p.theme.look ? undefined : FONT_PRESETS.find((f) => f.key === t.fontsKey);
+    const set = !preview && p.theme.look ? undefined : p.theme.sets.find((f) => f.key === t.fontsKey);
     const made = cssVars(t.colours, set?.fonts ?? fontsFrom(null));
     return set ? made : { ...made, ...Object.fromEntries(FACE_VARS.map((k) => [k, p.vars[k]])) };
-  }, [p.theme.look, p.vars]);
+  }, [p.theme.look, p.theme.sets, p.vars]);
   const vars = useMemo(() => (tried ? varsFor(tried, true) : after ?? p.vars), [tried, after, varsFor, p.vars]);
   /**
    * Who the canvas is drawn against. The checklist above is not switched
@@ -1252,7 +1260,7 @@ export function Studio(p: Props) {
         * connection or a request that fails. The faces arrive when they
         * arrive, and until they do the menu is in the fallback.
         */}
-      {faces && <link rel="stylesheet" href={allFacesUrl()} />}
+      {faces && <link rel="stylesheet" href={p.theme.facesUrl} />}
       <TopBar {...p} state={state} error={error} rev={rev} doc={doc} onSave={() => void save(doc)} />
 
       {/* the pages */}
@@ -1850,7 +1858,7 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
         ? <p className="hint">This design is set in the {theme.look} look, so a guest is served the look&rsquo;s faces and the set below is only what it would fall back to — the canvas shows the set while you are trying it, and goes back to the look&rsquo;s faces once it is saved. The look is on <Link href={`/admin/templates/${templateId}`} className="underline">the design&rsquo;s own page</Link>.</p>
         : !value.fontsKey && <p className="hint">These faces are not one of the sets below. Picking one replaces them; leaving it alone keeps them.</p>}
       <div className="mt-1 max-h-56 space-y-0.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-1">
-        {FONT_PRESETS.map((f) => (
+        {theme.sets.map((f) => (
           <button
             key={f.key}
             type="button"
@@ -1861,7 +1869,7 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
             {f.fonts.script && f.fonts.script !== (f.fonts.names || f.fonts.display) && (
               <span className="block text-sm leading-tight" style={{ fontFamily: f.fonts.script, fontStyle: f.fonts.scriptStyle ?? 'normal' }}>together with our families</span>
             )}
-            <span className="block text-[11px] leading-snug" style={{ fontFamily: f.fonts.body }}>{f.label}</span>
+            <span className="block text-[11px] leading-snug" style={{ fontFamily: f.fonts.body }}>{f.name}</span>
           </button>
         ))}
       </div>

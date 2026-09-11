@@ -31,10 +31,20 @@ export function Figure({
 }) {
   const shape = `ed-figure ${arch ? 'ed-figure-arch' : ''} ${className}`.trim();
   if (src) {
+    // With children, the picture is a backdrop and they stand in front of it,
+    // so both share one grid cell and a scrim sits between them. Without, the
+    // picture is the whole point and fills the slot.
+    if (children) {
+      return (
+        <div className={`${shape} ed-figure-behind`}>
+          <img src={src} alt={alt} loading="lazy" />
+          <div className="ed-figure-front">{children}</div>
+        </div>
+      );
+    }
     return (
       <div className={shape}>
         <img src={src} alt={alt} loading="lazy" />
-        {children}
       </div>
     );
   }
@@ -58,7 +68,16 @@ export function Figure({
  * slot stops being a placeholder.
  */
 export const PHOTO: { hero?: string; card?: string; band?: string } = {
-  // hero: '/brand/hero.jpg',   // the phone on marble, with the dried stems
-  // card: '/brand/card.jpg',   // the invitation with the burgundy ribbon
-  // band: '/brand/band.jpg',   // the flower, behind the closing call to action
+  // Until the owner's photographs arrive, the designs themselves are the
+  // photography — and they are better for it. These are real covers: capiz
+  // shells and gypsophila on marble, a dove against a summer sky. A page
+  // selling invitations, showing invitations, is not a placeholder standing
+  // in for a stock photograph of a table.
+  //
+  // The two were chosen for tonal range as much as for content. Everything
+  // else on this page lives between #fbf8f3 and #e9e1d3, and a storefront
+  // with no contrast in it reads as dull however well it is set.
+  hero: '/covers/capiz.jpg',       // warm, behind the phone in the arch
+  card: '/covers/baby-blue.jpg',   // cool, against all that cream
+  // band: '/brand/band.jpg',      // the flower, behind the closing call to action
 };

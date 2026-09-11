@@ -2582,3 +2582,18 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 @media (min-width: 768px) {
   .ed-divided > * + * { border-top: 0; border-left: 1px solid var(--color-sand-200); padding-top: 0; margin-top: 0; padding-left: 2rem; }
 }
+
+/* A figure that holds something in front of its picture — the hero's phone
+   standing in the arch. Both occupy one grid cell; the scrim between them is
+   what keeps a phone readable against a photograph that was never composed
+   to have a phone on it. Warm rather than neutral, so the cream page and the
+   picture stay one temperature. */
+.ed-figure-behind { display: grid; }
+.ed-figure-behind > * { grid-area: 1 / 1; }
+.ed-figure-behind > img { filter: saturate(0.9); }
+.ed-figure-behind::after {
+  content: '';
+  grid-area: 1 / 1;
+  background: linear-gradient(170deg, color-mix(in srgb, var(--color-sand-50) 55%, transparent), color-mix(in srgb, var(--color-wine-900) 22%, transparent));
+}
+.ed-figure-front { position: relative; display: grid; place-items: center; padding: 2rem; }

@@ -449,7 +449,18 @@ type Base = {
   ask?: boolean;
   /** what an asked-for frame or box shows when the customer leaves it empty */
   ifEmpty?: { piece: string } | 'leave';
-  /** phase 4 */
+  /**
+   * How this element arrives, and what it does while it is read.
+   *
+   * Two different things with one name. `enter` happens once, when the
+   * element first comes into view: it fades, rises, or drifts in from the
+   * side. `idle` never stops: a slow float, a slow sway. `delay` holds both
+   * back, which is what stops three petals moving in lockstep.
+   *
+   * All of it is off unless the guest's browser says they want motion, and
+   * off entirely without JavaScript — see `.inv[data-motion]` in globals.css
+   * for why that is the safe way round rather than the timid one.
+   */
   motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
@@ -1742,6 +1753,41 @@ export function designVars(doc: DesignDoc | null): Record<string, string> {
   }
   return vars;
 }
+
+export const ENTERS = ['none', 'fade', 'rise', 'drift'] as const;
+export const IDLES = ['none', 'float', 'sway'] as const;
+
+/**
+ * An element's motion, as the two attributes and the one variable the
+ * stylesheet reads.
+ *
+ * Attributes rather than classes because the stylesheet has to be able to
+ * say "anything that enters" in one rule, and one variable rather than an
+ * inline animation because the timing is the design system's to decide and
+ * the delay is hers.
+ *
+ * Nothing here says when: the attributes only describe. A guest's page adds
+ * `data-in` when the element is actually on screen (`Motion` in client.tsx),
+ * which is what makes an enter an arrival rather than something that
+ * happened while the page was still three screens above.
+ */
+export function motionOf(el: Element): { attrs: Record<string, string>; vars: Record<string, string> } {
+  const m = el.motion;
+  const attrs: Record<string, string> = {};
+  const vars: Record<string, string> = {};
+  if (!m) return { attrs, vars };
+  if (m.enter && m.enter !== 'none') attrs['data-enter'] = m.enter;
+  if (m.idle && m.idle !== 'none') attrs['data-idle'] = m.idle;
+  // the delay holds back both, which is how three petals stop moving as one
+  if (m.delay && (attrs['data-enter'] || attrs['data-idle'])) vars['--motion-delay'] = `${Math.round(m.delay)}ms`;
+  return { attrs, vars };
+}
+
+/** Does this element move at all? The checklist counts these per page. */
+export const moves = (el: Element): boolean => {
+  const m = el.motion;
+  return Boolean(m && ((m.enter && m.enter !== 'none') || (m.idle && m.idle !== 'none')));
+};
 
 export function sectionDress(dress: SectionStyle | undefined): { kind?: 'card' | 'plain'; vars: Record<string, string> } {
   if (!dress) return { vars: {} };

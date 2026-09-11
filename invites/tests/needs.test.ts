@@ -338,6 +338,33 @@ test('words on a page laid out by its words are never drawn, and it says so', ()
   assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
 });
 
+// --- motion ----------------------------------------------------------------
+
+/**
+ * Not a performance line — a browser animates a dozen small things without
+ * noticing. It is about reading: a guest's eye goes to whatever is moving,
+ * and when six things move there is nowhere for it to land.
+ */
+test('a page where everything moves says so', () => {
+  const d = clone();
+  const els = on(d, 'story').elements!;
+  els.slice(0, 6).forEach((x, i) => { x.motion = { enter: 'fade', delay: i * 100 }; });
+  const n = run(d).filter((x) => x.rule === 'motion');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /6 things move/);
+  assert.equal(n[0].id, els[5].id, 'and it points at the one over the line');
+
+  // five is the line, and five is allowed
+  const five = clone();
+  on(five, 'story').elements!.slice(0, 5).forEach((x) => { x.motion = { idle: 'float' }; });
+  assert.deepEqual(run(five).filter((x) => x.rule === 'motion'), []);
+  // and a motion that says nothing at all does not count
+  const none = clone();
+  on(none, 'story').elements!.slice(0, 6).forEach((x) => { x.motion = { enter: 'none', idle: 'none' }; });
+  assert.deepEqual(run(none).filter((x) => x.rule === 'motion'), []);
+});
+
 // --- a moving picture ------------------------------------------------------
 
 /**
@@ -445,6 +472,11 @@ test('every rule the type names can be made to fire', () => {
   const v = clone();
   (el(v, 'story', 'story-photo-2') as PhotoEl).animated = true;
   add(v);
+
+  // six things moving on one page, which is one more than a page can carry
+  const w = clone();
+  on(w, 'story').elements!.slice(0, 6).forEach((x, i) => { x.motion = { enter: 'rise', delay: i * 120 }; });
+  add(w);
 
   // words put on a page laid out by its words: in the document, drawn nowhere
   const t2 = clone();

@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT,
+  flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -810,6 +810,48 @@ test('the join and the room at the foot survive a read-back', () => {
   // and nonsense is refused rather than carried
   const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], footPad: 40 }] }, 'capiz');
   assert.deepEqual(bad.dropped, ['page 1 (a)'], 'a foot of forty times the usual is not a page');
+});
+
+// --- motion ----------------------------------------------------------------
+
+/**
+ * The document describes; it never says when. `data-in` — the moment an
+ * element is actually on a guest's screen — is the page's to add, which is
+ * what makes an arrival an arrival rather than something that happened three
+ * screens above the reader.
+ */
+test('motion is two attributes and one variable, and silence is nothing at all', () => {
+  const bare: Element = { id: 'a', kind: 'shape', shape: 'rect', y: 10 };
+  assert.deepEqual(motionOf(bare), { attrs: {}, vars: {} });
+  assert.deepEqual(motionOf({ ...bare, motion: { enter: 'none', idle: 'none' } }), { attrs: {}, vars: {} }, 'none is not a motion');
+  assert.deepEqual(motionOf({ ...bare, motion: { enter: 'rise' } }), { attrs: { 'data-enter': 'rise' }, vars: {} });
+  assert.deepEqual(motionOf({ ...bare, motion: { idle: 'float', delay: 300 } }), {
+    attrs: { 'data-idle': 'float' },
+    vars: { '--motion-delay': '300ms' },
+  });
+  assert.deepEqual(motionOf({ ...bare, motion: { enter: 'drift', idle: 'sway', delay: 120 } }), {
+    attrs: { 'data-enter': 'drift', 'data-idle': 'sway' },
+    vars: { '--motion-delay': '120ms' },
+  });
+  // a delay on nothing is nothing: it would be a variable no rule reads
+  assert.deepEqual(motionOf({ ...bare, motion: { delay: 400 } }), { attrs: {}, vars: {} });
+});
+
+test('what counts as moving, for the page that counts them', () => {
+  const bare: Element = { id: 'a', kind: 'shape', shape: 'rect', y: 10 };
+  assert.equal(moves(bare), false);
+  assert.equal(moves({ ...bare, motion: {} }), false);
+  assert.equal(moves({ ...bare, motion: { enter: 'none', idle: 'none', delay: 500 } }), false, 'a delay alone moves nothing');
+  assert.equal(moves({ ...bare, motion: { enter: 'fade' } }), true);
+  assert.equal(moves({ ...bare, motion: { idle: 'sway' } }), true);
+});
+
+test('the two shipped designs move nothing at all', () => {
+  for (const layout of ['babyblue', 'capiz']) {
+    const d = builtinDesign(layout)!;
+    const moving = d.pages.flatMap((pg) => (pg.elements ?? []).filter(moves));
+    assert.deepEqual(moving, [], `${layout} is as still as it ever was`);
+  }
 });
 
 // --- the colours a design gives itself ------------------------------------

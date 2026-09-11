@@ -348,3 +348,39 @@ test('a moving picture the words flow around is served as it is too', () => {
   assert.match(markup.replace(/&amp;/g, '&'), new RegExp(`src="${HOSTED.replace(/[/.]/g, '\\$&')}"`));
   assert.doesNotMatch(markup, /render\/image/);
 });
+
+// --- motion in the markup --------------------------------------------------
+
+/**
+ * What the page is handed: two attributes and a variable. Nothing about when
+ * — that is `data-in`, added by the guest's own page when the element is
+ * actually on screen — and nothing in `transform`, which is where every
+ * drawn element's placement lives and which an animation there would throw
+ * across the page.
+ */
+test('an element that moves carries its marks and keeps its placement', () => {
+  const page = JSON.parse(JSON.stringify(doc.pages.find((p) => p.key === 'story'))) as PageSpec;
+  page.elements = [
+    { id: 'petal', kind: 'photo', x: 50, y: 20, w: 30, aspect: 1, bind: { asset: '/p.png' }, motion: { enter: 'rise', idle: 'float', delay: 200 } },
+    { id: 'card', kind: 'shape', shape: 'rect', x: 50, y: 60, w: 70, h: 20, motion: { enter: 'fade' } },
+    { id: 'words', kind: 'text', block: 'free', x: 50, y: 80, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'Hello', tl: 'Kumusta' } }] }], motion: { idle: 'sway', delay: 90 } },
+  ];
+  const markup = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(markup, /data-enter="rise"/);
+  assert.match(markup, /data-idle="float"/);
+  assert.match(markup, /--motion-delay:200ms/);
+  assert.match(markup, /data-enter="fade"/);
+  assert.match(markup, /data-idle="sway"/);
+  assert.match(markup, /--motion-delay:90ms/);
+  // the placement is untouched: the motion is in translate and rotate, which
+  // are properties of their own
+  assert.match(markup, /transform:translate\(-50%, -50%\)/);
+  assert.doesNotMatch(markup, /data-in/, 'when it arrives is the page’s to say, not the document’s');
+});
+
+test('the shipped pages carry no motion marks at all', () => {
+  for (const key of ['story', 'baby-photos']) {
+    const markup = html(key);
+    assert.doesNotMatch(markup, /data-enter|data-idle|--motion-delay/, `${key} is as still as it ever was`);
+  }
+});

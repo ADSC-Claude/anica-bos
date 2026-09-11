@@ -4,7 +4,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  decorStyle, decorOver, flowFloats, flowDecor,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
 import { LazyVideo } from './client';
@@ -200,14 +200,16 @@ function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number
    * how solid it is.
    */
   const placed = deco ? decorStyle(el) : elementStyle(el, grow);
+  const motion = motionOf(el);
   const box = el.bg
-    ? ({ opacity: placed.opacity, zIndex: placed.zIndex } as CSSProperties)
-    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined } as CSSProperties);
+    ? ({ opacity: placed.opacity, zIndex: placed.zIndex, ...motion.vars } as CSSProperties)
+    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined, ...motion.vars } as CSSProperties);
   if (!el.url && !read.edit) return null;
   return (
     <div
       className="inv-bb-clip"
       style={box}
+      {...motion.attrs}
       data-bg={el.bg ? '' : undefined}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
@@ -232,7 +234,8 @@ function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: numbe
       className="inv-bb-shape"
       aria-hidden
       data-shape={el.shape}
-      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el) } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el), ...motionOf(el).vars } as CSSProperties}
+      {...motionOf(el).attrs}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
     />
@@ -250,7 +253,8 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
   const figure = (
     <figure
       className="inv-bb-slot"
-      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...photoStyle(el) } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...photoStyle(el), ...motionOf(el).vars } as CSSProperties}
+      {...motionOf(el).attrs}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !url ? '' : undefined}
@@ -285,11 +289,12 @@ function Block({ el, read, grow }: { el: TextEl; read: Read; grow?: number }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
   if (blank && el.hidden !== 'never' && !read.edit) return null;
-  const style = { ...elementStyle(el, grow), ...blockType(el) } as CSSProperties;
+  const style = { ...elementStyle(el, grow), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
   // `data-foot` says this one is placed from the foot: what holds the bottom
   // of a page that grows follows the page down and is never what pushes it
   const mark = {
+    ...motionOf(el).attrs,
     ...(read.edit ? { 'data-el': el.id, 'data-empty': blank ? '' : undefined } : {}),
     ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}),
     // what sits behind the words on a busy picture: a halo in the surface

@@ -248,6 +248,37 @@ export function Studio(p: Props) {
     // above keeps the last good numbers, and this measures again on her return
   }, [doc, page, width, night, shownContent, view, grown]);
 
+  /**
+   * Everything on the canvas is marked arrived.
+   *
+   * On a guest's page an element that enters starts invisible and is marked
+   * when it scrolls into view. On the canvas that would mean drawing a frame
+   * and watching it not appear, so the mark is put on everything a frame
+   * after it is drawn: the arrival plays once as she adds it, the idling
+   * runs, and nothing she places is invisible while she places it. **Play it
+   * again** takes the mark off one element and puts it back, which is the
+   * whole of replaying an arrival.
+   */
+  useEffect(() => {
+    const root = stage.current;
+    if (!root) return;
+    const id = requestAnimationFrame(() => {
+      for (const el of root.querySelectorAll('[data-enter], [data-idle]')) el.setAttribute('data-in', '');
+    });
+    return () => cancelAnimationFrame(id);
+  }, [elements, pageKey, view]);
+
+  /** Take the arrival off and put it back, which is how an arrival is replayed. */
+  const replay = useCallback((id: string) => {
+    const node = stage.current?.querySelector<HTMLElement>(`[data-el="${CSS.escape(id)}"]`);
+    if (!node) return;
+    node.removeAttribute('data-in');
+    // read a layout value between the two, or the browser coalesces them and
+    // nothing happens at all
+    void node.offsetWidth;
+    requestAnimationFrame(() => node.setAttribute('data-in', ''));
+  }, []);
+
   // --- changing the document ------------------------------------------------
 
   /** Every change goes through here, so undo and the save flag are never missed. */
@@ -1500,7 +1531,14 @@ export function Studio(p: Props) {
 
         <div className={`justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4 ${view === 'page' ? 'flex' : 'hidden'}`}>
           <div className="relative shadow-lg" style={{ width }}>
-            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
+            {/*
+              * `data-motion` here and not from the island: the canvas is not
+              * a guest's page and she is drawing, so what she needs is to see
+              * the idling and to be able to replay an arrival on demand. Every
+              * element is marked arrived a frame after it is drawn (below), so
+              * nothing she places is invisible while she places it.
+              */}
+            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-motion="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
               <div
                 ref={stage}
                 className="inv-page relative"
@@ -1610,6 +1648,7 @@ export function Studio(p: Props) {
             onLayer={layer}
             onDuplicate={duplicate}
             onRemove={remove}
+            onReplay={() => replay(selected.id)}
             label={label(selected)}
             templateId={p.templateId}
             flow={!page?.drawn}
@@ -2016,7 +2055,7 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
   /** the page is laid out by its words, so a picture on it floats rather than being placed */
   flow: boolean;
@@ -2024,6 +2063,8 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
+  /** take the arrival off this element and put it back, so she can watch it again */
+  onReplay: () => void;
   measureRoom: () => number | undefined;
   attachable: Named[];
   grows: boolean;
@@ -2082,6 +2123,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         </label>
       )}
       <Attach value={el.attachTo} options={attachable} onChange={(to) => onChange((e) => ({ ...e, attachTo: to }))} />
+      <MotionBlock el={el} onChange={onChange} onReplay={onReplay} num={num} />
       {el.kind === 'photo' && (
         <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} flow={flow} />
       )}
@@ -2492,6 +2534,77 @@ function ClipBlock({ el, onChange, templateId, onFillPage }: { el: VideoEl; onCh
  * for somebody who has not learnt the double-click, and it says what the
  * gesture is either way.
  */
+/**
+ * How this element arrives, and what it does while it is read.
+ *
+ * Two settings and a delay, and the delay is the one that matters most:
+ * three petals that all start together are one petal drawn three times.
+ *
+ * Everything here is a request rather than a promise, and the note says so.
+ * A guest who has asked their phone for less motion, or who is sparing their
+ * data, sees none of it — the element is simply where it was drawn, fully
+ * visible. That is not a degradation to apologise for: a design that only
+ * reads when it moves is a design that does not read.
+ */
+function MotionBlock({ el, onChange, onReplay, num }: {
+  el: Element;
+  onChange: (fn: (e: Element) => Element) => void;
+  onReplay: () => void;
+  num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+}) {
+  type Motion = NonNullable<Element['motion']>;
+  const m: Motion = el.motion ?? {};
+  const set = (patch: Partial<Motion>) => onChange((x) => {
+    const next: Motion = { ...(x.motion ?? {}), ...patch };
+    // a motion that says nothing is taken off rather than saved as `{}`
+    const clean = Object.fromEntries(
+      Object.entries(next).filter(([, v]) => v !== undefined && v !== 'none' && v !== 0),
+    ) as Motion;
+    const out = { ...x, motion: Object.keys(clean).length ? clean : undefined };
+    if (!out.motion) delete out.motion;
+    return out;
+  });
+  const moves = Boolean((m.enter && m.enter !== 'none') || (m.idle && m.idle !== 'none'));
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <p className="label">Motion</p>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="label">It arrives</span>
+          <select className="input w-full" value={m.enter ?? 'none'} onChange={(e) => set({ enter: e.target.value as Motion['enter'] })}>
+            <option value="none">already there</option>
+            <option value="fade">fading in</option>
+            <option value="rise">rising into place</option>
+            <option value="drift">drifting in from the side</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="label">And then</span>
+          <select className="input w-full" value={m.idle ?? 'none'} onChange={(e) => set({ idle: e.target.value as Motion['idle'] })}>
+            <option value="none">it is still</option>
+            <option value="float">it floats</option>
+            <option value="sway">it sways</option>
+          </select>
+        </label>
+      </div>
+      {moves && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="label">After (ms)</span>
+            {num(m.delay, (n) => set({ delay: n }), 50)}
+          </label>
+          <button type="button" onClick={onReplay} className="btn btn-ghost btn-sm mt-5">Play it again</button>
+        </div>
+      )}
+      <p className="hint">
+        {moves
+          ? 'It arrives the first time a guest scrolls to it, and only once. A guest who has asked their phone for less motion, or who is sparing their data, sees none of this — the element is simply where you drew it, which is how the page has to read anyway.'
+          : 'Nothing moves unless you say so.'}
+      </p>
+    </div>
+  );
+}
+
 function PictureBlock({ el, onChange, onFit, fitting, num, flow }: {
   el: PhotoEl;
   onChange: (fn: (e: Element) => Element) => void;

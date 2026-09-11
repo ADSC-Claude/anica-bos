@@ -1343,6 +1343,57 @@ export function PeekControls({ href, backLabel, closeLabel }: { href: string; ba
  * somebody reading an invitation on a bus is a page they close, and it is
  * also the only way a browser will play anything without a tap.
  */
+/**
+ * Motion on a guest's page: the arrivals, and the slow idling.
+ *
+ * Everything about it is off until this runs, and that is the safe way
+ * round rather than the timid one. An element that enters starts invisible,
+ * so if the rule that hides it were in the stylesheet unconditionally then a
+ * guest with no JavaScript — or one whose script failed, or a crawler, or a
+ * printed page — would be looking at an invitation with holes in it. So the
+ * hiding is behind `data-motion`, which is set here, after the browser has
+ * been asked whether this guest wants motion at all. No script, no
+ * attribute, nothing hidden.
+ *
+ * `data-in` is added the first time an element is actually on screen and
+ * never taken off: an arrival that happened three screens above the reader
+ * is not an arrival, and one that replays every time they scroll back is a
+ * page that will not settle. The idle animations are keyed on the same
+ * attribute, so nothing is animating on a page nobody is looking at.
+ *
+ * The same three questions as a clip — reduced motion, saveData, in view —
+ * because they are the same question: this is motion, and a guest who has
+ * said no to a clip has not said yes to a floating photograph.
+ */
+export function Motion() {
+  useEffect(() => {
+    const root = document.querySelector('.inv');
+    if (!root) return;
+    const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (save || still) return;
+    root.setAttribute('data-motion', '');
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          e.target.setAttribute('data-in', '');
+          io.unobserve(e.target);
+        }
+      },
+      // a tenth of it is enough to count as arrived: a tall element would
+      // otherwise have to be half read before it began
+      { threshold: 0.1 },
+    );
+    for (const el of root.querySelectorAll('[data-enter], [data-idle]')) io.observe(el);
+    return () => {
+      io.disconnect();
+      root.removeAttribute('data-motion');
+    };
+  }, []);
+  return null;
+}
+
 export function LazyVideo({ src, webm, poster, loop = true, className, style }: { src: string; webm?: string; poster?: string; loop?: boolean; className?: string; style?: CSSProperties }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [refused, setRefused] = useState(false);

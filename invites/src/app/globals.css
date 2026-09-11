@@ -2410,6 +2410,62 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-getting-section .inv-title { margin-bottom: 0.8rem; }
 
 /* ---------------------------------------------------------------------------
+   Motion: how an element arrives, and what it does while it is read.
+
+   Everything here is behind `[data-motion]`, which the page sets on itself
+   only once the script is running and has asked the guest's browser whether
+   they want motion at all. That is deliberate and it is the important part:
+   an element that enters starts invisible, so a rule that hid it
+   unconditionally would leave a guest with no JavaScript — or a crawler, or
+   a printed page — reading an invitation with holes in it. No script, no
+   attribute, nothing hidden.
+
+   `data-in` is added when the element is first actually on screen, and the
+   idle animations wait for it too, so nothing moves on a page nobody has
+   scrolled to.
+
+   The motion is in `translate` and `rotate`, the properties of their own,
+   and never in `transform` — because `transform` is where every drawn
+   element's placement lives (translate(-50%, -50%) and its tilt), and an
+   animation there would throw it across the page. The independent
+   properties compose with it instead.
+
+   An arrival is a transition and an idle is an animation, which is what lets
+   one element have both: the animation is held back until the arrival has
+   finished (`animation-delay`), and from then on it owns the property, an
+   animation beating a transition. Nothing has to know about the pairs.
+   --------------------------------------------------------------------------- */
+.inv[data-motion] [data-enter] { opacity: 0; }
+.inv[data-motion] [data-enter='rise'] { translate: 0 14px; }
+.inv[data-motion] [data-enter='drift'] { translate: -18px 0; }
+.inv[data-motion] [data-enter][data-in] {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 800ms ease, translate 800ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  transition-delay: var(--motion-delay, 0ms);
+}
+.inv[data-motion] [data-idle='float'][data-in] {
+  animation: inv-float 6.5s ease-in-out infinite;
+  animation-delay: calc(var(--motion-delay, 0ms) + 800ms);
+}
+.inv[data-motion] [data-idle='sway'][data-in] {
+  animation: inv-sway 7.5s ease-in-out infinite;
+  animation-delay: calc(var(--motion-delay, 0ms) + 800ms);
+}
+@keyframes inv-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -7px; }
+}
+@keyframes inv-sway {
+  0%, 100% { rotate: -1.1deg; }
+  50% { rotate: 1.1deg; }
+}
+/* Paper does not move, and a page being printed is paper. */
+@media print {
+  .inv [data-enter], .inv [data-idle] { opacity: 1 !important; translate: none !important; rotate: none !important; animation: none !important; transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
    Night. The guest switches with the sun-and-moon button (top right); the
    couple sets the default in Settings, or leaves it to the guest's clock.
    A paper by night is darkened and turned toward a deep blue, unless it is

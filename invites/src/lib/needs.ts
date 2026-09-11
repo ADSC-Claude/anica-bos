@@ -2,7 +2,7 @@ import type { Occasion } from '@prisma/client';
 import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
-  frameLists, pageRatio, valueAt, isPicture, flowDecor, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
+  frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl,
 } from './design';
 import { contrast } from './palette';
@@ -72,6 +72,7 @@ export const NEED_RULES = [
   'clip-glare',
   'not-drawn',
   'moving',
+  'motion',
   'asks',
 ] as const;
 
@@ -177,6 +178,8 @@ export const HEAVY_GROUND = 400 * 1024;
  * to move with the ground.
  */
 const NIGHT_INK = '#f1e9dd';
+/** How many things may move on one page before the page is merely busy. */
+export const MOST_MOVING = 5;
 const WAITING_SLOT = '#e8e3dd';
 /** Where a heading stops being comfortable to read. The standards' own number. */
 const READABLE = 3;
@@ -218,6 +221,19 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
     }
     if (page.drawn && elements.length && !elements.some((e) => e.kind === 'text' && (e as TextEl).block === 'head')) {
       say('says', 'no-heading', `${named} has no heading.`);
+    }
+    /*
+     * How much of the page moves at once.
+     *
+     * Not a performance line — a browser animates a dozen small things
+     * without noticing. It is about reading: a guest's eye goes to whatever
+     * is moving, and when six things are moving there is nowhere for it to
+     * land. Five is the number the plan set, and a page over it is saying
+     * everything is important, which is the same as saying nothing is.
+     */
+    const moving = elements.filter(moves);
+    if (moving.length > MOST_MOVING) {
+      say('says', 'motion', `${moving.length} things move on ${named} at once. A guest's eye goes to whatever moves, and past about ${MOST_MOVING} there is nowhere for it to land — the page reads as busy rather than alive.`, moving[MOST_MOVING].id);
     }
     /*
      * What the background weighs. Only ever said about a picture this design

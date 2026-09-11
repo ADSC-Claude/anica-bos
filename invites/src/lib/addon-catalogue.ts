@@ -210,7 +210,7 @@ export const ADDONS: AddOnSpec[] = [
     price: 1_000,
     image: '/demo/addon-album.png',
     name: 'Shared album after the day',
-    description: 'Your guests add their photos to your invitation from their phones, and everyone sees the day through everybody else\u2019s eyes. You approve each one before it appears. Included in Luxury.',
+    description: 'Your guests add their photos to your invitation from their phones, and everyone sees the day through everybody else\u2019s eyes. You approve each one before it appears, and you can download the whole album afterwards. Photographs only — not video. Included in Luxury.',
     sortOrder: 10,
   },
   {

@@ -13,6 +13,7 @@ import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
+import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS } from '@/lib/design';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '@/lib/babyblue';
@@ -1388,6 +1389,7 @@ function GuestPhotos({
             labels={{
               name: t(lang, 'rsvp.name'),
               choose: t(lang, 'photos.choose'),
+              accepts: t(lang, 'photos.accepts', { max: PHOTO_MAX_LABEL }),
               caption: t(lang, 'photos.caption'),
               submit: t(lang, 'photos.submit'),
               submitMany: t(lang, 'photos.submitMany'),

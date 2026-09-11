@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { albumProblem, guestPhotoSchema, photoLimit } from '../src/lib/photos';
+import { PHOTO_MAX_LABEL, PHOTO_TYPES, PHOTOS_AT_ONCE } from '../src/lib/album';
+import { t } from '../src/lib/copy';
+import { SECTION_BY_KEY } from '../src/lib/sections';
+import { ADDONS } from '../src/lib/addon-catalogue';
 import { defaultContent } from '../src/lib/sections';
 import { hasFeature } from '../src/lib/tiers';
 
@@ -108,4 +112,41 @@ test('an ordinary evening is never refused', () => {
   // 150 guests, a few photos each, all on one wifi, over an hour: the shape the
   // limits exist to allow.
   assert.equal(photoLimit({ guest: 5, ip: 119, invitationHour: 180, invitationTotal: 300 }), null);
+});
+
+test('what the album says it takes is what it takes', () => {
+  // Copy about a limit that has drifted from the limit is worse than no copy:
+  // a guest reads "up to 10 MB", picks a 12 MB photo believing it is fine, and
+  // is refused. So the sentences under the file chooser and in the builder are
+  // checked against the numbers the storage layer actually enforces.
+  for (const lang of ['en', 'tl'] as const) {
+    const accepts = t(lang, 'photos.accepts', { max: PHOTO_MAX_LABEL });
+    assert.ok(accepts.includes(PHOTO_MAX_LABEL), `${lang} names the real size limit`);
+    assert.doesNotMatch(accepts, /\{max\}/, `${lang} leaves no placeholder showing`);
+    assert.match(accepts, /JPEG/i);
+    assert.match(accepts, /PNG/i);
+    assert.match(accepts, /WebP/i);
+    assert.match(accepts, /video/i, `${lang} says video is not taken`);
+  }
+
+  // Every format named is one the storage layer really accepts, and every one
+  // it accepts is named: a guest told "JPEG, PNG or WebP" who owns a HEIC is
+  // owed the same warning as one who owns a clip.
+  assert.deepEqual([...PHOTO_TYPES].sort(), ['image/jpeg', 'image/png', 'image/webp']);
+});
+
+test('the builder tells the couple the same thing, in the same numbers', () => {
+  // They are the ones a guest asks. If the builder and the upload form
+  // disagree, the couple tells their guests something the album will refuse.
+  const photos = SECTION_BY_KEY.photos.description;
+  assert.match(photos, new RegExp(`\\b${PHOTOS_AT_ONCE}\\b`), 'how many at a time');
+  assert.ok(photos.includes(PHOTO_MAX_LABEL), 'how large each may be');
+  assert.match(photos, /not video/i, 'and that video is not taken');
+});
+
+test('the add-on says photographs, where somebody is deciding whether to buy it', () => {
+  const album = ADDONS.find((a) => a.code === 'PHOTO_SHARING');
+  assert.ok(album, 'the album is not in the catalogue');
+  assert.match(album.description, /not video/i);
+  assert.match(album.description, /download/i, 'and that they can keep them afterwards');
 });

@@ -190,6 +190,11 @@ const PHRASES = {
   'photos.thanksMany': { en: 'Salamat! Your photos are on the wall.', tl: 'Salamat! Nasa wall na ang mga larawan mo.' },
   'photos.tooMany': { en: 'Twenty at a time, please — the first twenty are ready to send. You can add the rest after.', tl: 'Dalawampu muna — handa nang ipadala ang unang dalawampu. Puwede mong idagdag ang iba pagkatapos.' },
   'photos.sent': { en: 'sent.', tl: 'ang naipadala.' },
+  // Under the file chooser, so a guest knows before they pick rather than
+  // after they are refused. The numbers in it are pinned to the real ones by a
+  // test — copy about a limit that has drifted from the limit is worse than no
+  // copy at all.
+  'photos.accepts': { en: 'Photos only, not video — JPEG, PNG or WebP, up to {max} each.', tl: 'Mga larawan lang, hindi video — JPEG, PNG o WebP, hanggang {max} bawat isa.' },
   'photos.empty': { en: 'No photos yet — be the first.', tl: 'Wala pang larawan — mauna ka.' },
   'seating.title': { en: 'Your table', tl: 'Ang inyong mesa' },
   'closing.title': { en: 'See you there', tl: 'Kita-kits' },

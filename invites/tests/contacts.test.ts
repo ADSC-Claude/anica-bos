@@ -53,8 +53,9 @@ test('the back-fill fills gaps and leaves disagreements alone', () => {
   );
 });
 
-// The corporate form has nowhere to put a department, so it packs it onto the
-// address. That is fine on a reply and wrong on a mailing list.
+// A corporate reply used to store its department joined onto the address. It
+// has its own column now, but a row that predates the split must still not put
+// a department on a mailing list.
 test('a department never reaches the guest row', () => {
   assert.deepEqual(
     contactPatch({ phone: '', email: 'maria@example.com · Finance' }, BLANK),

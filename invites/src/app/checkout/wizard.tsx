@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { OCCASIONS, templateSuits } from '@/lib/occasions';
 import { PREMIUM_OPENING_CODE } from '@/lib/openings';
-import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
+import { TIERS, TIER_LABELS, COMPARISON, tierAtLeast } from '@/lib/tiers';
 import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
@@ -21,8 +21,6 @@ export type WizardProps = {
   initial: { occasion?: string; tier?: string; template?: string; coupon?: string; addon?: string };
   demoSlug: string;
 };
-
-const RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
 
 export function CheckoutWizard(p: WizardProps) {
   const [occasion, setOccasion] = useState<Occasion>((OCCASIONS.some((o) => o.key === p.initial.occasion) ? p.initial.occasion : 'WEDDING') as Occasion);
@@ -44,7 +42,7 @@ export function CheckoutWizard(p: WizardProps) {
   const [pending, start] = useTransition();
 
   const pkg = useMemo(() => p.packages.find((x) => x.occasion === occasion && x.tier === tier) ?? p.packages.find((x) => x.occasion === null && x.tier === tier), [p.packages, occasion, tier]);
-  const templates = p.templates.filter((t) => templateSuits(t, occasion) && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
+  const templates = p.templates.filter((t) => templateSuits(t, occasion) && (tierAtLeast(tier, 'COMPLETE') || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
   // the premium opening is sold per design: a design with no clip yet cannot carry it
   const premiumOk = !template || template.premiumOpenings.length > 0;
@@ -105,12 +103,12 @@ export function CheckoutWizard(p: WizardProps) {
         {/* 2 — tier */}
         <section>
           <h2 className="display mb-3 text-xl">2. Choose a package</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {TIERS.map((t) => {
               const row = p.packages.find((x) => x.occasion === occasion && x.tier === t) ?? p.packages.find((x) => x.occasion === null && x.tier === t);
               if (!row) return null;
               return (
-                <button key={t} type="button" onClick={() => { setTier(t); if (template && (t === 'BASIC' ? template.minTier !== 'BASIC' : false) || (template?.premium && t !== 'COMPLETE')) setTemplateId(''); }} className={`card p-4 text-left ${tier === t ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={tier === t}>
+                <button key={t} type="button" onClick={() => { setTier(t); if (template && (t === 'BASIC' ? template.minTier !== 'BASIC' : false) || (template?.premium && !tierAtLeast(t, 'COMPLETE'))) setTemplateId(''); }} className={`card p-4 text-left ${tier === t ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={tier === t}>
                   <span className="eyebrow">{TIER_LABELS[t]}</span>
                   <span className="display mt-1 block text-2xl">{formatPesoShort(row.priceCents)}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{row.tagline}</span>

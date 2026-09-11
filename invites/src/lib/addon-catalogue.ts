@@ -59,7 +59,7 @@ export const ADDONS: AddOnSpec[] = [
     code: 'PRIORITY',
     price: 2_000,
     name: 'Priority (2 working days)',
-    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature only.',
+    description: 'Your invitation is finished in two working days instead of the usual five to a week. Fewer revision rounds come with it: there is limited time to encode, so there is minimal chance to revise. Signature and Luxury.',
     sortOrder: 6,
   },
   {
@@ -70,9 +70,11 @@ export const ADDONS: AddOnSpec[] = [
     sortOrder: 2,
   },
 
-  // The three features Signature includes and the packages below it may buy on
-  // their own. Each is a whole feature, already built and already sold, and
-  // addOnAvailable declines to offer one to Signature, which has it already.
+  // Three whole features, each already built and already included in some
+  // package, sold on their own to the packages below that one. Check-in and the
+  // seating chart are Luxury's; the password is Signature's. addOnAvailable
+  // reads that from the feature rather than from a list of tiers here, so a
+  // package that is given one stops being offered it on its own.
   //
   // The first two carry the guest list and per-guest links with them, because
   // neither works without one: check-in scans a guest's token and a seating
@@ -81,14 +83,14 @@ export const ADDONS: AddOnSpec[] = [
     code: 'QR_CHECKIN',
     price: 1_000,
     name: 'QR check-in on the day',
-    description: 'Scan your guests in at the door from your phone. Every guest gets a personal link with their own code; a tap or a scan marks them arrived, and you watch the count fill up live. Comes with the guest list, so you have somebody to scan. Included in Signature.',
+    description: 'Scan your guests in at the door from your phone. Every guest gets a personal link with their own code; a tap or a scan marks them arrived, and you watch the count fill up live. Comes with the guest list, so you have somebody to scan. Included in Luxury.',
     sortOrder: 7,
   },
   {
     code: 'SEATING_VIEWER',
     price: 1_000,
     name: 'Seating chart',
-    description: 'Set your tables, put your guests at them, and each guest sees their own table name on their invitation — no seat plan by the door, no queue. Comes with the guest list, so you have somebody to seat. Included in Signature.',
+    description: 'Set your tables, put your guests at them, and each guest sees their own table name on their invitation — no seat plan by the door, no queue. Comes with the guest list, so you have somebody to seat. Included in Luxury.',
     sortOrder: 8,
   },
   {

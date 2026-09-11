@@ -1,17 +1,20 @@
 import 'server-only';
 import { z } from 'zod';
+import type { Occasion, Tier } from '@prisma/client';
 import { prisma } from './db';
 import { HttpError } from './errors';
 import { loadPublic, rsvpOpen } from './invitations';
 import { guestByToken } from './guests';
 import { hasFeature, entitled } from './tiers';
 import { notify } from './notifications';
-import { sendEmail, render, baseVars } from './email';
+import { sendEmail, render, baseVars, mailable } from './email';
 import { getSettings } from './settings';
-import { str, rows, bool, guestGroups } from './sections';
+import { str, rows, bool, guestGroups, displayTitle } from './sections';
 import { contentOf } from './invitations';
-import { contactPatch } from './contacts';
+import { contactPatch, plainAddress } from './contacts';
 import { attendeesOf } from './attendees';
+import { invitationUrl } from './app-url';
+import { formatDate } from './datetime';
 
 /**
  * The public writes: an RSVP and a guestbook entry. No login, so the defences
@@ -153,7 +156,11 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     dietary: input.dietary ?? '',
     message: input.message ?? '',
     phone: input.phone ?? '',
-    email: input.department ? `${input.email ?? ''}${input.email ? ' · ' : ''}${input.department}` : input.email ?? '',
+    email: input.email ?? '',
+    // Its own column. A department is not a contact detail, and while it rode
+    // along on the address it was both a department on a mailing list and an
+    // address nowhere a blast could read.
+    department: input.department ?? '',
     ip,
   };
 
@@ -168,13 +175,17 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
   // list the system believes has no numbers in it. The rule for which copy
   // wins is contactPatch, shared with the back-fill so the two cannot drift.
   //
-  // input.email rather than data.email: what is stored may have a department
-  // packed onto it, and while contactPatch takes that off anyway, there is no
-  // reason to hand it something to undo.
+  // input.email is now the same as what is stored — the department has its own
+  // column — but the reply's own fields stay the source here, so a later change
+  // to how a row is shaped cannot quietly reach the guest list.
   if (guest) {
     const patch = contactPatch({ phone: input.phone, email: input.email }, guest);
     if (Object.keys(patch).length) await prisma.guest.update({ where: { id: guest.id }, data: patch });
   }
+
+  // And tell the guest, on the packages that include it. A reply into a form
+  // that says nothing back is the commonest reason somebody replies twice.
+  await confirmToGuest(invitation, saved, guest);
 
   // Tell the host, but not on every edit of the same response.
   if (!existing) {
@@ -199,6 +210,58 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     }
   }
   return saved;
+}
+
+/**
+ * The receipt a guest gets for replying.
+ *
+ * Included with the packages that carry it; below them the same send is the
+ * paid e-mail blast, which is the honest difference — the wire costs the same,
+ * what is being sold is our doing it for them.
+ *
+ * Nothing here may stop a reply being recorded. A guest who answered has
+ * answered whatever the mail server thought of it, so the send is attempted
+ * after the row is saved and its failure is written down rather than raised.
+ */
+async function confirmToGuest(
+  invitation: { id: string; slug: string; tier: Tier; title: string; occasion: Occasion; content: unknown; eventAt: Date | null },
+  saved: { id: string; name: string; response: string; seats: number; email: string },
+  guest: { id: string; token: string; salutation: string } | null,
+) {
+  if (!hasFeature(invitation.tier, 'rsvp.emailConfirmation')) return;
+  const address = mailable(plainAddress(saved.email));
+  // No address is not a failure to record — there was nobody to write to. The
+  // couple's RSVP list says so from the blank, which is the thing they can act
+  // on: ask that guest for one.
+  if (!address) return;
+
+  const content = contentOf(invitation.content);
+  const accepted = saved.response === 'ACCEPT';
+  const settings = await getSettings();
+  const vars = {
+    guestName: guest?.salutation || saved.name,
+    hosts: invitation.title.trim() || displayTitle(invitation.occasion, content),
+    eventDate: invitation.eventAt ? formatDate(invitation.eventAt) : '',
+    response: accepted ? 'coming' : 'not able to come',
+    seatsLine: accepted ? ` for ${saved.seats} seat${saved.seats === 1 ? '' : 's'}` : '',
+    link: invitationUrl(invitation.slug, guest?.token),
+  };
+  const subject = render(settings['email.rsvpConfirmationSubject'], vars);
+  const body = render(settings['email.rsvpConfirmation'], vars);
+
+  const result = await sendEmail({ to: address, subject, text: body });
+  await prisma.emailMessage.create({
+    data: {
+      invitationId: invitation.id,
+      guestId: guest?.id ?? null,
+      rsvpId: saved.id,
+      to: address,
+      subject,
+      body,
+      status: result.status === 'sent' ? 'SENT' : result.status === 'logged' ? 'LOGGED' : 'FAILED',
+      error: result.error ?? '',
+    },
+  });
 }
 
 export const guestbookSchema = z.object({

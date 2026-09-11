@@ -210,11 +210,12 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
 export async function rsvpsCsv(invitationId: string): Promise<string> {
   const rsvps = await prisma.rsvp.findMany({ where: { invitationId }, include: { guest: true }, orderBy: { createdAt: 'desc' } });
   return toCsv(
-    ['Name', 'Replied as', 'Group', 'Response', 'Seats', 'Attendees', 'Meal', 'Dietary', 'Message', 'Phone', 'Email', 'Via personal link', 'Responded at'],
+    ['Name', 'Replied as', 'Group', 'Department', 'Response', 'Seats', 'Attendees', 'Meal', 'Dietary', 'Message', 'Phone', 'Email', 'Via personal link', 'Responded at'],
     rsvps.map((r) => [
       replyIdentity(r.name, r.guest?.name).name,
       replyIdentity(r.name, r.guest?.name).alias,
       r.groupName,
+      r.department,
       r.response === 'ACCEPT' ? 'Accepted' : 'Declined',
       r.seats,
       attendeesOf(r.attendees).map((a) => attendeeLine(a)).join('; '),

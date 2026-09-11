@@ -1,18 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ADDONS, RETIRED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
-import { ADDON_FEATURE, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL } from '../src/lib/tiers';
+import { ADDON_FEATURE, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL, TIERS } from '../src/lib/tiers';
 import { addOnAvailable } from '../src/lib/pricing';
 
 test('a package that includes a feature is not sold it again', () => {
-  // Signature has all three already; charging it ₱1,000 for check-in would be
-  // selling it what it bought.
-  assert.equal(addOnAvailable('QR_CHECKIN', 'COMPLETE'), false);
-  assert.equal(addOnAvailable('SEATING_VIEWER', 'COMPLETE'), false);
-  assert.equal(addOnAvailable('PASSWORD', 'COMPLETE'), false);
+  // Read from the feature, not from a list of tiers: #127 moved check-in and
+  // seating from Signature up to Luxury, and this stayed right through it.
+  for (const [code, features] of Object.entries(ADDON_FEATURE)) {
+    for (const tier of TIERS) {
+      assert.equal(
+        addOnAvailable(code, tier),
+        !hasFeature(tier, features[0]),
+        `${code} on ${tier}`,
+      );
+    }
+  }
 
-  assert.equal(addOnAvailable('QR_CHECKIN', 'BASIC'), true);
-  assert.equal(addOnAvailable('SEATING_VIEWER', 'STANDARD'), true);
+  // Which today means:
+  assert.equal(addOnAvailable('QR_CHECKIN', 'LUXURY'), false, 'Luxury includes check-in');
+  assert.equal(addOnAvailable('QR_CHECKIN', 'COMPLETE'), true, 'Signature does not');
+  assert.equal(addOnAvailable('SEATING_VIEWER', 'LUXURY'), false);
+  assert.equal(addOnAvailable('PASSWORD', 'COMPLETE'), false, 'Signature includes the password');
   assert.equal(addOnAvailable('PASSWORD', 'BASIC'), true);
 });
 
@@ -26,7 +35,7 @@ test('an add-on unlocks its feature on a package that lacks it', () => {
   assert.equal(entitled({ tier: 'BASIC', addOns: ['QR_CHECKIN'] }, 'seating'), false);
 
   // the package still grants what it always did
-  assert.equal(entitled({ tier: 'COMPLETE', addOns: [] }, 'checkin'), true);
+  assert.equal(entitled({ tier: 'LUXURY', addOns: [] }, 'checkin'), true);
   assert.equal(entitled({ tier: 'BASIC', addOns: [] }, 'guestbook'), false);
 });
 
@@ -48,27 +57,31 @@ test('every add-on feature is already built and sold on some tier', () => {
     assert.ok(features.length > 0, `${code} grants nothing`);
     for (const f of features) {
       assert.ok(FEATURE_MIN_TIER[f], `${code} grants ${f}, which is not a feature`);
-      assert.equal(hasFeature('COMPLETE', f), true, `${code} grants ${f}, which no package includes`);
+      assert.equal(hasFeature('LUXURY', f), true, `${code} grants ${f}, which no package includes`);
     }
     // and the headline is what names it
     assert.equal(addOnForFeature(features[0]), code);
   }
 });
 
-test('the comparison table shows the three as add-ons below Signature', () => {
-  // Signature includes them; the packages below buy them. The premium opening
-  // is deliberately not one of these — it is an add-on on every tier, nobody
-  // includes it, and so it reads 'Add-on' in all three columns.
-  const rows = COMPARISON_ALL.filter((r) => r.cells.BASIC === 'Add-on' && r.cells.COMPLETE === true);
-  assert.deepEqual(
-    rows.map((r) => r.label).sort(),
-    ['Password on the link', 'QR check-in on event day', "Seating chart on the guest's page"],
-  );
-  for (const r of rows) assert.equal(r.cells.STANDARD, 'Add-on', `${r.label} is an add-on on Standard too`);
+test('the comparison table matches what each package is actually offered', () => {
+  // The row a customer reads and the rule the checkout enforces are the same
+  // fact, so the table is checked against ADDON_FEATURE rather than retyped.
+  const ROW: Record<string, string> = {
+    QR_CHECKIN: 'QR check-in on event day',
+    SEATING_VIEWER: "Seating chart on the guest's page",
+    PASSWORD: 'Password on the link',
+  };
+  assert.deepEqual(Object.keys(ROW).sort(), Object.keys(ADDON_FEATURE).sort(), 'a sellable feature with no row');
 
-  // One row per feature sold this way, so the table cannot claim a package
-  // buys something ADDON_FEATURE does not actually unlock.
-  assert.equal(rows.length, Object.keys(ADDON_FEATURE).length);
+  for (const [code, label] of Object.entries(ROW)) {
+    const row = COMPARISON_ALL.find((r) => r.label === label);
+    assert.ok(row, `no comparison row labelled ${label}`);
+    for (const tier of TIERS) {
+      const includes = hasFeature(tier, ADDON_FEATURE[code][0]);
+      assert.equal(row.cells[tier], includes ? true : 'Add-on', `${label} on ${tier}`);
+    }
+  }
 });
 
 test('the reminder campaigns are priced as agreed, and none is for sale', () => {

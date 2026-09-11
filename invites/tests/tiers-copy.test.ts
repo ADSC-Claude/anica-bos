@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS } from '../src/lib/tiers';
+import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS, type FeatureKey } from '../src/lib/tiers';
+import { sectionUnlocked, type SectionKey } from '../src/lib/sections';
 import { t, INTRO_PRESETS, GIFT_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, preset } from '../src/lib/copy';
 import { slugify, guestToken, orderReference } from '../src/lib/codes';
 import { parseCsv, toCsv } from '../src/lib/csv';
@@ -12,14 +13,21 @@ import { formatTime, formatDate, manilaDateKey } from '../src/lib/datetime';
 test('features unlock in order', () => {
   assert.equal(tierAtLeast('COMPLETE', 'BASIC'), true);
   assert.equal(tierAtLeast('BASIC', 'STANDARD'), false);
-  assert.equal(nextTier('COMPLETE'), null);
+  assert.equal(nextTier('COMPLETE'), 'LUXURY');
+  assert.equal(nextTier('LUXURY'), null, 'and there is nothing above the top');
   assert.equal(hasFeature('BASIC', 'rsvp.personalLinks'), false);
   assert.equal(hasFeature('COMPLETE', 'rsvp.personalLinks'), true);
   assert.equal(hasFeature('STANDARD', 'slug.custom'), true);
   assert.equal(hasFeature('STANDARD', 'privacy.password'), false);
   assert.equal(galleryLimit('BASIC'), 0, 'Basic has no gallery — its one photo is the cover photo');
-  assert.equal(galleryLimit('STANDARD'), 10);
-  assert.equal(galleryLimit('COMPLETE'), Infinity);
+  // Sold as ranges — five to seven, ten to fifteen — so the limit is the top
+  // of the range the customer was shown.
+  assert.equal(galleryLimit('STANDARD'), 7);
+  assert.equal(galleryLimit('COMPLETE'), 15);
+  assert.equal(galleryLimit('LUXURY'), Infinity);
+  const photos = COMPARISON.find((r) => r.label === 'Photos')!;
+  assert.match(String(photos.cells.STANDARD), /5 to 7/);
+  assert.match(String(photos.cells.COMPLETE), /10 to 15/);
   for (const row of COMPARISON) for (const tier of TIERS) assert.notEqual(row.cells[tier], undefined, `${row.label} ${tier}`);
 
   // Revisions are rounds of changes before we publish — after it, an
@@ -28,11 +36,16 @@ test('features unlock in order', () => {
   const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions'));
   assert.ok(revisions, 'the table names the revision rounds');
   assert.ok(revisions!.label.includes('before we publish'), 'and says when they happen');
-  assert.deepEqual([revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE], ['2 rounds', '4 rounds', '6 rounds'], 'a bigger package buys more of them');
-  const after = COMPARISON.find((r) => r.label.startsWith('Changes after publishing'));
-  assert.ok(after, 'and says what happens after');
-  assert.deepEqual([after!.cells.BASIC, after!.cells.STANDARD, after!.cells.COMPLETE], ['Message us', 'Message us', 'Message us']);
-  assert.ok(after!.label.includes('design'), 'and that the design is in that, not exempt from it');
+  assert.deepEqual(
+    [revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE, revisions!.cells.LUXURY],
+    ['2 rounds', '4 rounds', '6 rounds', '8 rounds'],
+    'a bigger package buys more of them',
+  );
+  // What happens after publishing is not a row. Every answer it could give is
+  // "message us", which reads as an invitation to open a conversation about an
+  // invitation that is finished — and answering those costs more than the row
+  // ever sold.
+  assert.equal(COMPARISON.find((r) => r.label.startsWith('Changes after publishing')), undefined);
 
   // The guest list manager, its Excel import, the seating chart and event-day
   // check-in were built and then withheld, on the reasoning that they were too
@@ -41,16 +54,25 @@ test('features unlock in order', () => {
   // Signature's and they are sold. Their pages are reached through
   // featureOffered, so a table that lists them while that returns false would
   // sell a link nobody can click.
-  for (const feature of ['guests.manager', 'guests.import', 'seating', 'checkin'] as const) {
+  for (const feature of ['guests.manager', 'guests.import'] as const) {
     assert.equal(featureOffered(feature), true, `${feature} is offered`);
     assert.equal(hasFeature('COMPLETE', feature), true, `${feature} is Signature's`);
     assert.equal(hasFeature('STANDARD', feature), false, `${feature} is not Standard's`);
   }
-  assert.equal(FUTURE_FEATURES.size, 0, 'nothing is held back');
-  assert.deepEqual(COMPARISON, COMPARISON_ALL, 'so the table a customer reads is the whole table');
-  for (const label of ['Seating chart', 'QR check-in', 'Guest list manager', 'Accommodation', 'Parents section', 'FAQ section']) {
+  // The event-day half of the service is what Luxury sells: the chart a guest
+  // looks themselves up on, the desk at the door, the album afterwards.
+  for (const feature of ['seating', 'checkin', 'photoSharing', 'saveTheDate.included', 'rsvp.emailConfirmation'] as const) {
+    assert.equal(featureOffered(feature), true, `${feature} is offered`);
+    assert.equal(hasFeature('LUXURY', feature), true, `${feature} is Luxury's`);
+    assert.equal(hasFeature('COMPLETE', feature), false, `${feature} is not Signature's`);
+  }
+  assert.deepEqual([...FUTURE_FEATURES], [], 'no feature key is held back — accommodation is a section, held back by its row');
+  for (const label of ['Seating chart', 'QR check-in', 'Guest list manager', 'Parents section', 'FAQ section', 'Save the Date', 'E-mail confirmation']) {
     assert.ok(COMPARISON.some((r) => r.label.includes(label)), `the table names ${label}`);
   }
+  // Built, and working for anyone who has it, but not drawn on the website.
+  assert.ok(COMPARISON_ALL.some((r) => r.label.includes('Accommodation')), 'accommodation still exists');
+  assert.equal(COMPARISON.find((r) => r.label.includes('Accommodation')), undefined, 'and is not on the table');
 });
 
 test('every phrase exists in both languages and substitutes variables', () => {
@@ -92,4 +114,26 @@ test('qr, ics, theme and dates', () => {
   assert.equal(formatTime('00:05'), '12:05 AM');
   assert.equal(formatDate('2026-12-12', 'long'), 'December 12, 2026');
   assert.match(manilaDateKey(new Date('2026-12-12T20:00:00Z')), /^2026-12-13$/, 'evening UTC is the next day in Manila');
+});
+
+// A section in the builder and a feature in the table can describe the same
+// thing twice: the badge on a locked section is drawn from sectionMinTier, and
+// whether the thing actually works is decided by hasFeature. When the two
+// disagree the builder offers an upgrade to a package that does not carry what
+// it is offering — which is exactly what happened when the album moved to
+// Luxury and its section stayed on Signature.
+test('a section and the feature behind it name the same package', () => {
+  const pairs: [SectionKey, FeatureKey][] = [
+    ['photos', 'photoSharing'],
+    ['guestbook', 'guestbook'],
+  ];
+  for (const [section, feature] of pairs) {
+    for (const tier of TIERS) {
+      assert.equal(
+        sectionUnlocked(section, 'WEDDING', tier),
+        hasFeature(tier, feature),
+        `${section} / ${feature} disagree on ${tier}`,
+      );
+    }
+  }
 });

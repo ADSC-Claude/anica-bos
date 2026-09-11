@@ -14,8 +14,11 @@
  * Concierge fee is recovering encoder hours, and encoding a debut costs what
  * encoding a wedding costs at the same tier.
  *
- * `priceCents` is never written here. Base prices stay whatever the admin has
- * set them to.
+ * A tier missing from the catalogue entirely is created rather than skipped.
+ * The seed only ever runs on an empty database, so a package added after
+ * launch — Luxury was — would otherwise exist in the code and be unsellable in
+ * production, which is the same failure the add-on loop below already guards
+ * against.
  *
  * Orders already placed are unaffected: an order snapshots its own
  * `subtotalCents`, `serviceFeeCents` and line items at checkout, so nothing
@@ -24,11 +27,12 @@
  *   npm run db:pricing            # apply
  *   npm run db:pricing -- --dry   # show what would change
  */
-import type { Tier } from '@prisma/client';
+import type { Occasion, Tier } from '@prisma/client';
 import { prisma } from '../src/lib/db';
 import { ADDONS, RETIRED_ADDONS } from '../src/lib/addon-catalogue';
 import { audit } from '../src/lib/audit';
 import { formatPeso } from '../src/lib/money';
+import { TIERS, TIER_LABELS } from '../src/lib/tiers';
 
 /**
  * Pesos, by tier. COMPLETE is the tier sold as "Signature" — the enum name
@@ -41,15 +45,38 @@ import { formatPeso } from '../src/lib/money';
  * form was already doing the work and paying a fee for the privilege. Now
  * there is one product — we build it — and the base price carries it:
  * 2,500 / 4,000 / 6,000, which is what a Done-For-You order came to before,
- * give or take the 200 knocked off Standard to round it.
+ * give or take the 200 knocked off Standard to round it. Luxury came later, at
+ * 7,500.
  *
  * The columns stay so orders sold under either mode still reconcile.
  */
-const FEES: Record<Tier, { base: number; dfy: number; concierge: number; rounds: number }> = {
-  BASIC: { base: 2_500, dfy: 0, concierge: 0, rounds: 2 },
-  STANDARD: { base: 4_000, dfy: 0, concierge: 0, rounds: 4 },
-  COMPLETE: { base: 6_000, dfy: 0, concierge: 0, rounds: 6 },
+const FEES: Record<Tier, { base: number; dfy: number; concierge: number; rounds: number; validity: number; tagline: string }> = {
+  BASIC: { base: 2_500, dfy: 0, concierge: 0, rounds: 2, validity: 30, tagline: 'The essentials: cover, venue, parents, dress code and a simple RSVP.' },
+  STANDARD: { base: 4_000, dfy: 0, concierge: 0, rounds: 4, validity: 182, tagline: 'Any design, the full entourage, gift QR, gallery, music, RSVP dashboard.' },
+  COMPLETE: { base: 6_000, dfy: 0, concierge: 0, rounds: 6, validity: 365, tagline: 'Per-guest links, guestbook, meal choice and Signature-only designs.' },
+  // Luxury buys the event-day half of the service — the seating chart, the
+  // check-in desk, the album afterwards — and two more rounds of drafting on
+  // top, because the package with the most on its page is the one that takes
+  // the most passes to get right.
+  LUXURY: { base: 7_500, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
 };
+
+/**
+ * The occasions a package is sold for. Only read when creating one that is
+ * missing.
+ *
+ * No per-occasion scale, deliberately: the update pass above writes the flat
+ * base to every occasion, so a row created at a scaled price would be flattened
+ * by the very next run. The seed scales because it is describing a catalogue
+ * nobody has priced yet; this script is the grid, and the grid is flat.
+ */
+const OCCASION_PACKAGES: { occasion: Occasion | null; label: string }[] = [
+  { occasion: 'WEDDING', label: 'Wedding' },
+  { occasion: 'DEBUT', label: 'Debut' },
+  { occasion: 'CHRISTENING', label: 'Christening' },
+  { occasion: 'KIDS_BIRTHDAY', label: "Kids' Birthday" },
+  { occasion: null, label: 'Celebration' },
+];
 
 const dry = process.argv.includes('--dry');
 const pesos = (n: number) => Math.round(n * 100);
@@ -73,7 +100,12 @@ async function main() {
     const dfyFeeCents = pesos(target.dfy);
     const conciergeFeeCents = pesos(target.concierge);
     const revisionRounds = target.rounds;
-    if (p.priceCents === priceCents && p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.revisionRounds === revisionRounds) {
+    // The wording is reconciled too, for the same reason the add-ons' is: a
+    // tagline is what a customer reads on the card, and Signature's promised a
+    // seating chart and QR check-in for months after both moved to Luxury. A
+    // run that fixed the price and left that would keep the catalogue lying.
+    const taglineSame = p.tagline === target.tagline;
+    if (taglineSame && p.priceCents === priceCents && p.dfyFeeCents === dfyFeeCents && p.conciergeFeeCents === conciergeFeeCents && p.revisionRounds === revisionRounds) {
       console.info(`  ${p.code.padEnd(22)} ${col(p.priceCents)}   unchanged`);
       continue;
     }
@@ -81,7 +113,7 @@ async function main() {
     console.info(`  ${p.code.padEnd(22)} base ${col(p.priceCents)} → ${col(priceCents)}   DFY ${col(p.dfyFeeCents)} → ${col(dfyFeeCents)}   rounds ${String(p.revisionRounds).padStart(2)} → ${String(revisionRounds).padStart(2)}`);
     if (!dry) {
       const before = { priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds };
-      await prisma.package.update({ where: { id: p.id }, data: { priceCents, dfyFeeCents, conciergeFeeCents, revisionRounds } });
+      await prisma.package.update({ where: { id: p.id }, data: { priceCents, dfyFeeCents, conciergeFeeCents, revisionRounds, tagline: target.tagline } });
       // Price changes are `sensitive` wherever the admin makes them. A bulk
       // script that skipped the log would leave a gap in the only record of
       // who moved a price and when.
@@ -97,6 +129,43 @@ async function main() {
       });
     }
     changed++;
+  }
+
+  // A tier the code sells but the catalogue has never heard of. The seed only
+  // runs on an empty database, so without this a package added after launch is
+  // sellable everywhere except production.
+  const existing = new Set(packages.map((p) => p.code));
+  let sortOrder = Math.max(0, ...packages.map((p) => p.sortOrder)) + 1;
+  for (const op of OCCASION_PACKAGES) {
+    for (const tier of TIERS) {
+      const code = `${op.occasion ?? 'ANY'}_${tier}`;
+      if (existing.has(code)) continue;
+      const target = FEES[tier];
+      const priceCents = pesos(target.base);
+      console.info(`  ${code.padEnd(22)} ${col(priceCents)}   created`);
+      if (!dry) {
+        const made = await prisma.package.create({
+          data: {
+            code,
+            occasion: op.occasion,
+            tier,
+            name: `${op.label} ${TIER_LABELS[tier]}`,
+            tagline: target.tagline,
+            priceCents,
+            dfyFeeCents: pesos(target.dfy),
+            conciergeFeeCents: pesos(target.concierge),
+            revisionRounds: target.rounds,
+            linkValidityDays: target.validity,
+            sortOrder: sortOrder++,
+          },
+        });
+        await audit(null, {
+          module: 'settings', action: 'package.save', entityType: 'Package', entityId: made.id,
+          summary: `${code} created (set-pricing)`, after: { priceCents }, sensitive: true,
+        });
+      }
+      changed++;
+    }
   }
 
   for (const spec of ADDONS) {

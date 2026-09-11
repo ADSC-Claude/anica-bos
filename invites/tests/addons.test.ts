@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { ADDONS, RETIRED_ADDONS, SHELVED_ADDONS, campaigns } from '../src/lib/addon-catalogue';
 import { ADDON_FEATURE, entitled, addOnForFeature, hasFeature, FEATURE_MIN_TIER, COMPARISON_ALL, TIERS } from '../src/lib/tiers';
 import { addOnAvailable } from '../src/lib/pricing';
@@ -172,5 +173,40 @@ test('the catalogue has no duplicate codes, and nothing both sold and retired', 
     const row = ADDONS.find((a) => a.code === code);
     assert.ok(row, `${code} unlocks a feature but is not in the catalogue`);
     assert.notEqual(row.held, true, `${code} unlocks a feature but is not for sale`);
+  }
+});
+
+test('every picture an add-on promises is a file that exists', () => {
+  // A typo'd path is not a missing picture, it is a broken frame on the
+  // landing page and in the checkout, next to the price. The markup renders
+  // nothing when the column is blank, so the only way to get a broken image is
+  // to name a file that is not there — which is what this catches.
+  for (const a of ADDONS) {
+    if (a.image === undefined) continue;
+    assert.ok(a.image.startsWith('/'), `${a.code}: ${a.image} is not a path from the site root`);
+    assert.ok(a.image.trim(), `${a.code} declares an empty picture — leave the field out instead`);
+    const file = new URL(`../public${a.image}`, import.meta.url);
+    assert.ok(existsSync(file), `${a.code} points at ${a.image}, which is not in public/`);
+  }
+});
+
+test('everything for sale says what it is, in a sentence a customer can read', () => {
+  // The description is the whole of what a customer is told before they tick
+  // the box. A code and a price with no sentence is a thing nobody buys.
+  for (const a of ADDONS) {
+    assert.ok(a.description.trim().length > 40, `${a.code} has no real description`);
+    assert.ok(/[.!]$/.test(a.description.trim()), `${a.code}: the description is a sentence, so it ends like one`);
+    assert.equal(a.name, a.name.trim());
+    assert.ok(a.name.trim(), `${a.code} has no name`);
+  }
+});
+
+test('the queue jumps quote the turnaround they are shortening', () => {
+  // Both descriptions name the ordinary wait to say what they are saving you,
+  // so both have to move when it does. It is seven to ten working days now.
+  for (const code of ['RUSH', 'PRIORITY']) {
+    const row = ADDONS.find((a) => a.code === code);
+    assert.ok(row);
+    assert.match(row.description, /seven to ten/, `${code} quotes a turnaround we no longer promise`);
   }
 });

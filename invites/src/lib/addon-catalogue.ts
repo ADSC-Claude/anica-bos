@@ -62,6 +62,13 @@ export type AddOnSpec = {
   description: string;
   sortOrder: number;
   /**
+   * A picture of what it buys. Most of these are a thing that happens rather
+   * than a thing you hold — a desk at the door, a name appearing on a guest's
+   * own invitation — and a sentence asks the customer to imagine it. Blank is
+   * allowed and renders nothing; it is not a broken frame.
+   */
+  image?: string;
+  /**
    * Priced and catalogued, but not shown or sold: the row exists so the price
    * is settled and editable in admin, and `active: false` keeps it off the
    * landing page and out of the checkout. Selling it is one tick away once
@@ -100,6 +107,7 @@ export const ADDONS: AddOnSpec[] = [
   {
     code: 'SAVE_THE_DATE',
     price: 500,
+    image: '/demo/addon-save-the-date.png',
     name: 'Save the Date card',
     description: 'A second card on the same design, with its own link, for sending months ahead. Your names, your date and your cover photo — the venue, the programme and the RSVP wait for the invitation itself. It publishes on its own, so announcing early does not use up the rounds of changes on your invitation.',
     sortOrder: 2,
@@ -117,6 +125,7 @@ export const ADDONS: AddOnSpec[] = [
   {
     code: 'QR_CHECKIN',
     price: 1_000,
+    image: '/demo/addon-checkin.png',
     name: 'QR check-in on the day',
     description: 'Scan your guests in at the door from your phone. Every guest gets a personal link with their own code; a tap or a scan marks them arrived, and you watch the count fill up live. Comes with the guest list, so you have somebody to scan. Included in Luxury.',
     sortOrder: 7,
@@ -124,6 +133,7 @@ export const ADDONS: AddOnSpec[] = [
   {
     code: 'SEATING_VIEWER',
     price: 1_000,
+    image: '/demo/addon-seating.png',
     name: 'Seating chart',
     description: 'Set your tables, put your guests at them, and each guest sees their own table name on their invitation — no seat plan by the door, no queue. Comes with the guest list, so you have somebody to seat. Included in Luxury.',
     sortOrder: 8,
@@ -131,6 +141,7 @@ export const ADDONS: AddOnSpec[] = [
   {
     code: 'PASSWORD',
     price: 300,
+    image: '/demo/addon-password.png',
     name: 'Password on your link',
     description: 'Your invitation asks for a password before it opens, so a link that gets forwarded does not let a stranger in. You choose the word and share it with your guests. Included in Signature.',
     sortOrder: 9,

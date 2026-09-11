@@ -170,6 +170,7 @@ async function main() {
         code: a.code,
         name: a.name,
         description: a.description,
+        imageUrl: a.image ?? '',
         priceCents: Math.round(a.price * 100),
         active: !a.held,
         sortOrder: a.sortOrder,

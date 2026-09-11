@@ -208,45 +208,18 @@ export function deepenToFloor(ink: string, paper: string): string | null {
   return null;
 }
 
-/* ── what sits behind it ────────────────────────────────────────────── */
-
-/**
- * How much white goes over a photograph before a code can sit on it.
+/*
+ * What used to sit here: QR_VEIL, QR_BLOOM_MIN_UNDER_CODE and qrOnPhoto — a
+ * measured amount of white to put over a couple's photograph so a code could
+ * be read off it, and a code drawn with transparent paper to composite onto
+ * the result.
  *
- * Measured, and it is the number this whole option turns on. Six grounds built
- * to bracket what a photograph does — a bright frame, a dark reception, a
- * backlit silhouette, and three kinds of busy detail standing in for hair,
- * foliage and lace — were composited under a real code and decoded at both
- * sizes this app renders. Every one of them came back at 0.70. Below 0.60 the
- * busy three fail, and "busy" is not an unusual photograph, it is most of
- * them.
- *
- * 0.80 rather than the 0.70 floor, because the photograph the couple uploads
- * is not one of the six and nobody gets to test it first.
- *
- * The cost is honest and unavoidable: at this veil the photograph is a ghost.
- * Whatever offers this option has to show the veiled result rather than the
- * photograph, or the couple will choose it from a thumbnail and be surprised.
+ * Nothing needs them. The code sits on the invitation's own paper in every
+ * front the pass offers, and on a plate on the invitation itself, so the
+ * photograph is behind the paper rather than under the modules and keeps its
+ * full strength. The veil was a well-measured answer to a question that
+ * should not have been asked.
  */
-export const QR_VEIL = 0.8;
-
-/**
- * The bloom that replaced the flat veil must not go under the number above at
- * any point the code covers. It does not: its stops hold 0.96 out to 60% of
- * the wash's radius, and the code's furthest corner lands at 54%. This
- * constant is the floor the CSS is checked against, not a value the CSS reads
- * — the check lives in tests/qr.test.ts.
- */
-export const QR_BLOOM_MIN_UNDER_CODE = 0.96;
-
-/**
- * A code on a photograph is a code with no paper of its own, and one level of
- * recovery in hand: the veil bounds how dark the ground can get, but it cannot
- * make it even.
- */
-export function qrOnPhoto(text: string, size: number, dark: string = QR_SAFE.dark): string {
-  return qrSvg(text, { size, dark, light: 'none', ec: 'Q', module: 'square', eye: 'rounded' });
-}
 
 /** What a level of error correction can afford to lose, as a share. */
 export function recoveryBudget(ec: Ec): number {

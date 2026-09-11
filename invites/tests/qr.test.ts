@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  qrSvg, qrOnPhoto, qrColours, deepenToFloor, contrast, luminance,
-  QR_VEIL, QR_SAFE, QR_CONTRAST_FLOOR, QR_BLOOM_MIN_UNDER_CODE,
+  qrSvg, qrColours, deepenToFloor, contrast, luminance,
+  QR_SAFE, QR_CONTRAST_FLOOR,
 } from '../src/lib/qr';
 import { PASS_LOOKS, passLookFrom } from '../src/lib/pass';
 import { PALETTE_PRESETS } from '../src/lib/theme';
@@ -99,14 +99,21 @@ test('a dark ground is never used as paper', () => {
   assert.deepEqual(ink, QR_SAFE, 'a dark palette produced a code drawn on its own darkness');
 });
 
-test('the veil is the measured one, and the code on a photo has recovery in hand', () => {
-  // Six grounds bracketing what a photograph does were composited under a real
-  // code and decoded at both sizes; 0.70 was the floor across all of them.
-  // 0.80 ships because the couple's own photograph is not one of the six.
-  assert.ok(QR_VEIL >= 0.7, `a veil of ${QR_VEIL} is under the measured floor`);
-  assert.match(qrOnPhoto(URL_, 144), /^<svg/);
-  assert.doesNotMatch(qrOnPhoto(URL_, 144), /<rect width="144" height="144" fill=/, 'the code on a photo paints over it');
-  assert.match(qr, /ec: 'Q'/, 'the code on a photo dropped back to less recovery');
+test('nothing is left over from veiling a photograph to read a code off it', () => {
+  // QR_VEIL, QR_BLOOM_MIN_UNDER_CODE and qrOnPhoto are gone with the approach
+  // they served: the code sits on the invitation's own paper now, so there is
+  // no photograph in its way and no white to measure over one.
+  // Checked as exports rather than as mentions: the comment that replaced them
+  // names all three, which is the point of it.
+  const qr = readFileSync(new URL('../src/lib/qr.ts', import.meta.url), 'utf8');
+  for (const gone of ['QR_VEIL', 'QR_BLOOM_MIN_UNDER_CODE', 'qrOnPhoto']) {
+    assert.doesNotMatch(qr, new RegExp(`export (const|function) ${gone}\\b`), `${gone} is still exported`);
+  }
+  // And nothing imports them, which is what would actually break.
+  for (const f of ['../src/components/invite/pass.tsx', '../src/components/invite/renderer.tsx']) {
+    const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /qrOnPhoto|QR_VEIL/, `${f} still reaches for the veil`);
+  }
 });
 
 

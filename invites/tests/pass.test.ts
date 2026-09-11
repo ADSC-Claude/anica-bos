@@ -264,7 +264,6 @@ test('the photograph is never washed out, darkened or written over', () => {
   assert.doesNotMatch(block, /\.pass-picture::(before|after)/, 'something is laid over the photograph');
   // And the code takes the palette on paper, never the on-photo treatment.
   const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
-  assert.doesNotMatch(pass, /qrOnPhoto/, 'the code is drawn onto the photograph again');
   assert.match(pass, /\.pass-picture|pass-picture/, 'nothing carries the photograph');
 });
 

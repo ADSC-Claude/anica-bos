@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import type { Occasion, Privacy } from '@prisma/client';
+import type { Occasion, Privacy, Tier } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
@@ -425,7 +425,7 @@ export async function approveAction(invitationId: string) {
 
 // --- orders, account ------------------------------------------------------
 
-export async function upgradeAction(invitationId: string, tier: 'STANDARD' | 'COMPLETE') {
+export async function upgradeAction(invitationId: string, tier: Tier) {
   const user = await requireUser();
   const result = await action(async () => {
     await ownInvitation(user, invitationId);

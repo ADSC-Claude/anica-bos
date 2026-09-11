@@ -229,6 +229,11 @@ async function confirmToGuest(
   guest: { id: string; token: string; salutation: string } | null,
 ) {
   if (!hasFeature(invitation.tier, 'rsvp.emailConfirmation')) return;
+  // Only the people who are coming. A decline is a kindness the guest has
+  // already done the couple, and writing back to say we have noted they will
+  // not be there reads as a receipt nobody asked for — worse on the occasions
+  // where the reason for declining is not a happy one.
+  if (saved.response !== 'ACCEPT') return;
   const address = mailable(plainAddress(saved.email));
   // No address is not a failure to record — there was nobody to write to. The
   // couple's RSVP list says so from the blank, which is the thing they can act
@@ -236,14 +241,15 @@ async function confirmToGuest(
   if (!address) return;
 
   const content = contentOf(invitation.content);
-  const accepted = saved.response === 'ACCEPT';
   const settings = await getSettings();
+  // {{response}} is always "coming" now, and stays a variable because the
+  // wording is the admin's to edit and their template still names it.
   const vars = {
     guestName: guest?.salutation || saved.name,
     hosts: invitation.title.trim() || displayTitle(invitation.occasion, content),
     eventDate: invitation.eventAt ? formatDate(invitation.eventAt) : '',
-    response: accepted ? 'coming' : 'not able to come',
-    seatsLine: accepted ? ` for ${saved.seats} seat${saved.seats === 1 ? '' : 's'}` : '',
+    response: 'coming',
+    seatsLine: ` for ${saved.seats} seat${saved.seats === 1 ? '' : 's'}`,
     link: invitationUrl(invitation.slug, guest?.token),
   };
   const subject = render(settings['email.rsvpConfirmationSubject'], vars);

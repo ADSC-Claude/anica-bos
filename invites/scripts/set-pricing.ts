@@ -58,7 +58,7 @@ const FEES: Record<Tier, { base: number; dfy: number; concierge: number; rounds:
   // check-in desk, the album afterwards — and two more rounds of drafting on
   // top, because the package with the most on its page is the one that takes
   // the most passes to get right.
-  LUXURY: { base: 7_500, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
+  LUXURY: { base: 8_000, dfy: 0, concierge: 0, rounds: 8, validity: 365, tagline: 'The day itself: seating chart, QR check-in, shared album, Save the Date included.' },
 };
 
 /**

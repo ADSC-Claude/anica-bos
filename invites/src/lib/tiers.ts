@@ -241,9 +241,11 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Ceremony & reception + Google Maps & Waze buttons', cells: { BASIC: true, STANDARD: true, COMPLETE: true, LUXURY: true } },
   { label: 'Parents section', cells: { BASIC: true, STANDARD: true, COMPLETE: true, LUXURY: true } },
   { label: 'Dress code + colour motif swatches', cells: { BASIC: true, STANDARD: true, COMPLETE: true, LUXURY: true } },
-  { label: 'Photos', cells: { BASIC: '1 cover photo', STANDARD: '5 to 7 photos', COMPLETE: '10 to 15 photos + prenup video', LUXURY: 'Unlimited gallery + prenup video' } },
+  // "Prenup video" is a wedding's word for it, and this table is read by a
+  // family choosing a package for a christening as readily as by a couple.
+  { label: 'Photos', cells: { BASIC: '1 cover photo', STANDARD: '5 to 7 photos', COMPLETE: '10 to 15 photos + video', LUXURY: 'Unlimited gallery + video' } },
   { label: 'RSVP', cells: { BASIC: 'Simple form', STANDARD: '+ RSVP dashboard, Excel export', COMPLETE: '+ meal choice, auto-close on your deadline', LUXURY: '+ meal choice, auto-close on your deadline' } },
-  { label: 'E-mail confirmation to each guest who replies', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: 'Included' } },
+  { label: 'E-mail confirmation to each guest who accepts', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: 'Included' } },
   { label: 'SMS blast to your guest list', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: 'Add-on' } },
   { label: 'Guest groups on the RSVP (sponsors, family, friends)', cells: { BASIC: true, STANDARD: true, COMPLETE: true, LUXURY: true } },
   { label: 'Printable headcount sheet for your caterer or coordinator', cells: { BASIC: false, STANDARD: true, COMPLETE: true, LUXURY: true } },

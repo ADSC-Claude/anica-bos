@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { loadPublic } from '@/lib/invitations';
 import { getSettings } from '@/lib/settings';
@@ -32,7 +33,7 @@ export default async function LooksPage({ searchParams }: { searchParams: Promis
         <p className="eyebrow">The looks</p>
         <h1 className="text-3xl">One page, five voices</h1>
         <p className="mt-2 text-[color:var(--color-ink-soft)]">
-          A look is the faces a page is set in and the lines it says under each heading, in English and in Tagalog. The layout and the colours are the design&apos;s; the words are the couple&apos;s. Every design ships in one look. The package decides how many are on offer: Basic is set in Modern, Standard chooses among three, and Signature among all five — so a theme the default fonts fight has somewhere to go.
+          A look is the faces a page is set in and the lines it says under each heading, in English and in Tagalog. The layout and the colours are the design&apos;s; the words are the couple&apos;s. These five are the voices: every pairing in <Link href="/admin/fonts" className="underline">Fonts</Link> borrows one of them, and which packages may choose which pairing is set there, a row at a time.
         </p>
       </header>
       <div className="looks-row">

@@ -49,3 +49,18 @@ test('the cap is stricter than a picture’s, and for a different reason', () =>
   // every guest downloads a face whole before the words can be read
   assert.equal(FONT_MAX_BYTES, 1024 * 1024);
 });
+
+test('a family name that could not be a Google family is refused before Google is asked', async () => {
+  /*
+   * The network half of this is measured in a browser, not here — a test
+   * that needs fonts.googleapis.com is a test that fails on a train. What is
+   * checkable without it is the shape: a name with a slash or a colon in it
+   * could only ever make a malformed request, and a malformed request is a
+   * 400, and a 400 leaves every face on the page in its fallback.
+   */
+  const { checkGoogleFamily } = await import('../src/lib/google-fonts');
+  for (const bad of ['', '   ', 'Family/Name', 'Family:400', 'Family?x=1', '<script>', 'Ünderscored_Name']) {
+    const r = await checkGoogleFamily(bad, '');
+    assert.equal(r.ok, false, JSON.stringify(bad));
+  }
+});

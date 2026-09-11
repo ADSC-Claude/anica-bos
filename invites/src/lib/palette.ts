@@ -133,19 +133,32 @@ export function swatchStyle(hex: string, metallic = false): string {
  * together by construction — that is what a family is.
  *
  * The shape of it: the palest shade is the ground, the second palest is the
- * quiet accent, the darkest is the ink, and the two from the middle are the
- * muted ink and the accent that carries the headings. The surface stays
- * white, because a card has to lift off the page whatever the family is.
+ * quiet accent, the darkest is the ink, and the muted ink and the accent are
+ * the palest two shades that can still carry words. The surface stays white,
+ * because a card has to lift off the page whatever the family is.
  *
- * Two guards, and both are about being able to read the page. A family of
- * pale shades has no shade dark enough to read as ink — every neutral in the
- * book is paler than the grey a person can read comfortably — so where the
- * darkest shade is still pale, the ink is the book's own near-black instead.
- * And a family of deep shades has nothing pale enough to be a ground: the
- * palest red in the book is a pillar-box red, and ink on it cannot be read
- * at all, so the ground becomes a very pale tint of that shade, which is
- * what a designer reaches for anyway. A palette that cannot be read is not
- * a palette.
+ * Three guards, and all three are about being able to read the page.
+ *
+ * A family of pale shades has no shade dark enough to read as ink — every
+ * neutral in the book is paler than the grey a person can read comfortably —
+ * so where the darkest shade is still pale, the ink is the book's own
+ * near-black instead. A family of deep shades has nothing pale enough to be
+ * a ground: the palest red in the book is a pillar-box red, and ink on it
+ * cannot be read at all, so the ground becomes a very pale tint of that
+ * shade, which is what a designer reaches for anyway.
+ *
+ * The third was found by measuring, after the button had been shipping for
+ * two phases: **nine of the thirteen families made a heading nobody could
+ * read.** Taking the accent from the middle of the family by lightness is
+ * fine for a family that runs from cream to espresso and hopeless for one
+ * that runs from cream to beige — neutrals put an eyebrow in Nude on White,
+ * 1.5 to 1. And the accent is not only headings: `.inv-eyebrow` sets an
+ * eleven-pixel line in it and `.inv-btn` puts white words on it, so it has
+ * to stand off the paper *and* off white. So the accent and the muted ink
+ * are chosen for that rather than by position, and a family with no shade
+ * deep enough has its own darkest taken down until it has one — the same
+ * answer as the ground guard, at the other end. A palette that cannot be
+ * read is not a palette.
  */
 export const READABLE_INK = '#2b2b28';
 
@@ -162,6 +175,24 @@ const INK_CEILING = 0.36;
 const GROUND_FLOOR = 0.62;
 /** How far toward white a deep shade is taken to become a ground. */
 const TINT = 0.86;
+/**
+ * What a shade must reach, against the paper and against white, to carry
+ * words. The standards' bar for text at a normal size, which is what both
+ * the eyebrow and a button's label are.
+ */
+const CARRIES = 4.5;
+
+/** Whether this shade can carry small words on that paper, and white words on itself. */
+const canCarry = (hex: string, bg: string): boolean => contrast(hex, bg) >= CARRIES && contrast(hex, '#ffffff') >= CARRIES;
+
+/** The family's own colour, taken toward black in tenths until it can carry words. */
+function deepen(hex: string, bg: string): string {
+  for (let amount = 0.1; amount < 1; amount += 0.1) {
+    const darker = mix(hex, 0, amount);
+    if (canCarry(darker, bg)) return darker;
+  }
+  return READABLE_INK;
+}
 
 export function familyPalette(family: string): { bg: string; surface: string; ink: string; muted: string; accent: string; accent2: string } {
   const group = PALETTE.find((g) => g.key === family);
@@ -170,13 +201,26 @@ export function familyPalette(family: string): { bg: string; surface: string; in
   const at = (i: number) => shades[Math.min(Math.max(i, 0), shades.length - 1)];
   const darkest = at(shades.length - 1);
   const palest = at(0);
-  const middle = Math.floor((shades.length - 1) / 2);
+  const bg = lightness(palest) >= GROUND_FLOOR ? palest : mix(palest, 255, TINT);
+  // the palest shades that carry words, so the family keeps its colour
+  // rather than falling to near-black the moment a bar is not met
+  const carrying = shades.filter((h) => canCarry(h, bg));
+  const muted = carrying[0] ?? deepen(darkest, bg);
+  // and the heading a shade deeper than the caption, as the shipped palettes have it
+  const accent = carrying[1] ?? deepen(muted, bg);
   return {
-    bg: lightness(palest) >= GROUND_FLOOR ? palest : mix(palest, 255, TINT),
+    bg,
     surface: '#ffffff',
-    ink: lightness(darkest) <= INK_CEILING ? darkest : READABLE_INK,
-    muted: at(middle),
-    accent: at(middle + 1),
+    /*
+     * The ink is asked both questions, because lightness and contrast
+     * disagree at the edges and the book has a family where they do: the
+     * darkest pink is Fuchsia, dark enough by lightness and 4.4 to 1 against
+     * a baby-pink paper, which is a page of body words a hair under the bar.
+     * The near-black is the better answer there.
+     */
+    ink: lightness(darkest) <= INK_CEILING && contrast(darkest, bg) >= CARRIES ? darkest : READABLE_INK,
+    muted,
+    accent,
     accent2: at(1),
   };
 }

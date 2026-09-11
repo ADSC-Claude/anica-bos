@@ -27,6 +27,7 @@ import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
 import { isLayout, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
+import { colourFamilies } from '@/lib/palette';
 import { findSet } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
@@ -145,6 +146,9 @@ export async function saveTemplateAction(templateId: string | null, back: string
     const layout = s(fd, 'layout');
     if (!isLayout(layout)) throw new HttpError(400, 'Pick a layout.');
     const palettePreset = PALETTE_PRESETS.find((p) => p.key === s(fd, 'paletteKey'));
+    // A family of the colour book, made into the six roles. It wins over a
+    // preset, because it is the more particular of the two answers.
+    const family = colourFamilies().find((f) => f.key === s(fd, 'paletteFamily'))?.palette;
     const palette = { bg: s(fd, 'bg'), surface: s(fd, 'surface'), ink: s(fd, 'ink'), muted: s(fd, 'muted'), accent: s(fd, 'accent'), accent2: s(fd, 'accent2') };
     const fonts = FONT_PRESETS.find((f) => f.key === s(fd, 'fontsKey'))?.fonts ?? FONT_PRESETS[0].fonts;
     /*
@@ -179,7 +183,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
       openingVideoUrl: s(fd, 'openingPosterUrl') ? s(fd, 'openingVideoUrl') : '',
       openingPosterUrl: s(fd, 'openingPosterUrl'),
       opening: isOpening(s(fd, 'opening')) && s(fd, 'opening') !== 'none' ? s(fd, 'opening') : '',
-      palette: (palettePreset && !s(fd, 'bg') ? palettePreset.palette : palette) as never,
+      palette: (!s(fd, 'bg') ? (family ?? palettePreset?.palette ?? palette) : palette) as never,
       fonts: fonts as never,
       sections,
       featured: b(fd, 'featured'),

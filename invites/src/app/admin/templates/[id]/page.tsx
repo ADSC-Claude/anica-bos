@@ -6,6 +6,7 @@ import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
 import { lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
+import { colourFamilies } from '@/lib/palette';
 import { findSet } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
@@ -38,6 +39,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   const fontsKey = FONT_PRESETS.find((f) => JSON.stringify(f.fonts) === JSON.stringify(t?.fonts))?.key ?? 'serif';
   // Every pairing she has switched on, and the one this design is set in.
   const sets = await fontBook();
+  const families = colourFamilies();
   const set = findSet(t?.look ?? '', sets);
   // the design's own words and pictures, and the wording they replace
   const words = wordsOf(t?.words);
@@ -123,6 +125,14 @@ export default async function TemplateEditor({ params, searchParams }: { params:
             />
           )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
+          {/*
+            * The same one-tap the studio's Theme popover has: six roles made
+            * from one family of the colour book. The palest shade is the
+            * paper, the deepest is the ink, and two from the middle carry
+            * the headings — see familyPalette, which guards both ends so the
+            * page can still be read.
+            */}
+          <Select label="…or from a colour family" name="paletteFamily" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...families.map((f) => ({ value: f.key, label: `${f.label} — paper ${f.palette.bg}, ink ${f.palette.ink}` }))]} hint="One family of the colour book, made into the six roles. Clear the six colours below to apply it; a family wins over a preset." />
           <div className="grid grid-cols-3 gap-2">
             {(['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as const).map((k) => (
               <div key={k}><label className="label" htmlFor={k}>{k}</label><input id={k} name={k} type="text" defaultValue={pal[k]} className="field font-mono text-xs" pattern="#[0-9a-fA-F]{6}" /></div>

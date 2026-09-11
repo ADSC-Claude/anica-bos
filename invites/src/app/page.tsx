@@ -156,8 +156,11 @@ export default async function Landing() {
             against a wall. When there is a design made for this spot it takes
             the same place; capiz stands in until then. */}
         <section className="ed-maroon grid items-stretch lg:grid-cols-[1.02fr_1fr]">
-          <div className="ed-maroon-plate">
-            <Figure src={PHOTO.card} alt="" className="ed-figure-bleed h-full min-h-[20rem] lg:min-h-[31rem]" />
+          {/* Portrait, because the covers are portrait. In a landscape box a
+              cover gets cropped through the names, which is the one part of a
+              design nobody may crop. */}
+          <div className="ed-maroon-plate flex items-center justify-center">
+            <Figure src={PHOTO.card} alt="" className="ed-figure-bleed aspect-[4/5] w-full max-w-[26rem]" />
           </div>
           <div className="ed-gutter-r flex items-center px-5 py-16 lg:py-24 lg:pl-16">
             <div className="max-w-lg">

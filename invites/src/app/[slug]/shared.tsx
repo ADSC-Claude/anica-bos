@@ -105,8 +105,13 @@ export async function PeekPage({ slug }: { slug: string }) {
  * `bare` drops the opening, the music and the day-and-night toggle: the page
  * as a page, for staff working on it beside a form. Only a previewer (the
  * owner or staff) gets it; a guest's link always opens the way it was made.
+ *
+ * `draft` draws the design from what the studio has saved rather than from
+ * what is published — the whole invitation, page after page, as the design
+ * she is drawing would serve it. Like `bare` it is a previewer's view only,
+ * so an unfinished design cannot be handed to anybody through a link.
  */
-export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean }) {
+export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean }) {
   const { invitation, guest, previewer, locked } = await resolveInvitation(slug, token);
   if (locked) return <PasswordGate slug={slug} token={token} error={wrongPassword} />;
   const live = invitation.status === 'PUBLISHED' && !invitation.expired;
@@ -114,5 +119,8 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
   if (invitation.expired && !previewer) return <ExpiredNotice invitation={invitation} />;
   if (live && !previewer && !print) await recordView(invitation.id);
   const s = await getSettings();
-  return <Invitation invitation={invitation} guest={guest} preview={!live} print={print} bare={bare && previewer} businessName={s['business.name']} />;
+  const shown = draft && previewer
+    ? { ...invitation, template: { ...invitation.template, design: invitation.template.designDraft } }
+    : invitation;
+  return <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} businessName={s['business.name']} />;
 }

@@ -62,6 +62,10 @@ export function Studio(p: Props) {
   const [pageKey, setPageKey] = useState(p.doc.pages[0]?.key ?? '');
   const [sel, setSel] = useState<string[]>([]);
   const [width, setWidth] = useState(390);
+  /** the page under her hand, or the whole invitation as a guest scrolls it */
+  const [view, setView] = useState<'page' | 'whole'>('page');
+  const [shown, setShown] = useState(0);
+  const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
   const [rev, setRev] = useState(p.rev);
   const [state, setState] = useState<'clean' | 'dirty' | 'saving' | 'saved' | 'error'>('clean');
@@ -101,7 +105,10 @@ export function Studio(p: Props) {
       };
     }
     setBoxes(next);
-  }, [doc, page, width, night, p.content]);
+    // `view` is in the list because the stage is kept mounted but hidden while
+    // the whole invitation is shown: a hidden box measures zero, the guard
+    // above keeps the last good numbers, and this measures again on her return
+  }, [doc, page, width, night, p.content, view]);
 
   // --- changing the document ------------------------------------------------
 
@@ -166,6 +173,38 @@ export function Studio(p: Props) {
     const id = setTimeout(() => { void save(doc); }, 2000);
     return () => clearTimeout(id);
   }, [state, doc, save]);
+
+  // --- the whole invitation -------------------------------------------------
+
+  /**
+   * The preview is the real guest page, drawn on the server from the draft —
+   * `?design=draft`, which only a previewer is given. So it is refreshed when
+   * the draft is saved, and never in the middle of a drag, which would be a
+   * reload every few pixels. Switching to it saves first, so what she is
+   * looking at is what she has just drawn.
+   */
+  useEffect(() => { if (state === 'saved') setShown((n) => n + 1); }, [state]);
+
+  /**
+   * Same origin, so the preview is scrolled to her page rather than told to.
+   * The offset is worked out and handed to the frame's own `scrollTo`:
+   * `scrollIntoView` on an element in another document does nothing in
+   * Chromium, and the page's `scroll-behavior: smooth` would animate a
+   * three-thousand-pixel jump on every reload. It is run again a moment
+   * later because the pages settle as their pictures arrive.
+   */
+  const showPage = useCallback(() => {
+    const win = frame.current?.contentWindow;
+    const at = win?.document.querySelector(`[data-page="${pageKey}"]`);
+    if (!win || !at) return;
+    win.scrollTo({ top: win.scrollY + at.getBoundingClientRect().top, behavior: 'instant' as ScrollBehavior });
+  }, [pageKey]);
+  useEffect(() => {
+    if (view !== 'whole') return;
+    showPage();
+    const id = setTimeout(showPage, 600);
+    return () => clearTimeout(id);
+  }, [view, shown, showPage]);
 
   // --- the keyboard ---------------------------------------------------------
 
@@ -580,15 +619,58 @@ export function Studio(p: Props) {
             <button key={w.key} type="button" onClick={() => setWidth(w.key)} className={`rounded px-2 py-1 ${width === w.key ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{w.label}<span className="ml-1 opacity-60">{w.hint}</span></button>
           ))}
           <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
-          <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
-          <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
+          {view === 'page' ? (
+            <>
+              <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
+              <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
+          )}
           <span className="ml-auto" />
           <button type="button" onClick={() => setNight((n) => !n)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">{night ? '☾ Night' : '☀ Day'}</button>
           <button type="button" onClick={undo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Undo</button>
           <button type="button" onClick={redo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Redo</button>
         </div>
 
-        <div className="flex justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4">
+        {/*
+          * This page, or the whole thing. The first is the page under her
+          * hand, with handles over it; the second is the real guest page,
+          * drawn on the server from the draft she has saved, scrolled to
+          * where she is working.
+          */}
+        <div className="mb-3 flex gap-1 text-sm">
+          {([['page', 'This page'], ['whole', 'The whole invitation']] as const).map(([k, lbl]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => { setView(k); if (k === 'whole' && state === 'dirty') void save(doc); }}
+              className={`rounded-t px-3 py-1.5 ${view === k ? 'bg-[color:var(--color-sand-200)] font-semibold' : 'text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]'}`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
+
+        {view === 'whole' && (
+          <div className="flex justify-center bg-[color:var(--color-sand-100)] p-4">
+            {p.demoSlug ? (
+              <iframe
+                key={shown}
+                ref={frame}
+                title="The whole invitation"
+                src={`/${p.demoSlug}?bare=1&design=draft`}
+                onLoad={showPage}
+                className="shadow-lg"
+                style={{ width, height: 780, border: 0, background: '#fff' }}
+              />
+            ) : (
+              <p className="hint py-12">This design has no demo invitation, so there is nothing to draw it against. Give it one on the template&rsquo;s own page.</p>
+            )}
+          </div>
+        )}
+
+        <div className={`justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4 ${view === 'page' ? 'flex' : 'hidden'}`}>
           <div className="relative shadow-lg" style={{ width }}>
             <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-mode={night ? 'night' : 'day'} style={{ ...p.vars, minHeight: 0 } as CSSProperties} lang="en">
               <div
@@ -630,7 +712,9 @@ export function Studio(p: Props) {
             </div>
           </div>
         </div>
-        {!page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background and which sections it carries are on the right.</p>}
+        {view === 'whole'
+          ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
+          : !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background and which sections it carries are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
       </section>
 
       {/* what is selected */}

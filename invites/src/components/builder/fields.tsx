@@ -280,35 +280,32 @@ function StyleThumb({ kind }: { kind: string }) {
  * The three check-in fronts, drawn rather than described.
  *
  * Each tile has to read as a poster — picture edge to edge, the dark falling
- * off the bottom, big words on it — and, crucially, it has to draw the *bloom*:
- * the soft round of paper the code stands in, with the picture showing through
- * between the modules. That is the part a couple cannot picture from words, and
- * a tile that drew a crisp white plate instead would be selling a page we do
- * not build. An earlier set drew a bordered card three times, which is the
- * thing these fronts took out.
+ * off the bottom, big words on it — and it has to draw the code the way the
+ * page draws it: on a square of the couple's own paper, at the same alpha, so
+ * the picture carries faintly through it. That is the part a couple cannot
+ * picture from words. An earlier set drew a bordered card three times, which
+ * is the thing these fronts took out.
  */
 function PassThumb({ look, photo }: { look: string; ink: string; photo: string }) {
   const line = (w: string, h = 3, o = 0.95) => (
     <span style={{ display: 'block', height: h, width: w, borderRadius: 1, background: '#fff', opacity: o }} />
   );
   /*
-   * The code standing in its bloom. The disc is the box, exactly as on the
-   * page — drawn as a glow bolted onto the code it overflowed upward and ate
-   * the guest's line — and the code is the page's own share of it, so the
-   * ratio lives in one place and the tile cannot drift from what ships.
+   * The code on its square of paper, drawn the way the page draws it: straight
+   * edges, no radius, no shadow, and the picture carrying faintly through the
+   * paper rather than the code sitting on an opaque white sticker. The panel is
+   * the box, so it reserves its own room and cannot eat the line above it.
    */
-  const DISC = 62;
   const mark = (
     <span
       style={{
-        display: 'grid', placeItems: 'center', width: `${DISC}%`, aspectRatio: '1',
-        margin: '0 auto', borderRadius: '50%',
-        background: 'radial-gradient(circle closest-side, rgba(252,249,243,0.96) 0%, rgba(252,249,243,0.96) 80%, rgba(252,249,243,0.5) 90%, rgba(252,249,243,0) 100%)',
+        display: 'grid', placeItems: 'center', width: '42%', aspectRatio: '1',
+        margin: '0 auto', padding: '6%', background: 'rgba(252,249,243,0.8)',
       }}
     >
-      <span style={{ position: 'relative', display: 'block', width: `${100 / 1.8}%`, aspectRatio: '1' }}>
+      <span style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '1' }}>
         {[[0, 0], [66, 0], [0, 66]].map(([l, t]) => (
-          <span key={`${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '34%', height: '34%', border: '2px solid var(--color-ink-900)', borderRadius: 2 }} />
+          <span key={`${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '34%', height: '34%', border: '2px solid var(--color-ink-900)' }} />
         ))}
         {[[46, 22], [74, 40], [40, 52], [60, 66], [82, 72], [34, 78], [56, 88]].map(([l, t]) => (
           <span key={`d-${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '10%', height: '10%', background: 'var(--color-ink-900)' }} />
@@ -346,7 +343,7 @@ function PassThumb({ look, photo }: { look: string; ink: string; photo: string }
       {look !== 'cover' && (
         <>
           {fall('linear-gradient(to bottom, rgba(12,10,8,0.3) 0%, rgba(12,10,8,0) 24%, rgba(12,10,8,0) 40%, rgba(12,10,8,0.72) 66%, rgba(12,10,8,0.96) 100%)')}
-          <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '52%' }}>{words}</span>
+          <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '44%' }}>{words}</span>
         </>
       )}
       {/* the masthead: the dark at the top, the words across it */}

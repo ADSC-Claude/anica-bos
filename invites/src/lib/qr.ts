@@ -213,11 +213,10 @@ export function deepenToFloor(ink: string, paper: string): string | null {
 /**
  * How much paper-light goes over the photograph directly under a code.
  *
- * This is the silhouette front, and it is the one thing asked for that kept
- * getting built and then taken out again: the code stands *on* the picture
- * rather than on a plate laid over it. There is no card edge, no cut and no
- * trim — the photograph simply comes up into the light under the modules and
- * goes back to full strength a finger's width away.
+ * The code sits on a square panel of the invitation's own paper, and this is
+ * how much of the photograph shows through it. Not an opaque sticker and not
+ * a cut-out: the picture carries faintly through the paper, which is the
+ * whole reason the panel is drawn this way rather than filled solid.
  *
  * 0.8, measured. White at this alpha over the worst ground a photograph can
  * offer — black — composites to #cccccc, which is 10.6:1 against the safe ink
@@ -227,34 +226,28 @@ export function deepenToFloor(ink: string, paper: string): string | null {
  */
 export const QR_VEIL = 0.8;
 
-/**
- * The bloom is a soft circle, and softness is the risk: a gradient that has
- * begun to fade where the code still has modules is a code with a dim corner.
- *
- * So the wash holds 0.96 out to 80% of its radius, and the code's furthest
- * corner — quiet zone included — lands at 79% of it, because the disc is 180%
- * of the code's own box and a circle round a square is 141% at the very
- * least. That narrow margin is deliberate: a disc wide enough to fade
- * gracefully is a disc that reads as a torch shone at the photograph, which is
- * what the first version of this looked like. This constant is the floor the
- * CSS is checked against rather than a value the CSS reads; the check lives in
- * tests/qr.test.ts, which keeps the two in step when somebody retunes it.
+/*
+ * What used to sit here: QR_BLOOM_MIN_UNDER_CODE, the share of a soft disc's
+ * radius that had to stay at full strength so the code's corners did not stand
+ * on a fade. The panel is a flat square now — uniform alpha, straight edges,
+ * every module on exactly the same paper — so there is no falloff left to
+ * bound. QR_VEIL is the only number the drawing needs.
  */
-export const QR_BLOOM_MIN_UNDER_CODE = 0.96;
 
 /**
- * A code with no paper of its own, for standing on the bloom.
+ * A code with no paper of its own, for standing on the panel.
  *
- * `light: 'none'` draws no backing rectangle, so the photograph shows between
- * the modules. Error correction goes to Q rather than M: the bloom bounds how
- * dark the ground can get under the code but it cannot make it even, and a
- * quarter of recovery is what covers the unevenness that is left.
+ * `light: 'none'` draws no backing rectangle, so the panel behind is what the
+ * modules stand on and the photograph shows through both. Error correction
+ * goes to Q rather than M: the panel bounds how dark the ground under the code
+ * can get but it cannot make it even, and a quarter of recovery covers the
+ * unevenness that is left.
  */
 export function qrOnPhoto(text: string, size: number, dark: string = QR_SAFE.dark): string {
   return qrSvg(text, { size, dark, light: 'none', ec: 'Q', module: 'square', eye: 'rounded' });
 }
 
-/** The paper of a bloom, composited over the darkest a photograph can be. */
+/** The panel's paper, composited over the darkest a photograph can be. */
 function overBlack(paper: string, veil: number): string {
   const from = /^#([0-9a-fA-F]{6})$/.exec(paper);
   if (!from) return '#000000';
@@ -263,9 +256,9 @@ function overBlack(paper: string, veil: number): string {
 }
 
 /**
- * The ink and the paper of the bloom, which have to be chosen together.
+ * The ink and the paper of the panel, which have to be chosen together.
  *
- * The bloom is the invitation's own paper at QR_VEIL over whatever the
+ * The panel is the invitation's own paper at QR_VEIL over whatever the
  * photograph happens to be, so the worst case is that paper at that alpha over
  * black — and a cream at 0.8 over black is a mid stone rather than paper. Two
  * moves get it back over the floor, and the order matters more than it looks:
@@ -273,20 +266,20 @@ function overBlack(paper: string, veil: number): string {
  *  1. Deepen the ink, against what the paper actually composites to rather
  *     than against the paper as drawn. The ink is a hundred small modules;
  *     nobody sees its exact value, and deepening holds the hue exactly.
- *  2. Only then walk the paper toward white. The paper is a disc the width of
- *     a hand and it is the whole impression the front makes — a cream one
- *     reads as paper and a white one reads as a torch shone at the picture.
- *     So this is the move of last resort, not the first thing tried.
+ *  2. Only then walk the paper toward white. The panel is the one piece of
+ *     the invitation on the whole front — a cream one reads as the couple's
+ *     own paper and a white one reads as a sticker. So this is the move of
+ *     last resort, not the first thing tried.
  *
  * Only if neither is enough does the safe near-black come back, which no
  * palette in PALETTE_PRESETS needs.
  */
-export function bloomColours(
+export function paperColours(
   palette: { ink: string; surface: string; bg: string; accent: string },
   veil: number = QR_VEIL,
 ): { dark: string; paper: string } {
   const base = qrColours(palette);
-  // The design's ground before its card white: a bloom is a piece of the
+  // The design's ground before its card white: the panel is a piece of the
   // invitation laid on a photograph, and the ground is the colour somebody
   // would call theirs. Anything genuinely dark is not paper and is skipped —
   // a Midnight palette's ground would make an inverted code.

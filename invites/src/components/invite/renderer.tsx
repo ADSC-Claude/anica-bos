@@ -12,7 +12,7 @@ import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, faceRules, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
-import { qrSvg, qrColours, qrOnPhoto, bloomColours } from '@/lib/qr';
+import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
@@ -887,21 +887,21 @@ function stripReservedSentence(note: string): string {
  * paper directly. The picture is never veiled away under the modules: that
  * costs the photograph everything and buys the code nothing a plate does not.
  */
-function CheckinPass({ url, passHref, lang, look, photo, ink, bloom }: { url: string; passHref: string; lang: Lang; look: PassLook; photo: string; ink: { dark: string; light: string }; bloom: { dark: string; paper: string } }) {
+function CheckinPass({ url, passHref, lang, look, photo, ink, paper }: { url: string; passHref: string; lang: Lang; look: PassLook; photo: string; ink: { dark: string; light: string }; paper: { dark: string; paper: string } }) {
   const eyebrow = <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>;
   const open = <a href={passHref} className="inv-pass-open">{t(lang, 'checkin.open')}</a>;
   const code = <span dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />;
 
-  // The same silhouette as the pass, so the invitation and the door speak one
-  // language: the code stands on the photograph in a round of the design's own
-  // paper, with no plate and no edge. See QR_VEIL and .pass-bloom.
+  // The same treatment as the pass, so the invitation and the door speak one
+  // language: a square panel of the design's own paper at QR_VEIL, with the
+  // photograph carrying faintly through it. See QR_VEIL and .pass-paper.
   if (look !== 'ground' && photo) {
     return (
       <div className="inv-pass inv-pass-photo mt-6" style={{ backgroundImage: `url(${photo})` }}>
         <div className="inv-pass-body">
           {eyebrow}
-          <span className="inv-pass-bloom" style={{ '--pass-paper': bloom.paper } as CSSProperties}>
-            <span dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 180, bloom.dark) }} />
+          <span className="inv-pass-paper" style={{ '--pass-paper': paper.paper } as CSSProperties}>
+            <span dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 180, paper.dark) }} />
           </span>
           <p className="text-xs">{t(lang, 'checkin.hint')}</p>
           {open}
@@ -920,7 +920,7 @@ function CheckinPass({ url, passHref, lang, look, photo, ink, bloom }: { url: st
   );
 }
 
-function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title, ink, bloom }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string; ink: { dark: string; light: string }; bloom: { dark: string; paper: string } }) {
+function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title, ink, paper }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string; ink: { dark: string; light: string }; paper: { dark: string; paper: string } }) {
   // The code block sits in this section but is arranged in its own one now.
   // An invitation filled in before that keeps what it set here.
   const checkin = contentOf(inv.content).checkin ?? {};
@@ -1014,7 +1014,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           look={passLookFrom(str(checkin, 'look') || str(data, 'qrBackdrop'))}
           photo={str(checkin, 'photo') || str(data, 'qrPhoto')}
           ink={ink}
-          bloom={bloom}
+          paper={paper}
         />
       )}
     </Section>
@@ -2058,7 +2058,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       case 'gift':
         return <Gift key={key} data={data} lang={lang} title={occasion === 'MEMORIAL' ? t(lang, 'memorial.inLieu') : named('gift', t(lang, 'gift.title'))} format={format} thanks={line('giftThanks')} />;
       case 'rsvp':
-        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} ink={qrColours(palette)} bloom={bloomColours(palette)} />;
+        return <Rsvp key={key} inv={inv} data={data} lang={lang} guest={guest} personal={personal} hostsNoun={hostsNoun} slug={inv.slug} token={guest?.token} title={lookTitle(look, lang, 'rsvp')} ink={qrColours(palette)} paper={paperColours(palette)} />;
       case 'story':
         return <Story key={key} data={data} lang={lang} title={named('story', t(lang, 'story.title'))} tagline={str(data, 'line') || line('story')} layout={layout} signoff={format ? { names, date: dottedDate(coverDate) } : undefined} />;
       case 'gallery': {

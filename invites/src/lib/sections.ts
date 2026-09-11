@@ -689,7 +689,7 @@ const SECTION_DEFS: SectionDef[] = [
         hint: l.note,
         art: `pass-${l.value}`,
       })), {
-        hint: 'Each guest gets their own, with their name and their code on it. The code stands on the picture itself, in a soft round of your own paper — no card and no border. The tiles below show what that actually looks like, not the photograph before it happens.',
+        hint: 'Each guest gets their own, with their name and their code on it. The code sits on a small square of your own paper, with your photograph carrying faintly through it. The tiles below show what that actually looks like.',
       }),
       image('photo', 'Photograph on the pass', { hint: 'Blank uses your cover photo. A bright, uncluttered picture works best.' }),
       textarea('note', 'Line under the code', { placeholder: 'Blank uses the wording for your occasion.', hint: 'What the guest reads while they wait to be scanned.' }),

@@ -1,4 +1,4 @@
-import { qrSvg, qrColours, qrOnPhoto, bloomColours } from '@/lib/qr';
+import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { PASS_COPY, passIntro, passSubject, passDetails, passLookFrom, arrivalLine, arrivedLinks, type PassLook } from '@/lib/pass';
 import { str, displayTitle, coverImage } from '@/lib/sections';
 import { formatDate, formatTime } from '@/lib/datetime';
@@ -65,9 +65,9 @@ export function Pass({
   const note = str(own, 'note') || copy.note;
 
   const ink = qrColours(palette);
-  // Chosen together, against what the bloom composites to over a dark
-  // photograph rather than against the paper as drawn. See bloomColours().
-  const bloom = bloomColours(palette);
+  // Chosen together, against what the panel composites to over a dark
+  // photograph rather than against the paper as drawn. See paperColours().
+  const paper = paperColours(palette);
   const date = str(content.cover ?? {}, 'date');
   const time = str(content.cover ?? {}, 'time');
   const venue = str(content.ceremony ?? {}, 'venue') || str(content.reception ?? {}, 'venue');
@@ -101,11 +101,11 @@ export function Pass({
   /*
    * The code, standing on the picture.
    *
-   * No plate, no card, no border: the bloom is a soft circle of the
-   * invitation's own paper that brings the photograph up into the light under
-   * the modules and lets it go again, so there is no edge anywhere saying
-   * where the code stopped and the picture started. bloomPaper() is what keeps
-   * that honest — see QR_VEIL for what it costs and why it is 0.8.
+   * A square panel of the invitation's own paper — straight edges, no radius,
+   * no shadow and no glow. The photograph is behind it rather than cut away:
+   * the paper is drawn at QR_VEIL, so the picture carries faintly through.
+   * paperColours() is what keeps that honest — see QR_VEIL for what it costs
+   * and why it is 0.8.
    */
   const codeBlock = (
     <div className="pass-scan">
@@ -113,13 +113,13 @@ export function Pass({
         <p className="pass-for">{greeting}</p>
         <p className="pass-note">{guest.declined ? arrival.body : note}</p>
       </div>
-      {/* The alpha lives in the stylesheet, not here: it is geometry tied to
-          the gradient's stops, and tests/qr.test.ts checks the stylesheet
-          against QR_BLOOM_MIN_UNDER_CODE. Only the colour is the design's. */}
-      <div className="pass-bloom" style={{ '--pass-paper': bloom.paper } as CSSProperties}>
+      {/* The alpha lives in the stylesheet, not here, and tests/qr.test.ts
+          checks the stylesheet paints at no less than QR_VEIL. Only the
+          colour is the design's. */}
+      <div className="pass-paper" style={{ '--pass-paper': paper.paper } as CSSProperties}>
         <span
           className="pass-code-art"
-          dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 264, bloom.dark) }}
+          dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 264, paper.dark) }}
         />
       </div>
       <p className="pass-cta">{copy.cta}</p>

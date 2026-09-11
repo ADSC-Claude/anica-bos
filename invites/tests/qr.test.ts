@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   qrSvg, qrColours, deepenToFloor, contrast, luminance,
-  QR_SAFE, QR_CONTRAST_FLOOR, QR_VEIL, QR_BLOOM_MIN_UNDER_CODE, qrOnPhoto, bloomColours,
+  QR_SAFE, QR_CONTRAST_FLOOR, QR_VEIL, qrOnPhoto, paperColours,
 } from '../src/lib/qr';
 import { PASS_LOOKS, passLookFrom } from '../src/lib/pass';
 import { PALETTE_PRESETS } from '../src/lib/theme';
@@ -113,7 +113,7 @@ test('a code standing on a photograph is still standing on enough light', () => 
   };
   let bleached = 0;
   for (const [key, preset] of Object.entries(PALETTE_PRESETS)) {
-    const { dark, paper } = bloomColours(preset.palette);
+    const { dark, paper } = paperColours(preset.palette);
     const worst = contrast(dark, over(paper, QR_VEIL));
     assert.ok(
       worst >= QR_CONTRAST_FLOOR,
@@ -124,11 +124,11 @@ test('a code standing on a photograph is still standing on enough light', () => 
     // to avoid, and it would be silent if it happened.
     if (dark === QR_SAFE.dark && paper === '#ffffff') bleached += 1;
   }
-  assert.equal(bleached, 0, 'a palette gave up its colours entirely for the bloom');
+  assert.equal(bleached, 0, 'a palette gave up its colours entirely for the panel');
 
   // And it is only lightened as far as it has to be: a design already clearing
   // the floor keeps its own paper rather than being bleached white.
-  const warm = bloomColours({ ink: '#2b2622', surface: '#f6f1e8', bg: '#efe7db', accent: '#1d3a2f' });
+  const warm = paperColours({ ink: '#2b2622', surface: '#f6f1e8', bg: '#efe7db', accent: '#1d3a2f' });
   assert.notEqual(warm.paper, '#ffffff', 'a paper that did not need lightening was lightened anyway');
   assert.ok(contrast(warm.dark, over(warm.paper, QR_VEIL)) >= QR_CONTRAST_FLOOR);
 });
@@ -158,38 +158,30 @@ test('the code drawn for a photograph brings no paper and extra recovery', () =>
   assert.equal(grid(art), grid(qrSvg(URL_, { size: 264, ec: 'Q' })), 'it is not at Q');
 });
 
-test('the bloom holds full strength everywhere the code covers', () => {
+test('the paper under the code is a flat square at no less than the veil', () => {
   /*
-   * The geometry, checked rather than asserted in a comment. A circle drawn
-   * round a square touches its corners at 141% of the square's width, so a
-   * disc of D times the code reaches the code's furthest corner — quiet zone
-   * included, since the drawn box is the quiet zone — at (√2 / 2) / (D / 2)
-   * of its own radius. The gradient must still be at full strength there.
+   * It was a soft disc once, and that needed a geometry check: a gradient that
+   * had begun to fade where the code still had modules is a code with a dim
+   * corner. A flat square needs none of that — uniform alpha, straight edges,
+   * every module on the same paper. What is left to check is that it stayed
+   * flat, stayed square, and is painted at no less than the measured floor.
    */
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  const width = (block: string) => Number(/width: ([\d.]+)rem/.exec(block)?.[1]);
-  const after = (sel: string) => css.slice(css.indexOf(sel));
-  const floor = Math.round(QR_BLOOM_MIN_UNDER_CODE * 100);
-
-  const discs: [string, number][] = [
-    // The pass: both in rem, so the ratio is the two widths.
-    ['.pass-bloom {', width(after('.pass-bloom {')) / width(after('.pass-code-art {'))],
-    // The invitation: the code is a share of its own disc.
-    ['.inv-pass-bloom {', 100 / Number(/width: ([\d.]+)%/.exec(after('.inv-pass-bloom > span'))?.[1] ?? 0)],
-  ];
-
-  for (const [sel, ratio] of discs) {
-    assert.ok(ratio >= Math.SQRT2, `${sel} is ${ratio.toFixed(2)}× its code — the disc does not reach the corners`);
-    const corner = Math.SQRT2 / 2 / (ratio / 2);
+  for (const sel of ['.pass-paper {', '.inv-pass-paper {']) {
     const block = css.slice(css.indexOf(sel), css.indexOf('}', css.indexOf(sel)));
-    const held = /var\(--pass-paper[^)]*\) (\d+)%, transparent\) (\d+)%/g;
-    const stops = [...block.matchAll(held)].map((m) => ({ alpha: Number(m[1]), at: Number(m[2]) }));
-    const last = stops.filter((x) => x.alpha >= floor).sort((a, b) => b.at - a.at)[0];
-    assert.ok(last, `${sel} never holds the paper at ${floor}% — the code stands on a fade`);
+    assert.ok(block, `${sel} is gone`);
+    assert.ok(!/gradient/.test(block), `${sel} is a gradient again — the code would stand on a fade`);
+    assert.ok(!/border-radius/.test(block), `${sel} has a radius; the paper is square`);
+    assert.ok(!/box-shadow/.test(block), `${sel} has a shadow`);
+    const alpha = Number(/var\(--pass-paper[^)]*\) (\d+)%, transparent\)/.exec(block)?.[1]);
+    assert.ok(alpha > 0, `${sel} does not paint the design's paper`);
     assert.ok(
-      corner * 100 <= last.at,
-      `${sel}: the code reaches ${(corner * 100).toFixed(0)}% of the bloom but it holds only to ${last.at}%`,
+      alpha / 100 >= QR_VEIL,
+      `${sel} paints the paper at ${alpha}%, under the ${QR_VEIL * 100}% the code was measured against`,
     );
+    // And it is padded, so the code's quiet zone has paper past it rather than
+    // ending flush with the edge of the panel.
+    assert.match(block, /padding: [\d.]+rem/, `${sel} gives the code no paper margin`);
   }
 });
 
@@ -215,12 +207,11 @@ test('the invitation and the door draw the code the same way', () => {
   // One language across the product: the block on the invitation is the same
   // silhouette as the pass, not a plate laid over the picture.
   assert.match(renderer, /if \(look !== 'ground' && photo\)/, 'a missing photo would render a code onto nothing');
-  assert.match(renderer, /className="inv-pass-bloom"/, 'the code is back on a plate');
-  assert.doesNotMatch(renderer, /inv-pass-plate/, 'the plate came back alongside the bloom');
+  assert.match(renderer, /className="inv-pass-paper"/, 'the code lost its paper');
   // Both draw with the measured pair rather than with the card ink, which is
   // the mistake that would look right and scan badly on a dark photograph.
   for (const [name, src] of [['the invitation', renderer], ['the pass', readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8')]] as const) {
-    assert.match(src, /qrOnPhoto\(url, \d+, bloom\.dark\)/, `${name} draws the code in an unmeasured ink`);
-    assert.match(src, /'--pass-paper': bloom\.paper/, `${name} paints the bloom in an unmeasured colour`);
+    assert.match(src, /qrOnPhoto\(url, \d+, paper\.dark\)/, `${name} draws the code in an unmeasured ink`);
+    assert.match(src, /'--pass-paper': paper\.paper/, `${name} paints the panel in an unmeasured colour`);
   }
 });

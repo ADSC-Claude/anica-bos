@@ -165,18 +165,17 @@ export function passSubject(occasion: Occasion, content: Content, fallback: stri
  * The photograph is the design. It fills the screen, and the words live above
  * it: a small letterspaced line, the names very large, the guest's own name.
  *
- * And the code stands *on* the picture rather than on a plate laid over it.
- * That is the silhouette, and it is the whole point of the front: under the
- * modules the photograph comes up into the light, and a finger's width away it
- * is back at full strength, with no edge anywhere to say where one stopped and
- * the other started. A plate is easier and it is what three earlier versions
- * did; it also reads as a sticker somebody pasted on, which is what kept
- * getting sent back. See QR_VEIL for the measured cost of doing it properly.
+ * The code sits low, on a square of the invitation's own paper: straight
+ * edges, no radius, no shadow. The paper is drawn at QR_VEIL rather than
+ * filled solid, so the photograph carries faintly through it instead of the
+ * code sitting on an opaque white sticker. It was a soft disc for one version
+ * and that was wrong twice over — a circle where the code is a square, and a
+ * fade that reads as a glow shone at the picture.
  */
 export type PassLook = 'silhouette' | 'cover' | 'ground';
 
 export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string }[] = [
-  { value: 'silhouette', label: 'Silhouette', note: 'Your code stands on the photograph itself — no card, no border, just the picture coming up into the light under it.' },
+  { value: 'silhouette', label: 'Silhouette', note: 'Your photograph fills the screen and your names sit on it, with the code on a small square of your own paper.' },
   { value: 'ground', label: 'Your invitation’s design', note: 'The design’s own artwork instead of a photograph, set the same way.' },
   { value: 'cover', label: 'Magazine cover', note: 'Your names across the top like a masthead, the picture running under them.' },
 ];

@@ -657,35 +657,24 @@ table.data tr:hover td {
 .pass-note { font-size: 0.6875rem; line-height: 1.5; margin: 0; color: rgba(255, 255, 255, 0.72); max-width: 17rem; text-wrap: pretty; }
 
 /*
- * The bloom: the photograph coming up into the light under the code.
+ * The paper under the code: square, flat, with a straight edge.
  *
- * A circle with no edge — that is the whole difference between this and the
- * plate it replaced. It is the disc itself rather than a glow bolted onto the
- * code, so the layout reserves the room it takes and nothing lands inside it.
+ * It was a soft disc for one version and that was wrong twice over — a circle
+ * where the code is a square, and a fade that reads as a glow shone at the
+ * photograph. Square, no radius, no shadow, no gradient.
  *
- * 180% of the code, and no wider. A circle drawn round a square is 141% of it
- * at the very least, so this leaves a fifth of the radius to fade in — narrow,
- * and deliberately so: a disc with room for a graceful fade is a disc the size
- * of a hand, and that reads as a torch shone at the photograph rather than as
- * light coming up out of it. The stops hold to 80% and the code's furthest
- * corner, quiet zone included, lands at 79%, which tests/qr.test.ts checks
- * against QR_BLOOM_MIN_UNDER_CODE.
+ * The photograph is still behind it rather than cut away: the paper is drawn
+ * at QR_VEIL, so the picture carries faintly through the panel instead of the
+ * code sitting on an opaque white sticker. That alpha is the measured one —
+ * see QR_VEIL for what it survives — and the panel is uniform, so every module
+ * stands on exactly the same amount of paper. The padding is the paper margin;
+ * the code's own four-module quiet zone is inside the drawing already.
  */
-.pass-bloom {
+.pass-paper {
   display: grid;
   place-items: center;
-  width: 13.5rem;
-  max-width: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle closest-side,
-    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 0%,
-    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 80%,
-    color-mix(in srgb, var(--pass-paper, #fff) 52%, transparent) 90%,
-    color-mix(in srgb, var(--pass-paper, #fff) 16%, transparent) 96%,
-    transparent 100%
-  );
+  padding: 0.5rem;
+  background: color-mix(in srgb, var(--pass-paper, #fff) 80%, transparent);
 }
 .pass-code-art { display: block; line-height: 0; width: 7.5rem; }
 .pass-code-art svg { width: 100%; height: auto; display: block; }
@@ -799,7 +788,7 @@ table.data tr:hover td {
   text-align: center;
 }
 /* Darkened only enough to read the words over it. The code carries its own
-   light — see .inv-pass-bloom — so this is for the type, not for the code. */
+   light — see .inv-pass-paper — so this is for the type, not for the code. */
 .inv-pass-photo::before {
   content: '';
   position: absolute;
@@ -821,25 +810,17 @@ table.data tr:hover td {
    design's own paper with the code standing on it and the photograph coming
    back through between the modules. Same stops, same 260%, so the 54% the
    code's corner lands at holds here too — tests/qr.test.ts checks both. */
-.inv-pass-bloom {
+.inv-pass-paper {
   display: grid;
   place-items: center;
-  width: 9rem;
-  aspect-ratio: 1;
-  border-radius: 50%;
+  width: fit-content;
+  padding: 0.5rem;
   margin: 0.4rem auto;
   line-height: 0;
-  background: radial-gradient(
-    circle closest-side,
-    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 0%,
-    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 80%,
-    color-mix(in srgb, var(--pass-paper, #fff) 52%, transparent) 90%,
-    color-mix(in srgb, var(--pass-paper, #fff) 16%, transparent) 96%,
-    transparent 100%
-  );
+  background: color-mix(in srgb, var(--pass-paper, #fff) 80%, transparent);
 }
-.inv-pass-bloom > span { display: block; width: 55.55%; }
-.inv-pass-bloom svg { width: 100%; height: auto; display: block; }
+.inv-pass-paper > span { display: block; width: 7rem; }
+.inv-pass-paper svg { width: 100%; height: auto; display: block; }
 .inv-pass-open { font-size: 0.75rem; color: var(--inv-accent); text-decoration: underline; }
 .inv-pass-photo .inv-pass-open { color: #fff; }
 

@@ -23,6 +23,14 @@
   --color-plum-500: #a05266; /* lighter — icons, links on cream */
   --color-plum-600: #8a3b4e; /* brand: buttons, prices — 7.4:1 on sand-50 */
   --color-plum-700: #6f2e3e; /* pressed and hovered */
+  /* The logo's own oxblood, sampled from the file, and two steps around it.
+     plum-600 is the UI brand — buttons, prices, links — and stays. These are
+     the editorial register: the hero's call to action, the dark band, the
+     mark. Kept apart so restyling the landing page cannot quietly restain
+     every button in the dashboard. */
+  --color-wine-700: #6b1220; /* the hero button, hovered states on wine-900 */
+  --color-wine-800: #520108; /* the logo, exactly */
+  --color-wine-900: #3a0a10; /* the dark band */
 
   --color-gold-400: #d8bf8c;
   --color-gold-500: #c9a86a;
@@ -40,7 +48,7 @@
   --warn: #b26a00;
   --bad: #b3261e;
   --info: #2a5d8f;
-  --card-bg: #fffdf9;
+  --card-bg: #fdfaf3;
 }
 
 html {
@@ -254,7 +262,7 @@ table.data tr:hover td {
   height: 100%;
   border: 0;
   border-radius: 1.6rem;
-  background: #fff;
+  background: var(--color-sand-100);
   display: block;
 }
 
@@ -2675,4 +2683,421 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   .inv[data-card] { min-height: 0; }
   .inv-std { min-height: 0; padding: 2rem 1rem; }
   .inv-std-count { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   The landing page's editorial register.
+
+   Everything here is for the public site's storefront — the hero, the bands,
+   the occasion strip. It is deliberately separate from the .btn/.card system
+   above, which the dashboard and the builder use: a customer signed in to
+   manage their guest list wants a dense, obvious interface, and a stranger
+   deciding whether to spend eight thousand pesos wants room to breathe. One
+   set of styles asked to do both ends up doing neither.
+
+   The tracking is wide and the type is large on purpose. Small letterspaced
+   caps read as considered where a bold sans reads as urgent, and what is
+   being sold here is not urgency.
+--------------------------------------------------------------------------- */
+
+/* Caps with the rule under them the mockup hangs every section on. */
+/* No `display` here on purpose. This file is loaded after Tailwind's
+   utilities, so a `display: block` on a plain class quietly outranks
+   `hidden` — and the first thing that wanted hiding, the hero's vertical
+   rail, turned up on every phone despite saying `hidden xl:block`. Call
+   sites that need a block box ask for one with the utility. */
+.ed-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-ink-500);
+}
+.ed-eyebrow-ruled::after {
+  content: '';
+  display: block;
+  width: 2.5rem;
+  height: 1px;
+  margin-top: 0.75rem;
+  background: var(--color-wine-800);
+  opacity: 0.45;
+}
+.ed-eyebrow-ruled.is-centred::after { margin-inline: auto; }
+
+/* Section rhythm. The mockup's whole feel is the space around things, so the
+   vertical padding is a token rather than a number sprinkled per section. */
+.ed-section { padding-block: clamp(3.5rem, 9vw, 7rem); }
+.ed-section-tight { padding-block: clamp(2.5rem, 6vw, 4.5rem); }
+
+/* Display sizes that hold their shape from a phone to a wide desktop. */
+.ed-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em; line-height: 1.04; }
+.ed-display-xl { font-size: clamp(2.5rem, 7vw, 4.25rem); }
+.ed-display-lg { font-size: clamp(2rem, 4.6vw, 3.25rem); }
+
+/* The solid call to action: wine, letterspaced caps, an arrow that leans in
+   on hover. Its own class rather than a .btn variant because the .btn sizing
+   is tuned for forms. */
+.ed-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  border-radius: 999px;
+  background: var(--color-wine-800);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+.ed-cta:hover { background: var(--color-wine-700); }
+.ed-cta .ed-arrow { transition: transform 160ms ease; }
+.ed-cta:hover .ed-arrow { transform: translateX(3px); }
+
+/* The outlined twin, for the header and anywhere the solid one would shout. */
+.ed-cta-outline {
+  background: transparent;
+  color: var(--color-wine-800);
+  border: 1px solid color-mix(in srgb, var(--color-wine-800) 35%, transparent);
+  padding: 0.7rem 1.4rem;
+}
+.ed-cta-outline:hover { background: color-mix(in srgb, var(--color-wine-800) 6%, transparent); }
+
+/* An underlined caps link — "EXPLORE TEMPLATES →". The rule is the element's
+   own border so it spans the text and the arrow together. */
+.ed-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  color: var(--color-wine-800);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: border-color 160ms ease;
+}
+.ed-link:hover { border-bottom-color: currentColor; }
+.ed-link .ed-arrow { transition: transform 160ms ease; }
+.ed-link:hover .ed-arrow { transform: translateX(3px); }
+
+/* Caps navigation. */
+.ed-nav a {
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+  text-decoration: none;
+  padding-block: 0.25rem;
+  border-bottom: 1px solid transparent;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.ed-nav a:hover { color: var(--color-wine-800); border-bottom-color: var(--color-wine-800); }
+
+/* An image slot that looks composed while it is empty.
+
+   The photographs are the owner's to supply and they are not here yet. A slot
+   that renders as a grey box says "broken"; this renders as a warm panel with
+   the mark held quietly in it, which reads as a design decision until the day
+   a real photograph replaces it — at which point nothing but the src changes. */
+.ed-figure {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--color-sand-100), var(--color-sand-200));
+  border-radius: 1.25rem;
+}
+/* Out of flow, always.
+
+   In flow, a portrait cover in a 763px column takes its own aspect ratio and
+   becomes 1300px tall, which then drives the whole band's height and leaves
+   the words floating in a screenful of nothing beside it — the picture, not
+   the layout, deciding how tall the hero is. Absolute means the band is as
+   tall as its words and its min-height say, and the picture covers whatever
+   that turns out to be. */
+.ed-figure img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.ed-figure-empty { display: grid; place-items: center; }
+.ed-figure-empty img { position: static; width: auto; height: 26%; opacity: 0.26; object-fit: contain; }
+/* The hero's arch, echoing the shape behind the phone in the mockup. */
+.ed-figure-arch { border-radius: 14rem 14rem 1.25rem 1.25rem; }
+
+/* The dark band. A wine ground the photograph sits into on the right, with a
+   gradient over it so the headline stays readable whatever the photo is. */
+.ed-band { position: relative; background: var(--color-wine-900); color: var(--color-sand-50); overflow: hidden; }
+/* Full width, not the right 40%.
+
+   The photograph this slot is for is composed for it: a deep maroon field on
+   the left with nothing in it, and the flower on the right running off the
+   edge. Cropping that to the right-hand 40% throws away the empty half that
+   the headline is supposed to sit in, and butts the photograph's own left
+   edge against our wine as a visible vertical line. Full-bleed, anchored
+   right, and the photograph's dark half IS the ground behind the words. */
+.ed-band .ed-band-media { position: absolute; inset: 0; }
+.ed-band .ed-band-media img { width: 100%; height: 100%; object-fit: cover; object-position: right center; }
+/* The scrim only exists to keep type readable, so it only exists when there is
+   a photograph under the type. Heavy at the left margin, gone by two-thirds,
+   so the flower is never veiled. On the supplied photograph it changes almost
+   nothing — the wine and the photograph's own ground are the same colour —
+   and on a photograph composed the wrong way round it is what saves the
+   headline. */
+.ed-band .ed-band-media[data-photo]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-wine-900) 92%, transparent) 0%,
+    color-mix(in srgb, var(--color-wine-900) 74%, transparent) 34%,
+    color-mix(in srgb, var(--color-wine-900) 22%, transparent) 64%,
+    transparent 100%
+  );
+}
+/* On a phone the band is tall and narrow, so the words sit over the middle of
+   the picture rather than beside it and a left-to-right scrim protects
+   nothing. It goes top-down there instead. */
+@media (max-width: 1023px) {
+  .ed-band .ed-band-media[data-photo]::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-wine-900) 90%, transparent) 0%,
+      color-mix(in srgb, var(--color-wine-900) 82%, transparent) 55%,
+      color-mix(in srgb, var(--color-wine-900) 72%, transparent) 100%
+    );
+  }
+}
+.ed-band .ed-band-inner { position: relative; }
+/* Buttons on the dark band. btn-secondary is a cream fill, which is right on
+   a cream page and two bright blobs on a maroon one — the eye goes to them
+   before it goes to the headline. Outlined here, so the contact channels stay
+   available without competing with the thing they are under. */
+.ed-band .btn-secondary {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-sand-50) 40%, transparent);
+  color: var(--color-sand-50);
+}
+.ed-band .btn-secondary:hover {
+  background: color-mix(in srgb, var(--color-sand-50) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-sand-50) 72%, transparent);
+}
+.ed-band .ed-eyebrow { color: rgba(255, 255, 255, 0.72); }
+.ed-band .ed-link { color: var(--color-sand-50); }
+
+/* The numbered occasion strip. */
+.ed-numbered { font-size: 0.8125rem; letter-spacing: 0.14em; color: var(--color-ink-500); }
+.ed-numbered-rule { width: 1.75rem; height: 1px; background: var(--color-wine-800); opacity: 0.4; }
+
+/* Hairline dividers between the four promises — vertical on a wide screen,
+   gone on a narrow one where the cards simply stack. */
+.ed-divided > * + * { border-top: 1px solid var(--color-sand-200); padding-top: 1.75rem; margin-top: 1.75rem; }
+@media (min-width: 768px) {
+  .ed-divided > * + * { border-top: 0; border-left: 1px solid var(--color-sand-200); padding-top: 0; margin-top: 0; padding-left: 2rem; }
+}
+
+/* A figure that holds something in front of its picture — the hero's phone
+   standing in the arch. Both occupy one grid cell; the scrim between them is
+   what keeps a phone readable against a photograph that was never composed
+   to have a phone on it. Warm rather than neutral, so the cream page and the
+   picture stay one temperature. */
+.ed-figure-behind { display: grid; }
+.ed-figure-behind > * { grid-area: 1 / 1; }
+.ed-figure-behind > img { filter: saturate(0.9); }
+.ed-figure-behind::after {
+  content: '';
+  grid-area: 1 / 1;
+  background: linear-gradient(170deg, color-mix(in srgb, var(--color-sand-50) 55%, transparent), color-mix(in srgb, var(--color-wine-900) 22%, transparent));
+}
+.ed-figure-front { position: relative; display: grid; place-items: center; padding: 2rem; }
+
+/* Full-bleed picture blocks, and the gutter that keeps the words beside them
+   lined up with every other section.
+
+   The design's contrast comes from a photograph that runs to the edge of the
+   page, so these blocks lose the radius and fill their grid cell. The half
+   beside one still has to start where the centred container starts, or the
+   hero's headline sits at a different left edge from the section under it —
+   hence the gutter: the container's own margin, computed, applied as padding
+   on the outer side only. Below the breakpoint the halves stack and the plain
+   px-5 takes over. */
+.ed-figure-bleed { border-radius: 0; }
+@media (min-width: 1024px) {
+  .ed-gutter-l { padding-left: max(1.25rem, calc((100vw - 72rem) / 2)); }
+  .ed-gutter-r { padding-right: max(1.25rem, calc((100vw - 72rem) / 2)); }
+}
+
+/* The alcove, drawn ON the picture rather than cut out of the block. The
+   mockup's arch is a shape inside the photograph; making it the block's own
+   border-radius is what turned a full-bleed panel back into a rounded card. */
+.ed-figure-arched-inside::before {
+  content: '';
+  position: absolute;
+  inset: 8% 12% 0;
+  border-radius: 50% 50% 0 0 / 32% 32% 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-sand-50) 42%, transparent), transparent 62%);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   The hero's set.
+
+   The mockup is not a cropped photograph filling half the page — it is a
+   composed scene: an alcove behind, a marble ledge, and a SMALL phone standing
+   on it with its shadow falling across the stone. The size of the phone is
+   most of the difference. Filling the half with a huge one reads as a product
+   shot; a modest one on a plinth reads as a room somebody arranged, which is
+   what makes it feel considered.
+
+   Built rather than photographed, because there is no photograph. Every part
+   is a real thing in the scene: the alcove is a shape, the ledge has a lip and
+   a top highlight because stone catches light on its edge, and the phone casts
+   a shadow and leaves a reflection. Take any of those away and it goes back to
+   looking like a sticker on a background.
+--------------------------------------------------------------------------- */
+
+.ed-scene {
+  position: relative;
+  overflow: hidden;
+  /* Two layers. The radial is the light in the alcove, warm cream at its
+     brightest rather than white. The linear over its left edge starts at the
+     page's own ground so the scene and the words beside it are one sheet —
+     without it there is a vertical seam down the middle of the hero, which is
+     exactly the cream-against-white join the design is trying not to have. */
+  background:
+    linear-gradient(90deg, var(--color-sand-50) 0%, transparent 24%),
+    radial-gradient(120% 90% at 64% 12%, #faf6ee 0%, #f5eee2 46%, #ece1d0 100%);
+  display: grid;
+  place-items: end center;
+  isolation: isolate;
+}
+
+/* The owner's photograph, when there is one.
+
+   Its left edge is a shade warmer than the page ground, and the two halves of
+   the hero meet down the middle of the screen, so butted together they show a
+   vertical line exactly where the design wants none. The mask dissolves the
+   photograph's first sixth into the cream underneath it — which is why the
+   scene keeps its own background even when a picture covers it.
+
+   Anchored to the bottom right: that is where the owner's set is — the
+   marble, the plinths, the stems — and it is the corner the phone stands in,
+   so it must survive every crop. */
+.ed-scene-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 17%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 17%);
+}
+/* Below the breakpoint the halves stack, so there is no seam to hide and the
+   mask would only shave the left of the picture off. */
+@media (max-width: 1023px) {
+  .ed-scene-photo { -webkit-mask-image: none; mask-image: none; object-position: 62% 100%; }
+}
+
+/* The alcove. Tall, arched, a shade deeper than the wall, with the light
+   falling from the upper left the way it does in the mockup. */
+.ed-scene-arch {
+  position: absolute;
+  left: 50%;
+  top: -6%;
+  width: min(62%, 27rem);
+  height: 86%;
+  transform: translateX(-50%);
+  border-radius: 999rem 999rem 0 0;
+  background: linear-gradient(155deg, #faf5ec 0%, #efe3d2 38%, #e2d2bb 100%);
+  box-shadow: inset 0 2px 0 rgba(253, 250, 243, 0.8), 0 24px 60px -34px rgba(82, 1, 8, 0.28);
+}
+
+/* A second, smaller arch inset in the first — the depth the mockup gets from
+   the wall behind the alcove being further away than its mouth. */
+.ed-scene-arch::after {
+  content: '';
+  position: absolute;
+  inset: 7% 11% 0;
+  border-radius: 999rem 999rem 0 0;
+  background: linear-gradient(165deg, rgba(250, 246, 238, 0.9), rgba(233, 220, 201, 0.55));
+}
+
+/* The ledge the phone stands on: a slab with a lit top edge and a shadowed
+   front face, sitting proud of the wall. */
+.ed-scene-ledge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20%;
+  background: linear-gradient(180deg, #f6efe4 0%, #ede2d1 14%, #e3d5c0 100%);
+  box-shadow: inset 0 1px 0 rgba(253, 250, 243, 0.95), 0 -18px 40px -26px rgba(82, 1, 8, 0.22);
+}
+.ed-scene-ledge::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(253, 250, 243, 0.95) 22%, rgba(253, 250, 243, 0.95) 78%, transparent);
+}
+
+/* The phone, standing. Small on purpose — see the note at the top. */
+.ed-scene-phone {
+  position: relative;
+  z-index: 2;
+  /* A quarter of the panel. In the mockup the phone is about that against the
+     alcove, and the restraint is the point: bigger and it stops being a room
+     with a phone in it and becomes a phone with a room behind it. */
+  width: min(26%, 10.5rem);
+  /* Exactly the ledge's height, so its base meets the stone. A smaller number
+     sinks it through the slab, which is what it was doing. */
+  margin-bottom: 20%;
+}
+.ed-scene-phone .phone {
+  width: 100%;
+  border-width: 7px;
+  border-radius: 1.6rem;
+  padding-top: 14px;
+  box-shadow: 0 26px 34px -18px rgba(60, 30, 16, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+.ed-scene-phone .phone > .screen { border-radius: 1.15rem; }
+
+/* What the phone leaves on the stone: a contact shadow tight under it and a
+   faint reflection falling away. Without these it floats. */
+.ed-scene-phone::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5%;
+  width: 150%;
+  height: 9%;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(82, 30, 16, 0.34), transparent 72%);
+  filter: blur(5px);
+}
+
+/* The maroon band in the middle of the page.
+
+   A cream page needs somewhere to stop, and this is it. Deeper than the brand
+   plum and darker than the closing band, so the two dark moments are not the
+   same note twice. The eyebrow and the link both invert here; they read as
+   ink on cream everywhere else and would vanish otherwise. */
+.ed-maroon { background: linear-gradient(150deg, #4a0a12 0%, #3a0a10 55%, #2b070c 100%); }
+.ed-maroon .ed-eyebrow { color: rgba(255, 255, 255, 0.62); }
+.ed-maroon .ed-eyebrow-ruled::after { background: var(--color-gold-400); opacity: 0.7; }
+.ed-maroon .ed-link { color: var(--color-sand-50); }
+
+/* The cover sits ON the maroon rather than butted against it: inset a little,
+   with the ground showing round it and a shadow underneath, so it reads as an
+   object on a surface. Flush to the edge it looked like two flat panels meeting. */
+.ed-maroon-plate { padding: 2.5rem 1.25rem; }
+@media (min-width: 1024px) {
+  .ed-maroon-plate { padding: 3.5rem 0 3.5rem 3.5rem; }
+}
+.ed-maroon-plate .ed-figure {
+  border-radius: 0.25rem;
+  box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.72);
 }

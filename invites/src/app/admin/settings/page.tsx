@@ -3,12 +3,14 @@ import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
 import { getSettings } from '@/lib/settings';
 import { PageHeader, Field, TextArea, Checkbox } from '@/components/ui';
+import { UploadField } from '@/components/admin/upload-field';
 import { Flash, type FlashParams } from '../flash';
 import { saveSettingsAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
 const BUSINESS = ['business.name', 'business.tagline', 'business.intro', 'business.email', 'business.phone', 'business.address', 'business.logoUrl', 'business.facebook', 'business.instagram', 'business.invitesCreatedLabel', 'business.rsvpsCollectedLabel', 'site.comingSoon', 'site.demoSlug'];
+const LANDING = ['landing.heroImageUrl', 'landing.bandImageUrl'];
 const CONTACT = ['contact.messenger', 'contact.viber', 'contact.whatsapp', 'contact.hoursNote'];
 const PAYMENTS = ['payments.manualEnabled', 'payments.gcashName', 'payments.gcashNumber', 'payments.gcashQrUrl', 'payments.mayaName', 'payments.mayaNumber', 'payments.bankAccounts', 'payments.manualNote', 'orders.unpaidExpiryDays'];
 const SERVICE = ['dfy.turnaroundDays', 'dfy.turnaroundDaysMax', 'concierge.turnaroundDays', 'concierge.turnaroundDaysMax', 'rush.turnaroundHours'];
@@ -33,12 +35,36 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <TextArea label="Intro (meta description)" name="business.intro" defaultValue={s['business.intro']} rows={2} />
           <div className="grid grid-cols-2 gap-2"><Field label="Email" name="business.email" defaultValue={s['business.email']} /><Field label="Phone" name="business.phone" defaultValue={s['business.phone']} /></div>
           <Field label="Address" name="business.address" defaultValue={s['business.address']} />
-          <Field label="Logo URL" name="business.logoUrl" defaultValue={s['business.logoUrl']} />
+          <UploadField label="Logo" name="business.logoUrl" defaultValue={s['business.logoUrl']} endpoint="/api/admin/site-upload" preview="wide" hint="Leave empty for the logo the site ships with." />
           <div className="grid grid-cols-2 gap-2"><Field label="Facebook page" name="business.facebook" defaultValue={s['business.facebook']} /><Field label="Instagram" name="business.instagram" defaultValue={s['business.instagram']} /></div>
           <div className="grid grid-cols-2 gap-2"><Field label="Trust bar: invites created" name="business.invitesCreatedLabel" defaultValue={s['business.invitesCreatedLabel']} placeholder="e.g. 1,200+" /><Field label="Trust bar: RSVPs collected" name="business.rsvpsCollectedLabel" defaultValue={s['business.rsvpsCollectedLabel']} placeholder="e.g. 85,000+" /></div>
           <Field label="Demo invitation slug" name="site.demoSlug" defaultValue={s['site.demoSlug']} />
           <Checkbox label="Coming soon mode (hide the public site)" name="site.comingSoon" defaultChecked={s['site.comingSoon']} />
           <Save keys={BUSINESS} />
+        </form>
+        <form className="card space-y-3 p-4">
+          <h2 className="font-semibold">Landing page photographs</h2>
+          <p className="hint">
+            The two pictures the front page is built around. Upload them here rather than
+            through the code, so changing the front page is not a deploy.
+          </p>
+          <UploadField
+            label="Hero — behind the headline"
+            name="landing.heroImageUrl"
+            defaultValue={s['landing.heroImageUrl']}
+            endpoint="/api/admin/site-upload"
+            preview="wide"
+            hint="A wide photograph of a set — the phone stands in front of it, so leave the lower middle clear. Empty falls back to the drawn alcove."
+          />
+          <UploadField
+            label="Closing band — behind the last call to action"
+            name="landing.bandImageUrl"
+            defaultValue={s['landing.bandImageUrl']}
+            endpoint="/api/admin/site-upload"
+            preview="wide"
+            hint="Very wide and dark, with its subject on the right: the headline sits on the left of it. Empty falls back to plain wine."
+          />
+          <Save keys={LANDING} />
         </form>
         <form className="card space-y-3 p-4">
           <h2 className="font-semibold">How customers reach you</h2>

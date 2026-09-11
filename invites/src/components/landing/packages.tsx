@@ -58,7 +58,7 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
         {pictured.length > 0 && (
           <ul className="mx-auto mb-5 grid max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {pictured.map((a) => (
-              <li key={a.code} className="flex flex-col overflow-hidden rounded-xl border border-[color:var(--color-sand-200)] bg-white">
+              <li key={a.code} className="flex flex-col overflow-hidden rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--card-bg)]">
                 <img src={a.imageUrl} alt="" loading="lazy" className="h-32 w-full border-b border-[color:var(--color-sand-200)] object-cover object-top" />
                 <div className="flex flex-1 flex-col p-4">
                   <div className="flex items-baseline justify-between gap-2">

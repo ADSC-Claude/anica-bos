@@ -338,6 +338,40 @@ test('words on a page laid out by its words are never drawn, and it says so', ()
   assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
 });
 
+// --- a moving picture ------------------------------------------------------
+
+/**
+ * The two things worth saying about a moving picture, and they share a cause:
+ * it is never re-encoded. Nothing resizes it, so its own weight is what every
+ * guest downloads — and a frame the *customer* fills must never be marked as
+ * one, or their four-thousand-pixel photograph is served whole to everybody,
+ * which is the one way this goes wrong quietly.
+ */
+test('a moving picture too heavy for mobile data says so', () => {
+  const d = clone();
+  const frame = el(d, 'story', 'story-photo-1') as PhotoEl;
+  frame.animated = true;
+  frame.bind = { asset: '/pieces/petals.gif' };
+  const n = runRow(d, { weights: { '/pieces/petals.gif': 1_400_000 } }).filter((x) => x.rule === 'moving');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /never resized or re-encoded/);
+  // and one that is light enough says nothing at all
+  assert.deepEqual(runRow(d, { weights: { '/pieces/petals.gif': 300_000 } }).filter((x) => x.rule === 'moving'), []);
+  // nor does an unknown weight: unknown is not heavy
+  assert.deepEqual(runRow(d, {}).filter((x) => x.rule === 'moving'), []);
+});
+
+test('a customer’s frame cannot be a moving picture', () => {
+  const d = clone();
+  (el(d, 'story', 'story-photo-1') as PhotoEl).animated = true;
+  const n = run(d).filter((x) => x.rule === 'moving');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /served at whatever size they uploaded/);
+  assert.equal(publishable(run(d)), false);
+});
+
 /** A design in the shop with no cover: not broken, but the card nobody taps. */
 test('a design shown in the shop with no thumbnail says so once', () => {
   const n = runRow(clone(), { shop: { shown: true, thumbnail: false } }).filter((x) => x.rule === 'no-thumbnail');
@@ -400,6 +434,17 @@ test('every rule the type names can be made to fire', () => {
   on(r, 'story').ground = { color: '#fef5df', ratio: 2.989 };
   add(r);
   runRow(clone(), { shop: { shown: true, thumbnail: false } }).forEach((x) => fired.add(x.rule));
+
+  // a moving picture: one too heavy for a guest on mobile data, and one
+  // pointed at a field the customer fills, which it must never be
+  const u = clone();
+  const bow = el(u, 'story', 'story-photo-1') as PhotoEl;
+  bow.animated = true;
+  bow.bind = { asset: '/pieces/bow.gif' };
+  runRow(u, { weights: { '/pieces/bow.gif': 1_400_000 } }).forEach((x) => fired.add(x.rule));
+  const v = clone();
+  (el(v, 'story', 'story-photo-2') as PhotoEl).animated = true;
+  add(v);
 
   // words put on a page laid out by its words: in the document, drawn nowhere
   const t2 = clone();

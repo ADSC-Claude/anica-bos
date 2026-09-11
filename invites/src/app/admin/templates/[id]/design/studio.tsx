@@ -21,7 +21,7 @@ import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import { cssVars, fontsFrom, FONT_PRESETS, PALETTE_PRESETS, allFacesUrl, type Fonts, type Palette } from '@/lib/theme';
 import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
-import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { readClip, sendClip, type SentClip } from './clip';
 import { VIDEO_MAX_LABEL, VIDEO_MAX_MS } from '@/lib/clips';
@@ -476,7 +476,7 @@ export function Studio(p: Props) {
    * never blank a page that used it — which is the one thing a library of
    * shared pieces has to promise.
    */
-  async function placePiece(url: string, aspect?: number) {
+  async function placePiece(url: string, aspect?: number, animated?: true) {
     if (!page) return;
     // Its own shape, or the browser's reading of it: a strand of flowers
     // dropped into a square frame is a strand of flowers with most of it
@@ -492,6 +492,9 @@ export function Studio(p: Props) {
       // see it (addElement says the same thing about a blank frame)
       id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 40, anchor: 'centre',
       aspect: place(shape), frame: 'none', bind: { asset: url },
+      // a moving picture is served as it is: the flag is what keeps it out of
+      // the transform endpoint, which would send back one frame of it
+      ...(animated ? { animated: true as const } : {}),
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
@@ -615,6 +618,27 @@ export function Studio(p: Props) {
         // behind the words, not over them: a card is what a shape is usually for
         ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
         : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A moving picture that has just been uploaded, put on the page at the
+   * shape it really is.
+   *
+   * It is a frame like any other and is placed like any other — the only
+   * thing that is different about it is the flag, which is what keeps it out
+   * of the transform endpoint. Narrower than a photograph by default because
+   * a moving picture is a decoration nine times out of ten: petals, a bow, a
+   * flourish, not a portrait.
+   */
+  function addMoving(up: Uploaded & { animated: true }) {
+    if (!page) return;
+    const id = freeId(doc, 'moving');
+    const made: Element = {
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 32, anchor: 'centre',
+      aspect: place(up.ratio), frame: 'none', bind: { asset: up.url }, animated: true,
+    };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -1204,7 +1228,7 @@ export function Studio(p: Props) {
         ) : drawer === 'library' ? (
           <LibraryDrawer
             selected={selected}
-            onPlace={(url, aspect) => void placePiece(url, aspect)}
+            onPlace={(url, aspect, animated) => void placePiece(url, aspect, animated)}
             onGround={(url) => void groundFromPiece(url)}
             onIfEmpty={(url) => { if (selected?.kind === 'photo') editEls([selected.id], (e) => ({ ...e, ifEmpty: { piece: url } })); }}
             onRule={page && !page.drawn ? (url) => setDress((d) => ({ ...d, rule: url })) : undefined}
@@ -1353,6 +1377,7 @@ export function Studio(p: Props) {
               {page?.drawn && <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>}
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
+              <AddMoving templateId={p.templateId} onAdd={addMoving} />
               <AddClip templateId={p.templateId} onAdd={addClip} />
             </>
           ) : (
@@ -2339,6 +2364,54 @@ function AddClip({ templateId, onAdd }: { templateId: string; onAdd: (up: SentCl
         <span className={`basis-full text-[11px] ${error ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
           {error || note}{' '}
           <button type="button" className="underline" onClick={() => { setError(''); setNote(''); }}>Dismiss</button>
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * A moving picture onto the page: a GIF, an animated WebP, an animated PNG.
+ *
+ * Its own door rather than the photograph one, because the promise is
+ * different: nothing resizes it and nothing re-encodes it, so what she
+ * chooses is what every guest downloads, whole. That is why the cap is a
+ * megabyte and a half and why the refusal says so in the same breath.
+ *
+ * A still picture dropped here is refused with the reason and the other
+ * door named, rather than being quietly accepted and served at whatever size
+ * it happened to be.
+ */
+function AddMoving({ templateId, onAdd }: { templateId: string; onAdd: (up: Uploaded & { animated: true }) => void }) {
+  const [step, setStep] = useState('');
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const busy = step !== '';
+  async function take(file: File) {
+    setError('');
+    try {
+      setStep('Reading it…');
+      const read = await readMoving(file);
+      setStep('Sending it as it is…');
+      onAdd(await sendMoving(read, templateId));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStep('');
+      if (input.current) input.current.value = '';
+    }
+  }
+  return (
+    <>
+      <label className={`rounded bg-[color:var(--color-sand-200)] px-2 py-1 ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+        {busy ? step : '+ Moving picture'}
+        <input ref={input} type="file" accept="image/gif,image/webp,image/png" className="sr-only" disabled={busy}
+          onChange={(e) => e.target.files?.[0] && take(e.target.files[0])} />
+      </label>
+      {error && (
+        <span className="basis-full text-[11px] text-[color:var(--bad)]">
+          {error}{' '}
+          <button type="button" className="underline" onClick={() => setError('')}>Dismiss</button>
         </span>
       )}
     </>
@@ -3812,7 +3885,7 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
  */
 function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule, onStrand }: {
   selected: Element | null;
-  onPlace: (url: string, aspect?: number) => void;
+  onPlace: (url: string, aspect?: number, animated?: true) => void;
   onGround: (url: string) => void;
   onIfEmpty: (url: string) => void;
   /** offered only on a page laid out by its words, which is the only page with sections to divide */
@@ -3841,6 +3914,24 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule, onStran
     setBusy('Reading the picture…');
     setError('');
     try {
+      /*
+       * A moving picture takes the other road. The usual one re-encodes
+       * through a canvas, which holds one frame, so a GIF down it arrives as
+       * a still picture of its first frame — and she would have no way of
+       * knowing why her petals stopped falling. So the bytes are asked first
+       * (`movingKind` reads the chunk inside the file, since an animated WebP
+       * is the same type as a still one), and a picture that moves is sent
+       * exactly as it is.
+       */
+      const moving = await movingKind(file);
+      if (moving) {
+        setBusy('Sending it as it is…');
+        const up = await sendMoving(await readMoving(file), '', true);
+        await load();
+        setOpen(up.url);
+        setBusy('');
+        return;
+      }
       const read = await readPicture(file);
       const fd = new FormData();
       fd.set('file', new File([read.blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
@@ -3900,10 +3991,11 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule, onStran
 
       {piece && (
         <div className="mt-2 rounded bg-[color:var(--color-sand-100)] p-2">
-          <p className="truncate text-sm font-semibold">{piece.name}</p>
+          <p className="truncate text-sm font-semibold">{piece.name}{piece.animated ? ' · moves' : ''}</p>
           <p className="hint truncate">{piece.builtin ? 'The app’s own — it cannot be renamed or removed' : piece.tags.join(', ') || 'no tags yet'}</p>
+          {piece.animated && <p className="hint">It is served exactly as it was uploaded — never resized, never re-encoded — so every guest downloads it whole.</p>}
           <div className="mt-1 grid gap-1">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPlace(piece.url, piece.width && piece.height ? piece.height / piece.width : undefined)}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onPlace(piece.url, piece.width && piece.height ? piece.height / piece.width : undefined, piece.animated)}>
               Put it on the page
             </button>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => onGround(piece.url)}>
@@ -3936,7 +4028,7 @@ function LibraryDrawer({ selected, onPlace, onGround, onIfEmpty, onRule, onStran
       )}
 
       <label className={`mt-2 block rounded border border-dashed border-[color:var(--color-sand-300)] px-2 py-3 text-center text-[11px] leading-snug ${busy ? 'opacity-60' : 'cursor-pointer hover:bg-[color:var(--color-sand-100)]'}`}>
-        {busy || 'Add a piece — a bow, a cloud, a flourish. It stays in the library for every design.'}
+        {busy || 'Add a piece — a bow, a cloud, a flourish, or a moving one: a GIF, an animated WebP or an animated PNG. It stays in the library for every design.'}
         <input
           type="file" accept="image/*" className="sr-only" disabled={Boolean(busy)}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); e.target.value = ''; }}

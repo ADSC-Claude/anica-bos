@@ -6,6 +6,7 @@ import path from 'node:path';
 import { HttpError } from './errors';
 import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './album';
 import { VIDEO_TYPES } from './clips';
+import { MOVING_TYPES } from './moving';
 
 /**
  * Supabase Storage over its REST API — no SDK, and the service-role key never
@@ -28,6 +29,15 @@ function sniff(buffer: Buffer): string | null {
     return 'image/png';
   if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP')
     return 'image/webp';
+  /*
+   * GIF, which is only ever a moving picture here. Whether it actually moves
+   * is a question about the blocks inside it and not about the header, and it
+   * is asked in the browser before the file is sent (`movingPicture`) — the
+   * same division as a clip's codec, and for the same reason: the container
+   * says nothing about what is in it.
+   */
+  const gif = buffer.subarray(0, 6).toString('ascii');
+  if (gif === 'GIF87a' || gif === 'GIF89a') return 'image/gif';
   if (buffer.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
   // MP3: an ID3 tag in front, or a bare frame — its sync bits set, layer III
   if (buffer.subarray(0, 3).toString('ascii') === 'ID3') return 'audio/mpeg';
@@ -62,6 +72,7 @@ const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
+  'image/gif': 'gif',
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
   'audio/mpeg': 'mp3',
@@ -76,13 +87,20 @@ export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
 /** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */
 export const AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 
-export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video';
+export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video' | 'moving';
 const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
   images: { types: IMAGE_TYPES, message: 'Only JPEG, PNG and WebP images are accepted.' },
   'images-and-pdf': { types: [...IMAGE_TYPES, 'application/pdf'], message: 'Only JPEG, PNG, WebP and PDF files are accepted.' },
   intake: { types: [...IMAGE_TYPES, 'application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'], message: 'Only JPEG, PNG, WebP, PDF and Excel files are accepted.' },
   audio: { types: AUDIO_TYPES, message: 'Only MP3 and M4A audio files are accepted.' },
   video: { types: [...VIDEO_TYPES], message: 'Only MP4 and WebM video files are accepted. An .mov from an iPhone needs exporting as MP4 first.' },
+  /*
+   * A moving picture: a GIF, an animated WebP, an animated PNG. The three
+   * types are the only ones a browser will animate in an <img>, and two of
+   * them are the same type as their still versions — so this accepts the
+   * container and the browser has already read the bytes that say it moves.
+   */
+  moving: { types: [...MOVING_TYPES], message: 'A moving picture must be a GIF, an animated WebP or an animated PNG.' },
 };
 
 /**

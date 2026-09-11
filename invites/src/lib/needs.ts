@@ -7,6 +7,7 @@ import {
 } from './design';
 import { contrast } from './palette';
 import { GLARE, HEAVY_CLIP_BYTES, LONG_CLIP_MS, VIDEO_BUDGET_BYTES, VIDEO_BUDGET_LABEL } from './clips';
+import { HEAVY_MOVING_BYTES } from './moving';
 
 /**
  * What a page still needs.
@@ -70,6 +71,7 @@ export const NEED_RULES = [
   'clip-budget',
   'clip-glare',
   'not-drawn',
+  'moving',
   'asks',
 ] as const;
 
@@ -313,6 +315,27 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
           say('blocks', 'unlinked', el.ask
             ? `Frame ${frames.indexOf(el) + 1} is asked for but does not say which field, so the form will not ask for it.`
             : `Frame ${frames.indexOf(el) + 1} is not linked to anything.`, el.id);
+        }
+      }
+      /*
+       * A moving picture: a GIF, an animated WebP, an animated PNG.
+       *
+       * Two things are worth saying about one, and both come from the same
+       * fact: it is never re-encoded. Nothing resizes it, so its weight is
+       * the weight every guest downloads — and a frame the *customer* fills
+       * must never carry the flag, or their four-thousand-pixel photograph
+       * would be served whole to every guest as well, which is the one way
+       * this can go wrong quietly.
+       */
+      if (el.kind === 'photo' && (el as PhotoEl).animated) {
+        const moving = el as PhotoEl;
+        const name = nameOf(el, i + 1);
+        if (!('asset' in moving.bind)) {
+          say('blocks', 'moving', `${name} is marked as a moving picture but reads a field the customer fills. A moving picture is the design's own — a customer's photograph would be served at whatever size they uploaded, to every guest. Point it at a piece from the library, or take the mark off.`, el.id);
+        }
+        const bytes = weights?.[('asset' in moving.bind ? moving.bind.asset : '')];
+        if (bytes !== undefined && bytes > HEAVY_MOVING_BYTES) {
+          say('says', 'moving', `${name} is ${Math.round(bytes / 1024)} kB. A moving picture is never resized or re-encoded, so every guest downloads it whole: under ${Math.round(HEAVY_MOVING_BYTES / 1024)} kB is what a phone on mobile data has before they scroll to it. Fewer frames or a smaller export is the only way down.`, el.id);
         }
       }
       if (el.kind === 'text') {

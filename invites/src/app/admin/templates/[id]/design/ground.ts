@@ -9,6 +9,7 @@
  */
 
 import { sliceHeights, MAX_GROUND } from '@/lib/design';
+import { movingPicture, MOVING_MAX_BYTES, MOVING_MAX_LABEL, type Moving } from '@/lib/moving';
 
 /** No page is ever drawn wider than this, so nothing needs to be. */
 export const MAX_WIDTH = MAX_GROUND;
@@ -181,6 +182,61 @@ export async function sendPicture(read: ReadPicture, name: string, templateId: s
   const json = await res.json();
   if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
   return { url: json.url as string, width: read.width, height: read.height, ratio: read.ratio, top: read.top, bottom: read.bottom };
+}
+
+/**
+ * A moving picture, read and sent whole.
+ *
+ * The whole point is what this does *not* do. Every other picture in the
+ * studio goes through `readPicture` above: a canvas, a resize to 1536, a
+ * WebP re-encode. A canvas holds one frame, so a moving picture down that
+ * path arrives as its own first frame — her falling petals, not falling. So
+ * the file is not touched at all: the bytes are read only to ask whether it
+ * really moves (`movingPicture`, which reads a chunk inside the file because
+ * two of the three formats are the same type as their still versions), the
+ * first frame is measured for the element's shape, and the original is
+ * posted.
+ *
+ * Which is also why the cap is lower than a photograph's: nothing here makes
+ * the file smaller, so what she uploads is what every guest downloads.
+ */
+export type ReadMoving = { file: File; kind: Moving; width: number; height: number; ratio: number };
+
+/** Which kind of moving picture this is, or null for a still one — the question asked before the two paths part. */
+export async function movingKind(file: File): Promise<Moving | null> {
+  return movingPicture(new Uint8Array(await file.arrayBuffer()));
+}
+
+export async function readMoving(file: File): Promise<ReadMoving> {
+  const kind = await movingKind(file);
+  if (!kind) {
+    throw new Error('That picture does not move. A still one can go in as a photograph, where it is resized and re-encoded — this door is for a GIF, an animated WebP or an animated PNG.');
+  }
+  if (file.size > MOVING_MAX_BYTES) {
+    throw new Error(`A moving picture must be ${MOVING_MAX_LABEL} or smaller: it is never re-encoded, so what you upload is what every guest downloads. This one is ${Math.round(file.size / 1024)} kB.`);
+  }
+  // the first frame's size, which is the picture's own shape
+  const bitmap = await createImageBitmap(file);
+  const width = Math.max(1, bitmap.width);
+  const height = Math.max(1, bitmap.height);
+  bitmap.close?.();
+  return { file, kind, width, height, ratio: Math.round((height / width) * 1e4) / 1e4 };
+}
+
+/** The original file, posted as it is, with the flag that says so. */
+export async function sendMoving(read: ReadMoving, templateId: string, library = false): Promise<Uploaded & { animated: true }> {
+  const fd = new FormData();
+  fd.set('file', read.file);
+  fd.set('moving', '1');
+  if (library) fd.set('library', '1');
+  else fd.set('templateId', templateId);
+  fd.set('width', String(read.width));
+  fd.set('height', String(read.height));
+  if (library) fd.set('name', read.file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '));
+  const res = await fetch('/api/admin/design-upload', { method: 'POST', body: fd });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
+  return { url: json.url as string, width: read.width, height: read.height, ratio: read.ratio, top: '', bottom: '', animated: true };
 }
 
 /**

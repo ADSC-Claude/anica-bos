@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
-import { DrawnPage, FlowDecor } from '../../src/components/invite/drawn';
+import { DrawnPage, FlowDecor, FlowFloats } from '../../src/components/invite/drawn';
 import { builtinDesign, type PageSpec } from '../../src/lib/design';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../../src/lib/babyblue';
 import { t } from '../../src/lib/copy';
@@ -308,4 +308,43 @@ test('a clip filling the page keeps its layer and none of its geometry', () => {
   const markup = renderToStaticMarkup(FlowDecor({ page: filled, content: {}, look: undefined, lang: 'en', layer: 'under' }) as ReactElement);
   assert.match(markup, /<div class="inv-bb-clip" style="z-index:-2" data-bg="">/);
   assert.doesNotMatch(markup, /top:|width:|aspect-ratio/);
+});
+
+// --- a moving picture -----------------------------------------------------
+
+/**
+ * The one thing that must be true of a moving picture on a page: it is served
+ * as the file it is, not through the transformation endpoint. That endpoint
+ * returns a *still* — one frame, re-encoded — so a GIF through it is a
+ * photograph of the moment the petals started falling.
+ *
+ * A Supabase-shaped address is used deliberately: `imageUrl` hands back
+ * anything else untouched, so a local path would pass this test whether the
+ * flag worked or not.
+ */
+const HOSTED = 'https://example.supabase.co/storage/v1/object/public/invites-public/design/t1/petals.gif';
+
+test('a moving picture is served as it is, and a still one is transformed', () => {
+  const page = JSON.parse(JSON.stringify(doc.pages.find((p) => p.key === 'story'))) as PageSpec;
+  page.elements = [
+    { id: 'petals', kind: 'photo', x: 50, y: 20, w: 40, aspect: 1, bind: { asset: HOSTED }, animated: true },
+    { id: 'bow', kind: 'photo', x: 50, y: 60, w: 40, aspect: 1, bind: { asset: HOSTED } },
+  ];
+  const markup = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+  const sources = [...markup.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(sources.length, 2);
+  assert.equal(sources[0].replace(/&amp;/g, '&'), HOSTED, 'the moving one is the file itself');
+  assert.match(sources[1], /\/render\/image\/public\//, 'the still one goes through the transform');
+  assert.match(sources[1], /width=/);
+});
+
+test('a moving picture the words flow around is served as it is too', () => {
+  const page: PageSpec = {
+    key: 'story',
+    sections: ['story'],
+    elements: [{ id: 'petals', kind: 'photo', y: 0, w: 30, aspect: 1, float: 'left', bind: { asset: HOSTED }, animated: true }],
+  };
+  const markup = renderToStaticMarkup(FlowFloats({ page, content: {}, lang: 'en' }) as ReactElement);
+  assert.match(markup.replace(/&amp;/g, '&'), new RegExp(`src="${HOSTED.replace(/[/.]/g, '\\$&')}"`));
+  assert.doesNotMatch(markup, /render\/image/);
 });

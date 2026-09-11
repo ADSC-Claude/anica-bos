@@ -686,6 +686,13 @@ model Media {
   height       Int?
   bytes        Int?
   durationMs   Int?
+  /// A moving picture: a GIF, an animated WebP, an animated PNG. Read from the
+  /// file in the browser, because two of the three formats are the same
+  /// content type as their still versions. It is the flag that says *never
+  /// re-encode this*: the studio's usual path puts a picture through a canvas,
+  /// which holds one frame, so a moving picture is stored and served as it
+  /// arrived and the checklist watches its weight instead.
+  animated     Boolean   @default(false)
   /// A library piece's own name and the words she would search for it by.
   /// Blank on everything else: a guest photo is not something anybody tags.
   name         String    @default("")

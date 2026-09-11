@@ -516,7 +516,7 @@ export async function listPiecesAction(): Promise<Piece[]> {
     where: { kind: 'DESIGN_PIECE' },
     orderBy: { createdAt: 'desc' },
     take: 300,
-    select: { id: true, url: true, name: true, tags: true, width: true, height: true },
+    select: { id: true, url: true, name: true, tags: true, width: true, height: true, animated: true },
   });
   return rows.map(pieceOf);
 }

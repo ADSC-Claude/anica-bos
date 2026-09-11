@@ -39,8 +39,25 @@ export async function designFilesFor(templateIds: string[]): Promise<Record<stri
     select: { templateId: true, url: true, bytes: true, durationMs: true },
     take: 2000,
   });
+  /*
+   * The library's pieces as well, and they belong to no design.
+   *
+   * A piece is uploaded once and used by whichever designs want it, so its
+   * row carries no templateId — which meant a design built out of library
+   * pieces had a checklist that could not weigh anything it used. It matters
+   * most for the one thing the library is the natural home of: a moving
+   * picture, which is never re-encoded and is therefore the heaviest thing on
+   * a page after a clip. Weights only; a piece has no length.
+   */
+  const pieces = await prisma.media.findMany({
+    where: { kind: 'DESIGN_PIECE' },
+    select: { url: true, bytes: true },
+    take: 2000,
+  });
+  const shared: Record<string, number> = {};
+  for (const p of pieces) if (p.bytes !== null && p.bytes > 0) shared[p.url] = p.bytes;
   const out: Record<string, DesignFiles> = {};
-  for (const id of templateIds) out[id] = { weights: {}, lengths: {} };
+  for (const id of templateIds) out[id] = { weights: { ...shared }, lengths: {} };
   for (const r of rows) {
     const into = r.templateId ? out[r.templateId] : undefined;
     if (!into) continue;

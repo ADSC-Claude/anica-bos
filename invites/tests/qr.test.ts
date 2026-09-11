@@ -124,12 +124,14 @@ test('nothing is left over from veiling a photograph to read a code off it', () 
 test('the three fronts are offered, and the retired backdrops read as one of them', () => {
   // A couple who chose "photo behind the card" or "photo behind the code"
   // asked for their picture behind their code; both are the photograph front.
-  assert.deepEqual(PASS_LOOKS.map((l) => l.value), ['photo', 'split', 'ground']);
+  assert.deepEqual(PASS_LOOKS.map((l) => l.value), ['photo', 'arch', 'ground']);
   assert.equal(passLookFrom(''), 'photo');
   assert.equal(passLookFrom('photoCard'), 'photo');
   assert.equal(passLookFrom('photoBehind'), 'photo');
   assert.equal(passLookFrom('ground'), 'ground');
-  assert.equal(passLookFrom('split'), 'split');
+  // The old key for the same idea, kept readable rather than reset to the default.
+  assert.equal(passLookFrom('split'), 'arch');
+  assert.equal(passLookFrom('arch'), 'arch');
   assert.equal(passLookFrom('somethingElse'), 'photo');
 });
 

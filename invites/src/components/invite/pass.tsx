@@ -84,25 +84,42 @@ export function Pass({
   const spoken = new Set(links.map((l) => l.label));
   const details = passDetails(occasion, content, guest).filter((d) => !spoken.has(d.value));
 
-  const when = [date ? formatDate(date, 'long') : '', time ? formatTime(time) : '', venue].filter(Boolean).join(' · ');
+  // Two lines, not one run of separators: in a card this narrow the single
+  // line broke as "… 3:30 PM / · San Agustin Church, / Intramuros", with the
+  // separator orphaned at the head of the second line. The venue has its own
+  // line on printed stationery regardless.
+  const when = [date ? formatDate(date, 'long') : '', time ? formatTime(time) : ''].filter(Boolean).join(' · ');
   const intro = passIntro(occasion, content);
   const names = passSubject(occasion, content, displayTitle(occasion, content));
 
+  const monogram = str(content.cover ?? {}, 'monogram');
+
   const head: ReactNode = (
     <header className="pass-head">
+      {monogram && <p className="pass-monogram" aria-hidden="true">{monogram}</p>}
       <p className="pass-intro">{intro}</p>
       <h1 className="pass-names">{names}</h1>
+      <span className="pass-rule" aria-hidden="true" />
       {when && <p className="pass-when">{when}</p>}
+      {venue && <p className="pass-where">{venue}</p>}
+      {/*
+       * Whose pass this is. It was missing from the front entirely, which is
+       * absurd for a page that exists to be held up by one named person — and
+       * it is the line a coordinator reads off the screen before they scan.
+       */}
+      <p className="pass-for">for <em>{greeting}</em></p>
     </header>
   );
 
   const codeBlock = (
     <section className="pass-code">
-      <p className="pass-cta">{copy.cta}</p>
-      <span
-        className="pass-code-art"
-        dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 232, dark: ink.dark, light: ink.light, eye: 'rounded' }) }}
-      />
+      <p className="pass-cta"><span>{copy.cta}</span></p>
+      <span className="pass-plate">
+        <span
+          className="pass-code-art"
+          dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 232, dark: ink.dark, light: ink.light, eye: 'rounded' }) }}
+        />
+      </span>
       <p className="pass-note">{guest.declined ? arrival.body : note}</p>
     </section>
   );
@@ -165,12 +182,12 @@ export function Pass({
     );
   }
 
-  // ── the photograph across the top, the paper beneath it ──────────────
-  if (look === 'split') {
+  // ── the photograph in an arch cut into the card ──────────────────────
+  if (look === 'arch') {
     return (
-      <main className="pass" data-look="split" style={style}>
+      <main className="pass" data-look="arch" style={style}>
         <div className="pass-sheet">
-          <div className="pass-top" style={{ backgroundImage: `url(${photo})` }} role="img" aria-label={`${hostsTitle} photograph`} />
+          <div className="pass-arch" style={{ backgroundImage: `url(${photo})` }} role="img" aria-label={`${hostsTitle} photograph`} />
           {head}
           {body}
         </div>

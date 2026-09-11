@@ -279,50 +279,74 @@ function StyleThumb({ kind }: { kind: string }) {
 /**
  * The three check-in fronts, drawn rather than described.
  *
- * The same reasoning as StyleThumb: all three are about where the photograph
- * goes and where the code sits on it, which is a thing to look at rather than
- * read. What each tile has to get right is that the picture is at full
- * strength and the code is on paper — an earlier pair drew the code washed
- * into the photograph, which is not what any of these do.
+ * Each tile has to show that the pass is a printed card — the engraved rule,
+ * the monogram, the code on a plate — because an earlier set drew a plain
+ * white box three times and a couple would have picked from a picture of the
+ * wrong thing. What differs between them is only where the picture goes.
  */
 function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: string }) {
   const line = (w: string, colour = ink, o = 0.6) => (
-    <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: colour, opacity: o, margin: '0 auto' }} />
+    <span style={{ display: 'block', height: 2.5, width: w, borderRadius: 2, background: colour, opacity: o, margin: '0 auto' }} />
   );
   const eye = (pos: CSSProperties) => (
-    <span style={{ position: 'absolute', width: '28%', height: '28%', border: '2px solid var(--color-ink-900)', borderRadius: 1, ...pos }} />
+    <span style={{ position: 'absolute', width: '30%', height: '30%', border: '2px solid var(--color-ink-900)', borderRadius: 1, ...pos }} />
   );
   const mod = (l: string, t: string) => (
-    <span style={{ position: 'absolute', left: l, top: t, width: '13%', height: '13%', background: 'var(--color-ink-900)' }} />
+    <span style={{ position: 'absolute', left: l, top: t, width: '14%', height: '14%', background: 'var(--color-ink-900)' }} />
   );
-  const qr = (
-    <span style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1' }}>
-      {eye({ left: 0, top: 0 })}
-      {eye({ right: 0, top: 0 })}
-      {eye({ left: 0, bottom: 0 })}
-      {mod('44%', '4%')}
-      {mod('44%', '30%')}
-      {mod('62%', '44%')}
-      {mod('44%', '58%')}
-      {mod('80%', '58%')}
-      {mod('4%', '44%')}
-      {mod('22%', '44%')}
-      {mod('62%', '76%')}
-      {mod('80%', '80%')}
-      {mod('44%', '80%')}
+  const gold = 'var(--color-gold-500)';
+  // The code on its plate: paper, a hairline, and a second rule held inside.
+  const plate = (
+    <span style={{ position: 'relative', display: 'block', padding: '9%', border: `1px solid ${gold}`, borderRadius: 1 }}>
+      <span style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '1 / 1' }}>
+        {eye({ left: 0, top: 0 })}
+        {eye({ right: 0, top: 0 })}
+        {eye({ left: 0, bottom: 0 })}
+        {mod('44%', '6%')}
+        {mod('44%', '32%')}
+        {mod('64%', '46%')}
+        {mod('44%', '60%')}
+        {mod('80%', '60%')}
+        {mod('6%', '46%')}
+        {mod('24%', '46%')}
+        {mod('64%', '78%')}
+        {mod('44%', '80%')}
+      </span>
     </span>
   );
-  // A picture rather than a flat grey rectangle, which reads as a missing
-  // image: two figures against a sky, at full strength in every tile.
+  // The monogram, ringed — a seal where the design has a ground to press into.
+  const seal = (filled = false) => (
+    <span
+      style={{
+        display: 'block', width: 14, height: 14, margin: '0 auto', borderRadius: 999,
+        border: `1px solid ${filled ? 'transparent' : gold}`,
+        background: filled ? 'var(--color-plum-600)' : 'transparent',
+      }}
+    />
+  );
+  // A picture rather than a flat grey rectangle: two figures against a sky.
   const picture = (
     <>
       <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, var(--color-sand-300) 0%, var(--color-sand-100) 55%, var(--color-sand-200) 100%)' }} />
-      <span style={{ position: 'absolute', left: '17%', bottom: '-6%', width: '31%', height: '48%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.92 }} />
-      <span style={{ position: 'absolute', left: '44%', bottom: '-8%', width: '33%', height: '54%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.78 }} />
+      <span style={{ position: 'absolute', left: '16%', bottom: '-8%', width: '32%', height: '50%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.92 }} />
+      <span style={{ position: 'absolute', left: '44%', bottom: '-10%', width: '34%', height: '56%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.78 }} />
     </>
   );
-  const paper = (extra: CSSProperties) => (
-    <span style={{ position: 'absolute', background: 'var(--card-bg)', borderRadius: 4, boxShadow: '0 2px 7px rgba(0,0,0,0.2)', ...extra }} />
+  // The card itself: paper with a rule held in from its edge.
+  const card = (inset: string, body: React.ReactNode) => (
+    <span style={{ position: 'absolute', inset, background: 'var(--card-bg)', borderRadius: 2, boxShadow: '0 2px 8px rgba(0,0,0,0.22)' }}>
+      <span style={{ position: 'absolute', inset: 3, border: `1px solid ${gold}`, borderRadius: 1 }} />
+      <span style={{ position: 'absolute', inset: '9% 14%' }}>{body}</span>
+    </span>
+  );
+  const words = (
+    <>
+      {seal()}
+      <span style={{ display: 'block', height: 5 }} />
+      {line('100%')}
+      <span style={{ display: 'block', height: 3 }} />
+      {line('52%', gold, 1)}
+    </>
   );
   return (
     <span
@@ -330,43 +354,28 @@ function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: str
       className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)]"
       style={{ aspectRatio: '3 / 5', background: 'var(--color-sand-50)' }}
     >
-      {/* the picture behind the whole pass, the card over it */}
+      {/* the card laid on the picture */}
       {look === 'photo' && (
         <>
           {picture}
-          {paper({ inset: '12% 11%' })}
-          <span style={{ position: 'absolute', left: '19%', right: '19%', top: '17%' }}>
-            {line('100%')}
-            <span style={{ display: 'block', height: 4 }} />
-            {line('56%', ink, 0.42)}
-          </span>
-          <span style={{ position: 'absolute', left: '25%', right: '25%', top: '38%' }}>{qr}</span>
+          {card('9% 12%', <>{words}<span style={{ display: 'block', height: 7 }} />{plate}</>)}
         </>
       )}
-      {/* the picture across the top, the paper beneath it */}
-      {look === 'split' && (
+      {/* the picture in an arch cut into the card */}
+      {look === 'arch' && (
         <>
           <span style={{ position: 'absolute', inset: 0, background: 'var(--card-bg)' }} />
-          <span style={{ position: 'absolute', inset: '0 0 62% 0', overflow: 'hidden' }}>{picture}</span>
-          <span style={{ position: 'absolute', left: '17%', right: '17%', top: '43%' }}>
-            {line('100%')}
-            <span style={{ display: 'block', height: 4 }} />
-            {line('56%', ink, 0.42)}
-          </span>
-          <span style={{ position: 'absolute', left: '25%', right: '25%', top: '58%' }}>{qr}</span>
+          <span style={{ position: 'absolute', inset: 3, border: `1px solid ${gold}`, borderRadius: 1 }} />
+          <span style={{ position: 'absolute', inset: '8% 14% auto', height: '34%', borderRadius: '999px 999px 1px 1px', overflow: 'hidden' }}>{picture}</span>
+          <span style={{ position: 'absolute', left: '14%', right: '14%', top: '46%' }}>{words}</span>
+          <span style={{ position: 'absolute', left: '24%', right: '24%', top: '62%' }}>{plate}</span>
         </>
       )}
-      {/* the design's own background, the card over it */}
+      {/* the design's own ground behind the card, the seal pressed into it */}
       {look === 'ground' && (
         <>
           <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px)` }} />
-          {paper({ inset: '12% 11%' })}
-          <span style={{ position: 'absolute', left: '19%', right: '19%', top: '17%' }}>
-            {line('100%')}
-            <span style={{ display: 'block', height: 4 }} />
-            {line('56%', ink, 0.42)}
-          </span>
-          <span style={{ position: 'absolute', left: '25%', right: '25%', top: '38%' }}>{qr}</span>
+          {card('9% 12%', <>{seal(true)}<span style={{ display: 'block', height: 5 }} />{line('100%')}<span style={{ display: 'block', height: 3 }} />{line('52%', gold, 1)}<span style={{ display: 'block', height: 7 }} />{plate}</>)}
         </>
       )}
     </span>

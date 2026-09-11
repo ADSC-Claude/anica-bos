@@ -231,7 +231,7 @@ test('the table is not said twice once they are through the door', () => {
 test('all three fronts are rendered, and one code block serves them', () => {
   const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
   assert.equal((pass.match(/const codeBlock = \(/g) ?? []).length, 1, 'a front draws its own code');
-  for (const look of ['photo', 'split', 'ground']) {
+  for (const look of ['photo', 'arch', 'ground']) {
     assert.match(pass, new RegExp(`data-look="${look}"`), `${look} is not rendered`);
   }
 });
@@ -292,10 +292,10 @@ test('the picker offers the three fronts, each drawn and explained', () => {
   assert.equal(options.length, 3);
   assert.equal(options.length, PASS_LOOKS.length);
   assert.ok(options.some((o) => o.value === ''), 'no option holds the blank value, so a phantom tile appears');
-  assert.equal(options.find((o) => o.value === '')?.label, 'Your photo behind');
+  assert.equal(options.find((o) => o.value === '')?.label, 'Card on your photo');
   for (const o of options) {
     assert.ok(o.hint && o.hint.length > 12, `${o.label} has no note under it`);
-    assert.match(o.art ?? '', /^pass-(photo|split|ground)$/, `${o.label} would borrow another field's drawing`);
+    assert.match(o.art ?? '', /^pass-(photo|arch|ground)$/, `${o.label} would borrow another field's drawing`);
   }
   assert.deepEqual(options.map((o) => o.art), PASS_LOOKS.map((l) => `pass-${l.value}`));
 });
@@ -303,4 +303,31 @@ test('the picker offers the three fronts, each drawn and explained', () => {
 test('the check-in section asks how it looks once, not twice', () => {
   const keys = fieldsFor('checkin', 'WEDDING', 'LUXURY', false).map((f) => f.key);
   assert.deepEqual(keys, ['look', 'photo', 'note']);
+});
+
+test('the pass is a printed card, not a white box with type in the middle', () => {
+  /*
+   * It was exactly that, three times over, with the photograph moved around —
+   * one undesigned rectangle presented as three fronts. These are the marks
+   * that make it stationery, and every front gets all of them: an engraved
+   * rule held in from the paper's edge, a ruled monogram, the short rule under
+   * the names, a caption set between hairlines, and the code on a plate rather
+   * than dropped in as a black square.
+   */
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.pass {'), css.indexOf('.inv-pass {'));
+  for (const mark of ['.pass-sheet::before', '.pass-monogram', '.pass-rule', '.pass-cta::before', '.pass-plate', '.pass-plate::before']) {
+    assert.ok(block.includes(mark), `${mark} is gone — the card is a plain box again`);
+  }
+  // They are on the shared head and code block, so no front can miss them.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.equal((pass.match(/const head: ReactNode = \(/g) ?? []).length, 1);
+  assert.equal((pass.match(/\{head\}/g) ?? []).length, 3, 'a front draws its own head');
+});
+
+test('the front says whose pass it is', () => {
+  // It is one named person's screen and the line a coordinator reads before
+  // they scan, and the front did not carry it at all.
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.match(pass, /className="pass-for">for <em>\{greeting\}<\/em>/, 'the guest’s own name is not on the front');
 });

@@ -155,20 +155,25 @@ export function passSubject(occasion: Occasion, content: Content, fallback: stri
 }
 
 /**
- * How the pass is laid out, which is the same question as where the code sits.
+ * How the pass is laid out, which is the same question as where the
+ * photograph goes.
  *
- * The photograph is never washed out and never darkened. The type never sits
- * on it either — it sits on paper, which is what makes both of those
- * unnecessary. A code needs pale paper under it or a phone cannot read it, so
- * the code gets a piece of paper and the picture keeps its strength all round
- * it. That is the whole idea, and the three are three places to put it.
+ * All three are the same piece of stationery — engraved double rules, a
+ * monogram, the names in the design's display face, the guest's own name in
+ * italic, and the code set as a plate rather than dropped in as a black
+ * square. What differs is the picture: behind the card, in an arched window
+ * cut into it, or the design's own ground.
+ *
+ * The photograph is never washed out, darkened or written over. The words and
+ * the code sit on the invitation's own paper, which is what makes veils and
+ * scrims unnecessary rather than merely tuned.
  */
-export type PassLook = 'photo' | 'split' | 'ground';
+export type PassLook = 'photo' | 'arch' | 'ground';
 
 export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string }[] = [
-  { value: 'photo', label: 'Your photo behind', note: 'The picture fills the pass and the code sits on a card over it.' },
-  { value: 'split', label: 'Photo above the code', note: 'The picture across the top, the code on your own paper beneath it.' },
-  { value: 'ground', label: 'Your invitation’s design', note: 'The design’s own background, carried through to the door.' },
+  { value: 'photo', label: 'Card on your photo', note: 'The picture fills the pass and the card is laid on it, like a card on a table.' },
+  { value: 'arch', label: 'Arched window', note: 'The picture in an arch cut into the card, the way it sits on your invitation.' },
+  { value: 'ground', label: 'Your invitation’s design', note: 'The design’s own background behind the card, with your seal on it.' },
 ];
 
 /**
@@ -179,6 +184,7 @@ export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string
  */
 export function passLookFrom(raw: string): PassLook {
   if (raw === 'ground') return 'ground';
+  if (raw === 'split') return 'arch';
   return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'photo';
 }
 

@@ -16,6 +16,7 @@ import { assignJob, moveJob, staffReply, updateJobNotes, extendDue } from '@/lib
 import { setSettings } from '@/lib/settings';
 import { notify } from '@/lib/notifications';
 import { isOccasion, OCCASIONS } from '@/lib/occasions';
+import { TIERS } from '@/lib/tiers';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
@@ -146,7 +147,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
       occasion: occasion as Occasion,
       // the other occasions this design is offered for; the home one is never repeated here
       occasions: OCCASIONS.map((o) => o.key).filter((k) => k !== occasion && fd.get(`occ_${k}`) === 'on'),
-      minTier: (['BASIC', 'STANDARD', 'COMPLETE'].includes(s(fd, 'minTier')) ? s(fd, 'minTier') : 'BASIC') as Tier,
+      minTier: (TIERS.includes(s(fd, 'minTier') as Tier) ? s(fd, 'minTier') : 'BASIC') as Tier,
       premium: b(fd, 'premium'),
       description: s(fd, 'description'),
       thumbnailUrl: s(fd, 'thumbnailUrl'),
@@ -226,7 +227,12 @@ export async function extendExpiryAction(invitationId: string, back: string, fd:
 export async function setTierAction(invitationId: string, back: string, fd: FormData) {
   return run('invitations.edit', back, async (user) => {
     const tier = s(fd, 'tier') as Tier;
-    if (!['BASIC', 'STANDARD', 'COMPLETE'].includes(tier)) throw new HttpError(400, 'Bad tier.');
+    // Checked against TIERS, not a list typed out here. The list said
+    // BASIC | STANDARD | COMPLETE and stayed saying it when Luxury was added,
+    // so the select offered a package the action then refused as "Bad tier" —
+    // the one control for moving a customer onto the top package, broken by
+    // the arrival of the top package.
+    if (!TIERS.includes(tier)) throw new HttpError(400, 'Bad tier.');
     // The tier is all there is to move now: it used to carry a revision count
     // across from the package, and revisions no longer outlive publishing.
     await prisma.invitation.update({ where: { id: invitationId }, data: { tier } });

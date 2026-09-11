@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { replyIdentity, sameName } from '../src/lib/names';
+import { replyIdentity, sameName, byline, STAFF_BYLINE } from '../src/lib/names';
 
 test('two spellings of one name are one person', () => {
   assert.equal(sameName('Ma. Teresa Santos', 'Ma Teresa Santos'), true, 'punctuation');
@@ -54,4 +54,15 @@ test('an alias is only ever shown when there is something to say', () => {
     assert.ok(id.name.length > 0, `${typed} / ${listed}`);
     assert.equal(Boolean(id.alias) && sameName(id.alias, id.name), false, 'no alias that is the same name');
   }
+});
+
+// A customer's thread is with the business, not with whoever picked the job
+// up. The real name is still stored — this is what gets printed — so it reads
+// correctly for rows written before the rule existed, and the admin side is
+// unaffected: there the name is the accountability.
+test('a staff reply is signed by the business, a customer reply by themselves', () => {
+  assert.equal(byline('Angelica Corporal', true), STAFF_BYLINE);
+  assert.equal(byline('Angelica Corporal', true), 'Admin');
+  assert.equal(byline('Denise Reyes', false), 'Denise Reyes', 'the customer keeps their own name');
+  assert.equal(byline('', true), STAFF_BYLINE, 'and a missing staff name is still not blank');
 });

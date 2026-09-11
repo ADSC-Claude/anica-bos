@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS, type FeatureKey } from '../src/lib/tiers';
 import { sectionUnlocked, type SectionKey } from '../src/lib/sections';
+import { ADDONS } from '../src/lib/addon-catalogue';
 import { t, INTRO_PRESETS, GIFT_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, preset } from '../src/lib/copy';
 import { slugify, guestToken, orderReference } from '../src/lib/codes';
 import { parseCsv, toCsv } from '../src/lib/csv';
@@ -135,5 +136,56 @@ test('a section and the feature behind it name the same package', () => {
         `${section} / ${feature} disagree on ${tier}`,
       );
     }
+  }
+});
+
+// A cell that says "Add-on" is a price list: it tells a customer they can buy
+// the thing. Both of these said it while nothing in the catalogue sold it —
+// there is no e-mail-confirmation add-on at all, and the SMS blast comes with
+// the guest list manager rather than being bought. So each row is pinned to
+// the gate that actually decides it: a package either has it or it does not,
+// and the table has to say the same thing the code does.
+test('the two messaging rows say what the gates actually allow', () => {
+  const confirmation = COMPARISON.find((r) => r.label.startsWith('E-mail confirmation'))!;
+  for (const tier of TIERS) {
+    assert.equal(
+      Boolean(confirmation.cells[tier]),
+      hasFeature(tier, 'rsvp.emailConfirmation'),
+      `confirmation row disagrees with the gate on ${tier}`,
+    );
+  }
+
+  // The blast itself is the guest list manager's; what costs money is the
+  // texts, which is why the cell quotes rather than prices.
+  const blast = COMPARISON.find((r) => r.label.startsWith('SMS blast'))!;
+  for (const tier of TIERS) {
+    assert.equal(Boolean(blast.cells[tier]), hasFeature(tier, 'guests.manager'), `SMS row disagrees with the gate on ${tier}`);
+  }
+  assert.match(String(blast.cells.COMPLETE), /Ask us/, 'and does not print a price we have not set');
+
+  // Nothing else may claim to be buyable unless something actually sells it.
+  // The bug this catches is a row reading "Add-on" for a thing no customer can
+  // buy at any price, which is what both rows above did.
+  //
+  // Each such row names the add-on it is offering, and that add-on has to be
+  // real: either the catalogue prices it — and has not held it back — or it is
+  // one of the three the catalogue deliberately leaves to the admin, whose
+  // prices are theirs and are seeded rather than reconciled.
+  const ADMIN_PRICED = ['PREMIUM_OPENING', 'PRINTABLE', 'CUSTOM_DOMAIN'];
+  const SELLS: Record<string, string> = {
+    'Premium opening video': 'PREMIUM_OPENING',
+    'Save the Date card': 'SAVE_THE_DATE',
+    "Seating chart on the guest's page": 'SEATING_VIEWER',
+    'QR check-in on event day': 'QR_CHECKIN',
+    'Password on the link': 'PASSWORD',
+  };
+  for (const row of COMPARISON) {
+    if (!TIERS.some((t) => String(row.cells[t]) === 'Add-on')) continue;
+    const code = Object.entries(SELLS).find(([label]) => row.label.startsWith(label))?.[1];
+    assert.ok(code, `${row.label} says "Add-on" but names no add-on`);
+    const priced = ADDONS.find((a) => a.code === code);
+    if (ADMIN_PRICED.includes(code!)) continue;
+    assert.ok(priced, `${row.label} offers ${code}, which the catalogue does not sell`);
+    assert.ok(!priced!.held, `${row.label} offers ${code}, which is priced but held back from sale`);
   }
 });

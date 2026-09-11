@@ -219,9 +219,14 @@ model Template {
   demoSlug         String     @default("")
   palette          Json
   fonts            Json
-  /// The look this design is set in — its faces and the lines under its
-  /// headings. See src/lib/looks.ts. Blank means the `fonts` column alone.
+  /// The font set this design is set in — its faces and the lines under its
+  /// headings. A FontSet key; the five looks of src/lib/looks.ts are five of
+  /// them. Blank means the `fonts` column alone.
   look             String     @default("")
+  /// The sets a customer on this design may choose between, by key. Empty
+  /// means every set their package allows, which is what every design does
+  /// today — a design narrows the choice, it never widens it.
+  fontSets         String[]   @default([])
   /// The words the design writes over its look's, per language:
   /// {"en": {"gallery": "…"}, "tl": {…}}. See src/lib/design.ts.
   words            Json       @default("{}")
@@ -257,6 +262,81 @@ model Template {
 
   @@index([occasion, published, sortOrder])
   @@index([collection, published, sortOrder])
+}
+
+/// Where a typeface comes from.
+enum FontSource {
+  /// A family on fonts.googleapis.com, fetched by name. Free, and nothing to license.
+  GOOGLE
+  /// A file the owner uploaded and declared a web licence for, served from our bucket.
+  FILE
+}
+
+/// One typeface the invitations may be set in.
+///
+/// A face is a row rather than a literal because it is reused: Cormorant
+/// Garamond plays a part in nine of the pairings, and asking for its
+/// fallback chain and its weights nine times invites nine answers. See
+/// src/lib/fonts.ts, which is where a row becomes the `Fonts` object the
+/// renderer takes.
+model FontFace {
+  id        String     @id @default(cuid())
+  key       String     @unique
+  /// What she calls it in the admin.
+  name      String
+  /// The family a CSS rule asks for, and the family a Google request names.
+  family    String
+  /// The whole CSS value: this family first, then what to draw in until it arrives.
+  stack     String
+  source    FontSource @default(GOOGLE)
+  /// The axis spec after the family in a Google request, e.g.
+  /// `ital,wght@0,400;1,400`. Blank asks for the usual four weights.
+  weights   String     @default("")
+  /// The file, for a FILE face; blank for a Google one.
+  url       String     @default("")
+  /// Her own declaration of where the right to serve this file came from.
+  /// Required on a FILE face; the system cannot check a licence, only refuse
+  /// to serve a face with nothing said about one.
+  licence   String     @default("")
+  enabled   Boolean    @default(true)
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([enabled, sortOrder])
+}
+
+/// One pairing: which face plays which part, and whose wording it speaks in.
+///
+/// The five looks are five of these rows, keeping their keys, so an
+/// invitation that already stores `lookKey: "romance"` finds its set here.
+model FontSet {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  /// FontFace keys. A set with no `namesKey` sets the names in its display
+  /// face; one with no `scriptKey` sets the lines under the headings in it.
+  displayKey  String
+  bodyKey     String
+  namesKey    String   @default("")
+  scriptKey   String   @default("")
+  /// An italic serif can play the part of a script.
+  scriptStyle String   @default("normal")
+  /// Faces the set loads without naming in any of the four parts above,
+  /// because the design's own stylesheet asks for them.
+  alsoKeys    String[] @default([])
+  /// Which of the five looks' wording this set speaks in, so a set she adds
+  /// is never an invitation with a heading and then a gap. A LookKey.
+  voice       String   @default("modern")
+  /// The lowest package that may choose it. A design's own set is served
+  /// whatever the package, the way a design's own look always was.
+  minTier     Tier     @default(COMPLETE)
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([enabled, sortOrder])
 }
 
 enum DiscountType {

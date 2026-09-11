@@ -12,6 +12,7 @@ import { formatDateTime, formatDate } from '@/lib/datetime';
 import { PageHeader, DfyPill, ContactButtons, Notice } from '@/components/ui';
 import { IntakeForm, RevisionThread } from './forms';
 import { invitationPath } from '@/lib/app-url';
+import { byline } from '@/lib/names';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,7 +78,7 @@ export default async function DfyPage({ params }: { params: Promise<{ id: string
           {(job.status === 'PREVIEW_SENT' || job.status === 'REVISION' || job.revisions.length > 0) && (
             <div className="card p-4">
               <h2 className="mb-2 font-semibold">Preview & revisions</h2>
-              <RevisionThread invitationId={inv.id} status={job.status} previewHref={`${invitationPath(inv.slug)}?preview=1`} revisionsLeft={left} revisions={job.revisions.map((r) => ({ id: r.id, round: r.round, author: r.authorName, byStaff: r.byStaff, body: r.body, at: formatDateTime(r.createdAt) }))} />
+              <RevisionThread invitationId={inv.id} status={job.status} previewHref={`${invitationPath(inv.slug)}?preview=1`} revisionsLeft={left} revisions={job.revisions.map((r) => ({ id: r.id, round: r.round, author: byline(r.authorName, r.byStaff), byStaff: r.byStaff, body: r.body, at: formatDateTime(r.createdAt) }))} />
             </div>
           )}
           <div className="card p-4">

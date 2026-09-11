@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS } from '../src/lib/tiers';
+import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS, type FeatureKey } from '../src/lib/tiers';
+import { sectionUnlocked, type SectionKey } from '../src/lib/sections';
 import { t, INTRO_PRESETS, GIFT_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, preset } from '../src/lib/copy';
 import { slugify, guestToken, orderReference } from '../src/lib/codes';
 import { parseCsv, toCsv } from '../src/lib/csv';
@@ -113,4 +114,26 @@ test('qr, ics, theme and dates', () => {
   assert.equal(formatTime('00:05'), '12:05 AM');
   assert.equal(formatDate('2026-12-12', 'long'), 'December 12, 2026');
   assert.match(manilaDateKey(new Date('2026-12-12T20:00:00Z')), /^2026-12-13$/, 'evening UTC is the next day in Manila');
+});
+
+// A section in the builder and a feature in the table can describe the same
+// thing twice: the badge on a locked section is drawn from sectionMinTier, and
+// whether the thing actually works is decided by hasFeature. When the two
+// disagree the builder offers an upgrade to a package that does not carry what
+// it is offering — which is exactly what happened when the album moved to
+// Luxury and its section stayed on Signature.
+test('a section and the feature behind it name the same package', () => {
+  const pairs: [SectionKey, FeatureKey][] = [
+    ['photos', 'photoSharing'],
+    ['guestbook', 'guestbook'],
+  ];
+  for (const [section, feature] of pairs) {
+    for (const tier of TIERS) {
+      assert.equal(
+        sectionUnlocked(section, 'WEDDING', tier),
+        hasFeature(tier, feature),
+        `${section} / ${feature} disagree on ${tier}`,
+      );
+    }
+  }
 });

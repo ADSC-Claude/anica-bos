@@ -168,3 +168,39 @@ export function googleFontsUrl(fonts: Fonts): string {
     .join('&');
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 }
+
+/**
+ * The set in the list a stored pair of faces is, if it is one of them.
+ *
+ * Compared face by face rather than as JSON, so a set saved before a field
+ * was added to the type is still recognised as itself: what makes two sets
+ * the same is that they draw the same letters.
+ */
+export function fontSetKey(fonts: Fonts): string {
+  const same = (a: Fonts, b: Fonts) =>
+    a.display === b.display && a.body === b.body && (a.names ?? '') === (b.names ?? '') && (a.script ?? '') === (b.script ?? '');
+  return FONT_PRESETS.find((f) => same(f.fonts, fonts))?.key ?? '';
+}
+
+/**
+ * The stylesheet that draws a menu of font sets in the faces it offers.
+ *
+ * One request for all of them, because forty sets would otherwise be forty
+ * requests. A family named twice keeps the fuller of the two axis specs, and
+ * a family named with no spec at all is asked for the one weight every
+ * family has — a menu needs the shape of the letters, not the weights, and a
+ * single weight asked of a family that has it can never fail the whole
+ * request and leave every face in the menu drawn in the fallback.
+ */
+export function allFacesUrl(): string {
+  const best = new Map<string, string>();
+  for (const set of FONT_PRESETS) {
+    for (const entry of set.fonts.load) {
+      const family = entry.split(':')[0];
+      const had = best.get(family);
+      if (!had || entry.length > had.length) best.set(family, entry);
+    }
+  }
+  const load = [...best.values()].map((e) => (e.includes(':') ? e : `${e}:wght@400`));
+  return googleFontsUrl({ ...FONT_PRESETS[0].fonts, load });
+}

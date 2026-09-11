@@ -23,7 +23,7 @@ import { TIERS } from '@/lib/tiers';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
-import { isLayout, PALETTE_PRESETS, FONT_PRESETS } from '@/lib/theme';
+import { isLayout, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
 import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
@@ -385,6 +385,57 @@ export async function copyPageAction(templateId: string, key: string): Promise<{
   // shared rather than copied, so nothing is uploaded twice and neither
   // design can break the other by being edited
   return { ok: true, page };
+}
+
+// --- the theme -------------------------------------------------------------
+
+/**
+ * The design's colours and its faces.
+ *
+ * These two are columns on the row and not part of the design document, so
+ * they sit outside the draft-and-publish discipline the pages live under: a
+ * save here is felt by every invitation on this design at once, the live
+ * ones included. Which is why the studio lets her try a palette on the
+ * canvas for as long as she likes and nothing leaves the browser until she
+ * presses this — and why this says, afterwards, how many invitations it
+ * reached.
+ *
+ * The faces are named rather than described: the studio sends the key of a
+ * set in our list, not a font stack of its own, so nothing a browser is
+ * handed to set the page in can be composed from outside. No key at all
+ * means leave the faces as they are, which is how a design set in faces
+ * that are not one of our sets can still have its colours changed without
+ * being quietly re-set in somebody else's.
+ */
+export async function themeAction(templateId: string, colours: Record<string, string>, fontsKey: string): Promise<
+  { ok: true; live: number; drafts: number } | { ok: false; error: string }
+> {
+  const user = await requireStaffSession();
+  assertPermission(user, 'templates.edit');
+  const roles = ['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as const;
+  const labels: Record<string, string> = { bg: 'The paper', surface: 'The card', ink: 'The ink', muted: 'The muted ink', accent: 'The accent', accent2: 'The second accent' };
+  const bad = roles.find((r) => !/^#[0-9a-f]{6}$/i.test(colours[r] ?? ''));
+  if (bad) return { ok: false, error: `${labels[bad]} is not a colour. Each of the six is a six-digit hex, like #f7f5f0.` };
+  const set = fontsKey ? FONT_PRESETS.find((f) => f.key === fontsKey) : undefined;
+  if (fontsKey && !set) return { ok: false, error: 'That font set is not one of ours.' };
+  const t = await prisma.template.findUnique({ where: { id: templateId }, select: { name: true, palette: true, fonts: true } });
+  if (!t) return { ok: false, error: 'That design is not there any more.' };
+  const palette = paletteFrom(Object.fromEntries(roles.map((r) => [r, colours[r]])));
+  const [live, drafts] = await Promise.all([
+    prisma.invitation.count({ where: { templateId, status: 'PUBLISHED' } }),
+    prisma.invitation.count({ where: { templateId, status: { not: 'PUBLISHED' } } }),
+  ]);
+  await prisma.template.update({
+    where: { id: templateId },
+    data: { palette: palette as never, ...(set ? { fonts: set.fonts as never } : {}) },
+  });
+  await audit(user, {
+    module: 'templates', action: 'theme', entityType: 'Template', entityId: templateId,
+    summary: `${t.name}: ${set ? set.label : 'the faces unchanged'}, ${live} live and ${drafts} draft invitations`,
+    before: { palette: t.palette, fonts: t.fonts } as never,
+    after: { palette, fonts: set ? set.fonts : t.fonts } as never,
+  });
+  return { ok: true, live, drafts };
 }
 
 // --- the library -----------------------------------------------------------

@@ -4,7 +4,7 @@ import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { isPaged } from '@/lib/sections';
-import { cssVars } from '@/lib/theme';
+import { cssVars, paletteFrom, fontsFrom, fontSetKey } from '@/lib/theme';
 import { studioDoc, documentOf, wordsOf, withWords } from '@/lib/design';
 import { signDraftLink } from '@/lib/draft-link';
 import { absoluteUrl } from '@/lib/app-url';
@@ -51,6 +51,18 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
   const theme = resolveTheme(t, demo ? contentOf(demo.content) : {});
   const look = withWords(theme.look, wordsOf(t.words));
   const vars = cssVars(theme.palette, theme.fonts);
+  /*
+   * What the Theme popover edits is the design's own two columns — not what
+   * the canvas happens to be drawn in. The two differ when the demo
+   * invitation carries colours of its own or the design is set in a look,
+   * and the popover says so rather than letting the canvas jump under her
+   * hand with no explanation.
+   */
+  const own = paletteFrom(t.palette);
+  const [live, drafts] = await Promise.all([
+    prisma.invitation.count({ where: { templateId: t.id, status: 'PUBLISHED' } }),
+    prisma.invitation.count({ where: { templateId: t.id, status: { not: 'PUBLISHED' } } }),
+  ]);
 
   return (
     <>
@@ -68,6 +80,14 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         content={demo ? (contentOf(demo.content) as Record<string, unknown>) : {}}
         look={look}
         vars={vars}
+        theme={{
+          palette: own,
+          fontsKey: fontSetKey(fontsFrom(t.fonts)),
+          look: theme.look?.name ?? '',
+          overridden: JSON.stringify(own) !== JSON.stringify(theme.palette),
+          live,
+          drafts,
+        }}
         canPublish={can(user.role, 'templates.publish')}
         shareLink={shareLink}
       />

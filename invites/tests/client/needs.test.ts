@@ -86,3 +86,18 @@ test('the guide loads outside a server component', async () => {
   assert.equal(PAGE_SHAPES.length, 4);
   assert.equal(canvaSize(ONE_SCREEN), '1080 × 1919 px');
 });
+
+/**
+ * The Theme popover is drawn in the studio, so the colour book and the
+ * theme module both have to load in a browser — the popover reads the book
+ * to make six roles out of a family and the theme module to name the faces
+ * and to compose the variables the canvas is re-coloured with.
+ */
+test('the colour book and the theme load outside a server component', async () => {
+  const { colourFamilies, swatchName } = await import('../../src/lib/palette');
+  const { cssVars, allFacesUrl, FONT_PRESETS } = await import('../../src/lib/theme');
+  const blues = colourFamilies().find((f) => f.key === 'blues')!;
+  assert.equal(swatchName(blues.palette.bg), 'Baby Blue');
+  assert.equal(cssVars(blues.palette, FONT_PRESETS[0].fonts)['--inv-bg'], '#cde3fc');
+  assert.match(allFacesUrl(), /^https:\/\/fonts\.googleapis\.com\/css2\?/);
+});

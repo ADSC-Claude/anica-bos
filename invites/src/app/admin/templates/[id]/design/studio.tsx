@@ -18,8 +18,9 @@ import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
-import type { Fonts } from '@/lib/theme';
-import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction } from '../../../actions';
+import { cssVars, fontsFrom, FONT_PRESETS, PALETTE_PRESETS, allFacesUrl, type Fonts, type Palette } from '@/lib/theme';
+import { colourFamilies, swatchName } from '@/lib/palette';
+import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
 import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
@@ -61,6 +62,22 @@ type Props = {
   content: Record<string, unknown>;
   look?: Look;
   vars: Record<string, string>;
+  /**
+   * The design's own colours and faces — the two columns the Theme popover
+   * edits — as against `vars`, which is what the canvas is drawn in and has
+   * the demo invitation's own colours and the look's faces on top of them.
+   */
+  theme: {
+    palette: Palette;
+    /** the set in our list these faces are, or blank for faces of their own */
+    fontsKey: string;
+    /** the look's name when the design is set in one, which overrules the faces */
+    look: string;
+    /** the demo invitation carries colours of its own, so the canvas is not the design */
+    overridden: boolean;
+    live: number;
+    drafts: number;
+  };
   canPublish: boolean;
   /** the live Share-draft link, or blank when the design is not shared */
   shareLink: string;
@@ -82,6 +99,12 @@ type Drag =
  */
 type Fitting = { id: string; nw: number; nh: number; zoom: number; cx: number; cy: number; was?: PhotoEl['crop'] };
 
+/** A theme being tried on: the six roles, and which set of faces. */
+type Tried = { colours: Palette; fontsKey: string };
+
+/** The variables that set the page's faces, as against the six that colour it. */
+const FACE_VARS = ['--inv-display', '--inv-body', '--inv-names', '--inv-script', '--inv-script-style'];
+
 export function Studio(p: Props) {
   const [doc, setDoc] = useState<DesignDoc>(p.doc);
   const [pageKey, setPageKey] = useState(p.doc.pages[0]?.key ?? '');
@@ -100,6 +123,33 @@ export function Studio(p: Props) {
   const [drawer, setDrawer] = useState<'pages' | 'library' | 'guide'>('pages');
   /** what just happened, when it is worth saying and is not a fault */
   const [said, setSaid] = useState('');
+  /*
+   * The theme. Three pieces, because the colours and the faces are columns
+   * on the row rather than part of the design document, and so are saved
+   * outside the draft she is drawing: `saved` is what the row holds, `tried`
+   * is what she is trying on the canvas and has not saved, and `after` is
+   * the canvas once she has saved from here — the page was drawn before that
+   * happened and its own variables are a version behind.
+   */
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [saved, setSaved] = useState<Tried>({ colours: p.theme.palette, fontsKey: p.theme.fontsKey });
+  const [tried, setTried] = useState<Tried | null>(null);
+  const [after, setAfter] = useState<Record<string, string> | null>(null);
+  /** the faces of every set, loaded once she asks to see them */
+  const [faces, setFaces] = useState(false);
+  /*
+   * A theme on the canvas. `preview` is what she is trying, and it shows the
+   * set she has named whatever else is true, because seeing the faces is the
+   * whole point of trying them. Without it the canvas shows what a guest is
+   * served — which on a design set in a look is the look's faces, however
+   * the column underneath is set, and the popover says so.
+   */
+  const varsFor = useCallback((t: Tried, preview = false) => {
+    const set = !preview && p.theme.look ? undefined : FONT_PRESETS.find((f) => f.key === t.fontsKey);
+    const made = cssVars(t.colours, set?.fonts ?? fontsFrom(null));
+    return set ? made : { ...made, ...Object.fromEntries(FACE_VARS.map((k) => [k, p.vars[k]])) };
+  }, [p.theme.look, p.vars]);
+  const vars = useMemo(() => (tried ? varsFor(tried, true) : after ?? p.vars), [tried, after, varsFor, p.vars]);
   /**
    * Who the canvas is drawn against. The checklist above is not switched
    * with it: it is a list about the design, and "the demo has no photo for
@@ -909,13 +959,27 @@ export function Studio(p: Props) {
       : { minHeight: width * 1.2 }),
     ...(ground && isPicture(ground)
       ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
-      : ground ? { background: colourOf(ground.color, p.vars) } : {}),
+      : ground ? { background: colourOf(ground.color, vars) } : {}),
   };
 
   return (
     // Bringing a page in is one screen: the properties column steps aside
     // rather than describing a page she is not looking at.
     <div className={`grid gap-3 ${view === 'import' ? 'lg:grid-cols-[15rem_1fr]' : 'lg:grid-cols-[15rem_1fr_19rem]'}`}>
+      {/*
+        * Every face of every set, in one request, so the font menu can be
+        * drawn in the faces it offers and a set she tries takes effect on
+        * the canvas. Loaded the first time she opens the popover and left
+        * loaded after that: forty families is twenty kilobytes of
+        * stylesheet, and it is not worth asking for twice.
+        *
+        * Plainly, with no `precedence`: a stylesheet React is asked to
+        * manage is one it waits for before it will show the popover at all,
+        * and a menu of faces is not worth a studio that stalls on a slow
+        * connection or a request that fails. The faces arrive when they
+        * arrive, and until they do the menu is in the fallback.
+        */}
+      {faces && <link rel="stylesheet" href={allFacesUrl()} />}
       <TopBar {...p} state={state} error={error} rev={rev} doc={doc} onSave={() => void save(doc)} />
 
       {/* the pages */}
@@ -967,7 +1031,7 @@ export function Studio(p: Props) {
               >
                 <span
                   className="h-9 w-6 shrink-0 rounded-sm border border-black/10 bg-cover bg-top"
-                  style={pg.ground && isPicture(pg.ground) ? { backgroundImage: `url(${pg.ground.url})` } : { background: pg.ground ? colourOf(pg.ground.color, p.vars) : 'var(--color-sand-200)' }}
+                  style={pg.ground && isPicture(pg.ground) ? { backgroundImage: `url(${pg.ground.url})` } : { background: pg.ground ? colourOf(pg.ground.color, vars) : 'var(--color-sand-200)' }}
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{pg.label?.en ?? pg.key}</span>
@@ -1105,6 +1169,34 @@ export function Studio(p: Props) {
               {SAMPLES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           )}
+          {/*
+            * The theme. Its button sits with Day and Night because all three
+            * are about how the page looks rather than what is on it — but
+            * unlike those two this one can be saved, and what it saves is
+            * felt by every invitation on the design, which the popover says.
+            * It opens to the right, over the panel, because the one thing
+            * she must be able to see while she changes a colour is the page.
+            */}
+          <span className="relative">
+            <button
+              type="button"
+              onClick={() => { setFaces(true); setThemeOpen((o) => !o); }}
+              className={`rounded px-2 py-1 ${themeOpen || tried ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}
+            >
+              Theme{tried ? ' · trying' : '…'}
+            </button>
+            {themeOpen && (
+              <ThemePopover
+                templateId={p.templateId}
+                theme={p.theme}
+                saved={saved}
+                value={tried ?? saved}
+                onChange={setTried}
+                onSaved={(t) => { setSaved(t); setTried(null); setAfter(varsFor(t)); }}
+                onClose={() => setThemeOpen(false)}
+              />
+            )}
+          </span>
           <button type="button" onClick={() => setNight((n) => !n)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">{night ? '☾ Night' : '☀ Day'}</button>
           <button type="button" onClick={undo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Undo</button>
           <button type="button" onClick={redo} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Redo</button>
@@ -1162,7 +1254,7 @@ export function Studio(p: Props) {
 
         <div className={`justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4 ${view === 'page' ? 'flex' : 'hidden'}`}>
           <div className="relative shadow-lg" style={{ width }}>
-            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-mode={night ? 'night' : 'day'} style={{ ...p.vars, minHeight: 0 } as CSSProperties} lang="en">
+            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
               <div
                 ref={stage}
                 className="inv-page relative"
@@ -1264,7 +1356,7 @@ export function Studio(p: Props) {
             grows={Boolean(page?.grow)}
             onFit={() => (fit ? keepFit() : startFit(selected.id))}
             fitting={fit?.id === selected.id}
-            vars={p.vars}
+            vars={vars}
           />
         ) : (
           <PageProps
@@ -1272,7 +1364,7 @@ export function Studio(p: Props) {
             onChange={editPage}
             onGround={setGround}
             templateId={p.templateId}
-            vars={p.vars}
+            vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
           />
         )}
@@ -1319,6 +1411,182 @@ function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, erro
           <p className="hint w-full">Anyone with this link sees the draft on {demoSlug}, and nothing else of yours. It lasts thirty days, or until you stop it.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Theme: the six colour roles and the set of faces.
+ *
+ * Unlike everything else in the studio these two are not part of the design
+ * document — they are columns on the row — so they are outside the draft she
+ * is drawing and cannot be published: a save is felt by every invitation on
+ * this design at once, the live ones included. Which makes the popover two
+ * things with a rule between them. Above the rule she is only trying: every
+ * change goes onto the canvas and nowhere else, and Put it back undoes the
+ * lot. Below it is the one button that writes, and it says how many
+ * invitations it reaches before she presses it rather than afterwards.
+ *
+ * A family of the colour book makes all six in one tap, because six colours
+ * that work together is a decision and a family is one a person can make in
+ * a second. Every font set is drawn in its own faces, so what she reads in
+ * the menu is what the heading will be.
+ */
+function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onClose }: {
+  templateId: string;
+  theme: Props['theme'];
+  /** what the row holds, which is what Put it back goes back to */
+  saved: Tried;
+  value: Tried;
+  onChange: (next: Tried | null) => void;
+  onSaved: (t: Tried) => void;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState('');
+  const families = useMemo(() => colourFamilies(), []);
+  const dirty = JSON.stringify(value) !== JSON.stringify(saved);
+  const preset = PALETTE_PRESETS.find((x) => JSON.stringify(x.palette) === JSON.stringify(value.colours))?.key ?? '';
+  const all = theme.live + theme.drafts;
+
+  const save = async () => {
+    setBusy(true); setError(''); setDone('');
+    try {
+      const r = await themeAction(templateId, value.colours, value.fontsKey);
+      if (!r.ok) setError(r.error);
+      else {
+        onSaved(value);
+        setDone(`Saved. ${r.live} live and ${r.drafts} draft invitation${r.live + r.drafts === 1 ? '' : 's'} are drawn in it now.`);
+      }
+    } catch {
+      setError('The theme could not be saved. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="absolute left-0 top-full z-30 mt-1 max-h-[80vh] w-[23rem] overflow-auto overscroll-contain rounded-lg border border-[color:var(--color-sand-300)] bg-[color:var(--card-bg)] p-3 text-left shadow-xl">
+      <div className="flex items-center justify-between">
+        <p className="label mb-0">Theme</p>
+        <button type="button" onClick={onClose} className="rounded px-1.5 text-base leading-none hover:bg-[color:var(--color-sand-100)]" aria-label="Close">×</button>
+      </div>
+
+      <div className="mt-2 space-y-1">
+        {ROLES.map((r) => (
+          <RoleRow
+            key={r.key}
+            label={r.label}
+            colour={value.colours[r.key as keyof Palette]}
+            onPick={(c) => onChange({ ...value, colours: { ...value.colours, [r.key]: c } })}
+          />
+        ))}
+      </div>
+
+      <p className="label mt-3 mb-0">From a family</p>
+      <div className="mt-1 grid grid-cols-2 gap-1">
+        {families.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            title={`${f.label}: the palest as the paper, the deepest as the ink`}
+            onClick={() => onChange({ ...value, colours: f.palette })}
+            className="flex items-center gap-1.5 rounded border border-[color:var(--color-sand-300)] px-1.5 py-1 text-left text-[11px] leading-tight hover:bg-[color:var(--color-sand-100)]"
+          >
+            <span className="flex shrink-0 overflow-hidden rounded-sm border border-black/10">
+              {(['bg', 'accent2', 'accent', 'muted', 'ink'] as const).map((role) => (
+                <span key={role} className="h-4 w-2" style={{ background: f.palette[role] }} />
+              ))}
+            </span>
+            <span className="truncate">{f.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <label className="mt-2 block">
+        <span className="hint">or a palette of ours</span>
+        <select
+          value={preset}
+          onChange={(e) => {
+            const pick = PALETTE_PRESETS.find((x) => x.key === e.target.value);
+            if (pick) onChange({ ...value, colours: pick.palette });
+          }}
+          className="input h-8 min-h-0 w-full text-xs"
+        >
+          {!preset && <option value="">— colours of your own —</option>}
+          {PALETTE_PRESETS.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+        </select>
+      </label>
+
+      <p className="label mt-3 mb-0">Faces</p>
+      {theme.look
+        ? <p className="hint">This design is set in the {theme.look} look, so a guest is served the look&rsquo;s faces and the set below is only what it would fall back to — the canvas shows the set while you are trying it, and goes back to the look&rsquo;s faces once it is saved. The look is on <Link href={`/admin/templates/${templateId}`} className="underline">the design&rsquo;s own page</Link>.</p>
+        : !value.fontsKey && <p className="hint">These faces are not one of the sets below. Picking one replaces them; leaving it alone keeps them.</p>}
+      <div className="mt-1 max-h-56 space-y-0.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-1">
+        {FONT_PRESETS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => onChange({ ...value, fontsKey: f.key })}
+            className={`block w-full rounded px-2 py-1 text-left ${value.fontsKey === f.key ? 'bg-[color:var(--color-sand-200)] ring-1 ring-[color:var(--color-ink-700)]' : 'hover:bg-[color:var(--color-sand-100)]'}`}
+          >
+            <span className="block text-lg leading-tight" style={{ fontFamily: f.fonts.names || f.fonts.display }}>Maria &amp; Juan</span>
+            {f.fonts.script && f.fonts.script !== (f.fonts.names || f.fonts.display) && (
+              <span className="block text-sm leading-tight" style={{ fontFamily: f.fonts.script, fontStyle: f.fonts.scriptStyle ?? 'normal' }}>together with our families</span>
+            )}
+            <span className="block text-[11px] leading-snug" style={{ fontFamily: f.fonts.body }}>{f.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 border-t border-[color:var(--color-sand-300)] pt-2">
+        <p className="hint">
+          The colours and the faces are the design itself, not a draft: saving them is felt at once by{' '}
+          {all === 0 ? 'no invitations yet' : `${theme.live} live and ${theme.drafts} draft invitation${all === 1 ? '' : 's'}`} on this design.
+          {theme.overridden && ' This demo invitation carries colours of its own on top, which is what the canvas was drawn in.'}
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <button type="button" disabled={!dirty || busy} onClick={() => void save()} className="btn btn-primary btn-sm">{busy ? 'Saving…' : 'Save the theme'}</button>
+          <button type="button" disabled={!dirty} onClick={() => onChange(null)} className="btn btn-ghost btn-sm">Put it back</button>
+        </div>
+        {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
+        {done && <p className="hint">{done}</p>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One colour role: a picker, the hex to type or paste, and the colour book's
+ * name for it when it is one of the book's. The name is the point of having
+ * a book — "Dusty Rose" is a colour a person can talk about on the phone,
+ * and #dba8a8 is not.
+ */
+function RoleRow({ label, colour, onPick }: { label: string; colour: string; onPick: (c: string) => void }) {
+  const [text, setText] = useState(colour);
+  useEffect(() => setText(colour), [colour]);
+  const ok = /^#[0-9a-f]{6}$/i.test(text.trim());
+  const named = swatchName(colour);
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <input
+        type="color"
+        title={label}
+        value={colour}
+        onChange={(e) => onPick(e.target.value)}
+        className="h-6 w-6 shrink-0 cursor-pointer rounded border border-black/15 p-0"
+      />
+      <span className="w-24 shrink-0">{label}</span>
+      <input
+        value={text}
+        spellCheck={false}
+        aria-label={label}
+        onChange={(e) => { setText(e.target.value); const v = e.target.value.trim(); if (/^#[0-9a-f]{6}$/i.test(v)) onPick(v.toLowerCase()); }}
+        className={`h-7 w-24 shrink-0 rounded border px-1.5 font-mono text-xs ${ok ? 'border-[color:var(--color-sand-300)]' : 'border-[color:var(--bad)]'}`}
+        style={{ minHeight: 0 }}
+      />
+      {named && <span className="truncate text-[color:var(--color-ink-500)]">{named}</span>}
     </div>
   );
 }

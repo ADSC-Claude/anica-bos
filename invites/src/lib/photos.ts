@@ -229,6 +229,30 @@ export async function deleteGuestPhoto(invitationId: string, photoId: string) {
   await deleteFile(photo.storagePath);
 }
 
+/**
+ * What one photograph is called inside the downloaded album.
+ *
+ * Numbered first, so a folder sorted by name is the evening in order however
+ * the computer sorts it, then whoever sent it, so the couple can see at a
+ * glance who took what. The caption is left out: it can be a paragraph, it can
+ * be emoji, and it is already on the page.
+ *
+ * Everything outside letters, digits and spaces goes. A guest types their own
+ * name here, and a name with a slash or a colon in it is a file that will not
+ * open on somebody's laptop — or, on an unlucky unzipper, a file written
+ * somewhere it was not meant to go.
+ */
+export function albumFilename(n: number, photo: { uploadedBy: string; contentType: string; storagePath: string }): string {
+  const who = (photo.uploadedBy || 'a guest')
+    .normalize('NFKD')
+    .replace(/[^\p{Letter}\p{Number} ]/gu, '')
+    .trim()
+    .slice(0, 40) || 'a guest';
+  const ext = (photo.storagePath.split('.').pop() ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    || (photo.contentType.split('/').pop() ?? 'jpg');
+  return `${String(n).padStart(3, '0')} ${who}.${ext}`;
+}
+
 /** The prompt shown above the upload form, with the couple's wording if set. */
 export function albumPrompt(content: unknown, fallback: string): string {
   return str(contentOf(content).photos, 'prompt') || fallback;

@@ -7,7 +7,7 @@ import {
   isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
@@ -23,6 +23,8 @@ import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette'
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
 import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
+import { readClip, sendClip, type SentClip } from './clip';
+import { VIDEO_MAX_LABEL, VIDEO_MAX_MS } from '@/lib/clips';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
 import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pagesToCopyAction, copyPageAction, invitationsToDrawAction, invitationContentAction } from '../../../actions';
@@ -605,6 +607,23 @@ export function Studio(p: Props) {
     setSel([id]);
   }
 
+  /**
+   * A clip that has just been uploaded, put on the page at the shape it
+   * really is.
+   *
+   * Its width is the one guess here — narrower than a photo frame, because a
+   * portrait clip at forty percent of the page is already tall — and its
+   * proportion is not a guess at all: it is what the browser read off the
+   * file, so the frame is the clip's own shape and nothing is letterboxed.
+   */
+  function addClip(up: SentClip) {
+    if (!page) return;
+    const id = freeId(doc, 'clip');
+    const made: Element = { id, kind: 'video', x: 50, y: 40, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
   // --- what a page carries --------------------------------------------------
 
   const addSection = (key: PageSectionKey) => change(putSection(doc, pageKey, key));
@@ -933,7 +952,7 @@ export function Studio(p: Props) {
       el.kind === 'photo' ? ('asset' in el.bind ? undefined : el.bind)
         : el.kind === 'text' ? el.lines.flatMap((l) => l.sources).flatMap((s) => ('bind' in s ? [s.bind] : []))[0]
           : undefined;
-    if (!ref) return el.kind === 'photo' ? 'A picture of yours' : 'Empty';
+    if (!ref) return el.kind === 'photo' ? 'A picture of yours' : el.kind === 'video' ? 'The design’s own clip' : 'Empty';
     const where = ref.index === undefined ? '' : ` ${ref.index + 1}`;
     return `${ref.sub ?? ref.field}${where} · ${ref.section}`;
   }, []);
@@ -1188,6 +1207,7 @@ export function Studio(p: Props) {
               <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
+              <AddClip templateId={p.templateId} onAdd={addClip} />
             </>
           ) : (
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
@@ -1406,6 +1426,7 @@ export function Studio(p: Props) {
             onDuplicate={duplicate}
             onRemove={remove}
             label={label(selected)}
+            templateId={p.templateId}
             measureRoom={() => measureRoom(selected.id)}
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
             grows={Boolean(page?.grow)}
@@ -1711,8 +1732,8 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable, grows, onFit, fitting, vars }: {
-  el: Element; ratio: number; label: string; occasion: Occasion;
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, measureRoom, attachable, grows, onFit, fitting, vars }: {
+  el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
@@ -1729,7 +1750,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind}</p>
+        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind === 'video' ? 'Clip' : el.kind}</p>
         <p className="text-[11px] text-[color:var(--color-ink-500)]">{el.id}</p>
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
@@ -1754,6 +1775,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} />
       )}
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
+      {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} />}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
@@ -1938,6 +1960,117 @@ const MASKS: { key: NonNullable<PhotoEl['mask']>; label: string }[] = [
   { key: 'circle', label: 'A circle' },
   { key: 'arch', label: 'An arch' },
 ];
+
+/**
+ * Put a clip on the page.
+ *
+ * The whole of the reading happens here before anything is uploaded, because
+ * the browser is the only machine in the chain that can decode a clip — the
+ * server has no ffmpeg and sharp does not do video. So a file that a guest's
+ * phone would not play is refused while it is still on her disk, and the
+ * poster is drawn off a frame of it rather than asked of her.
+ *
+ * It says what it is doing at each step. Reading an eight-megabyte clip,
+ * seeking four times and sending two files is several seconds of silence
+ * otherwise, and silence in a studio reads as a broken button.
+ */
+function AddClip({ templateId, onAdd }: { templateId: string; onAdd: (up: SentClip) => void }) {
+  const [step, setStep] = useState('');
+  const [pct, setPct] = useState(0);
+  const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const busy = step !== '';
+  async function take(file: File) {
+    setError('');
+    setNote('');
+    setPct(0);
+    try {
+      setStep('Reading the clip…');
+      const read = await readClip(file);
+      if (read.note) setNote(read.note);
+      setStep('Uploading…');
+      onAdd(await sendClip(read, templateId, setPct));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStep('');
+      setPct(0);
+      if (input.current) input.current.value = '';
+    }
+  }
+  return (
+    <>
+      <label className={`rounded bg-[color:var(--color-sand-200)] px-2 py-1 ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+        {busy ? (pct > 0 && pct < 100 ? `${step} ${pct}%` : step) : '+ Clip'}
+        <input ref={input} type="file" accept="video/mp4,video/webm" className="sr-only" disabled={busy}
+          onChange={(e) => e.target.files?.[0] && take(e.target.files[0])} />
+      </label>
+      {(error || note) && (
+        <span className={`basis-full text-[11px] ${error ? 'text-[color:var(--bad)]' : 'text-[color:var(--color-ink-500)]'}`}>
+          {error || note}{' '}
+          <button type="button" className="underline" onClick={() => { setError(''); setNote(''); }}>Dismiss</button>
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * A clip as an object: its poster, whether it loops, and its length and
+ * weight said plainly.
+ *
+ * The poster gets most of the room because it is what most guests see. It
+ * is what prints, what somebody sparing their data is served, and what an
+ * iPhone in Low Power Mode shows instead of playing — three different
+ * people, none of whom ever watch the clip. The one taken off the file is a
+ * starting point; a still she chose is nearly always better.
+ */
+function ClipBlock({ el, onChange, templateId }: { el: VideoEl; onChange: (fn: (e: Element) => Element) => void; templateId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  async function poster(file: File) {
+    setBusy(true);
+    setError('');
+    try {
+      const up = await uploadGround(file, templateId);
+      onChange((e) => ({ ...e, poster: up.url }));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-200)] pt-2">
+      <div className="flex items-start gap-2">
+        {el.poster
+          ? <img src={el.poster} alt="" className="w-16 shrink-0 rounded border border-[color:var(--color-sand-200)]" style={{ aspectRatio: `1 / ${el.aspect ?? 1}`, objectFit: 'cover' }} />
+          : <span className="h-20 w-16 shrink-0 rounded border border-dashed border-[color:var(--color-sand-300)]" />}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="label">The still behind it</p>
+          <p className="text-[11px] text-[color:var(--color-ink-500)]">What prints, what a guest sparing their data sees, and what a phone in Low Power Mode shows instead of playing.</p>
+          <label className={`btn btn-secondary btn-sm ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+            {busy ? 'Uploading…' : 'Replace the still'}
+            <input ref={input} type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && poster(e.target.files[0])} />
+          </label>
+        </div>
+      </div>
+      {error && <p className="text-[11px] text-[color:var(--bad)]">{error}</p>}
+      <label className="flex items-center gap-2 text-xs">
+        <input type="checkbox" checked={el.loop !== false} onChange={(e) => onChange((x) => ({ ...x, loop: e.target.checked }))} />
+        Play it again from the start
+      </label>
+      <p className="hint">
+        It only plays while the guest is looking at it, and never on a phone in Low Power Mode or with Reduce Motion on — the still is what those guests get.
+        A clip is at most {VIDEO_MAX_LABEL} and {VIDEO_MAX_MS / 1000} seconds, and the checklist adds up every clip on the design.
+      </p>
+      <p className="break-all font-mono text-[10px] text-[color:var(--color-ink-500)]">{el.url}</p>
+    </div>
+  );
+}
 
 /**
  * The frame as an object: the shape it holds, the card around it, the cut of

@@ -106,7 +106,7 @@ function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
         ? poster
           ? <img src={poster} alt="" />
           : <span className="inv-bb-ask">{read.edit!.label(el)}</span>
-        : <LazyVideo src={el.url} webm={el.webm} poster={poster} />}
+        : <LazyVideo src={el.url} webm={el.webm} poster={poster} loop={el.loop !== false} />}
     </div>
   );
 }

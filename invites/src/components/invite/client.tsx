@@ -1343,7 +1343,7 @@ export function PeekControls({ href, backLabel, closeLabel }: { href: string; ba
  * somebody reading an invitation on a bus is a page they close, and it is
  * also the only way a browser will play anything without a tap.
  */
-export function LazyVideo({ src, webm, poster, className, style }: { src: string; webm?: string; poster?: string; className?: string; style?: CSSProperties }) {
+export function LazyVideo({ src, webm, poster, loop = true, className, style }: { src: string; webm?: string; poster?: string; loop?: boolean; className?: string; style?: CSSProperties }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [refused, setRefused] = useState(false);
 
@@ -1387,7 +1387,10 @@ export function LazyVideo({ src, webm, poster, className, style }: { src: string
       style={style}
       poster={poster}
       muted
-      loop
+      // A clip that does not loop stops on its last frame and stays there,
+      // which is right for a message to camera and wrong for a ribbon
+      // turning in the wind. The design says which it is.
+      loop={loop}
       playsInline
       preload="none"
       // A refused play leaves the poster showing, which is the point; the

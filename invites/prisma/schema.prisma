@@ -652,6 +652,9 @@ enum MediaKind {
   /// A piece in the library: uploaded once, usable in any design, so it
   /// belongs to no template and to no couple.
   DESIGN_PIECE
+  /// A design's own vector animation: a Lottie JSON, uploaded in the studio.
+  /// Its poster is a DESIGN_IMAGE row beside it, the way a clip's is.
+  DESIGN_ANIM
   OTHER
 }
 

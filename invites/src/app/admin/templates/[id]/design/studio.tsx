@@ -7,7 +7,7 @@ import {
   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
@@ -24,6 +24,7 @@ import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAc
 import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { readClip, sendClip, type SentClip } from './clip';
+import { readAnim, sendAnim, type SentAnim } from './anim';
 import { VIDEO_MAX_LABEL, VIDEO_MAX_MS } from '@/lib/clips';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
@@ -669,6 +670,26 @@ export function Studio(p: Props) {
     const made: Element = {
       id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 32, anchor: 'centre',
       aspect: place(up.ratio), frame: 'none', bind: { asset: up.url }, animated: true,
+    };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /**
+   * A vector animation that has just been uploaded.
+   *
+   * Its shape is not a guess either: an animation carries its own canvas
+   * size, so the box is the shape the designer drew it at and nothing is
+   * squashed. A third of the page's width by default, because an animation
+   * is nearly always an ornament beside something rather than the thing
+   * itself.
+   */
+  function addAnim(up: SentAnim) {
+    if (!page) return;
+    const id = freeId(doc, 'anim');
+    const made: Element = {
+      id, kind: 'anim', x: 50, y: page.drawn ? 40 : 0, w: 34, anchor: 'centre',
+      url: up.url, poster: up.poster, aspect: place(up.aspect), loop: true,
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
@@ -1409,6 +1430,7 @@ export function Studio(p: Props) {
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
               <AddMoving templateId={p.templateId} onAdd={addMoving} />
+              <AddAnim templateId={p.templateId} onAdd={addAnim} />
               <AddClip templateId={p.templateId} onAdd={addClip} />
             </>
           ) : (
@@ -2129,6 +2151,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       )}
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
+      {el.kind === 'anim' && <AnimBlock el={el as AnimEl} onChange={onChange} num={num} />}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
@@ -2370,6 +2393,92 @@ function HidesPanel({ occasion, hides, onToggle }: { occasion: Occasion; hides: 
  * seeking four times and sending two files is several seconds of silence
  * otherwise, and silence in a studio reads as a broken button.
  */
+/**
+ * A vector animation onto the page: a Lottie JSON.
+ *
+ * The refusals are the reason this is its own door and not a flag on the
+ * picture one. A Lottie has no magic bytes, so "is this an animation?" can
+ * only be answered by reading it — and the export button most people press
+ * first gives a `.lottie` bundle, which is a zip, which the app's own
+ * sniffing reads as an Excel file. Told that her animation is not a
+ * spreadsheet, she would have no idea what to do; told to press the other
+ * export button, she has.
+ */
+function AddAnim({ templateId, onAdd }: { templateId: string; onAdd: (up: SentAnim) => void }) {
+  const [step, setStep] = useState('');
+  const [error, setError] = useState('');
+  const input = useRef<HTMLInputElement>(null);
+  const busy = step !== '';
+  async function take(file: File) {
+    setError('');
+    try {
+      setStep('Reading it…');
+      const read = await readAnim(file);
+      setStep('Uploading…');
+      onAdd(await sendAnim(read, templateId));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setStep('');
+      if (input.current) input.current.value = '';
+    }
+  }
+  return (
+    <>
+      <label className={`rounded bg-[color:var(--color-sand-200)] px-2 py-1 ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+        {busy ? step : '+ Animation'}
+        <input ref={input} type="file" accept="application/json,.json,.lottie" className="sr-only" disabled={busy}
+          onChange={(e) => e.target.files?.[0] && take(e.target.files[0])} />
+      </label>
+      {error && (
+        <span className="basis-full text-[11px] text-[color:var(--bad)]">
+          {error}{' '}
+          <button type="button" className="underline" onClick={() => setError('')}>Dismiss</button>
+        </span>
+      )}
+    </>
+  );
+}
+
+/**
+ * An animation as an object: how fast it plays, whether it repeats, and the
+ * still that stands in for it.
+ *
+ * The still is not a detail. It is what a guest sees for the second or two
+ * before a third of a megabyte of player arrives, and it is what a guest who
+ * asked for less motion, or is sparing their data, sees instead of the
+ * animation for ever.
+ */
+function AnimBlock({ el, onChange, num }: {
+  el: AnimEl;
+  onChange: (fn: (e: Element) => Element) => void;
+  num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+}) {
+  const edit = (fn: (x: AnimEl) => AnimEl) => onChange((x) => fn(x as AnimEl));
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <div className="flex items-start gap-2">
+        <span
+          className="h-16 w-16 shrink-0 rounded border border-black/10 bg-contain bg-center bg-no-repeat"
+          style={el.poster ? { backgroundImage: `url(${el.poster})` } : { background: 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="label">Its first frame</p>
+          <p className="hint">Taken off the file when it arrived. It is the page until the player has loaded, and it is the page for good for a guest who asked their phone for less motion or is sparing their data.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block"><span className="label">Speed</span>{num(el.speed ?? 1, (n) => edit((x) => ({ ...x, speed: n })), 0.1)}</label>
+        <label className="flex items-center gap-2 pt-5 text-xs">
+          <input type="checkbox" checked={el.loop !== false} onChange={(e) => edit((x) => ({ ...x, loop: e.target.checked }))} />
+          It repeats
+        </label>
+      </div>
+      <p className="hint">A loop that never stops pulls the eye for as long as the page is open; one that plays through once and stops is usually the kinder choice for anything near words.</p>
+    </div>
+  );
+}
+
 function AddClip({ templateId, onAdd }: { templateId: string; onAdd: (up: SentClip) => void }) {
   const [step, setStep] = useState('');
   const [pct, setPct] = useState(0);

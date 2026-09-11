@@ -5,9 +5,9 @@ import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
   decorStyle, decorOver, flowFloats, flowDecor, motionOf,
-  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type Line, type WordKey, type FieldRef,
+  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
-import { LazyVideo } from './client';
+import { LazyVideo, LazyLottie } from './client';
 
 /**
  * A page drawn from the design's document.
@@ -169,9 +169,46 @@ function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
   if (el.kind === 'text') return deco ? null : <Block el={el} read={read} grow={grow} />;
   if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} deco={deco} />;
-  // animation arrives with phase 4; a document that names one is read and
-  // kept, it simply has nothing to draw yet
+  if (el.kind === 'anim') return <Anim el={el} read={read} grow={grow} deco={deco} />;
   return null;
+}
+
+/**
+ * A vector animation in its box.
+ *
+ * It is drawn exactly where a photograph or a clip would be — the same
+ * geometry, the same layer — and the difference is all inside `LazyLottie`:
+ * the player is fetched only when the thing is on screen, and the poster
+ * stands in until it is, and for ever for a guest who asked for less motion
+ * or is sparing their data.
+ *
+ * It plays in the studio too, unlike a clip. A canvas with four clips
+ * running under the handles is unusable and a clip is not what she is
+ * placing; a Lottie is small, silent and short, and watching it is the only
+ * way to know whether it sits right on the page.
+ */
+function Anim({ el, read, grow, deco }: { el: AnimEl; read: Read; grow?: number; deco?: boolean }) {
+  const placed = deco ? decorStyle(el) : elementStyle(el, grow);
+  const box = { ...placed, aspectRatio: `1 / ${el.aspect}` } as CSSProperties;
+  const poster = el.poster ? imageUrl(el.poster, IMAGE.grid) : undefined;
+  if (!el.url && !read.edit) return null;
+  if (!el.url) {
+    return (
+      <div className="inv-bb-anim" style={box} data-el={el.id} data-empty="">
+        <span className="inv-bb-ask">{read.edit!.label(el)}</span>
+      </div>
+    );
+  }
+  return (
+    <LazyLottie
+      src={el.url}
+      poster={poster}
+      loop={el.loop !== false}
+      speed={el.speed ?? 1}
+      className="inv-bb-anim"
+      style={box}
+    />
+  );
 }
 
 /**

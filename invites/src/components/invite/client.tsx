@@ -1394,6 +1394,82 @@ export function Motion() {
   return null;
 }
 
+/**
+ * A vector animation on a page: a Lottie, played by lottie-web.
+ *
+ * The player is a third of a megabyte, so it is imported *inside* the
+ * observer's callback rather than at the top of this file: a guest whose
+ * invitation carries no animation never downloads a byte of it, and a guest
+ * whose animation is four pages down does not download it until they get
+ * there. That is also why the poster exists — it is what stands in until the
+ * player has arrived, and what stands in for ever for the three people who
+ * will never see the animation at all:
+ *
+ * - a guest who asked their phone for less motion,
+ * - a guest sparing their data,
+ * - a printed page.
+ *
+ * The poster and the player have a box each, side by side, because React
+ * owns one and lottie-web owns the other and neither should be reaching into
+ * the other's children.
+ */
+export function LazyLottie({ src, poster, loop = true, speed = 1, className, style }: {
+  src: string; poster?: string; loop?: boolean; speed?: number; className?: string; style?: CSSProperties;
+}) {
+  const stage = useRef<HTMLDivElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+    if (save || still) return;
+
+    let anim: import('lottie-web/build/player/esm/lottie_light.min.js').LottieAnimation | null = null;
+    let gone = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) { anim?.pause(); continue; }
+          if (anim) { anim.play(); continue; }
+          // the first time it is on screen is the first time the player is
+          // fetched at all
+          void (async () => {
+            const lottie = (await import('lottie-web/build/player/esm/lottie_light.min.js')).default;
+            if (gone || !stage.current) return;
+            anim = lottie.loadAnimation({
+              container: stage.current,
+              renderer: 'svg',
+              loop,
+              autoplay: true,
+              path: src,
+              rendererSettings: { preserveAspectRatio: 'xMidYMid meet' },
+            });
+            anim.setSpeed(speed);
+            setPlaying(true);
+          })();
+        }
+      },
+      { threshold: 0.35 },
+    );
+    io.observe(el);
+    return () => {
+      gone = true;
+      io.disconnect();
+      anim?.destroy();
+      setPlaying(false);
+    };
+  }, [src, loop, speed]);
+
+  return (
+    <div className={className} style={style} data-anim={playing ? 'on' : ''}>
+      <div ref={stage} className="inv-anim-stage" />
+      {!playing && poster && <img className="inv-anim-poster" src={poster} alt="" />}
+    </div>
+  );
+}
+
 export function LazyVideo({ src, webm, poster, loop = true, className, style }: { src: string; webm?: string; poster?: string; loop?: boolean; className?: string; style?: CSSProperties }) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [refused, setRefused] = useState(false);

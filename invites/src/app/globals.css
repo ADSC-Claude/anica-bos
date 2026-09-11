@@ -1542,6 +1542,20 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    down when the clip was placed could know that. `object-fit: cover` (above)
    then crops the clip into whatever shape the page turns out to be. */
 .inv[data-paged] .inv-bb-art > .inv-bb-clip[data-bg] { inset: 0; }
+/*
+ * A vector animation, in the same box a photograph or a clip would take.
+ *
+ * Two children, not one: the poster is React's and the drawing is
+ * lottie-web's, and neither should be reaching into the other's children.
+ * The player's SVG is told to fill the box because lottie sizes it from the
+ * animation's own canvas, which is whatever the designer drew it at.
+ */
+.inv-bb-anim { position: absolute; overflow: hidden; }
+.inv[data-paged] .inv-bb-art > .inv-bb-anim,
+.inv-deco > .inv-bb-anim { position: absolute; margin: 0; }
+.inv-anim-stage, .inv-anim-poster { position: absolute; inset: 0; width: 100%; height: 100%; }
+.inv-anim-poster { object-fit: contain; }
+.inv-bb-anim svg { display: block; width: 100%; height: 100%; }
 .inv-bb-shape[data-shape='ellipse'] { border-radius: 50%; }
 /* What sits behind words on a busy picture. A halo in the surface colour
    lifts them off it without a box; a scrim is the box, pale enough to read

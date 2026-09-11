@@ -3,11 +3,12 @@ import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
   frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl, type AnimEl,
 } from './design';
 import { contrast } from './palette';
 import { GLARE, HEAVY_CLIP_BYTES, LONG_CLIP_MS, VIDEO_BUDGET_BYTES, VIDEO_BUDGET_LABEL } from './clips';
 import { HEAVY_MOVING_BYTES } from './moving';
+import { LOTTIE_PLAYER_BYTES } from './lottie';
 
 /**
  * What a page still needs.
@@ -507,7 +508,7 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
   }
 
   /*
-   * Every clip in the design, added up.
+   * Everything heavy in the design, added up.
    *
    * One clip inside the per-clip ceiling is fine; six of them is tens of
    * megabytes before a guest has read a word, and no per-clip rule can see
@@ -515,17 +516,35 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
    * across every page rather than per page — which is also why this blocks
    * rather than says. The same address twice is one download, so it counts
    * once.
+   *
+   * Animations are in the same total, and a moving picture with them, for
+   * the reason the total exists at all: it is about what a guest's phone
+   * downloads, and a phone does not care which of them was which. A vector
+   * animation is small but it also brings the player, which is a third of a
+   * megabyte on the first one — counted once, because the second animation
+   * on a page reuses it.
    */
   if (weights) {
-    const urls = new Set(doc.pages.flatMap((pg) => (pg.elements ?? []).filter((e) => e.kind === 'video').map((e) => (e as VideoEl).url)).filter(Boolean));
+    const heavy = doc.pages.flatMap((pg) => (pg.elements ?? []).flatMap((e) => {
+      if (e.kind === 'video') return [(e as VideoEl).url];
+      if (e.kind === 'anim') return [(e as AnimEl).url];
+      if (e.kind === 'photo' && (e as PhotoEl).animated) {
+        const bind = (e as PhotoEl).bind;
+        return 'asset' in bind ? [bind.asset] : [];
+      }
+      return [];
+    })).filter(Boolean);
+    const urls = new Set(heavy);
     const known = [...urls].filter((u) => weights[u] !== undefined);
-    const total = known.reduce((sum, u) => sum + weights[u], 0);
+    const player = doc.pages.some((pg) => (pg.elements ?? []).some((e) => e.kind === 'anim')) ? LOTTIE_PLAYER_BYTES : 0;
+    const total = known.reduce((sum, u) => sum + weights[u], 0) + player;
     if (total > VIDEO_BUDGET_BYTES) {
+      const what = player ? `${known.length} moving things and the animation player` : `${known.length} clips`;
       out.push({
         level: 'blocks',
         rule: 'clip-budget',
         page: '',
-        text: `This design's ${known.length} clips weigh ${Math.round(total / 1024 / 1024 * 10) / 10} MB together, and ${VIDEO_BUDGET_LABEL} is the most one invitation may ask a guest to download. Shorten one, or take one off a page.`,
+        text: `This design's ${what} weigh ${Math.round(total / 1024 / 1024 * 10) / 10} MB together, and ${VIDEO_BUDGET_LABEL} is the most one invitation may ask a guest to download. Shorten one, or take one off a page.`,
       });
     }
   }

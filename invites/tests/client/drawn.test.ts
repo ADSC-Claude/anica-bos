@@ -384,3 +384,32 @@ test('the shipped pages carry no motion marks at all', () => {
     assert.doesNotMatch(markup, /data-enter|data-idle|--motion-delay/, `${key} is as still as it ever was`);
   }
 });
+
+// --- a vector animation ----------------------------------------------------
+
+/**
+ * The markup is two boxes and a poster, and that is the whole of it: React
+ * owns the poster, lottie-web owns the stage, and neither reaches into the
+ * other's children. Nothing here loads a player — that happens in the
+ * browser, when the element is on screen, and a page with no animation never
+ * fetches a byte of it.
+ */
+test('an animation is a stage and a poster, in the element’s own box', () => {
+  const page = JSON.parse(JSON.stringify(doc.pages.find((p) => p.key === 'story'))) as PageSpec;
+  page.elements = [{ id: 'petals', kind: 'anim', x: 50, y: 30, w: 40, aspect: 0.75, url: '/a.json', poster: '/a-poster.webp' }];
+  const markup = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(markup, /class="inv-bb-anim"/);
+  assert.match(markup, /aspect-ratio:1 \/ 0\.75/);
+  assert.match(markup, /left:50%;top:30%;width:40%/);
+  assert.match(markup, /class="inv-anim-stage"/);
+  assert.match(markup, /class="inv-anim-poster"/);
+  assert.doesNotMatch(markup, /lottie/i, 'the player is the browser’s business, and only when it is needed');
+});
+
+test('an animation with no file yet is an empty box in the studio and nothing to a guest', () => {
+  const page: PageSpec = { key: 'story', sections: ['story'], drawn: true, elements: [{ id: 'gap', kind: 'anim', x: 50, y: 30, w: 40, aspect: 1, url: '', poster: '' }] };
+  assert.doesNotMatch(renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement), /inv-bb-anim/);
+  const studio = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en', edit: { label: (el) => `fills ${el.id}` } }) as ReactElement);
+  assert.match(studio, /inv-bb-anim/);
+  assert.match(studio, /fills gap/);
+});

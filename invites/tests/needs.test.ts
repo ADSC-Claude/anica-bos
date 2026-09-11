@@ -338,6 +338,40 @@ test('words on a page laid out by its words are never drawn, and it says so', ()
   assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
 });
 
+// --- what a guest downloads --------------------------------------------------
+
+/**
+ * The total is about what a phone downloads, and a phone does not care which
+ * of them was a clip. So an animation counts, a moving picture counts, and
+ * the player counts once — a design with one animation is carrying the
+ * animation plus a third of a megabyte of the thing that draws it.
+ */
+test('an animation counts in the download total, and the player counts once', () => {
+  const d = clone();
+  const story = on(d, 'story');
+  story.elements!.push(
+    { id: 'a1', kind: 'anim', x: 30, y: 50, w: 20, aspect: 1, url: 'u/a1.json', poster: 'u/a1.webp' },
+    { id: 'a2', kind: 'anim', x: 70, y: 50, w: 20, aspect: 1, url: 'u/a2.json', poster: 'u/a2.webp' },
+  );
+  // two small animations: well inside the budget once, even with the player
+  assert.deepEqual(runRow(d, { weights: { 'u/a1.json': 90_000, 'u/a2.json': 90_000 } }).filter((x) => x.rule === 'clip-budget'), []);
+  // and one enormous one is over it, and says so about moving things rather
+  // than about clips, since there is not a clip in the design
+  const n = runRow(d, { weights: { 'u/a1.json': 20_000_000, 'u/a2.json': 90_000 } }).filter((x) => x.rule === 'clip-budget');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /moving things and the animation player/);
+});
+
+test('a moving picture counts in the download total too', () => {
+  const d = clone();
+  const frame = el(d, 'story', 'story-photo-1') as PhotoEl;
+  frame.animated = true;
+  frame.bind = { asset: '/pieces/heavy.gif' };
+  const n = runRow(d, { weights: { '/pieces/heavy.gif': 30_000_000 } }).filter((x) => x.rule === 'clip-budget');
+  assert.equal(n.length, 1, 'a phone does not care that it was not a clip');
+});
+
 // --- motion ----------------------------------------------------------------
 
 /**
@@ -461,6 +495,11 @@ test('every rule the type names can be made to fire', () => {
   on(r, 'story').ground = { color: '#fef5df', ratio: 2.989 };
   add(r);
   runRow(clone(), { shop: { shown: true, thumbnail: false } }).forEach((x) => fired.add(x.rule));
+
+  // an animation counts in the download total, and brings the player with it
+  const an = clone();
+  on(an, 'story').elements!.push({ id: 'petal-anim', kind: 'anim', x: 50, y: 50, w: 30, aspect: 1, url: 'u/a.json', poster: 'u/a.webp' });
+  runRow(an, { weights: { 'u/a.json': 20_000_000 } }).forEach((x) => fired.add(x.rule));
 
   // a moving picture: one too heavy for a guest on mobile data, and one
   // pointed at a field the customer fills, which it must never be

@@ -65,6 +65,24 @@ function sniff(buffer: Buffer): string | null {
   // Excel (xlsx) is a zip: PK\x03\x04. Accepted only for intake uploads.
   if (buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04)
     return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  /*
+   * JSON, which has no magic bytes at all: a vector animation is an object
+   * and the only way to know is to read it. Cheap in practice — anything
+   * that does not open with a brace is not attempted, and the weight cap has
+   * already been applied above, so the parse is bounded.
+   *
+   * Whether a given JSON is an *animation* is a different question, asked by
+   * `readLottie` where the answer can be explained. This one only says what
+   * kind of file it is, which is what the rest of this function does.
+   */
+  if (buffer[0] === 0x7b) {
+    try {
+      JSON.parse(buffer.toString('utf8'));
+      return 'application/json';
+    } catch {
+      return null;
+    }
+  }
   return null;
 }
 
@@ -73,6 +91,7 @@ const EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
+  'application/json': 'json',
   'application/pdf': 'pdf',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
   'audio/mpeg': 'mp3',
@@ -87,7 +106,7 @@ export const AUDIO_TYPES = ['audio/mpeg', 'audio/mp4'];
 /** The most a song file may weigh — more than a photo: four minutes of MP3 at a good bitrate is six to ten MB. */
 export const AUDIO_MAX_BYTES = 20 * 1024 * 1024;
 
-export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video' | 'moving';
+export type Accept = 'images' | 'images-and-pdf' | 'intake' | 'audio' | 'video' | 'moving' | 'lottie';
 const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
   images: { types: IMAGE_TYPES, message: 'Only JPEG, PNG and WebP images are accepted.' },
   'images-and-pdf': { types: [...IMAGE_TYPES, 'application/pdf'], message: 'Only JPEG, PNG, WebP and PDF files are accepted.' },
@@ -101,6 +120,8 @@ const ACCEPTS: Record<Accept, { types: string[]; message: string }> = {
    * container and the browser has already read the bytes that say it moves.
    */
   moving: { types: [...MOVING_TYPES], message: 'A moving picture must be a GIF, an animated WebP or an animated PNG.' },
+  /* A vector animation is JSON; whether that JSON is a Lottie is asked by the route, which can say why not. */
+  lottie: { types: ['application/json'], message: 'A vector animation must be a Lottie JSON file.' },
 };
 
 /**

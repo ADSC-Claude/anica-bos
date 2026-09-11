@@ -5,10 +5,10 @@ import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, invitationPages, APP_NIGHT,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
-  type Source, type WordKey, type SectionStyle, type NightPalette,
+  type Source, type WordKey, type SectionStyle, type NightPalette, type SheetSpec, type SheetSize,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
@@ -769,6 +769,27 @@ export function Studio(p: Props) {
    * colour taken off is taken out of the document rather than written blank,
    * so the stylesheet's own answer comes back.
    */
+  /**
+   * The design's paper settings. A field set back to nothing is removed
+   * rather than stored empty, and a sheet with nothing left in it goes
+   * altogether — so a design nobody has given paper settings has no `sheet`
+   * at all and prints exactly as it did.
+   */
+  function setSheet(patch: Partial<SheetSpec>) {
+    const sheet: SheetSpec = { ...(doc.sheet ?? {}), ...patch };
+    // A setting turned back off is removed rather than stored as nothing, so
+    // "the browser's own" and "0mm" stay distinguishable — the select hands
+    // back undefined for its blank option, and an emptied list of hidden
+    // pages is an empty array, which is not the same as none.
+    for (const k of Object.keys(sheet) as (keyof SheetSpec)[]) {
+      const v = sheet[k];
+      if (v === undefined || (Array.isArray(v) && !v.length)) delete sheet[k];
+    }
+    const next: DesignDoc = { ...doc, sheet: Object.keys(sheet).length ? sheet : undefined };
+    if (!next.sheet) delete next.sheet;
+    change(next);
+  }
+
   function setColumnColour(key: 'paper' | 'surround', colour: string | undefined) {
     const next: DesignDoc = { ...doc, [key]: colour };
     if (!colour) delete next[key];
@@ -1355,6 +1376,7 @@ export function Studio(p: Props) {
         {said && <p className="hint mt-1">{said}</p>}
         <HidesPanel occasion={p.occasion} hides={doc.hides ?? []} onToggle={toggleHide} />
         <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} />
+        <PaperPanel doc={doc} onSheet={setSheet} />
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -1911,6 +1933,80 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
  * were the same kind of literal: two per layout, in the stylesheet, which is
  * why a design drawn here wore its layout's and could not say otherwise.
  */
+/**
+ * How the design falls on paper.
+ *
+ * The customer's "Print / PDF" button opens `/[slug]/print` and their own
+ * browser makes the file, so what a design can say about paper is a set of
+ * settings rather than a second layout: the sheet, the margin round it,
+ * whether each page of the design gets a sheet to itself, and any page that
+ * should not be printed at all. Before this a design could say none of it:
+ * the stylesheet's own `@page` gave every printed page a 14mm margin and
+ * nothing else, so the browser cut the column wherever it landed.
+ *
+ * Every row is an override: left alone, the browser's own print dialogue
+ * decides, which is exactly what happened before.
+ */
+function PaperPanel({ doc, onSheet }: { doc: DesignDoc; onSheet: (patch: Partial<SheetSpec>) => void }) {
+  const [open, setOpen] = useState(false);
+  const sheet = doc.sheet ?? {};
+  const hidden = new Set(sheet.hide ?? []);
+  const set = (sheet.size ? 1 : 0) + (sheet.margin !== undefined ? 1 : 0) + (sheet.perPage ? 1 : 0) + hidden.size;
+  const toggleHide = (key: string, off: boolean) => {
+    const next = new Set(hidden);
+    if (off) next.add(key); else next.delete(key);
+    onSheet({ hide: [...next] });
+  };
+  return (
+    <div className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
+      <button type="button" onClick={() => setOpen((x) => !x)} className="flex w-full items-center justify-between text-left">
+        <span className="label mb-0">On paper</span>
+        <span className="text-[11px] text-[color:var(--color-ink-500)]">{set ? `${set} set` : 'the browser\u2019s'} {open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="mt-1 space-y-2">
+          <label className="block">
+            <span className="label">The sheet</span>
+            <select className="input" value={sheet.size ?? ''} onChange={(e) => onSheet({ size: (e.target.value || undefined) as SheetSize | undefined })}>
+              <option value="">Whatever the printer is set to</option>
+              <option value="a4">A4</option>
+              <option value="a5">A5 (half of A4)</option>
+              <option value="5x7">5 × 7 inches</option>
+              <option value="letter">US Letter</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="label">Margin round it</span>
+            <input
+              type="number" min={0} max={40} step={1} className="input"
+              value={sheet.margin ?? ''}
+              placeholder="the printer's own"
+              onChange={(e) => onSheet({ margin: e.target.value === '' ? undefined : Math.max(0, Math.min(40, Number(e.target.value))) })}
+            />
+            <span className="hint">Millimetres. A ground that should run to the edge wants 0 — though most printers keep a few millimetres of their own whatever this says.</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={Boolean(sheet.perPage)} onChange={(e) => onSheet({ perPage: e.target.checked ? true : undefined })} className="h-4 w-4" />
+            <span>Each page starts a new sheet</span>
+          </label>
+          <div className="space-y-1">
+            <p className="hint">Left off the paper. The print view shows what will come out of the printer, so these go from it too.</p>
+            {invitationPages(doc).map((pg) => (
+              <label key={pg.key} className="flex items-center gap-2">
+                <input type="checkbox" checked={hidden.has(pg.key)} onChange={(e) => toggleHide(pg.key, e.target.checked)} className="h-4 w-4" />
+                <span>{pg.label?.en || pg.key}</span>
+              </label>
+            ))}
+          </div>
+          <p className="hint">
+            The file itself is made by the guest&rsquo;s own browser from <strong>Print / PDF</strong>, so these are the instructions it is given rather than a layout of their own. They are in the draft and go live when you publish.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ColoursPanel({ doc, onColumn, onNight }: {
   doc: DesignDoc;
   onColumn: (key: 'paper' | 'surround', colour: string | undefined) => void;
@@ -4030,6 +4126,18 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
         <input type="checkbox" checked={Boolean(page.peekEnd)} onChange={(e) => onChange((p) => ({ ...p, peekEnd: e.target.checked ? true : undefined }))} className="h-4 w-4" />
         <span>Ends the &ldquo;See it open&rdquo; peek on the website</span>
       </label>
+
+      {/*
+        * A page kept back for the Save the Date. It leaves the invitation
+        * altogether — it is not a page a guest scrolls past — and becomes
+        * the whole of the card instead, drawn here like any other page.
+        * Turning it off puts it back in the run of pages where it sits.
+        */}
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={page.only === 'std'} onChange={(e) => onChange((p) => ({ ...p, only: e.target.checked ? 'std' : undefined }))} className="h-4 w-4" />
+        <span>This page is the Save the Date card, not part of the invitation</span>
+      </label>
+      {page.only === 'std' && <p className="hint">The card shows this page alone. A Save the Date carries the names, the date and a countdown, so bind its words to those; the rest of the design is not on it.</p>}
       <p className="hint">Click an element on the page to change it. Nothing here reaches a guest until the design is published.</p>
     </>
   );

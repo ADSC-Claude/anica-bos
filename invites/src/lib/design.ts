@@ -249,6 +249,34 @@ export type DesignDoc = {
   /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
   surround?: string;
   /**
+   * How this design falls on paper.
+   *
+   * `/[slug]/print` is the invitation with the envelope, the music and the
+   * buttons taken away, and the file itself is made by the browser's own
+   * print dialogue — which is why this is a sheet of settings and not a
+   * renderer.
+   *
+   * What was there before, and it is worth being exact because I first
+   * reported it wrongly: `globals.css` has carried one `@page` rule all
+   * along — `@media print { @page { margin: 14mm } }` — put there for the
+   * account's printable sheets, and `@page` cannot be scoped by selector,
+   * so every printed page in the app has taken that margin. What there was
+   * *not* is a size, anything said about breaks, or any way for a design to
+   * say its own: the browser sliced one long column wherever it landed and
+   * a design's pages had nothing to do with its sheets.
+   *
+   * Two `@page` rules with no page selector have the same specificity, so
+   * the later one wins. The design's is emitted as a `<style>` in the
+   * document and lands after the app's stylesheet links, which is what
+   * makes it win — measured rather than assumed, by asking for margins that
+   * could not look alike: 0mm fills 22 sheets, 14mm 24, 40mm 41.
+   *
+   * Named `sheet` and not `paper` because `paper` above is already the
+   * colour of the column, which is a different thing and would be a
+   * miserable pair of names to debug.
+   */
+  sheet?: SheetSpec;
+  /**
    * This design's own colours by night.
    *
    * Night was one fixed set of colours for every design — an ivory ink, a
@@ -352,6 +380,26 @@ export type PageSpec = {
   grow?: true;
   /** the public peek stops after this page */
   peekEnd?: true;
+  /**
+   * A page that belongs to the Save the Date alone.
+   *
+   * The Save the Date is not a second design: it is the same design, on one
+   * card, saying only that a date is coming. So it is a page of this
+   * document rather than a document of its own — which is what lets it be
+   * drawn in the studio with the same frames, words and grounds as any
+   * other page, and lets it borrow the design's own artwork.
+   *
+   * It is stated on the page rather than held in a field beside the list so
+   * that the studio's whole page machinery — add, copy, arrange, the
+   * inspector, the grounds — works on it untouched. The price is that every
+   * reader of the list has to decide whether it means them, and the answer
+   * is almost always no: go through `invitationPages` rather than
+   * `doc.pages`, and `stdPage` to find this one. **`coverOf` in particular
+   * must not see it**: a Save the Date page naturally names the cover
+   * section, and finding it first would give the invitation the card's hero
+   * settings.
+   */
+  only?: 'std';
   /** the cover page's own settings; ignored on any other page */
   cover?: CoverSpec;
   /**
@@ -862,6 +910,7 @@ const zPage = z.object({
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
+  only: z.literal('std').optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
     inset: zPlace(0, 40).optional(),
@@ -888,6 +937,15 @@ const zDoc = z.object({
     paper: zColour.optional(), surround: zColour.optional(),
   }).strict().optional(),
   hides: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(40).optional(),
+  sheet: z.object({
+    size: z.enum(['a4', 'a5', 'letter', '5x7']).optional(),
+    // 40mm is already an inch and a half of white on every edge; past that
+    // there is no page left to print on
+    margin: z.number().min(0).max(40).optional(),
+    perPage: z.literal(true).optional(),
+    // the same shape as a page key, because that is what these are
+    hide: z.array(z.string().regex(KEY)).max(60).optional(),
+  }).strict().optional(),
 }).strict();
 
 /**
@@ -1518,7 +1576,7 @@ export type DocChange = {
 export function drawnSections(doc: DesignDoc | null): PageSectionKey[] {
   const out: PageSectionKey[] = [];
   const seen = new Set<string>();
-  for (const page of doc?.pages ?? []) {
+  for (const page of invitationPages(doc)) {
     for (const key of page.sections) {
       if (seen.has(key)) continue;
       seen.add(key);
@@ -1633,12 +1691,36 @@ export function blastRadius(
  * peek, because the mark travels with the page and not with its name.
  */
 export function peekEndPage(doc: DesignDoc | null): string | undefined {
-  return doc?.pages.find((p) => p.peekEnd)?.key;
+  return invitationPages(doc).find((p) => p.peekEnd)?.key;
+}
+
+/**
+ * The pages the invitation itself is made of — every page except the ones
+ * kept for the Save the Date.
+ *
+ * Every question about the invitation asks this rather than `doc.pages`:
+ * what is drawn, where the peek stops, what the cover's settings are, which
+ * sections the design offers. The two questions that deliberately do *not*
+ * are the ones about files and answers — `frameLists` and the checklist's
+ * weights — because a frame on the Save the Date still needs the customer's
+ * photograph and its bytes still reach whoever opens the card.
+ */
+export function invitationPages(doc: DesignDoc | null): PageSpec[] {
+  return (doc?.pages ?? []).filter((p) => p.only !== 'std');
+}
+
+/**
+ * The design's own Save the Date page, if it has drawn one. A design that
+ * has not keeps the plain card the renderer has always built, so every
+ * design that says nothing here is unchanged.
+ */
+export function stdPage(doc: DesignDoc | null): PageSpec | undefined {
+  return (doc?.pages ?? []).find((p) => p.only === 'std');
 }
 
 /** The page a section is drawn on, for the anchor a preview scrolls to. */
 export function pageOfSection(doc: DesignDoc | null, key: string): PageSpec | undefined {
-  return doc?.pages.find((p) => p.sections.includes(key as PageSectionKey));
+  return invitationPages(doc).find((p) => p.sections.includes(key as PageSectionKey));
 }
 
 // ---------------------------------------------------------------------------
@@ -1675,7 +1757,9 @@ export function valueAt(content: Record<string, unknown> | undefined, ref: Field
  * something else still has a cover.
  */
 export function coverOf(doc: DesignDoc | null): CoverSpec | undefined {
-  return doc?.pages.find((p) => p.sections.includes('cover'))?.cover;
+  // invitationPages, not doc.pages: the Save the Date names the cover section
+  // too, and its hero settings are the card's, not the invitation's.
+  return invitationPages(doc).find((p) => p.sections.includes('cover'))?.cover;
 }
 
 /**
@@ -1740,6 +1824,73 @@ const NIGHT_VAR: Record<keyof NightPalette, string> = {
  * the two shipped designs so neither moves by a shade, and every colour that
  * is not named falls back in the stylesheet to what it has always been.
  */
+/**
+ * The paper sizes offered, as CSS `@page` sizes.
+ *
+ * A named size rather than a measurement: `size: A4` lets the browser and
+ * the printer agree about which way up the sheet is and what its unprintable
+ * margin is, which two lengths cannot. 5×7 is the one invitation size here
+ * that has no CSS name, so it is written out.
+ */
+export const SHEET_SIZES = {
+  a4: 'A4',
+  a5: 'A5',
+  letter: 'Letter',
+  '5x7': '5in 7in',
+} as const;
+export type SheetSize = keyof typeof SHEET_SIZES;
+export type SheetSpec = {
+  /** the sheet itself; absent means whatever the browser's dialogue is set to */
+  size?: SheetSize;
+  /** the margin round it in millimetres; absent means the browser's own */
+  margin?: number;
+  /** each page of the design starts its own sheet */
+  perPage?: true;
+  /** page keys left off the paper entirely */
+  hide?: string[];
+};
+
+/**
+ * What this design's paper settings come to as CSS, for the print view.
+ *
+ * Real rules rather than variables, because `@page` cannot be written with
+ * a custom property — the size and the margin have to be in the rule
+ * itself. Emitted only on the print path, and an empty string when the
+ * design says nothing, so a design nobody has given paper settings prints
+ * exactly as it did.
+ *
+ * `break-inside: avoid` rides along with `perPage`: a page that starts its
+ * own sheet and is then split across two has gained nothing.
+ *
+ * `hide` is not wrapped in `@media print`, on purpose. The print view is a
+ * look at what is about to come out of the printer, so a page left off the
+ * paper is left off the view as well; showing it there and not on the sheet
+ * would make the preview lie. The rules only exist on that route anyway, so
+ * the invitation itself is untouched either way.
+ */
+export function sheetRules(doc: DesignDoc | null): string {
+  const sheet = doc?.sheet;
+  if (!sheet) return '';
+  const out: string[] = [];
+  const page = [
+    sheet.size ? `size: ${SHEET_SIZES[sheet.size]};` : '',
+    sheet.margin !== undefined ? `margin: ${sheet.margin}mm;` : '',
+  ].filter(Boolean).join(' ');
+  if (page) out.push(`@page { ${page} }`);
+  if (sheet.perPage) out.push('.inv-page { break-after: page; break-inside: avoid; }', '.inv-page:last-of-type { break-after: auto; }');
+  for (const key of sheet.hide ?? []) {
+    // the key is the page's own, which the studio makes from a name and
+    // keeps url-safe; quoted anyway so a stray character cannot end the rule
+    out.push(`.inv-page[data-page="${cssString(key)}"] { display: none; }`);
+  }
+  return out.join('\n');
+}
+
+/** A string safe to sit inside a quoted CSS value. */
+function cssString(raw: string): string {
+  return raw.replace(/[\\"]/g, '\\$&').replace(/[\n\r]/g, '');
+}
+
 export function designVars(doc: DesignDoc | null): Record<string, string> {
   const vars: Record<string, string> = {};
   if (!doc) return vars;

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
-import { DrawnPage } from '../../src/components/invite/drawn';
+import { DrawnPage, FlowDecor } from '../../src/components/invite/drawn';
 import { builtinDesign, type PageSpec } from '../../src/lib/design';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../../src/lib/babyblue';
 import { t } from '../../src/lib/copy';
@@ -239,4 +239,73 @@ test('words with nothing behind them say nothing, as they always did', () => {
   const markup = html('story');
   assert.doesNotMatch(markup, /data-backing/);
   assert.doesNotMatch(markup, /text-shadow/);
+});
+
+// --- the decorations on a page laid out by its words ----------------------
+
+/**
+ * A flow page's band. The markup is a drawn page's markup — that is the
+ * point of giving the band `inv-bb-art`: every rule a frame, a card, a cut
+ * and a clip already have applies to a decoration unchanged, and there is no
+ * second set of CSS to keep in step.
+ */
+const deco: PageSpec = {
+  key: 'venue',
+  sections: ['reception'],
+  elements: [
+    { id: 'crest', kind: 'photo', x: 50, y: 2, w: 44, aspect: 0.4, bind: { asset: '/crest.png' } },
+    { id: 'rule', kind: 'shape', shape: 'line', x: 50, y: 3, w: 40, from: 'bottom', stroke: 'muted', strokeWidth: 0.25 },
+    { id: 'sprig', kind: 'photo', x: 90, y: 1, w: 20, z: 3, bind: { asset: '/sprig.png' } },
+    { id: 'words', kind: 'text', block: 'free', x: 50, y: 5, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'not here' } }] }] },
+  ],
+};
+const band = (layer: 'under' | 'over') =>
+  renderToStaticMarkup(FlowDecor({ page: deco, content: {}, look: undefined, lang: 'en', layer }) as ReactElement);
+
+test('the band under the words holds the decorations that are not over them', () => {
+  const under = band('under');
+  assert.match(under, /^<div class="inv-bb-art inv-deco" data-layer="under">/);
+  // the picture along the head, placed from the head by a share of the width
+  assert.match(under, /<figure class="inv-bb-slot" style="left:50%;top:2cqw;width:44%;transform:translateX\(-50%\);aspect-ratio:1 \/ 0\.4" data-own="">/);
+  // the rule at the foot, measured up from it
+  assert.match(under, /<div class="inv-bb-shape" aria-hidden="true" data-shape="line" style="left:50%;bottom:3cqw;width:40%;transform:translateX\(-50%\);height:0\.25cqw;background:var\(--inv-muted\)"><\/div>/);
+  assert.doesNotMatch(under, /sprig/, 'what asked to be over the words is not in this band');
+});
+
+test('the band over the words holds only what asked for it', () => {
+  const over = band('over');
+  assert.match(over, /^<div class="inv-bb-art inv-deco" data-layer="over">/);
+  assert.match(over, /sprig\.png/);
+  assert.doesNotMatch(over, /crest/);
+  assert.doesNotMatch(over, /inv-bb-shape/);
+});
+
+test('a text box is never a decoration, in either band', () => {
+  assert.doesNotMatch(band('under'), /not here|inv-bb-text/);
+  assert.doesNotMatch(band('over'), /not here|inv-bb-text/);
+});
+
+test('a flow page with nothing in a band draws no band at all', () => {
+  const bare: PageSpec = { key: 'contact', sections: ['contact'] };
+  assert.equal(FlowDecor({ page: bare, content: {}, look: undefined, lang: 'en', layer: 'under' }), null);
+  // and a page whose only element floats: the float is the words' business, not the band's
+  const floated: PageSpec = { key: 'story', sections: ['story'], elements: [{ id: 'f', kind: 'photo', y: 0, w: 40, float: 'left', bind: { asset: '/f.png' } }] };
+  assert.equal(FlowDecor({ page: floated, content: {}, look: undefined, lang: 'en', layer: 'under' }), null);
+});
+
+/**
+ * A clip filling a flow page is the one decoration the document does not
+ * place: a page as tall as its words has a height only the browser knows, so
+ * the four numbers are dropped and `inset: 0` in the stylesheet answers for
+ * them. Its layer is kept, because that is what holds it behind the words.
+ */
+test('a clip filling the page keeps its layer and none of its geometry', () => {
+  const filled: PageSpec = {
+    key: 'venue',
+    sections: ['reception'],
+    elements: [{ id: 'fill', kind: 'video', x: 50, y: 0, w: 100, z: -2, url: '/v.mp4', poster: '/v.jpg', bg: true }],
+  };
+  const markup = renderToStaticMarkup(FlowDecor({ page: filled, content: {}, look: undefined, lang: 'en', layer: 'under' }) as ReactElement);
+  assert.match(markup, /<div class="inv-bb-clip" style="z-index:-2" data-bg="">/);
+  assert.doesNotMatch(markup, /top:|width:|aspect-ratio/);
 });

@@ -289,6 +289,55 @@ test('a ground the colour of the waiting grey hides the empty frames', () => {
   assert.deepEqual(run(deep).filter((x) => x.rule === 'slot-lost'), []);
 });
 
+// --- a page laid out by its words ----------------------------------------
+
+/**
+ * The checklist's boxes need a height, and a flow page has none until a
+ * customer has written. Its decorations hang off an edge by a share of its
+ * *width*, so measuring them the drawn way said a perfectly good piece along
+ * the head was off the page — which is exactly what this asserts cannot
+ * happen, at the two places it used to.
+ */
+test('a decoration along the head or the foot is not off the page', () => {
+  const d = clone();
+  on(d, 'venue').elements = [
+    { id: 'crest', kind: 'photo', x: 50, y: 3, w: 60, aspect: 0.4, bind: { asset: '/crest.png' } },
+    { id: 'sprig', kind: 'photo', x: 50, y: 2, w: 40, from: 'bottom', bind: { asset: '/sprig.png' } },
+  ];
+  assert.deepEqual(run(d).filter((x) => x.rule === 'off-page'), []);
+  assert.deepEqual(run(d).filter((x) => x.rule === 'overlap'), [], 'and two of them at opposite edges do not overlap');
+});
+
+test('a decoration running off the side of the page still says so', () => {
+  const d = clone();
+  on(d, 'venue').elements = [{ id: 'wide', kind: 'photo', x: 50, y: 1, w: 130, bind: { asset: '/w.png' } }];
+  const n = run(d).filter((x) => x.rule === 'off-page');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.match(n[0].text, /runs off the side/);
+
+  // and a middle off the page altogether blocks, as it does on a drawn page
+  const gone = clone();
+  on(gone, 'venue').elements = [{ id: 'gone', kind: 'photo', x: 140, y: 1, w: 20, bind: { asset: '/g.png' } }];
+  const b = run(gone).filter((x) => x.rule === 'off-page');
+  assert.equal(b.length, 1);
+  assert.equal(b[0].level, 'blocks');
+});
+
+test('words on a page laid out by its words are never drawn, and it says so', () => {
+  const d = clone();
+  on(d, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
+  const n = run(d).filter((x) => x.rule === 'not-drawn');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /never drawn/);
+  assert.equal(publishable(run(d)), false);
+  // the same box on a drawn page is exactly where it belongs
+  const drawn = clone();
+  on(drawn, 'story').elements!.push({ id: 'fine', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'here', tl: 'dito' } }] }] });
+  assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
+});
+
 /** A design in the shop with no cover: not broken, but the card nobody taps. */
 test('a design shown in the shop with no thumbnail says so once', () => {
   const n = runRow(clone(), { shop: { shown: true, thumbnail: false } }).filter((x) => x.rule === 'no-thumbnail');
@@ -351,6 +400,11 @@ test('every rule the type names can be made to fire', () => {
   on(r, 'story').ground = { color: '#fef5df', ratio: 2.989 };
   add(r);
   runRow(clone(), { shop: { shown: true, thumbnail: false } }).forEach((x) => fired.add(x.rule));
+
+  // words put on a page laid out by its words: in the document, drawn nowhere
+  const t2 = clone();
+  on(t2, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
+  add(t2);
 
   // the list is the type's own, so a rule added and never exercised fails here
   assert.deepEqual([...fired].sort(), [...NEED_RULES].sort());

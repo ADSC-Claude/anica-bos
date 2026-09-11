@@ -5,13 +5,13 @@ import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt,
+  cropWindow, cropAt, flowFloats, flowDecor,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
-import { DrawnPage, bindingOf } from '@/components/invite/drawn';
+import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import { pageNeeds, needCount, HEAVY_GROUND, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
@@ -598,12 +598,20 @@ export function Studio(p: Props) {
   function addElement(kind: 'text' | 'photo' | 'shape') {
     if (!page) return;
     const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : 'words');
+    /*
+     * Where a new piece lands. On a drawn page, four tenths down it, which is
+     * in view and clear of both edges. On a page laid out by its words there
+     * is no such place — the piece hangs off the head or the foot — so it
+     * lands flush with the head, where she can see it and push it down by as
+     * much as she likes.
+     */
+    const y = page.drawn ? 40 : 0;
     const made: Element = kind === 'photo'
-      ? { id, kind: 'photo', x: 50, y: 40, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
+      ? { id, kind: 'photo', x: 50, y, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
       : kind === 'shape'
         // behind the words, not over them: a card is what a shape is usually for
-        ? { id, kind: 'shape', shape: 'rect', x: 50, y: 40, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
-        : { id, kind: 'text', block: 'free', x: 50, y: 40, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+        ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
+        : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -620,7 +628,7 @@ export function Studio(p: Props) {
   function addClip(up: SentClip) {
     if (!page) return;
     const id = freeId(doc, 'clip');
-    const made: Element = { id, kind: 'video', x: 50, y: 40, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
+    const made: Element = { id, kind: 'video', x: 50, y: page.drawn ? 40 : 0, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -682,9 +690,23 @@ export function Studio(p: Props) {
     setSel([id]);
   }
 
-  /** The floated pictures on the page she is on, in the order they are drawn. */
-  const floats = useMemo(
-    () => (page?.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean((e as PhotoEl).float)),
+  /**
+   * A decoration on a page laid out by its words: a piece along its head, a
+   * flourish at its foot. Not a float — the words do not flow past it, it
+   * hangs over them or behind them — and not a placed element either, since
+   * the page has no height to place it in. `flowDecor` is the rule.
+   */
+  function addDecor() {
+    if (!page) return;
+    const id = freeId(doc, 'photo');
+    const made: Element = { id, kind: 'photo', x: 50, y: 0, w: 100, anchor: 'centre', aspect: 0.3, frame: 'none', bind: { asset: '' } };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /** What the page she is on carries, on a page laid out by its words. */
+  const pieces = useMemo(
+    () => (page && !page.drawn ? { floats: flowFloats(page), decor: flowDecor(page) } : { floats: [], decor: [] }),
     [page],
   );
 
@@ -1269,7 +1291,8 @@ export function Studio(p: Props) {
           <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
           {view === 'page' ? (
             <>
-              <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
+              {/* a flow page's words are its sections': see flowDecor */}
+              {page?.drawn && <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>}
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
               <AddClip templateId={p.templateId} onAdd={addClip} />
@@ -1407,7 +1430,21 @@ export function Studio(p: Props) {
                 onPointerCancel={endDrag}
                 onPointerDown={() => { if (!fit) setSel([]); }}
               >
-                {page && <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />}
+                {/*
+                  * A drawn page is its elements. A page laid out by its words
+                  * is its decorations and nothing else here: its words are its
+                  * customer's and their height is not known until the browser
+                  * has laid them out, which is what the whole-invitation tab
+                  * is for. The band is the page's width, and every decoration
+                  * on it hangs off an edge by a share of that width — so what
+                  * she sees here is exactly where it will be, on a page whose
+                  * height is the only part this canvas has to guess.
+                  */}
+                {page && (page.drawn
+                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />
+                  : (['under', 'over'] as const).map((layer) => (
+                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" layer={layer} edit={{ label, cropping: fit?.id }} />
+                  )))}
                 {/*
                   * The handles, over the real page. The layer itself lets the
                   * pointer through, so a click on bare ground still deselects;
@@ -1461,7 +1498,7 @@ export function Studio(p: Props) {
         </div>
         {view === 'whole'
           ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
-          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background and which sections it carries are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
+          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
       </section>
 
       {/* what is selected */}
@@ -1509,7 +1546,7 @@ export function Studio(p: Props) {
             templateId={p.templateId}
             vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
-            floats={{ list: floats, add: addFloat, pick: (id) => setSel([id]), drop: remove }}
+            pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
           />
         )}
       </aside>
@@ -1818,6 +1855,9 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   const num = (v: number | undefined, set: (n: number) => void, step = 0.1) => (
     <input type="number" value={v ?? ''} step={step} onChange={(e) => set(place(Number(e.target.value)))} className="input w-full" />
   );
+  /** On a page laid out by its words: the words flow past this one, or they do not. */
+  const floated = flow && el.kind === 'photo' && Boolean(el.float);
+  const deco = flow && !floated;
   return (
     <>
       <div className="flex items-center justify-between">
@@ -1826,27 +1866,39 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
       {/*
-        * A flow page has no coordinates — its height is its words — so only
-        * the two numbers that still mean something are offered there: how
-        * wide the picture is, and how far it is turned.
+        * Which numbers mean anything here.
+        *
+        * A float has no place of its own: it goes where the words make room
+        * for it, so only its width and its turn are offered. A decoration on
+        * the same page does have one — it hangs off the head or the foot —
+        * but its gap from that edge is a share of the page's *width*, not of
+        * a height its customer's words decide, so the number is labelled for
+        * the edge it is measured from. A drawn page is as it always was.
         */}
       <div className="grid grid-cols-2 gap-2">
-        {!flow && <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>}
-        {!flow && <label className="block"><span className="label">Down</span>{num(el.y, (n) => onMoveTo({ y: n }))}</label>}
+        {!floated && <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>}
+        {!floated && (
+          <label className="block">
+            <span className="label">{deco ? (el.from === 'bottom' ? 'Up from the foot' : 'Down from the head') : 'Down'}</span>
+            {num(el.y, (n) => onMoveTo({ y: n }))}
+          </label>
+        )}
         <label className="block"><span className="label">Width</span>{num(el.w, (n) => onChange((e) => ({ ...e, w: n })))}</label>
         <label className="block"><span className="label">Turn</span>{num(el.rotate, (n) => onChange((e) => ({ ...e, rotate: n })), 0.5)}</label>
       </div>
       <p className="hint">
-        {flow
+        {floated
           ? `Width is a share of the page's width. This page is laid out by its words, so there is nowhere to put it: it goes where the words make room for it.`
-          : `Across and width are a share of the page's width; down is a share of its height. This page is ${ratio.toFixed(2)} screens tall.`}
+          : deco
+            ? `Across, width and the gap from the edge are all a share of the page's width — this page's height is its words', so a share of it would move as a customer typed.`
+            : `Across and width are a share of the page's width; down is a share of its height. This page is ${ratio.toFixed(2)} screens tall.`}
       </p>
-      {grows && (
+      {(grows || deco) && (
         <label className="block">
           <span className="label">Measured from</span>
           <select className="input w-full" value={el.from ?? 'top'} onChange={(e) => onChange((x) => ({ ...x, from: e.target.value === 'bottom' ? 'bottom' : undefined }))}>
             <option value="top">The head of the page</option>
-            <option value="bottom">The foot &mdash; it holds the bottom however far the words push it</option>
+            <option value="bottom">{deco ? 'The foot — it stays at the bottom however long the words run' : 'The foot — it holds the bottom however far the words push it'}</option>
           </select>
         </label>
       )}
@@ -2225,19 +2277,41 @@ function PictureBlock({ el, onChange, onFit, fitting, num, flow }: {
   return (
     <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
       {/*
-        * Only offered on a page laid out by its words, because that is the
-        * only page with words to flow. A drawn page places everything by
-        * hand and a float there would mean nothing.
+        * Only offered on a page laid out by its words, because the four
+        * answers are only about words. A drawn page places every picture by
+        * hand and none of this would mean anything there.
+        *
+        * There is no fifth answer: a picture on a page is on it. The two
+        * sides are floats, the head and the foot are decorations, and taking
+        * it off the page is the ✕ beside it in the list — not an option here
+        * that leaves it in the document drawn nowhere.
         */}
       {flow && (
         <label className="block">
-          <span className="label">The words flow</span>
-          <select className="input w-full" value={el.float ?? ''} onChange={(e) => edit((x) => { const v = e.target.value; const next = { ...x, float: v === '' ? undefined : (v as 'left' | 'right') }; if (!next.float) delete next.float; return next; })}>
-            <option value="">&mdash; not on this page &mdash;</option>
-            <option value="left">around its right, with the picture on the left</option>
-            <option value="right">around its left, with the picture on the right</option>
+          <span className="label">Where it sits</span>
+          <select
+            className="input w-full"
+            value={el.float ?? (el.from === 'bottom' ? 'foot' : 'head')}
+            onChange={(e) => edit((x) => {
+              const v = e.target.value;
+              const next = { ...x };
+              if (v === 'left' || v === 'right') { next.float = v; delete next.from; return next; }
+              delete next.float;
+              if (v === 'foot') next.from = 'bottom';
+              else delete next.from;
+              return next;
+            })}
+          >
+            <option value="left">in among the words, on the left &mdash; they flow past its right</option>
+            <option value="right">in among the words, on the right &mdash; they flow past its left</option>
+            <option value="head">along the head of the page, the words unmoved</option>
+            <option value="foot">along the foot of the page, the words unmoved</option>
           </select>
-          <span className="hint">On a phone there is no room for words beside a picture, so it is centred with the words above and below &mdash; the same picture, in a narrower place.</span>
+          <span className="hint">
+            {el.float
+              ? 'On a phone there is no room for words beside a picture, so it is centred with the words above and below — the same picture, in a narrower place.'
+              : 'The words do not move for it, so it sits behind them unless its layer is above zero. Room for it at the foot is the page’s own foot setting.'}
+          </span>
         </label>
       )}
       <label className="block"><span className="label">Shape (height over width)</span>{num(el.aspect, (n) => edit((x) => ({ ...x, aspect: n })), 0.05)}</label>
@@ -3129,14 +3203,18 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections, floats }: {
+function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
   templateId: string;
   vars: Record<string, string>;
   sections: SectionTools;
-  floats: { list: PhotoEl[]; add: () => void; pick: (id: string) => void; drop: (id: string) => void };
+  /** what a page laid out by its words carries: the floats, and the decorations */
+  pieces: {
+    floats: PhotoEl[]; decor: Element[];
+    addFloat: () => void; addDecor: () => void; pick: (id: string) => void; drop: (id: string) => void;
+  };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -3257,29 +3335,50 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, float
         </select>
       </div>
       {/*
-        * Pictures the words flow around. Only on a page laid out by its
-        * words — a drawn page places everything by hand — and a list rather
-        * than a canvas for the same reason: there is nowhere to drag to.
+        * What a page laid out by its words carries. Only there — a drawn page
+        * places everything by hand — and a list rather than a canvas for the
+        * same reason: its height is its customer's words, so there is nowhere
+        * to drag to.
+        *
+        * Two kinds, and the difference is what the words do. A float is in
+        * among them and they flow past it. A decoration hangs off the head or
+        * the foot and the words do not move for it at all, so it goes behind
+        * them unless it is told to go in front, and the room for it at the
+        * foot is the page's own foot setting above.
         */}
       {!page.drawn && (
         <div className="border-t border-[color:var(--color-sand-300)] pt-3">
-          <p className="label">Pictures the words flow around</p>
+          <p className="label">Pictures and pieces on this page</p>
           <ol className="mt-1 space-y-1">
-            {floats.list.map((el) => (
+            {pieces.floats.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
-                <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => floats.pick(el.id)}>
-                  {el.float === 'right' ? 'On the right' : 'On the left'} · {el.w ?? 40}% wide{el.rotate ? ` · turned ${el.rotate}°` : ''}
+                <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
+                  The words flow past it, {el.float === 'right' ? 'on the right' : 'on the left'} · {el.w ?? 40}% wide{el.rotate ? ` · turned ${el.rotate}°` : ''}
                 </button>
-                <button type="button" title="Take it off this page" onClick={() => floats.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
+                <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
+              </li>
+            ))}
+            {pieces.decor.map((el) => (
+              <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
+                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
+                </button>
+                <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>
             ))}
           </ol>
-          <button type="button" onClick={floats.add} className="mt-1 w-full rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
-            + a picture the words flow around
-          </button>
+          <div className="mt-1 flex gap-1">
+            <button type="button" onClick={pieces.addFloat} className="flex-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
+              + one the words flow past
+            </button>
+            <button type="button" onClick={pieces.addDecor} className="flex-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
+              + one along the head
+            </button>
+          </div>
           <p className="hint">
-            The section&rsquo;s own words wrap beside it &mdash; the real ones, not a guess &mdash; and a turned picture is followed by the words at its tilt rather than at its corners.
-            Press one to set which field it reads, how wide it is and how far it turns.
+            The section&rsquo;s own words wrap beside a float &mdash; the real ones, not a guess &mdash; and a turned picture is followed by the words at its tilt rather than at its corners.
+            A decoration hangs off the head or the foot and the words do not move for it, so keep it clear of them with the page&rsquo;s foot setting above.
+            Press one to set what it reads, how wide it is, how far down it hangs and how far it turns.
           </p>
         </div>
       )}

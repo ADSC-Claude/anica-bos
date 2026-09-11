@@ -4,6 +4,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
+  flowFloats, flowDecor, decorOver, decorStyle,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -862,4 +863,68 @@ test('a turn of a quarter swaps the box’s sides', () => {
   const q = floatShape(2, 90);
   assert.ok(Math.abs(q.width - 2) < 0.001, 'a frame twice as tall as wide, turned upright, is twice as wide');
   assert.ok(Math.abs(q.height - 1) < 0.001);
+});
+
+// --- a decoration on a page laid out by its words --------------------------
+
+/**
+ * The three answers a flow page can give about something on it, and the rule
+ * that leaves no fourth: a picture naming a side floats, words belong to the
+ * sections, and everything else hangs off the head or the foot. Before this
+ * the last of those was "drawn nowhere", which a document could say and no
+ * page would show.
+ */
+const flowPage = (elements: Element[]): PageSpec => ({ key: 'story', sections: ['story'], elements });
+
+test('a flow page sorts what it carries into floats, decorations and words', () => {
+  const page = flowPage([
+    { id: 'a', kind: 'photo', y: 0, w: 40, float: 'left', bind: { asset: '/a.png' } },
+    { id: 'b', kind: 'photo', y: 0, w: 100, bind: { asset: '/b.png' } },
+    { id: 'c', kind: 'shape', shape: 'line', y: 2, w: 60, from: 'bottom' },
+    { id: 'd', kind: 'text', block: 'free', y: 0, lines: [{ role: 'body', sources: [{ fixed: { en: 'no' } }] }] },
+    { id: 'e', kind: 'video', y: 0, url: '/e.mp4', poster: '/e.jpg', bg: true, z: -2 },
+  ]);
+  assert.deepEqual(flowFloats(page).map((e) => e.id), ['a'], 'only the one that names a side floats');
+  assert.deepEqual(flowDecor(page).map((e) => e.id), ['b', 'c', 'e'], 'the picture, the rule and the clip are decorations');
+  assert.ok(!flowDecor(page).some((e) => e.kind === 'text'), 'a flow page’s words are its sections’');
+});
+
+test('a decoration hangs off an edge by a share of the page’s width', () => {
+  const head = decorStyle({ id: 'b', kind: 'photo', y: 4, x: 50, w: 100, bind: { asset: '/b.png' } });
+  assert.deepEqual(head, { left: '50%', width: '100%', top: '4cqw', transform: 'translateX(-50%)' });
+
+  const foot = decorStyle({ id: 'c', kind: 'shape', shape: 'line', y: 4, x: 50, w: 60, from: 'bottom' });
+  assert.equal(foot.bottom, '4cqw', 'measured up from the foot');
+  assert.equal(foot.top, undefined, 'and not down from the head as well');
+});
+
+/**
+ * The whole point of cqw here. A drawn page's y is a share of its height, and
+ * `elementStyle` needs the page's ratio to place it. A flow page's height is
+ * its customer's words, so there is no ratio to hand over and none is taken:
+ * the gap is the same number of hundredths of the page's width whatever the
+ * words come to, which is why a long sentence cannot drag a flourish down the
+ * page with it.
+ */
+test('a decoration’s gap does not move when the words grow', () => {
+  const el: Element = { id: 'b', kind: 'photo', y: 6, x: 50, w: 30, bind: { asset: '/b.png' } };
+  assert.equal(decorStyle(el).top, '6cqw');
+  assert.equal(decorStyle(el).top, decorStyle({ ...el }).top, 'nothing about the page is passed in at all');
+  assert.equal(decorStyle(el).height, undefined, 'and a decoration is never given one');
+});
+
+test('a decoration is behind the words unless its layer is above zero', () => {
+  const bare: Element = { id: 'b', kind: 'photo', y: 0, bind: { asset: '/b.png' } };
+  assert.equal(decorOver(bare), false, 'behind by default');
+  assert.equal(decorOver({ ...bare, z: 0 }), false, 'and behind at nought, which is auto’s own layer');
+  assert.equal(decorOver({ ...bare, z: -2 }), false, 'a clip filling the page is as far behind as it gets');
+  assert.equal(decorOver({ ...bare, z: 1 }), true, 'over the words is asked for');
+  assert.equal(decorStyle({ ...bare, z: 1 }).zIndex, '1', 'and the layer is kept, for the order among themselves');
+});
+
+test('a decoration keeps its turn and its opacity, and its middle is its x', () => {
+  const st = decorStyle({ id: 'b', kind: 'photo', y: 1, x: 20, w: 30, rotate: -6, opacity: 0.5, bind: { asset: '/b.png' } });
+  assert.equal(st.transform, 'translateX(-50%) rotate(-6deg)');
+  assert.equal(st.opacity, '0.5');
+  assert.equal(st.left, '20%');
 });

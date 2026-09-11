@@ -15,9 +15,9 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, type PictureGround, type CoverSpec, type PageSpec, type PhotoEl, type Element } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, type PictureGround, type CoverSpec, type PageSpec } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
-import { DrawnPage, FlowFloats } from './drawn';
+import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
@@ -1867,14 +1867,26 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * line boxes move aside. A page with no float is left exactly as it was.
      */
     const flowBody = (spec: PageSpec, parts: ReactNode[]): ReactNode[] => {
-      const floats = (spec.elements ?? []).filter((e: Element) => e.kind === 'photo' && Boolean((e as PhotoEl).float));
-      if (!floats.length) return parts;
-      return [(
-        <div key="flow" className="inv-flow">
-          <FlowFloats page={spec} content={content as Record<string, unknown>} lang={lang} />
-          {parts}
-        </div>
-      )];
+      // A page with nothing to say draws nothing, decorations and all: its
+      // sections have gone with a package or an answer, and a flourish on an
+      // otherwise empty page is not a page.
+      if (!parts.length) return parts;
+      const body = flowFloats(spec).length
+        ? [(
+          <div key="flow" className="inv-flow">
+            <FlowFloats page={spec} content={content as Record<string, unknown>} lang={lang} />
+            {parts}
+          </div>
+        )]
+        : parts;
+      if (!flowDecor(spec).length) return body;
+      // behind the words, then the words, then what the design asked to have
+      // over them: see FlowDecor for why they cannot be one layer
+      return [
+        <FlowDecor key="deco-under" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="under" />,
+        ...body,
+        <FlowDecor key="deco-over" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="over" />,
+      ];
     };
 
     // The ground behind every page: the backgrounds in order, each trimmed to

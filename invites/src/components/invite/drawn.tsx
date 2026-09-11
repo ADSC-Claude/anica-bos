@@ -4,6 +4,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  decorStyle, decorOver, flowFloats, flowDecor,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
 import { LazyVideo } from './client';
@@ -46,14 +47,19 @@ export type EditView = {
   cropping?: string;
 };
 
-export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
-  const read = {
+/** What an element's words and pictures are read from: the look, the answers, the copy. */
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, edit?: EditView): Read {
+  return {
     content,
     lang,
     edit,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey) : lookLine(look, lang, key as LineKey)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
+}
+
+export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
+  const read = reader(content, look, lang, edit);
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -85,7 +91,7 @@ type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>;
  * where a photograph was going to be.
  */
 export function FlowFloats({ page, content, lang }: { page: PageSpec; content: Record<string, unknown>; lang: Lang }) {
-  const floats = (page.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean((e as PhotoEl).float));
+  const floats = flowFloats(page);
   if (!floats.length) return null;
   return (
     <>
@@ -117,11 +123,52 @@ export function FlowFloats({ page, content, lang }: { page: PageSpec; content: R
   );
 }
 
-function draw(el: Element, read: Read, grow?: number) {
-  if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} />;
-  if (el.kind === 'text') return <Block el={el} read={read} grow={grow} />;
-  if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} />;
-  if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} />;
+/**
+ * The decorations on a page laid out by its words: a piece from the library
+ * along its head, a rule above its first heading, a flourish at its foot.
+ *
+ * One band, `inset: 0` over the whole page, holding everything the page
+ * carries that is neither a float nor a section's words. The band is the
+ * answer to three problems at once:
+ *
+ * - A flow page's height is its customer's words, so nothing on it can be
+ *   placed by a share of that height. The band is the page's *width*, and a
+ *   decoration hangs from the head or the foot by a gap measured in `cqw`
+ *   against it (`decorStyle`).
+ * - A flow page is not a query container, so a shape's height and a frame's
+ *   card — every one of them in `cqw` — would otherwise be measured against
+ *   the viewport and be wrong on a laptop. The band is the container.
+ * - `.inv-page` is a flex column, and anything absolutely placed inside it
+ *   is out of flow but still measured against the page; the band takes the
+ *   whole page so the same percentages mean what they mean on a drawn page.
+ *
+ * It carries `inv-bb-art` as well as its own class, which is not a trick: it
+ * *is* an art layer over a page, so every rule a drawn page's frames, cards,
+ * cuts and clips already have applies to these unchanged. Two bands are
+ * drawn, one before the words and one after (`decorOver`), because a
+ * decoration behind the words and a decoration over them cannot be the same
+ * layer — and behind is the default, since words a guest cannot read are the
+ * one thing a design must not be able to do by accident.
+ */
+export function FlowDecor({ page, content, look, lang, layer, edit }: {
+  page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; layer: 'under' | 'over'; edit?: EditView;
+}) {
+  const decor = flowDecor(page).filter((el) => decorOver(el) === (layer === 'over'));
+  if (!decor.length) return null;
+  const read = reader(content, look, lang, edit);
+  return (
+    <div className="inv-bb-art inv-deco" data-layer={layer}>
+      {decor.map((el) => <Fragment key={el.id}>{draw(el, read, undefined, true)}</Fragment>)}
+    </div>
+  );
+}
+
+function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
+  if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} deco={deco} />;
+  // a flow page's words are its sections': see flowDecor
+  if (el.kind === 'text') return deco ? null : <Block el={el} read={read} grow={grow} />;
+  if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} deco={deco} />;
+  if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} deco={deco} />;
   // animation arrives with phase 4; a document that names one is read and
   // kept, it simply has nothing to draw yet
   return null;
@@ -141,7 +188,7 @@ function draw(el: Element, read: Read, grow?: number) {
  * film. The poster stands in, and the whole invitation tab beside it is
  * where the clip actually plays.
  */
-function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
+function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number; deco?: boolean }) {
   const poster = el.poster ? imageUrl(el.poster, IMAGE.grid) : undefined;
   /*
    * A background clip is *sized* by the stylesheet and not by the document.
@@ -152,7 +199,7 @@ function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
    * still the design's to say are kept: how far down the stack it sits, and
    * how solid it is.
    */
-  const placed = elementStyle(el, grow);
+  const placed = deco ? decorStyle(el) : elementStyle(el, grow);
   const box = el.bg
     ? ({ opacity: placed.opacity, zIndex: placed.zIndex } as CSSProperties)
     : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined } as CSSProperties);
@@ -179,13 +226,13 @@ function Clip({ el, read, grow }: { el: VideoEl; read: Read; grow?: number }) {
  * A card behind some words, a rule across the page, a dot. A div and
  * nothing else: no SVG, no script, nothing for a guest to download.
  */
-function Shape({ el, read, grow }: { el: ShapeEl; read: Read; grow?: number }) {
+function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: number; deco?: boolean }) {
   return (
     <div
       className="inv-bb-shape"
       aria-hidden
       data-shape={el.shape}
-      style={{ ...elementStyle(el, grow), ...shapeStyle(el) } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el) } as CSSProperties}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
     />
@@ -193,7 +240,7 @@ function Shape({ el, read, grow }: { el: ShapeEl; read: Read; grow?: number }) {
 }
 
 /** A photograph in its frame. An empty binding draws nothing, as today. */
-function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
+function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: number; deco?: boolean }) {
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
   if (!url && el.hidden !== 'never' && !read.edit) return null;
   const alt = el.alt ? valueAt(read.content, el.alt) : '';
@@ -203,7 +250,7 @@ function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
   const figure = (
     <figure
       className="inv-bb-slot"
-      style={{ ...elementStyle(el, grow), ...photoStyle(el) } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...photoStyle(el) } as CSSProperties}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !url ? '' : undefined}

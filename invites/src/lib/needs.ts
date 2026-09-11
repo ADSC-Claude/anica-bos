@@ -2,7 +2,7 @@ import type { Occasion } from '@prisma/client';
 import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
-  frameLists, pageRatio, valueAt, isPicture, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
+  frameLists, pageRatio, valueAt, isPicture, flowDecor, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl,
 } from './design';
 import { contrast } from './palette';
@@ -69,6 +69,7 @@ export const NEED_RULES = [
   'clip-length',
   'clip-budget',
   'clip-glare',
+  'not-drawn',
   'asks',
 ] as const;
 
@@ -249,22 +250,52 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
 
     // --- every element ------------------------------------------------------
 
-    frames.forEach((el, i) => {
-      const box = boxOf(el, ratio);
-      if (!box) return;
-      const over = Math.max(BLEED - box.left, box.right - (100 + BLEED), BLEED - box.top, box.bottom - (100 + BLEED));
-      const centreOff = el.x! < 0 || el.x! > 100 || el.y < 0 || el.y > 100;
-      if (centreOff) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the page.`, el.id);
-      else if (over > 0) say('says', 'off-page', `${nameOf(el, i + 1)} sits partly off the page.`, el.id);
-    });
+    /*
+     * Off the page, and one frame on top of another.
+     *
+     * Both are answers about a box, and a box needs a height. A drawn page
+     * has one — it is the ground's proportion — so these are measured there
+     * and only there. A page laid out by its words has no height until a
+     * customer has written; its decorations hang off an edge by a share of
+     * its *width* and its floats have no place at all, so the vertical
+     * question cannot be asked, and asking it anyway would fire on every
+     * decoration ever made. What can still be said is the horizontal, which
+     * is a share of the width on both kinds of page.
+     */
+    if (page.drawn) {
+      frames.forEach((el, i) => {
+        const box = boxOf(el, ratio);
+        if (!box) return;
+        const over = Math.max(BLEED - box.left, box.right - (100 + BLEED), BLEED - box.top, box.bottom - (100 + BLEED));
+        const centreOff = el.x! < 0 || el.x! > 100 || el.y < 0 || el.y > 100;
+        if (centreOff) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the page.`, el.id);
+        else if (over > 0) say('says', 'off-page', `${nameOf(el, i + 1)} sits partly off the page.`, el.id);
+      });
 
-    for (let i = 0; i < frames.length; i++) {
-      for (let j = i + 1; j < frames.length; j++) {
-        const a = boxOf(frames[i], ratio);
-        const b = boxOf(frames[j], ratio);
-        if (!a || !b) continue;
-        if (overlap(a, b) > COVERED) {
-          say('says', 'overlap', `Frames ${i + 1} and ${j + 1} overlap.`, frames[j].id);
+      for (let i = 0; i < frames.length; i++) {
+        for (let j = i + 1; j < frames.length; j++) {
+          const a = boxOf(frames[i], ratio);
+          const b = boxOf(frames[j], ratio);
+          if (!a || !b) continue;
+          if (overlap(a, b) > COVERED) {
+            say('says', 'overlap', `Frames ${i + 1} and ${j + 1} overlap.`, frames[j].id);
+          }
+        }
+      }
+    } else {
+      // the width is a share of the width on either kind of page
+      flowDecor(page).forEach((el, i) => {
+        if (el.x === undefined || el.w === undefined) return;
+        const left = el.x - el.w / 2;
+        const right = el.x + el.w / 2;
+        if (el.x < 0 || el.x > 100) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the side of the page.`, el.id);
+        else if (left < -BLEED || right > 100 + BLEED) say('says', 'off-page', `${nameOf(el, i + 1)} runs off the side of the page.`, el.id);
+      });
+      // words on a page laid out by its words are its sections', so a text
+      // box here is in the document and drawn nowhere
+      for (const el of elements) {
+        if (el.kind === 'text') {
+          say('blocks', 'not-drawn', `${named} is laid out by its words, so its words come from the sections it carries — ${nameOf(el, elements.indexOf(el) + 1)} is never drawn. Put it on a page drawn by hand, or say it in the section's own line.`, el.id);
         }
       }
     }
@@ -354,7 +385,22 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
          * every frame could promise otherwise, and a checklist that promised
          * it would be lying on the one page where it matters.
          */
-        const box = boxOf(el, ratio);
+        /*
+         * On a page laid out by its words there is nothing to measure and
+         * nothing to measure against: the words are its sections', they run
+         * down the whole column, and a clip filling the page is behind all
+         * of them. So the question is not which box lands on which — it is
+         * simply whether the clip goes pale, and the answer is about the
+         * page's own words rather than about an element.
+         */
+        if (!page.drawn && clip.bg && clip.poster) {
+          if (clip.glare === undefined) {
+            say('says', 'clip-glare', `${named} is laid out by its words and they sit straight on ${name}, whose brightness was never measured. A clip moves, so one still cannot answer for it: a background of its own behind the words is the safe way.`, el.id);
+          } else if (clip.glare > GLARE) {
+            say('says', 'clip-glare', `${named}'s own words sit straight on ${name}, and the clip goes as pale as ${clip.glare} of 255 somewhere in it. They will be lost there.`, el.id);
+          }
+        }
+        const box = page.drawn ? boxOf(el, ratio) : undefined;
         const over = box ? elements.filter((e) => e.kind === 'text'
           && ((e as TextEl).backing ?? 'none') === 'none'
           && (e.z ?? 0) >= (el.z ?? 0)

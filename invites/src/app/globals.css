@@ -1311,6 +1311,33 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-doc] .inv-page[data-drawn][data-grow]::after { content: ''; display: block; clear: both; }
 .inv[data-doc] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
 /*
+ * The decorations on a page laid out by its words: one band over the whole
+ * page, holding the pieces, rules and clips a flow page carries.
+ *
+ * It takes `inv-bb-art` above for its box and for every rule a drawn page's
+ * frames and cards already have, and adds the three things only this layer
+ * needs:
+ *
+ * `container-type` — a flow page is not a query container (only a drawn one
+ * is), and every measure inside a decoration is in cqw: a shape's height, a
+ * frame's card, a polaroid's foot. Without this they would all be measured
+ * against the viewport and be wrong on a laptop, where the column is capped.
+ * With it, 1cqw is a hundredth of the page, which is what those numbers have
+ * always meant.
+ *
+ * The two layers — a decoration is behind the words unless the design asked
+ * for it to be in front. `z-index: -1` and not tree order, because a float
+ * on the same page is painted before positioned content is, so a band that
+ * merely came first would still cover a floated photograph.
+ *
+ * `pointer-events: none` — it lies over the whole page, including the RSVP
+ * form and every link on it. A decoration that swallowed a tap would be a
+ * broken invitation, and no decoration needs one.
+ */
+.inv-deco { container-type: inline-size; pointer-events: none; }
+.inv-deco[data-layer='under'] { z-index: -1; }
+.inv-deco[data-layer='over'] { z-index: 2; }
+/*
  * The studio only. A frame or a box with nothing in it is never invisible
  * while she is drawing: it shows where it is and says what fills it. Nothing
  * carries `data-empty` on a guest's page, so a guest sees none of this.

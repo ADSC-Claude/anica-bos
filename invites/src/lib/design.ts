@@ -1150,6 +1150,75 @@ export function floatShape(aspect: number, rotate = 0): { width: number; height:
 const round = (n: number) => Math.round(n * 1e4) / 1e4;
 
 /**
+ * The pictures a flow page's words flow around, and the decorations pinned
+ * to its head and its foot.
+ *
+ * A flow page is laid out by its words, and until now the only thing it
+ * could carry was a float. Everything else on it — a piece from the library,
+ * a rule, a clip — was in the document and drawn nowhere, which is the worst
+ * of the three possible answers. So the rule is now complete and has no
+ * silent case: on a page laid out by its words, a picture that names a side
+ * floats and the words flow past it; anything else is a decoration, hung
+ * from the head of the page or from its foot.
+ *
+ * Words are not offered as a decoration, and that is deliberate: a flow
+ * page's words are its sections' and putting a text box over them is how a
+ * flow page stops being one. The studio does not offer them there.
+ */
+export const flowFloats = (page: PageSpec): PhotoEl[] =>
+  (page.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean(e.float));
+
+/** The decorations on a flow page: everything but the floats and the words. */
+export const flowDecor = (page: PageSpec): Element[] =>
+  (page.elements ?? []).filter((e) => e.kind !== 'text' && !(e.kind === 'photo' && e.float));
+
+/**
+ * Whether a decoration sits over the page's words or behind them.
+ *
+ * Behind unless it says otherwise, because that is what a decoration is for
+ * and because words a guest cannot read are the one thing a design must not
+ * be able to do by accident. A number above zero is the way to say
+ * otherwise, and it is said on the element the same way a layer is said
+ * everywhere else in the document.
+ */
+export const decorOver = (el: Element): boolean => (el.z ?? 0) > 0;
+
+/**
+ * Where a decoration sits on a page laid out by its words.
+ *
+ * `y` means something different here from what it means on a drawn page, and
+ * it has to. A drawn page has a height, so y is a share of it; a flow page's
+ * height is whatever its customer's words come to, so a share of *that*
+ * would move as they typed. Here y is the gap from the edge the decoration
+ * hangs off, as a share of the page's **width** — the one measurement of a
+ * flow page that does not move — written in `cqw` against the band, which is
+ * the page's width exactly. So the same number means the same gap on a phone
+ * and on a laptop, and a customer's long sentence does not drag a flourish
+ * down the page with it.
+ *
+ * The band is also why a height in `cqw` works at all: a flow page is not a
+ * container, so a shape's height and a frame's card would otherwise be
+ * measured against the viewport. See `.inv-deco` in globals.css.
+ */
+export function decorStyle(el: Element): Record<string, string> {
+  const st: Record<string, string> = {};
+  // written in the order elementStyle writes it: across, down, wide
+  if (el.x !== undefined) st.left = `${el.x}%`;
+  const gap = `${place(el.y)}cqw`;
+  if (el.from === 'bottom') st.bottom = gap;
+  else st.top = gap;
+  if (el.w !== undefined) st.width = `${el.w}%`;
+  const parts: string[] = [];
+  // x is the middle of the box, as it is on every drawn page
+  if (el.x !== undefined) parts.push('translateX(-50%)');
+  if (el.rotate) parts.push(`rotate(${el.rotate}deg)`);
+  if (parts.length) st.transform = parts.join(' ');
+  if (el.opacity !== undefined && el.opacity !== 1) st.opacity = String(el.opacity);
+  if (el.z !== undefined) st.zIndex = String(el.z);
+  return st;
+}
+
+/**
  * A clip behind a whole page: the page and the element it takes.
  *
  * Two things happen, and the second is the one worth explaining. The clip is

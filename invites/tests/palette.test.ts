@@ -3,11 +3,18 @@ import assert from 'node:assert/strict';
 import { PALETTE, SWATCHES, PRESETS, MOTIF_MIN, MOTIF_MAX, swatchByHex, swatchName, swatchStyle, swatchHex, presetColours } from '../src/lib/palette';
 import { publishProblems, fieldsFor } from '../src/lib/sections';
 
-test('the palette is the designer\'s sheet: thirteen families, a hundred and two named colours, no two alike', () => {
+test('the palette is the designer\'s sheet, taken to ten shades a family: no two alike', () => {
+  /*
+   * 102 named colours when the sheet arrived; 135 once every family was
+   * taken to ten shades or more, which is what a couple matching a gown to
+   * a sash to a table runner needs. The count is a floor rather than an
+   * equality now — the book is meant to grow — and what must not change is
+   * pinned shade by shade in familypalette.test.ts.
+   */
   assert.equal(PALETTE.length, 13);
-  assert.equal(SWATCHES.length, 102);
-  assert.equal(new Set(SWATCHES.map((s) => s.key)).size, 102, 'keys unique');
-  assert.equal(new Set(SWATCHES.map((s) => s.hex)).size, 102, 'colours unique');
+  assert.ok(SWATCHES.length >= 135, `${SWATCHES.length} swatches`);
+  assert.equal(new Set(SWATCHES.map((s) => s.key)).size, SWATCHES.length, 'keys unique');
+  assert.equal(new Set(SWATCHES.map((s) => s.hex)).size, SWATCHES.length, 'colours unique');
   for (const s of SWATCHES) {
     assert.match(s.hex, /^#[0-9a-f]{6}$/, s.key);
     assert.ok(s.name.trim().length > 0, s.key);

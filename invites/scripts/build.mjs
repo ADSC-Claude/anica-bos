@@ -42,17 +42,22 @@ function run(command, env = {}) {
  */
 function attempt(command, seconds, env = {}) {
   try {
-    execSync(command, {
-      stdio: ['ignore', 'ignore', 'pipe'],
+    // stdout is kept as well as stderr so a step can report what it did —
+    // a stocking run that added ninety rows should say ninety, and the
+    // alternative is letting the command's own output into the build log,
+    // which for that one is ninety lines.
+    const stdout = execSync(command, {
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: seconds * 1000,
       killSignal: 'SIGKILL',
       env: { ...process.env, ...env },
     });
-    return { ok: true };
+    return { ok: true, stdout: String(stdout ?? '').trim() };
   } catch (error) {
     return {
       ok: false,
       timedOut: error.signal === 'SIGKILL' || error.code === 'ETIMEDOUT',
+      stdout: String(error.stdout ?? '').trim(),
       stderr: String(error.stderr ?? '').trim(),
     };
   }
@@ -277,6 +282,60 @@ run('prisma generate');
 // knows which schema the migration belongs in, and the seed workflow uses it
 // too. See the comment at the top of that file.
 run('node scripts/migrate.mjs');
+
+/*
+ * The faces and pairings the invitations are set in, topped up.
+ *
+ * The migration creates FontFace and FontSet empty, so without this there is a
+ * window between a deploy and somebody remembering a command in which the
+ * tables a guest's page reads are bare. Nothing breaks — every reader falls
+ * back to the book written into the code — but "it works because a fallback
+ * caught it" is not a state to leave a deployment in, and a manual step
+ * nobody is reminded of is a manual step that does not happen.
+ *
+ * `sync-fonts.ts` is create-only: it adds what is missing and never touches a
+ * row the owner has edited, which is exactly what makes it safe to run on
+ * every build. It writes one statement per table, and the faces before the
+ * pairings, so a run cut short here leaves the pairings table empty rather
+ * than half full — and an empty table is the one state the reader falls back
+ * from. See the comment at the top of it for why that ordering is load-bearing.
+ *
+ * **It must not fail the build.** The tables are a top-up, not a
+ * prerequisite: the fallback serves the same book, and a deployment held back
+ * because the pooler was busy for a second would be a worse outcome than an
+ * unstocked table. So this warns and carries on, and the connection check
+ * below is still the step that decides whether the database is usable.
+ */
+console.info('\n▸ stocking the faces and pairings (create-only)');
+const fonts = attempt('npx tsx scripts/sync-fonts.ts', 60);
+if (fonts.ok) {
+  // the script's last line is its own summary: "Added n; m of her own left alone."
+  console.info(`  ✓ ${fonts.stdout.split('\n').filter(Boolean).pop() ?? 'up to date'}`);
+} else {
+  // The line that says what happened, not the tail of a stack trace: the
+  // last three lines of a Node failure are a brace, a blank and the version.
+  //
+  // Lines have to be stepped over to get there, and this was measured against
+  // real failures rather than guessed. Stack frames (`at ei.handleRequest…`)
+  // name our node_modules, not the fault. Prisma leads with a bare class name
+  // on its own line, and `PrismaClientInitializationError:` matches on "error"
+  // while carrying none of the information — the line under it is the one that
+  // says "Can't reach database server at 127.0.0.1:5499". Same trick one level
+  // down: "Invalid `prisma.fontFace.findMany()` invocation:" introduces "The
+  // table `invites.FontFace` does not exist in the current database." So a
+  // line ending in a colon is an introduction, and the sentence is preferred —
+  // but taken if it is all there is, since half an answer beats none.
+  const lines = (fonts.stderr || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('at ') && !/^[\w.]*(Error|Exception):?$/.test(line))
+    .filter((line) => /error|invalid|denied|refused|timeout|reach|does not exist/i.test(line));
+  const said = lines.find((line) => !line.endsWith(':')) ?? lines[0];
+  console.warn(
+    `  ! could not stock them${fonts.timedOut ? ' (timed out)' : ''} — nothing was half-written; the tables stand as they were.\n` +
+      `    An empty pair falls back to the book in the code. Run \`npm run db:fonts\` when the database is reachable.${said ? `\n    ${said.slice(0, 300)}` : ''}`,
+  );
+}
 
 // The migration proves DIRECT_URL works. It proves nothing about DATABASE_URL,
 // which is a different host, and every page depends on it — so ask it a

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactElement } from 'react';
-import { DrawnPage } from '../../src/components/invite/drawn';
+import { DrawnPage, FlowDecor, FlowFloats } from '../../src/components/invite/drawn';
 import { builtinDesign, type PageSpec } from '../../src/lib/design';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../../src/lib/babyblue';
 import { t } from '../../src/lib/copy';
@@ -239,4 +239,177 @@ test('words with nothing behind them say nothing, as they always did', () => {
   const markup = html('story');
   assert.doesNotMatch(markup, /data-backing/);
   assert.doesNotMatch(markup, /text-shadow/);
+});
+
+// --- the decorations on a page laid out by its words ----------------------
+
+/**
+ * A flow page's band. The markup is a drawn page's markup — that is the
+ * point of giving the band `inv-bb-art`: every rule a frame, a card, a cut
+ * and a clip already have applies to a decoration unchanged, and there is no
+ * second set of CSS to keep in step.
+ */
+const deco: PageSpec = {
+  key: 'venue',
+  sections: ['reception'],
+  elements: [
+    { id: 'crest', kind: 'photo', x: 50, y: 2, w: 44, aspect: 0.4, bind: { asset: '/crest.png' } },
+    { id: 'rule', kind: 'shape', shape: 'line', x: 50, y: 3, w: 40, from: 'bottom', stroke: 'muted', strokeWidth: 0.25 },
+    { id: 'sprig', kind: 'photo', x: 90, y: 1, w: 20, z: 3, bind: { asset: '/sprig.png' } },
+    { id: 'words', kind: 'text', block: 'free', x: 50, y: 5, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'not here' } }] }] },
+  ],
+};
+const band = (layer: 'under' | 'over') =>
+  renderToStaticMarkup(FlowDecor({ page: deco, content: {}, look: undefined, lang: 'en', layer }) as ReactElement);
+
+test('the band under the words holds the decorations that are not over them', () => {
+  const under = band('under');
+  assert.match(under, /^<div class="inv-bb-art inv-deco" data-layer="under">/);
+  // the picture along the head, placed from the head by a share of the width
+  assert.match(under, /<figure class="inv-bb-slot" style="left:50%;top:2cqw;width:44%;transform:translateX\(-50%\);aspect-ratio:1 \/ 0\.4" data-own="">/);
+  // the rule at the foot, measured up from it
+  assert.match(under, /<div class="inv-bb-shape" aria-hidden="true" data-shape="line" style="left:50%;bottom:3cqw;width:40%;transform:translateX\(-50%\);height:0\.25cqw;background:var\(--inv-muted\)"><\/div>/);
+  assert.doesNotMatch(under, /sprig/, 'what asked to be over the words is not in this band');
+});
+
+test('the band over the words holds only what asked for it', () => {
+  const over = band('over');
+  assert.match(over, /^<div class="inv-bb-art inv-deco" data-layer="over">/);
+  assert.match(over, /sprig\.png/);
+  assert.doesNotMatch(over, /crest/);
+  assert.doesNotMatch(over, /inv-bb-shape/);
+});
+
+test('a text box is never a decoration, in either band', () => {
+  assert.doesNotMatch(band('under'), /not here|inv-bb-text/);
+  assert.doesNotMatch(band('over'), /not here|inv-bb-text/);
+});
+
+test('a flow page with nothing in a band draws no band at all', () => {
+  const bare: PageSpec = { key: 'contact', sections: ['contact'] };
+  assert.equal(FlowDecor({ page: bare, content: {}, look: undefined, lang: 'en', layer: 'under' }), null);
+  // and a page whose only element floats: the float is the words' business, not the band's
+  const floated: PageSpec = { key: 'story', sections: ['story'], elements: [{ id: 'f', kind: 'photo', y: 0, w: 40, float: 'left', bind: { asset: '/f.png' } }] };
+  assert.equal(FlowDecor({ page: floated, content: {}, look: undefined, lang: 'en', layer: 'under' }), null);
+});
+
+/**
+ * A clip filling a flow page is the one decoration the document does not
+ * place: a page as tall as its words has a height only the browser knows, so
+ * the four numbers are dropped and `inset: 0` in the stylesheet answers for
+ * them. Its layer is kept, because that is what holds it behind the words.
+ */
+test('a clip filling the page keeps its layer and none of its geometry', () => {
+  const filled: PageSpec = {
+    key: 'venue',
+    sections: ['reception'],
+    elements: [{ id: 'fill', kind: 'video', x: 50, y: 0, w: 100, z: -2, url: '/v.mp4', poster: '/v.jpg', bg: true }],
+  };
+  const markup = renderToStaticMarkup(FlowDecor({ page: filled, content: {}, look: undefined, lang: 'en', layer: 'under' }) as ReactElement);
+  assert.match(markup, /<div class="inv-bb-clip" style="z-index:-2" data-bg="">/);
+  assert.doesNotMatch(markup, /top:|width:|aspect-ratio/);
+});
+
+// --- a moving picture -----------------------------------------------------
+
+/**
+ * The one thing that must be true of a moving picture on a page: it is served
+ * as the file it is, not through the transformation endpoint. That endpoint
+ * returns a *still* — one frame, re-encoded — so a GIF through it is a
+ * photograph of the moment the petals started falling.
+ *
+ * A Supabase-shaped address is used deliberately: `imageUrl` hands back
+ * anything else untouched, so a local path would pass this test whether the
+ * flag worked or not.
+ */
+const HOSTED = 'https://example.supabase.co/storage/v1/object/public/invites-public/design/t1/petals.gif';
+
+test('a moving picture is served as it is, and a still one is transformed', () => {
+  const page = JSON.parse(JSON.stringify(doc.pages.find((p) => p.key === 'story'))) as PageSpec;
+  page.elements = [
+    { id: 'petals', kind: 'photo', x: 50, y: 20, w: 40, aspect: 1, bind: { asset: HOSTED }, animated: true },
+    { id: 'bow', kind: 'photo', x: 50, y: 60, w: 40, aspect: 1, bind: { asset: HOSTED } },
+  ];
+  const markup = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+  const sources = [...markup.matchAll(/<img src="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(sources.length, 2);
+  assert.equal(sources[0].replace(/&amp;/g, '&'), HOSTED, 'the moving one is the file itself');
+  assert.match(sources[1], /\/render\/image\/public\//, 'the still one goes through the transform');
+  assert.match(sources[1], /width=/);
+});
+
+test('a moving picture the words flow around is served as it is too', () => {
+  const page: PageSpec = {
+    key: 'story',
+    sections: ['story'],
+    elements: [{ id: 'petals', kind: 'photo', y: 0, w: 30, aspect: 1, float: 'left', bind: { asset: HOSTED }, animated: true }],
+  };
+  const markup = renderToStaticMarkup(FlowFloats({ page, content: {}, lang: 'en' }) as ReactElement);
+  assert.match(markup.replace(/&amp;/g, '&'), new RegExp(`src="${HOSTED.replace(/[/.]/g, '\\$&')}"`));
+  assert.doesNotMatch(markup, /render\/image/);
+});
+
+// --- motion in the markup --------------------------------------------------
+
+/**
+ * What the page is handed: two attributes and a variable. Nothing about when
+ * — that is `data-in`, added by the guest's own page when the element is
+ * actually on screen — and nothing in `transform`, which is where every
+ * drawn element's placement lives and which an animation there would throw
+ * across the page.
+ */
+test('an element that moves carries its marks and keeps its placement', () => {
+  const page = JSON.parse(JSON.stringify(doc.pages.find((p) => p.key === 'story'))) as PageSpec;
+  page.elements = [
+    { id: 'petal', kind: 'photo', x: 50, y: 20, w: 30, aspect: 1, bind: { asset: '/p.png' }, motion: { enter: 'rise', idle: 'float', delay: 200 } },
+    { id: 'card', kind: 'shape', shape: 'rect', x: 50, y: 60, w: 70, h: 20, motion: { enter: 'fade' } },
+    { id: 'words', kind: 'text', block: 'free', x: 50, y: 80, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'Hello', tl: 'Kumusta' } }] }], motion: { idle: 'sway', delay: 90 } },
+  ];
+  const markup = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(markup, /data-enter="rise"/);
+  assert.match(markup, /data-idle="float"/);
+  assert.match(markup, /--motion-delay:200ms/);
+  assert.match(markup, /data-enter="fade"/);
+  assert.match(markup, /data-idle="sway"/);
+  assert.match(markup, /--motion-delay:90ms/);
+  // the placement is untouched: the motion is in translate and rotate, which
+  // are properties of their own
+  assert.match(markup, /transform:translate\(-50%, -50%\)/);
+  assert.doesNotMatch(markup, /data-in/, 'when it arrives is the page’s to say, not the document’s');
+});
+
+test('the shipped pages carry no motion marks at all', () => {
+  for (const key of ['story', 'baby-photos']) {
+    const markup = html(key);
+    assert.doesNotMatch(markup, /data-enter|data-idle|--motion-delay/, `${key} is as still as it ever was`);
+  }
+});
+
+// --- a vector animation ----------------------------------------------------
+
+/**
+ * The markup is two boxes and a poster, and that is the whole of it: React
+ * owns the poster, lottie-web owns the stage, and neither reaches into the
+ * other's children. Nothing here loads a player — that happens in the
+ * browser, when the element is on screen, and a page with no animation never
+ * fetches a byte of it.
+ */
+test('an animation is a stage and a poster, in the element’s own box', () => {
+  const page = JSON.parse(JSON.stringify(doc.pages.find((p) => p.key === 'story'))) as PageSpec;
+  page.elements = [{ id: 'petals', kind: 'anim', x: 50, y: 30, w: 40, aspect: 0.75, url: '/a.json', poster: '/a-poster.webp' }];
+  const markup = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(markup, /class="inv-bb-anim"/);
+  assert.match(markup, /aspect-ratio:1 \/ 0\.75/);
+  assert.match(markup, /left:50%;top:30%;width:40%/);
+  assert.match(markup, /class="inv-anim-stage"/);
+  assert.match(markup, /class="inv-anim-poster"/);
+  assert.doesNotMatch(markup, /lottie/i, 'the player is the browser’s business, and only when it is needed');
+});
+
+test('an animation with no file yet is an empty box in the studio and nothing to a guest', () => {
+  const page: PageSpec = { key: 'story', sections: ['story'], drawn: true, elements: [{ id: 'gap', kind: 'anim', x: 50, y: 30, w: 40, aspect: 1, url: '', poster: '' }] };
+  assert.doesNotMatch(renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement), /inv-bb-anim/);
+  const studio = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en', edit: { label: (el) => `fills ${el.id}` } }) as ReactElement);
+  assert.match(studio, /inv-bb-anim/);
+  assert.match(studio, /fills gap/);
 });

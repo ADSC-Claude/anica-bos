@@ -7,7 +7,8 @@ import { offeredFor } from '@/lib/occasions';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { hasFeature, entitled, TIER_LABELS } from '@/lib/tiers';
 import { PALETTE_PRESETS } from '@/lib/theme';
-import { LOOKS, looksFor } from '@/lib/looks';
+import { setsFor } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { hasPremiumOpening, PREMIUM_OPENING_CODE } from '@/lib/openings';
 import { premiumOpeningsFor } from '@/lib/premium-openings';
 import { formatPeso } from '@/lib/money';
@@ -29,7 +30,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
   // together and no other theme's ever is.
   const clips = premiumOpeningsFor(inv.template);
   const content = contentOf(inv.content);
-  const theme = resolveTheme(inv.template, content, inv.tier);
+  // The faces and pairings she has switched on, narrowed by the package and
+  // then by what this design offers.
+  const sets = await fontBook();
+  const offered = setsFor(inv.tier, sets, inv.template.fontSets);
+  const theme = resolveTheme(inv.template, content, inv.tier, sets);
   const allowed = templates.filter((t) => (hasFeature(inv.tier, 'templates.premium') || !t.premium) && (hasFeature(inv.tier, 'templates.any') || t.minTier === 'BASIC'));
 
   return (
@@ -43,7 +48,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
         </div>
         <div className="card p-5">
           <h2 className="mb-3 font-semibold">Colours &amp; fonts</h2>
-          <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} looks={looksFor(inv.tier).map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={LOOKS.length} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, lookKey: content.theme?.lookKey ?? '', mode: content.theme?.mode ?? 'day' }} tier={inv.tier} />
+          <ThemePicker invitationId={inv.id} palettes={PALETTE_PRESETS.map((p) => ({ key: p.key, label: p.label, palette: p.palette }))} looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={sets.length} current={{ paletteKey: content.theme?.paletteKey ?? '', palette: theme.palette, lookKey: content.theme?.lookKey ?? '', mode: content.theme?.mode ?? 'day' }} tier={inv.tier} />
         </div>
         <div className="card p-5 lg:col-span-2">
           <h2 className="mb-1 font-semibold">Opening</h2>

@@ -333,8 +333,19 @@ table.data tr:hover td {
    inline on .inv by the renderer, per template.
    ------------------------------------------------------------------------ */
 
+/*
+ * The column, and what is beside it.
+ *
+ * Both were literals in this file, one pair per layout, which meant a design
+ * drawn in the studio wore whatever its layout happened to be. They are the
+ * design's now (`designVars`), and every one of them falls back here to what
+ * it always was — the two shipped designs name the same four colours the two
+ * layout rules used to carry, so neither moves by a shade.
+ */
+.inv-stage { background: var(--inv-surround, var(--inv-bg)); }
+.inv-stage:has(.inv[data-paged][data-mode='night']) { background: var(--night-surround, #12131c); }
 .inv {
-  background: var(--inv-bg);
+  background: var(--inv-paper, var(--inv-bg));
   color: var(--inv-ink);
   font-family: var(--inv-body);
   min-height: 100dvh;
@@ -601,8 +612,11 @@ table.data tr:hover td {
   line-height: 1.55;
   /* The ground: draped silk, one image that repeats down the page without a
      join, so the page is a single length of cloth rather than a stack of
-     sections. */
-  background-color: #f2e8dc;
+     sections. The design's own column colour where it names one — this rule
+     reaches further than `.inv` above, so the variable has to be read here
+     too or the design would not be heard. The literal is what a paged design
+     that names none has always had. */
+  background-color: var(--inv-paper, #f2e8dc);
 }
 /* No strung side border on this theme — the shell lives in clusters. */
 .inv[data-paged]::before,
@@ -627,7 +641,6 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    way an invitation is; the cover alone is a whole background, the names in
    its upper part and the verse at its foot. */
 .inv[data-paged] { --capiz-bg: min(264.5vw, 84.6rem); }
-.inv[data-layout='capiz'] { background: #f0dccb; }
 .inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 .inv-paper {
   position: absolute; left: 0; right: 0;
@@ -682,6 +695,28 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-page[data-page='closing'] { padding-bottom: min(20vw, 6.4rem); }
 .inv-page > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .inv-page > .inv-section + .inv-section { padding-top: 1rem; }
+/*
+ * A flow page that carries a floated picture puts its sections inside this
+ * one plain block instead of hanging them off the flex column.
+ *
+ * It has to. `.inv-page` above is `display: flex`, and a float inside a flex
+ * container is not a float at all — it becomes a flex item and stacks above
+ * the words instead of letting them past. The measurement that caught it:
+ * the figure's box ended at −11px while the first line of the words began at
+ * 78px, and the line started at exactly the same place with the float as
+ * without it.
+ *
+ * So the float and the words share one block formatting context here. The
+ * sections are plain blocks and open no context of their own, so their line
+ * boxes are the ones that move — which is what a float is for. The two
+ * spacing rules above are repeated because they are child selectors and this
+ * wrapper would otherwise come between them and the sections.
+ */
+.inv-flow { display: block; }
+.inv-flow > .inv-section { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.inv-flow > .inv-section + .inv-section { padding-top: 1rem; }
+/* the floats are cleared at the end, so the page's height still holds them */
+.inv-flow::after { content: ''; display: block; clear: both; }
 
 /* --- sections --- */
 .inv[data-paged] .inv-section {
@@ -690,6 +725,67 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   max-width: 26rem;
 }
 .inv[data-paged] .inv-section + .inv-section { border-top: 0; }
+
+/*
+ * How a page laid out by its words dresses the sections it carries.
+ *
+ * The sections are the app's own components — the RSVP form, the program
+ * list, the venue and its map link — and they are the same components on
+ * every design. That is why an invitation built in the studio has always
+ * come out looking like the app rather than like the design: everything
+ * about a section's dress was written here, once, for all of them.
+ *
+ * This is the whole of the answer. One attribute on the page and a few
+ * variables (`sectionDress`), and the same form is centred on a card in one
+ * design and left on bare paper under a flourish in another. No component
+ * knows, nothing is duplicated per combination, and a page that says nothing
+ * keeps exactly the dress it has always had — which is what the two shipped
+ * designs do, so neither moves by a pixel.
+ *
+ * The headings are named one by one rather than inherited, because each of
+ * them sets `text-align: center` in its own rule and an inherited value
+ * cannot beat that. The rules below are longer than those, which is the only
+ * reason they win.
+ */
+.inv[data-paged] .inv-page[data-dress] .inv-section { text-align: var(--sec-align, center); }
+.inv[data-paged] .inv-page[data-dress] .inv-section :is(.inv-eyebrow, .inv-title, .inv-tagline, .inv-list) { text-align: var(--sec-align, center); }
+/*
+ * The app's own hairline between a heading and what follows it. It is
+ * centred by `margin: auto`, which no alignment can argue with — so on a
+ * dressed page it becomes an inline box with no auto margins instead, and
+ * then the section's own alignment carries it, left or centred or right,
+ * with nothing else to set.
+ */
+.inv[data-paged] .inv-page[data-dress] .inv-section .inv-rule { display: inline-block; margin-inline: 0; }
+/*
+ * The card. The surface colour, so it follows the palette into night with
+ * the ink on it; the shadow is the only thing that is not the palette's, and
+ * it is the same one a drawn frame casts.
+ */
+.inv[data-paged] .inv-page[data-dress='card'] .inv-section {
+  background: color-mix(in srgb, var(--inv-surface) 92%, transparent);
+  border-radius: 1.1rem;
+  box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.45);
+}
+.inv[data-paged] .inv-page[data-dress='card'] > .inv-section,
+.inv[data-paged] .inv-page[data-dress='card'] .inv-flow > .inv-section { margin-block: 0.45rem; }
+/*
+ * The divider: a piece from the library over each section's first words.
+ *
+ * Its height is the page's own gap times whatever the design said, and with
+ * no piece at all the height falls to nought — so the box is nought high,
+ * the gap under it (a share of that height) is nought too, and a page that
+ * asked for no divider has no box and no space where one would have been.
+ * `contain` keeps the piece's own proportions inside a band the width of the
+ * section, so nothing has to know how wide or tall the file is.
+ */
+.inv[data-paged] .inv-page[data-dress] .inv-section::before {
+  content: '';
+  display: block;
+  height: var(--sec-rule-h, 0px);
+  margin-bottom: calc(var(--sec-rule-h, 0px) * 0.35);
+  background: var(--sec-rule, none) var(--sec-rule-x, center) center / contain no-repeat;
+}
 
 .inv[data-paged] .inv-title {
   font-family: var(--inv-display);
@@ -1247,7 +1343,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the client's photographs; those pages keep the ground's own proportions so
    the frames land where they were drawn.
    =========================================================================== */
-.inv[data-layout='babyblue'] { background: #eef3f9; --bb-cover: min(298.9vw, 95.6rem); }
+.inv[data-layout='babyblue'] { --bb-cover: min(298.9vw, 95.6rem); }
 /* room at the foot of every plain page, so a short page's words end above the ground's foot art */
 .inv[data-layout='babyblue'] .inv-page { padding-bottom: min(22vw, 7rem); }
 /* The cover is one screen, not one whole ground: the opening lands on it
@@ -1289,6 +1385,33 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-doc] .inv-page[data-drawn][data-grow]::after { content: ''; display: block; clear: both; }
 .inv[data-doc] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
 /*
+ * The decorations on a page laid out by its words: one band over the whole
+ * page, holding the pieces, rules and clips a flow page carries.
+ *
+ * It takes `inv-bb-art` above for its box and for every rule a drawn page's
+ * frames and cards already have, and adds the three things only this layer
+ * needs:
+ *
+ * `container-type` — a flow page is not a query container (only a drawn one
+ * is), and every measure inside a decoration is in cqw: a shape's height, a
+ * frame's card, a polaroid's foot. Without this they would all be measured
+ * against the viewport and be wrong on a laptop, where the column is capped.
+ * With it, 1cqw is a hundredth of the page, which is what those numbers have
+ * always meant.
+ *
+ * The two layers — a decoration is behind the words unless the design asked
+ * for it to be in front. `z-index: -1` and not tree order, because a float
+ * on the same page is painted before positioned content is, so a band that
+ * merely came first would still cover a floated photograph.
+ *
+ * `pointer-events: none` — it lies over the whole page, including the RSVP
+ * form and every link on it. A decoration that swallowed a tap would be a
+ * broken invitation, and no decoration needs one.
+ */
+.inv-deco { container-type: inline-size; pointer-events: none; }
+.inv-deco[data-layer='under'] { z-index: -1; }
+.inv-deco[data-layer='over'] { z-index: 2; }
+/*
  * The studio only. A frame or a box with nothing in it is never invisible
  * while she is drawing: it shows where it is and says what fills it. Nothing
  * carries `data-empty` on a guest's page, so a guest sees none of this.
@@ -1299,11 +1422,65 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-bb-art > .inv-bb-text { position: absolute; text-align: center; }
 .inv-bb-text .inv-bb-body { font-family: var(--inv-body); font-size: 2.6cqw; line-height: 1.5; color: var(--inv-ink); }
 /* The paper role is the one colour the night block sets on .inv rather than on the variable. */
-.inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: #1a1b26; }
+.inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: var(--night-paper, #1a1b26); }
 .inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 2.3cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
+
+/*
+ * A page's own room at the foot, from the document: a multiple of the usual
+ * gap, for a ground whose artwork runs along the bottom.
+ *
+ * A multiple and not a measurement, because the usual is already
+ * viewport-relative with a cap — a number of pixels written into a document
+ * would be right on a phone and wrong on a laptop.
+ *
+ * It sits here, after the layout blocks and carrying their specificity, and
+ * that placement is the whole point: `.inv[data-layout='babyblue']
+ * .inv-page` sets a padding-bottom for every page of that layout, and a
+ * value the design states for *one* page has to beat a default meant for all
+ * of them. Only a page the document gave a number is affected, since there
+ * is no `data-foot` on any other.
+ *
+ * Still beaten, deliberately, by the rules above that name a page by key —
+ * Capiz's cover and closing, Baby Blue's cover and its two drawn pages.
+ * Those are hand-tuned to their own artwork and are already right; a drawn
+ * page has no padding at all, by design, so foot room means nothing there.
+ */
+.inv .inv-page[data-foot] { padding-bottom: calc(var(--page-foot) * min(11vw, 3.5rem)); }
+
+/*
+ * A picture the words flow around, on a page laid out by its words.
+ *
+ * The box that floats is the *bounding box* of the frame, turned — because
+ * `float` reserves the un-rotated box and `transform` simply draws outside
+ * it, so a tilted frame floated as itself would hang over the words. The
+ * frame sits inside that box at `--float-inner` of its width, turned by
+ * `--float-turn`, and `shape-outside` (inline, since it is geometry the
+ * document decides) traces the frame's real corners so the words follow the
+ * tilt rather than the rectangle.
+ *
+ * On a phone only the *float* is dropped: a column 390px wide has no room
+ * for a picture and a line of words beside it, and words wrapped into a
+ * three-word gutter are worse than words under a picture. The picture keeps
+ * its own size and its own tilt there and is simply centred, with the words
+ * above and below — so it is the same picture in a narrower place, not a
+ * different one.
+ */
+.inv-bb-float { margin: 0 auto 0.7rem; display: grid; place-items: center; }
+.inv-bb-float > img { display: block; width: var(--float-inner, 100%); height: auto; transform: rotate(var(--float-turn, 0deg)); }
+@media (min-width: 34rem) {
+  .inv-bb-float[data-float='left'] { float: left; margin: 0 1.1rem 0.7rem 0; }
+  .inv-bb-float[data-float='right'] { float: right; margin: 0 0 0.7rem 1.1rem; }
+}
+/* the same card and the same cuts a placed frame gets, so a floated picture
+   and a drawn one are the same picture in two layouts */
+.inv-bb-float[data-frame] > img { background: var(--inv-surface, #fff); box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.3); }
+.inv-bb-float[data-frame='thin'] > img { padding: 0.3rem; }
+.inv-bb-float[data-frame='polaroid'] > img { padding: 0.35rem 0.35rem 1.6rem; }
+.inv-bb-float[data-mask='circle'] > img { border-radius: 50%; }
+.inv-bb-float[data-mask='arch'] > img { border-radius: 50% 50% 0 0 / 32% 32% 0 0; }
 /* placed on the ground, over the shared rule that keeps every section child in flow */
 .inv[data-paged] .inv-bb-art > .inv-bb-head { position: absolute; left: 6%; right: 6%; text-align: center; }
 .inv[data-paged] .inv-bb-head .inv-title { font-size: 5.6cqw; letter-spacing: 0.3em; text-indent: 0.3em; margin-bottom: 1.6cqw; }
@@ -1365,6 +1542,20 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    down when the clip was placed could know that. `object-fit: cover` (above)
    then crops the clip into whatever shape the page turns out to be. */
 .inv[data-paged] .inv-bb-art > .inv-bb-clip[data-bg] { inset: 0; }
+/*
+ * A vector animation, in the same box a photograph or a clip would take.
+ *
+ * Two children, not one: the poster is React's and the drawing is
+ * lottie-web's, and neither should be reaching into the other's children.
+ * The player's SVG is told to fill the box because lottie sizes it from the
+ * animation's own canvas, which is whatever the designer drew it at.
+ */
+.inv-bb-anim { position: absolute; overflow: hidden; }
+.inv[data-paged] .inv-bb-art > .inv-bb-anim,
+.inv-deco > .inv-bb-anim { position: absolute; margin: 0; }
+.inv-anim-stage, .inv-anim-poster { position: absolute; inset: 0; width: 100%; height: 100%; }
+.inv-anim-poster { object-fit: contain; }
+.inv-bb-anim svg { display: block; width: 100%; height: 100%; }
 .inv-bb-shape[data-shape='ellipse'] { border-radius: 50%; }
 /* What sits behind words on a busy picture. A halo in the surface colour
    lifts them off it without a box; a scrim is the box, pale enough to read
@@ -2233,6 +2424,62 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-getting-section .inv-title { margin-bottom: 0.8rem; }
 
 /* ---------------------------------------------------------------------------
+   Motion: how an element arrives, and what it does while it is read.
+
+   Everything here is behind `[data-motion]`, which the page sets on itself
+   only once the script is running and has asked the guest's browser whether
+   they want motion at all. That is deliberate and it is the important part:
+   an element that enters starts invisible, so a rule that hid it
+   unconditionally would leave a guest with no JavaScript — or a crawler, or
+   a printed page — reading an invitation with holes in it. No script, no
+   attribute, nothing hidden.
+
+   `data-in` is added when the element is first actually on screen, and the
+   idle animations wait for it too, so nothing moves on a page nobody has
+   scrolled to.
+
+   The motion is in `translate` and `rotate`, the properties of their own,
+   and never in `transform` — because `transform` is where every drawn
+   element's placement lives (translate(-50%, -50%) and its tilt), and an
+   animation there would throw it across the page. The independent
+   properties compose with it instead.
+
+   An arrival is a transition and an idle is an animation, which is what lets
+   one element have both: the animation is held back until the arrival has
+   finished (`animation-delay`), and from then on it owns the property, an
+   animation beating a transition. Nothing has to know about the pairs.
+   --------------------------------------------------------------------------- */
+.inv[data-motion] [data-enter] { opacity: 0; }
+.inv[data-motion] [data-enter='rise'] { translate: 0 14px; }
+.inv[data-motion] [data-enter='drift'] { translate: -18px 0; }
+.inv[data-motion] [data-enter][data-in] {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 800ms ease, translate 800ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  transition-delay: var(--motion-delay, 0ms);
+}
+.inv[data-motion] [data-idle='float'][data-in] {
+  animation: inv-float 6.5s ease-in-out infinite;
+  animation-delay: calc(var(--motion-delay, 0ms) + 800ms);
+}
+.inv[data-motion] [data-idle='sway'][data-in] {
+  animation: inv-sway 7.5s ease-in-out infinite;
+  animation-delay: calc(var(--motion-delay, 0ms) + 800ms);
+}
+@keyframes inv-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -7px; }
+}
+@keyframes inv-sway {
+  0%, 100% { rotate: -1.1deg; }
+  50% { rotate: 1.1deg; }
+}
+/* Paper does not move, and a page being printed is paper. */
+@media print {
+  .inv [data-enter], .inv [data-idle] { opacity: 1 !important; translate: none !important; rotate: none !important; animation: none !important; transition: none !important; }
+}
+
+/* ---------------------------------------------------------------------------
    Night. The guest switches with the sun-and-moon button (top right); the
    couple sets the default in Settings, or leaves it to the guest's clock.
    A paper by night is darkened and turned toward a deep blue, unless it is
@@ -2244,10 +2491,24 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the cards and fields go on dark glass either way. */
 .inv-mode { position: fixed; right: 1rem; top: 1rem; z-index: 40; width: 2.6rem; height: 2.6rem; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--inv-ink) 28%, transparent); background: color-mix(in srgb, var(--inv-surface) 88%, transparent); color: var(--inv-ink); display: grid; place-items: center; font-size: 1.05rem; line-height: 1; box-shadow: 0 8px 18px -10px rgba(0, 0, 0, 0.45); cursor: pointer; backdrop-filter: blur(6px); }
 .inv-mode:hover { transform: translateY(-1px); }
-.inv[data-paged][data-mode='night'] { background: #1a1b26; }
+.inv[data-paged][data-mode='night'] { background: var(--night-paper, #1a1b26); }
 /* The palette's variables are set inline on .inv by the theme, so the night
-   ones are set one level down, on everything in the page but the opening. */
-.inv[data-paged][data-mode='night'] > :not(.inv-open) { --inv-ink: #f1e9dd; --inv-muted: #cfc3b3; --inv-surface: rgba(38, 36, 50, 0.72); --inv-accent: #d9b98c; --inv-accent2: #b39468; color: var(--inv-ink); }
+   ones are set one level down, on everything in the page but the opening.
+   Each is the design's own colour where it named one (--night-*, set on the
+   invitation by `designVars`) and the app's where it did not — which is why
+   these five literals are still here, as the fallbacks, and why they have to
+   stay in step with APP_NIGHT in design.ts. A test asserts they do.
+   There is no --inv-bg among them on purpose: by night the column's colour is
+   the background and it is painted above. The day bg is still read inside the
+   pages by a few pale things that are not the ground. */
+.inv[data-paged][data-mode='night'] > :not(.inv-open) {
+  --inv-ink: var(--night-ink, #f1e9dd);
+  --inv-muted: var(--night-muted, #cfc3b3);
+  --inv-surface: var(--night-surface, rgba(38, 36, 50, 0.72));
+  --inv-accent: var(--night-accent, #d9b98c);
+  --inv-accent2: var(--night-accent2, #b39468);
+  color: var(--inv-ink);
+}
 body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-mode='night'] .inv-paper:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
 .inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }

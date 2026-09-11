@@ -12,6 +12,7 @@ import { resolveDatabaseUrl } from '../src/lib/db-url';
 import bcrypt from 'bcryptjs';
 import { defaultContent, type Content } from '../src/lib/sections';
 import { TEMPLATES, templateData } from './templates';
+import { builtInBook } from '../src/lib/fonts';
 import { TIER_LABELS } from '../src/lib/tiers';
 import { guestToken, orderReference, paymentReference } from '../src/lib/codes';
 import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } from '../src/lib/copy';
@@ -71,7 +72,7 @@ function seedPassword(): { password: string; supplied: boolean } {
 const { password: PASSWORD, supplied: PASSWORD_SUPPLIED } = seedPassword();
 
 async function wipe() {
-  const tables = ['DfyRevision', 'DfyJob', 'Rsvp', 'GuestbookEntry', 'Guest', 'SeatingTable', 'Media', 'InvitationView', 'Payment', 'OrderItem', 'Order', 'Invitation', 'SupportMessage', 'Notification', 'AuditLog', 'LoginEvent', 'Coupon', 'Template', 'AddOn', 'Package', 'Setting', 'User'];
+  const tables = ['DfyRevision', 'DfyJob', 'Rsvp', 'GuestbookEntry', 'Guest', 'SeatingTable', 'Media', 'InvitationView', 'Payment', 'OrderItem', 'Order', 'Invitation', 'SupportMessage', 'Notification', 'AuditLog', 'LoginEvent', 'Coupon', 'Template', 'FontSet', 'FontFace', 'AddOn', 'Package', 'Setting', 'User'];
   for (const t of tables) await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${t}" CASCADE`);
 }
 
@@ -181,6 +182,15 @@ async function main() {
       { code: 'EXPIRED10', type: 'PERCENT', value: 10, note: 'Old promo', expiresAt: addDays(new Date(), -1) },
     ],
   });
+
+  // --- faces and pairings ---------------------------------------------------
+  // The book the code itself is (src/lib/fonts.ts): the five looks and the
+  // thirty-odd pairings, as rows. After this the tables are the truth and the
+  // owner edits them; `npm run db:fonts` tops up a database that already has
+  // customers without touching a row she has changed.
+  const book = builtInBook();
+  await prisma.fontFace.createMany({ data: book.faces.map((f) => ({ ...f, source: f.source === 'file' ? ('FILE' as const) : ('GOOGLE' as const) })) });
+  await prisma.fontSet.createMany({ data: book.sets.map((x) => ({ ...x, minTier: x.minTier as Tier })) });
 
   // --- templates ------------------------------------------------------------
   const templates = await Promise.all(TEMPLATES.map((t, i) => prisma.template.create({ data: templateData(t, i) })));

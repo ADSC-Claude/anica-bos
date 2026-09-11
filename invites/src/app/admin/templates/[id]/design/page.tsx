@@ -4,7 +4,9 @@ import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { contentOf, resolveTheme } from '@/lib/invitations';
 import { isPaged } from '@/lib/sections';
-import { cssVars, paletteFrom, fontsFrom, fontSetKey } from '@/lib/theme';
+import { cssVars, paletteFrom, fontsFrom, allFacesUrl } from '@/lib/theme';
+import { setForFaces } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
 import { studioDoc, documentOf, wordsOf, withWords } from '@/lib/design';
 import { designFiles } from '@/lib/design-files';
 import { signDraftLink } from '@/lib/draft-link';
@@ -49,7 +51,8 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
     ? absoluteUrl(`/${t.demoSlug}?design=draft&key=${await signDraftLink(t.id, t.shareNonce)}`)
     : '';
 
-  const theme = resolveTheme(t, demo ? contentOf(demo.content) : {});
+  const sets = await fontBook();
+  const theme = resolveTheme(t, demo ? contentOf(demo.content) : {}, undefined, sets);
   const look = withWords(theme.look, wordsOf(t.words));
   const vars = cssVars(theme.palette, theme.fonts);
   /*
@@ -94,11 +97,13 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         shop={{ shown: t.published || t.featured, thumbnail: Boolean(t.thumbnailUrl) }}
         theme={{
           palette: own,
-          fontsKey: fontSetKey(fontsFrom(t.fonts)),
+          fontsKey: setForFaces(fontsFrom(t.fonts), sets)?.key ?? '',
           look: theme.look?.name ?? '',
           overridden: JSON.stringify(own) !== JSON.stringify(theme.palette),
           live,
           drafts,
+          sets: sets.map((x) => ({ key: x.key, name: x.name, tagline: x.tagline, fonts: x.fonts })),
+          facesUrl: allFacesUrl(sets),
         }}
         canPublish={can(user.role, 'templates.publish')}
         shareLink={shareLink}

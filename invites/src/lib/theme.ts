@@ -35,6 +35,12 @@ export type Fonts = {
    * when the default weights are not what the look needs.
    */
   load: string[];
+  /**
+   * Faces served from our own bucket rather than by Google, as `@font-face`
+   * rules the renderer emits beside the Google stylesheet link. A set built
+   * only out of Google families has none, which is every set that ships.
+   */
+  files?: { family: string; url: string }[];
 };
 
 export const PALETTE_PRESETS: { key: string; label: string; palette: Palette; muted?: boolean }[] = [
@@ -132,6 +138,10 @@ export function fontsFrom(raw: unknown): Fonts {
   if (!raw || typeof raw !== 'object') return base;
   const o = raw as Partial<Fonts>;
   const face = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
+  const files = (Array.isArray(o.files) ? o.files : [])
+    .filter((f): f is { family: string; url: string } => !!f && typeof f === 'object' && typeof (f as { family?: unknown }).family === 'string' && typeof (f as { url?: unknown }).url === 'string')
+    .map((f) => ({ family: f.family, url: f.url }))
+    .slice(0, 4);
   return {
     display: face(o.display) ?? base.display,
     body: face(o.body) ?? base.body,
@@ -139,7 +149,29 @@ export function fontsFrom(raw: unknown): Fonts {
     ...(face(o.script) ? { script: face(o.script) } : {}),
     ...(o.scriptStyle === 'italic' ? { scriptStyle: 'italic' as const } : {}),
     load: Array.isArray(o.load) ? o.load.filter((x): x is string => typeof x === 'string').slice(0, 4) : base.load,
+    ...(files.length ? { files } : {}),
   };
+}
+
+/**
+ * The `@font-face` rules a set's own files need, as one stylesheet.
+ *
+ * A Google family arrives through a link; a face she uploaded arrives
+ * through this. `font-display: swap` for the same reason the Google link
+ * carries it — words a guest cannot read yet are worse than words in the
+ * fallback — and the format is read off the extension because that is what
+ * the upload wrote it as after sniffing the bytes.
+ */
+const FORMATS: Record<string, string> = { woff2: 'woff2', woff: 'woff', ttf: 'truetype', otf: 'opentype' };
+
+export function faceRules(fonts: Fonts): string {
+  return (fonts.files ?? [])
+    .map(({ family, url }) => {
+      const format = FORMATS[url.split('?')[0].split('.').pop()?.toLowerCase() ?? ''];
+      const src = `url(${JSON.stringify(url)})${format ? ` format(${JSON.stringify(format)})` : ''}`;
+      return `@font-face{font-family:${JSON.stringify(family)};src:${src};font-display:swap;}`;
+    })
+    .join('');
 }
 
 export function cssVars(palette: Palette, fonts: Fonts): Record<string, string> {
@@ -170,19 +202,6 @@ export function googleFontsUrl(fonts: Fonts): string {
 }
 
 /**
- * The set in the list a stored pair of faces is, if it is one of them.
- *
- * Compared face by face rather than as JSON, so a set saved before a field
- * was added to the type is still recognised as itself: what makes two sets
- * the same is that they draw the same letters.
- */
-export function fontSetKey(fonts: Fonts): string {
-  const same = (a: Fonts, b: Fonts) =>
-    a.display === b.display && a.body === b.body && (a.names ?? '') === (b.names ?? '') && (a.script ?? '') === (b.script ?? '');
-  return FONT_PRESETS.find((f) => same(f.fonts, fonts))?.key ?? '';
-}
-
-/**
  * The stylesheet that draws a menu of font sets in the faces it offers.
  *
  * One request for all of them, because forty sets would otherwise be forty
@@ -192,9 +211,9 @@ export function fontSetKey(fonts: Fonts): string {
  * single weight asked of a family that has it can never fail the whole
  * request and leave every face in the menu drawn in the fallback.
  */
-export function allFacesUrl(): string {
+export function allFacesUrl(sets: { fonts: Fonts }[] = FONT_PRESETS): string {
   const best = new Map<string, string>();
-  for (const set of FONT_PRESETS) {
+  for (const set of sets) {
     for (const entry of set.fonts.load) {
       const family = entry.split(':')[0];
       const had = best.get(family);

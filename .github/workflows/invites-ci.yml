@@ -96,6 +96,25 @@ jobs:
           test "$(tables invites)" -gt 20 || { echo '::error::the migration did not run in the invites schema'; exit 1; }
           test "$(tables public)"  -eq 0  || { echo '::error::the migration leaked into public'; exit 1; }
 
+      # The build stocks the faces and pairings itself, right after the
+      # migration that creates the tables — deliberately without failing the
+      # build if it cannot, because every reader falls back to the book
+      # written into the code. That fallback is exactly why a silent failure
+      # would go unnoticed: the site works either way, and the only witness
+      # is a warning in a build log nobody reads. So the rows are counted
+      # here, before the seed below truncates both tables and fills them
+      # again — after that, a stocked build and a warned one look identical.
+      - name: Check the build stocked the faces and pairings
+        env:
+          PGURL: postgresql://invites:invites@localhost:5432/invites_test
+        run: |
+          rows() { psql "$PGURL" -tAc "select count(*) from invites.\"$1\";"; }
+          echo "FontFace: $(rows FontFace) rows, FontSet: $(rows FontSet) rows"
+          # The question is stocked-or-empty, not an exact count: the book is
+          # hers to edit and a pairing she retires must not fail a build.
+          test "$(rows FontFace)" -gt 20 || { echo '::error::the build did not stock FontFace'; exit 1; }
+          test "$(rows FontSet)"  -gt 20 || { echo '::error::the build did not stock FontSet'; exit 1; }
+
       - name: Seed, then check the data reconciles with itself
         run: |
           npm run db:seed

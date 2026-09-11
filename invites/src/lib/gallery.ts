@@ -1,6 +1,6 @@
 import type { Template } from '@prisma/client';
 import { paletteFrom, fontsFrom, cssVars, googleFontsUrl } from './theme';
-import { LOOK_BY_KEY, isLook } from './looks';
+import { builtInSets, findSet, type BookSet } from './fonts';
 import { premiumOpeningsFor } from './premium-openings';
 import { templateOccasions } from './occasions';
 import type { PlateWords } from '@/components/invite/renderer';
@@ -46,10 +46,10 @@ export type GalleryTemplate = {
   sample: PlateWords | null;
 };
 
-export function toGalleryTemplate(t: Template): GalleryTemplate {
+export function toGalleryTemplate(t: Template, sets: BookSet[] = builtInSets()): GalleryTemplate {
   const p = paletteFrom(t.palette);
-  // the design's look sets its faces, as it does on the invitation itself (resolveTheme)
-  const fonts = t.look && isLook(t.look) ? LOOK_BY_KEY[t.look].fonts : fontsFrom(t.fonts);
+  // the design's set brings its faces, as it does on the invitation itself (resolveTheme)
+  const fonts = findSet(t.look, sets)?.fonts ?? fontsFrom(t.fonts);
   return {
     id: t.id,
     slug: t.slug,

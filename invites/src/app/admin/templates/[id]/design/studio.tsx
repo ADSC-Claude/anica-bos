@@ -664,6 +664,30 @@ export function Studio(p: Props) {
     change(next);
   }
 
+  /**
+   * A picture the words flow around, on a page laid out by its words.
+   *
+   * A flow page has no canvas — its height is its words, so there is nothing
+   * to drag on — which is why this is a button and a list rather than a
+   * frame she places. It goes on the left by default, because that is where
+   * a reader's eye already is.
+   */
+  function addFloat() {
+    if (!page) return;
+    const id = freeId(doc, 'photo');
+    // y is required of every element and means nothing on a flow page, where
+    // the words decide where a float lands; 0 is the honest value for it
+    const made: Element = { id, kind: 'photo', y: 0, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
+    setSel([id]);
+  }
+
+  /** The floated pictures on the page she is on, in the order they are drawn. */
+  const floats = useMemo(
+    () => (page?.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean((e as PhotoEl).float)),
+    [page],
+  );
+
   // --- what a page carries --------------------------------------------------
 
   const addSection = (key: PageSectionKey) => change(putSection(doc, pageKey, key));
@@ -1468,6 +1492,7 @@ export function Studio(p: Props) {
             onRemove={remove}
             label={label(selected)}
             templateId={p.templateId}
+            flow={!page?.drawn}
             onFillPage={() => fillPage(selected.id)}
             measureRoom={() => measureRoom(selected.id)}
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
@@ -1484,6 +1509,7 @@ export function Studio(p: Props) {
             templateId={p.templateId}
             vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
+            floats={{ list: floats, add: addFloat, pick: (id) => setSel([id]), drop: remove }}
           />
         )}
       </aside>
@@ -1774,8 +1800,10 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
+  /** the page is laid out by its words, so a picture on it floats rather than being placed */
+  flow: boolean;
   onFillPage: () => Promise<void>;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
@@ -1797,13 +1825,22 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <p className="text-[11px] text-[color:var(--color-ink-500)]">{el.id}</p>
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
+      {/*
+        * A flow page has no coordinates — its height is its words — so only
+        * the two numbers that still mean something are offered there: how
+        * wide the picture is, and how far it is turned.
+        */}
       <div className="grid grid-cols-2 gap-2">
-        <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>
-        <label className="block"><span className="label">Down</span>{num(el.y, (n) => onMoveTo({ y: n }))}</label>
+        {!flow && <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>}
+        {!flow && <label className="block"><span className="label">Down</span>{num(el.y, (n) => onMoveTo({ y: n }))}</label>}
         <label className="block"><span className="label">Width</span>{num(el.w, (n) => onChange((e) => ({ ...e, w: n })))}</label>
         <label className="block"><span className="label">Turn</span>{num(el.rotate, (n) => onChange((e) => ({ ...e, rotate: n })), 0.5)}</label>
       </div>
-      <p className="hint">Across and width are a share of the page&rsquo;s width; down is a share of its height. This page is {ratio.toFixed(2)} screens tall.</p>
+      <p className="hint">
+        {flow
+          ? `Width is a share of the page's width. This page is laid out by its words, so there is nowhere to put it: it goes where the words make room for it.`
+          : `Across and width are a share of the page's width; down is a share of its height. This page is ${ratio.toFixed(2)} screens tall.`}
+      </p>
       {grows && (
         <label className="block">
           <span className="label">Measured from</span>
@@ -1815,7 +1852,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       )}
       <Attach value={el.attachTo} options={attachable} onChange={(to) => onChange((e) => ({ ...e, attachTo: to }))} />
       {el.kind === 'photo' && (
-        <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} />
+        <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} flow={flow} />
       )}
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
@@ -2176,16 +2213,33 @@ function ClipBlock({ el, onChange, templateId, onFillPage }: { el: VideoEl; onCh
  * for somebody who has not learnt the double-click, and it says what the
  * gesture is either way.
  */
-function PictureBlock({ el, onChange, onFit, fitting, num }: {
+function PictureBlock({ el, onChange, onFit, fitting, num, flow }: {
   el: PhotoEl;
   onChange: (fn: (e: Element) => Element) => void;
   onFit: () => void;
   fitting: boolean;
   num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+  flow: boolean;
 }) {
   const edit = (fn: (x: PhotoEl) => PhotoEl) => onChange((x) => fn(x as PhotoEl));
   return (
     <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      {/*
+        * Only offered on a page laid out by its words, because that is the
+        * only page with words to flow. A drawn page places everything by
+        * hand and a float there would mean nothing.
+        */}
+      {flow && (
+        <label className="block">
+          <span className="label">The words flow</span>
+          <select className="input w-full" value={el.float ?? ''} onChange={(e) => edit((x) => { const v = e.target.value; const next = { ...x, float: v === '' ? undefined : (v as 'left' | 'right') }; if (!next.float) delete next.float; return next; })}>
+            <option value="">&mdash; not on this page &mdash;</option>
+            <option value="left">around its right, with the picture on the left</option>
+            <option value="right">around its left, with the picture on the right</option>
+          </select>
+          <span className="hint">On a phone there is no room for words beside a picture, so it is centred with the words above and below &mdash; the same picture, in a narrower place.</span>
+        </label>
+      )}
       <label className="block"><span className="label">Shape (height over width)</span>{num(el.aspect, (n) => edit((x) => ({ ...x, aspect: n })), 0.05)}</label>
       <label className="block">
         <span className="label">Frame</span>
@@ -3075,13 +3129,14 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
+function PageProps({ page, onChange, onGround, templateId, vars, sections, floats }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
   templateId: string;
   vars: Record<string, string>;
   sections: SectionTools;
+  floats: { list: PhotoEl[]; add: () => void; pick: (id: string) => void; drop: (id: string) => void };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -3201,6 +3256,33 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections }: {
           ))}
         </select>
       </div>
+      {/*
+        * Pictures the words flow around. Only on a page laid out by its
+        * words — a drawn page places everything by hand — and a list rather
+        * than a canvas for the same reason: there is nowhere to drag to.
+        */}
+      {!page.drawn && (
+        <div className="border-t border-[color:var(--color-sand-300)] pt-3">
+          <p className="label">Pictures the words flow around</p>
+          <ol className="mt-1 space-y-1">
+            {floats.list.map((el) => (
+              <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => floats.pick(el.id)}>
+                  {el.float === 'right' ? 'On the right' : 'On the left'} · {el.w ?? 40}% wide{el.rotate ? ` · turned ${el.rotate}°` : ''}
+                </button>
+                <button type="button" title="Take it off this page" onClick={() => floats.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
+              </li>
+            ))}
+          </ol>
+          <button type="button" onClick={floats.add} className="mt-1 w-full rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
+            + a picture the words flow around
+          </button>
+          <p className="hint">
+            The section&rsquo;s own words wrap beside it &mdash; the real ones, not a guess &mdash; and a turned picture is followed by the words at its tilt rather than at its corners.
+            Press one to set which field it reads, how wide it is and how far it turns.
+          </p>
+        </div>
+      )}
       <div className="border-t border-[color:var(--color-sand-300)] pt-3">
         <p className="label">Background</p>
         <div className="mt-1 flex items-start gap-2">

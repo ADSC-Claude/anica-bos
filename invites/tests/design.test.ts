@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections,
+  starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -808,4 +808,58 @@ test('the join and the room at the foot survive a read-back', () => {
   // and nonsense is refused rather than carried
   const bad = designOf({ v: 1, pages: [{ key: 'a', sections: [], footPad: 40 }] }, 'capiz');
   assert.deepEqual(bad.dropped, ['page 1 (a)'], 'a foot of forty times the usual is not a page');
+});
+
+// --- a picture the words flow around --------------------------------------
+
+/**
+ * `float` and `transform` do not know about each other: a float reserves the
+ * un-rotated box and a rotation draws outside it, so a tilted frame would
+ * hang over the words. So a box big enough for the turned frame is floated,
+ * with a polygon tracing the frame's real corners — which is trigonometry,
+ * and can be asserted without a browser.
+ */
+test('an untilted frame floats as its own box', () => {
+  const square = floatShape(1, 0);
+  assert.equal(square.width, 1);
+  assert.equal(square.height, 1);
+  assert.equal(square.inner, 100, 'the frame fills the box it floats');
+  assert.equal(square.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
+
+  // a portrait frame: taller than it is wide, and still no wider than itself
+  const tall = floatShape(1.5, 0);
+  assert.equal(tall.width, 1);
+  assert.equal(tall.height, 1.5);
+  assert.equal(tall.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
+});
+
+test('a square turned 45° floats a bigger box and its shape is a diamond', () => {
+  const d = floatShape(1, 45);
+  // the bounding box of a square turned an eighth of a turn is √2 on a side
+  assert.ok(Math.abs(d.width - Math.SQRT2) < 0.001, `${d.width} should be about 1.414`);
+  assert.ok(Math.abs(d.height - Math.SQRT2) < 0.001);
+  assert.ok(Math.abs(d.inner - 70.71) < 0.1, 'the frame is about 70% of the box it floats');
+  // the four corners land on the middles of the box's sides
+  assert.equal(d.polygon, 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)');
+});
+
+test('a small tilt grows the box a little and tips the shape', () => {
+  const t = floatShape(1.25, 8);
+  assert.ok(t.width > 1 && t.width < 1.2, `${t.width} is a little wider than the frame`);
+  assert.ok(t.height > 1.25 && t.height < 1.5, `${t.height} is a little taller`);
+  // four corners, none of them at a box corner any more
+  const points = t.polygon.replace(/^polygon\(|\)$/g, '').split(', ');
+  assert.equal(points.length, 4);
+  assert.ok(!points.includes('0% 0%'), 'a tilted frame does not reach the box’s corner');
+  // and the shape is the frame turned the same way in both directions
+  const back = floatShape(1.25, -8);
+  assert.equal(back.width, t.width);
+  assert.equal(back.height, t.height);
+  assert.notEqual(back.polygon, t.polygon, 'tilted the other way is a different outline');
+});
+
+test('a turn of a quarter swaps the box’s sides', () => {
+  const q = floatShape(2, 90);
+  assert.ok(Math.abs(q.width - 2) < 0.001, 'a frame twice as tall as wide, turned upright, is twice as wide');
+  assert.ok(Math.abs(q.height - 1) < 0.001);
 });

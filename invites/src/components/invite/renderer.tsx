@@ -17,7 +17,7 @@ import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, type PictureGround, type CoverSpec } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
-import { DrawnPage } from './drawn';
+import { DrawnPage, FlowFloats } from './drawn';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
 import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire-art';
@@ -1879,7 +1879,16 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // picture and some words — so it is always drawn.
         const parts = spec.drawn
           ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
-          : (spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
+          : ([
+            /*
+             * A flow page's floated pictures come first, because that is
+             * what a float needs: the words after it are the ones that make
+             * room beside it. A drawn page has none — it places everything
+             * by hand and has no words to flow.
+             */
+            <FlowFloats key="floats" page={spec} content={content as Record<string, unknown>} lang={lang} />,
+            ...spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))),
+          ].filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
         if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined }));

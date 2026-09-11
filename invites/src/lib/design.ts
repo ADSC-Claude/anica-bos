@@ -410,6 +410,15 @@ export type PhotoEl = Base & {
   mask?: 'none' | 'circle' | 'arch';
   /** a moving picture: never re-encoded, never sent through imageUrl() */
   animated?: boolean;
+  /**
+   * On a page laid out by its words: the side the words flow around it on.
+   *
+   * Only a flow page reads it. A drawn page places everything by hand and
+   * has no words to flow, so a float there would mean nothing; the studio
+   * offers this only where it applies. See `floatShape` for why a tilted
+   * one needs a box of its own.
+   */
+  float?: 'left' | 'right';
 };
 
 export type TextEl = Base & {
@@ -729,6 +738,7 @@ const zElement = z.union([
     crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
     frame: z.enum(['none', 'thin', 'polaroid']).optional(),
     mask: z.enum(['none', 'circle', 'arch']).optional(),
+    float: z.enum(['left', 'right']).optional(),
     animated: z.boolean().optional(),
   }).strict(),
   z.object({
@@ -1094,6 +1104,50 @@ export function canAttach(elements: Element[], id: string, to: string): boolean 
   if (id === to) return false;
   return !withFollowers(elements, [id]).includes(to);
 }
+
+/**
+ * A photograph the words flow around, on a page laid out by its words.
+ *
+ * A drawn page places everything by hand, and a flow page has always placed
+ * nothing at all: its height is its words, so there is no coordinate to put
+ * a picture at. This is the third thing — a picture the *text* makes room
+ * for, which is what a float is for and what `shape-outside` makes follow a
+ * tilt instead of a rectangle.
+ *
+ * The hard part is that `float` and `transform` do not know about each
+ * other. A float reserves the element's un-rotated box and a rotation simply
+ * draws outside it, so a tilted frame would hang over the words. The answer
+ * is to float a box big enough to hold the *rotated* frame — its bounding
+ * box — put the frame inside it turned, and give the box a `shape-outside`
+ * polygon tracing the frame's real corners. The words then follow the tilt.
+ *
+ * `aspect` is the frame's height over its width, as everywhere else in this
+ * file. The returned `width` and `height` are the bounding box as multiples
+ * of the frame's own width: 1 and `aspect` when nothing is turned. `inner`
+ * is how wide the frame is inside that box, as a percentage of it.
+ *
+ * Pure trigonometry, so the polygon can be asserted without a browser — a
+ * square turned 45° has to come out a diamond, and it does.
+ */
+export function floatShape(aspect: number, rotate = 0): { width: number; height: number; inner: number; polygon: string } {
+  const h = Math.max(0.01, aspect);
+  const rad = (rotate * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  // the bounding box of the turned frame, in multiples of the frame's width
+  const W = Math.abs(cos) + Math.abs(h * sin);
+  const H = Math.abs(sin) + Math.abs(h * cos);
+  // the frame's four corners, turned, as percentages of that box
+  const corners: [number, number][] = [[-0.5, -h / 2], [0.5, -h / 2], [0.5, h / 2], [-0.5, h / 2]];
+  const points = corners.map(([x, y]) => {
+    const rx = x * cos - y * sin;
+    const ry = x * sin + y * cos;
+    return `${round(((rx + W / 2) / W) * 100)}% ${round(((ry + H / 2) / H) * 100)}%`;
+  });
+  return { width: round(W), height: round(H), inner: round((1 / W) * 100), polygon: `polygon(${points.join(', ')})` };
+}
+
+const round = (n: number) => Math.round(n * 1e4) / 1e4;
 
 /**
  * A clip behind a whole page: the page and the element it takes.

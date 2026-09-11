@@ -3,7 +3,7 @@ import { t, type Lang } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
 import { LazyVideo } from './client';
@@ -65,6 +65,57 @@ export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec;
 }
 
 type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView };
+
+/**
+ * The pictures a flow page's words flow around.
+ *
+ * A flow page is laid out by its words — its height is whatever they come
+ * to — so it has never placed anything. These are the third kind of thing:
+ * not placed and not stacked, but floated, so the section's *real* words
+ * make room beside them. They are emitted before the sections, which is
+ * what a float needs in order to have anything to flow past.
+ *
+ * A tilted frame floats a box big enough to hold it turned, with a
+ * `shape-outside` polygon tracing its real corners, so the words follow the
+ * tilt rather than a rectangle. `floatShape` works that out; see its note
+ * for why `float` and `transform` need the help.
+ *
+ * An empty binding draws nothing at all, the way an empty frame does: a
+ * customer who gave no picture gets their words, in one column, and no gap
+ * where a photograph was going to be.
+ */
+export function FlowFloats({ page, content, lang }: { page: PageSpec; content: Record<string, unknown>; lang: Lang }) {
+  const floats = (page.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean((e as PhotoEl).float));
+  if (!floats.length) return null;
+  return (
+    <>
+      {floats.map((el) => {
+        const url = 'asset' in el.bind ? el.bind.asset : valueAt(content, el.bind);
+        if (!url) return null;
+        const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
+        const alt = el.alt ? valueAt(content, el.alt) : '';
+        return (
+          <figure
+            key={el.id}
+            className="inv-bb-float"
+            data-float={el.float}
+            data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
+            data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
+            style={{
+              width: `${(el.w ?? 40) * shape.width}%`,
+              aspectRatio: `${shape.width} / ${shape.height}`,
+              shapeOutside: shape.polygon,
+              ['--float-inner' as string]: `${shape.inner}%`,
+              ['--float-turn' as string]: `${el.rotate ?? 0}deg`,
+            } as CSSProperties}
+          >
+            <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" lang={lang === 'tl' ? 'tl' : undefined} />
+          </figure>
+        );
+      })}
+    </>
+  );
+}
 
 function draw(el: Element, read: Read, grow?: number) {
   if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} />;

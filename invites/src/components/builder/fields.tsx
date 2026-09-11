@@ -280,22 +280,39 @@ function StyleThumb({ kind }: { kind: string }) {
  * The three check-in fronts, drawn rather than described.
  *
  * Each tile has to read as a poster — picture edge to edge, the dark falling
- * off the bottom, big words on it and the code small in a corner. An earlier
- * set drew a bordered card three times, which is the thing these fronts took
- * out, and a couple would have been choosing from a picture of the wrong page.
+ * off the bottom, big words on it — and, crucially, it has to draw the *bloom*:
+ * the soft round of paper the code stands in, with the picture showing through
+ * between the modules. That is the part a couple cannot picture from words, and
+ * a tile that drew a crisp white plate instead would be selling a page we do
+ * not build. An earlier set drew a bordered card three times, which is the
+ * thing these fronts took out.
  */
 function PassThumb({ look, photo }: { look: string; ink: string; photo: string }) {
   const line = (w: string, h = 3, o = 0.95) => (
     <span style={{ display: 'block', height: h, width: w, borderRadius: 1, background: '#fff', opacity: o }} />
   );
-  // The code, small and cornered, on its own paper.
+  /*
+   * The code standing in its bloom. The disc is the box, exactly as on the
+   * page — drawn as a glow bolted onto the code it overflowed upward and ate
+   * the guest's line — and the code is the page's own share of it, so the
+   * ratio lives in one place and the tile cannot drift from what ships.
+   */
+  const DISC = 62;
   const mark = (
-    <span style={{ position: 'absolute', right: '9%', bottom: '7%', width: '24%', aspectRatio: '1', background: '#fff', borderRadius: 1, padding: 2 }}>
-      <span style={{ position: 'relative', display: 'block', width: '100%', height: '100%' }}>
-        {[[0, 0], [62, 0], [0, 62]].map(([l, t]) => (
-          <span key={`${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '38%', height: '38%', border: '1.5px solid var(--color-ink-900)' }} />
+    <span
+      style={{
+        display: 'grid', placeItems: 'center', width: `${DISC}%`, aspectRatio: '1',
+        margin: '0 auto', borderRadius: '50%',
+        background: 'radial-gradient(circle closest-side, rgba(252,249,243,0.96) 0%, rgba(252,249,243,0.96) 80%, rgba(252,249,243,0.5) 90%, rgba(252,249,243,0) 100%)',
+      }}
+    >
+      <span style={{ position: 'relative', display: 'block', width: `${100 / 1.8}%`, aspectRatio: '1' }}>
+        {[[0, 0], [66, 0], [0, 66]].map(([l, t]) => (
+          <span key={`${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '34%', height: '34%', border: '2px solid var(--color-ink-900)', borderRadius: 2 }} />
         ))}
-        <span style={{ position: 'absolute', right: '4%', bottom: '4%', width: '26%', height: '26%', background: 'var(--color-ink-900)' }} />
+        {[[46, 22], [74, 40], [40, 52], [60, 66], [82, 72], [34, 78], [56, 88]].map(([l, t]) => (
+          <span key={`d-${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '10%', height: '10%', background: 'var(--color-ink-900)' }} />
+        ))}
       </span>
     </span>
   );
@@ -309,13 +326,11 @@ function PassThumb({ look, photo }: { look: string; ink: string; photo: string }
   );
   const fall = (css: string) => <span style={{ position: 'absolute', inset: 0, background: css }} />;
   const words = (
-    <>
-      {line('58%', 2, 0.75)}
-      <span style={{ display: 'block', height: 4 }} />
-      {line('92%', 7)}
-      <span style={{ display: 'block', height: 4 }} />
-      {line('46%', 2, 0.6)}
-    </>
+    <span style={{ display: 'grid', justifyItems: 'center', gap: 4 }}>
+      {line('54%', 2, 0.75)}
+      {line('88%', 7)}
+      {line('42%', 2, 0.6)}
+    </span>
   );
   return (
     <span
@@ -327,11 +342,11 @@ function PassThumb({ look, photo }: { look: string; ink: string; photo: string }
       {look === 'ground' && (
         <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px), var(--color-sand-200)` }} />
       )}
-      {/* the poster: the dark comes up off the bottom, the words sit in it */}
+      {/* the silhouette: the dark comes up off the bottom, the words sit in it */}
       {look !== 'cover' && (
         <>
           {fall('linear-gradient(to bottom, rgba(12,10,8,0.3) 0%, rgba(12,10,8,0) 24%, rgba(12,10,8,0) 40%, rgba(12,10,8,0.72) 66%, rgba(12,10,8,0.96) 100%)')}
-          <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '34%' }}>{words}</span>
+          <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '52%' }}>{words}</span>
         </>
       )}
       {/* the masthead: the dark at the top, the words across it */}
@@ -341,14 +356,12 @@ function PassThumb({ look, photo }: { look: string; ink: string; photo: string }
           <span style={{ position: 'absolute', left: '9%', right: '9%', top: '8%' }}>{words}</span>
         </>
       )}
-      {/* the hairline and the code, on every one */}
-      <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '25%', height: 1, background: 'rgba(255,255,255,0.28)' }} />
-      <span style={{ position: 'absolute', left: '9%', bottom: '8%', width: '42%' }}>
-        {line('86%', 5, 0.9)}
-        <span style={{ display: 'block', height: 4 }} />
-        {line('100%', 2, 0.45)}
+      {/* the guest's own line and the code, centred, on every one. No rule
+          across the tile: there is none on the page either. */}
+      <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '6%', display: 'grid', justifyItems: 'center', gap: 5 }}>
+        {line('52%', 4, 0.9)}
+        {mark}
       </span>
-      {mark}
     </span>
   );
 }

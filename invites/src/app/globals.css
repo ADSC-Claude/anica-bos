@@ -570,28 +570,31 @@ table.data tr:hover td {
   background-color: var(--inv-bg);
   z-index: 0;
 }
-/* The fall. Clear through the top two fifths, then down to near black — the
-   proportions a poster uses, so the faces keep the light and the words get
-   the dark. */
+/* The fall. Nothing at all across the top — a bar of dark up there was the
+   first thing sent back — then down through the lower half so the words have
+   something to sit on. It stops short of black on purpose: the photograph has
+   to still be a photograph behind the names, which is the whole ask. */
 .pass-fall {
   position: absolute;
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(to bottom, rgba(12, 10, 8, 0.34) 0%, rgba(12, 10, 8, 0) 22%, rgba(12, 10, 8, 0) 38%, rgba(12, 10, 8, 0.62) 62%, rgba(12, 10, 8, 0.92) 84%, rgba(12, 10, 8, 0.97) 100%);
+    linear-gradient(to bottom, rgba(12, 10, 8, 0) 0%, rgba(12, 10, 8, 0) 34%, rgba(12, 10, 8, 0.28) 50%, rgba(12, 10, 8, 0.62) 68%, rgba(12, 10, 8, 0.82) 86%, rgba(12, 10, 8, 0.88) 100%);
 }
 .pass-stage {
   position: relative;
   z-index: 2;
   display: grid;
   align-content: end;
-  gap: 1.5rem;
-  padding: clamp(1.6rem, 7vw, 2.6rem) clamp(1.5rem, 6vw, 2.2rem) clamp(1.5rem, 6vw, 2.2rem);
+  justify-items: center;
+  text-align: center;
+  gap: clamp(1.6rem, 6vw, 2.4rem);
+  padding: clamp(1.6rem, 7vw, 2.6rem) clamp(1.5rem, 6vw, 2.2rem) clamp(1.8rem, 7vw, 2.6rem);
   min-height: 100dvh;
 }
 
 /* ── the words ──────────────────────────────────────────────────────── */
-.pass-words { display: grid; gap: 0.5rem; max-width: 22rem; }
+.pass-words { display: grid; gap: 0.5rem; max-width: 22rem; justify-items: center; }
 .pass-intro {
   font-size: 0.625rem;
   letter-spacing: 0.32em;
@@ -631,44 +634,67 @@ table.data tr:hover td {
   text-wrap: pretty;
 }
 
-/* ── the foot: whose pass, and the code ─────────────────────────────── */
-.pass-strip {
+/* ── the foot: whose pass, and the code standing on the picture ─────── */
+/* No rule across it and no panel around it. A line drawn to separate the code
+   from the words is the "cut or trimming" that got this page sent back; the
+   space does the separating. */
+.pass-scan {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 1.1rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  justify-items: center;
+  text-align: center;
+  gap: 0.9rem;
 }
 .pass-who { min-width: 0; display: grid; gap: 0.3rem; }
 /* The guest's own name, in the display face. It is their pass and it is the
    line the desk reads before they scan. */
 .pass-for {
   font-family: var(--inv-display);
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   line-height: 1.1;
   margin: 0;
   text-wrap: balance;
 }
-.pass-note { font-size: 0.6875rem; line-height: 1.5; margin: 0; color: rgba(255, 255, 255, 0.66); max-width: 15rem; text-wrap: pretty; }
-/* The code, the way a magazine carries its barcode: small, cornered, on its
-   own paper, and the smallest thing on the screen. */
-.pass-mark { display: grid; justify-items: center; gap: 0.35rem; }
-.pass-code-art {
-  display: block;
-  line-height: 0;
-  width: 5.4rem;
-  padding: 0.3rem;
-  background: #fff;
-  border-radius: 0.15rem;
+.pass-note { font-size: 0.6875rem; line-height: 1.5; margin: 0; color: rgba(255, 255, 255, 0.72); max-width: 17rem; text-wrap: pretty; }
+
+/*
+ * The bloom: the photograph coming up into the light under the code.
+ *
+ * A circle with no edge — that is the whole difference between this and the
+ * plate it replaced. It is the disc itself rather than a glow bolted onto the
+ * code, so the layout reserves the room it takes and nothing lands inside it.
+ *
+ * 180% of the code, and no wider. A circle drawn round a square is 141% of it
+ * at the very least, so this leaves a fifth of the radius to fade in — narrow,
+ * and deliberately so: a disc with room for a graceful fade is a disc the size
+ * of a hand, and that reads as a torch shone at the photograph rather than as
+ * light coming up out of it. The stops hold to 80% and the code's furthest
+ * corner, quiet zone included, lands at 79%, which tests/qr.test.ts checks
+ * against QR_BLOOM_MIN_UNDER_CODE.
+ */
+.pass-bloom {
+  display: grid;
+  place-items: center;
+  width: 13.5rem;
+  max-width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 0%,
+    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 80%,
+    color-mix(in srgb, var(--pass-paper, #fff) 52%, transparent) 90%,
+    color-mix(in srgb, var(--pass-paper, #fff) 16%, transparent) 96%,
+    transparent 100%
+  );
 }
+.pass-code-art { display: block; line-height: 0; width: 7.5rem; }
 .pass-code-art svg { width: 100%; height: auto; display: block; }
 .pass-cta {
   margin: 0;
-  font-size: 0.5rem;
-  letter-spacing: 0.18em;
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.68);
+  color: rgba(255, 255, 255, 0.78);
   font-weight: 600;
 }
 
@@ -733,7 +759,7 @@ table.data tr:hover td {
 
 .pass-again { margin: 1.15rem 1.5rem 0; text-align: center; }
 .pass-again summary { font-size: 0.8125rem; color: var(--inv-accent); cursor: pointer; }
-.pass-again .pass-code-small { width: 10.5rem; margin: 0.75rem auto 0; padding: 0; background: none; }
+.pass-again .pass-code-small { width: 10.5rem; margin: 0.75rem auto 0; }
 
 .pass-foot { padding: 1.15rem 1.5rem 1.6rem; text-align: center; }
 .pass-back { font-size: 0.8125rem; color: var(--inv-accent); text-decoration: none; }
@@ -772,9 +798,8 @@ table.data tr:hover td {
   background-position: center;
   text-align: center;
 }
-/* Darkened only enough to read the words over it, and only where the words
-   are — the plate below carries the code, so the picture owes the code
-   nothing. */
+/* Darkened only enough to read the words over it. The code carries its own
+   light — see .inv-pass-bloom — so this is for the type, not for the code. */
 .inv-pass-photo::before {
   content: '';
   position: absolute;
@@ -792,14 +817,29 @@ table.data tr:hover td {
   color: #fff;
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
 }
-.inv-pass-plate {
-  display: block;
+/* The same bloom as the pass, at the invitation's size: a round of the
+   design's own paper with the code standing on it and the photograph coming
+   back through between the modules. Same stops, same 260%, so the 54% the
+   code's corner lands at holds here too — tests/qr.test.ts checks both. */
+.inv-pass-bloom {
+  display: grid;
+  place-items: center;
+  width: 9rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  margin: 0.4rem auto;
   line-height: 0;
-  border-radius: 0.75rem;
-  padding: 0.55rem;
-  background: var(--inv-surface);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 0%,
+    color-mix(in srgb, var(--pass-paper, #fff) 96%, transparent) 80%,
+    color-mix(in srgb, var(--pass-paper, #fff) 52%, transparent) 90%,
+    color-mix(in srgb, var(--pass-paper, #fff) 16%, transparent) 96%,
+    transparent 100%
+  );
 }
+.inv-pass-bloom > span { display: block; width: 55.55%; }
+.inv-pass-bloom svg { width: 100%; height: auto; display: block; }
 .inv-pass-open { font-size: 0.75rem; color: var(--inv-accent); text-decoration: underline; }
 .inv-pass-photo .inv-pass-open { color: #fff; }
 

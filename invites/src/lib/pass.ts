@@ -158,39 +158,39 @@ export function passSubject(occasion: Occasion, content: Content, fallback: stri
  * How the pass is laid out.
  *
  * Not a card. There is no frame, no border, no panel and no tidy centred list
- * of details — three attempts at this page were exactly that, and a bordered
+ * of details — several attempts at this page were exactly that, and a bordered
  * rectangle with the photograph pushed to the outside of it is the opposite of
  * what a pass should be.
  *
- * The photograph is the design. It fills the screen, it is never washed out,
- * and the words live on it: a small letterspaced line, the names very large,
- * and the guest's own name. The dark falls off the bottom the way it does on a
- * poster — deep where the words are, clear where the faces are — so the type
- * reads because the picture was composed for it, not because a scrim was laid
- * over the top.
+ * The photograph is the design. It fills the screen, and the words live above
+ * it: a small letterspaced line, the names very large, the guest's own name.
  *
- * The code is the smallest thing on the screen and sits in a corner, the way a
- * magazine carries its barcode. It is what the desk scans; it is not what the
- * guest looks at.
+ * And the code stands *on* the picture rather than on a plate laid over it.
+ * That is the silhouette, and it is the whole point of the front: under the
+ * modules the photograph comes up into the light, and a finger's width away it
+ * is back at full strength, with no edge anywhere to say where one stopped and
+ * the other started. A plate is easier and it is what three earlier versions
+ * did; it also reads as a sticker somebody pasted on, which is what kept
+ * getting sent back. See QR_VEIL for the measured cost of doing it properly.
  */
-export type PassLook = 'poster' | 'cover' | 'ground';
+export type PassLook = 'silhouette' | 'cover' | 'ground';
 
 export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string }[] = [
-  { value: 'poster', label: 'Poster', note: 'Your photograph full bleed, your names large across the foot of it.' },
-  { value: 'cover', label: 'Magazine cover', note: 'Your names across the top like a masthead, the picture running under them.' },
+  { value: 'silhouette', label: 'Silhouette', note: 'Your code stands on the photograph itself — no card, no border, just the picture coming up into the light under it.' },
   { value: 'ground', label: 'Your invitation’s design', note: 'The design’s own artwork instead of a photograph, set the same way.' },
+  { value: 'cover', label: 'Magazine cover', note: 'Your names across the top like a masthead, the picture running under them.' },
 ];
 
 /**
- * Blank is the poster, and so are the retired photo backdrops and the card
- * looks that came before: a couple who chose any of them asked for their
- * picture behind their code. Only the invitation's own colours map to
- * `ground`.
+ * Blank is the silhouette, and so is everything retired that meant "my
+ * picture behind my code" — the old photo backdrops, the card looks, and the
+ * poster front that replaced them for a day. Only the invitation's own
+ * artwork maps to `ground`, and only the masthead to `cover`.
  */
 export function passLookFrom(raw: string): PassLook {
   if (raw === 'ground') return 'ground';
-  if (raw === 'arch' || raw === 'split') return 'cover';
-  return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'poster';
+  if (raw === 'arch' || raw === 'split' || raw === 'cover') return 'cover';
+  return 'silhouette';
 }
 
 export type PassDetail = { label: string; value: string };

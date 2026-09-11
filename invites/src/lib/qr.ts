@@ -208,18 +208,111 @@ export function deepenToFloor(ink: string, paper: string): string | null {
   return null;
 }
 
-/*
- * What used to sit here: QR_VEIL, QR_BLOOM_MIN_UNDER_CODE and qrOnPhoto — a
- * measured amount of white to put over a couple's photograph so a code could
- * be read off it, and a code drawn with transparent paper to composite onto
- * the result.
+/* ── a code standing on a photograph ────────────────────────────────── */
+
+/**
+ * How much paper-light goes over the photograph directly under a code.
  *
- * Nothing needs them. The code sits on the invitation's own paper in every
- * front the pass offers, and on a plate on the invitation itself, so the
- * photograph is behind the paper rather than under the modules and keeps its
- * full strength. The veil was a well-measured answer to a question that
- * should not have been asked.
+ * This is the silhouette front, and it is the one thing asked for that kept
+ * getting built and then taken out again: the code stands *on* the picture
+ * rather than on a plate laid over it. There is no card edge, no cut and no
+ * trim — the photograph simply comes up into the light under the modules and
+ * goes back to full strength a finger's width away.
+ *
+ * 0.8, measured. White at this alpha over the worst ground a photograph can
+ * offer — black — composites to #cccccc, which is 10.6:1 against the safe ink
+ * and clears QR_CONTRAST_FLOOR with room for a phone held at an angle. Below
+ * about 0.7 a dark suit or a night sky takes the code under the floor, and
+ * the failure is silent: it looks fine and it does not scan.
  */
+export const QR_VEIL = 0.8;
+
+/**
+ * The bloom is a soft circle, and softness is the risk: a gradient that has
+ * begun to fade where the code still has modules is a code with a dim corner.
+ *
+ * So the wash holds 0.96 out to 80% of its radius, and the code's furthest
+ * corner — quiet zone included — lands at 79% of it, because the disc is 180%
+ * of the code's own box and a circle round a square is 141% at the very
+ * least. That narrow margin is deliberate: a disc wide enough to fade
+ * gracefully is a disc that reads as a torch shone at the photograph, which is
+ * what the first version of this looked like. This constant is the floor the
+ * CSS is checked against rather than a value the CSS reads; the check lives in
+ * tests/qr.test.ts, which keeps the two in step when somebody retunes it.
+ */
+export const QR_BLOOM_MIN_UNDER_CODE = 0.96;
+
+/**
+ * A code with no paper of its own, for standing on the bloom.
+ *
+ * `light: 'none'` draws no backing rectangle, so the photograph shows between
+ * the modules. Error correction goes to Q rather than M: the bloom bounds how
+ * dark the ground can get under the code but it cannot make it even, and a
+ * quarter of recovery is what covers the unevenness that is left.
+ */
+export function qrOnPhoto(text: string, size: number, dark: string = QR_SAFE.dark): string {
+  return qrSvg(text, { size, dark, light: 'none', ec: 'Q', module: 'square', eye: 'rounded' });
+}
+
+/** The paper of a bloom, composited over the darkest a photograph can be. */
+function overBlack(paper: string, veil: number): string {
+  const from = /^#([0-9a-fA-F]{6})$/.exec(paper);
+  if (!from) return '#000000';
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(from[1].slice(i, i + 2), 16));
+  return `#${[r, g, b].map((v) => Math.round(v * veil).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The ink and the paper of the bloom, which have to be chosen together.
+ *
+ * The bloom is the invitation's own paper at QR_VEIL over whatever the
+ * photograph happens to be, so the worst case is that paper at that alpha over
+ * black — and a cream at 0.8 over black is a mid stone rather than paper. Two
+ * moves get it back over the floor, and the order matters more than it looks:
+ *
+ *  1. Deepen the ink, against what the paper actually composites to rather
+ *     than against the paper as drawn. The ink is a hundred small modules;
+ *     nobody sees its exact value, and deepening holds the hue exactly.
+ *  2. Only then walk the paper toward white. The paper is a disc the width of
+ *     a hand and it is the whole impression the front makes — a cream one
+ *     reads as paper and a white one reads as a torch shone at the picture.
+ *     So this is the move of last resort, not the first thing tried.
+ *
+ * Only if neither is enough does the safe near-black come back, which no
+ * palette in PALETTE_PRESETS needs.
+ */
+export function bloomColours(
+  palette: { ink: string; surface: string; bg: string; accent: string },
+  veil: number = QR_VEIL,
+): { dark: string; paper: string } {
+  const base = qrColours(palette);
+  // The design's ground before its card white: a bloom is a piece of the
+  // invitation laid on a photograph, and the ground is the colour somebody
+  // would call theirs. Anything genuinely dark is not paper and is skipped —
+  // a Midnight palette's ground would make an inverted code.
+  const papers = [palette.bg, base.light].filter((p) => (luminance(p) ?? 0) >= 0.5);
+  for (const paper of papers) {
+    const under = overBlack(paper, veil);
+    if (contrast(base.dark, under) >= QR_CONTRAST_FLOOR) return { dark: base.dark, paper };
+    const deepened = deepenToFloor(base.dark, under);
+    if (deepened) return { dark: deepened, paper };
+  }
+
+  // No paper the design owns can carry any ink at this veil. Lighten the one
+  // it would have used, as little as will do, deepening the ink at each step.
+  const from = /^#([0-9a-fA-F]{6})$/.exec(papers[0] ?? base.light);
+  if (from) {
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(from[1].slice(i, i + 2), 16));
+    for (let k = 5; k <= 100; k += 5) {
+      const paper = `#${[r, g, b]
+        .map((v) => Math.round(v + ((255 - v) * k) / 100).toString(16).padStart(2, '0'))
+        .join('')}`;
+      const ink = deepenToFloor(base.dark, overBlack(paper, veil));
+      if (ink) return { dark: ink, paper };
+    }
+  }
+  return { dark: QR_SAFE.dark, paper: '#ffffff' };
+}
 
 /** What a level of error correction can afford to lose, as a share. */
 export function recoveryBudget(ec: Ec): number {

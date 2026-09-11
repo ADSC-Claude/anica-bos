@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   qrSvg, qrColours, deepenToFloor, contrast, luminance,
-  QR_SAFE, QR_CONTRAST_FLOOR,
+  QR_SAFE, QR_CONTRAST_FLOOR, QR_VEIL, QR_BLOOM_MIN_UNDER_CODE, qrOnPhoto, bloomColours,
 } from '../src/lib/qr';
 import { PASS_LOOKS, passLookFrom } from '../src/lib/pass';
 import { PALETTE_PRESETS } from '../src/lib/theme';
@@ -99,49 +99,128 @@ test('a dark ground is never used as paper', () => {
   assert.deepEqual(ink, QR_SAFE, 'a dark palette produced a code drawn on its own darkness');
 });
 
-test('nothing is left over from veiling a photograph to read a code off it', () => {
-  // QR_VEIL, QR_BLOOM_MIN_UNDER_CODE and qrOnPhoto are gone with the approach
-  // they served: the code sits on the invitation's own paper now, so there is
-  // no photograph in its way and no white to measure over one.
-  // Checked as exports rather than as mentions: the comment that replaced them
-  // names all three, which is the point of it.
-  const qr = readFileSync(new URL('../src/lib/qr.ts', import.meta.url), 'utf8');
-  for (const gone of ['QR_VEIL', 'QR_BLOOM_MIN_UNDER_CODE', 'qrOnPhoto']) {
-    assert.doesNotMatch(qr, new RegExp(`export (const|function) ${gone}\\b`), `${gone} is still exported`);
+test('a code standing on a photograph is still standing on enough light', () => {
+  /*
+   * The silhouette front draws the code with no paper of its own and puts the
+   * light under it instead, as a bloom of the design's own paper. This is the
+   * measurement that makes that safe: the worst ground a photograph can offer
+   * is black, so the composite of the bloom over black is what the modules
+   * actually have to be read against.
+   */
+  const over = (paper: string, alpha: number) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(paper.slice(i, i + 2), 16));
+    return `#${[r, g, b].map((v) => Math.round(v * alpha).toString(16).padStart(2, '0')).join('')}`;
+  };
+  let bleached = 0;
+  for (const [key, preset] of Object.entries(PALETTE_PRESETS)) {
+    const { dark, paper } = bloomColours(preset.palette);
+    const worst = contrast(dark, over(paper, QR_VEIL));
+    assert.ok(
+      worst >= QR_CONTRAST_FLOOR,
+      `${key}: a code on a black photograph reads at ${worst.toFixed(2)}:1, under the ${QR_CONTRAST_FLOOR}:1 floor`,
+    );
+    // Nothing is allowed to fall all the way back to the safe near-black on a
+    // white ground — that is the "sticker pasted on" this whole front exists
+    // to avoid, and it would be silent if it happened.
+    if (dark === QR_SAFE.dark && paper === '#ffffff') bleached += 1;
   }
-  // And nothing imports them, which is what would actually break.
-  for (const f of ['../src/components/invite/pass.tsx', '../src/components/invite/renderer.tsx']) {
-    const src = readFileSync(new URL(f, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /qrOnPhoto|QR_VEIL/, `${f} still reaches for the veil`);
-  }
+  assert.equal(bleached, 0, 'a palette gave up its colours entirely for the bloom');
+
+  // And it is only lightened as far as it has to be: a design already clearing
+  // the floor keeps its own paper rather than being bleached white.
+  const warm = bloomColours({ ink: '#2b2622', surface: '#f6f1e8', bg: '#efe7db', accent: '#1d3a2f' });
+  assert.notEqual(warm.paper, '#ffffff', 'a paper that did not need lightening was lightened anyway');
+  assert.ok(contrast(warm.dark, over(warm.paper, QR_VEIL)) >= QR_CONTRAST_FLOOR);
 });
 
+test('the code drawn for a photograph brings no paper and extra recovery', () => {
+  // No backing rectangle: the photograph has to show between the modules, or
+  // the bloom is just a plate with soft edges.
+  const art = qrOnPhoto(URL_, 264);
+  assert.doesNotMatch(art, /<rect width="264" height="264"/, 'it drew itself a sheet of paper after all');
+  /*
+   * Q rather than M. The bloom bounds how dark the ground under the code can
+   * get; it cannot make it even, and a quarter of recovery covers the rest.
+   *
+   * Read off the drawing rather than compared to a second string: a level of
+   * recovery is more modules, and the eye's stroke is exactly one cell wide,
+   * so the grid size falls out of the markup. Comparing two whole SVGs would
+   * pass just as well and print thirteen thousand characters when it failed.
+   */
+  const grid = (svg: string) => {
+    const cell = Number(/stroke-width="([\d.]+)"/.exec(svg)![1]);
+    return Math.round(264 / cell) - 8;
+  };
+  assert.ok(
+    grid(art) > grid(qrSvg(URL_, { size: 264, ec: 'M' })),
+    'the code for a photograph is drawn at no more recovery than an ordinary one',
+  );
+  assert.equal(grid(art), grid(qrSvg(URL_, { size: 264, ec: 'Q' })), 'it is not at Q');
+});
 
+test('the bloom holds full strength everywhere the code covers', () => {
+  /*
+   * The geometry, checked rather than asserted in a comment. A circle drawn
+   * round a square touches its corners at 141% of the square's width, so a
+   * disc of D times the code reaches the code's furthest corner — quiet zone
+   * included, since the drawn box is the quiet zone — at (√2 / 2) / (D / 2)
+   * of its own radius. The gradient must still be at full strength there.
+   */
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const width = (block: string) => Number(/width: ([\d.]+)rem/.exec(block)?.[1]);
+  const after = (sel: string) => css.slice(css.indexOf(sel));
+  const floor = Math.round(QR_BLOOM_MIN_UNDER_CODE * 100);
 
+  const discs: [string, number][] = [
+    // The pass: both in rem, so the ratio is the two widths.
+    ['.pass-bloom {', width(after('.pass-bloom {')) / width(after('.pass-code-art {'))],
+    // The invitation: the code is a share of its own disc.
+    ['.inv-pass-bloom {', 100 / Number(/width: ([\d.]+)%/.exec(after('.inv-pass-bloom > span'))?.[1] ?? 0)],
+  ];
 
-
+  for (const [sel, ratio] of discs) {
+    assert.ok(ratio >= Math.SQRT2, `${sel} is ${ratio.toFixed(2)}× its code — the disc does not reach the corners`);
+    const corner = Math.SQRT2 / 2 / (ratio / 2);
+    const block = css.slice(css.indexOf(sel), css.indexOf('}', css.indexOf(sel)));
+    const held = /var\(--pass-paper[^)]*\) (\d+)%, transparent\) (\d+)%/g;
+    const stops = [...block.matchAll(held)].map((m) => ({ alpha: Number(m[1]), at: Number(m[2]) }));
+    const last = stops.filter((x) => x.alpha >= floor).sort((a, b) => b.at - a.at)[0];
+    assert.ok(last, `${sel} never holds the paper at ${floor}% — the code stands on a fade`);
+    assert.ok(
+      corner * 100 <= last.at,
+      `${sel}: the code reaches ${(corner * 100).toFixed(0)}% of the bloom but it holds only to ${last.at}%`,
+    );
+  }
+});
 
 test('the three fronts are offered, and the retired backdrops read as one of them', () => {
   // A couple who chose "photo behind the card" or "photo behind the code"
   // asked for their picture behind their code; both are the photograph front.
-  assert.deepEqual(PASS_LOOKS.map((l) => l.value), ['poster', 'cover', 'ground']);
-  assert.equal(passLookFrom(''), 'poster');
-  assert.equal(passLookFrom('photoCard'), 'poster');
-  assert.equal(passLookFrom('photoBehind'), 'poster');
+  // In the order they were asked for: the photograph, then the invitation's
+  // own design, then the masthead.
+  assert.deepEqual(PASS_LOOKS.map((l) => l.value), ['silhouette', 'ground', 'cover']);
+  assert.equal(passLookFrom(''), 'silhouette');
+  assert.equal(passLookFrom('photoCard'), 'silhouette');
+  assert.equal(passLookFrom('photoBehind'), 'silhouette');
+  // The poster front that stood here for a day meant the same picture.
+  assert.equal(passLookFrom('poster'), 'silhouette');
   assert.equal(passLookFrom('ground'), 'ground');
   // The old keys for the same idea, kept readable rather than reset to default.
   assert.equal(passLookFrom('split'), 'cover');
   assert.equal(passLookFrom('arch'), 'cover');
-  assert.equal(passLookFrom('somethingElse'), 'poster');
+  assert.equal(passLookFrom('somethingElse'), 'silhouette');
 });
 
-test('the code on the invitation sits on paper, over a photograph at full strength', () => {
-  // Never veiled under the modules: that costs the photograph everything and
-  // buys the code nothing a plate does not.
+test('the invitation and the door draw the code the same way', () => {
+  // One language across the product: the block on the invitation is the same
+  // silhouette as the pass, not a plate laid over the picture.
   assert.match(renderer, /if \(look !== 'ground' && photo\)/, 'a missing photo would render a code onto nothing');
-  assert.match(renderer, /className="inv-pass-plate"/, 'the code has no paper of its own');
-  assert.doesNotMatch(renderer, /qrOnPhoto/, 'the code is drawn onto the photograph again');
-  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  const block = css.slice(css.indexOf('.inv-pass {'), css.indexOf('.inv-btn {'));
-  assert.doesNotMatch(block, /rgba\(255, 255, 255/, 'a white veil is back over the photograph');
+  assert.match(renderer, /className="inv-pass-bloom"/, 'the code is back on a plate');
+  assert.doesNotMatch(renderer, /inv-pass-plate/, 'the plate came back alongside the bloom');
+  // Both draw with the measured pair rather than with the card ink, which is
+  // the mistake that would look right and scan badly on a dark photograph.
+  for (const [name, src] of [['the invitation', renderer], ['the pass', readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8')]] as const) {
+    assert.match(src, /qrOnPhoto\(url, \d+, bloom\.dark\)/, `${name} draws the code in an unmeasured ink`);
+    assert.match(src, /'--pass-paper': bloom\.paper/, `${name} paints the bloom in an unmeasured colour`);
+  }
 });

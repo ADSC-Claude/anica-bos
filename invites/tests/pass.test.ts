@@ -263,7 +263,21 @@ test('the fall is a composition, not a veil over the photograph', () => {
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
   const front = css.slice(css.indexOf('.pass {'), css.indexOf('/* ── after the scan'));
   assert.ok(!front.includes('backdrop-filter'), 'the photograph is blurred again');
-  assert.ok(!front.includes('radial-gradient'), 'a wash is back under the code');
+  /*
+   * There is exactly one radial on this page and it is the bloom under the
+   * code. The thing to keep out is the *page-sized* wash an earlier version
+   * had — so the test is that the radial is bounded to a multiple of the
+   * code's own box rather than stretched across the picture.
+   */
+  const bloom = front.slice(front.indexOf('.pass-bloom {'), front.indexOf('.pass-code-art {'));
+  assert.equal(front.match(/radial-gradient/g)?.length, 1, 'a second wash appeared somewhere on the front');
+  assert.ok(!/inset: 0/.test(bloom), 'the bloom covers the whole picture — that is the wash again');
+  // Sized off the code rather than off the page: a disc the width of a hand
+  // is the torch-beam version, and it is the one that got sent back.
+  const disc = Number(/width: ([\d.]+)rem/.exec(bloom)?.[1]);
+  const code = Number(/width: ([\d.]+)rem/.exec(front.slice(front.indexOf('.pass-code-art {')))?.[1]);
+  assert.ok(disc > 0 && code > 0, 'could not read the bloom and the code');
+  assert.ok(disc / code <= 2, `the bloom is ${(disc / code).toFixed(2)}× the code — that reads as a spotlight`);
   const fall = front.slice(front.indexOf('.pass-fall {'), front.indexOf('.pass-stage {'));
   assert.match(fall, /linear-gradient\(to bottom/, 'the fall is not a gradient down the page');
   // It has to reach zero somewhere in the upper half, or it is a veil.
@@ -273,19 +287,28 @@ test('the fall is a composition, not a veil over the photograph', () => {
   assert.ok(Math.min(...clear.map((x) => x.at)) <= 50, 'the photograph is dark through its whole top half');
 });
 
-test('the code is the smallest thing on the screen, not the biggest', () => {
-  // It is what the desk scans, and it has no business being the largest thing
-  // on a photograph of somebody's wedding. A magazine carries its barcode in
-  // the corner; so does this.
+test('the code stands on the picture, and does not swallow it', () => {
+  /*
+   * The code is a focal point here rather than a barcode in a corner — that is
+   * the silhouette, and the version that hid it in the corner read as dull.
+   * But the bloom is 260% of it, so a code sized carelessly puts a disc of
+   * light across the whole photograph. On the narrowest phone this has to
+   * hold: 390px, less the stage's own side padding.
+   */
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
   const front = css.slice(css.indexOf('.pass {'), css.indexOf('/* ── after the scan'));
   const art = front.slice(front.indexOf('.pass-code-art {'), front.indexOf('.pass-code-art svg'));
+  const bloom = front.slice(front.indexOf('.pass-bloom {'), front.indexOf('.pass-code-art {'));
   const code = Number(/width: ([\d.]+)rem/.exec(art)?.[1]);
-  const names = Number(/font-size: clamp\(([\d.]+)rem/.exec(front.slice(front.indexOf('.pass-names {')))?.[1]);
-  assert.ok(code > 0 && names > 0, 'could not read the two sizes');
-  assert.ok(code <= names * 2.2, `the code is ${code}rem against names of ${names}rem — it is dominating the picture`);
-  // And it keeps its own paper, because a code on a photograph cannot be read.
-  assert.match(art, /background: #fff/, 'the code has no paper under it');
+  const disc = Number(/width: ([\d.]+)rem/.exec(bloom)?.[1]);
+  assert.ok(code > 0 && disc > 0, 'could not read the code size');
+  assert.ok(disc * 16 <= 390 - 2 * 24, `the bloom is ${disc * 16}px inside a 390px screen with padding`);
+  // Big enough for a desk to scan at arm's length, too. Under about 96px a
+  // code stops being reliable across a queue.
+  assert.ok(code * 16 >= 96, `the code is ${code * 16}px — too small to scan from a doorway`);
+  // And it brings no paper of its own: the bloom is the paper, and a
+  // background here would put the crisp plate back.
+  assert.ok(!/background:/.test(art), 'the code is back on a plate of its own');
 });
 
 test('the front says whose pass it is', () => {
@@ -295,6 +318,31 @@ test('the front says whose pass it is', () => {
   assert.match(pass, /className="pass-for">\{greeting\}</, 'the guest’s own name is not on the front');
 });
 
+test('the picker tile shows the bloom, not the photograph before it', () => {
+  /*
+   * The refinement that kept being skipped. A couple choosing this front from
+   * a thumbnail will get a photograph with a disc of light on it; a tile that
+   * drew the clean picture instead would be selling a page we do not build,
+   * and they would find out at the door.
+   *
+   * So the tile draws the radial itself, at the same 260% and the same held
+   * stop as the page.
+   */
+  const fields = readFileSync(new URL('../src/components/builder/fields.tsx', import.meta.url), 'utf8');
+  const thumb = fields.slice(fields.indexOf('function PassThumb('), fields.indexOf('function ImageInput('));
+  assert.match(thumb, /radial-gradient\(circle closest-side/, 'the tile draws no bloom, so it shows a page we do not build');
+  // The page's ratio, written down rather than re-guessed: the tile's code is
+  // its disc divided by the same number the stylesheet uses.
+  assert.match(thumb, /\$\{100 \/ 1\.8\}%/, 'the tile’s bloom is not the page’s bloom');
+  // Scoped to the mark: the white type lines further down are drawn with a
+  // flat white too, and an unscoped check would be reading those.
+  const mark = thumb.slice(thumb.indexOf('const mark ='), thumb.indexOf('const picture ='));
+  assert.ok(!/borderRadius: 1,\s*padding: 2/.test(mark), 'the tile still draws the code on a plate');
+  // The disc is the box. Drawn as an absolutely-positioned glow it overflows
+  // upward and swallows the line above it, which is what it did.
+  assert.ok(!/position: 'absolute'[^}]*borderRadius: '50%'/.test(mark), 'the tile’s bloom floats free of the layout again');
+});
+
 test('the picker offers the three fronts, each drawn and explained', () => {
   const look = fieldsFor('checkin', 'WEDDING', 'LUXURY', false).find((f) => f.key === 'look');
   assert.ok(look, 'the check-in section has no look picker');
@@ -302,10 +350,10 @@ test('the picker offers the three fronts, each drawn and explained', () => {
   assert.equal(options.length, 3);
   assert.equal(options.length, PASS_LOOKS.length);
   assert.ok(options.some((o) => o.value === ''), 'no option holds the blank value, so a phantom tile appears');
-  assert.equal(options.find((o) => o.value === '')?.label, 'Poster');
+  assert.equal(options.find((o) => o.value === '')?.label, 'Silhouette');
   for (const o of options) {
     assert.ok(o.hint && o.hint.length > 12, `${o.label} has no note under it`);
-    assert.match(o.art ?? '', /^pass-(poster|cover|ground)$/, `${o.label} would borrow another field's drawing`);
+    assert.match(o.art ?? '', /^pass-(silhouette|cover|ground)$/, `${o.label} would borrow another field's drawing`);
   }
   assert.deepEqual(options.map((o) => o.art), PASS_LOOKS.map((l) => `pass-${l.value}`));
 });

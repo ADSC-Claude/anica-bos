@@ -58,6 +58,16 @@ export const SHAPE_GUIDANCE: Record<AskShape, string> = {
   wide: 'Very wide and short, like a banner. Nothing important near the top or the bottom.',
 };
 
+/**
+ * And what the frame's cut does to it, which a customer has to know before
+ * they choose: a face that sits near a corner of the picture is not in the
+ * circle at all. A frame with square corners says nothing extra.
+ */
+export const CUT_GUIDANCE: Record<'circle' | 'arch', string> = {
+  circle: 'It is cut to a circle, so keep the face well inside the middle and away from the corners.',
+  arch: 'It is cut to an arch, rounded right across the top, so nothing that matters goes in the top corners.',
+};
+
 const refOf = (el: Element): FieldRef | undefined => {
   if (el.kind === 'photo') return 'asset' in el.bind ? undefined : el.bind;
   if (el.kind !== 'text') return undefined;
@@ -88,6 +98,10 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
       const place = ref.index === undefined ? '' : of && of > 1 ? ` (${ref.index + 1} of ${of})` : ` ${ref.index + 1}`;
       const what = field?.label ?? ref.sub ?? ref.field;
       const shape = el.kind === 'photo' ? shapeOf((el as PhotoEl).aspect) : undefined;
+      const cut = el.kind === 'photo' ? (el as PhotoEl).mask : undefined;
+      const guidance = shape
+        ? cut && cut !== 'none' ? `${SHAPE_GUIDANCE[shape]} ${CUT_GUIDANCE[cut]}` : SHAPE_GUIDANCE[shape]
+        : undefined;
       out.push({
         id: el.id,
         page: page.key,
@@ -95,7 +109,7 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
         ref,
         field: field?.key,
         label: `${sectionLabel(ref.section as SectionKey, occasion)} — ${what}${place}`,
-        ...(shape ? { shape, guidance: SHAPE_GUIDANCE[shape] } : {}),
+        ...(shape ? { shape, guidance } : {}),
         ...(el.kind === 'text' && (el as TextEl).room ? { room: (el as TextEl).room } : {}),
         ...(el.ifEmpty ? { ifEmpty: el.ifEmpty } : {}),
         ...(field ? {} : { orphan: true }),

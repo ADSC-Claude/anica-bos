@@ -415,6 +415,106 @@ export function elementStyle(el: Element, grow?: number): Record<string, string>
   return st;
 }
 
+/**
+ * The frame itself: the shape it holds and the cut it is given.
+ *
+ * A frame is a square in the stylesheet (`.inv-bb-slot { aspect-ratio: 1 }`)
+ * because Baby Blue's four polaroids and six milestones are squares. A frame
+ * drawn to any other shape says so here and nowhere else, and a square one
+ * says nothing at all, so the markup those two designs have always served is
+ * the markup they still serve.
+ *
+ * A mask is a border radius, which means it cuts the picture and the card
+ * alike and costs nothing: no clip path, no SVG, no second element.
+ */
+export function photoStyle(el: PhotoEl): Record<string, string> {
+  const st: Record<string, string> = {};
+  if (el.aspect !== undefined && el.aspect !== 1) st.aspectRatio = `1 / ${place(el.aspect)}`;
+  const cut = maskRadius(el);
+  if (cut) st.borderRadius = cut;
+  return st;
+}
+
+/**
+ * The cut, as a border radius.
+ *
+ * A circle is the easy one. An arch is a semicircle sitting on straight
+ * sides, so its top radius is half the frame's *width* measured both ways —
+ * and a border radius reads its second number as a share of the height, so
+ * half a width on a box `aspect` widths tall is `50 / aspect` percent. On a
+ * frame wider than it is tall that would ask for more height than there is;
+ * the browser would scale every corner down together and quietly change the
+ * shape, so it is capped here instead, where it can be said out loud: a wide
+ * arch is a half-ellipse, because a wide semicircle does not fit.
+ */
+export function maskRadius(el: PhotoEl): string | undefined {
+  if (!el.mask || el.mask === 'none') return undefined;
+  if (el.mask === 'circle') return '50%';
+  const up = place(Math.min(50 / (el.aspect ?? 1), 100));
+  return `50% 50% 0 0 / ${up}% ${up}% 0 0`;
+}
+
+/**
+ * A crop, as the picture's own size and offset inside its frame.
+ *
+ * Nothing is re-encoded and no image library runs: the picture is blown up
+ * until the window she chose is exactly the size of the frame, then slid so
+ * that window lands on it. `w` of 0.5 means the window is half the picture
+ * wide, so the picture is drawn two frames wide; `x` of 0.25 means it starts
+ * a quarter in, so it is slid half a frame to the left. Exact at every
+ * width, and the file that arrives is still the one the transform endpoint
+ * sized for the column.
+ */
+export function cropStyle(crop: NonNullable<PhotoEl['crop']>): Record<string, string> {
+  return {
+    width: `${place(100 / crop.w)}%`,
+    height: `${place(100 / crop.h)}%`,
+    left: `${place(-(crop.x / crop.w) * 100)}%`,
+    top: `${place(-(crop.y / crop.h) * 100)}%`,
+  };
+}
+
+/**
+ * The window a zoom and a centre choose, in fractions of the source.
+ *
+ * The window's shape is locked to the frame's, whatever shape the picture
+ * is: a square frame shows a square of the picture, which is exactly what
+ * `object-fit: cover` does for an uncropped frame today. That is what makes
+ * cropping safe to add — zoom 1 centred is the picture a guest already sees,
+ * so switching crop on and pressing nothing changes nothing.
+ *
+ * Above zoom 1 the window shrinks and can be moved about; it is clamped to
+ * the picture's edges, so she can never pan past the paper and leave a strip
+ * of frame with nothing in it.
+ */
+export function cropWindow({ aspect = 1, nw, nh, zoom = 1, cx = 0.5, cy = 0.5 }: {
+  aspect?: number; nw: number; nh: number; zoom?: number; cx?: number; cy?: number;
+}): NonNullable<PhotoEl['crop']> {
+  // the window's height over its width, measured in fractions of the source
+  const want = aspect * (nw / nh);
+  const z = Math.max(1, zoom);
+  const w = (want <= 1 ? 1 : 1 / want) / z;
+  const h = (want <= 1 ? want : 1) / z;
+  return {
+    x: place(Math.min(Math.max(cx - w / 2, 0), 1 - w)),
+    y: place(Math.min(Math.max(cy - h / 2, 0), 1 - h)),
+    w: place(w),
+    h: place(h),
+  };
+}
+
+/**
+ * How far in a crop is zoomed and where its middle sits: what cropWindow
+ * takes back. Nothing here is rounded — these are the studio's own numbers
+ * while her hand is on the picture, and the window they make is rounded
+ * when it is written into the document, which is the only place it matters.
+ */
+export function cropAt(crop: NonNullable<PhotoEl['crop']>, aspect = 1, nw = 1, nh = 1): { zoom: number; cx: number; cy: number } {
+  const want = aspect * (nw / nh);
+  const fit = want <= 1 ? 1 : 1 / want;
+  return { zoom: fit / crop.w, cx: crop.x + crop.w / 2, cy: crop.y + crop.h / 2 };
+}
+
 // ---------------------------------------------------------------------------
 // Reading the column
 // ---------------------------------------------------------------------------
@@ -490,7 +590,7 @@ const zElement = z.union([
     ...zBase, kind: z.literal('photo'), aspect: z.number().positive().max(10).optional(),
     bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
     alt: zFieldRef.optional(),
-    crop: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).strict().optional(),
+    crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
     frame: z.enum(['none', 'thin', 'polaroid']).optional(),
     mask: z.enum(['none', 'circle', 'arch']).optional(),
     animated: z.boolean().optional(),

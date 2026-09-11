@@ -218,3 +218,24 @@ test('two frames of different shapes on one field say nothing rather than half a
   b.aspect = 1.5;
   assert.match(designForm(doc, 'CHRISTENING' as never).shape['story.timeline.photo'], /Upright/);
 });
+
+test('a cut frame tells the customer what the cut will do to their photograph', () => {
+  const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
+  const page = doc.pages.find((p) => p.key === 'baby-photos')!;
+  const frames = page.elements!.filter((e) => e.kind === 'photo') as PhotoEl[];
+  frames.forEach((f) => { f.ask = true; });
+  (frames[1] as PhotoEl).mask = 'circle';
+  (frames[2] as PhotoEl).mask = 'arch';
+  (frames[3] as PhotoEl).mask = 'none';
+  const asks = asksOf(doc, 'CHRISTENING' as never).filter((a) => a.page === 'baby-photos');
+  assert.equal(asks.length, 4);
+  // square corners say nothing extra, and never have
+  assert.equal(asks[0].guidance, SHAPE_GUIDANCE.square);
+  assert.equal(asks[3].guidance, SHAPE_GUIDANCE.square);
+  // a cut one says the shape first and then what the cut does to it
+  assert.ok(asks[1].guidance!.startsWith(SHAPE_GUIDANCE.square));
+  assert.match(asks[1].guidance!, /cut to a circle/);
+  assert.match(asks[2].guidance!, /cut to an arch/);
+  // and the shape itself is untouched: a cut is not a shape
+  assert.equal(asks[1].shape, 'square');
+});

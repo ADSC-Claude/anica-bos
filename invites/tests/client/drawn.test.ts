@@ -141,3 +141,56 @@ test('an element marked for the studio keeps exactly the style it had', () => {
   const editing = styles(studio('story'));
   assert.deepEqual(editing, guest);
 });
+
+/**
+ * A shape, a card, a cut and a window on the picture, and none of them said
+ * unless they are set. The two designs as shipped set none, which is why
+ * their markup is the markup they have always served.
+ */
+test('a frame says nothing about its shape, its card, its cut or its fitting unless it has one', () => {
+  const plain = html('baby-photos');
+  for (const said of ['data-crop', 'data-frame', 'data-mask', 'aspect-ratio', 'border-radius', 'inv-bb-ghost']) {
+    assert.doesNotMatch(plain, new RegExp(said), `a shipped frame says ${said}`);
+  }
+});
+
+test('a fitted frame in a card with an arch cut says exactly those four things', () => {
+  const dressed = JSON.parse(JSON.stringify(page('baby-photos'))) as PageSpec;
+  const frame = dressed.elements!.find((e) => e.kind === 'photo')!;
+  Object.assign(frame, { aspect: 1.25, frame: 'polaroid', mask: 'arch', crop: { x: 0.25, y: 0, w: 0.5, h: 1 } });
+  const markup = renderToStaticMarkup(DrawnPage({ page: dressed, content, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(markup, /data-crop="" data-frame="polaroid" data-mask="arch"/);
+  // the frame's own box: a quarter taller than it is wide, arched at the top
+  const box = styles(markup)[1];
+  assert.equal(box['aspect-ratio'], '1 / 1.25');
+  assert.equal(box['border-radius'], '50% 50% 0 0 / 40% 40% 0 0');
+  // and the picture inside it, blown up twice and slid half a frame left
+  const inside = styles(markup)[2];
+  assert.deepEqual(inside, { width: '200%', height: '100%', left: '-50%', top: '0%' });
+  // the other three frames are untouched
+  assert.equal([...markup.matchAll(/data-frame=/g)].length, 1);
+});
+
+/**
+ * The whole picture behind the frame she is fitting. It is the studio's, and
+ * it is drawn from the element's own placement, so it lands on the frame
+ * exactly — turn and all — with no second set of geometry to keep in step.
+ */
+test('the ghost is drawn for the frame being fitted, for the studio alone', () => {
+  const editing = studio('baby-photos');
+  assert.doesNotMatch(editing, /inv-bb-ghost/);
+
+  const fitting = renderToStaticMarkup(DrawnPage({
+    page: page('baby-photos'), content, look: undefined, lang: 'en',
+    edit: { label: (el) => `fills ${el.id}`, cropping: 'photos-photo-2' },
+  }) as ReactElement);
+  assert.equal([...fitting.matchAll(/inv-bb-ghost/g)].length, 1);
+  // it sits immediately before its frame and carries the frame's own
+  // placement, which is what makes it land on the frame, turn and all
+  const pair = fitting.match(/<div class="inv-bb-ghost" aria-hidden="true" style="([^"]*)"><img src="[^"]*photo-2[^"]*" alt="" style="width:100%;height:100%"\/><\/div><figure class="inv-bb-slot" style="([^"]*)" data-el="photos-photo-2"/);
+  assert.ok(pair, 'no ghost in front of the frame being fitted');
+  assert.equal(pair![1], pair![2]);
+  // and a guest is never given one, however the document is fitted
+  const guest = html('baby-photos');
+  assert.doesNotMatch(guest, /inv-bb-ghost/);
+});

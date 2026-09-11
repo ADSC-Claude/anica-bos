@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
   isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, titleWord,
+  cropWindow, cropAt,
   LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey,
@@ -59,7 +60,17 @@ type Drag =
   /** every id that is travelling, where each started, and which one the pointer holds */
   | { kind: 'move'; ids: string[]; from: Record<string, { x: number; y: number }>; lead: string; px: number; py: number }
   | { kind: 'size'; id: string; w: number; px: number }
-  | { kind: 'turn'; id: string; cx: number; cy: number; from: number; rotate: number };
+  | { kind: 'turn'; id: string; cx: number; cy: number; from: number; rotate: number }
+  /** fitting a picture inside a frame that does not move: the window pans */
+  | { kind: 'crop'; id: string; px: number; py: number; cx: number; cy: number };
+
+/**
+ * A picture being fitted: which frame, how big the file actually is, and
+ * where the window sits meanwhile. The window itself is written into the
+ * document as she drags, so the page under her hand is the page a guest
+ * would get; `was` is what it held before, for Esc.
+ */
+type Fitting = { id: string; nw: number; nh: number; zoom: number; cx: number; cy: number; was?: PhotoEl['crop'] };
 
 export function Studio(p: Props) {
   const [doc, setDoc] = useState<DesignDoc>(p.doc);
@@ -80,6 +91,7 @@ export function Studio(p: Props) {
   const future = useRef<DesignDoc[]>([]);
   const stage = useRef<HTMLDivElement | null>(null);
   const drag = useRef<Drag | null>(null);
+  const [fit, setFit] = useState<Fitting | null>(null);
 
   const page = doc.pages.find((x) => x.key === pageKey) ?? doc.pages[0];
   const elements = useMemo(() => page?.elements ?? [], [page]);
@@ -224,6 +236,12 @@ export function Studio(p: Props) {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return;
+      // while she is fitting a picture the keyboard belongs to the fitting
+      if (fit) {
+        if (e.key === 'Enter') { e.preventDefault(); keepFit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); dropFit(); }
+        return;
+      }
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
       if (mod && e.key.toLowerCase() === 'a' && page?.drawn) { e.preventDefault(); setSel(elements.map((el) => el.id)); return; }
@@ -243,7 +261,7 @@ export function Studio(p: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sel, page, elements, editEls, undo, redo]);
+  }, [sel, page, elements, editEls, undo, redo, fit]);
 
   /** A page's own key, free of every other page's. */
   function freePageKey(stem: string): string {
@@ -476,6 +494,14 @@ export function Studio(p: Props) {
     }
     drag.current = { kind: 'move', ids, from, lead: el.id, px: e.clientX, py: e.clientY };
   }
+  /** While a picture is being fitted, its own frame is the surface she drags on. */
+  function startPan(e: RPointerEvent, el: Element) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!fit || fit.id !== el.id) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { kind: 'crop', id: el.id, px: e.clientX, py: e.clientY, cx: fit.cx, cy: fit.cy };
+  }
   function startSize(e: RPointerEvent, el: Element) {
     e.preventDefault();
     e.stopPropagation();
@@ -524,13 +550,90 @@ export function Studio(p: Props) {
       // the box is centred on x, so the corner moves half of what the width does
       const w = Math.max(1, d.w + ((e.clientX - d.px) / b.width) * 200);
       editEl(d.id, (el) => ({ ...el, w: place(w) }), false);
-    } else {
+    } else if (d.kind === 'turn') {
       let deg = d.rotate + ((Math.atan2(e.clientY - d.cy, e.clientX - d.cx) - d.from) * 180) / Math.PI;
       if (e.shiftKey) deg = Math.round(deg / 15) * 15;
       editEl(d.id, (el) => ({ ...el, rotate: place(((deg + 180) % 360) - 180) }), false);
+    } else {
+      // panning a picture inside a frame that does not move. The frame may be
+      // turned — Baby Blue's polaroids all are — so the hand's travel is
+      // turned back the other way before it is read as across and down.
+      const f = fit;
+      const el = elements.find((x) => x.id === d.id);
+      if (!f || !el || el.kind !== 'photo') return;
+      const win = cropWindow({ aspect: el.aspect ?? 1, nw: f.nw, nh: f.nh, zoom: f.zoom });
+      const rad = (-(el.rotate ?? 0) * Math.PI) / 180;
+      const hx = e.clientX - d.px;
+      const hy = e.clientY - d.py;
+      const across = hx * Math.cos(rad) - hy * Math.sin(rad);
+      const down = hx * Math.sin(rad) + hy * Math.cos(rad);
+      const fw = ((el.w ?? 20) / 100) * b.width;
+      const fh = fw * (el.aspect ?? 1);
+      putFit({ ...f, cx: d.cx - (across / fw) * win.w, cy: d.cy - (down / fh) * win.h });
     }
   }
   const endDrag = () => { drag.current = null; };
+
+  // --- fitting a picture inside its frame -----------------------------------
+
+  /**
+   * The window she has chosen, written into the document as she moves.
+   *
+   * It goes in live and unmarked: the frame under her hand shows the real
+   * picture at the real crop, which is the whole point of doing it on the
+   * page rather than in a dialogue. One undo step was pushed when she
+   * started, so undo afterwards puts back the picture she began with.
+   */
+  const putFit = useCallback((f: Fitting) => {
+    const el = elements.find((x) => x.id === f.id);
+    if (!el || el.kind !== 'photo') return;
+    setFit(f);
+    const win = cropWindow({ aspect: el.aspect ?? 1, nw: f.nw, nh: f.nh, zoom: f.zoom, cx: f.cx, cy: f.cy });
+    editEl(f.id, (e) => ({ ...(e as PhotoEl), crop: win }), false);
+  }, [elements, editEl]);
+
+  function startFit(id: string) {
+    const el = elements.find((x) => x.id === id);
+    if (!el || el.kind !== 'photo') return;
+    // the file's own size is what locks the window to the frame's shape, and
+    // the only place it is known is the picture the browser has loaded
+    const img = stage.current?.querySelector<HTMLImageElement>(`[data-el="${id}"] img`);
+    if (!img?.naturalWidth || !img.naturalHeight) return;
+    past.current = [...past.current.slice(-49), doc];
+    future.current = [];
+    setSel([id]);
+    const at = el.crop ? cropAt(el.crop, el.aspect ?? 1, img.naturalWidth, img.naturalHeight) : { zoom: 1, cx: 0.5, cy: 0.5 };
+    setFit({ id, nw: img.naturalWidth, nh: img.naturalHeight, was: el.crop, ...at });
+  }
+  const keepFit = () => setFit(null);
+  function dropFit() {
+    if (!fit) return;
+    const was = fit.was;
+    editEl(fit.id, (e) => {
+      const back = { ...(e as PhotoEl) };
+      if (was) back.crop = was; else delete back.crop;
+      return back;
+    }, false);
+    // the step pushed when she started is hers no longer
+    past.current = past.current.slice(0, -1);
+    setFit(null);
+  }
+
+  /**
+   * Scrolling zooms. React binds a wheel listener passively at the root, so
+   * it cannot be a prop: without `passive: false` the canvas would zoom and
+   * the panel behind it would scroll at the same time.
+   */
+  useEffect(() => {
+    const node = stage.current;
+    if (!node || !fit) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      putFit({ ...fit, zoom: Math.min(10, Math.max(1, fit.zoom * (e.deltaY < 0 ? 1.09 : 1 / 1.09))) });
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, [fit, putFit]);
 
   // --- what an empty frame says ---------------------------------------------
 
@@ -780,9 +883,9 @@ export function Studio(p: Props) {
                 onPointerMove={onMove}
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
-                onPointerDown={() => setSel([])}
+                onPointerDown={() => { if (!fit) setSel([]); }}
               >
-                {page && <DrawnPage page={page} content={p.content} look={p.look} lang="en" edit={{ label }} />}
+                {page && <DrawnPage page={page} content={p.content} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />}
                 {/*
                   * The handles, over the real page. The layer itself lets the
                   * pointer through, so a click on bare ground still deselects;
@@ -821,9 +924,11 @@ export function Studio(p: Props) {
                         at={boxes[el.id]}
                         on={chosen.has(el.id)}
                         solo={sel.length === 1}
-                        onDown={(e) => startMove(e, el)}
+                        fitting={fit ? (fit.id === el.id ? 'this' : 'other') : undefined}
+                        onDown={(e) => (fit ? startPan(e, el) : startMove(e, el))}
                         onSize={(e) => startSize(e, el)}
                         onTurn={(e) => startTurn(e, el)}
+                        onFit={() => startFit(el.id)}
                       />
                     ))}
                   </div>
@@ -867,6 +972,8 @@ export function Studio(p: Props) {
             measureRoom={() => measureRoom(selected.id)}
             attachable={elements.filter((e) => canAttach(elements, selected.id, e.id)).map((e) => ({ id: e.id, label: label(e) }))}
             grows={Boolean(page?.grow)}
+            onFit={() => (fit ? keepFit() : startFit(selected.id))}
+            fitting={fit?.id === selected.id}
           />
         ) : (
           <PageProps
@@ -912,20 +1019,30 @@ type Box = { x: number; y: number; w: number; h: number };
  * of them they are six pairs of dots over the page, and resizing a group by
  * one corner is not what the corner means.
  */
-function Handle({ el, at, on, solo, onDown, onSize, onTurn }: { el: Element; at?: Box; on: boolean; solo: boolean; onDown: (e: RPointerEvent) => void; onSize: (e: RPointerEvent) => void; onTurn: (e: RPointerEvent) => void }) {
+function Handle({ el, at, on, solo, fitting, onDown, onSize, onTurn, onFit }: {
+  el: Element; at?: Box; on: boolean; solo: boolean;
+  /** 'this' is the picture she is fitting; 'other' is everything else, which waits */
+  fitting?: 'this' | 'other';
+  onDown: (e: RPointerEvent) => void; onSize: (e: RPointerEvent) => void; onTurn: (e: RPointerEvent) => void; onFit: () => void;
+}) {
   if (!at) return null;
   return (
     <div
       data-handle={el.id}
       data-on={on ? '' : undefined}
+      data-fitting={fitting === 'this' ? '' : undefined}
       onPointerDown={onDown}
+      onDoubleClick={el.kind === 'photo' && !fitting ? onFit : undefined}
       style={{
         position: 'absolute', left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%`, height: `${at.h}%`,
-        cursor: 'move', background: 'transparent', pointerEvents: 'auto',
-        outline: on ? '2px solid #2f6fd0' : '1px dashed rgba(47,111,208,0.4)',
+        cursor: fitting === 'this' ? 'grab' : 'move', background: 'transparent',
+        // everything but the picture being fitted waits: a stray click while
+        // she is panning must not pick something else up
+        pointerEvents: fitting === 'other' ? 'none' : 'auto',
+        outline: fitting === 'this' ? '2px solid #f59e0b' : on ? '2px solid #2f6fd0' : '1px dashed rgba(47,111,208,0.4)',
       }}
     >
-      {on && solo && (
+      {on && solo && !fitting && (
         <>
           <span onPointerDown={onSize} style={{ position: 'absolute', right: -6, bottom: -6, width: 12, height: 12, borderRadius: 2, background: '#2f6fd0', cursor: 'nwse-resize' }} />
           <span onPointerDown={onTurn} style={{ position: 'absolute', left: '50%', top: -22, marginLeft: -6, width: 12, height: 12, borderRadius: 99, background: '#2f6fd0', cursor: 'grab' }} />
@@ -959,7 +1076,7 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable, grows }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, label, measureRoom, attachable, grows, onFit, fitting }: {
   el: Element; ratio: number; label: string; occasion: Occasion;
   onChange: (fn: (e: Element) => Element) => void;
   onMoveTo: (at: { x?: number; y?: number }) => void;
@@ -967,6 +1084,8 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   measureRoom: () => number | undefined;
   attachable: Named[];
   grows: boolean;
+  onFit: () => void;
+  fitting: boolean;
 }) {
   const num = (v: number | undefined, set: (n: number) => void, step = 0.1) => (
     <input type="number" value={v ?? ''} step={step} onChange={(e) => set(place(Number(e.target.value)))} className="input w-full" />
@@ -996,7 +1115,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       )}
       <Attach value={el.attachTo} options={attachable} onChange={(to) => onChange((e) => ({ ...e, attachTo: to }))} />
       {el.kind === 'photo' && (
-        <label className="block"><span className="label">Shape (height over width)</span>{num((el as PhotoEl).aspect, (n) => onChange((e) => ({ ...(e as PhotoEl), aspect: n })), 0.05)}</label>
+        <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} />
       )}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
       <label className="block">
@@ -1013,6 +1132,73 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         <button type="button" onClick={onRemove} className="btn btn-ghost btn-sm text-red-700">Delete</button>
       </div>
     </>
+  );
+}
+
+/** What a frame can be given: no card, a thin border, or a polaroid with a strip. */
+const FRAMES: { key: NonNullable<PhotoEl['frame']>; label: string }[] = [
+  { key: 'none', label: 'No frame \u2014 the ground has one painted on, or none is wanted' },
+  { key: 'thin', label: 'A thin white border' },
+  { key: 'polaroid', label: 'A polaroid, with a strip under it to write on' },
+];
+
+/** How the corners are cut. A cut costs nothing: it is a border radius. */
+const MASKS: { key: NonNullable<PhotoEl['mask']>; label: string }[] = [
+  { key: 'none', label: 'Square corners' },
+  { key: 'circle', label: 'A circle' },
+  { key: 'arch', label: 'An arch' },
+];
+
+/**
+ * The frame as an object: the shape it holds, the card around it, the cut of
+ * its corners, and which part of the picture shows through it.
+ *
+ * Fitting is done on the page rather than in a dialogue, because a frame
+ * leaning on a painted polaroid is only right in place. The button is here
+ * for somebody who has not learnt the double-click, and it says what the
+ * gesture is either way.
+ */
+function PictureBlock({ el, onChange, onFit, fitting, num }: {
+  el: PhotoEl;
+  onChange: (fn: (e: Element) => Element) => void;
+  onFit: () => void;
+  fitting: boolean;
+  num: (v: number | undefined, set: (n: number) => void, step?: number) => ReactNode;
+}) {
+  const edit = (fn: (x: PhotoEl) => PhotoEl) => onChange((x) => fn(x as PhotoEl));
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <label className="block"><span className="label">Shape (height over width)</span>{num(el.aspect, (n) => edit((x) => ({ ...x, aspect: n })), 0.05)}</label>
+      <label className="block">
+        <span className="label">Frame</span>
+        <select className="input w-full" value={el.frame ?? 'none'} onChange={(e) => edit((x) => ({ ...x, frame: e.target.value as PhotoEl['frame'] }))}>
+          {FRAMES.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+        </select>
+      </label>
+      <label className="block">
+        <span className="label">Corners</span>
+        <select className="input w-full" value={el.mask ?? 'none'} onChange={(e) => edit((x) => ({ ...x, mask: e.target.value as PhotoEl['mask'] }))}>
+          {MASKS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+        </select>
+      </label>
+      {el.mask === 'arch' && (el.aspect ?? 1) < 1 && (
+        <p className="hint">This frame is wider than it is tall, so its arch is a half-ellipse: a semicircle that wide would not fit in the height there is.</p>
+      )}
+      <div className="flex flex-wrap items-center gap-1">
+        <button type="button" onClick={onFit} className={`btn btn-sm ${fitting ? 'btn-primary' : 'btn-ghost'}`}>
+          {fitting ? 'Fitting\u2026' : el.crop ? 'Fit the picture again' : 'Fit the picture'}
+        </button>
+        {el.crop && !fitting && (
+          <button type="button" onClick={() => edit((x) => { const back = { ...x }; delete back.crop; return back; })} className="btn btn-ghost btn-sm">Show all of it</button>
+        )}
+      </div>
+      <p className="hint">
+        {fitting
+          ? 'Drag the picture to move it and scroll to zoom. Enter keeps it, Esc puts back what was there.'
+          : 'Or double-click the frame on the page. Unfitted, a frame shows the middle of the picture, filled to the frame.'}
+      </p>
+      {el.crop && !fitting && <p className="hint">Changing the shape after fitting trims the fitting to the new shape rather than stretching it; fit it again to choose afresh.</p>}
+    </div>
   );
 }
 

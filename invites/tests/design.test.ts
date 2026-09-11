@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
+  photoStyle, maskRadius, cropStyle, cropWindow, cropAt,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -419,4 +420,119 @@ test('grow and from survive the column', () => {
   // nothing else sets them, so the two designs as shipped carry neither
   assert.equal(doc.pages.some((p) => p.grow), false);
   assert.equal(builtinDesign('capiz')!.pages.some((p) => p.grow), false);
+});
+
+test('photoStyle: a square frame says nothing, and any other shape says exactly one thing', () => {
+  const square = { id: 'a', kind: 'photo', y: 10, x: 50, w: 30, aspect: 1, bind: { asset: 'x.jpg' } } as PhotoEl;
+  // the stylesheet's `.inv-bb-slot { aspect-ratio: 1 }` is already the square,
+  // so Baby Blue's markup is the markup it always was
+  assert.deepEqual(photoStyle(square), {});
+  assert.deepEqual(photoStyle({ ...square, aspect: undefined }), {});
+  assert.deepEqual(photoStyle({ ...square, aspect: 1.4 }), { aspectRatio: '1 / 1.4' });
+  // and every measurement is held to ten places, here as everywhere
+  assert.deepEqual(photoStyle({ ...square, aspect: 1 / 3 }), { aspectRatio: '1 / 0.3333333333' });
+});
+
+test('maskRadius: a circle, and an arch that is a semicircle on straight sides', () => {
+  const frame = (aspect: number, mask: PhotoEl['mask']) =>
+    maskRadius({ id: 'a', kind: 'photo', y: 0, aspect, mask, bind: { asset: 'x' } } as PhotoEl);
+  assert.equal(frame(1, undefined), undefined);
+  assert.equal(frame(1, 'none'), undefined);
+  assert.equal(frame(1.5, 'circle'), '50%');
+  // a frame twice as tall as it is wide: half a width is a quarter of the height
+  assert.equal(frame(2, 'arch'), '50% 50% 0 0 / 25% 25% 0 0');
+  // a square: half a width is half the height, and the arch is a half-circle
+  assert.equal(frame(1, 'arch'), '50% 50% 0 0 / 50% 50% 0 0');
+  // wider than it is tall: a semicircle that wide will not fit, so it is capped
+  // and becomes a half-ellipse rather than being silently rescaled by the browser
+  assert.equal(frame(0.4, 'arch'), '50% 50% 0 0 / 100% 100% 0 0');
+});
+
+test('cropWindow: the window takes the frame’s shape, whatever shape the picture is', () => {
+  // a wide picture in a square frame shows a square: half its width, all its height
+  assert.deepEqual(cropWindow({ aspect: 1, nw: 1000, nh: 500 }), { x: 0.25, y: 0, w: 0.5, h: 1 });
+  // a tall picture in a square frame shows a square the other way about
+  assert.deepEqual(cropWindow({ aspect: 1, nw: 500, nh: 1000 }), { x: 0, y: 0.25, w: 1, h: 0.5 });
+  // a square picture in a square frame is the whole of it, which is why an
+  // unfitted frame and one fitted at rest are the same picture
+  assert.deepEqual(cropWindow({ aspect: 1, nw: 800, nh: 800 }), { x: 0, y: 0, w: 1, h: 1 });
+  // a tall frame on a square picture
+  assert.deepEqual(cropWindow({ aspect: 1.5, nw: 900, nh: 900 }), { x: 0.1666666667, y: 0, w: 0.6666666667, h: 1 });
+});
+
+test('cropWindow: zoom shrinks the window and panning cannot leave the paper', () => {
+  const at = (zoom: number, cx?: number, cy?: number) => cropWindow({ aspect: 1, nw: 600, nh: 600, zoom, cx, cy });
+  assert.deepEqual(at(2), { x: 0.25, y: 0.25, w: 0.5, h: 0.5 });
+  // pushed hard to one corner it stops at the edge rather than showing bare frame
+  assert.deepEqual(at(2, 9, -9), { x: 0.5, y: 0, w: 0.5, h: 0.5 });
+  assert.deepEqual(at(2, -9, 9), { x: 0, y: 0.5, w: 0.5, h: 0.5 });
+  // zooming out past the fit is not a thing: the fit is as far out as it goes
+  assert.deepEqual(at(0.2), at(1));
+});
+
+test('cropStyle: the picture is blown up by the window and slid so the window lands on the frame', () => {
+  assert.deepEqual(cropStyle({ x: 0.25, y: 0, w: 0.5, h: 1 }), {
+    width: '200%', height: '100%', left: '-50%', top: '0%',
+  });
+  assert.deepEqual(cropStyle({ x: 0.1, y: 0.2, w: 0.4, h: 0.4 }), {
+    width: '250%', height: '250%', left: '-25%', top: '-50%',
+  });
+});
+
+test('cropAt reads back the zoom and the middle cropWindow was given', () => {
+  for (const [aspect, nw, nh, zoom, cx, cy] of [
+    [1, 1000, 500, 1, 0.5, 0.5],
+    [1, 1000, 500, 2.5, 0.3, 0.5],
+    [1.5, 800, 1200, 3, 0.6, 0.35],
+    [0.6, 400, 400, 1.8, 0.5, 0.7],
+  ] as const) {
+    const win = cropWindow({ aspect, nw, nh, zoom, cx, cy });
+    const back = cropAt(win, aspect, nw, nh);
+    assert.ok(Math.abs(back.zoom - zoom) < 1e-6, `zoom ${back.zoom} is not ${zoom}`);
+    // and the window it makes is the window it came from. Not to the bit: the
+    // window in the document is rounded to ten places before cropAt ever sees
+    // it, so re-deriving can land one ten-billionth away. That is a
+    // thousandth of a pixel on a phone, and it does not accumulate — the
+    // second read-back gives the same number as the first.
+    const again = cropWindow({ aspect, nw, nh, ...back });
+    for (const k of ['x', 'y', 'w', 'h'] as const) {
+      assert.ok(Math.abs(again[k] - win[k]) <= 1e-9, `${k}: ${again[k]} is not ${win[k]}`);
+    }
+    assert.deepEqual(cropWindow({ aspect, nw, nh, ...cropAt(again, aspect, nw, nh) }), again);
+  }
+});
+
+test('nothing shipped carries a crop, a cut or a drawn frame', () => {
+  // the two designs draw their frames into the artwork, and the checklist,
+  // the asks sheet and the renderer all lean on that being true
+  for (const layout of ['babyblue', 'capiz'] as const) {
+    for (const p of builtinDesign(layout)!.pages) {
+      for (const e of p.elements ?? []) {
+        if (e.kind !== 'photo') continue;
+        assert.equal(e.crop, undefined, `${layout} ${p.key} ${e.id} has a crop`);
+        assert.equal(e.mask, undefined, `${layout} ${p.key} ${e.id} has a cut`);
+        assert.ok(e.frame === undefined || e.frame === 'none', `${layout} ${p.key} ${e.id} has a drawn frame`);
+        assert.deepEqual(photoStyle(e), {}, `${layout} ${p.key} ${e.id} would style its own box`);
+      }
+    }
+  }
+});
+
+test('a crop, a cut and a drawn frame survive the column', () => {
+  const raw = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
+  const frame = raw.pages[1].elements!.find((e) => e.kind === 'photo') as PhotoEl;
+  frame.crop = { x: 0.1234567890123, y: 0.25, w: 0.5, h: 0.5 };
+  frame.mask = 'arch';
+  frame.frame = 'polaroid';
+  frame.aspect = 1.25;
+  const { doc: back, dropped } = designOf(raw, 'babyblue');
+  assert.deepEqual(dropped, []);
+  const got = back!.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl;
+  assert.deepEqual(got.crop, { x: 0.1234567890, y: 0.25, w: 0.5, h: 0.5 });
+  assert.equal(got.mask, 'arch');
+  assert.equal(got.frame, 'polaroid');
+  // a window outside the picture is not a window, and is refused rather than drawn
+  const bad = JSON.parse(JSON.stringify(raw)) as DesignDoc;
+  (bad.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: 0, y: 0, w: 1.4, h: 1 };
+  assert.equal(designOf(bad, 'babyblue').dropped.length, 1);
 });

@@ -1285,6 +1285,33 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-bb-head .inv-bb-script { font-family: var(--inv-names); font-weight: 400; font-size: 9.6cqw; line-height: 1.15; color: var(--inv-ink); margin: 0 0 1.4cqw; text-transform: none; letter-spacing: 0; }
 .inv[data-paged] .inv-bb-art > .inv-bb-slot { position: absolute; aspect-ratio: 1; margin: 0; overflow: hidden; background: #e8e3dd; }
 .inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; border-radius: 0; }
+/* A crop is a window on the source, not a re-encoded file: the picture is
+   blown up until that window is the size of the frame and slid so the window
+   lands on it (the numbers are inline, from cropStyle). The window's shape is
+   locked to the frame's, so `cover` above neither stretches nor trims — and
+   if a hand-written document ever breaks the lock, `cover` trims rather than
+   distorts, which is the kinder of the two failures. */
+.inv-bb-slot[data-crop] img { position: absolute; max-width: none; }
+/* A cut goes on the frame, and the picture takes the same one. */
+.inv-bb-slot[data-mask] img { border-radius: inherit; }
+/* A drawn frame, for a ground with no frames painted into it. The card is the
+   surface colour so it follows the palette, and every measure is in cqw so it
+   scales with the column exactly as the type does. A polaroid's deep foot is
+   the strip a caption is written on: she places the words over it herself,
+   the way Baby Blue's captions sit on its painted ones.
+   The card is written at the same reach as the slot's own rule above, which
+   paints the grey a waiting frame shows: written any shorter it would lose
+   to it and every polaroid would be grey. */
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-frame] { background: var(--inv-surface, #fff); box-shadow: 0 1.2cqw 3cqw -1.4cqw rgba(0, 0, 0, 0.3); }
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-frame='thin'] { padding: 1.1cqw; }
+.inv[data-paged] .inv-bb-art > .inv-bb-slot[data-frame='polaroid'] { padding: 1.5cqw 1.5cqw 6.4cqw; }
+/* The whole picture behind a frame she is fitting, spilling out of it so she
+   can see what she is panning past. The studio's own; it is drawn only when
+   the page is passed an `edit` view, which a guest never is. It takes the
+   frame's own placement, so it lands on the frame exactly, turn and all,
+   with no second set of geometry to keep in step. */
+.inv-bb-art > .inv-bb-ghost { position: absolute; aspect-ratio: 1; margin: 0; overflow: visible; pointer-events: none; opacity: 0.34; }
+.inv-bb-ghost img { position: absolute; display: block; max-width: none; object-fit: cover; }
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
 .inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }

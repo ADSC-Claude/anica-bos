@@ -3,7 +3,7 @@ import { t, type Lang } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  elementStyle, photoStyle, cropStyle, lineText, valueAt, pageRatio, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
   type PageSpec, type Element, type PhotoEl, type TextEl, type Line, type WordKey, type FieldRef,
 } from '@/lib/design';
 
@@ -33,7 +33,17 @@ import {
  * one that would draw nothing is drawn anyway, as an empty box labelled with
  * what fills it. A guest never passes it, so a guest never sees either.
  */
-export type EditView = { label: (el: Element) => string };
+export type EditView = {
+  label: (el: Element) => string;
+  /**
+   * The frame she is fitting a picture into. Its whole picture is drawn once
+   * more, faintly, behind the frame and spilling out of it, so she can see
+   * what she is panning past. It is the same element's own placement, so it
+   * lands on the frame exactly — turn and all — without a second set of
+   * geometry to keep in step.
+   */
+  cropping?: string;
+};
 
 export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
   const read = {
@@ -68,13 +78,34 @@ function Frame({ el, read, grow }: { el: PhotoEl; read: Read; grow?: number }) {
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
   if (!url && el.hidden !== 'never' && !read.edit) return null;
   const alt = el.alt ? valueAt(read.content, el.alt) : '';
-  return (
-    <figure className="inv-bb-slot" style={elementStyle(el, grow) as CSSProperties} data-el={read.edit ? el.id : undefined} data-foot={grow && el.from === 'bottom' ? '' : undefined} data-empty={read.edit && !url ? '' : undefined}>
+  // a shape other than square, a cut, a card and a window on the source: each
+  // one says nothing at all when it is not set, which is why the two designs
+  // that carry none of them serve the markup they always served
+  const figure = (
+    <figure
+      className="inv-bb-slot"
+      style={{ ...elementStyle(el, grow), ...photoStyle(el) } as CSSProperties}
+      data-el={read.edit ? el.id : undefined}
+      data-foot={grow && el.from === 'bottom' ? '' : undefined}
+      data-empty={read.edit && !url ? '' : undefined}
+      data-crop={el.crop ? '' : undefined}
+      data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
+      data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
+    >
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
-        ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" />
+        ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" style={el.crop ? cropStyle(el.crop) as CSSProperties : undefined} />
         : <figcaption className="inv-bb-ask">{read.edit!.label(el)}</figcaption>}
     </figure>
+  );
+  if (!url || read.edit?.cropping !== el.id) return figure;
+  return (
+    <>
+      <div className="inv-bb-ghost" aria-hidden style={{ ...elementStyle(el, grow), ...photoStyle(el) } as CSSProperties}>
+        <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt="" style={(el.crop ? cropStyle(el.crop) : { width: '100%', height: '100%' }) as CSSProperties} />
+      </div>
+      {figure}
+    </>
   );
 }
 

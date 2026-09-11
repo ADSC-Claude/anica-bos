@@ -881,9 +881,12 @@ function stripReservedSentence(note: string): string {
  * A backdrop that wants a photograph and has not been given one falls back to
  * the invitation's own colours rather than drawing a code onto nothing.
  */
-function CheckinPass({ url, lang, backdrop, photo, ink }: { url: string; lang: Lang; backdrop: ReturnType<typeof qrBackdropFrom>; photo: string; ink: { dark: string; light: string } }) {
+function CheckinPass({ url, passHref, lang, backdrop, photo, ink }: { url: string; passHref: string; lang: Lang; backdrop: ReturnType<typeof qrBackdropFrom>; photo: string; ink: { dark: string; light: string } }) {
   const mode = photo ? backdrop : 'ground';
   const eyebrow = <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>;
+  // The pass is the screen for the doorway; this block is the reminder that it
+  // exists. A guest who finds it here at home opens it again at the door.
+  const open = <a href={passHref} className="inv-pass-open">{t(lang, 'checkin.open')}</a>;
 
   if (mode === 'photoCard') {
     return (
@@ -892,6 +895,7 @@ function CheckinPass({ url, lang, backdrop, photo, ink }: { url: string; lang: L
           {eyebrow}
           <span className="inv-pass-plate" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
           <p className="text-xs">{t(lang, 'checkin.hint')}</p>
+          {open}
         </div>
       </div>
     );
@@ -910,6 +914,7 @@ function CheckinPass({ url, lang, backdrop, photo, ink }: { url: string; lang: L
           {eyebrow}
           <span className="inv-pass-code" dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 144) }} />
           <p className="text-xs">{t(lang, 'checkin.hint')}</p>
+          {open}
         </div>
       </div>
     );
@@ -920,6 +925,7 @@ function CheckinPass({ url, lang, backdrop, photo, ink }: { url: string; lang: L
       {eyebrow}
       <div className="mx-auto w-36" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
       <p className="inv-muted mt-2 text-xs">{t(lang, 'checkin.hint')}</p>
+      <p className="mt-2">{open}</p>
     </div>
   );
 }
@@ -1010,6 +1016,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
       {personal && guest && entitled(inv, 'checkin') && (
         <CheckinPass
           url={invitationUrl(slug, guest.token)}
+          passHref={`${invitationPath(slug, guest.token)}/pass`}
           lang={lang}
           backdrop={qrBackdropFrom(str(data, 'qrBackdrop'))}
           photo={str(data, 'qrPhoto')}

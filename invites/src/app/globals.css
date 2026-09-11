@@ -383,6 +383,103 @@ table.data tr:hover td {
   padding: 1.25rem;
 }
 /*
+ * The pass page: one guest's check-in screen, at its own link.
+ *
+ * Built to be read in a doorway — one screen, one-handed, the code the biggest
+ * thing on it. The sheet takes the invitation's own palette through the same
+ * --inv-* variables the invitation uses, so a pass always looks like the thing
+ * it belongs to.
+ */
+.pass {
+  min-height: 100dvh;
+  background: var(--inv-bg);
+  color: var(--inv-ink);
+  font-family: var(--inv-body);
+  display: grid;
+  place-items: start center;
+  padding: clamp(12px, 4vw, 32px);
+}
+.pass-sheet {
+  width: 100%;
+  max-width: 26rem;
+  background: var(--inv-surface);
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
+  border-radius: 1.25rem;
+  overflow: hidden;
+  display: grid;
+  gap: 0;
+}
+.pass-head { padding: 1.5rem 1.35rem 1rem; text-align: center; display: grid; gap: 0.45rem; }
+.pass-intro {
+  font-size: 0.6875rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--inv-accent);
+  margin: 0;
+  font-weight: 600;
+}
+.pass-names {
+  font-family: var(--inv-names);
+  font-weight: 500;
+  font-size: clamp(1.6rem, 7vw, 2.1rem);
+  line-height: 1.1;
+  margin: 0;
+  text-wrap: balance;
+}
+.pass-when { font-size: 0.8125rem; color: var(--inv-muted); margin: 0; }
+
+.pass-photo {
+  aspect-ratio: 16 / 10;
+  background-size: cover;
+  background-position: center;
+  margin: 0 1.35rem;
+  border-radius: 0.75rem;
+}
+
+.pass-greet { padding: 1.25rem 1.35rem 0.5rem; text-align: center; display: grid; gap: 0.3rem; }
+.pass-greet-title { font-family: var(--inv-display); font-weight: 500; font-size: 1.15rem; margin: 0; line-height: 1.25; }
+.pass-greet-body { font-size: 0.8125rem; color: var(--inv-muted); margin: 0; line-height: 1.5; }
+
+/* The code, and the quiet zone it is owed. */
+.pass-code { position: relative; overflow: hidden; margin: 1rem 1.35rem 0; border-radius: 1rem; }
+.pass-code-photo { background-size: cover; background-position: center; }
+.pass-code-photo::before { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, var(--inv-veil, 0.8)); }
+.pass-code-body { position: relative; display: grid; justify-items: center; gap: 0.6rem; padding: 1.1rem; }
+.pass-cta {
+  font-size: 0.6875rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin: 0;
+}
+.pass-code-art { display: block; line-height: 0; }
+.pass-note { font-size: 0.75rem; text-align: center; margin: 0; line-height: 1.5; opacity: 0.8; max-width: 22rem; }
+
+.pass-details {
+  margin: 1.15rem 1.35rem 0;
+  display: grid;
+  gap: 1px;
+  background: color-mix(in srgb, var(--inv-accent2) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 45%, transparent);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+.pass-detail {
+  background: var(--inv-surface);
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  align-items: baseline;
+}
+.pass-detail dt { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inv-muted); font-weight: 600; }
+.pass-detail dd { margin: 0; font-size: 0.875rem; }
+
+.pass-foot { padding: 1.15rem 1.35rem 1.5rem; text-align: center; }
+.pass-back { font-size: 0.8125rem; color: var(--inv-accent); text-decoration: none; }
+.pass-back:hover { text-decoration: underline; }
+
+/*
  * The check-in pass: the guest's own code, in one of three backdrops.
  *
  * The photograph is set as a background on the frame rather than as an <img>,
@@ -434,6 +531,8 @@ table.data tr:hover td {
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
 }
 .inv-pass-code { display: block; line-height: 0; }
+.inv-pass-open { font-size: 0.75rem; color: var(--inv-accent); text-decoration: underline; }
+.inv-pass-photo .inv-pass-open { color: #fff; }
 
 .inv-btn {
   display: inline-flex;

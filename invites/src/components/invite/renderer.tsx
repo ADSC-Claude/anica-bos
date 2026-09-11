@@ -15,6 +15,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, type PictureGround, type CoverSpec } from '@/lib/design';
+import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage } from './drawn';
 import { Drawn } from './figures';
 import { gentsItems, ladiesItems, attireWords, avoidTicked, attireName, attireKeys } from '@/lib/attire';
@@ -1631,6 +1632,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
   const templateSections = new Set(inv.template.sections);
+  /**
+   * Parts this one invitation carries that its design does not draw. Staff
+   * tick them on when a customer asks for a page their design never had; the
+   * design is untouched, so nobody else on it moves. They pass the design's
+   * gate below and nothing else: the package still decides what may be shown,
+   * and a part with nothing written in it still does not appear.
+   */
+  const extras = new Set(extraSectionsOf(inv.extraSections));
   // A Save the Date carries the couple, the date and nothing after it.
   const saveTheDate = Boolean(inv.saveTheDateOfId);
 
@@ -1640,7 +1649,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // the design's ticks were made against its home occasion; a section that
     // occasion does not have (an anniversary's, on a design ticked for weddings
     // too) is offered the way the invitation's occasion offers it
-    (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key)) &&
+    (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key) || extras.has(key)) &&
     sectionUnlocked(key, occasion, inv.tier, inv.addOns) &&
     // the countdown's only content is its switch; the label is the look's to supply
     (key === 'rsvp' || key === 'cover' || key === 'countdown' || sectionFilled(key, occasion, content[key]));

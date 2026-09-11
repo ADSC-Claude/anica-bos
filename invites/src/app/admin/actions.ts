@@ -2,6 +2,7 @@
 
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
+import { canAddPart, extraSectionsOf } from '@/lib/parts';
 import { STAFF_BYLINE } from '@/lib/names';
 import { freshNonce } from '@/lib/draft-link';
 import { pieceOf, cleanName, cleanTags, type Piece } from '@/lib/library';
@@ -29,7 +30,7 @@ import { isLook } from '@/lib/looks';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
-import { OCCASION_SECTIONS, sectionOrder, isPaged } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionOrder, isPaged, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
 import { STAFF_ROLES } from '@/lib/rbac';
 import type { Permission } from '@/lib/rbac';
 
@@ -713,6 +714,49 @@ export async function setPremiumOpeningClipAction(invitationId: string, back: st
     await prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
     await audit(user, { module: 'invitations', action: 'premiumOpening.clip', entityType: 'Invitation', entityId: invitationId });
     return key ? `Opening set to ${PREMIUM_OPENING_BY_KEY[key]?.name ?? key}.` : 'Back to the design’s first opening.';
+  });
+}
+/**
+ * A whole part added to one invitation: a programme on a design with no
+ * programme page, a gift note on one that never had one.
+ *
+ * Here rather than in the studio because the studio's edits land on every
+ * invitation the design carries, and a couple asking for one page is not a
+ * reason to move the other forty. The design is untouched; the renderer gives
+ * the part a page of its own on the design's overflow ground.
+ *
+ * It buys nothing. `canAddPart` asks the package the same question the
+ * customer's own form asks, and refuses with the package that would include
+ * it named, so nobody ticks a Luxury page onto a Basic card by accident.
+ */
+export async function addPartAction(invitationId: string, back: string, fd: FormData) {
+  return run('invitations.edit', back, async (user) => {
+    const key = s(fd, 'part');
+    const inv = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true } });
+    const verdict = canAddPart(inv, inv.template, key);
+    if (!verdict.ok) throw new HttpError(400, verdict.why);
+    await prisma.invitation.update({ where: { id: invitationId }, data: { extraSections: { push: key } } });
+    await audit(user, { module: 'invitations', action: 'part.add', entityType: 'Invitation', entityId: invitationId, summary: verdict.label });
+    /*
+     * Only worth saying when there is nothing written in it yet: the part
+     * appears when it has words, and a staff member who ticks it on and looks
+     * at the page would otherwise see nothing and think the tick failed.
+     */
+    const empty = !sectionFilled(key as SectionKey, inv.occasion, contentOf(inv.content)[key as SectionKey]);
+    return `${verdict.label} added to this invitation.${empty ? ' It appears once there is something written in it.' : ''}`;
+  });
+}
+/** Taking it off again: the page goes, the words stay where they were typed. */
+export async function dropPartAction(invitationId: string, back: string, fd: FormData) {
+  return run('invitations.edit', back, async (user) => {
+    const key = s(fd, 'part');
+    const inv = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true } });
+    const carried = extraSectionsOf(inv.extraSections);
+    if (!carried.includes(key as SectionKey)) throw new HttpError(400, 'That part is not one this invitation carries.');
+    const label = sectionLabel(key as SectionKey, inv.occasion);
+    await prisma.invitation.update({ where: { id: invitationId }, data: { extraSections: carried.filter((k) => k !== key) } });
+    await audit(user, { module: 'invitations', action: 'part.drop', entityType: 'Invitation', entityId: invitationId, summary: label });
+    return `${label} taken off. Anything written in it is still saved.`;
   });
 }
 export async function archiveInvitationAction(invitationId: string, back: string) {

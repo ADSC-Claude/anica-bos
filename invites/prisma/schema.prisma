@@ -480,6 +480,17 @@ model Invitation {
   /// not mean editing what they were billed.
   addOns          String[] @default([])
 
+  /// Parts this one invitation carries that its design does not draw — a
+  /// programme on a design with no programme page, a gift note on one that
+  /// never had one. Staff set them and nobody else: a customer asks, and we
+  /// tick it on. The design is untouched, so nobody else on it moves.
+  ///
+  /// It never buys anything. A part the package does not include stays
+  /// refused here exactly as it is refused on the form: the tier and the
+  /// add-ons decide what an invitation may show, and this decides only
+  /// whether the design draws it. See src/lib/parts.ts.
+  extraSections   String[] @default([])
+
   /// What this couple's guests are sent, and how it is worded: the tone they
   /// picked, and any message they rewrote. Only what differs from the library
   /// in src/lib/messages.ts is stored, so improving a stock line improves it

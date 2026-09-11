@@ -5,15 +5,16 @@ import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { rsvpSummary } from '@/lib/guests';
 import { occasionLabel } from '@/lib/occasions';
-import { TIERS } from '@/lib/tiers';
+import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { formatDate, formatDateTime } from '@/lib/datetime';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PageHeader, BackLink, InvitationPill, Stat } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
-import { extendExpiryAction, setTierAction, setPremiumOpeningAction, setPremiumOpeningClipAction, archiveInvitationAction } from '../../actions';
+import { extendExpiryAction, setTierAction, setPremiumOpeningAction, setPremiumOpeningClipAction, archiveInvitationAction, addPartAction, dropPartAction } from '../../actions';
 import { premiumOpeningsFor } from '@/lib/premium-openings';
 import { contentOf } from '@/lib/invitations';
 import { scheduleAdvice } from '@/lib/progress';
+import { partsOf } from '@/lib/parts';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,12 @@ export default async function AdminInvitation({ params, searchParams }: { params
   const schedule = scheduleAdvice(sendOutRaw ? new Date(sendOutRaw) : null);
   const extraPhotos = (Array.isArray((content.extras as Record<string, unknown> | undefined)?.photos) ? ((content.extras as Record<string, unknown>).photos as Record<string, unknown>[]) : [])
     .filter((r) => typeof r?.url === 'string' && r.url);
+  /**
+   * What this design leaves out, and what has been put back on this one
+   * invitation. A design whose pages cover everything the occasion offers
+   * shows no card at all — there is nothing to decide.
+   */
+  const parts = partsOf(inv, inv.template).filter((p) => p.state !== 'carried');
   const extraNote = String((content.extras as Record<string, unknown> | undefined)?.note ?? '');
   const extraVideo = String((content.extras as Record<string, unknown> | undefined)?.videoUrl ?? '');
   return (
@@ -77,6 +84,34 @@ export default async function AdminInvitation({ params, searchParams }: { params
           </section>
         )}
       </div>
+      {parts.length > 0 && (
+        <section className="card mt-4 p-4 text-sm">
+          <h2 className="mb-1 font-semibold">Parts this design does not draw</h2>
+          <p className="text-xs text-[color:var(--color-ink-500)]">
+            Adding one gives <b>this invitation</b> a page of its own for it. The design is untouched, so nobody else on it changes. It buys nothing: a part the package does not include stays unavailable until the package moves.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {parts.map((p) => (
+              <li key={p.key} className="flex flex-wrap items-center gap-2">
+                <span className="min-w-[10rem]">{p.label}</span>
+                {p.state === 'added' && (
+                  <>
+                    <span className="rounded-full bg-[color:var(--color-sand-100)] px-2 py-0.5 text-xs">On this invitation</span>
+                    {editable && <form action={dropPartAction.bind(null, inv.id, back)}><input type="hidden" name="part" value={p.key} /><button className="btn btn-secondary btn-sm" type="submit">Take off</button></form>}
+                  </>
+                )}
+                {p.state === 'addable' && editable && (
+                  <form action={addPartAction.bind(null, inv.id, back)}><input type="hidden" name="part" value={p.key} /><button className="btn btn-secondary btn-sm" type="submit">Add to this invitation</button></form>
+                )}
+                {p.state === 'addable' && !editable && <span className="text-xs text-[color:var(--color-ink-500)]">Not drawn by this design</span>}
+                {p.state === 'needs-upgrade' && (
+                  <span className="text-xs text-[color:var(--color-ink-500)]">Included from {TIER_LABELS[p.needs!]} — move the package up first</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {(extraPhotos.length > 0 || extraNote || extraVideo) && (
         <section className="card mt-4 p-4 text-sm">
           <h2 className="mb-1 font-semibold">Extras from the customer</h2>

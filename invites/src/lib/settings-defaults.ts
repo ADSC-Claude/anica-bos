@@ -103,7 +103,25 @@ export const DEFAULT_SETTINGS = {
    */
   'email.rsvpConfirmationSubject': 'Your RSVP for {{hosts}} — {{eventDate}}',
   'email.rsvpConfirmation':
-    'Hi {{guestName}},\n\nThank you — we have you down as {{response}}{{seatsLine}}.\n\n{{hosts}} · {{eventDate}}\n\nIf anything changes, you can update your reply on the same link:\n{{link}}\n\nSee you soon!\n{{hosts}}',
+    'Hi {{guestName}},\n\nThank you — we have you down as {{response}}{{seatsLine}}.\n\n{{hosts}} · {{eventDate}}\n\n{{updateLine}}\n{{link}}\n\nSee you soon!\n{{hosts}}',
+  /**
+   * The sentence above the link, in the two cases it has to cover.
+   *
+   * Whether a guest can change their answer is decided by one thing: whether
+   * the link we are handing them carries their token. submitRsvp() recognises
+   * a second answer as the same guest editing their first only by that token —
+   * without one it has nothing to match on but a typed name, and matching on
+   * that would let anybody who knows a guest's name overwrite their reply.
+   *
+   * So a plain link cannot keep the promise. Answering through it again makes
+   * a second row, and the couple sees the same person twice with no way to
+   * tell which one they meant. The wording follows the token rather than
+   * hoping: where there is one it offers the edit, and where there is none it
+   * sends them to the hosts, who can settle it in a sentence.
+   */
+  'email.rsvpConfirmationUpdate': 'If anything changes, you can update your reply on the same link:',
+  'email.rsvpConfirmationNoUpdate':
+    'If anything changes, please let {{hosts}} know. The invitation is here if you need the details again:',
   /** Semaphore sender ID. Blank uses the account default. */
   'sms.senderName': '',
   /**

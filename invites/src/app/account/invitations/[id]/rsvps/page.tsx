@@ -15,6 +15,7 @@ import { invitationUrl } from '@/lib/app-url';
 import { displayTitle } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
 import { Decide } from './decide';
+import { Remove } from './remove';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
       {rsvps.length === 0 ? <Empty>No responses yet.</Empty> : (
         <div className="card overflow-x-auto">
           <table className="data">
-            <thead><tr><th>Name</th><th>Response</th><th>Seats</th><th>Attendees</th>{dashboard && <><th>Meal</th><th>Dietary</th></>}<th>Message</th><th>Contact</th><th>When</th></tr></thead>
+            <thead><tr><th>Name</th><th>Response</th><th>Seats</th><th>Attendees</th>{dashboard && <><th>Meal</th><th>Dietary</th></>}<th>Message</th><th>Contact</th><th>When</th><th><span className="sr-only">Remove this reply</span></th></tr></thead>
             <tbody>
               {rsvps.map((r) => (
                 <tr key={r.id}>
@@ -169,6 +170,10 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
                     {confirms && <Confirmation sent={r.emails[0]} address={r.email} />}
                   </td>
                   <td className="text-xs">{formatDateTime(r.updatedAt)}</td>
+                  {/* Last, and quiet. A guest who answered twice through a
+                      plain link is two rows here and the couple is the only
+                      one who can say which to keep. */}
+                  <td><Remove invitationId={inv.id} replyId={r.id} name={replyIdentity(r.name, r.guest?.name).name} /></td>
                 </tr>
               ))}
             </tbody>

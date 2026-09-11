@@ -4,8 +4,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look } from '@/lib/looks';
 import {
-  isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
+  isPicture, pageRatio, place, withFollowers, canAttach, putSection, dropSection, shiftSection, titleWord,
+  LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type FieldRef, type Ground, type LineRole, type PageSectionKey,
+  type Source, type WordKey,
 } from '@/lib/design';
 import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
 import { DrawnPage, bindingOf } from '@/components/invite/drawn';
@@ -1064,16 +1066,22 @@ function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) =
       </label>
 
       <p className="label mt-3">Lines</p>
+      <p className="hint">Stacked in flow inside the one box: a heading with its line under it, a name with its sentence. An empty line is dropped and the ones under it close up.</p>
       <ul className="mt-1 space-y-1">
         {el.lines.map((l, i) => (
           <li key={i} className="rounded bg-[color:var(--color-sand-100)] p-2">
-            <select
-              className="input w-full text-xs"
-              value={l.role}
-              onChange={(e) => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, role: e.target.value as LineRole } : x)) }))}
-            >
-              {ROLES_TEXT.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-            </select>
+            <div className="flex items-center gap-1">
+              <select
+                className="input w-full text-xs"
+                value={l.role}
+                onChange={(e) => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, role: e.target.value as LineRole } : x)) }))}
+              >
+                {ROLES_TEXT.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+              </select>
+              <button type="button" title="Higher in the box" onClick={() => edit((t) => moveLine(t, i, -1))} disabled={i === 0} className="rounded bg-white px-1.5 text-xs disabled:opacity-40">↑</button>
+              <button type="button" title="Lower in the box" onClick={() => edit((t) => moveLine(t, i, 1))} disabled={i === el.lines.length - 1} className="rounded bg-white px-1.5 text-xs disabled:opacity-40">↓</button>
+              <button type="button" title="Take the line out" onClick={() => edit((t) => ({ ...t, lines: t.lines.filter((_, j) => j !== i) }))} disabled={el.lines.length < 2} className="rounded bg-white px-1.5 text-xs text-red-700 disabled:opacity-40">✕</button>
+            </div>
             <div className="mt-1 flex gap-1">
               {(['left', 'center', 'right'] as const).map((a) => (
                 <button
@@ -1085,11 +1093,95 @@ function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) =
                   {a === 'left' ? '⇤' : a === 'center' ? '↔' : '⇥'}
                 </button>
               ))}
-              <span className="ml-auto text-[11px] text-[color:var(--color-ink-500)]">{l.sources.length} source{l.sources.length === 1 ? '' : 's'}</span>
+              {l.sources.length > 1 && <span className="ml-auto text-[11px] text-[color:var(--color-ink-500)]">falls back {l.sources.length - 1}×</span>}
             </div>
+            <Words
+              sources={l.sources}
+              onChange={(next) => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, sources: next } : x)) }))}
+            />
           </li>
         ))}
       </ul>
+      <button type="button" onClick={() => edit((t) => ({ ...t, lines: [...t.lines, { role: 'body', sources: [{ fixed: { en: '' } }] }] }))} className="mt-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">+ a line</button>
+    </div>
+  );
+}
+
+/** A line higher or lower inside its box. */
+function moveLine(t: TextEl, i: number, by: number): TextEl {
+  const to = i + by;
+  if (to < 0 || to >= t.lines.length) return t;
+  const lines = [...t.lines];
+  const [moved] = lines.splice(i, 1);
+  lines.splice(to, 0, moved);
+  return { ...t, lines };
+}
+
+/** Every word the design can carry of its own: the look's lines, then its headings. */
+const WORDS: { key: WordKey; label: string }[] = [
+  ...LINE_KEYS.map((k) => ({ key: k as WordKey, label: LINE_LABELS[k] })),
+  ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}` })),
+];
+
+/**
+ * What a line says.
+ *
+ * A line tries its sources in order and shows the first that has anything,
+ * which is how the same design serves a customer who filled the field, one
+ * who did not, and the demo. So they are edited as a list rather than as one
+ * value: the words she types, the design's own word for that line, and —
+ * where **Ask the customer** put one — the customer's answer at the front of
+ * the chain.
+ *
+ * Two kinds are shown but not made here. The customer's answer belongs to
+ * **Ask the customer** above, which keeps the field list honest; the app's
+ * own words are a key into the copy file, and a key typed by hand would be a
+ * blank line nobody could explain. Both can still be taken out.
+ */
+function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Source[]) => void }) {
+  const set = (i: number, next: Source) => onChange(sources.map((x, j) => (j === i ? next : x)));
+  const drop = (i: number) => onChange(sources.filter((_, j) => j !== i));
+  const move = (i: number, by: number) => {
+    const to = i + by;
+    if (to < 0 || to >= sources.length) return;
+    const list = [...sources];
+    const [moved] = list.splice(i, 1);
+    list.splice(to, 0, moved);
+    onChange(list);
+  };
+  return (
+    <div className="mt-1 space-y-1">
+      {sources.map((src, i) => (
+        <div key={i} className="rounded border border-[color:var(--color-sand-300)] bg-white p-1.5">
+          <div className="flex items-center gap-1">
+            <span className="flex-1 text-[11px] font-semibold text-[color:var(--color-ink-500)]">
+              {'fixed' in src ? 'Words you type' : 'word' in src ? 'The design’s own word' : 'bind' in src ? 'What the customer wrote' : 'The app’s own words'}
+            </span>
+            <button type="button" title="Try this one earlier" onClick={() => move(i, -1)} disabled={i === 0} className="rounded bg-[color:var(--color-sand-100)] px-1.5 text-xs disabled:opacity-40">↑</button>
+            <button type="button" title="Try this one later" onClick={() => move(i, 1)} disabled={i === sources.length - 1} className="rounded bg-[color:var(--color-sand-100)] px-1.5 text-xs disabled:opacity-40">↓</button>
+            <button type="button" title="Take it out" onClick={() => drop(i)} className="rounded bg-[color:var(--color-sand-100)] px-1.5 text-xs text-red-700">✕</button>
+          </div>
+          {'fixed' in src ? (
+            <div className="mt-1 grid grid-cols-2 gap-1">
+              <input className="input w-full text-xs" placeholder="in English" value={src.fixed.en} onChange={(e) => set(i, { fixed: { ...src.fixed, en: e.target.value } })} />
+              <input className="input w-full text-xs" placeholder="sa Tagalog" value={src.fixed.tl ?? ''} onChange={(e) => set(i, { fixed: { en: src.fixed.en, ...(e.target.value ? { tl: e.target.value } : {}) } })} />
+            </div>
+          ) : 'word' in src ? (
+            <select className="input mt-1 w-full text-xs" value={src.word} onChange={(e) => set(i, { word: e.target.value as WordKey })}>
+              {WORDS.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
+            </select>
+          ) : 'bind' in src ? (
+            <p className="mt-0.5 text-[11px] text-[color:var(--color-ink-500)]">{src.bind.sub ?? src.bind.field}{src.bind.index === undefined ? '' : ` ${src.bind.index + 1}`} &middot; {src.bind.section} &mdash; set by <strong>Ask the customer</strong>.</p>
+          ) : (
+            <p className="mt-0.5 font-mono text-[11px] text-[color:var(--color-ink-500)]">{src.copy}</p>
+          )}
+        </div>
+      ))}
+      <div className="flex gap-1">
+        <button type="button" onClick={() => onChange([...sources, { fixed: { en: '' } }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ words you type</button>
+        <button type="button" onClick={() => onChange([...sources, { word: WORDS[0].key }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ a word from the design</button>
+      </div>
+      {sources.length === 0 && <p className="hint">Nothing yet, so this line draws nothing.</p>}
     </div>
   );
 }

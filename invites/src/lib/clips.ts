@@ -273,3 +273,71 @@ function ascii(b: Uint8Array, at: number, n: number): string {
   for (let i = 0; i < n; i++) s += String.fromCharCode(b[at + i]);
   return s;
 }
+
+/**
+ * The brightest part of a frame, as a grid rather than a pixel.
+ *
+ * This is for words laid over a clip. One white pixel is not glare; a white
+ * *area* the size of a word is, because that is what swallows a pale letter.
+ * So the frame is divided into cells about a word across, each cell's mean
+ * luma taken, and the highest returned.
+ *
+ * Read across the frames the poster walk already decoded, not only the one
+ * it kept: a clip moves, and the frame that ruins a word may be three
+ * seconds after the one that prints. It is still a sample rather than a
+ * promise — nothing short of decoding every frame could be — which is why
+ * the checklist's line about it is worded as a warning and not as a fact.
+ *
+ * `pixels` is RGBA from a canvas. 0 to 255.
+ */
+export function brightestCell(pixels: Uint8ClampedArray | number[], width: number, height: number, cells = 6): number {
+  if (width < 1 || height < 1 || pixels.length < 4) return 0;
+  const stepX = Math.max(1, Math.floor(width / cells));
+  const stepY = Math.max(1, Math.floor(height / cells));
+  let best = 0;
+  for (let y0 = 0; y0 < height; y0 += stepY) {
+    for (let x0 = 0; x0 < width; x0 += stepX) {
+      let sum = 0;
+      let n = 0;
+      for (let y = y0; y < Math.min(y0 + stepY, height); y++) {
+        for (let x = x0; x < Math.min(x0 + stepX, width); x++) {
+          const i = (y * width + x) * 4;
+          if (i + 2 >= pixels.length) continue;
+          sum += 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+          n++;
+        }
+      }
+      if (n && sum / n > best) best = sum / n;
+    }
+  }
+  return Math.round(best);
+}
+
+/**
+ * Where a clip stops being a loop and starts being a film.
+ *
+ * The gate refuses anything past VIDEO_MAX_MS. This is softer: a decorative
+ * clip on a page is mostly unseen past ten seconds or so, because the guest
+ * has scrolled on, and every second of it was downloaded anyway.
+ */
+export const LONG_CLIP_MS = 12_000;
+
+/**
+ * Where one clip stops being worth its weight on a page.
+ *
+ * The gate refuses past VIDEO_MAX_BYTES. This is where it is worth saying so
+ * while there is still room to say it: three megabytes is a long wait on
+ * mobile data outside a city, and a shorter cut nearly always looks the same.
+ */
+export const HEAVY_CLIP_BYTES = 3 * 1024 * 1024;
+
+/**
+ * How bright a poster may be under words with no backing of their own.
+ *
+ * The stylesheet draws a page's words in a dark ink by day and a pale cream
+ * at night, so a bright clip is the problem for the night words and a dark
+ * one for the day words — but a clip is a picture either way, and words laid
+ * straight onto a moving picture are the case a backing exists for. 200 is
+ * where a cell is pale enough to lose cream lettering.
+ */
+export const GLARE = 200;

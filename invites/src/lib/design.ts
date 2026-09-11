@@ -398,8 +398,19 @@ export type TextEl = Base & {
   offerLine?: boolean;
 };
 
-/** A clip on a page. `webm` is the optional second file, offered only to a browser that asks for it; `url` is the MP4 every phone can play. */
-export type VideoEl = Base & { kind: 'video'; url: string; webm?: string; poster: string; aspect?: number; loop?: boolean };
+/**
+ * A clip on a page. `webm` is the optional second file, offered only to a
+ * browser that asks for it; `url` is the MP4 every phone can play.
+ *
+ * `glare` is the brightest area the studio saw in the frames it decoded
+ * while choosing the poster, 0 to 255. It is here rather than measured later
+ * because measuring it needs a decoder and the server has none — and the
+ * checklist needs it to warn about words laid over a bright clip. It is
+ * about the clip's frames rather than about the poster, so replacing the
+ * poster by hand leaves it true. Absent on an element the studio did not
+ * add, which the checklist says rather than assumes.
+ */
+export type VideoEl = Base & { kind: 'video'; url: string; webm?: string; poster: string; aspect?: number; loop?: boolean; glare?: number };
 export type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };
 export type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: string; stroke?: string; strokeWidth?: number; radius?: number; h?: number };
 
@@ -688,7 +699,7 @@ const zElement = z.union([
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
   }).strict(),
-  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional() }).strict(),
+  z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional(), glare: z.number().int().min(0).max(255).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('shape'), shape: z.enum(['rect', 'ellipse', 'line']), fill: zColour.optional(), stroke: zColour.optional(), strokeWidth: z.number().min(0).max(40).optional(), radius: z.number().min(0).max(100).optional(), h: z.number().min(0).max(200).optional() }).strict(),
 ]);

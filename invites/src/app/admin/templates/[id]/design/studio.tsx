@@ -66,6 +66,7 @@ type Props = {
   vars: Record<string, string>;
   /** what each of this design's own uploads weighs, by address, for the checklist */
   weights: Record<string, number>;
+  lengths: Record<string, number>;
   /** what the row knows about the shop, for the checklist */
   shop: { shown: boolean; thumbnail: boolean };
   /**
@@ -619,7 +620,7 @@ export function Studio(p: Props) {
   function addClip(up: SentClip) {
     if (!page) return;
     const id = freeId(doc, 'clip');
-    const made: Element = { id, kind: 'video', x: 50, y: 40, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true };
+    const made: Element = { id, kind: 'video', x: 50, y: 40, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -968,8 +969,8 @@ export function Studio(p: Props) {
    * a checklist that lags is worse than none.
    */
   const needs = useMemo(
-    () => pageNeeds({ doc, occasion: p.occasion, content: p.content, weights: p.weights, shop: p.shop }),
-    [doc, p.occasion, p.content, p.weights, p.shop],
+    () => pageNeeds({ doc, occasion: p.occasion, content: p.content, weights: p.weights, lengths: p.lengths, shop: p.shop }),
+    [doc, p.occasion, p.content, p.weights, p.lengths, p.shop],
   );
   const here = useMemo(() => needs.filter((n) => n.page === pageKey), [needs, pageKey]);
   /** lines about the design rather than about any one page */

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4, looksBlank, posterTimes, mp4VideoCodec, codecFault } from '../src/lib/clips';
+import { VIDEO_TYPES, VIDEO_MAX_BYTES, VIDEO_BUDGET_BYTES, VIDEO_MAX_MS, clipFault, canJudgeMp4, looksBlank, posterTimes, mp4VideoCodec, codecFault, brightestCell } from '../src/lib/clips';
 import { designFolder } from '../src/lib/storage';
 
 /**
@@ -255,4 +255,36 @@ test('a sound track’s codec is never mistaken for the picture’s', () => {
   ]));
   const file = new Uint8Array(box('moov', [...trak('soun', 'mp4a'), ...trak('vide', 'avc1')]));
   assert.equal(mp4VideoCodec(file), 'avc1');
+});
+
+// --- the brightest part of a frame ---------------------------------------
+
+/**
+ * This is for words laid over a clip. One white pixel is not glare; a white
+ * area the size of a word is, because that is what swallows a pale letter.
+ */
+const grid = (w: number, h: number, at: (x: number, y: number) => [number, number, number]) => {
+  const px: number[] = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const [r, g, b] = at(x, y); px.push(r, g, b, 255); }
+  return px;
+};
+
+test('a pale corner is found even when the frame is mostly dark', () => {
+  // 60x60, dark everywhere but the top-left tenth
+  const px = grid(60, 60, (x, y) => (x < 10 && y < 10 ? [250, 250, 250] : [10, 10, 12]));
+  assert.ok(brightestCell(px, 60, 60) > 200, 'the pale corner is the answer, not the average');
+  // the same picture judged as a whole would be almost black
+  const dark = grid(60, 60, () => [10, 10, 12]);
+  assert.ok(brightestCell(dark, 60, 60) < 20);
+});
+
+test('one white pixel in a dark frame is not glare', () => {
+  const px = grid(60, 60, (x, y) => (x === 30 && y === 30 ? [255, 255, 255] : [8, 8, 8]));
+  assert.ok(brightestCell(px, 60, 60) < 40, 'a pixel does not swallow a word; an area does');
+});
+
+test('a frame that is white all over is as bright as it gets, and nonsense is zero', () => {
+  assert.ok(brightestCell(grid(30, 30, () => [255, 255, 255]), 30, 30) > 250);
+  assert.equal(brightestCell([], 0, 0), 0);
+  assert.equal(brightestCell([255, 255, 255, 255], 0, 10), 0, 'no width is not a frame');
 });

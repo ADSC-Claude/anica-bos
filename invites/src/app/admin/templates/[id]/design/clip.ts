@@ -13,7 +13,7 @@
  * every guest downloads, whole, over whatever connection they are on.
  */
 
-import { clipFault, codecFault, looksBlank, mp4VideoCodec, posterTimes, VIDEO_TYPES, VIDEO_MAX_BYTES } from '@/lib/clips';
+import { brightestCell, clipFault, codecFault, looksBlank, mp4VideoCodec, posterTimes, VIDEO_TYPES, VIDEO_MAX_BYTES } from '@/lib/clips';
 import { fromCanvas, sendPicture, MAX_WIDTH, type ReadPicture } from './ground';
 
 export type ReadClip = {
@@ -24,11 +24,18 @@ export type ReadClip = {
   /** height over width, the way a drawn element states its shape */
   aspect: number;
   poster: ReadPicture;
+  /**
+   * The brightest area seen in any frame this decoded, 0 to 255. Taken
+   * across all of them and not only the one kept as the poster, because the
+   * frame that swallows a pale word may be seconds after the frame that
+   * prints. The checklist warns on it; it is a sample, not a promise.
+   */
+  glare: number;
   /** something true she should know that is not a refusal — an unreadable codec, a poster that had to be taken off a dark frame */
   note?: string;
 };
 
-export type SentClip = { url: string; poster: string; width: number; height: number; durationMs: number; aspect: number; bytes: number };
+export type SentClip = { url: string; poster: string; width: number; height: number; durationMs: number; aspect: number; bytes: number; glare: number };
 
 /**
  * What the browser can find out about a picked file, or a refusal saying why
@@ -76,6 +83,7 @@ export async function readClip(file: File): Promise<ReadClip> {
       file, durationMs, width, height,
       aspect: Math.round((height / width) * 1e4) / 1e4,
       poster: shot.poster,
+      glare: shot.glare,
       note: [note, shot.note].filter(Boolean).join(' ') || undefined,
     };
   } finally {
@@ -95,8 +103,13 @@ export async function readClip(file: File): Promise<ReadClip> {
  * clip really is dark all the way through, and the first of them is kept
  * anyway with a word about it — a dark poster she can replace beats no
  * poster at all, which the page cannot draw.
+ *
+ * Every place is visited even once a good frame is in hand, because the
+ * glare is taken across all of them: the frame that swallows a pale word is
+ * often seconds after the frame worth printing, and four seeks is nothing
+ * against uploading the file afterwards.
  */
-async function grabPoster(video: HTMLVideoElement, durationMs: number, width: number, height: number): Promise<{ poster: ReadPicture; note?: string }> {
+async function grabPoster(video: HTMLVideoElement, durationMs: number, width: number, height: number): Promise<{ poster: ReadPicture; glare: number; note?: string }> {
   const scale = Math.min(1, MAX_WIDTH / width);
   const w = Math.max(1, Math.round(width * scale));
   const h = Math.max(1, Math.round(height * scale));
@@ -106,15 +119,22 @@ async function grabPoster(video: HTMLVideoElement, durationMs: number, width: nu
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('This browser cannot draw the clip’s poster.');
   const times = posterTimes(durationMs);
+  let glare = 0;
+  let kept: ReadPicture | undefined;
   for (const at of times) {
     await seek(video, at);
     ctx.drawImage(video, 0, 0, w, h);
-    if (!looksBlank(ctx.getImageData(0, 0, w, h).data)) return { poster: await fromCanvas(canvas, ctx) };
+    const frame = ctx.getImageData(0, 0, w, h);
+    // every frame decoded counts towards the glare, kept or not
+    glare = Math.max(glare, brightestCell(frame.data, w, h));
+    if (!kept && !looksBlank(frame.data)) kept = await fromCanvas(canvas, ctx);
   }
+  if (kept) return { poster: kept, glare };
   await seek(video, times[0]);
   ctx.drawImage(video, 0, 0, w, h);
   return {
     poster: await fromCanvas(canvas, ctx),
+    glare,
     note: 'Every frame this looked at was nearly black or nearly white, so the poster is one of them. The poster is what prints and what a guest sparing their data sees, so it is worth replacing with a still of your own.',
   };
 }
@@ -138,6 +158,7 @@ export async function sendClip(read: ReadClip, templateId: string, onProgress?: 
     width: read.width, height: read.height,
     durationMs: read.durationMs, aspect: read.aspect,
     bytes: read.file.size,
+    glare: read.glare,
   };
 }
 

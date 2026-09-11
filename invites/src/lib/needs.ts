@@ -3,9 +3,10 @@ import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
   frameLists, pageRatio, valueAt, isPicture, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl,
 } from './design';
 import { contrast } from './palette';
+import { GLARE, HEAVY_CLIP_BYTES, LONG_CLIP_MS, VIDEO_BUDGET_BYTES, VIDEO_BUDGET_LABEL } from './clips';
 
 /**
  * What a page still needs.
@@ -64,6 +65,10 @@ export const NEED_RULES = [
   'night-ink',
   'slot-lost',
   'no-thumbnail',
+  'clip-weight',
+  'clip-length',
+  'clip-budget',
+  'clip-glare',
   'asks',
 ] as const;
 
@@ -90,6 +95,12 @@ type Look = {
    * with — is not in here, and the weight rule says nothing about it.
    */
   weights?: Record<string, number>;
+  /**
+   * How long each clip runs, in milliseconds, by its address — the same
+   * Media rows as `weights`, which is where the browser's reading of the
+   * file was written down. A clip with no row is unknown rather than short.
+   */
+  lengths?: Record<string, number>;
   /** what the row knows about the shop: whether it is shown there, and whether it has a cover */
   shop?: { shown: boolean; thumbnail: boolean };
 };
@@ -105,8 +116,10 @@ type Box = { left: number; right: number; top: number; bottom: number };
  * not measured here.
  */
 function boxOf(el: Element, ratio: number): Box | undefined {
-  if (el.kind !== 'photo' || el.w === undefined || el.x === undefined) return undefined;
-  const h = (el.w * ((el as PhotoEl).aspect ?? 1)) / ratio;
+  // A clip is placed exactly as a frame is — its own width, its own
+  // proportion — so the same maths gives its box and nothing is duplicated.
+  if ((el.kind !== 'photo' && el.kind !== 'video') || el.w === undefined || el.x === undefined) return undefined;
+  const h = (el.w * ((el as PhotoEl | VideoEl).aspect ?? 1)) / ratio;
   const centred = (el.anchor ?? 'centre') === 'centre';
   return {
     left: el.x - el.w / 2,
@@ -166,6 +179,7 @@ const SAME_COLOUR = 1.3;
 /** The name a line calls an element: its own word for it, or its id. */
 function nameOf(el: Element, n: number): string {
   if (el.kind === 'photo') return `Frame ${n}`;
+  if (el.kind === 'video') return 'This clip';
   if (el.kind === 'text') {
     const role = (el as TextEl).lines[0]?.role;
     if (role === 'title' || role === 'script') return 'This heading';
@@ -175,7 +189,7 @@ function nameOf(el: Element, n: number): string {
   return 'This box';
 }
 
-export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need[] {
+export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Look): Need[] {
   if (!doc) return [];
   const out: Need[] = [];
   const asks = asksOf(doc, occasion);
@@ -299,6 +313,57 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
           say('blocks', 'too-small', `${nameOf(el, i + 1)} is too small to read on a phone.`, el.id);
         }
       }
+      if (el.kind === 'video') {
+        const clip = el as VideoEl;
+        const name = nameOf(el, i + 1);
+        /*
+         * A clip with nothing behind it. The poster is what prints, what a
+         * guest sparing their data is served, and what a phone in Low Power
+         * Mode shows instead of playing — three people who never see the
+         * clip at all. An empty box for all three is not a style.
+         */
+        if (!clip.poster) say('blocks', 'clip-glare', `${name} has no still behind it, so it is an empty box for anyone who prints the page, spares their data, or has Low Power Mode on.`, el.id);
+        /*
+         * What one clip weighs, said where there is still room to act on it.
+         * Only ever about a clip this design uploaded, for the same reason
+         * as a background: those are the ones somebody chose and can choose
+         * again. Unknown is not light.
+         */
+        const bytes = weights?.[clip.url];
+        if (bytes !== undefined && bytes > HEAVY_CLIP_BYTES) {
+          say('says', 'clip-weight', `${name} is ${Math.round(bytes / 1024 / 1024 * 10) / 10} MB. Every guest downloads it whole, and there is no transcoding on this side, so a shorter cut or a smaller export is the only way down.`, el.id);
+        }
+        const ms = lengths?.[clip.url];
+        if (ms !== undefined && ms > LONG_CLIP_MS) {
+          say('says', 'clip-length', `${name} runs ${Math.round(ms / 1000)} seconds. Past about ${LONG_CLIP_MS / 1000} a guest has scrolled on and the rest was downloaded for nobody.`, el.id);
+        }
+        /*
+         * Words laid straight onto a moving picture.
+         *
+         * `glare` is the brightest area the studio saw while it was choosing
+         * the poster — across every frame it decoded, not only the one it
+         * kept, because the frame that swallows a pale letter is often
+         * seconds after the frame worth printing. A backing carries its own
+         * halo and is fine either way, so only bare words are counted.
+         *
+         * It is a sample and the line says so. Nothing short of decoding
+         * every frame could promise otherwise, and a checklist that promised
+         * it would be lying on the one page where it matters.
+         */
+        const box = boxOf(el, ratio);
+        const over = box ? elements.filter((e) => e.kind === 'text'
+          && ((e as TextEl).backing ?? 'none') === 'none'
+          && (e.z ?? 0) >= (el.z ?? 0)
+          && e.x !== undefined && e.y !== undefined
+          && e.x >= box.left && e.x <= box.right && e.y >= box.top && e.y <= box.bottom) : [];
+        if (over.length && clip.poster) {
+          if (clip.glare === undefined) {
+            say('says', 'clip-glare', `${nameOf(over[0], elements.indexOf(over[0]) + 1)} sits on ${name} with no backing, and how bright that clip gets was never measured. Give the words a scrim or a shadow: a clip moves, so one still cannot answer for it.`, over[0].id);
+          } else if (clip.glare > GLARE) {
+            say('says', 'clip-glare', `${nameOf(over[0], elements.indexOf(over[0]) + 1)} sits on ${name} with no backing, and the clip goes as pale as ${clip.glare} of 255 somewhere in it. Pale words will be lost there — a scrim or a shadow holds them through the whole clip.`, over[0].id);
+          }
+        }
+      }
       // the foot of a page drawn to a screen or less is under the browser's bar
       if (page.drawn && ratio <= ONE_SCREEN + 0.02 && el.y > ((ratio - BROWSER_BAR) / ratio) * 100) {
         say('says', 'browser-bar', `${nameOf(el, i + 1)} sits under the phone's browser bar until the guest scrolls.`, el.id);
@@ -350,6 +415,30 @@ export function pageNeeds({ doc, occasion, content, weights, shop }: Look): Need
       page: '',
       text: 'This design is shown in the shop with no thumbnail, so its card there is its colours rather than its cover.',
     });
+  }
+
+  /*
+   * Every clip in the design, added up.
+   *
+   * One clip inside the per-clip ceiling is fine; six of them is tens of
+   * megabytes before a guest has read a word, and no per-clip rule can see
+   * that. A guest of one invitation scrolls the whole of it, so the sum is
+   * across every page rather than per page — which is also why this blocks
+   * rather than says. The same address twice is one download, so it counts
+   * once.
+   */
+  if (weights) {
+    const urls = new Set(doc.pages.flatMap((pg) => (pg.elements ?? []).filter((e) => e.kind === 'video').map((e) => (e as VideoEl).url)).filter(Boolean));
+    const known = [...urls].filter((u) => weights[u] !== undefined);
+    const total = known.reduce((sum, u) => sum + weights[u], 0);
+    if (total > VIDEO_BUDGET_BYTES) {
+      out.push({
+        level: 'blocks',
+        rule: 'clip-budget',
+        page: '',
+        text: `This design's ${known.length} clips weigh ${Math.round(total / 1024 / 1024 * 10) / 10} MB together, and ${VIDEO_BUDGET_LABEL} is the most one invitation may ask a guest to download. Shorten one, or take one off a page.`,
+      });
+    }
   }
 
   const counts = askCounts(asks);

@@ -2,6 +2,7 @@
 
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
+import { designFiles } from '@/lib/design-files';
 import { canAddPart, extraSectionsOf } from '@/lib/parts';
 import { STAFF_BYLINE } from '@/lib/names';
 import { freshNonce } from '@/lib/draft-link';
@@ -586,7 +587,11 @@ export async function publishDesignAction(templateId: string, back: string) {
      * courtesy and this is the door. The page lists them; this repeats the
      * first, so a refusal is never mysterious.
      */
-    const wrong = pageNeeds({ doc: draft, occasion: t.occasion }).filter((n) => n.level === 'blocks');
+    // the same two maps the studio screen read, so the door and the screen
+    // cannot disagree: a clip budget the screen blocks on and the door does
+    // not enforce is a suggestion, not a rule
+    const files = await designFiles(t.id);
+    const wrong = pageNeeds({ doc: draft, occasion: t.occasion, weights: files.weights, lengths: files.lengths }).filter((n) => n.level === 'blocks');
     if (wrong.length) {
       throw new HttpError(400, `${wrong.length} thing${wrong.length === 1 ? '' : 's'} to fix before this can be published. The first: ${wrong[0].text}`);
     }

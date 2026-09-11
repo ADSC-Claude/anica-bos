@@ -254,10 +254,22 @@ export type DesignDoc = {
    * `/[slug]/print` is the invitation with the envelope, the music and the
    * buttons taken away, and the file itself is made by the browser's own
    * print dialogue — which is why this is a sheet of settings and not a
-   * renderer. Before it there was no `@page` rule anywhere in the
-   * stylesheet: no size, no margin and nothing said about breaks, so the
-   * browser sliced one long column wherever it happened to land and a
-   * design's pages had nothing to do with its sheets.
+   * renderer.
+   *
+   * What was there before, and it is worth being exact because I first
+   * reported it wrongly: `globals.css` has carried one `@page` rule all
+   * along — `@media print { @page { margin: 14mm } }` — put there for the
+   * account's printable sheets, and `@page` cannot be scoped by selector,
+   * so every printed page in the app has taken that margin. What there was
+   * *not* is a size, anything said about breaks, or any way for a design to
+   * say its own: the browser sliced one long column wherever it landed and
+   * a design's pages had nothing to do with its sheets.
+   *
+   * Two `@page` rules with no page selector have the same specificity, so
+   * the later one wins. The design's is emitted as a `<style>` in the
+   * document and lands after the app's stylesheet links, which is what
+   * makes it win — measured rather than assumed, by asking for margins that
+   * could not look alike: 0mm fills 22 sheets, 14mm 24, 40mm 41.
    *
    * Named `sheet` and not `paper` because `paper` above is already the
    * colour of the column, which is a different thing and would be a

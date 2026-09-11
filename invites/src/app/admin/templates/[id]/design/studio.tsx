@@ -1940,8 +1940,9 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
  * browser makes the file, so what a design can say about paper is a set of
  * settings rather than a second layout: the sheet, the margin round it,
  * whether each page of the design gets a sheet to itself, and any page that
- * should not be printed at all. Before this there was no `@page` rule in the
- * stylesheet at all, so the browser cut the column wherever it landed.
+ * should not be printed at all. Before this a design could say none of it:
+ * the stylesheet's own `@page` gave every printed page a 14mm margin and
+ * nothing else, so the browser cut the column wherever it landed.
  *
  * Every row is an override: left alone, the browser's own print dialogue
  * decides, which is exactly what happened before.

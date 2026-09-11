@@ -12,10 +12,17 @@ const ALL: Occasion[] = OCCASIONS.map((o) => o.key);
 const KINDS: MessageKind[] = MESSAGE_KINDS.map((k) => k.key);
 const TONE_KEYS: Tone[] = TONES.map((t) => t.key);
 
-/** What the variables become for a realistic Filipino wedding. */
+/**
+ * What the variables become — at the long end of realistic, not the average.
+ *
+ * The host name is the one that varies most and it is set here to twenty
+ * characters ("Acme Christmas Party"), because a budget proved against "Juan &
+ * Maria" is a budget that breaks on the first corporate client. The link is a
+ * real one: a guest token is the same length for everybody.
+ */
 const VARS: Record<string, string> = {
   guestName: 'Tita Baby',
-  hosts: 'Juan & Maria',
+  hosts: 'Acme Christmas Party',
   eventDate: '14 February 2027',
   link: 'https://youreinvitedto.com/juan-and-maria/rLvuqMyw01oHsq8Ty5QaoBDh',
 };
@@ -129,14 +136,13 @@ test('a text costs what we think it costs', async () => {
   // three segments triples the bill on a five-hundred-guest blast, so the
   // budget is asserted rather than hoped for.
   const { creditsFor } = await import('../src/lib/sms');
+  // One segment each, link and all. Nothing here needs two, so nothing gets two.
   const budget: Record<MessageKind, number> = {
-    // No link, so these must fit one segment.
     rsvpConfirmation: 1,
+    sevenDay: 1,
+    oneDay: 1,
     sameDay: 1,
     thankYou: 1,
-    // These carry a 65-character personal link, which costs a second segment.
-    sevenDay: 2,
-    oneDay: 2,
   };
 
   for (const occasion of ALL) {

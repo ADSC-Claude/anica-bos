@@ -110,8 +110,16 @@ const OCCASION_EVENT: Record<Occasion, string> = {
  * The generic set, in both tones.
  *
  * {{event}} is filled from OCCASION_EVENT above; the rest are the variables
- * every message may use — see MESSAGE_VARS. The SMS lines are written to the
- * segment: see smsSegments, and the test that holds them to it.
+ * every message may use — see MESSAGE_VARS.
+ *
+ * Every SMS line is written to fit ONE segment — 160 GSM-7 characters, link
+ * included — and tests/messages.test.ts holds them there against a twenty-
+ * character host name, which is about as long as "Acme Christmas Party". Two
+ * things will break that, and both are meant to be visible rather than
+ * prevented: a couple whose own title runs longer, and any character outside
+ * GSM-7. The em-dash is the one that catches people — it is not in GSM-7, so a
+ * single one drops the whole message to UCS-2 and 70 characters, doubling what
+ * every guest costs. The e-mails keep their typography; they are free.
  */
 const BASE: Record<MessageKind, Record<Tone, MessageText>> = {
   rsvpConfirmation: {
@@ -136,7 +144,7 @@ const BASE: Record<MessageKind, Record<Tone, MessageText>> = {
         'Hi {{guestName}},\n\nOne week until {{event}}. We are so glad you will be with us.\n\n{{hosts}}\n{{eventDate}}\n\nEverything you need — the time, the place and the map — is on your invitation:\n{{link}}\n\nSee you very soon!\n{{hosts}}',
     },
     formal: {
-      sms: '{{guestName}}, a reminder: {{hosts}} on {{eventDate}}, one week from today. Details: {{link}}',
+      sms: '{{guestName}}, a reminder: {{hosts}} on {{eventDate}}, one week away. Details: {{link}}',
       emailSubject: 'Reminder: {{hosts}} — {{eventDate}}',
       emailBody:
         'Dear {{guestName}},\n\nThis is a reminder that {{event}} will take place in one week.\n\n{{hosts}}\n{{eventDate}}\n\nThe time, venue and directions are on your invitation:\n{{link}}\n\nWe look forward to welcoming you.\n\n{{hosts}}',
@@ -217,7 +225,7 @@ const OVERRIDES: Partial<Record<Occasion, Partial<Record<MessageKind, Partial<Re
     },
     sevenDay: {
       heartfelt: {
-        sms: '{{guestName}}, the Mass for {{hosts}} is one week from today, {{eventDate}}. Details: {{link}}',
+        sms: '{{guestName}}, the Mass for {{hosts}} is on {{eventDate}}, one week away. Details: {{link}}',
         emailSubject: '{{hosts}} — {{eventDate}}',
         emailBody:
           'Dear {{guestName}},\n\nA gentle reminder that the Mass will be held in one week.\n\n{{hosts}}\n{{eventDate}}\n\nThe time, the church and the directions are here:\n{{link}}\n\nWith our thanks,\n{{hosts}}',
@@ -237,7 +245,7 @@ const OVERRIDES: Partial<Record<Occasion, Partial<Record<MessageKind, Partial<Re
           'Dear {{guestName}},\n\nA gentle reminder that the Mass is tomorrow.\n\n{{hosts}}\n{{eventDate}}\n\nThe time, the church and the directions are here:\n{{link}}\n\nWith our thanks,\n{{hosts}}',
       },
       formal: {
-        sms: '{{guestName}}, the Mass for {{hosts}} will be held tomorrow, {{eventDate}}. Details: {{link}}',
+        sms: '{{guestName}}, the Mass for {{hosts}} is tomorrow, {{eventDate}}. Details: {{link}}',
         emailSubject: 'Tomorrow — {{hosts}}',
         emailBody:
           'Dear {{guestName}},\n\nThis is to remind you that the Mass will be held tomorrow.\n\n{{hosts}}\n{{eventDate}}\n\nThe time, venue and directions are here:\n{{link}}\n\nWith our thanks,\n{{hosts}}',

@@ -183,8 +183,8 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     if (Object.keys(patch).length) await prisma.guest.update({ where: { id: guest.id }, data: patch });
   }
 
-  // And tell the guest, on the packages that include it. A reply into a form
-  // that says nothing back is the commonest reason somebody replies twice.
+  // And tell the guest, where the invitation has it. A reply into a form that
+  // says nothing back is the commonest reason somebody replies twice.
   await confirmToGuest(invitation, saved, guest);
 
   // Tell the host, but not on every edit of the same response.
@@ -213,22 +213,23 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
 }
 
 /**
- * The receipt a guest gets for replying.
+ * The receipt a guest gets for accepting.
  *
- * Included with the packages that carry it; below them the same send is the
- * paid e-mail blast, which is the honest difference — the wire costs the same,
- * what is being sold is our doing it for them.
+ * Included with the packages that carry it, and bought on its own below them
+ * with a guest communication suite — which is the honest difference: the wire
+ * costs the same, what is being sold is our doing it for them. So this asks
+ * what the invitation may do rather than what its package includes.
  *
  * Nothing here may stop a reply being recorded. A guest who answered has
  * answered whatever the mail server thought of it, so the send is attempted
  * after the row is saved and its failure is written down rather than raised.
  */
 async function confirmToGuest(
-  invitation: { id: string; slug: string; tier: Tier; title: string; occasion: Occasion; content: unknown; eventAt: Date | null },
+  invitation: { id: string; slug: string; tier: Tier; addOns: string[]; title: string; occasion: Occasion; content: unknown; eventAt: Date | null },
   saved: { id: string; name: string; response: string; seats: number; email: string },
   guest: { id: string; token: string; salutation: string } | null,
 ) {
-  if (!hasFeature(invitation.tier, 'rsvp.emailConfirmation')) return;
+  if (!entitled(invitation, 'rsvp.emailConfirmation')) return;
   // Only the people who are coming. A decline is a kindness the guest has
   // already done the couple, and writing back to say we have noted they will
   // not be there reads as a receipt nobody asked for — worse on the occasions

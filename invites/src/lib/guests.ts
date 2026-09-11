@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from './db';
 import { HttpError } from './errors';
 import { guestToken } from './codes';
+import { seatsHeld, headsArrived } from './seats';
 import { parseCsv, toCsv } from './csv';
 import { entitled, TIER_LABELS, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
@@ -182,7 +183,7 @@ export async function guestByToken(token: string) {
 export async function guestsCsv(invitation: { id: string; slug: string }): Promise<string> {
   const guests = await listGuests(invitation.id);
   return toCsv(
-    ['Name', 'Salutation', 'Group', 'Seats allotted', 'Table', 'Phone', 'Email', 'Response', 'Seats confirmed', 'Attendees', 'Meal', 'Dietary', 'Message', 'Responded at', 'Checked in', 'Personal link'],
+    ['Name', 'Salutation', 'Group', 'Seats allotted', 'Table', 'Phone', 'Email', 'Response', 'Seats confirmed', 'Attendees', 'Meal', 'Dietary', 'Message', 'Responded at', 'Checked in', 'Arrived', 'Personal link'],
     guests.map((g) => {
       const r = g.rsvps[0];
       return [
@@ -201,6 +202,9 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
         r?.message ?? '',
         r ? formatDateTime(r.updatedAt) : '',
         g.checkedInAt ? formatDateTime(g.checkedInAt) : '',
+        // Heads through the door, which is not the same as seats confirmed and
+        // is the column a caterer settles the bill against.
+        headsArrived(seatsHeld(g.seatsAllotted, g.rsvps[0]), { checkedIn: Boolean(g.checkedInAt), arrivedCount: g.arrivedCount }),
         invitationUrl(invitation.slug, g.token),
       ];
     }),
@@ -275,16 +279,56 @@ export async function assignTable(invitation: Entitled & { id: string }, guestId
 /** Event-day check-in by scanning the guest's QR (their token) or tapping a row. */
 export async function checkIn(user: SessionUser, invitation: Entitled & { id: string }, tokenOrId: string, undo = false) {
   if (!entitled(invitation, 'checkin')) throw new HttpError(403, checkinLocked);
-  const guest = await prisma.guest.findFirst({ where: { invitationId: invitation.id, OR: [{ token: tokenOrId }, { id: tokenOrId }] }, include: { table: true } });
-  if (!guest) throw new HttpError(404, 'No guest matches that code.');
   // The reply comes back with them: what the desk announces is the seats they
   // confirmed, not the seats set aside, and it says whether they declined.
+  const guest = await prisma.guest.findFirst({
+    where: { invitationId: invitation.id, OR: [{ token: tokenOrId }, { id: tokenOrId }] },
+    include: { table: true, rsvps: { orderBy: { updatedAt: 'desc' }, take: 1 } },
+  });
+  if (!guest) throw new HttpError(404, 'No guest matches that code.');
+  // A scan means the whole party, until somebody at the door says otherwise.
+  // Most parties do arrive whole, so the common case stays one tap and the
+  // stepper is only touched for the ones that did not — which is the only way
+  // a headcount at a door survives contact with a queue of two hundred people.
+  //
+  // An arrival that already has a number keeps it, so scanning somebody twice
+  // does not quietly undo the count the desk just corrected.
+  const held = seatsHeld(guest.seatsAllotted, guest.rsvps[0]);
   const updated = await prisma.guest.update({
     where: { id: guest.id },
-    data: undo ? { checkedInAt: null, checkedInBy: '' } : { checkedInAt: guest.checkedInAt ?? new Date(), checkedInBy: user.name },
+    data: undo
+      ? { checkedInAt: null, checkedInBy: '', arrivedCount: null }
+      : { checkedInAt: guest.checkedInAt ?? new Date(), checkedInBy: user.name, arrivedCount: guest.arrivedCount ?? held },
     include: { table: true, rsvps: { orderBy: { updatedAt: 'desc' }, take: 1 } },
   });
   return { guest: updated, alreadyIn: Boolean(guest.checkedInAt) && !undo };
+}
+
+/**
+ * How many of a party walked in, set at the door.
+ *
+ * Only for somebody already checked in: the number answers "how many of them
+ * came", and a party nobody has let in yet has no answer to that. Zero is
+ * allowed anyway — a desk that scanned the wrong code wants to say so without
+ * hunting for Undo, and the count it leaves behind is the truth either way.
+ *
+ * Not capped at what they confirmed. A hundred is a typo guard, not a rule
+ * about party sizes.
+ */
+export async function setArrived(invitation: Entitled & { id: string }, guestId: string, count: number) {
+  if (!entitled(invitation, 'checkin')) throw new HttpError(403, checkinLocked);
+  const guest = await prisma.guest.findFirst({
+    where: { id: guestId, invitationId: invitation.id },
+    include: { table: true, rsvps: { orderBy: { updatedAt: 'desc' }, take: 1 } },
+  });
+  if (!guest) throw new HttpError(404, 'That guest is not on this list.');
+  if (!guest.checkedInAt) throw new HttpError(400, 'Check this guest in before counting the party.');
+  const arrivedCount = Math.min(99, Math.max(0, Math.trunc(Number(count) || 0)));
+  return prisma.guest.update({
+    where: { id: guest.id },
+    data: { arrivedCount },
+    include: { table: true, rsvps: { orderBy: { updatedAt: 'desc' }, take: 1 } },
+  });
 }
 
 /**

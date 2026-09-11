@@ -19,7 +19,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   if (!entitled(inv, 'guests.manager')) redirect(`/account/invitations/${inv.id}/upgrade`);
-  const confirms = hasFeature(inv.tier, 'rsvp.emailConfirmation');
+  const confirms = entitled(inv, 'rsvp.emailConfirmation');
   const [guests, tables, summary, texts, emails] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10), recentEmails(inv.id, 10)]);
   // Newest first across both, then the ten that matter. Each carries the word
   // for how it travelled, which is the only thing the list needs to keep them
@@ -47,7 +47,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
           by the bill for the other. */}
       <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">
         {confirms
-          ? 'Your package writes back to every guest who accepts and leaves an e-mail address, confirming their seats, at no charge. Guests who decline are not written to. The e-mail blast below is free too. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one.'
+          ? 'Every guest who accepts and leaves an e-mail address is written back to, confirming their seats, at no charge. Guests who decline are not written to. The e-mail blast below is free too. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one.'
           : 'The e-mail blast below is free. Texts are not: they are charged per message by the gateway, so ask us for a pack before you send one. A confirmation e-mail to every guest who accepts comes with the Luxury package.'}
       </p>
 

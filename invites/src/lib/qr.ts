@@ -211,27 +211,6 @@ export function deepenToFloor(ink: string, paper: string): string | null {
 /* ── what sits behind it ────────────────────────────────────────────── */
 
 /**
- * The three ways a code meets the page.
- *
- * `ground` is the default and the one with nothing to go wrong. `photoCard`
- * puts the photograph behind the whole card and the code on its own panel,
- * which keeps the photograph at full strength — it is what most people mean
- * when they ask for a photo behind the code. `photoBehind` is the literal
- * reading: the photograph runs under the modules themselves.
- */
-export type QrBackdrop = 'ground' | 'photoCard' | 'photoBehind';
-
-export const QR_BACKDROPS: readonly { value: QrBackdrop; label: string }[] = [
-  { value: 'ground', label: 'Your invitation’s own colours' },
-  { value: 'photoCard', label: 'Your photo behind the card' },
-  { value: 'photoBehind', label: 'Your photo behind the code itself' },
-];
-
-export function qrBackdropFrom(raw: string): QrBackdrop {
-  return QR_BACKDROPS.some((b) => b.value === raw) ? (raw as QrBackdrop) : 'ground';
-}
-
-/**
  * How much white goes over a photograph before a code can sit on it.
  *
  * Measured, and it is the number this whole option turns on. Six grounds built
@@ -250,6 +229,15 @@ export function qrBackdropFrom(raw: string): QrBackdrop {
  * photograph, or the couple will choose it from a thumbnail and be surprised.
  */
 export const QR_VEIL = 0.8;
+
+/**
+ * The bloom that replaced the flat veil must not go under the number above at
+ * any point the code covers. It does not: its stops hold 0.96 out to 60% of
+ * the wash's radius, and the code's furthest corner lands at 54%. This
+ * constant is the floor the CSS is checked against, not a value the CSS reads
+ * — the check lives in tests/qr.test.ts.
+ */
+export const QR_BLOOM_MIN_UNDER_CODE = 0.96;
 
 /**
  * A code on a photograph is a code with no paper of its own, and one level of

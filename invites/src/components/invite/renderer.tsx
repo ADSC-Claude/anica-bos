@@ -11,7 +11,8 @@ import { galleryLimit, hasFeature, entitled } from '@/lib/tiers';
 import { attendeesOf, relationLabel, RELATIONS } from '@/lib/attendees';
 import { cssVars, googleFontsUrl, isLayout } from '@/lib/theme';
 import { formatDate, formatTime } from '@/lib/datetime';
-import { qrSvg, qrOnPhoto, qrColours, qrBackdropFrom, QR_VEIL, QR_SAFE } from '@/lib/qr';
+import { qrSvg, qrOnPhoto, qrColours, QR_SAFE } from '@/lib/qr';
+import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls } from './client';
@@ -869,47 +870,31 @@ function stripReservedSentence(note: string): string {
 }
 
 /**
- * The guest's own check-in code, in whichever backdrop the couple chose.
+ * The guest's own check-in code, on the invitation itself: the reminder that
+ * the pass exists, so a guest who finds it here at home opens it again at the
+ * door.
  *
- * Three of them, and the difference between the middle two is the whole point:
- * `photoCard` puts the photograph behind the card and gives the code solid
- * paper of its own, so the picture stays at full strength; `photoBehind` runs
- * the photograph under the modules themselves, which works only under a veil
- * heavy enough that the photograph is nearly gone. Both are offered because
- * couples ask for the second and usually mean the first.
+ * It takes the same one choice the pass does — see PASS_LOOKS. `silhouette`
+ * runs the photograph under the modules themselves, which works only where
+ * the picture has gone to light beneath them; `ground` is the invitation's
+ * own colours. There used to be a third, a photograph behind a solid white
+ * card, and it was the thing the code should never be: cut out of the design
+ * and pasted back on.
  *
- * A backdrop that wants a photograph and has not been given one falls back to
- * the invitation's own colours rather than drawing a code onto nothing.
+ * A look that wants a photograph and has not been given one falls back to the
+ * colours rather than drawing a code onto nothing.
  */
-function CheckinPass({ url, passHref, lang, backdrop, photo, ink }: { url: string; passHref: string; lang: Lang; backdrop: ReturnType<typeof qrBackdropFrom>; photo: string; ink: { dark: string; light: string } }) {
-  const mode = photo ? backdrop : 'ground';
+function CheckinPass({ url, passHref, lang, look, photo, ink }: { url: string; passHref: string; lang: Lang; look: PassLook; photo: string; ink: { dark: string; light: string } }) {
+  const mode: PassLook = photo ? look : 'ground';
   const eyebrow = <p className="inv-eyebrow">{t(lang, 'checkin.title')}</p>;
-  // The pass is the screen for the doorway; this block is the reminder that it
-  // exists. A guest who finds it here at home opens it again at the door.
   const open = <a href={passHref} className="inv-pass-open">{t(lang, 'checkin.open')}</a>;
 
-  if (mode === 'photoCard') {
+  if (mode === 'silhouette') {
+    // The safe near-black rather than the palette's ink: the bloom bounds how
+    // dark the photograph can get under the code, and the pair has to clear
+    // the floor against the darkest point it leaves behind.
     return (
-      <div className="inv-pass inv-pass-photo mt-6" style={{ backgroundImage: `url(${photo})` }}>
-        <div className="inv-pass-body">
-          {eyebrow}
-          <span className="inv-pass-plate" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 144, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
-          <p className="text-xs">{t(lang, 'checkin.hint')}</p>
-          {open}
-        </div>
-      </div>
-    );
-  }
-
-  if (mode === 'photoBehind') {
-    // The safe near-black rather than the palette's ink: the veil bounds how
-    // dark the photograph can get under the code, and the pair has to clear the
-    // floor against the darkest point it leaves behind.
-    return (
-      <div
-        className="inv-pass inv-pass-behind mt-6"
-        style={{ backgroundImage: `url(${photo})`, ['--inv-veil' as string]: String(QR_VEIL), color: QR_SAFE.dark }}
-      >
+      <div className="inv-pass inv-pass-behind mt-6" style={{ backgroundImage: `url(${photo})`, color: QR_SAFE.dark }}>
         <div className="inv-pass-body">
           {eyebrow}
           <span className="inv-pass-code" dangerouslySetInnerHTML={{ __html: qrOnPhoto(url, 144) }} />
@@ -931,6 +916,9 @@ function CheckinPass({ url, passHref, lang, backdrop, photo, ink }: { url: strin
 }
 
 function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title, ink }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string; ink: { dark: string; light: string } }) {
+  // The code block sits in this section but is arranged in its own one now.
+  // An invitation filled in before that keeps what it set here.
+  const checkin = contentOf(inv.content).checkin ?? {};
   const deadline = str(data, 'deadline');
   const open = rsvpOpen(inv);
   const seatsCap = personal && guest ? guest.seatsAllotted + (guest.plusOneAllowed ? 1 : 0) : 10;
@@ -1018,8 +1006,8 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           url={invitationUrl(slug, guest.token)}
           passHref={`${invitationPath(slug, guest.token)}/pass`}
           lang={lang}
-          backdrop={qrBackdropFrom(str(data, 'qrBackdrop'))}
-          photo={str(data, 'qrPhoto')}
+          look={passLookFrom(str(checkin, 'look') || str(data, 'qrBackdrop'))}
+          photo={str(checkin, 'photo') || str(data, 'qrPhoto')}
           ink={ink}
         />
       )}

@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  qrSvg, qrOnPhoto, qrColours, qrBackdropFrom, deepenToFloor, contrast, luminance,
-  QR_VEIL, QR_SAFE, QR_CONTRAST_FLOOR, QR_BACKDROPS,
+  qrSvg, qrOnPhoto, qrColours, deepenToFloor, contrast, luminance,
+  QR_VEIL, QR_SAFE, QR_CONTRAST_FLOOR, QR_BLOOM_MIN_UNDER_CODE,
 } from '../src/lib/qr';
+import { PASS_LOOKS, passLookFrom } from '../src/lib/pass';
 import { PALETTE_PRESETS } from '../src/lib/theme';
 
 const renderer = readFileSync(new URL('../src/components/invite/renderer.tsx', import.meta.url), 'utf8');
@@ -108,31 +109,75 @@ test('the veil is the measured one, and the code on a photo has recovery in hand
   assert.match(qr, /ec: 'Q'/, 'the code on a photo dropped back to less recovery');
 });
 
-test('the three backdrops are offered, and anything else means the safe one', () => {
-  assert.deepEqual(QR_BACKDROPS.map((b) => b.value), ['ground', 'photoCard', 'photoBehind']);
-  assert.equal(qrBackdropFrom('photoCard'), 'photoCard');
-  assert.equal(qrBackdropFrom(''), 'ground');
-  assert.equal(qrBackdropFrom('somethingElse'), 'ground');
+test('the two looks are offered, and the retired backdrops read as one of them', () => {
+  // A couple who chose "photo behind the card" or "photo behind the code"
+  // asked for their picture behind their code; both are the silhouette now.
+  assert.deepEqual(PASS_LOOKS.map((l) => l.value), ['silhouette', 'ground']);
+  assert.equal(passLookFrom(''), 'silhouette');
+  assert.equal(passLookFrom('photoCard'), 'silhouette');
+  assert.equal(passLookFrom('photoBehind'), 'silhouette');
+  assert.equal(passLookFrom('ground'), 'ground');
+  assert.equal(passLookFrom('somethingElse'), 'silhouette');
 });
 
-test('a backdrop that wants a photograph and has none falls back rather than breaking', () => {
-  assert.match(renderer, /const mode = photo \? backdrop : 'ground';/, 'a missing photo would render a code onto nothing');
+test('nothing offers to put the code on a card over a photograph any more', () => {
+  // The card was the code cut out of the design and pasted back on, which is
+  // the thing the backdrop work exists to stop.
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  for (const dead of ['inv-pass-plate', 'inv-pass-photo', 'pass-code-photo', 'pass-tear', 'pass-hero']) {
+    assert.doesNotMatch(css, new RegExp(`\\.${dead}[\\s,{:]`), `${dead} is still in the stylesheet`);
+    assert.doesNotMatch(renderer, new RegExp(dead), `${dead} is still rendered`);
+  }
+});
+
+test('a look that wants a photograph and has none falls back rather than breaking', () => {
+  assert.match(renderer, /const mode: PassLook = photo \? look : 'ground';/, 'a missing photo would render a code onto nothing');
+  const pass = readFileSync(new URL('../src/components/invite/pass.tsx', import.meta.url), 'utf8');
+  assert.match(pass, /wanted === 'silhouette' && !photo \? 'ground' : wanted/, 'the pass would float a code over nothing');
 });
 
 test('the code over a photograph uses the safe ink, not the palette’s', () => {
-  // The veil bounds how dark the photograph gets under the code; the pair has
+  // The bloom bounds how dark the photograph gets under the code; the pair has
   // to clear the floor against that darkest point, not against a card.
-  const fn = renderer.slice(renderer.indexOf("if (mode === 'photoBehind')"), renderer.indexOf("return (\n    <div className=\"inv-card mt-6 text-center\">"));
+  const fn = renderer.slice(renderer.indexOf("if (mode === 'silhouette')"), renderer.indexOf('return (\n    <div className="inv-card mt-6 text-center">'));
   assert.match(fn, /qrOnPhoto\(url, 144\)/);
-  assert.match(fn, /color: QR_SAFE\.dark/, 'the caption takes a palette colour over a veiled photograph');
+  assert.match(fn, /color: QR_SAFE\.dark/, 'the caption takes a palette colour over a bloomed photograph');
   assert.doesNotMatch(fn, /ink\.dark/, 'the palette ink is drawn onto a photograph');
 });
 
-test('the veil has one home, and the stylesheet reads it from there', () => {
-  assert.match(renderer, /\['--inv-veil' as string\]: String\(QR_VEIL\)/, 'the veil is written twice');
+test('the bloom is at full strength everywhere the code covers', () => {
+  /*
+   * The old rule was "flat, never a gradient", because a linear gradient is
+   * safe at one end and under the floor at the other. A radial wash centred on
+   * the code is a different shape of thing: the fall-off happens outside the
+   * code, not across it. That only holds if the stops say so, so this checks
+   * the geometry rather than trusting the comment.
+   *
+   * The wash is sized to 260% of the code, so its radius is 1.3 code-widths.
+   * The code's furthest point is its corner, at half its diagonal — 0.707
+   * code-widths, or 54.4% of that radius. White therefore has to still be at
+   * full strength at 54.4%.
+   */
   const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
-  assert.match(css, /background: rgba\(255, 255, 255, var\(--inv-veil, 0\.8\)\)/, 'the stylesheet no longer takes the veil from the code');
-  // Flat, never a gradient: a gradient is safe at one end and under the floor
-  // at the other, and nobody finds out which end until the door.
-  assert.doesNotMatch(css.slice(css.indexOf('.inv-pass-behind')), /^[^}]*gradient/, 'the veil over the code became a gradient');
+  const bloom = css.slice(css.indexOf('.pass-bloom::before'), css.indexOf('.pass-bloom .pass-code-body'));
+  const width = Number(/width:\s*(\d+)%/.exec(bloom)?.[1]);
+  assert.ok(width >= 200, `a wash ${width}% of the code is too small to clear its corners`);
+  const corner = (Math.SQRT2 / 2) / (width / 200) * 100; // % of the wash's radius
+
+  const stops = [...bloom.matchAll(/rgba\(255, 255, 255, ([\d.]+)\) (\d+)%/g)]
+    .map((m) => ({ alpha: Number(m[1]), at: Number(m[2]) }));
+  assert.ok(stops.length >= 3, 'the wash has no stops to check');
+
+  // Linear interpolation between the two stops the corner falls between.
+  const below = [...stops].reverse().find((s) => s.at <= corner)!;
+  const above = stops.find((s) => s.at >= corner)!;
+  const alpha = below.at === above.at
+    ? below.alpha
+    : below.alpha + ((above.alpha - below.alpha) * (corner - below.at)) / (above.at - below.at);
+
+  assert.ok(
+    alpha >= QR_BLOOM_MIN_UNDER_CODE,
+    `at the code's corner (${corner.toFixed(1)}% of the wash) the white is ${alpha.toFixed(3)}, under the ${QR_BLOOM_MIN_UNDER_CODE} this design claims`,
+  );
+  assert.ok(alpha >= QR_VEIL, `the bloom drops to ${alpha.toFixed(3)} under the code, below the measured veil of ${QR_VEIL}`);
 });

@@ -577,87 +577,161 @@ table.data tr:hover td {
    The photograph takes the top of the screen and the names sit on it. The
    scrim is a gradient because it is behind type, not behind a code — the flat
    veil rule applies to what a reader has to decode, and nothing here does. */
-.pass[data-look='portrait'] .pass-sheet { padding-top: 0; }
-.pass-hero {
-  position: relative;
-  aspect-ratio: 4 / 5;
+/* ── silhouette: the photograph is the pass ───────────────────────────
+   No card, no band, no border: the sheet itself is the picture. The words at
+   the top sit on a shade that fades out rather than a bar that ends, and the
+   code sits on the bloom below. Nothing here has an edge, which is the whole
+   point of it. */
+.pass[data-look='silhouette'] .pass-sheet {
   background-size: cover;
   background-position: center;
-  display: grid;
-  align-items: end;
+  border-color: transparent;
+  min-height: 34rem;
+  align-content: start;
 }
-.pass-hero::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 35%, rgba(0, 0, 0, 0.62));
-}
-.pass-hero-words {
+/* The shade has to hold all the way past the last line of the head, not fade
+   through it: the wash below rises this far, and white type over white is
+   what happens otherwise. So it stays strong to 86% and does its fading in
+   the empty space under the words, with a shadow behind them as well — a
+   gradient can be tuned to one photograph, a shadow works on all of them. */
+.pass-shade {
+  /* Above the wash, not under it. The bloom's circle reaches up past the top
+     of its own block, and as a later sibling it was painting over the shade
+     and over the white words on it — measured at 1.48:1, which is no contrast
+     at all. */
   position: relative;
   z-index: 1;
-  color: #fff;
-  text-align: center;
-  display: grid;
-  gap: 0.4rem;
-  padding: 1.5rem 1.35rem 1.6rem;
-  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.5);
+  /*
+   * White type over an arbitrary photograph cannot be made safe by picking a
+   * scrim alpha: whatever the number, somebody's picture has a blown-out
+   * highlight exactly where the smallest line sits, and measuring found that
+   * line at 1.17:1. So the picture under the head is blurred as well as
+   * darkened — a blur makes the ground uniform, which is what turns a gamble
+   * into a number. The gradient stays as the fallback for a browser with no
+   * backdrop-filter, and the mask means this has no edge either.
+   */
+  /* The scrim only has to carry two lines of large type now — the date moved
+     down onto the bloom — so it can be a shade again rather than the near
+     black bar the small line was forcing. */
+  -webkit-backdrop-filter: blur(14px) brightness(0.38) saturate(0.9);
+  backdrop-filter: blur(14px) brightness(0.38) saturate(0.9);
+  /* Weighted to the top, where the smallest line is. The eyebrow is 11px and
+     needs 4.5:1; the names below it are large type and need 3, so the shade
+     can keep letting the picture through as it falls. */
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.58) 0%, rgba(0, 0, 0, 0.52) 26%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0.16) 88%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 82%, transparent 100%);
+  padding-bottom: 3.25rem;
 }
-.pass-hero-words .pass-intro { color: #fff; opacity: 0.9; }
-.pass-hero-words .pass-when { color: #fff; opacity: 0.86; }
-.pass[data-look='portrait'] .pass-code { margin-top: 1.15rem; }
+.pass-shade .pass-head { padding-bottom: 0; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7); }
+/* Full white, not 88% of it: over a photograph, translucent white type is
+   spending the only thing that makes it legible, and these three lines are
+   already separated by size and letter-spacing. (This did not move the
+   measured number — the check reads the computed colour, which is white
+   either way — so the scrim below is what actually carries this.) */
+.pass-shade .pass-names { color: #fff; }
+.pass-shade .pass-intro { color: #fff; }
+.pass-shade .pass-when { color: #fff; }
 
-/* ── ticket ───────────────────────────────────────────────────────────
-   It tears. The notches are two circles in the page's own ground, punched
-   half outside each edge, which is what makes the line read as a perforation
-   rather than a border. */
-.pass-strip {
-  height: 7rem;
-  background-size: cover;
-  background-position: center;
-  margin: 0 1.35rem;
-  border-radius: 0.75rem;
-}
-.pass-tear {
-  position: relative;
-  height: 1.6rem;
-  margin: 1.25rem 0 0;
-  background-image: linear-gradient(to right, color-mix(in srgb, var(--inv-accent2) 75%, transparent) 50%, transparent 0);
-  background-size: 12px 2px;
-  background-repeat: repeat-x;
-  background-position: center;
-}
-.pass-tear::before,
-.pass-tear::after {
+/*
+ * The bloom: the photograph going to light under the code, and nothing else.
+ *
+ * A code needs pale paper under it, and the old answer was to give it a white
+ * card — which is the code cut out of the design and pasted back on. This is
+ * the same light with no edge to it: a radial wash, full strength across the
+ * code and the quiet zone it is owed, falling away into the picture after
+ * that.
+ *
+ * The stops are measured, not chosen. The wash is sized to 260% of the code,
+ * so its radius is 1.3 code-widths; the code's own worst case is its corner,
+ * at half its diagonal — 0.707 of a code-width, which is 54% of that radius.
+ * White therefore has to still be at full strength at 54%, and it is: the
+ * first fall-off begins at 60%. Under the code the wash never drops below
+ * 0.93, against the 0.80 the flat veil ships at and the 0.70 that six test
+ * grounds decoded down to.
+ */
+/* Both classes, because .pass-code is declared further down this file and at
+   equal specificity it was quietly undoing every one of these — the wash came
+   out as a rounded white card, which is the one thing it exists not to be. */
+.pass-code.pass-bloom { position: relative; margin: 0; border-radius: 0; overflow: visible; background: none; }
+.pass-code.pass-bloom::before {
   content: '';
   position: absolute;
+  left: 50%;
   top: 50%;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 999px;
-  /* The ground fills the punch; the ring is what makes it a punch. On a
-     palette whose bg and surface are a shade apart the fill alone is
-     invisible, and the tear reads as a plain dashed rule. */
-  background: var(--inv-bg);
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 75%, transparent);
-  transform: translateY(-50%);
+  translate: -50% -50%;
+  /* 260% of the code, which is where the measured geometry comes from — see
+     the comment above and tests/qr.test.ts. The cap is what keeps it that:
+     this block is as wide as the sheet, and without it the wash was sized off
+     the sheet instead and flooded the head. 232px is .pass-code-art's own
+     max-width. */
+  width: 260%;
+  max-width: 604px;
+  aspect-ratio: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    closest-side circle,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.96) 60%,
+    rgba(255, 255, 255, 0.74) 76%,
+    rgba(255, 255, 255, 0.3) 88%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
-.pass-tear::before { left: -0.75rem; }
-.pass-tear::after { right: -0.75rem; }
-.pass-stub { display: grid; gap: 0.2rem; }
-.pass-stub-name {
-  text-align: center;
-  font-family: var(--inv-display);
-  font-size: 1.15rem;
-  margin: 0.2rem 0 0;
+.pass-code.pass-bloom .pass-code-body { padding: 2.6rem 1.35rem 3rem; }
+/* After the scan the blocks stack down the sheet, each with its own side
+   margin, so a photograph behind them shows through the gaps as stripes. One
+   ground under the lot of them instead, fading up out of the picture. */
+.pass[data-art='yes'] .pass-after {
+  position: relative;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--inv-surface) 82%, transparent) 0, var(--inv-surface) 4.5rem);
+  padding-bottom: 0.5rem;
 }
-.pass[data-look='ticket'] .pass-code { margin-top: 0.5rem; }
+.pass[data-art='yes'] .pass-after .pass-arrived { padding-top: 1.8rem; }
+/* The light settles into the paper the link is on, rather than the link
+   sitting on the picture where it cannot be read. */
+.pass[data-art='yes'] .pass-foot {
+  position: relative;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--inv-surface) 70%, transparent) 0, var(--inv-surface) 1.75rem);
+}
+/* Over artwork this line is the smallest and palest thing on the pass, and
+   muted grey on the design's own paper is where it disappears. The design's
+   own ink instead — the colour that artwork was drawn to carry.
+ *
+ * Scoped to the one look it was written for. Unscoped it also caught the
+ * silhouette, where the same line is white on a dark scrim, and painted it
+ * dark ink on dark: 1.22:1, and invisible. `[data-art]` outranks
+ * `.pass-shade .pass-when`, so nothing warned. */
+.pass[data-look='ground'][data-art='yes'] .pass-when { color: var(--inv-ink); }
 
-.pass-photo {
-  aspect-ratio: 16 / 10;
+/* ── ground: the invitation's own background, carried to the door ─────
+   Where the design has artwork it is the sheet; where it has none the sheet
+   keeps the palette, which is a card too. Either way the blocks below sit on
+   their own surface so the words stay readable over a picture. */
+.pass[data-look='ground'] .pass-sheet {
   background-size: cover;
   background-position: center;
-  margin: 0 1.35rem;
-  border-radius: 0.75rem;
+}
+/* No card behind the code: the bloom gives it paper without cutting a
+   rectangle out of the picture.
+ *
+ * The head gets the same treatment rather than a panel — a wash of the
+ * design's own paper, at full strength behind the words and fading out below
+ * them, with no edge anywhere. A design's ink is drawn to read on its own
+ * artwork in general; it is not drawn to read on whichever part of it happens
+ * to land behind three lines of type on a phone, and measuring found the
+ * eyebrow at 1.24:1 over a bright patch of sky. */
+.pass[data-look='ground'][data-art='yes'] .pass-head {
+  position: relative;
+  z-index: 1;
+  padding-bottom: 2.75rem;
+  background: linear-gradient(
+    to bottom,
+    var(--inv-surface) 0,
+    var(--inv-surface) 62%,
+    color-mix(in srgb, var(--inv-surface) 72%, transparent) 82%,
+    color-mix(in srgb, var(--inv-surface) 0%, transparent) 100%
+  );
 }
 
 .pass-greet { padding: 1.25rem 1.35rem 0.5rem; text-align: center; display: grid; gap: 0.3rem; }
@@ -666,8 +740,6 @@ table.data tr:hover td {
 
 /* The code, and the quiet zone it is owed. */
 .pass-code { position: relative; overflow: hidden; margin: 1rem 1.35rem 0; border-radius: 1rem; }
-.pass-code-photo { background-size: cover; background-position: center; }
-.pass-code-photo::before { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, var(--inv-veil, 0.8)); }
 /* min-width:0 so the grid column may shrink below the code's natural width.
    Without it the column is sized by the 232px SVG, overflows a narrow phone,
    and .pass-code's overflow:hidden clips the caption along with it. */
@@ -685,6 +757,16 @@ table.data tr:hover td {
    that does not. */
 .pass-code-art { display: block; line-height: 0; width: 100%; max-width: 232px; }
 .pass-code-art svg { width: 100%; height: auto; display: block; }
+.pass-where {
+  font-size: 0.75rem;
+  text-align: center;
+  margin: 0.15rem 0 0;
+  line-height: 1.5;
+  opacity: 0.72;
+  max-width: 22rem;
+  text-wrap: pretty;
+  min-width: 0;
+}
 .pass-note { font-size: 0.75rem; text-align: center; margin: 0; line-height: 1.5; opacity: 0.8; max-width: 22rem; text-wrap: pretty; }
 .pass-cta, .pass-note { min-width: 0; }
 
@@ -749,12 +831,16 @@ table.data tr:hover td {
 .pass-back:hover { text-decoration: underline; }
 
 /*
- * The check-in pass: the guest's own code, in one of three backdrops.
+ * The check-in pass block on the invitation: the guest's own code, in
+ * whichever of the two looks the couple chose.
  *
  * The photograph is set as a background on the frame rather than as an <img>,
  * so the code sits in normal flow above it and keeps its quiet zone whatever
- * the picture does. `--inv-veil` is written from QR_VEIL in src/lib/qr.ts, so
- * the measured number has one home.
+ * the picture does.
+ *
+ * There used to be a third: the photograph behind a solid white card with the
+ * code on the card. It is gone. A card is the code cut out of the design and
+ * pasted back on, and the bloom below does the same job without an edge.
  */
 .inv-pass {
   position: relative;
@@ -764,21 +850,30 @@ table.data tr:hover td {
   background-position: center;
   text-align: center;
 }
-.inv-pass::before {
+/*
+ * The same bloom as the pass, at this block's size: light at full strength
+ * across the code and its quiet zone, falling away into the photograph after
+ * that. Sized to the block rather than the code, so the stops are the ones
+ * .pass-bloom measures scaled to a 144px code inside a 1.25rem padding — the
+ * code's corner lands at 46% of the closest side, well inside the 60% where
+ * white is still 0.96.
+ */
+.inv-pass-behind::before {
   content: '';
   position: absolute;
-  inset: 0;
-}
-/* The photo behind the whole card: the code gets solid paper of its own, so
-   the picture is free to stay at full strength. Darkened only enough to read
-   the names over it. */
-.inv-pass-photo::before {
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.52));
-}
-/* The photo behind the code itself: a flat white veil, because a gradient
-   would be safe at one end and under the floor at the other. */
-.inv-pass-behind::before {
-  background: rgba(255, 255, 255, var(--inv-veil, 0.8));
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 150%;
+  aspect-ratio: 1;
+  background: radial-gradient(
+    closest-side circle,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.96) 60%,
+    rgba(255, 255, 255, 0.74) 76%,
+    rgba(255, 255, 255, 0.3) 88%,
+    rgba(255, 255, 255, 0) 100%
+  );
 }
 .inv-pass-body {
   position: relative;
@@ -787,21 +882,8 @@ table.data tr:hover td {
   gap: 0.5rem;
   padding: 1.25rem;
 }
-.inv-pass-photo .inv-pass-body {
-  color: #fff;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
-}
-.inv-pass-plate {
-  display: block;
-  line-height: 0;
-  border-radius: 0.75rem;
-  padding: 0.55rem;
-  background: var(--inv-surface);
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.25);
-}
 .inv-pass-code { display: block; line-height: 0; }
 .inv-pass-open { font-size: 0.75rem; color: var(--inv-accent); text-decoration: underline; }
-.inv-pass-photo .inv-pass-open { color: #fff; }
 
 .inv-btn {
   display: inline-flex;

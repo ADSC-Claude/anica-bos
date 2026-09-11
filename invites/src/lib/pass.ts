@@ -155,25 +155,42 @@ export function passSubject(occasion: Occasion, content: Content, fallback: stri
 }
 
 /**
- * How the pass is laid out.
+ * How the pass is laid out — which is the same question as what sits behind
+ * the code, so it is asked once.
  *
- * Three, and they are not skins: each puts the photograph somewhere different
- * and therefore reads as a different object. `card` is a sheet with the picture
- * as a band — quiet, and what a memorial or a corporate badge wants. `portrait`
- * gives the photograph the top of the screen and sets the names over it, which
- * is what most couples picture. `ticket` tears in two, with the code in the
- * stub, which is what an event with a door actually is.
+ * There used to be two pickers for this: a "look" (a sheet, a framed portrait,
+ * a ticket that tore in two) and, separately, a backdrop. That was one picker
+ * too many and the wrong one: a tear-line and a plain white card are ways of
+ * *cutting the code out* of the design it belongs to, which is the thing the
+ * backdrop work was written to stop.
+ *
+ * So there are two, and neither cuts anything:
+ *
+ * `silhouette` gives the photograph the whole pass and floats the code on it.
+ * No card, no border, no edge anywhere — the picture blooms into light under
+ * the modules and comes back to full strength around them (see .pass-bloom).
+ *
+ * `ground` carries the invitation's own background through to the door: the
+ * design's artwork where it has any, its colours where it has none.
+ *
+ * A third is still open. It is not invented here.
  */
-export type PassLook = 'card' | 'portrait' | 'ticket';
+export type PassLook = 'silhouette' | 'ground';
 
 export const PASS_LOOKS: readonly { value: PassLook; label: string; note: string }[] = [
-  { value: 'portrait', label: 'Portrait', note: 'Your photograph across the top, your names over it.' },
-  { value: 'card', label: 'Card', note: 'A plain sheet. The quietest of the three.' },
-  { value: 'ticket', label: 'Ticket', note: 'Tears in two, with the code in the stub.' },
+  { value: 'silhouette', label: 'On your photograph', note: 'The picture fills the pass and the code floats on it, with no card and no edge.' },
+  { value: 'ground', label: 'Your invitation’s design', note: 'The same background your guests have been reading, carried through to the door.' },
 ];
 
+/**
+ * Blank is `silhouette`, and so are the two photograph backdrops the old
+ * picker offered: a couple who chose "photo behind the card" or "photo behind
+ * the code" asked for their picture behind their code, and this is what that
+ * is now. Only the invitation's own colours map to `ground`.
+ */
 export function passLookFrom(raw: string): PassLook {
-  return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'portrait';
+  if (raw === 'ground') return 'ground';
+  return PASS_LOOKS.some((l) => l.value === raw) ? (raw as PassLook) : 'silhouette';
 }
 
 export type PassDetail = { label: string; value: string };

@@ -2,7 +2,7 @@ import { MOTIF_MIN, MOTIF_MAX } from './palette';
 import { attireDefaults, gentsItems, ladiesItems, avoidItems, ATTIRES, AVOID_MAX, type AttireItem } from './attire';
 import type { Occasion, Tier } from '@prisma/client';
 import { tierAtLeast, entitled, TIER_LABELS, type FeatureKey } from './tiers';
-import { QR_BACKDROPS } from './qr';
+
 import { PASS_LOOKS } from './pass';
 import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
@@ -674,22 +674,24 @@ const SECTION_DEFS: SectionDef[] = [
     minTier: 'LUXURY',
     feature: 'checkin',
     fields: () => [
-      // Portrait carries the blank value because portrait is what an
+      // "On your photograph" carries the blank value because that is what an
       // untouched pass is (passLookFrom), and two tiles that mean the same
-      // thing is not a choice. `art` keeps our Card off the cover
-      // photograph's tilted-card drawing, which is a different card.
+      // thing is not a choice. `art` names the drawing, so our tiles cannot
+      // borrow the cover photograph's — its "card" is a different card.
+      //
+      // This one picker used to be two: a look, and a separate "behind the
+      // code itself". They asked the same question and could contradict each
+      // other, so the backdrop field is gone and this answers for both — the
+      // pass and the code block on the invitation.
       styles('look', 'How the pass looks', PASS_LOOKS.map((l) => ({
-        value: l.value === 'portrait' ? '' : l.value,
+        value: l.value === 'silhouette' ? '' : l.value,
         label: l.label,
         hint: l.note,
         art: `pass-${l.value}`,
       })), {
-        hint: 'Each guest gets their own, with their name and their code on it.',
+        hint: 'Each guest gets their own, with their name and their code on it. A photograph has to fade under a code before a phone can still read it — we do that for you, and only under the code, so the picture keeps its strength everywhere else.',
       }),
       image('photo', 'Photograph on the pass', { hint: 'Blank uses your cover photo. A bright, uncluttered picture works best.' }),
-      select('qrBackdrop', 'Behind the code itself', QR_BACKDROPS.map((b) => ({ value: b.value, label: b.label })), {
-        hint: 'Your photo behind the card keeps the picture at full strength and gives the code its own panel. Behind the code itself, the photo has to be faded almost away before a phone can still read it — we do that for you, so expect it to look pale.',
-      }),
       textarea('note', 'Line under the code', { placeholder: 'Blank uses the wording for your occasion.', hint: 'What the guest reads while they wait to be scanned.' }),
     ],
   },

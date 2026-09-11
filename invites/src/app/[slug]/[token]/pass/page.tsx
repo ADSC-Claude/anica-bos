@@ -6,6 +6,7 @@ import { entitled } from '@/lib/tiers';
 import { invitationUrl } from '@/lib/app-url';
 import { formatDateTime } from '@/lib/datetime';
 import { displayTitle, rows } from '@/lib/sections';
+import { templateGround } from '@/lib/design';
 import { Pass } from '@/components/invite/pass';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,9 @@ export default async function PassPage({ params }: Params) {
       palette={palette}
       fonts={fonts}
       hostsTitle={invitation.title || displayTitle(invitation.occasion, content)}
+      // The design's own artwork, where it has any — what "your invitation's
+      // design" means at the door. Blank keeps its palette, which is a card too.
+      ground={templateGround(invitation.template)}
       url={invitationUrl(slug, guest.token)}
       guest={{
         name: guest.name,

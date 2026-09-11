@@ -1,4 +1,4 @@
-import { qrSvg, qrOnPhoto, qrColours, qrBackdropFrom, QR_VEIL, QR_SAFE, type QrBackdrop } from '@/lib/qr';
+import { qrSvg, qrOnPhoto, qrColours, QR_SAFE } from '@/lib/qr';
 import { PASS_COPY, passIntro, passSubject, passDetails, passLookFrom, arrivalLine, arrivedLinks, type PassLook } from '@/lib/pass';
 import { str, displayTitle, coverImage } from '@/lib/sections';
 import { formatDate, formatTime } from '@/lib/datetime';
@@ -26,15 +26,14 @@ export type PassFeatures = { seating: boolean; guestbook: boolean; programme: bo
  * The screen a guest holds up at the door, and what it becomes afterwards.
  *
  * Two states, and the split is the design. Before the scan the pass has one
- * job — be the thing that gets held up — so it carries the names, the code, and
- * the two or three details a guest asks on a threshold. Nothing else: a screen
- * offering a guestbook and a photo album to somebody in a queue is a screen
- * that gets read instead of held up. After the scan the queue is behind them
- * and the same phone becomes the day.
+ * job — be the thing that gets held up — so it carries the names, the code and
+ * nothing else. Not the table, not the hashtag: a guest in a queue holding a
+ * gift is not reading, and every line beside the code is a line competing with
+ * it. After the scan the queue is behind them and the same phone becomes the
+ * day, and that is where the details belong.
  *
- * Three looks on top of that, and they are not skins. Each puts the photograph
- * somewhere different, so each reads as a different object: a sheet, a framed
- * portrait, a ticket that tears.
+ * Two looks on top of that, and neither cuts the code out of the design it
+ * belongs to — no tear, no border, no white card. See PASS_LOOKS.
  */
 export function Pass({
   occasion,
@@ -45,6 +44,7 @@ export function Pass({
   url,
   hostsTitle,
   features,
+  ground = '',
 }: {
   occasion: Occasion;
   content: Content;
@@ -54,67 +54,83 @@ export function Pass({
   url: string;
   hostsTitle: string;
   features: PassFeatures;
+  /** The design's own artwork, where it has any. See templateGround(). */
+  ground?: string;
 }) {
   const copy = PASS_COPY[occasion];
-  // The pass has a section of its own now. An invitation filled in before it
-  // did keeps whatever it set on the RSVP section.
+  // The pass has a section of its own. An invitation filled in before it did
+  // keeps whatever it set on the RSVP section's old backdrop field, which
+  // passLookFrom() reads as one of these two.
   const own = content.checkin ?? {};
   const rsvp = content.rsvp ?? {};
-  const look: PassLook = passLookFrom(str(own, 'look'));
-  const backdrop: QrBackdrop = qrBackdropFrom(str(own, 'qrBackdrop') || str(rsvp, 'qrBackdrop'));
   const photo = str(own, 'photo') || str(rsvp, 'qrPhoto') || coverImage(content);
+  const wanted: PassLook = passLookFrom(str(own, 'look') || str(rsvp, 'qrBackdrop'));
+  // A look that wants a photograph and has not been given one falls back to the
+  // design rather than floating a code over nothing.
+  const look: PassLook = wanted === 'silhouette' && !photo ? 'ground' : wanted;
   const note = str(own, 'note') || copy.note;
 
   const ink = qrColours(palette);
   const date = str(content.cover ?? {}, 'date');
   const time = str(content.cover ?? {}, 'time');
   const venue = str(content.ceremony ?? {}, 'venue') || str(content.reception ?? {}, 'venue');
-  const details = passDetails(occasion, content, guest);
   const greeting = guest.salutation || guest.name;
   const arrival = arrivalLine(greeting, guest.checkedIn, guest.declined);
   const style = cssVars(palette, fonts) as CSSProperties;
-  const codeOnPhoto = backdrop === 'photoBehind' && Boolean(photo);
   const links = guest.checkedIn ? arrivedLinks(url, { table: guest.table?.name ?? '', ...features }) : [];
+  // The links already say the table, and say it as somewhere to go. A detail
+  // row repeating it underneath is the same fact twice.
+  const spoken = new Set(links.map((l) => l.label));
+  const details = passDetails(occasion, content, guest).filter((d) => !spoken.has(d.value));
 
   const when = [date ? formatDate(date, 'long') : '', time ? formatTime(time) : '', venue].filter(Boolean).join(' · ');
   const intro = passIntro(occasion, content);
   const names = passSubject(occasion, content, displayTitle(occasion, content));
+  /*
+   * Whenever there is a picture behind the code — the guest's photograph, or
+   * the design's own artwork — the code needs pale paper under it, and the
+   * bloom is how it gets it without a card. Only a design with no artwork
+   * leaves the code on flat colour, where it can simply take the palette.
+   */
+  const bloomed = look === 'silhouette' || Boolean(ground);
 
   const code = (size: number): ReactNode => (
     <span
       className="pass-code-art"
       dangerouslySetInnerHTML={{
-        __html: codeOnPhoto ? qrOnPhoto(url, size) : qrSvg(url, { size, dark: ink.dark, light: ink.light, eye: 'rounded' }),
+        __html: bloomed ? qrOnPhoto(url, size) : qrSvg(url, { size, dark: ink.dark, light: ink.light, eye: 'rounded' }),
       }}
     />
   );
 
+  /*
+   * The bloom is the whole of the silhouette look. It is a radial wash of
+   * white with no edge: full strength across the code and its quiet zone, then
+   * falling away into the photograph, so the code is not on a card — it is on
+   * the picture, which has gone to light underneath it. The stops are measured
+   * rather than chosen; see .pass-bloom in globals.css.
+   */
   const codeBlock = (
-    <section
-      className={`pass-code${codeOnPhoto ? ' pass-code-photo' : ''}`}
-      style={codeOnPhoto ? { backgroundImage: `url(${photo})`, ['--inv-veil' as string]: String(QR_VEIL), color: QR_SAFE.dark } : undefined}
-    >
+    <section className={`pass-code${bloomed ? ' pass-bloom' : ''}`} style={bloomed ? { color: QR_SAFE.dark } : undefined}>
       <div className="pass-code-body">
         <p className="pass-cta">{copy.cta}</p>
         {code(232)}
         <p className="pass-note">{guest.declined ? arrival.body : note}</p>
+        {/*
+         * On the silhouette this line lives here rather than in the head, and
+         * that is a legibility decision rather than a layout one: it is the
+         * smallest type on the pass, and white at that size over an unknown
+         * photograph needed a scrim so dark the head stopped being a shade and
+         * became a black bar. Down here it is dark type on the bloom's light,
+         * which measures 15:1 and needs nothing.
+         */}
+        {look === 'silhouette' && when && <p className="pass-where">{when}</p>}
       </div>
     </section>
   );
 
-  const detailList = details.length > 0 && (
-    <dl className="pass-details">
-      {details.map((d) => (
-        <div key={d.label} className="pass-detail">
-          <dt>{d.label}</dt>
-          <dd>{d.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-
   const arrived = (
-    <>
+    <div className="pass-after">
       <section className="pass-arrived">
         <p className="pass-tick" aria-hidden="true">✓</p>
         <h2 className="pass-greet-title">{arrival.title}</h2>
@@ -131,12 +147,31 @@ export function Pass({
           ))}
         </nav>
       )}
+      {/* The threshold questions, now that there is time to read them. */}
+      {details.length > 0 && (
+        <dl className="pass-details">
+          {details.map((d) => (
+            <div key={d.label} className="pass-detail">
+              <dt>{d.label}</dt>
+              <dd>{d.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {/* Kept, smaller: a pass somebody may be asked for twice. */}
       <details className="pass-again">
         <summary>Show my code again</summary>
         <span className="pass-code-art pass-code-small" dangerouslySetInnerHTML={{ __html: qrSvg(url, { size: 168, dark: ink.dark, light: ink.light, eye: 'rounded' }) }} />
       </details>
-    </>
+    </div>
+  );
+
+  const head = (
+    <header className="pass-head">
+      <p className="pass-intro">{intro}</p>
+      <h1 className="pass-names">{names}</h1>
+      {when && look !== 'silhouette' && <p className="pass-when">{when}</p>}
+    </header>
   );
 
   const foot = (
@@ -145,61 +180,25 @@ export function Pass({
     </footer>
   );
 
-  // ── portrait: the photograph takes the top, the names sit on it ──────
-  if (look === 'portrait' && photo) {
+  // ── the photograph, whole, with the code floating on it ──────────────
+  if (look === 'silhouette') {
     return (
-      <main className="pass" data-look="portrait" style={style}>
-        <div className="pass-sheet">
-          <div className="pass-hero" style={{ backgroundImage: `url(${photo})` }}>
-            <div className="pass-hero-words">
-              <p className="pass-intro">{intro}</p>
-              <h1 className="pass-names">{names}</h1>
-              {when && <p className="pass-when">{when}</p>}
-            </div>
-          </div>
-          {guest.checkedIn ? arrived : <>{codeBlock}{detailList}</>}
+      <main className="pass" data-look="silhouette" data-art="yes" style={style}>
+        <div className="pass-sheet" style={{ backgroundImage: `url(${photo})` }} role="img" aria-label={`${hostsTitle} photograph`}>
+          <div className="pass-shade">{head}</div>
+          {guest.checkedIn ? arrived : codeBlock}
           {foot}
         </div>
       </main>
     );
   }
 
-  // ── ticket: the event above the tear, the code in the stub ───────────
-  if (look === 'ticket') {
-    return (
-      <main className="pass" data-look="ticket" style={style}>
-        <div className="pass-sheet">
-          <header className="pass-head">
-            <p className="pass-intro">{intro}</p>
-            <h1 className="pass-names">{names}</h1>
-            {when && <p className="pass-when">{when}</p>}
-          </header>
-          {photo && <div className="pass-strip" style={{ backgroundImage: `url(${photo})` }} role="img" aria-label={`${hostsTitle} photograph`} />}
-          {detailList}
-          <div className="pass-tear" aria-hidden="true" />
-          <div className="pass-stub">
-            <p className="pass-stub-name">{greeting}</p>
-            {guest.checkedIn ? arrived : codeBlock}
-          </div>
-          {foot}
-        </div>
-      </main>
-    );
-  }
-
-  // ── card: a plain sheet, and the quietest of the three ───────────────
+  // ── the invitation's own background, carried to the door ─────────────
   return (
-    <main className="pass" data-look="card" style={style}>
-      <div className="pass-sheet">
-        <header className="pass-head">
-          <p className="pass-intro">{intro}</p>
-          <h1 className="pass-names">{names}</h1>
-          {when && <p className="pass-when">{when}</p>}
-        </header>
-        {photo && backdrop !== 'photoBehind' && (
-          <div className="pass-photo" style={{ backgroundImage: `url(${photo})` }} role="img" aria-label={`${hostsTitle} photograph`} />
-        )}
-        {guest.checkedIn ? arrived : <>{codeBlock}{detailList}</>}
+    <main className="pass" data-look="ground" data-art={ground ? 'yes' : 'no'} style={style}>
+      <div className="pass-sheet" style={ground ? { backgroundImage: `url(${ground})` } : undefined}>
+        {head}
+        {guest.checkedIn ? arrived : codeBlock}
         {foot}
       </div>
     </main>

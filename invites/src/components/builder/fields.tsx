@@ -277,73 +277,69 @@ function StyleThumb({ kind }: { kind: string }) {
 }
 
 /**
- * The three check-in passes, drawn rather than described.
+ * The two check-in passes, drawn rather than described.
  *
- * The same reasoning as StyleThumb: "Ticket" tells a couple nothing, and the
- * difference between these three is entirely where the photograph goes — which
- * is a thing to look at, not to read. Boxes and radii again, so they cost
- * nothing and cannot 404.
+ * The same reasoning as StyleThumb: "on your photograph" and "your
+ * invitation's design" are both backgrounds, and the difference between two
+ * backgrounds is a thing to look at rather than read. Boxes, radii and one
+ * gradient, so they cost nothing and cannot 404.
  */
 function PassThumb({ look, ink, photo }: { look: string; ink: string; photo: string }) {
-  const line = (w: string, o = 0.55) => <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: ink, opacity: o, margin: '0 auto' }} />;
+  const line = (w: string, colour = ink, o = 0.55) => (
+    <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: colour, opacity: o, margin: '0 auto' }} />
+  );
   // The code: a square with three corner eyes, which is the shape a phone
   // camera recognises and so the shape a person does too.
   const eye = (pos: CSSProperties) => (
-    <span style={{ position: 'absolute', width: '26%', height: '26%', border: `2px solid ${ink}`, borderRadius: 1, opacity: 0.75, ...pos }} />
+    <span style={{ position: 'absolute', width: '26%', height: '26%', border: `2px solid ${ink}`, borderRadius: 1, opacity: 0.8, ...pos }} />
   );
   const qr = (w: string) => (
-    <span style={{ position: 'relative', display: 'block', width: w, aspectRatio: '1 / 1', border: `1px solid ${ink}`, borderRadius: 2, opacity: 0.9, margin: '0 auto' }}>
-      {eye({ left: '8%', top: '8%' })}
-      {eye({ right: '8%', top: '8%' })}
-      {eye({ left: '8%', bottom: '8%' })}
-      <span style={{ position: 'absolute', right: '14%', bottom: '14%', width: '22%', height: '22%', background: ink, opacity: 0.5 }} />
+    <span style={{ position: 'relative', display: 'block', width: w, aspectRatio: '1 / 1', margin: '0 auto' }}>
+      {eye({ left: 0, top: 0 })}
+      {eye({ right: 0, top: 0 })}
+      {eye({ left: 0, bottom: 0 })}
+      <span style={{ position: 'absolute', right: '6%', bottom: '6%', width: '22%', height: '22%', background: ink, opacity: 0.55 }} />
     </span>
   );
   return (
     <span
       aria-hidden
-      className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)]"
-      style={{ aspectRatio: '3 / 5' }}
+      className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)]"
+      style={{ aspectRatio: '3 / 5', background: look === 'silhouette' ? photo : 'var(--color-sand-50)' }}
     >
-      {look === 'portrait' && (
+      {look === 'silhouette' && (
         <>
-          {/* edge to edge, and the names sit on it */}
-          <span style={{ display: 'block', height: '42%', background: photo, position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '12%', right: '12%', bottom: '12%' }}>
-              {line('80%', 0.9)}
-              <span style={{ display: 'block', height: 4 }} />
-              {line('54%', 0.7)}
-            </span>
+          {/* the picture, edge to edge, with the words on a shade that fades */}
+          <span style={{ position: 'absolute', inset: '0 0 auto', height: '34%', background: 'linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0))' }} />
+          <span style={{ position: 'absolute', left: '14%', right: '14%', top: '11%' }}>
+            {line('100%', '#fff', 0.95)}
+            <span style={{ display: 'block', height: 4 }} />
+            {line('62%', '#fff', 0.8)}
           </span>
-          <span style={{ display: 'block', padding: '12% 14%' }}>{qr('100%')}</span>
+          {/* the bloom: light with no edge, and the code floating on it */}
+          <span
+            style={{
+              position: 'absolute', left: '50%', top: '64%', translate: '-50% -50%',
+              width: '150%', aspectRatio: '1',
+              background: 'radial-gradient(closest-side circle, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.95) 42%, rgba(255,255,255,0.5) 68%, rgba(255,255,255,0) 100%)',
+            }}
+          />
+          <span style={{ position: 'absolute', left: '26%', right: '26%', top: '52%' }}>{qr('100%')}</span>
         </>
       )}
-      {look === 'card' && (
-        <span style={{ display: 'block', padding: '12% 14%' }}>
-          {line('72%')}
-          <span style={{ display: 'block', height: 4 }} />
-          {line('48%')}
-          <span style={{ display: 'block', height: 8 }} />
-          <span style={{ display: 'block', width: '100%', aspectRatio: '16 / 10', background: photo, borderRadius: 2 }} />
-          <span style={{ display: 'block', height: 8 }} />
-          {qr('72%')}
-        </span>
-      )}
-      {look === 'ticket' && (
+      {look === 'ground' && (
         <>
-          <span style={{ display: 'block', padding: '12% 14% 0' }}>
-            {line('72%')}
+          {/* the design's own background, standing in for artwork */}
+          <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 7px, transparent 7px 15px)`, opacity: 0.85 }} />
+          <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(255,255,255,0.55))' }} />
+          <span style={{ position: 'absolute', inset: '8% 10% auto', background: 'var(--card-bg)', borderRadius: 3, padding: '8% 6%' }}>
+            {line('84%')}
             <span style={{ display: 'block', height: 4 }} />
-            {line('48%')}
-            <span style={{ display: 'block', height: 8 }} />
-            <span style={{ display: 'block', width: '100%', aspectRatio: '16 / 7', background: photo, borderRadius: 2 }} />
+            {line('54%')}
           </span>
-          {/* the perforation, notches and all — it is the whole point of this one */}
-          <span style={{ position: 'relative', display: 'block', margin: '10% 0 0', height: 1, background: `repeating-linear-gradient(to right, ${ink} 0 4px, transparent 4px 8px)`, opacity: 0.6 }}>
-            <span style={{ position: 'absolute', left: -5, top: '50%', translate: '0 -50%', width: 10, height: 10, borderRadius: 999, background: 'var(--color-sand-100)', border: `1px solid ${ink}` }} />
-            <span style={{ position: 'absolute', right: -5, top: '50%', translate: '0 -50%', width: 10, height: 10, borderRadius: 999, background: 'var(--color-sand-100)', border: `1px solid ${ink}` }} />
+          <span style={{ position: 'absolute', left: '10%', right: '10%', top: '44%', background: 'var(--card-bg)', borderRadius: 3, padding: '7% 16%' }}>
+            {qr('100%')}
           </span>
-          <span style={{ display: 'block', padding: '10% 20% 0' }}>{qr('100%')}</span>
         </>
       )}
     </span>

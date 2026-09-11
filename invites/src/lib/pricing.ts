@@ -1,6 +1,6 @@
 import type { DiscountType, Occasion, ServiceMode, Tier } from '@prisma/client';
 import { discountAmount } from './money';
-import { hasFeature, tierAtLeast } from './tiers';
+import { ADDON_FEATURE, hasFeature, tierAtLeast } from './tiers';
 
 /**
  * A quote is arithmetic on rows the admin can edit: a package, its add-ons, a
@@ -115,25 +115,34 @@ export function serviceModeAvailable(mode: ServiceMode, _tier: Tier): boolean {
 export const DEFAULT_SERVICE_MODE: ServiceMode = 'DFY';
 
 /**
- * Whether a package may be sold this add-on.
+ * Whether a package may be sold this add-on. Most are offered to all of them;
+ * three kinds are not, for three different reasons.
  *
- * Every add-on is offered to every package but the two queue jumps, and those
- * are split because they are not the same offer twice — they are what we can
- * actually promise on two different amounts of work. A Signature or Luxury
- * build carries per-guest links, seating, a programme and an album; rush would
- * be selling a day we cannot deliver on it. Priority is what those can have,
- * and it is two to three days rather than one for the same reason.
+ * The queue jumps are split because they are not the same offer twice — they
+ * are what we can actually promise on two different amounts of work. A
+ * Signature or Luxury build carries per-guest links, seating, a programme and
+ * an album; rush would be selling a day we cannot deliver on it. Priority is
+ * what those can have, and two to three days rather than one for the same
+ * reason. The line is Signature *and above*, not Signature exactly, so the
+ * package carrying the most is not handed the shortest promise.
  *
- * The dividing line is Signature and above, not Signature exactly, so the
- * package that carries the most is not handed the shortest promise.
+ * A feature sold on its own is offered only to the packages that do not
+ * already include it, read from the feature rather than from a list of tiers.
  *
- * The last rule is not about the package at all: a memorial is the gathering
- * nobody announces in advance, so it is not sold a Save the Date.
+ * And the last rule is not about the package at all: a memorial is the
+ * gathering nobody announces in advance, so it is not sold a Save the Date.
  */
 export function addOnAvailable(code: string, tier: Tier, occasion?: Occasion): boolean {
   if (code === RUSH_CODE) return !tierAtLeast(tier, 'COMPLETE');
   if (code === PRIORITY_CODE) return tierAtLeast(tier, 'COMPLETE');
   if (code === SAVE_THE_DATE_CODE) return occasion === undefined || saveTheDateOffered(occasion);
+  // Check-in and the seating chart belong to Luxury, the password to Signature,
+  // and each is sold on its own to the packages below whichever one includes it.
+  // Read from the feature rather than named here, so a package that is given
+  // one of them stops being offered it without anybody remembering to come back
+  // — which is what would have gone wrong when #127 moved two of the three up.
+  const headline = ADDON_FEATURE[code]?.[0];
+  if (headline) return !hasFeature(tier, headline);
   return true;
 }
 

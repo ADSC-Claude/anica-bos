@@ -24,7 +24,7 @@ import {
   sectionOffered,
 } from './sections';
 import { templateSuits } from './occasions';
-import { hasFeature, TIER_LABELS } from './tiers';
+import { hasFeature, entitled, TIER_LABELS } from './tiers';
 import { saveTheDateOffered } from './pricing';
 import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
@@ -384,7 +384,7 @@ export async function updateSettings(
     }
   }
   if (input.privacy !== undefined) {
-    if (input.privacy === 'PASSWORD' && !hasFeature(invitation.tier, 'privacy.password')) {
+    if (input.privacy === 'PASSWORD' && !entitled(invitation, 'privacy.password')) {
       throw new HttpError(403, `Password protection is included in the ${TIER_LABELS.COMPLETE} package.`);
     }
     data.privacy = input.privacy;

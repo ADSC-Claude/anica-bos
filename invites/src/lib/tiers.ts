@@ -105,6 +105,78 @@ export function hasFeature(tier: Tier, feature: FeatureKey): boolean {
 }
 
 /**
+ * Add-ons that buy a feature outright, on a package that does not include it.
+ *
+ * Everything else in this file is a reason to move up a package; these three
+ * are the exceptions, and they are exceptions for the same reason. Each is
+ * wanted by a couple who want one thing rather than the whole tier — a small
+ * wedding that wants the door scanned, a garden reception that wants a seating
+ * chart, a family that wants the link behind a password — and telling them to
+ * buy the package above to get it loses a sale they were ready to make.
+ *
+ * Check-in and the seating chart are Luxury's since #127; the password is
+ * Signature's. Nothing here names a tier, so moving a feature between packages
+ * moves who is offered the add-on with it.
+ *
+ * Each maps to a LIST, because two of them do not work alone. Check-in scans a
+ * guest's token and seating puts a name at a table, so both need the guest
+ * list and the per-guest links that carry the tokens; sold without those, a
+ * couple would pay ₱1,000 for a page they can never put anybody on. So an
+ * add-on grants what it needs to actually work, and the list comes with it.
+ *
+ * That is most of what separates the top packages from Basic, for ₱1,000 —
+ * worth knowing when either price moves, and worth knowing that ₱4,500 of Basic
+ * plus these two reaches what ₱7,500 of Luxury is sold for. It is not a slip:
+ * there is no smaller honest version, because neither feature works alone. The Excel import is in the list for the same reason, not a
+ * generous one — it shares requireGuestManager with the list itself, so
+ * withholding it would mean a gate that does not exist today, to stop a
+ * customer pasting a spreadsheet into a list they already own.
+ *
+ * The first entry is the headline: the thing being bought, and the one that
+ * decides whether a tier is offered the add-on at all.
+ *
+ * A feature must already be built and already sold on some tier before it
+ * appears here. An add-on is a second door to a room that exists, never a
+ * promise of one.
+ */
+export const ADDON_FEATURE: Readonly<Record<string, readonly FeatureKey[]>> = {
+  QR_CHECKIN: ['checkin', 'guests.manager', 'guests.import', 'rsvp.personalLinks'],
+  SEATING_VIEWER: ['seating', 'guests.manager', 'guests.import', 'rsvp.personalLinks'],
+  PASSWORD: ['privacy.password'],
+};
+
+/**
+ * An invitation, as far as what it is allowed to do is concerned: the package
+ * it was sold under, and the add-ons bought beside it.
+ *
+ * `addOns` is required rather than optional on purpose. Forgetting it would
+ * not fail — it would read as "bought nothing" and quietly shut a paying
+ * customer out of what they paid for, which is the one wrong answer here that
+ * nobody would report as a bug. A caller that has only a tier to hand is
+ * asking a different question and wants hasFeature.
+ */
+export type Entitled = { tier: Tier; addOns: string[] };
+
+/**
+ * Whether this invitation may use a feature — because its package includes it,
+ * or because it was bought on its own.
+ *
+ * Every gate on a feature reachable through ADDON_FEATURE reads this rather
+ * than hasFeature. The two stay separate because most of this codebase is
+ * asking what a *tier* includes — the comparison table, the upgrade page, the
+ * builder's padlocks — and that question has no invitation to ask about.
+ */
+export function entitled(inv: Entitled, feature: FeatureKey): boolean {
+  if (hasFeature(inv.tier, feature)) return true;
+  return inv.addOns.some((code) => ADDON_FEATURE[code]?.includes(feature));
+}
+
+/** The add-on a package without this feature buys to have it anyway. */
+export function addOnForFeature(feature: FeatureKey): string | undefined {
+  return Object.keys(ADDON_FEATURE).find((code) => ADDON_FEATURE[code][0] === feature);
+}
+
+/**
  * How many gallery photos a tier may carry.
  *
  * The packages are sold as ranges — five to seven on Standard, ten to fifteen
@@ -184,12 +256,13 @@ export const COMPARISON_ALL: ComparisonRow[] = [
   { label: 'Program / timeline of the day', cells: { BASIC: false, STANDARD: false, COMPLETE: true, LUXURY: true } },
   { label: 'Accommodation & travel tips', cells: { BASIC: false, STANDARD: false, COMPLETE: true, LUXURY: true }, hidden: true },
   { label: 'Guest list manager (Excel import, groups, a personal link per guest)', cells: { BASIC: false, STANDARD: false, COMPLETE: true, LUXURY: true } },
-  { label: "Seating chart on the guest's page", cells: { BASIC: false, STANDARD: false, COMPLETE: false, LUXURY: true } },
-  { label: 'QR check-in on event day', cells: { BASIC: false, STANDARD: false, COMPLETE: false, LUXURY: true } },
+  { label: "Seating chart on the guest's page", cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
+  { label: 'QR check-in on event day', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: true } },
   { label: 'Guestbook / well-wishes wall', cells: { BASIC: false, STANDARD: false, COMPLETE: true, LUXURY: true } },
   { label: 'Post-event photo sharing (guest uploads)', cells: { BASIC: false, STANDARD: false, COMPLETE: false, LUXURY: true } },
   { label: 'Save the Date card (a second card, months ahead)', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: 'Add-on', LUXURY: 'Included' } },
   { label: 'Link', cells: { BASIC: '/juan-and-maria', STANDARD: '+ custom slug', COMPLETE: '+ password / private option', LUXURY: '+ password / private option' } },
+  { label: 'Password on the link', cells: { BASIC: 'Add-on', STANDARD: 'Add-on', COMPLETE: true, LUXURY: true } },
   { label: 'Revisions (rounds of changes before we publish)', cells: { BASIC: '2 rounds', STANDARD: '4 rounds', COMPLETE: '6 rounds', LUXURY: '8 rounds' } },
   { label: 'Link validity', cells: { BASIC: 'Event + 30 days', STANDARD: 'Event + 6 months', COMPLETE: 'Event + 1 year', LUXURY: 'Event + 1 year' } },
 ];

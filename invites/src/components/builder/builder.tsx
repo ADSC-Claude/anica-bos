@@ -14,6 +14,7 @@ import { invitationPath } from '@/lib/app-url';
 import { formatDate } from '@/lib/datetime';
 import { Notice } from '@/components/ui';
 import { GetStarted, type SendToUs } from '@/components/account/checklist';
+import { PhonePreview } from '@/components/account/phone';
 
 export type BuilderSection = { key: SectionKey; label: string; description: string; unlocked: boolean; filled: boolean; minTier: Tier };
 
@@ -317,40 +318,6 @@ export function Builder({
         {sheet && <button type="button" className="btn btn-secondary lg:hidden" onClick={() => setSheet(false)}>Close</button>}
       </aside>
       {!sheet && <button type="button" className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg lg:hidden" onClick={() => setSheet(true)}>Preview</button>}
-    </div>
-  );
-}
-
-/**
- * The phone, reloaded without a blink. Two frames sit in the bezel; the
- * one in front shows the last save, the one behind loads the next, and
- * they swap only once the new page has arrived — so the customer never
- * watches a blank screen between one save and the next.
- */
-function PhonePreview({ src, version }: { src: string; version: number }) {
-  const at = (v: number) => `${src}&v=${v}`;
-  const [slots, setSlots] = useState<[{ src: string; v: number }, { src: string; v: number }]>([{ src: at(0), v: 0 }, { src: '', v: -1 }]);
-  const [front, setFront] = useState<0 | 1>(0);
-  useEffect(() => {
-    setSlots((s) => {
-      if (s[front].v === version) return s;
-      const back = front === 0 ? 1 : 0;
-      const copy: typeof s = [s[0], s[1]];
-      copy[back] = { src: at(version), v: version };
-      return copy;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version, front]);
-  const arrived = (i: 0 | 1) => {
-    if (i !== front && slots[i].v === version) setFront(i);
-  };
-  return (
-    <div className="phone mx-auto">
-      {([0, 1] as const).map((i) =>
-        slots[i].src ? (
-          <iframe key={i} src={slots[i].src} title={i === front ? 'Your page' : 'Loading your page'} onLoad={() => arrived(i)} style={{ visibility: i === front ? 'visible' : 'hidden', zIndex: i === front ? 2 : 1 }} />
-        ) : null,
-      )}
     </div>
   );
 }

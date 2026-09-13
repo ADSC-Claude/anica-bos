@@ -25,17 +25,33 @@ export const dynamic = 'force-dynamic';
  * refused those outright, so a design made from the Templates list led to a
  * form and stopped there, which is not what a studio is for.
  */
-export default async function DesignStudioPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DesignStudioPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ against?: string }> }) {
   const user = await requireStaffPage('templates.edit');
   const { id } = await params;
+  const { against: againstId } = await searchParams;
   const t = await prisma.template.findUnique({ where: { id } });
   if (!t) notFound();
   const doc = studioDoc(t);
   if (!doc) notFound();
 
   // The demo invitation is what the pages are drawn against: without one the
-  // canvas is a set of empty frames and there is nothing to judge.
-  const demo = t.demoSlug ? await prisma.invitation.findUnique({ where: { slug: t.demoSlug }, select: { content: true, slug: true } }) : null;
+  // canvas is a set of empty frames and there is nothing to judge. Its id
+  // and title are for the form the studio carries, which edits the demo the
+  // way the Invitation tab would.
+  const demo = t.demoSlug ? await prisma.invitation.findUnique({ where: { slug: t.demoSlug }, select: { id: true, title: true, content: true, slug: true } }) : null;
+  /*
+   * The invitation she came from. The Invitation tab's "Design studio"
+   * button opens the studio against that very invitation, form and canvas
+   * both, so she is not choosing it from the menu a second time. Scoped to
+   * this design exactly as invitationContentAction is — a studio only ever
+   * opens the invitations on its own design — and behind the same
+   * permission, since a customer's answers are an invitations matter and
+   * not a design one. Absent, or not found, and the studio opens on the
+   * demo as it always has.
+   */
+  const against = againstId && can(user.role, 'invitations.view')
+    ? await prisma.invitation.findFirst({ where: { id: againstId, templateId: t.id }, select: { id: true, slug: true, title: true, content: true, tier: true, status: true } })
+    : null;
   /**
    * The colours and faces a guest actually gets, not the raw columns. A
    * design set in a look is drawn in the look's faces — the `fonts` column
@@ -90,7 +106,10 @@ export default async function DesignStudioPage({ params }: { params: Promise<{ i
         hasDraft={Boolean(documentOf({ design: t.designDraft, layout: t.layout }))}
         published={Boolean(documentOf(t))}
         demoSlug={demo?.slug ?? ''}
+        demoId={demo?.id ?? ''}
+        demoTitle={demo?.title ?? ''}
         content={demo ? (contentOf(demo.content) as Record<string, unknown>) : {}}
+        against={against ? { id: against.id, slug: against.slug, title: against.title, content: contentOf(against.content) as Record<string, unknown>, tier: against.tier, status: against.status } : null}
         look={look}
         vars={vars}
         weights={files.weights}

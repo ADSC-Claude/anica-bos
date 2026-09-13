@@ -12,6 +12,8 @@ import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
 import { str, eventInstant } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
 import { Invitation, type GuestForPage } from '@/components/invite/renderer';
+import { ScrollTo } from '@/components/invite/scroll-to';
+import type { SectionKey } from '@/lib/sections';
 
 /**
  * Shared by /[slug], /[slug]/[token] and the print view: who may see
@@ -122,7 +124,7 @@ export async function PeekPage({ slug, embed = false }: { slug: string; embed?: 
  * she is drawing would serve it. Like `bare` it is a previewer's view only,
  * so an unfinished design cannot be handed to anybody through a link.
  */
-export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false, designKey }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean; designKey?: string }) {
+export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false, designKey, at }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean; designKey?: string; at?: string }) {
   const { invitation, guest, previewer, keyed, locked } = await resolveInvitation(slug, token, designKey);
   if (locked) return <PasswordGate slug={slug} token={token} error={wrongPassword} />;
   const live = invitation.status === 'PUBLISHED' && !invitation.expired;
@@ -134,5 +136,20 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
   const shown = draft && (previewer || keyed)
     ? { ...invitation, template: { ...invitation.template, design: invitation.template.designDraft } }
     : invitation;
-  return <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} sets={await fontBook()} businessName={s['business.name']} />;
+  return (
+    <>
+      <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} sets={await fontBook()} businessName={s['business.name']} />
+      {bare && previewer && at && <ScrollTo id={anchorOf(at)} />}
+    </>
+  );
+}
+
+/**
+ * Where each part of the form lands on the page — the ids the renderer
+ * gives its sections, for the builder's phone to come back to. A part with
+ * no place of its own (the music, the spare photographs) goes to the top.
+ */
+const ANCHOR: Partial<Record<SectionKey, string>> = { cover: 'top', dressCode: 'dress-code', photos: 'guest-photos' };
+export function anchorOf(section: string): string {
+  return ANCHOR[section as SectionKey] ?? (section === 'music' || section === 'extras' ? 'top' : section);
 }

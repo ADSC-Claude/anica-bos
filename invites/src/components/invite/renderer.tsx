@@ -2105,7 +2105,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}
       {!print && <Motion />}
-      {preview && (
+      {/* not in the builder's own phone, where it would sit over the cover of a page the customer already knows is theirs */}
+      {preview && !bare && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>

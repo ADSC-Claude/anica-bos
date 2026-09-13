@@ -1,5 +1,4 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
@@ -32,7 +31,6 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
     .slice(0, 10);
   return (
     <>
-      <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
       <PageHeader title="Guest list" subtitle="Each guest gets a personal link: their name, their reserved seats, their table. Send it by Messenger, Viber or SMS." actions={<a href={`/account/invitations/${inv.id}/guests.csv`} className="btn btn-secondary btn-sm">Export Excel / CSV</a>} />
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="On the list" value={summary.guests} />

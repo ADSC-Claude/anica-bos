@@ -290,6 +290,11 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
   if (completed) {
     await audit(user, { module: 'invitations', action: 'form.complete', entityType: 'Invitation', entityId: invitationId, summary: `Every section marked Done: ${title}` });
     await notifyStaff('invitations.view', `Form complete: ${title}`, 'Every section is marked Done. The invitation is ready for our team.', `/admin/invitations/${invitationId}`);
+    // The form is the intake now: a Done-For-You job still waiting for
+    // details has just received them, the same move the old intake form's
+    // Submit made, so the encoder's board says so without a second button.
+    const job = await prisma.dfyJob.findUnique({ where: { invitationId }, select: { id: true, status: true } });
+    if (job?.status === 'NEW') await prisma.dfyJob.update({ where: { id: job.id }, data: { status: 'INTAKE_RECEIVED', intakeSubmittedAt: new Date(), intakeMethod: 'FORM' } });
   }
   return { invitation: updated, issues, done: doneSections(content.progress), completedAt: content.progress?.completedAt ?? null };
 }

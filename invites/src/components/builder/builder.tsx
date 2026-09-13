@@ -71,6 +71,7 @@ export function Builder({
   onSaved,
   onError,
   onStep,
+  onSaving,
 }: {
   invitationId: string;
   /** The parts the couple has marked done, when the form was completed, and when changes close. */
@@ -116,6 +117,8 @@ export function Builder({
   onError?: (message: string) => void;
   /** Given, the steps and Next are the host's to take: they call this instead of linking to the tab. */
   onStep?: (key: SectionKey) => void;
+  /** Every save as it starts, so a host that asks for the next part can wait for this one to land first. */
+  onSaving?: (save: Promise<unknown>) => void;
 }) {
   const router = useRouter();
   const [value, setValue] = useState<SectionData>(initial);
@@ -142,9 +145,16 @@ export function Builder({
   // studio remounts it for every part — so the callback is read through a
   // ref, not the closure the effect was made with.
   const onSavedRef = useRef(onSaved);
+  const onSavingRef = useRef(onSaving);
   useEffect(() => {
     onSavedRef.current = onSaved;
-  }, [onSaved]);
+    onSavingRef.current = onSaving;
+  }, [onSaved, onSaving]);
+  // Inside the studio the host re-asks for the marks after a save on another
+  // part; the tab never hands new ones to a mounted form, so it is unchanged.
+  useEffect(() => {
+    if (embed) setDone(doneInitial);
+  }, [embed, doneInitial]);
 
   const total = sections.filter((s) => s.unlocked).length;
   const doneCount = sections.filter((s) => s.unlocked && done.includes(s.key)).length;
@@ -181,7 +191,9 @@ export function Builder({
     setSave('saving');
     setError('');
     const v = latest.current;
-    const res = await saveSectionAction(invitationId, current, v, opts);
+    const save = saveSectionAction(invitationId, current, v, opts);
+    onSavingRef.current?.(save);
+    const res = await save;
     inflight.current = false;
     if (!res.ok) {
       setSave('error');
@@ -226,7 +238,9 @@ export function Builder({
         clearTimeout(timer.current);
         if (stateRef.current === 'dirty') {
           const v = latest.current;
-          void saveSectionAction(invitationId, current, v).then((res) => {
+          const save = saveSectionAction(invitationId, current, v);
+          onSavingRef.current?.(save);
+          void save.then((res) => {
             if (res.ok) onSavedRef.current?.(current, v, res.data);
           });
         }
@@ -274,7 +288,7 @@ export function Builder({
       )}
       {!embed && !closed && <QuickChoices invitationId={invitationId} lang={lang} lookKey={lookKey} looks={looks} allLooks={allLooks} tier={tier} onChanged={() => setVersion((k) => k + 1)} />}
 
-      <ol data-tour="steps" aria-label="The parts of your invitation" className="mb-4 flex flex-wrap gap-1">
+      <ol data-tour="steps" aria-label={embed ? 'The parts of the invitation' : 'The parts of your invitation'} className="mb-4 flex flex-wrap gap-1">
         {sections.map((s, i) => {
           const n = sections.slice(0, i + 1).filter((x) => x.unlocked).length;
           const on = s.key === current;
@@ -338,7 +352,12 @@ export function Builder({
       */}
       {hidesWhenEmpty && !section?.filled && !isDone && !closed && (
         <p className="mb-3 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] px-3 py-2 text-xs text-[color:var(--color-ink-700)]">
-          Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all, and that is a perfectly good choice — mark it done to say so. If you decide you would like it after publishing, we will gladly add it, and it will be counted as one revision round.
+          {embed ? (
+            // staff reading it, about somebody else's card: no "we" and no revision round
+            <>Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on the invitation at all.</>
+          ) : (
+            <>Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all, and that is a perfectly good choice — mark it done to say so. If you decide you would like it after publishing, we will gladly add it, and it will be counted as one revision round.</>
+          )}
         </p>
       )}
       <fieldset disabled={closed} className="min-w-0 border-0 p-0" data-tour="form">

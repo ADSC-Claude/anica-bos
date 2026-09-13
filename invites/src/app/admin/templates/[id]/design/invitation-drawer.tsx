@@ -22,24 +22,38 @@ type Form = Extract<Awaited<ReturnType<typeof builderPropsAction>>, { ok: true }
  * because they change with every part she steps to and with every
  * invitation she puts on the canvas, and the page was drawn once. The form
  * is remounted for each part, as the tab remounts it for each address, and
- * its own save on the way out carries anything still unsaved across.
+ * its own save on the way out carries anything still unsaved across. The
+ * part she is on belongs to the studio, not to this drawer: the drawer is
+ * unmounted whenever she looks at the Pages list, and coming back should
+ * find her where she was.
  */
-export function InvitationDrawer({ invitationId, title, onDraft, onSaved, onError }: {
+export function InvitationDrawer({ invitationId, title, asked, onStep, onShown, onDraft, onSaved, onError }: {
   invitationId: string;
   /** what the header names: the demo, or the customer's title and package */
   title: string;
+  /** the part she asked for; the action answers with the first open one when it cannot open that */
+  asked?: SectionKey;
+  onStep: (key: SectionKey) => void;
+  /** the part the form actually opened on, once it has — for the canvas to follow */
+  onShown?: (key: SectionKey) => void;
   onDraft: (id: string, section: SectionKey, data: SectionData) => void;
   onSaved: (id: string, section: SectionKey, data: SectionData, result: SavedResult) => void;
   onError: (message: string) => void;
 }) {
-  /** the part she asked for; the action answers with the first open one when it cannot open that */
-  const [asked, setAsked] = useState<string | undefined>(undefined);
   const [form, setForm] = useState<{ id: string; props: Form } | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   /** bumped to ask for the same part again, when its marks may have fallen behind a save */
   const [again, setAgain] = useState(0);
   const seq = useRef(0);
+  /*
+   * The save the outgoing form fired on its way out. The next part's props
+   * are read from the row, so they must be read after that save has landed
+   * — or a part she comes straight back to opens on the words from before
+   * her last keystrokes, and the next keystroke writes those back over what
+   * she typed.
+   */
+  const pending = useRef<Promise<unknown> | null>(null);
 
   useEffect(() => {
     // the newest ask is the one that counts: two quick steps must not land
@@ -47,7 +61,9 @@ export function InvitationDrawer({ invitationId, title, onDraft, onSaved, onErro
     const n = ++seq.current;
     setBusy(true);
     setError('');
-    builderPropsAction(invitationId, asked)
+    const after = pending.current ? pending.current.catch(() => undefined) : Promise.resolve();
+    after
+      .then(() => builderPropsAction(invitationId, asked))
       .then((r) => {
         if (n !== seq.current) return;
         setBusy(false);
@@ -67,6 +83,11 @@ export function InvitationDrawer({ invitationId, title, onDraft, onSaved, onErro
   const current = shown?.props.current;
   const currentRef = useRef(current);
   currentRef.current = current;
+  const onShownRef = useRef(onShown);
+  onShownRef.current = onShown;
+  useEffect(() => {
+    if (current) onShownRef.current?.(current);
+  }, [current, shown?.id]);
   // said while the part she asked for is on its way, and not while a part
   // already on screen is only having its marks refreshed
   const loading = busy && !(shown && (asked === undefined || current === asked));
@@ -96,7 +117,8 @@ export function InvitationDrawer({ invitationId, title, onDraft, onSaved, onErro
           {...shown.props}
           embed
           canEditClosed
-          onStep={setAsked}
+          onStep={onStep}
+          onSaving={(save) => { pending.current = save; }}
           onDraft={(section, data) => onDraft(shown.id, section, data)}
           onSaved={saved(shown.id)}
           onError={onError}

@@ -170,6 +170,8 @@ export function Studio(p: Props) {
   const [demoContent, setDemoContent] = useState(p.content);
   /** the part being typed in the drawer, drawn before it is saved: see withDraft */
   const [draft, setDraft] = useState<StudioDraft | null>(null);
+  /** the part the drawer is on — kept here, so looking at the Pages list and coming back finds her where she was */
+  const [asked, setAsked] = useState<SectionKey | undefined>(undefined);
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
   /** the left column: the pages, the invitation's form, or the pieces any design can be built from */
@@ -215,7 +217,9 @@ export function Studio(p: Props) {
    * customer, else the demo.
    */
   const shownId = sample === 'real' ? real?.id ?? '' : sample === 'demo' ? p.demoId : '';
-  const editing = sample === 'real' ? real?.id ?? '' : p.demoId;
+  // a customer she has loaded stays the drawer's while she tries a made-up
+  // sample on the canvas; only choosing the demo hands the drawer the demo
+  const editing = real && sample !== 'demo' ? real.id : p.demoId;
   const shownContent = useMemo(() => {
     const base = sample === 'real' ? real?.content ?? {} : sampleContent(sample, { doc, occasion: p.occasion, demo: demoContent });
     return withDraft(base, draft, shownId);
@@ -234,8 +238,23 @@ export function Studio(p: Props) {
   const folded = useCallback((id: string, section: SectionKey, data: SectionData) => {
     if (id === p.demoId) setDemoContent((c) => ({ ...c, [section]: data }));
     setReal((r) => (r && r.id === id ? { ...r, content: { ...r.content, [section]: data } } : r));
+    // a save that landed outranks whatever the last one said went wrong
+    setAgainst((a) => (a.error ? { ...a, error: '' } : a));
     setShown((n) => n + 1);
   }, [p.demoId]);
+  /**
+   * The canvas follows the part under her hand: the page that carries the
+   * section, or the first drawn page with an element bound to it. Without
+   * this she would type into Story while the cover stayed on the canvas and
+   * see nothing land — which is the moving-out the drawer exists to end.
+   */
+  const follow = useCallback((key: SectionKey) => {
+    const pg = doc.pages.find((x) => x.sections.includes(key) || (x.elements ?? []).some((el) => bindingOf(el)?.section === key));
+    if (pg && pg.key !== pageKey) {
+      setPageKey(pg.key);
+      setSel([]);
+    }
+  }, [doc, pageKey]);
   /** the invitations on this design, asked for once and kept */
   const loadTheirs = useCallback(async () => {
     if (theirs !== null || against.busy) return;
@@ -1390,7 +1409,11 @@ export function Studio(p: Props) {
   const wholeSlug = sample === 'real' && real ? real.slug : p.demoSlug;
   const columns = view === 'import'
     ? (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr]' : 'lg:grid-cols-[15rem_1fr]')
-    : (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr_19rem]' : 'lg:grid-cols-[15rem_1fr_19rem]');
+    : (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr] 2xl:grid-cols-[26rem_1fr_19rem]' : 'lg:grid-cols-[15rem_1fr_19rem]');
+  // With the form open a laptop has no room for three columns and a page
+  // wide enough to read: the properties column waits until she is back on
+  // the Pages list, or the screen is wide enough for all three.
+  const propsAside = view === 'import' ? 'hidden' : drawer === 'invitation' ? 'hidden 2xl:block' : '';
 
   /**
    * What she edits is what she sees. The drawer edits an invitation, and a
@@ -1399,7 +1422,7 @@ export function Studio(p: Props) {
    */
   const openDrawer = (k: typeof drawer) => {
     setDrawer(k);
-    if (k === 'invitation' && sample !== 'demo' && sample !== 'real') setSample('demo');
+    if (k === 'invitation' && sample !== 'demo' && sample !== 'real') setSample(real ? 'real' : 'demo');
   };
 
   return (
@@ -1453,7 +1476,10 @@ export function Studio(p: Props) {
           editing ? (
             <InvitationDrawer
               invitationId={editing}
-              title={sample === 'real' && real ? `${real.title} · ${real.tier.toLowerCase()}` : `The demo — ${p.demoTitle}`}
+              title={real && editing === real.id ? `${real.title} · ${real.tier.toLowerCase()}` : `The demo — ${p.demoTitle}`}
+              asked={asked}
+              onStep={setAsked}
+              onShown={follow}
               onDraft={(id, section, data) => setDraft({ id, section, data })}
               onSaved={folded}
               onError={(message) => setAgainst((a) => ({ ...a, error: message }))}
@@ -1921,7 +1947,7 @@ export function Studio(p: Props) {
       </section>
 
       {/* what is selected */}
-      <aside className={`card h-fit space-y-3 p-3 text-sm ${view === 'import' ? 'hidden' : ''}`}>
+      <aside className={`card h-fit space-y-3 p-3 text-sm ${propsAside}`}>
         {group.length > 1 ? (
           <GroupProps
             group={group}
@@ -1979,7 +2005,8 @@ export function Studio(p: Props) {
 // ---------------------------------------------------------------------------
 
 function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
-  const said: Record<string, string> = { clean: 'No unsaved changes', dirty: 'Not saved yet', saving: 'Saving…', saved: 'Draft saved', error: 'Not saved' };
+  // named, because the Invitation drawer has a saving line of its own on the same screen
+  const said: Record<string, string> = { clean: 'Design: no unsaved changes', dirty: 'Design: not saved yet', saving: 'Design: saving…', saved: 'Design draft saved', error: 'Design: not saved' };
   return (
     <div className="card col-span-full flex flex-wrap items-center gap-2 p-3">
       <p className="font-semibold">{name}</p>

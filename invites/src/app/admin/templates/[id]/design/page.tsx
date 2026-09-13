@@ -25,10 +25,12 @@ export const dynamic = 'force-dynamic';
  * refused those outright, so a design made from the Templates list led to a
  * form and stopped there, which is not what a studio is for.
  */
-export default async function DesignStudioPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ against?: string }> }) {
+export default async function DesignStudioPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ against?: string | string[] }> }) {
   const user = await requireStaffPage('templates.edit');
   const { id } = await params;
-  const { against: againstId } = await searchParams;
+  // a repeated key arrives as a list; the first one is the one meant
+  const { against: rawAgainst } = await searchParams;
+  const againstId = Array.isArray(rawAgainst) ? rawAgainst[0] : rawAgainst;
   const t = await prisma.template.findUnique({ where: { id } });
   if (!t) notFound();
   const doc = studioDoc(t);
@@ -95,7 +97,8 @@ export default async function DesignStudioPage({ params, searchParams }: { param
 
   return (
     <>
-      <BackLink href={`/admin/templates/${t.id}`}>{t.name}</BackLink>
+      {/* the way back is the way she came: the tab, when the tab sent her */}
+      <BackLink href={against ? `/account/invitations/${against.id}` : `/admin/templates/${t.id}`}>{against ? `${against.title} — the Invitation tab` : t.name}</BackLink>
       <Studio
         templateId={t.id}
         name={t.name}

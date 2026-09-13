@@ -443,6 +443,43 @@ test('a design shown in the shop with no thumbnail says so once', () => {
   assert.deepEqual(runRow(clone(), { shop: { shown: false, thumbnail: false } }).filter((x) => x.rule === 'no-thumbnail'), []);
 });
 
+/**
+ * Words at the side of the page — the one thing that genuinely differs
+ * between working at laptop width and being read on a phone, except that it
+ * does not: the page is capped at a phone column at every width and
+ * everything on it is a share of that width, so a gutter is the same gutter
+ * on both. Which is exactly why the line can be drawn and promised.
+ */
+test('words close to the edge are called out, and a frame may still bleed', () => {
+  const near = clone();
+  (el(near, 'baby-photos', 'photos-caption-1') as TextEl).x = 14;
+  const n = run(near).filter((x) => x.rule === 'edge');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says', 'hers to ignore: some designs do run words close');
+  assert.equal(n[0].id, 'photos-caption-1');
+  assert.match(n[0].text, /the same share of every screen/);
+
+  // over the edge is not a matter of taste
+  const over = clone();
+  (el(over, 'baby-photos', 'photos-caption-1') as TextEl).x = 5;
+  const cut = run(over).filter((x) => x.rule === 'off-page');
+  assert.equal(cut.length, 1);
+  assert.equal(cut[0].level, 'blocks');
+  assert.match(cut[0].text, /cut on every screen/);
+
+  // a photograph that fills the width is a real thing to draw, and a frame
+  // two hundredths past the edge has always been allowed to
+  const bleed = clone();
+  const frame = el(bleed, 'baby-photos', 'photos-photo-1') as PhotoEl;
+  frame.x = 2;
+  frame.w = 4;
+  assert.deepEqual(run(bleed).filter((x) => x.rule === 'edge'), [], 'the rule is about words');
+
+  // and a design as shipped says nothing, which is the point of a gutter
+  // chosen to match what is already drawn
+  assert.deepEqual(run(base).filter((x) => x.rule === 'edge'), []);
+});
+
 test('every rule the type names can be made to fire', () => {
   const fired = new Set<NeedRule>();
   const add = (d: DesignDoc, content?: Record<string, unknown>) => run(d, content).forEach((x) => fired.add(x.rule));
@@ -463,6 +500,9 @@ test('every rule the type names can be made to fire', () => {
   add(i);
   const j = clone(); (el(j, 'baby-photos', 'photos-caption-1') as TextEl).size = 1.2; add(j);
   const k = clone(); (el(k, 'baby-photos', 'photos-caption-1') as TextEl).y = 96; add(k);
+  // a caption dragged almost to the side of the page: words that close to
+  // the edge read as cut, on a laptop and on the narrowest phone alike
+  const k2 = clone(); (el(k2, 'baby-photos', 'photos-caption-1') as TextEl).x = 14; add(k2);
   const l = clone(); on(l, 'story').elements = on(l, 'story').elements!.filter((x) => x.id !== 'story-head'); add(l);
   add(asked(), {});
   const m = asked(); (el(m, 'baby-photos', 'photos-photo-1') as PhotoEl).bind = { section: 'entourage', field: 'photo' }; add(m);

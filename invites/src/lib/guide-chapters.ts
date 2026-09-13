@@ -83,6 +83,16 @@ export const CHAPTERS: Chapter[] = [
     ],
   },
   {
+    key: 'seating',
+    title: 'Seating chart',
+    tab: 'seating',
+    body: [
+      'Where everyone sits, one card per table. Add a table with the name the place cards will carry, how many chairs it has and its shape; every guest on your Guest list waits in the Unassigned list until you seat them. Drag a name onto a table, or pick it from the table’s Add guest list, and their table shows on their personal link — so a guest looking themselves up on the day finds their seat.',
+      'The three numbers at the top keep count: how many tables, how many seats are taken, how many chairs are still empty. A guest takes the seats they confirmed once they reply, and the seats you set aside for them before that; a guest who cannot come frees their places and stays on the card, struck through, until you move them. A table with more people than chairs shows its count in red until somebody moves. The chart never closes: you can move a name the week of the event.',
+    ],
+    steps: ['Add your tables, named the way the place cards will read.', 'Drag each name from Unassigned onto its table, or pick it from the table’s list.', 'Search for a name when the room is full and you cannot see where they went.'],
+  },
+  {
     key: 'checkin',
     title: 'Check-in on the day',
     tab: 'checkin',

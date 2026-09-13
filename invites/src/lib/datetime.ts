@@ -67,6 +67,8 @@ export function monthKey(d: Date): string {
 export function relative(d: Date, from = new Date()): string {
   const diff = d.getTime() - from.getTime();
   const abs = Math.abs(diff);
+  // under a minute either way is "now": "0min ago" reads as a fault
+  if (abs < 60_000) return 'just now';
   const unit = abs < 3_600_000 ? [Math.round(abs / 60_000), 'min'] : abs < 86_400_000 ? [Math.round(abs / 3_600_000), 'h'] : [Math.round(abs / 86_400_000), 'd'];
   return diff < 0 ? `${unit[0]}${unit[1]} ago` : `in ${unit[0]}${unit[1]}`;
 }

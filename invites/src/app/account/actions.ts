@@ -295,7 +295,9 @@ export async function saveTableAction(invitationId: string, fd: FormData) {
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    await saveTable(inv, { id: String(fd.get('id') ?? '') || undefined, name: String(fd.get('name') ?? ''), capacity: Number(fd.get('capacity') ?? 10) });
+    // A missing shape is a form that did not ask, not a request for round.
+    const shape = fd.get('shape');
+    await saveTable(inv, { id: String(fd.get('id') ?? '') || undefined, name: String(fd.get('name') ?? ''), capacity: Number(fd.get('capacity') ?? 10), shape: shape === null ? undefined : String(shape) });
     refresh(invitationId);
   });
 }

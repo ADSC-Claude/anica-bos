@@ -4,7 +4,7 @@ import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { seatsHeld, headsArrived, replySeats } from './seats';
 import { parseCsv, toCsv } from './csv';
-import { entitled, TIER_LABELS, type Entitled } from './tiers';
+import { entitled, TIER_LABELS, FEATURE_MIN_TIER, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
@@ -239,26 +239,43 @@ export async function rsvpsCsv(invitationId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 /**
- * What a customer who cannot do this is told. Both features are Signature's
- * and both are sold on their own, so the sentence names the add-on: telling a
+ * What a customer who cannot do this is told. Both features are sold on their
+ * own as well as in a package, so the sentence names the add-on: telling a
  * Basic customer to buy the top package to scan a door is losing a sale they
- * were ready to make.
+ * were ready to make. The package is read off FEATURE_MIN_TIER rather than
+ * written in, because these two sentences went on saying Signature after both
+ * features moved up to Luxury.
  */
-const seatingLocked = `Seating charts are included in the ${TIER_LABELS.COMPLETE} package, or can be added to yours.`;
-const checkinLocked = `QR check-in is included in the ${TIER_LABELS.COMPLETE} package, or can be added to yours.`;
+const seatingLocked = `Seating charts are included in the ${TIER_LABELS[FEATURE_MIN_TIER.seating]} package, or can be added to yours.`;
+const checkinLocked = `QR check-in is included in the ${TIER_LABELS[FEATURE_MIN_TIER.checkin]} package, or can be added to yours.`;
 
-export async function saveTable(invitation: Entitled & { id: string }, input: { id?: string; name: string; capacity: number }) {
+/**
+ * How the seating chart draws a table. Stored as a word on the row; a word
+ * that is not one of these — a row from before shapes existed, or anything
+ * hand-typed — is drawn round, which is what every table was until now.
+ */
+export const TABLE_SHAPES = ['round', 'rectangle', 'long'] as const;
+export type TableShape = (typeof TABLE_SHAPES)[number];
+export const TABLE_SHAPE_LABELS: Record<TableShape, string> = { round: 'Round', rectangle: 'Rectangle', long: 'Long' };
+
+export function tableShape(value: unknown): TableShape {
+  return (TABLE_SHAPES as readonly unknown[]).includes(value) ? (value as TableShape) : 'round';
+}
+
+export async function saveTable(invitation: Entitled & { id: string }, input: { id?: string; name: string; capacity: number; shape?: string }) {
   if (!entitled(invitation, 'seating')) throw new HttpError(403, seatingLocked);
   const name = input.name.trim().slice(0, 60);
   if (!name) throw new HttpError(400, 'A table needs a name.');
   const capacity = Math.max(1, Math.min(50, Math.round(input.capacity) || 10));
+  // A form that never asked about the shape leaves the stored one alone.
+  const shape = input.shape === undefined ? undefined : tableShape(input.shape);
   if (input.id) {
     const t = await prisma.seatingTable.findFirst({ where: { id: input.id, invitationId: invitation.id } });
     if (!t) throw new HttpError(404, 'That table does not exist.');
-    return prisma.seatingTable.update({ where: { id: input.id }, data: { name, capacity } });
+    return prisma.seatingTable.update({ where: { id: input.id }, data: { name, capacity, ...(shape ? { shape } : {}) } });
   }
   const count = await prisma.seatingTable.count({ where: { invitationId: invitation.id } });
-  return prisma.seatingTable.create({ data: { invitationId: invitation.id, name, capacity, sortOrder: count } });
+  return prisma.seatingTable.create({ data: { invitationId: invitation.id, name, capacity, shape: shape ?? 'round', sortOrder: count } });
 }
 
 export async function deleteTable(invitation: { id: string }, tableId: string) {

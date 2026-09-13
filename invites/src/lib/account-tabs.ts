@@ -11,7 +11,7 @@ import { hasFeature, entitled, featureOffered } from './tiers';
  * exists cannot want one. The list is a pure function so the strip and the
  * tests read the same one.
  */
-export type TabKey = 'invitation' | 'share' | 'guests' | 'rsvps' | 'checkin' | 'messages' | 'guestbook' | 'photos' | 'saveTheDate' | 'pair' | 'settings' | 'guide';
+export type TabKey = 'invitation' | 'share' | 'guests' | 'rsvps' | 'seating' | 'checkin' | 'messages' | 'guestbook' | 'photos' | 'saveTheDate' | 'pair' | 'settings' | 'guide';
 
 export type Tab = {
   key: TabKey;
@@ -57,6 +57,7 @@ export function tabsFor(inv: TabsInput): Tab[] {
     { key: 'share', label: 'Share', href: at('/share') },
     featureOffered('guests.manager') ? { key: 'guests', label: 'Guest list', href: entitled(inv, 'guests.manager') ? at('/guests') : upgrade, ...lock(entitled(inv, 'guests.manager')) } : null,
     { key: 'rsvps', label: 'RSVP responses', href: at('/rsvps') },
+    featureOffered('seating') ? { key: 'seating', label: 'Seating chart', href: entitled(inv, 'seating') ? at('/seating') : upgrade, ...lock(entitled(inv, 'seating')) } : null,
     featureOffered('checkin') ? { key: 'checkin', label: 'Check-in', href: entitled(inv, 'checkin') ? at('/checkin') : upgrade, ...lock(entitled(inv, 'checkin')) } : null,
     // Open to every package: the words are the couple's whatever they bought.
     { key: 'messages', label: 'Messages', href: at('/messages') },

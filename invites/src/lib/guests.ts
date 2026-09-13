@@ -4,6 +4,7 @@ import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { seatsHeld, headsArrived, replySeats } from './seats';
 import { parseCsv, toCsv } from './csv';
+import { duplicateRows, type ImportResult } from './guest-dupes';
 import { entitled, TIER_LABELS, FEATURE_MIN_TIER, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
@@ -76,7 +77,7 @@ export async function deleteGuest(invitation: { id: string }, guestId: string) {
  * header row is somebody's paste, and guessing a fifth column would be
  * guessing.
  */
-export async function importGuests(invitation: Entitled & { id: string }, text: string): Promise<{ added: number; skipped: number }> {
+export async function importGuests(invitation: Entitled & { id: string }, text: string): Promise<ImportResult> {
   return importGuestRows(invitation, parseCsv(text));
 }
 
@@ -84,10 +85,16 @@ export async function importGuests(invitation: Entitled & { id: string }, text: 
  * The same import, from rows already parsed — a pasted range, a CSV, or the
  * first sheet of a workbook. Everything that knows which column is which lives
  * here, so a new way in only has to produce rows.
+ *
+ * A row that repeats somebody — the same name, mobile or e-mail as a guest
+ * already on the list, or as an earlier row of the same file — is left out
+ * and counted, so the same workbook can be sent again after ten names were
+ * added to it without doubling the other two hundred. What counts as the
+ * same person is guest-dupes.ts's business.
  */
-export async function importGuestRows(invitation: Entitled & { id: string }, rows: string[][]): Promise<{ added: number; skipped: number }> {
+export async function importGuestRows(invitation: Entitled & { id: string }, rows: string[][]): Promise<ImportResult> {
   requireGuestManager(invitation);
-  if (rows.length === 0) return { added: 0, skipped: 0 };
+  if (rows.length === 0) return { added: 0, skipped: 0, duplicates: 0 };
 
   const header = rows[0].map((h) => h.toLowerCase());
   const hasHeader = header.some((h) => ['name', 'guest', 'group', 'seats', 'pax', 'phone', 'mobile'].includes(h));
@@ -107,19 +114,20 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
   const cSalutation = col(['salutation', 'greeting', 'address as'], -1);
 
   const body = hasHeader ? rows.slice(1) : rows;
-  const existing = await prisma.guest.count({ where: { invitationId: invitation.id } });
-  if (existing + body.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
+  // Only what the duplicate check compares on; the size limit reads its count
+  // off the same query.
+  const existing = await prisma.guest.findMany({ where: { invitationId: invitation.id }, select: { name: true, phone: true, email: true } });
+  if (existing.length + body.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
 
-  let added = 0;
   let skipped = 0;
-  const data = [];
+  const parsed = [];
   for (const r of body) {
     const name = (cName >= 0 ? r[cName] : '')?.trim();
     if (!name) {
       skipped++;
       continue;
     }
-    data.push({
+    parsed.push({
       invitationId: invitation.id,
       token: guestToken(),
       name: name.slice(0, 120),
@@ -129,10 +137,11 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
       email: (cEmail >= 0 ? r[cEmail] ?? '' : '').slice(0, 120),
       salutation: (cSalutation >= 0 ? r[cSalutation] ?? '' : '').slice(0, 120),
     });
-    added++;
   }
+  const dupes = duplicateRows(existing, parsed);
+  const data = parsed.filter((_, i) => !dupes.has(i));
   if (data.length) await prisma.guest.createMany({ data });
-  return { added, skipped };
+  return { added: data.length, skipped, duplicates: dupes.size };
 }
 
 /**

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
+import { previewSitter } from '@/lib/sitter';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
@@ -13,6 +14,7 @@ import { fontBook } from '@/lib/font-book';
 import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
+import { PreviewPanel } from './preview-panel';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, isPaged, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
@@ -56,6 +58,8 @@ export default async function TemplateEditor({ params, searchParams }: { params:
    * not the draft: this is the design as it stands, and the draft is the
    * studio's business until it is published.
    */
+  // Who the panel draws the design on, named under it so a stand-in is never a surprise.
+  const seat = await previewSitter(t?.demoSlug ?? '', occasion);
   const doc = t ? documentOf(t) : null;
   const drawn = Boolean(doc);
   const offers = doc ? offeredSections(doc, occasion) : [];
@@ -84,7 +88,9 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           />
         </div>
       )}
-      <form action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
+      <div className="xl:flex xl:items-start xl:gap-4">
+      <div className="min-w-0 xl:flex-1">
+      <form id="template-form" action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
         <div className="card space-y-3 p-4">
           <Field label="Name" name="name" defaultValue={t?.name} required />
           <Field label="Slug" name="slug" defaultValue={t?.slug} hint="Lowercase, dashes. Used in URLs and the gallery." />
@@ -262,6 +268,25 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           )}
         </details>
       )}
+      </div>
+      {/*
+        * The picture, beside the knobs.
+        *
+        * Sticky on a wide screen and under the form on a narrow one: the
+        * point is to watch it while typing a hex code, and on a phone-width
+        * admin there is no beside to be had.
+        */}
+      <aside className="mt-4 xl:mt-0 xl:sticky xl:top-4 xl:w-[420px] xl:shrink-0">
+        {seat ? (
+          <PreviewPanel templateId={tid} sitter={seat.title || seat.slug} ownDemo={seat.own} />
+        ) : (
+          <div className="card p-4">
+            <p className="label">As it stands</p>
+            <p className="hint mt-1">There is no published invitation to draw a design on yet, so there is nothing to show here. Publish one — the demo of any design will do — and the picture appears.</p>
+          </div>
+        )}
+      </aside>
+      </div>
     </>
   );
 }

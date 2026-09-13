@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
+import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
@@ -15,10 +16,10 @@ import { OpeningUpload } from './opening-upload';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, isPaged, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
-import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
+import { PageHeader, BackLink, Field, TextArea, Select, Checkbox, Pill } from '@/components/ui';
 import { AsksSheet, asksFor } from '@/components/asks-sheet';
 import { Flash, type FlashParams } from '../../flash';
-import { saveTemplateAction } from '../../actions';
+import { saveTemplateAction, deleteTemplateAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +29,11 @@ const GROUND_LABELS: Record<string, string> = {
 };
 
 export default async function TemplateEditor({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<FlashParams> }) {
-  await requireStaffPage('templates.edit');
+  const user = await requireStaffPage('templates.edit');
   const { id } = await params;
   const sp = await searchParams;
   const isNew = id === 'new';
-  const t = isNew ? null : await prisma.template.findUnique({ where: { id } });
+  const t = isNew ? null : await prisma.template.findUnique({ where: { id }, include: { _count: { select: { invitations: true } } } });
   if (!isNew && !t) notFound();
   const pal = paletteFrom(t?.palette);
   const occasion = t?.occasion ?? 'WEDDING';
@@ -65,7 +66,14 @@ export default async function TemplateEditor({ params, searchParams }: { params:
       <PageHeader
         title={isNew ? 'New template' : t!.name}
         subtitle="A template is a layout, a palette and fonts. Content never lives here."
-        actions={t && isPaged(t.layout) ? <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link> : undefined}
+        actions={
+          t && (
+            <>
+              {t.published ? <Pill tone="ok">On the website</Pill> : <Pill tone="warn">Hidden</Pill>}
+              {isPaged(t.layout) && <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link>}
+            </>
+          )
+        }
       />
       <Flash {...sp} />
       {t && (
@@ -100,7 +108,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <div className="grid grid-cols-3 gap-2">
             <Field label="Sort order" name="sortOrder" type="number" defaultValue={t?.sortOrder ?? 0} />
             <div className="pt-6"><Checkbox label="Featured" name="featured" defaultChecked={t?.featured} /></div>
-            <div className="pt-6"><Checkbox label="Published" name="published" defaultChecked={t?.published ?? true} /></div>
+            <div className="pt-6"><Checkbox label="Published" name="published" defaultChecked={t?.published ?? false} hint="On the website: the gallery, the occasion pages and the checkout. Unticked, it is saved and yours to work on and nobody else sees it." /></div>
           </div>
         </div>
         <div className="card space-y-3 p-4">
@@ -229,6 +237,31 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </details>
         <div className="lg:col-span-2"><button className="btn btn-primary" type="submit">{isNew ? 'Create template' : 'Save template'}</button></div>
       </form>
+      {/*
+        * Throwing a design away, and why the door is sometimes shut.
+        *
+        * Outside the form above on purpose: a form cannot hold another, and
+        * this one must not be submitted by the Enter key while she is typing
+        * a name into the other. Behind a fold, with the word typed out, for
+        * the same reason the customer erasure is.
+        */}
+      {t && can(user.role, 'templates.delete') && (
+        <details className="card mt-4 p-4">
+          <summary className="cursor-pointer font-semibold">Delete this design</summary>
+          {t._count.invitations > 0 ? (
+            <p className="hint mt-2">
+              {t.name} is what {t._count.invitations} invitation{t._count.invitations === 1 ? ' renders' : 's render'} from, so it cannot be deleted.
+              Untick Published above instead: it leaves the website and nobody new can pick it, while everything already built on it carries on working.
+            </p>
+          ) : (
+            <form action={deleteTemplateAction.bind(null, t.id, `/admin/templates/${t.id}`)} className="mt-2 space-y-2">
+              <p className="hint">Nobody is on this design, so nothing a customer can see changes. Its pages, its words and the pictures uploaded for it go with it. There is no undo.</p>
+              <input name="confirm" className="field" placeholder="Type DELETE to confirm" autoComplete="off" required />
+              <button className="btn btn-danger btn-sm" type="submit">Delete {t.name}</button>
+            </form>
+          )}
+        </details>
+      )}
     </>
   );
 }

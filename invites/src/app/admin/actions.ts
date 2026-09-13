@@ -283,6 +283,69 @@ export async function duplicateTemplateAction(templateId: string, back: string) 
   });
 }
 
+/**
+ * On the website, or put away.
+ *
+ * The same column the form's Published tick writes, as one button on the
+ * list, because that is the question asked most often and least worth
+ * opening a form for: a design saved half-drawn is parked, and a design
+ * finished is let out. Held at `templates.edit`, which is what the tick on
+ * the form has always needed — this is the same switch in a quicker place,
+ * not a wider door.
+ *
+ * A design whose pages are still only a draft is let out all the same, and
+ * told what that means: a guest would get the layout's built-in look, not
+ * the drawing, until the studio's Publish makes the document live.
+ */
+export async function templateShownAction(templateId: string, back: string, fd: FormData) {
+  return run('templates.edit', back, async (user) => {
+    const on = b(fd, 'published');
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId } });
+    await prisma.template.update({ where: { id: templateId }, data: { published: on } });
+    await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: t.id, summary: `${t.name} ${on ? 'put on the website' : 'hidden'}` });
+    if (!on) return `${t.name} is hidden. Nobody new can pick it; the invitations already on it carry on.`;
+    const undrawn = isPaged(t.layout) && !documentOf(t) && Boolean(documentOf({ design: t.designDraft, layout: t.layout }));
+    return undrawn
+      ? `${t.name} is on the website. Its pages are still a draft, so it shows the layout's own look until you press Publish in the studio.`
+      : `${t.name} is on the website.`;
+  });
+}
+
+/**
+ * Throw a design away.
+ *
+ * Refused while any invitation is built on it: a customer's page renders
+ * *from* the design, and the column is a required relation, so Postgres
+ * would refuse the row anyway — better to say why than to show a database
+ * error. A design's own demo is an invitation, which is what protects Capiz
+ * and Baby Blue here without either being named in the code.
+ *
+ * For a design somebody is already on, the answer is Published off: it
+ * leaves the gallery, the occasion pages, the checkout and the customer's
+ * own design switcher, while the invitations already on it carry on
+ * rendering. That is also the way to park a design that is saved but not
+ * finished — which is what a new one now starts as.
+ *
+ * Its uploaded pieces go with it, in the sense that matters: the Media rows
+ * cascade off the template. The files themselves stay in the bucket, as they
+ * do when a library piece is dropped — an orphaned object costs pennies, and
+ * a delete that reaches into storage cannot be taken back if the wrong
+ * design was named.
+ */
+export async function deleteTemplateAction(templateId: string, back: string, fd: FormData) {
+  return run('templates.delete', back, async (user) => {
+    if (s(fd, 'confirm') !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId }, include: { _count: { select: { invitations: true } } } });
+    const on = t._count.invitations;
+    if (on > 0) {
+      throw new HttpError(400, `${t.name} is what ${on} invitation${on === 1 ? '' : 's'} ${on === 1 ? 'renders' : 'render'} from, so it cannot be deleted. Untick Published instead: it leaves the website and everything already built on it carries on working.`);
+    }
+    await prisma.template.delete({ where: { id: templateId } });
+    await audit(user, { module: 'templates', action: 'delete', entityType: 'Template', entityId: t.id, summary: t.name });
+    redirect(`/admin/templates?ok=${encodeURIComponent(`${t.name} deleted.`)}`);
+  });
+}
+
 // --- the design studio ------------------------------------------------------
 
 /**

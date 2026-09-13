@@ -20,6 +20,8 @@ test('encoders build but never touch money or settings', () => {
   assert.equal(can('ENCODER', 'dfy.edit'), true);
   assert.equal(can('ENCODER', 'invitations.edit'), true);
   assert.equal(can('ENCODER', 'templates.edit'), true);
+  assert.equal(can('ENCODER', 'templates.publish'), false, 'making a design live is the owner\u2019s');
+  assert.equal(can('ENCODER', 'templates.delete'), false, 'and so is throwing one away');
   assert.equal(can('ENCODER', 'payments.review'), false);
   assert.equal(can('ENCODER', 'payments.refund'), false);
   assert.equal(can('ENCODER', 'settings.edit'), false);

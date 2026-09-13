@@ -29,6 +29,12 @@ export const PERMISSIONS = [
    * the design, live ones included, so it is the owner's to press.
    */
   'templates.publish',
+  /**
+   * Removing a design altogether. Separate from `templates.edit` because it
+   * is the one template action nothing undoes: an encoder may draw and save
+   * all day, but throwing a design away is the owner's.
+   */
+  'templates.delete',
 
   'customers.view',
   'customers.edit',

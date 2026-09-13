@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Look, LineKey, TitleKey } from './looks';
-import { OCCASION_SECTIONS, type SectionKey } from './sections';
+import { OCCASION_SECTIONS, sectionOrder, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
@@ -1176,11 +1176,28 @@ export function documentOf(t: { design?: unknown; layout?: string }): DesignDoc 
 
 /**
  * The document the studio opens: the draft if there is one, else what is
- * published, else the layout's built-in. A design opened for the first time
- * is drawn from its base, which is what makes it editable at all.
+ * published, else the layout's built-in, else a starter made from the
+ * occasion's own sections. A design opened for the first time is drawn from
+ * its base, which is what makes it editable at all.
+ *
+ * That last fallback is what lets *every* design be drawn rather than only
+ * the two built as pages. Before it, a design on one of the six flat layouts
+ * had no document and no base to make one from, so the studio had nothing to
+ * open and refused the page — which meant a design made from the Templates
+ * list led to a form and stopped there. A starter is one page per section the
+ * occasion offers, on plain colours, in the layout's own order: not a design
+ * yet, but a place to stand while she draws one.
+ *
+ * Opening it saves nothing. It is what the canvas draws until her first save
+ * writes a draft of her own.
  */
-export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: string }): DesignDoc | null {
-  return documentOf({ design: t.designDraft, layout: t.layout }) ?? documentOf(t) ?? builtinDesign(t.layout);
+export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: string; occasion?: Occasion }): DesignDoc | null {
+  return (
+    documentOf({ design: t.designDraft, layout: t.layout })
+    ?? documentOf(t)
+    ?? builtinDesign(t.layout)
+    ?? (t.occasion ? starterDesign(sectionOrder(t.occasion, t.layout)) : null)
+  );
 }
 
 /**

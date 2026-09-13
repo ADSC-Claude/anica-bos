@@ -15,7 +15,7 @@ import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LIN
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
 import { PreviewPanel } from './preview-panel';
-import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, isPaged, type SectionKey } from '@/lib/sections';
+import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
 import { PageHeader, BackLink, Field, TextArea, Select, Checkbox, Pill } from '@/components/ui';
@@ -74,7 +74,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           t && (
             <>
               {t.published ? <Pill tone="ok">On the website</Pill> : <Pill tone="warn">Hidden</Pill>}
-              {isPaged(t.layout) && <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link>}
+              <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link>
             </>
           )
         }
@@ -135,7 +135,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
                 { value: 'starter', label: 'A starter — one page per section you tick, on plain colours' },
                 { value: 'layout', label: "The layout's own pages, as Baby Blue and Capiz are built" },
               ]}
-              hint="Only for a layout built as a run of pages (Capiz, Baby Blue). Everything else ignores it."
+              hint="A starter is one page per section you tick, on plain colours, ready to draw on. The layout's own pages are Capiz's or Baby Blue's, and only those two layouts have any."
             />
           )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />

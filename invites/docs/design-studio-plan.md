@@ -654,6 +654,40 @@ Measured in the browser on a copy of Baby Blue with every flow page dressed, bes
 
 ---
 
+### After the plan: every design opens in the studio
+
+The plan assumed the studio was for designs built as a run of pages, and for
+the length of the build that was true: Capiz and Baby Blue have built-in
+documents compiled from the constants they were drawn to, and the six flat
+layouts have none. The studio read the layout's name, found nothing to open a
+flat design on, and refused the page.
+
+Which meant the one path a person actually takes — Templates, + New template,
+name it, save — led to a settings form and stopped there. The owner filled that
+form in and asked where the studio was. It was two designs away, behind a
+button that only those two designs had.
+
+So paged-ness is now a property of the *document*, not of the layout's name:
+
+- `studioDoc` falls back to a **starter** — one page per section the occasion
+  offers, on plain colours, in the layout's own order. Opening it saves
+  nothing; it is what the canvas draws until her first save.
+- Every new design is born with that starter in its draft, so "+ New template"
+  leads into the studio rather than into a form.
+- The studio and its publish door open for every design; the button is on
+  every design's page.
+- The renderer reads `format` off the document rather than off `isPaged`. The
+  designs there are do not move — the two originals have built-ins, and a flat
+  design nobody has drawn still has no document and stays the plain stack of
+  sections. The new case is a flat design whose pages have been drawn and
+  published, and that one renders as pages, because pages are what she drew.
+
+A starter's pages are flow pages: laid out by the words of the sections they
+carry. The inspector's **Drawn page** tick is what turns one into a page placed
+by hand, and from there + Words, + Photo frame, + Shape, the clips, the
+animations, the turn and the crop all apply — the same page the two originals
+are built from.
+
 ## 6. What Canva does that this will not
 
 Said plainly, so nobody is surprised.

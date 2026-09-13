@@ -7,6 +7,7 @@ import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
 import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
+import { restoreRevision } from '@/lib/revisions';
 import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, saveTable, deleteTable, assignTable, checkIn, setArrived, type GuestInput } from '@/lib/guests';
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
@@ -41,6 +42,17 @@ export async function saveSectionAction(invitationId: string, key: SectionKey, d
     const result = await saveSection(user, invitationId, key, data, opts);
     refresh(invitationId);
     return { issues: result.issues, slug: result.invitation.slug, done: result.done, completedAt: result.completedAt };
+  });
+}
+
+/** Put the invitation back as it was at one version; the state being left is kept first. */
+export async function restoreRevisionAction(invitationId: string, revisionId: string) {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    const r = await restoreRevision(user, invitationId, revisionId);
+    refresh(invitationId);
+    return { title: r.title, at: r.at.toISOString() };
   });
 }
 

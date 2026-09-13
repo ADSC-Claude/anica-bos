@@ -6,6 +6,7 @@ import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
   type Lang, type Preset } from './copy';
+import { suggestionsFor } from './suggestions';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
 import { parseStart } from './song';
@@ -1054,8 +1055,22 @@ function withLimits(section: SectionKey, fields: Field[]): Field[] {
   });
 }
 
+/**
+ * Every writing box a customer fills offers a starting point in the
+ * occasion's own words. A box that already carries examples, or a preset
+ * menu, keeps what it has; a staff box gets none — the look's line backs it.
+ */
+function withSuggestions(section: SectionKey, occasion: Occasion, fields: Field[]): Field[] {
+  const add = (f: Field, path: string): Field => {
+    if ((f.type !== 'text' && f.type !== 'textarea') || f.staff || f.examples?.length || f.presets?.length) return f;
+    const examples = suggestionsFor(path, occasion);
+    return examples ? { ...f, examples } : f;
+  };
+  return fields.map((f) => (f.type === 'list' ? { ...f, item: (f.item ?? []).map((i) => add(i, `${section}.${f.key}.${i.key}`)) } : add(f, `${section}.${f.key}`)));
+}
+
 export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries(
-  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, withMedia(s, s.fields(occasion))) }]),
+  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, withSuggestions(s.key, occasion, withMedia(s, s.fields(occasion)))) }]),
 ) as Record<SectionKey, SectionDef>;
 
 /** Which sections each occasion carries, in page order. */

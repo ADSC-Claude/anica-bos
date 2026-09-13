@@ -597,6 +597,7 @@ model Invitation {
   messages  SupportMessage[]
   texts     SmsMessage[]
   emails    EmailMessage[]
+  revisions InvitationRevision[]
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
@@ -994,4 +995,21 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+/// One auto-save that changed something: the invitation as it was just
+/// before that save. The last thirty are kept whole and then one a day for
+/// sixty days, so a wrong keystroke and a wrong week are both undone with
+/// Restore. Gone with the invitation, as everything of the customer's is.
+model InvitationRevision {
+  id           String     @id @default(cuid())
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  /// the part whose save made this snapshot, or "restore" for the state a restore left
+  section      String
+  title        String
+  content      Json
+  createdAt    DateTime   @default(now())
+
+  @@index([invitationId, createdAt])
 }

@@ -129,11 +129,11 @@ export async function moveJob(staff: SessionUser, jobId: string, status: DfyStat
 
 export async function sendPreview(staff: SessionUser, jobId: string) {
   const job = await prisma.dfyJob.findUniqueOrThrow({ where: { id: jobId }, include: { invitation: { include: { user: true } }, order: true } });
-  const previewUrl = absoluteUrl(`/account/invitations/${job.invitationId}/dfy`);
+  const previewUrl = absoluteUrl(`/account/invitations/${job.invitationId}/share`);
   const updated = await prisma.dfyJob.update({ where: { id: jobId }, data: { status: 'PREVIEW_SENT', previewSentAt: new Date() } });
   const s = await getSettings();
   const left = job.revisionsAllowed - job.revisionsUsed;
-  await notify(job.invitation.userId, 'Your preview is ready', 'Have a look, then approve it or request changes.', `/account/invitations/${job.invitationId}/dfy`);
+  await notify(job.invitation.userId, 'Your preview is ready', 'Have a look, then approve it or request changes.', `/account/invitations/${job.invitationId}/share`);
   await sendEmail({
     to: job.invitation.user.email,
     subject: `Your invitation preview is ready — ${job.order.reference}`,

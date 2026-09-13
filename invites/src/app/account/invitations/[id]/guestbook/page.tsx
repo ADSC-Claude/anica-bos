@@ -1,5 +1,4 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
@@ -18,7 +17,6 @@ export default async function GuestbookPage({ params }: { params: Promise<{ id: 
   const entries = await prisma.guestbookEntry.findMany({ where: { invitationId: inv.id }, orderBy: [{ approved: 'asc' }, { createdAt: 'desc' }] });
   return (
     <>
-      <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
       <PageHeader title="Guestbook" subtitle="Approve the wishes you want on the wall. Anything you delete is gone." />
       {entries.length === 0 ? <Empty>No wishes yet.</Empty> : (
         <ul className="card divide-y divide-[color:var(--color-sand-100)]">

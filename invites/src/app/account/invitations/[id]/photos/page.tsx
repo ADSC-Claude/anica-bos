@@ -1,5 +1,4 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { entitled } from '@/lib/tiers';
@@ -30,7 +29,6 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
 
   return (
     <>
-      <Link href={`/account/invitations/${invitation.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {invitation.title}</Link>
       <PageHeader
         title="Guest photos"
         subtitle={
@@ -38,7 +36,7 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
             ? moderated
               ? 'Guests can add photos. Nothing appears on your page until you approve it.'
               : 'Guests can add photos, and they appear on your page straight away. Hide anything you would rather not show.'
-            : 'The album is switched off. Turn it on in the builder under Guest photos.'
+            : 'The album is switched off. Turn it on in the Guest photos part of your invitation.'
         }
       />
 

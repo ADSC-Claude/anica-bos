@@ -256,6 +256,17 @@ table.data tr:hover td {
   overflow: hidden;
   position: relative;
 }
+/* The builder's phone: a real handset's width, so line breaks and name sizes
+   are judged on the shape a guest will hold — and no taller than the screen
+   it is on, so the whole page stays in reach beside the form. */
+.builder-phone .phone {
+  width: min(410px, calc((100dvh - 3.5rem) * 9 / 19), 100%);
+}
+.builder-phone .phone iframe {
+  position: absolute;
+  inset: 22px 0 0 0;
+  height: calc(100% - 22px);
+}
 .phone iframe,
 .phone > .screen {
   width: 100%;

@@ -1,79 +1,8 @@
-import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { requireCustomerPage, ownInvitation } from '@/lib/guard';
-import { HttpError } from '@/lib/errors';
-import { contentOf } from '@/lib/invitations';
-import { sectionsFor, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, sectionAlwaysShows, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, type SectionKey } from '@/lib/sections';
-import { documentOf } from '@/lib/design';
-import { designForm, askedFields, askedLimits, designMedia } from '@/lib/asks';
-import { isStaff } from '@/lib/rbac';
-import { galleryLimit } from '@/lib/tiers';
-import { Builder } from '@/components/builder/builder';
-import { setsFor } from '@/lib/fonts';
-import { fontBook } from '@/lib/font-book';
-import { changeWindow, doneSections } from '@/lib/progress';
-import { InvitationPill } from '@/components/ui';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-
+/** The builder is the Invitation tab now; an old link still lands on the same part. */
 export default async function BuilderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ section?: string }> }) {
   const { id } = await params;
   const { section } = await searchParams;
-  const user = await requireCustomerPage();
-  const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  if (inv.order && inv.order.status !== 'ACTIVE' && inv.order.status !== 'PAID') redirect(`/checkout/pay/${inv.order.reference}`);
-
-  const content = contentOf(inv.content);
-  // The pairings she has switched on, narrowed by the package and by what
-  // this design offers — the same list the Settings picker draws from.
-  const sets = await fontBook();
-  const offered = setsFor(inv.tier, sets, inv.template.fontSets);
-  const std = Boolean(inv.saveTheDateOfId);
-  const defs = sectionsFor(inv.occasion, std);
-  const sections = defs.map((d) => ({
-    key: d.key,
-    label: sectionLabel(d.key, inv.occasion),
-    description: d.description,
-    unlocked: sectionUnlocked(d.key, inv.occasion, inv.tier, inv.addOns),
-    filled: sectionFilled(d.key, inv.occasion, content[d.key]),
-    minTier: sectionMinTier(d.key, inv.occasion),
-  }));
-  const current = (sections.find((s) => s.key === section && s.unlocked)?.key ?? sections.find((s) => s.unlocked)!.key) as SectionKey;
-  // the fixed writings are ours: staff editing for the customer see them, the customer does not
-  /*
-   * The form this design asks for. A design that says nothing gives back the
-   * very fields it was handed, so every invitation on a design with no
-   * document of its own — which is all of them today — sees exactly the form
-   * it saw before.
-   */
-  const form = designForm(documentOf(inv.template), inv.occasion);
-  // the media field every part carries exists only where the design drew a
-  // frame for it, and there it is the customer's own question
-  const all = designMedia(fieldsFor(current, inv.occasion, inv.tier, std), current, form);
-  const own = isStaff(user.role) ? all : customerFields(all);
-  const fields = askedFields(own, current, form);
-  const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
-  const limit = galleryLimit(inv.tier);
-  const done = doneSections(content.progress);
-  // Nothing disappears without being said first: a part left empty is allowed,
-  // and the form tells the customer what an empty one means for their page.
-  const hidesWhenEmpty = !sectionAlwaysShows(current);
-  const w = changeWindow(inv.eventAt);
-  const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
-
-  return (
-    <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
-          <h1 className="display text-2xl">Builder <InvitationPill status={inv.status} /></h1>
-        </div>
-        <div className="flex gap-2 text-sm">
-          <Link href={`/account/invitations/${inv.id}/settings`} className="btn btn-secondary btn-sm">Link & design</Link>
-          <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{inv.status === 'PUBLISHED' ? 'Share' : 'Publish'}</Link>
-        </div>
-      </div>
-      <Builder key={current} invitationId={inv.id} slug={inv.slug} status={inv.status} sections={sections} current={current} fields={fields} initial={initial} done={done} hidesWhenEmpty={hidesWhenEmpty} completedAt={content.progress?.completedAt ?? null} window={window} lang={inv.language === 'tl' ? 'tl' : 'en'} listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }} listHints={photoFramesHint(inv.template.layout)} lookKey={content.theme?.lookKey ?? ''} looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))} allLooks={sets.length} tier={inv.tier} />
-    </>
-  );
+  redirect(`/account/invitations/${id}${section ? `?section=${encodeURIComponent(section)}` : ''}`);
 }

@@ -13,7 +13,7 @@ import {
 import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, fieldOf, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
-import { pageNeeds, needCount, HEAVY_GROUND, type Need } from '@/lib/needs';
+import { pageNeeds, needCount, GUTTER, HEAVY_GROUND, type Need } from '@/lib/needs';
 import { drawFromSection } from '@/lib/seed-page';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
@@ -206,8 +206,20 @@ export function Studio(p: Props) {
     setSample('real');
     setAgainst({ busy: false, error: '' });
   }, [p.templateId]);
-  /** the band a phone's browser keeps: shown on a page drawn to a screen or less */
-  const [bar, setBar] = useState(true);
+  /**
+   * The phone guide: what is true of this page on the narrowest phone, drawn
+   * on the page itself rather than listed in a drawer.
+   *
+   * It answers the question somebody asks the first time they work at laptop
+   * width: where can I put things so a phone does not cut them? The answer
+   * is that a drawn page is capped at a phone column at every width and
+   * everything on it is a share of that width, so nothing is ever re-cut —
+   * what moves is the size of it. So the guide draws the three things that
+   * do differ: the gutter words want from the side, the band a phone's own
+   * browser bar keeps for itself, and a ring on anything the checklist has
+   * something to say about here.
+   */
+  const [guide, setGuide] = useState(true);
   const [rev, setRev] = useState(p.rev);
   const [state, setState] = useState<'clean' | 'dirty' | 'saving' | 'saved' | 'error'>('clean');
   const [error, setError] = useState('');
@@ -1521,8 +1533,15 @@ export function Studio(p: Props) {
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
           )}
           <span className="ml-auto" />
-          {view === 'page' && page?.drawn && ratio <= ONE_SCREEN + 0.02 && (
-            <button type="button" title="The band a phone's browser keeps for itself until the guest scrolls" onClick={() => setBar((x) => !x)} className={`rounded px-2 py-1 ${bar ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Browser bar</button>
+          {view === 'page' && page?.drawn && (
+            <button
+              type="button"
+              title="Where words are safe on the narrowest phone, the band the browser's own bar keeps, and whatever the checklist says about this page"
+              onClick={() => setGuide((x) => !x)}
+              className={`rounded px-2 py-1 ${guide ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}
+            >
+              Phone guide
+            </button>
           )}
           {view === 'page' && (
             <>
@@ -1679,25 +1698,67 @@ export function Studio(p: Props) {
                   * own photographs sit on top and nothing can be grabbed.
                   */}
                 {/*
-                  * A page drawn to a screen or less loses its foot to the
-                  * browser's own bar on the first look. The band is drawn at
-                  * a tenth of a screen — the browser's number, not the
-                  * page's — so nothing on the page can be measured from it.
+                  * The phone guide. Two bands and a set of rings, all of them
+                  * over the page and none of them in it: the layer takes no
+                  * pointer, so it cannot get between her and a box.
+                  *
+                  * The gutter is the same number the checklist measures words
+                  * against (`GUTTER`), so the line on the page and the
+                  * sentence in the drawer can never disagree. The bar is a
+                  * tenth of a screen — the browser's number, not the
+                  * page's — so nothing on the page is measured from it, and
+                  * it is only drawn on a page of a screen or less, which is
+                  * the only page a bar can cover.
                   */}
-                {page?.drawn && bar && ratio <= ONE_SCREEN + 0.02 && (
-                  <div
-                    aria-hidden
-                    style={{
-                      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6, pointerEvents: 'none',
-                      height: `${(BROWSER_BAR / ratio) * 100}%`,
-                      background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
-                      borderTop: '1px dashed rgba(31,29,26,0.5)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
-                      the browser&rsquo;s bar sits about here
-                    </span>
+                {page?.drawn && guide && (
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none' }}>
+                    {[0, 100 - GUTTER].map((at) => (
+                      <div
+                        key={at}
+                        style={{
+                          position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: `${GUTTER}%`,
+                          background: 'rgba(47,111,208,0.06)',
+                          [at ? 'borderLeft' : 'borderRight']: '1px dashed rgba(47,111,208,0.55)',
+                        }}
+                      />
+                    ))}
+                    {ratio <= ONE_SCREEN + 0.02 && (
+                      <div
+                        style={{
+                          position: 'absolute', left: 0, right: 0, bottom: 0,
+                          height: `${(BROWSER_BAR / ratio) * 100}%`,
+                          background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
+                          borderTop: '1px dashed rgba(31,29,26,0.5)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}
+                      >
+                        <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
+                          the browser&rsquo;s bar sits about here
+                        </span>
+                      </div>
+                    )}
+                    {/*
+                      * And the checklist, on the page. A ring where a line is
+                      * about a box, red where it blocks and amber where it is
+                      * hers to ignore, so "Milestone 2 is too small to read on
+                      * a phone" has somewhere to point.
+                      */}
+                    {here.map((n) => {
+                      const at = n.id ? boxes[n.id] : undefined;
+                      if (!at) return null;
+                      const bad = n.level === 'blocks';
+                      return (
+                        <div
+                          key={`${n.rule}-${n.id}`}
+                          title={n.text}
+                          style={{
+                            position: 'absolute', left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%`, height: `${at.h}%`,
+                            outline: `2px dashed ${bad ? 'rgba(185,28,28,0.85)' : 'rgba(180,83,9,0.75)'}`,
+                            outlineOffset: 2, borderRadius: 2,
+                          }}
+                        />
+                      );
+                    })}
                   </div>
                 )}
                 {page?.drawn && (
@@ -1743,6 +1804,24 @@ export function Studio(p: Props) {
               <p className="hint mt-2">Until then it is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>
             </div>
           )}
+        {/*
+          * The answer to "if I work at laptop width, will a phone cut it?".
+          *
+          * It is no, and the reason is worth saying rather than leaving her
+          * to find out: the stylesheet caps a drawn invitation at a phone
+          * column (32rem) at every window width, and every number in the
+          * document is a share of that width — so the page is never laid out
+          * twice and nothing is ever re-cut. What changes on a smaller screen
+          * is the size of it, which is what the guide's three marks are about.
+          */}
+        {view === 'page' && page?.drawn && (
+          <p className="hint mt-2">
+            This page is the same page at every width: a guest&rsquo;s invitation is never wider than the Laptop 512 above, and everything on the page is a share of that width &mdash; so what you place here lands in the same place on a 360 phone, only smaller. Nothing is cut and nothing moves.{' '}
+            {guide
+              ? <>The guide shows the three things a phone does change: words inside the shaded gutter read as cut, the striped band at the foot is where a phone browser&rsquo;s own bar sits until the guest scrolls, and a ring marks anything the checklist has a line about. Switch between the widths above to see how big the writing actually gets.</>
+              : <>Turn on <strong>Phone guide</strong> above to see where words are safe, where a phone browser&rsquo;s bar sits, and whatever the checklist says about this page.</>}
+          </p>
+        )}
         {seeded && view === 'page' && (
           <p className="hint mt-2 text-[color:var(--color-ink-700)]">
             {seeded} <button type="button" onClick={() => setSeeded('')} className="underline">Hide this</button>

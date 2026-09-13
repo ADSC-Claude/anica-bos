@@ -51,6 +51,7 @@ export const NEED_RULES = [
   'ground',
   'carries-nothing',
   'off-page',
+  'edge',
   'overlap',
   'unlinked',
   'too-many',
@@ -150,6 +151,22 @@ function overlap(a: Box, b: Box): number {
 
 /** How much a frame may lie beyond the page before it is worth saying so. */
 const BLEED = 2;
+
+/**
+ * The least air a writing should keep from the side of the page.
+ *
+ * A frame may bleed off the edge deliberately — a photograph that fills the
+ * width is a real thing to draw — which is what `BLEED` allows. Words are
+ * not: a line that touches the edge reads as cut.
+ *
+ * It is one number for every screen, and that is the point. A drawn page is
+ * never wider than the phone column the stylesheet caps it at, and
+ * everything on it is a share of that width, so a gutter left at the widest
+ * the page ever gets is the same gutter on the narrowest phone — smaller in
+ * millimetres, identical in proportion. There is no second layout to keep in
+ * step, which is why the studio can draw this line and promise it.
+ */
+export const GUTTER = 4;
 /**
  * How much two frames may cover each other before it is worth saying so.
  *
@@ -289,6 +306,23 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
         const centreOff = el.x! < 0 || el.x! > 100 || el.y < 0 || el.y > 100;
         if (centreOff) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the page.`, el.id);
         else if (over > 0) say('says', 'off-page', `${nameOf(el, i + 1)} sits partly off the page.`, el.id);
+      });
+
+      /*
+       * Words at the side of the page. Only the horizontal is asked, because
+       * only the horizontal is known: a box's width is a share of the page's
+       * width, and its height is whatever the customer wrote.
+       */
+      elements.filter((e) => e.kind === 'text').forEach((el, i) => {
+        if (el.x === undefined || el.w === undefined) return;
+        const left = el.x - el.w / 2;
+        const right = el.x + el.w / 2;
+        const name = nameOf(el, i + 1);
+        if (el.x < 0 || el.x > 100) say('blocks', 'off-page', `${name} sits off the side of the page.`, el.id);
+        else if (left < 0 || right > 100) say('blocks', 'off-page', `${name} runs off the side of the page, so its words are cut on every screen.`, el.id);
+        else if (left < GUTTER || right > 100 - GUTTER) {
+          say('says', 'edge', `${name} comes within ${GUTTER} of the hundred to the edge of the page, which reads as cut on a phone. ${GUTTER} either side is the least air words want, and it is the same share of every screen \u2014 so moving it in here moves it in everywhere.`, el.id);
+        }
       });
 
       for (let i = 0; i < frames.length; i++) {

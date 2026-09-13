@@ -23,7 +23,7 @@ export default async function GuidePage({ params, searchParams }: { params: Prom
   const pair = saveTheDate
     ? await prisma.invitation.findUnique({ where: { id: inv.saveTheDateOfId! }, select: { id: true } })
     : await prisma.invitation.findUnique({ where: { saveTheDateOfId: inv.id }, select: { id: true } });
-  const tabs = tabsFor({ id: inv.id, tier: inv.tier, addOns: inv.addOns, saveTheDate, pairId: pair?.id ?? null });
+  const tabs = tabsFor({ id: inv.id, tier: inv.tier, addOns: inv.addOns, occasion: inv.occasion, saveTheDate, pairId: pair?.id ?? null });
   const tabOf = (key?: string) => tabs.find((t) => t.key === key);
   const i = Math.max(0, CHAPTERS.findIndex((c) => c.key === chapter));
   const c = CHAPTERS[i];

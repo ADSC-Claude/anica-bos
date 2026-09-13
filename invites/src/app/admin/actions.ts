@@ -26,8 +26,8 @@ import { TIERS } from '@/lib/tiers';
 import { isCollection } from '@/lib/collections';
 import { isOpening } from '@/lib/openings';
 import { premiumOpeningAllowed, premiumOpeningsFor, PREMIUM_OPENING_BY_KEY } from '@/lib/premium-openings';
-import { isLayout, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { colourFamilies } from '@/lib/palette';
+import { isLayout, paletteFrom } from '@/lib/theme';
+import { paletteFromForm, fontsFromForm } from '@/lib/preview';
 import { findSet } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
@@ -145,12 +145,15 @@ export async function saveTemplateAction(templateId: string | null, back: string
     if (!isOccasion(occasion)) throw new HttpError(400, 'Pick an occasion.');
     const layout = s(fd, 'layout');
     if (!isLayout(layout)) throw new HttpError(400, 'Pick a layout.');
-    const palettePreset = PALETTE_PRESETS.find((p) => p.key === s(fd, 'paletteKey'));
-    // A family of the colour book, made into the six roles. It wins over a
-    // preset, because it is the more particular of the two answers.
-    const family = colourFamilies().find((f) => f.key === s(fd, 'paletteFamily'))?.palette;
-    const palette = { bg: s(fd, 'bg'), surface: s(fd, 'surface'), ink: s(fd, 'ink'), muted: s(fd, 'muted'), accent: s(fd, 'accent'), accent2: s(fd, 'accent2') };
-    const fonts = FONT_PRESETS.find((f) => f.key === s(fd, 'fontsKey'))?.fonts ?? FONT_PRESETS[0].fonts;
+    /*
+     * The six colours and the pairing, by the one rule there is: the boxes,
+     * then a family of the book, then a preset. The rule is in lib/preview.ts
+     * because the panel beside this form draws the design from the same
+     * fields, and a preview that read them its own way could disagree with
+     * what this action stores.
+     */
+    const palette = paletteFromForm((k) => s(fd, k));
+    const fonts = fontsFromForm((k) => s(fd, k));
     /*
      * The ticks, for a design that has no document. A design drawn in the
      * studio has no ticks on its form at all — its document says which
@@ -183,7 +186,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
       openingVideoUrl: s(fd, 'openingPosterUrl') ? s(fd, 'openingVideoUrl') : '',
       openingPosterUrl: s(fd, 'openingPosterUrl'),
       opening: isOpening(s(fd, 'opening')) && s(fd, 'opening') !== 'none' ? s(fd, 'opening') : '',
-      palette: (!s(fd, 'bg') ? (family ?? palettePreset?.palette ?? palette) : palette) as never,
+      palette: palette as never,
       fonts: fonts as never,
       sections,
       featured: b(fd, 'featured'),
@@ -280,6 +283,69 @@ export async function duplicateTemplateAction(templateId: string, back: string) 
     });
     await audit(user, { module: 'templates', action: 'create', entityType: 'Template', entityId: made.id, summary: `${made.name} (copied from ${src.name})` });
     redirect(`/admin/templates/${made.id}?ok=${encodeURIComponent('Copied. It is unpublished until you say otherwise.')}`);
+  });
+}
+
+/**
+ * On the website, or put away.
+ *
+ * The same column the form's Published tick writes, as one button on the
+ * list, because that is the question asked most often and least worth
+ * opening a form for: a design saved half-drawn is parked, and a design
+ * finished is let out. Held at `templates.edit`, which is what the tick on
+ * the form has always needed — this is the same switch in a quicker place,
+ * not a wider door.
+ *
+ * A design whose pages are still only a draft is let out all the same, and
+ * told what that means: a guest would get the layout's built-in look, not
+ * the drawing, until the studio's Publish makes the document live.
+ */
+export async function templateShownAction(templateId: string, back: string, fd: FormData) {
+  return run('templates.edit', back, async (user) => {
+    const on = b(fd, 'published');
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId } });
+    await prisma.template.update({ where: { id: templateId }, data: { published: on } });
+    await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: t.id, summary: `${t.name} ${on ? 'put on the website' : 'hidden'}` });
+    if (!on) return `${t.name} is hidden. Nobody new can pick it; the invitations already on it carry on.`;
+    const undrawn = isPaged(t.layout) && !documentOf(t) && Boolean(documentOf({ design: t.designDraft, layout: t.layout }));
+    return undrawn
+      ? `${t.name} is on the website. Its pages are still a draft, so it shows the layout's own look until you press Publish in the studio.`
+      : `${t.name} is on the website.`;
+  });
+}
+
+/**
+ * Throw a design away.
+ *
+ * Refused while any invitation is built on it: a customer's page renders
+ * *from* the design, and the column is a required relation, so Postgres
+ * would refuse the row anyway — better to say why than to show a database
+ * error. A design's own demo is an invitation, which is what protects Capiz
+ * and Baby Blue here without either being named in the code.
+ *
+ * For a design somebody is already on, the answer is Published off: it
+ * leaves the gallery, the occasion pages, the checkout and the customer's
+ * own design switcher, while the invitations already on it carry on
+ * rendering. That is also the way to park a design that is saved but not
+ * finished — which is what a new one now starts as.
+ *
+ * Its uploaded pieces go with it, in the sense that matters: the Media rows
+ * cascade off the template. The files themselves stay in the bucket, as they
+ * do when a library piece is dropped — an orphaned object costs pennies, and
+ * a delete that reaches into storage cannot be taken back if the wrong
+ * design was named.
+ */
+export async function deleteTemplateAction(templateId: string, back: string, fd: FormData) {
+  return run('templates.delete', back, async (user) => {
+    if (s(fd, 'confirm') !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm.');
+    const t = await prisma.template.findUniqueOrThrow({ where: { id: templateId }, include: { _count: { select: { invitations: true } } } });
+    const on = t._count.invitations;
+    if (on > 0) {
+      throw new HttpError(400, `${t.name} is what ${on} invitation${on === 1 ? '' : 's'} ${on === 1 ? 'renders' : 'render'} from, so it cannot be deleted. Untick Published instead: it leaves the website and everything already built on it carries on working.`);
+    }
+    await prisma.template.delete({ where: { id: templateId } });
+    await audit(user, { module: 'templates', action: 'delete', entityType: 'Template', entityId: t.id, summary: t.name });
+    redirect(`/admin/templates?ok=${encodeURIComponent(`${t.name} deleted.`)}`);
   });
 }
 

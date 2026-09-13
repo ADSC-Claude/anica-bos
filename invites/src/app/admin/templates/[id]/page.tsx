@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
+import { can } from '@/lib/rbac';
+import { previewSitter } from '@/lib/sitter';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
@@ -12,13 +14,14 @@ import { fontBook } from '@/lib/font-book';
 import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
+import { PreviewPanel } from './preview-panel';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, isPaged, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
-import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
+import { PageHeader, BackLink, Field, TextArea, Select, Checkbox, Pill } from '@/components/ui';
 import { AsksSheet, asksFor } from '@/components/asks-sheet';
 import { Flash, type FlashParams } from '../../flash';
-import { saveTemplateAction } from '../../actions';
+import { saveTemplateAction, deleteTemplateAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,11 +31,11 @@ const GROUND_LABELS: Record<string, string> = {
 };
 
 export default async function TemplateEditor({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<FlashParams> }) {
-  await requireStaffPage('templates.edit');
+  const user = await requireStaffPage('templates.edit');
   const { id } = await params;
   const sp = await searchParams;
   const isNew = id === 'new';
-  const t = isNew ? null : await prisma.template.findUnique({ where: { id } });
+  const t = isNew ? null : await prisma.template.findUnique({ where: { id }, include: { _count: { select: { invitations: true } } } });
   if (!isNew && !t) notFound();
   const pal = paletteFrom(t?.palette);
   const occasion = t?.occasion ?? 'WEDDING';
@@ -55,6 +58,8 @@ export default async function TemplateEditor({ params, searchParams }: { params:
    * not the draft: this is the design as it stands, and the draft is the
    * studio's business until it is published.
    */
+  // Who the panel draws the design on, named under it so a stand-in is never a surprise.
+  const seat = await previewSitter(t?.demoSlug ?? '', occasion);
   const doc = t ? documentOf(t) : null;
   const drawn = Boolean(doc);
   const offers = doc ? offeredSections(doc, occasion) : [];
@@ -65,7 +70,14 @@ export default async function TemplateEditor({ params, searchParams }: { params:
       <PageHeader
         title={isNew ? 'New template' : t!.name}
         subtitle="A template is a layout, a palette and fonts. Content never lives here."
-        actions={t && isPaged(t.layout) ? <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link> : undefined}
+        actions={
+          t && (
+            <>
+              {t.published ? <Pill tone="ok">On the website</Pill> : <Pill tone="warn">Hidden</Pill>}
+              {isPaged(t.layout) && <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link>}
+            </>
+          )
+        }
       />
       <Flash {...sp} />
       {t && (
@@ -76,7 +88,9 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           />
         </div>
       )}
-      <form action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
+      <div className="xl:flex xl:items-start xl:gap-4">
+      <div className="min-w-0 xl:flex-1">
+      <form id="template-form" action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
         <div className="card space-y-3 p-4">
           <Field label="Name" name="name" defaultValue={t?.name} required />
           <Field label="Slug" name="slug" defaultValue={t?.slug} hint="Lowercase, dashes. Used in URLs and the gallery." />
@@ -100,7 +114,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
           <div className="grid grid-cols-3 gap-2">
             <Field label="Sort order" name="sortOrder" type="number" defaultValue={t?.sortOrder ?? 0} />
             <div className="pt-6"><Checkbox label="Featured" name="featured" defaultChecked={t?.featured} /></div>
-            <div className="pt-6"><Checkbox label="Published" name="published" defaultChecked={t?.published ?? true} /></div>
+            <div className="pt-6"><Checkbox label="Published" name="published" defaultChecked={t?.published ?? false} hint="On the website: the gallery, the occasion pages and the checkout. Unticked, it is saved and yours to work on and nobody else sees it." /></div>
           </div>
         </div>
         <div className="card space-y-3 p-4">
@@ -229,6 +243,50 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </details>
         <div className="lg:col-span-2"><button className="btn btn-primary" type="submit">{isNew ? 'Create template' : 'Save template'}</button></div>
       </form>
+      {/*
+        * Throwing a design away, and why the door is sometimes shut.
+        *
+        * Outside the form above on purpose: a form cannot hold another, and
+        * this one must not be submitted by the Enter key while she is typing
+        * a name into the other. Behind a fold, with the word typed out, for
+        * the same reason the customer erasure is.
+        */}
+      {t && can(user.role, 'templates.delete') && (
+        <details className="card mt-4 p-4">
+          <summary className="cursor-pointer font-semibold">Delete this design</summary>
+          {t._count.invitations > 0 ? (
+            <p className="hint mt-2">
+              {t.name} is what {t._count.invitations} invitation{t._count.invitations === 1 ? ' renders' : 's render'} from, so it cannot be deleted.
+              Untick Published above instead: it leaves the website and nobody new can pick it, while everything already built on it carries on working.
+            </p>
+          ) : (
+            <form action={deleteTemplateAction.bind(null, t.id, `/admin/templates/${t.id}`)} className="mt-2 space-y-2">
+              <p className="hint">Nobody is on this design, so nothing a customer can see changes. Its pages, its words and the pictures uploaded for it go with it. There is no undo.</p>
+              <input name="confirm" className="field" placeholder="Type DELETE to confirm" autoComplete="off" required />
+              <button className="btn btn-danger btn-sm" type="submit">Delete {t.name}</button>
+            </form>
+          )}
+        </details>
+      )}
+      </div>
+      {/*
+        * The picture, beside the knobs.
+        *
+        * Sticky on a wide screen and under the form on a narrow one: the
+        * point is to watch it while typing a hex code, and on a phone-width
+        * admin there is no beside to be had.
+        */}
+      <aside className="mt-4 xl:mt-0 xl:sticky xl:top-4 xl:w-[420px] xl:shrink-0">
+        {seat ? (
+          <PreviewPanel templateId={tid} sitter={seat.title || seat.slug} ownDemo={seat.own} />
+        ) : (
+          <div className="card p-4">
+            <p className="label">As it stands</p>
+            <p className="hint mt-1">There is no published invitation to draw a design on yet, so there is nothing to show here. Publish one — the demo of any design will do — and the picture appears.</p>
+          </div>
+        )}
+      </aside>
+      </div>
     </>
   );
 }

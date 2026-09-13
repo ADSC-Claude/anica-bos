@@ -66,9 +66,9 @@ export const CHAPTERS: Chapter[] = [
     title: 'Guest list and personal links',
     tab: 'guests',
     body: [
-      'The guest list is the one part of an invitation nobody can write for you. Add guests one at a time, or import a whole list from Excel — download the blank list, fill it in, and send it back; paste rows straight from a spreadsheet if that is quicker.',
+      'The guest list is the one part of an invitation nobody can write for you. The tab opens on the numbers, then the two ways to put a name on the list: Add a guest, one at a time — a name is all we need, a mobile number or e-mail lets you send them their link — or Import your list from Excel: download the blank list, fill it in, and upload it back; paste rows straight from a spreadsheet if that is quicker. A name, number or e-mail already on the list is skipped, and the notice says how many were.',
       'Every guest on the list gets a personal link of their own: it greets them by name, holds the seats you set aside for them, and shows their table once you have seated them. Send it from the row — Copy link, Viber, SMS — with a ready-made message. Guests who reply through a personal link are held to their seats; guests who reply through the general link pick their own number, and those replies come to you to settle.',
-      'The reminders on this tab go to everyone who has not answered: e-mail is free; texts are charged per message by the gateway, so ask us for a pack before you send one. You see exactly who would be sent to, and why anyone is skipped, before anything goes.',
+      'The reminders, under the list, go to everyone who has not answered: e-mail is free; texts are charged per message by the gateway, so ask us for a pack before you send one. You see exactly who would be sent to, and why anyone is skipped, before anything goes. Tables live on the Seating chart tab; the Table column here only says where each guest sits.',
     ],
     steps: ['Add your guests, or import the list.', 'Send each one their personal link.', 'Chase the quiet ones with a reminder when the deadline is near.'],
   },
@@ -77,9 +77,10 @@ export const CHAPTERS: Chapter[] = [
     title: 'RSVP responses',
     tab: 'rsvps',
     body: [
-      'Every reply, as it arrives: who is coming and with how many, who cannot, their meal and dietary notes where your package asks for them, and the message they left. The numbers at the top are the ones your caterer wants.',
+      'Every reply, as it arrives, counted up: how many replied, how many seats are confirmed, how many cannot come, and the average party size. Under the numbers, attendance as bars, the meal choices and dietary notes where your package asks for them, and the messages your guests left, each one signed. The table below has every reply in full.',
       'A reply that came through the general link with more seats than you expected waits in Seats to settle — keep the number or trim it, and write to the guest in your own words from the same card. Close RSVP when the deadline has passed; the form on your page says so and stops taking replies.',
       'The headcount sheet prints on one page — who is coming, how many of each meal, a tick box beside every name — for the coordinator on the day. Everything exports to Excel.',
+      'What guests see is on the same tab: the RSVP form on your page, in a phone, beside your RSVP questions as switches — how many are coming, who is coming with them, allergies, which group they belong to — with the reply-by date and a number they can text instead. Turn a question on and it is on the form at once. After a guest sends the form they see a thank-you on the page, and on the Luxury package each guest who accepts with an e-mail address gets a confirmation of their seats.',
     ],
   },
   {
@@ -115,7 +116,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Guestbook',
     tab: 'guestbook',
     body: [
-      'A wall of wishes on your page, written by your guests. Switch it on in the Guestbook part of your invitation; approve the wishes you want shown, and anything you delete is gone. Messages wait for your approval before they appear, unless you choose to let them straight through.',
+      'A wall of wishes on your page, written by your guests. Switch it on at the top of this tab, and choose whether you read each wish before it shows; the numbers say how many are on the wall and how many are waiting for you. Approve the wishes you want shown, and anything you delete is gone.',
     ],
   },
   {
@@ -123,7 +124,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Guest photos',
     tab: 'photos',
     body: [
-      'An album your guests fill during and after the day, straight from their phones — no app, no login. Switch it on in the Guest photos part of your invitation. Approve what shows on your page, hide what you would rather not, and download everything in one file afterwards.',
+      'An album your guests fill during and after the day, straight from their phones — no app, no login. Switch it on at the top of this tab, and choose whether each photo waits for your approval. Approve what shows on your page, hide what you would rather not, and download everything in one file afterwards.',
     ],
   },
   {

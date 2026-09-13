@@ -287,9 +287,12 @@ function TableCard({ table: t, seated, count, others, unseated, shapes, pending,
                   {r.guest.groupName && <span className="ml-1 text-xs text-[color:var(--color-ink-500)]">{r.guest.groupName}</span>}
                   {declined(r.guest) && <span className="ml-1 text-xs text-[color:var(--color-ink-500)]">not coming</span>}
                 </span>
+                {/* `.field` is width: 100% outside any layer, so a width
+                    utility cannot narrow it; the style can. */}
                 <select
                   aria-label={`Move ${r.guest.name}`}
-                  className="field min-h-0 w-28 shrink-0 py-1 text-xs"
+                  className="field min-h-0 shrink-0 py-1 text-xs"
+                  style={{ width: '7rem' }}
                   value=""
                   disabled={pending}
                   onChange={(e) => { const v = e.target.value; if (v && r.guest) onMove(r.guest.id, v === UNASSIGNED ? null : v); }}

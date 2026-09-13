@@ -44,7 +44,7 @@
  */
 import type { Occasion } from '@prisma/client';
 import { askable, type Askable } from './asks';
-import { ONE_SCREEN, TITLE_KEYS, isPicture, place, titleWord, type Element, type Line, type PageSpec, type PhotoEl, type TextEl, type WordKey } from './design';
+import { TITLE_KEYS, pageRatio, place, titleWord, type Element, type Line, type PageSpec, type PhotoEl, type TextEl, type WordKey } from './design';
 import type { LineKey } from './looks';
 import { SECTION_BY_KEY, fieldsFor, sectionLabel, type SectionKey } from './sections';
 
@@ -67,23 +67,16 @@ const BOTTOM = 92;
 const TEXT_ROOM = 0.11;
 /** The air between a frame and the writings that belong to it. */
 const TIGHT = 0.02;
-/**
- * How much taller than its contents the page is made, so there is always
- * air to share out between the groups. Without it a page that comes out
- * exactly full puts two frames edge to edge, and two frames edge to edge
- * read as one grey block rather than as two things to move.
- */
-const AIR = 1.15;
-/** The tallest a seeded page is made, however much it carries. */
-const TALLEST = 7;
 /** The most one press places, so a long section cannot bury the page. */
 const CAP = 24;
 /** How many rows of a list are drawn to start with, where the list allows them. */
 const ROWS = 3;
 
-/** How wide a box and a frame start. */
+/** How wide a box and a frame start, down one column and sharing two. */
 const TEXT_W = 82;
 const PHOTO_W = 46;
+const TEXT_NARROW = 44;
+const PHOTO_NARROW = 38;
 
 export type Seeded = {
   page: PageSpec;
@@ -95,6 +88,8 @@ export type Seeded = {
   left: number;
   /** lists whose customer may fill more rows than were drawn */
   short: string[];
+  /** the page holds less than they wanted, so they are set close together */
+  tight: boolean;
 };
 
 /**
@@ -186,7 +181,7 @@ function headingOf(key: string, occasion: Occasion): Line[] | undefined {
 }
 
 export function drawFromSection(page: PageSpec, occasion: Occasion): Seeded {
-  const nothing: Seeded = { page, boxes: 0, photos: 0, left: 0, short: [] };
+  const nothing: Seeded = { page, boxes: 0, photos: 0, left: 0, short: [], tight: false };
   // Already hers to place: nothing to seed, and nothing to overwrite.
   if (page.drawn && (page.elements?.length ?? 0) > 0) return nothing;
 
@@ -271,59 +266,73 @@ export function drawFromSection(page: PageSpec, occasion: Occasion): Seeded {
   const left = made.reduce((a, g) => a + g.length, 0) - taken;
 
   /*
-   * The stack, and a page tall enough to hold it.
+   * The page keeps the height it already had.
    *
-   * Everything is measured as a share of the page's *width*, because the
-   * page's height is what is being worked out: the boxes ask for the room
-   * they need, and the page's proportion is the sum of that over the band
-   * they stand in. One screen at the least — a shorter page than the phone
-   * it is read on looks like a mistake — and never past `TALLEST`, because
-   * a page nobody can scroll to the end of is not a page.
+   * The first cut of this grew the page to fit a single column of boxes, and
+   * that was simply wrong: a page's proportion is the design — it is what the
+   * background was drawn or chosen for — so stretching it to hold a stack
+   * stretches the artwork with it and the page stops looking like the design
+   * it belongs to. Nothing here touches the ground.
    *
-   * A drawn page takes its height from its ground, so that is where the
-   * number goes, and only for a plain colour. A ground that is a picture has
-   * the proportions of the picture, which are not ours to change: the stack
-   * spreads over whatever height that is, because these are shares rather
-   * than millimetres.
+   * So the boxes fit the page rather than the other way round. Everything is
+   * measured as a share of the page's *width* (a frame is a square as wide as
+   * it is set); the band they stand in is `ratio` times as tall as the page is
+   * wide; and where one column of them wants more than that, they go in two,
+   * the way Baby Blue's photographs and their captions run down its Our Story
+   * page. Where even two columns want more room than the page has, they are
+   * set closer together and she is told, because making the page taller is
+   * her call to make in the panel — the number is right there — and not one
+   * to make behind her.
    */
+  const ratio = pageRatio(page);
+  const band = BOTTOM - TOP;
   const roomOf = (el: Element) => (el.kind === 'photo' ? ((el.w ?? PHOTO_W) / 100) * (el.aspect ?? 1) : TEXT_ROOM);
   const roomIn = (group: Element[]) => group.reduce((a, el) => a + roomOf(el), 0) + TIGHT * (group.length - 1);
-  const band = (BOTTOM - TOP) / 100;
-  const wants = groups.reduce((a, g) => a + roomIn(g), 0);
-  const ratio = Math.min(TALLEST, Math.max(ONE_SCREEN, (wants * AIR) / band));
-  const ground = page.ground && isPicture(page.ground)
-    ? page.ground
-    : { ...(page.ground ?? { color: 'bg' as const }), ratio: Math.round(ratio * 1000) / 1000 };
+  /** A share of the page's width, as a share of its height. */
+  const down = (room: number) => (room / ratio) * 100;
+
+  const columns = down(groups.reduce((a, g) => a + roomIn(g), 0)) > band ? 2 : 1;
+  const wide = columns === 1 ? { text: TEXT_W, photo: PHOTO_W } : { text: TEXT_NARROW, photo: PHOTO_NARROW };
+  const across = columns === 1 ? [50] : [28, 72];
+  const sized = groups.map((group) => group.map((el) => ({ ...el, w: el.kind === 'photo' ? wide.photo : wide.text })));
 
   /*
-   * Down the page. A share of the width becomes a share of the *height* by
-   * dividing by the proportion, which is the one conversion in here; the air
-   * left over after every group has its room is shared out between them, and
-   * where there is none to share the stack is squeezed to stay on the page.
+   * Down each column: every group gets the room it needs, the air left over
+   * is shared out between them, and a column with more than fits is squeezed
+   * rather than run off the foot of the page.
    */
-  const down = (room: number) => (room / ratio) * 100;
-  const used = groups.reduce((a, g) => a + down(roomIn(g)), 0);
-  const squeeze = used > BOTTOM - TOP ? (BOTTOM - TOP) / used : 1;
-  const gap = groups.length > 1 ? Math.max(0, (BOTTOM - TOP - used) / (groups.length - 1)) : 0;
-
-  let at = TOP;
-  const placed: Element[] = [];
-  for (const group of groups) {
-    for (const el of group) {
-      const room = down(roomOf(el)) * squeeze;
-      // Rounded to a hundredth: she reads and types these in the panel, and
-      // nobody needs ten decimal places of a page.
-      placed.push({ ...el, y: place(Math.round((taken === 1 ? 50 : at + room / 2) * 100) / 100) });
-      at += room + down(TIGHT) * squeeze;
+  const at: Record<string, { x: number; y: number }> = {};
+  let tight = false;
+  for (let c = 0; c < columns; c++) {
+    const mine = sized.filter((_, i) => i % columns === c);
+    const used = mine.reduce((a, g) => a + down(roomIn(g)), 0);
+    const squeeze = used > band ? band / used : 1;
+    if (squeeze < 1) tight = true;
+    const gap = mine.length > 1 ? Math.max(0, (band - used * squeeze) / (mine.length - 1)) : 0;
+    let y = TOP;
+    for (const group of mine) {
+      const alone = columns === 1 && sized.length === 1 && group.length === 1;
+      for (const el of group) {
+        const room = down(roomOf(el)) * squeeze;
+        // Rounded to a hundredth: she reads and types these in the panel, and
+        // nobody needs ten decimal places of a page.
+        at[el.id] = { x: across[c], y: place(Math.round((alone ? 50 : y + room / 2) * 100) / 100) };
+        y += room + down(TIGHT) * squeeze;
+      }
+      y += gap - down(TIGHT) * squeeze;
     }
-    at += gap - down(TIGHT) * squeeze;
   }
 
+  // Back in the order they were built, so the layers list reads the way the
+  // section does and a frame still sits under the words that caption it.
+  const placed = sized.flat().map((el) => ({ ...el, ...at[el.id] }));
+
   return {
-    page: { ...page, drawn: true, ground, elements: placed },
+    page: { ...page, drawn: true, elements: placed },
     boxes: placed.filter((e) => e.kind === 'text').length,
     photos: placed.filter((e) => e.kind === 'photo').length,
     left,
     short,
+    tight,
   };
 }

@@ -11,7 +11,7 @@ import { lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
 import { colourFamilies } from '@/lib/palette';
 import { findSet } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
-import { wordsOf, artOf, documentOf, offeredSections, LINE_KEYS, TITLE_KEYS, LINE_LABELS, TITLE_LABELS, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
+import { wordsOf, artOf, documentOf, offeredSections, wordsFor, lineLabel, titleLabel, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
 import { PreviewPanel } from './preview-panel';
@@ -48,9 +48,16 @@ export default async function TemplateEditor({ params, searchParams }: { params:
   const words = wordsOf(t?.words);
   const art = artOf(t?.art);
   const look = set?.look;
+  /*
+   * Only the writings this occasion has, named in its own words, with its own
+   * wording greyed behind them. A christening was being offered a box called
+   * "Prenup — under the heading" for a part the app itself calls Baby photos,
+   * and boxes for Entourage and The Moment, which a christening has not got.
+   */
+  const offered = wordsFor(occasion);
   const wordRows: { key: WordKey; label: string; en: string; tl: string }[] = [
-    ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}`, en: lookTitle(look, 'en', k) ?? '', tl: lookTitle(look, 'tl', k) ?? '' })),
-    ...LINE_KEYS.map((k) => ({ key: k, label: LINE_LABELS[k], en: lookLine(look, 'en', k) ?? '', tl: lookLine(look, 'tl', k) ?? '' })),
+    ...offered.titles.map((k) => ({ key: titleWord(k), label: `Heading — ${titleLabel(k, occasion)}`, en: lookTitle(look, 'en', k, occasion) ?? '', tl: lookTitle(look, 'tl', k, occasion) ?? '' })),
+    ...offered.lines.map((k) => ({ key: k as WordKey, label: lineLabel(k, occasion), en: lookLine(look, 'en', k, occasion) ?? '', tl: lookLine(look, 'tl', k, occasion) ?? '' })),
   ];
   const tid = t?.id ?? 'new';
   /*
@@ -205,7 +212,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
               <p className="label">Sections this layout renders</p>
               <div className="grid grid-cols-2 gap-1 text-sm">
                 {OCCASION_SECTIONS[occasion].map((k) => (
-                  <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{SECTION_BY_KEY[k].label}</label>
+                  <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{sectionLabel(k, occasion)}</label>
                 ))}
               </div>
               <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept. A design drawn in the studio says this in its pages instead.</p>

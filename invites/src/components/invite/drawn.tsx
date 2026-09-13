@@ -1,5 +1,6 @@
 import { Fragment, type CSSProperties } from 'react';
 import { t, type Lang } from '@/lib/copy';
+import type { Occasion } from '@prisma/client';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
@@ -47,19 +48,27 @@ export type EditView = {
   cropping?: string;
 };
 
-/** What an element's words and pictures are read from: the look, the answers, the copy. */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, edit?: EditView): Read {
+/**
+ * What an element's words and pictures are read from: the look, the answers,
+ * the copy.
+ *
+ * The occasion goes to the look because a look's words are written for a
+ * wedding and only some of them can be lent to another occasion — a box
+ * holding `{word: 'invitation'}` on a christening must not read "Join us as
+ * we say I do!". Without one, a look answers as written.
+ */
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView): Read {
   return {
     content,
     lang,
     edit,
-    word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey) : lookLine(look, lang, key as LineKey)) ?? '',
+    word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey, occasion) : lookLine(look, lang, key as LineKey, occasion)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
 }
 
-export function DrawnPage({ page, content, look, lang, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; edit?: EditView }) {
-  const read = reader(content, look, lang, edit);
+export function DrawnPage({ page, content, look, lang, occasion, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView }) {
+  const read = reader(content, look, lang, occasion, edit);
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -150,12 +159,12 @@ export function FlowFloats({ page, content, lang }: { page: PageSpec; content: R
  * layer — and behind is the default, since words a guest cannot read are the
  * one thing a design must not be able to do by accident.
  */
-export function FlowDecor({ page, content, look, lang, layer, edit }: {
-  page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; layer: 'under' | 'over'; edit?: EditView;
+export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: {
+  page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; layer: 'under' | 'over'; edit?: EditView;
 }) {
   const decor = flowDecor(page).filter((el) => decorOver(el) === (layer === 'over'));
   if (!decor.length) return null;
-  const read = reader(content, look, lang, edit);
+  const read = reader(content, look, lang, occasion, edit);
   return (
     <div className="inv-bb-art inv-deco" data-layer={layer}>
       {decor.map((el) => <Fragment key={el.id}>{draw(el, read, undefined, true)}</Fragment>)}

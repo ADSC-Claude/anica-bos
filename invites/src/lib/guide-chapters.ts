@@ -34,7 +34,8 @@ export const CHAPTERS: Chapter[] = [
     tab: 'invitation',
     body: [
       'Your invitation is made of parts — Cover, Our Story, The Invitation, the entourage, the photos, the venue, the dress code and so on — listed as numbered steps in the order they appear on your page. Open a part, fill in its boxes, and watch the phone on the right show your words where they land.',
-      'Under most boxes a short line says what the box is for and where it shows. Some have examples: tap one and it goes into the box for you to edit. A counter appears when a box is getting full — it counts the room the page has, so nothing is cut off on a guest’s phone.',
+      'Under most boxes a short line says what the box is for and where it shows. Every writing box has examples in your occasion’s own words: tap one and it goes into the box for you to edit. A counter appears when a box is getting full — it counts the room the page has, so nothing is cut off on a guest’s phone.',
+      'Everything saves by itself, and every save that changed something is kept: History, at the top of the page, lists the last thirty and one a day for two months, and Restore puts the whole invitation back as it was — after saving how it is now, so a restore can itself be undone.',
       'When a part is finished, mark it done. Mark it done too when you are leaving it out on purpose — a couple with no story page to write simply does not have one, and the invitation is shorter for it. Once every part is marked done, our team knows your form is complete and starts on the final touches.',
       'Language & font style sits above the steps: the language the fixed words on the page speak (your own words stay as you typed them), and the set of fonts the page is written in.',
     ],
@@ -151,6 +152,7 @@ export const CHAPTERS: Chapter[] = [
       'Where do my photos go? On the page, where the design has a place for them, and in your account. Extra photos you send us are kept with your invitation and used only if a page has room, or if you ask.',
       'What does a guest see? Exactly what the phone beside your form shows, from the opening scene down to the RSVP. Guests do not need an app or an account.',
       'What if a guest answers twice? Both replies show on RSVP responses; remove the one to drop. A guest with a personal link can update their answer and it replaces the old one.',
+      'I changed something by mistake. Open History at the top of the page: every save that changed something is there, and Restore puts the whole invitation back as it was at that moment. How it is now is saved first, so the restore itself can be undone.',
       'How long does my link last? Until a month after your event, by default — the date is printed beside your link on the Share tab. Ask us if you need it longer.',
       'Is my guest list private? Yes. Guest lists are personal data: we collect only what an invitation needs, never share them, and delete them on request, in line with the Data Privacy Act of 2012.',
     ],

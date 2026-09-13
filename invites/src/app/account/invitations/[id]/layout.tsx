@@ -52,6 +52,7 @@ export default async function InvitationLayout({ children, params }: { children:
         <div className="flex flex-wrap gap-2" data-tour="publish">
           {/* Our way into the studio, drawn against this very invitation. The customer never sees it. */}
           {isStaff(user.role) && can(user.role, 'templates.edit') && <Link href={`/admin/templates/${inv.templateId}/design?against=${inv.id}`} className="btn btn-secondary btn-sm">Design studio</Link>}
+          <Link href={`${base}/history`} className="btn btn-secondary btn-sm">History</Link>
           <a href={invitationPath(inv.slug)} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a>
           <Link href={`${base}/share`} className="btn btn-primary btn-sm">{live ? 'Share' : dfy ? 'Preview & approval' : 'Publish'}</Link>
         </div>

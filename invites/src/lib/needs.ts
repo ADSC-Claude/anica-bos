@@ -2,7 +2,7 @@ import type { Occasion } from '@prisma/client';
 import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
-  frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
+  frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, invitationPages, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl, type AnimEl,
 } from './design';
 import { contrast } from './palette';
@@ -525,7 +525,17 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
    * on a page reuses it.
    */
   if (weights) {
-    const heavy = doc.pages.flatMap((pg) => (pg.elements ?? []).flatMap((e) => {
+    /*
+     * The invitation's pages, not the document's: a page kept for the Save
+     * the Date is not downloaded by a guest opening the invitation, and
+     * counting it here would block a publish over bytes nobody fetches.
+     * Which way to be wrong was the question — a page like that going
+     * unbudgeted makes one card slow, while counting it refuses a
+     * publish that is fine — so this is the invitation's total, and
+     * `pageNeeds` above still checks every page of the document for
+     * everything else.
+     */
+    const heavy = invitationPages(doc).flatMap((pg) => (pg.elements ?? []).flatMap((e) => {
       if (e.kind === 'video') return [(e as VideoEl).url];
       if (e.kind === 'anim') return [(e as AnimEl).url];
       if (e.kind === 'photo' && (e as PhotoEl).animated) {
@@ -536,7 +546,7 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
     })).filter(Boolean);
     const urls = new Set(heavy);
     const known = [...urls].filter((u) => weights[u] !== undefined);
-    const player = doc.pages.some((pg) => (pg.elements ?? []).some((e) => e.kind === 'anim')) ? LOTTIE_PLAYER_BYTES : 0;
+    const player = invitationPages(doc).some((pg) => (pg.elements ?? []).some((e) => e.kind === 'anim')) ? LOTTIE_PLAYER_BYTES : 0;
     const total = known.reduce((sum, u) => sum + weights[u], 0) + player;
     if (total > VIDEO_BUDGET_BYTES) {
       const what = player ? `${known.length} moving things and the animation player` : `${known.length} clips`;

@@ -643,6 +643,8 @@ model SeatingTable {
   invitationId String
   name         String
   capacity     Int    @default(10)
+  /// round | rectangle | long — how the seating chart draws it
+  shape        String @default("round")
   sortOrder    Int    @default(0)
 
   invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)

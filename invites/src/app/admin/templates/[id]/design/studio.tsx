@@ -10,10 +10,11 @@ import {
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
 } from '@/lib/design';
-import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
+import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
-import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
+import { asksOf, askable, askCounts, fieldOf, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import { pageNeeds, needCount, HEAVY_GROUND, type Need } from '@/lib/needs';
+import { drawFromSection } from '@/lib/seed-page';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
@@ -318,6 +319,51 @@ export function Studio(p: Props) {
   }, [pageKey]);
 
   const editEl = useCallback((id: string, fn: (e: Element) => Element, mark = true) => editEls([id], fn, mark), [editEls]);
+
+  /**
+   * Drawing a page from the section it already carries.
+   *
+   * The gap this closes: a flow page has all the writings on it and none of
+   * them can be touched, and ticking "Drawn page" gave a blank sheet. So the
+   * only way to a page of her own was to place forty boxes by hand and bind
+   * each one back to the question it belongs to — which nobody would do, and
+   * which is why the studio read as a form rather than a workplace.
+   *
+   * One press, and the section's writings are on the page as separate boxes,
+   * stacked down it in order, each still carrying the customer's own answer
+   * (see `drawFromSection`). Everything after that is dragging, retyping and
+   * adding. It is one change, so one undo puts the page back as it was.
+   */
+  const [seeded, setSeeded] = useState('');
+  useEffect(() => { setSeeded(''); }, [pageKey]);
+
+  const drawIt = useCallback(() => {
+    if (!page) return;
+    const { page: made, boxes, photos, left, short } = drawFromSection(page, p.occasion);
+    if (!boxes && !photos) {
+      setSeeded(page.drawn
+        ? 'This page is already placed by hand, and nothing here will write over what you have placed.'
+        : 'This page carries no section, so there is nothing to draw from. Tick one on the right first.');
+      return;
+    }
+    editPage(() => made);
+    setSel([]);
+    const count = [
+      `${boxes} writing${boxes === 1 ? '' : 's'}`,
+      ...(photos ? [`${photos} photo frame${photos === 1 ? '' : 's'}`] : []),
+    ].join(' and ');
+    /*
+     * What was left off, said out loud. A drawn page shows what is drawn on
+     * it and nothing else, so a section whose lists run longer than the rows
+     * placed here would quietly lose the rest of a customer's answers. She
+     * has to know that before she publishes, not after.
+     */
+    const over = [
+      ...(left ? [`${left} more this page carries did not fit — add them with + Words and + Photo frame, or leave this page to flow.`] : []),
+      ...(short.length ? [`A list is drawn row by row: ${short.join(', ')} can hold more rows than are on the page, and only the rows here will show. Copy a row and set its number to draw another.`] : []),
+    ].join(' ');
+    setSeeded(`${count} laid down the page. Drag them where you want them, change the face and the size of any of them, and retype one over the question it holds if you want your own words there instead. A box that is empty is drawn here so you can move it; a guest is shown nothing in its place.${over ? ` ${over}` : ''}`);
+  }, [page, p.occasion, editPage]);
 
   const undo = useCallback(() => {
     const prev = past.current.pop();
@@ -1177,10 +1223,40 @@ export function Studio(p: Props) {
       el.kind === 'photo' ? ('asset' in el.bind ? undefined : el.bind)
         : el.kind === 'text' ? el.lines.flatMap((l) => l.sources).flatMap((s) => ('bind' in s ? [s.bind] : []))[0]
           : undefined;
-    if (!ref) return el.kind === 'photo' ? 'A picture of yours' : el.kind === 'video' ? 'The design’s own clip' : 'Empty';
-    const where = ref.index === undefined ? '' : ` ${ref.index + 1}`;
-    return `${ref.sub ?? ref.field}${where} · ${ref.section}`;
-  }, []);
+    if (ref) {
+      /*
+       * In the customer's own words where the occasion has the field, since
+       * this is what an empty box says on the canvas and what the layers
+       * list calls every box. `childFull · cover` was the shape of the
+       * document; "Child's full name" is the shape of the question.
+       */
+      const where = ref.index === undefined ? '' : ` ${ref.index + 1}`;
+      const field = fieldOf(ref, p.occasion);
+      const named = field?.label ?? ref.sub ?? ref.field;
+      const section = ref.section in SECTION_BY_KEY ? sectionLabel(ref.section as SectionKey, p.occasion) : ref.section;
+      return `${named}${where} · ${section}`;
+    }
+    if (el.kind === 'photo') return 'A picture of yours';
+    if (el.kind === 'video') return 'The design’s own clip';
+    /*
+     * A box of words with no question behind it is not empty: it holds the
+     * design's own word for a section, or words typed straight into it. The
+     * seeded headings made calling those "Empty" plainly wrong, and the
+     * layers list is the one place a box is named before it is clicked.
+     */
+    if (el.kind === 'text') {
+      const first = el.lines.flatMap((l) => l.sources)[0];
+      if (first && 'fixed' in first && first.fixed.en) return `“${first.fixed.en}”`;
+      if (first && 'word' in first) {
+        const w = first.word;
+        return w.startsWith('title:')
+          ? TITLE_LABELS[w.slice(6) as keyof typeof TITLE_LABELS] ?? w
+          : LINE_LABELS[w as keyof typeof LINE_LABELS] ?? w;
+      }
+      if (first && 'copy' in first) return first.copy;
+    }
+    return 'Empty';
+  }, [p.occasion]);
 
   // --- the page's own numbers ------------------------------------------------
 
@@ -1649,7 +1725,29 @@ export function Studio(p: Props) {
         </div>
         {view === 'whole'
           ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
-          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
+          : view === 'page' && !page?.drawn && (
+            <div className="mt-2">
+              {/*
+                * The way out of a flow page, on the page itself.
+                *
+                * This is the sentence somebody reads when the canvas looks
+                * empty and they are asking why, so the button belongs in it
+                * rather than only in the panel on the right.
+                */}
+              {Boolean(page?.sections.length) && (
+                <p className="mt-1">
+                  <button type="button" onClick={drawIt} className="btn btn-primary btn-sm">Draw this page by hand</button>
+                  <span className="hint ml-2">The writings this page already carries come onto it as boxes you can move and retype.</span>
+                </p>
+              )}
+              <p className="hint mt-2">Until then it is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>
+            </div>
+          )}
+        {seeded && view === 'page' && (
+          <p className="hint mt-2 text-[color:var(--color-ink-700)]">
+            {seeded} <button type="button" onClick={() => setSeeded('')} className="underline">Hide this</button>
+          </p>
+        )}
       </section>
 
       {/* what is selected */}
@@ -1700,6 +1798,7 @@ export function Studio(p: Props) {
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
             pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
             dress={{ value: page?.sectionStyle, set: setDress }}
+            onDraw={drawIt}
           />
         )}
       </aside>
@@ -3660,7 +3759,7 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces, dress }: {
+function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces, dress, onDraw }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
@@ -3674,6 +3773,8 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
   };
   /** how that page dresses the sections it carries */
   dress: { value?: SectionStyle; set: (change: (d: SectionStyle) => SectionStyle) => void };
+  /** turn this page into a drawn one carrying its section's writings */
+  onDraw: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -3982,6 +4083,18 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
             />
             <span>Drawn page &mdash; things are placed on it by hand</span>
           </label>
+        )}
+        {/*
+          * Ticking the box above on a page that carries writings gives a
+          * blank sheet and leaves them off the design; this hands them over
+          * instead, each box still filled from the customer's own answer. It
+          * is the same button as the one under the canvas.
+          */}
+        {ground && !page.drawn && Boolean(page.sections.length) && (
+          <div className="mt-1">
+            <button type="button" onClick={onDraw} className="btn btn-secondary btn-sm">Draw it from its writings</button>
+            <p className="hint mt-1">One box for the heading and one for every writing this page carries, stacked down it, ready to move.</p>
+          </div>
         )}
         {page.drawn && (
           <label className="mt-2 flex items-center gap-2">

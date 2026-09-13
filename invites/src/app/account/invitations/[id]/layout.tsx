@@ -31,7 +31,7 @@ export default async function InvitationLayout({ children, params }: { children:
       : prisma.invitation.findUnique({ where: { saveTheDateOfId: inv.id }, select: { id: true } }),
     prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true } }),
   ]);
-  const tabs = tabsFor({ id: inv.id, tier: inv.tier, addOns: inv.addOns, saveTheDate, pairId: pair?.id ?? null });
+  const tabs = tabsFor({ id: inv.id, tier: inv.tier, addOns: inv.addOns, occasion: inv.occasion, saveTheDate, pairId: pair?.id ?? null });
   const live = inv.status === 'PUBLISHED';
   // Done-For-You publishes through the approval thread on the Share tab; a
   // customer's own card publishes with the button there.

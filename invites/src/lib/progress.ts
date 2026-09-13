@@ -1,5 +1,5 @@
 import type { SectionKey } from './sections';
-import { addDays } from './datetime';
+import { addDays, formatDate } from './datetime';
 
 /**
  * How far a couple has come, and how long they have. Each section is marked
@@ -29,6 +29,38 @@ export function changeWindow(eventAt: Date | null | undefined, now = new Date())
   const closesAt = addDays(eventAt, -CLOSE_DAYS);
   const finalAt = addDays(eventAt, -FINAL_DAYS);
   return { closesAt, finalAt, closed: now.getTime() >= closesAt.getTime() };
+}
+
+/**
+ * The parts a customer keeps after publishing, and inside the window: the
+ * switches that run the day — whether guests can write in the guestbook or
+ * add to the album, and what the RSVP form asks. None of it is design work,
+ * and all of it is wanted exactly when everything else is closed: the album
+ * is switched on at the reception, not three weeks before it, and the
+ * reception is inside the window. Everything else on a live page is ours
+ * to change, which is what "message us" means.
+ */
+export const LIVE_SECTIONS: ReadonlySet<SectionKey> = new Set<SectionKey>(['guestbook', 'photos', 'rsvp']);
+export function liveEditable(key: SectionKey): boolean {
+  return LIVE_SECTIONS.has(key);
+}
+
+/** The two reasons a customer's save is refused, in the words every page and the server use. */
+export const LIVE_LOCK = 'Your invitation is already live, so changes to it are ours to make. Message us on Messenger or Viber and we will sort it out.';
+export function windowLock(w: ChangeWindow): string {
+  return `Changes closed on ${formatDate(w.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by ${formatDate(w.finalAt)}. Message us for anything urgent.`;
+}
+
+/**
+ * Why a customer cannot save this part right now — or nothing, when they can.
+ * The same reading saveSection enforces, so a page never offers a control
+ * that the save would refuse, and never withholds one the save would take.
+ */
+export function whyLocked(inv: { status: string; eventAt: Date | null }, key: SectionKey, now = new Date()): string | undefined {
+  if (liveEditable(key)) return undefined;
+  if (inv.status === 'PUBLISHED') return LIVE_LOCK;
+  const w = changeWindow(inv.eventAt, now);
+  return w?.closed ? windowLock(w) : undefined;
 }
 
 /** The sections marked Done, as stored. */

@@ -34,7 +34,7 @@ export function SectionFields({ fields, value, onChange, lang, invitationId, lis
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
         <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' || f.type === 'audio' ? 'sm:col-span-2' : ''}>
-          <FieldInput field={listHints[f.key] ? { ...f, hint: listHints[f.key] } : f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text) => onChange({ ...value, [f.key]: value[f.key], [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} onSibling={set} />
+          <FieldInput field={listHints[f.key] ? { ...f, hint: listHints[f.key] } : f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text, v) => onChange({ ...value, [f.key]: v, [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} />
         </div>
       ))}
     </div>
@@ -79,17 +79,16 @@ function FieldInput({
   invitationId,
   limit,
   sibling,
-  onSibling,
 }: {
   field: Field;
   value: unknown;
   onChange: (v: unknown) => void;
-  onPreset: (target: string, text: string) => void;
+  /** a preset picked: the choice and the sibling text it writes, in one change */
+  onPreset: (target: string, text: string, v: string) => void;
   lang: Lang;
   invitationId: string;
   limit?: number;
   sibling: SectionData;
-  onSibling: (key: string, v: unknown) => void;
 }) {
   const id = `f-${field.key}`;
   switch (field.type) {
@@ -146,15 +145,13 @@ function FieldInput({
             value={String(value ?? '')}
             onChange={(e) => {
               const v = e.target.value;
-              if (field.presets && field.presetTarget) {
-                const p = field.presets.find((x) => x.key === v);
-                if (p) {
-                  // Fill the sibling text with the preset in the chosen language,
-                  // keeping the select value too.
-                  onSibling(field.presetTarget, lang === 'tl' ? p.tl : p.en);
-                }
-              }
-              onChange(v);
+              const p = field.presetTarget ? field.presets?.find((x) => x.key === v) : undefined;
+              // One change, not two. The parent owns the value and every
+              // call spreads the value it rendered with, so a sibling filled
+              // in one call and the choice sent in a second would leave only
+              // the second: the preset picked, its words never written.
+              if (p && field.presetTarget) onPreset(field.presetTarget, lang === 'tl' ? p.tl : p.en, v);
+              else onChange(v);
             }}
           >
             {!field.options?.some((o) => o.value === '') && <option value="">—</option>}
@@ -725,7 +722,7 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
             <div className="grid gap-2 sm:grid-cols-2">
               {item.map((sub) => (
                 <div key={sub.key} className={sub.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                  <FieldInput field={sub} value={row[sub.key]} onChange={(v) => update(i, { ...row, [sub.key]: v })} onPreset={() => {}} lang={lang} invitationId={invitationId} sibling={row} onSibling={(k, v) => update(i, { ...row, [k]: v })} />
+                  <FieldInput field={sub} value={row[sub.key]} onChange={(v) => update(i, { ...row, [sub.key]: v })} onPreset={(target, text, v) => update(i, { ...row, [sub.key]: v, [target]: text })} lang={lang} invitationId={invitationId} sibling={row} />
                 </div>
               ))}
             </div>

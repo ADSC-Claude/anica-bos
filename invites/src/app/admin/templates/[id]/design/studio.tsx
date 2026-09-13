@@ -10,12 +10,13 @@ import {
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
 } from '@/lib/design';
-import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
+import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey, type SectionData } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, fieldOf, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import { pageNeeds, needCount, GUTTER, HEAVY_GROUND, type Need } from '@/lib/needs';
 import { drawFromSection } from '@/lib/seed-page';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
+import { withDraft, type StudioDraft } from '@/lib/studio-draft';
 import type { Occasion } from '@prisma/client';
 import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
@@ -26,6 +27,7 @@ import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromU
 import { readPdfFile } from './pdf';
 import { readClip, sendClip, type SentClip } from './clip';
 import { readAnim, sendAnim, type SentAnim } from './anim';
+import { InvitationDrawer } from './invitation-drawer';
 import { VIDEO_MAX_LABEL, VIDEO_MAX_MS } from '@/lib/clips';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
@@ -53,6 +55,12 @@ const WIDTHS = [
 /** How far a drag has to come to snap: a fifth of a percent of the page's width. */
 const SNAP = 0.8;
 
+/** How the sample menu names a customer's invitation: their title, the package, and whether it is live. */
+const invitationName = (t: { title: string; tier: string; status: string }) => `${t.title} · ${t.tier.toLowerCase()}${t.status === 'PUBLISHED' ? ' · live' : ''}`;
+
+/** A customer's invitation on the canvas: what the menu names it by, where the whole of it is served, and their answers. */
+type Real = { id: string; slug: string; title: string; tier: string; status: string; content: Record<string, unknown> };
+
 type Props = {
   templateId: string;
   name: string;
@@ -63,7 +71,16 @@ type Props = {
   hasDraft: boolean;
   published: boolean;
   demoSlug: string;
+  /** the demo invitation's row, for the form the studio carries; blank when the design has none */
+  demoId: string;
+  demoTitle: string;
   content: Record<string, unknown>;
+  /**
+   * The invitation she came from, when the Invitation tab sent her here:
+   * the studio opens drawn against it, with its form open beside the
+   * canvas, rather than on the demo.
+   */
+  against?: Real | null;
   look?: Look;
   vars: Record<string, string>;
   /** what each of this design's own uploads weighs, by address, for the checklist */
@@ -132,23 +149,33 @@ export function Studio(p: Props) {
   const [shown, setShown] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
-  /** who the canvas is drawn against: the demo, nobody, anybody, or the longest */
-  const [sample, setSample] = useState<Sample | 'real'>('demo');
+  /** who the canvas is drawn against: the demo, nobody, anybody, the longest — or a customer, when she came from their tab */
+  const [sample, setSample] = useState<Sample | 'real'>(p.against ? 'real' : 'demo');
   /*
-   * A real customer's invitation on the canvas. Their answers, drawn and
-   * nothing else: everything the studio saves is the design document, which
-   * holds no customer's words at all, so there is no path from here back to
-   * their invitation. The list is fetched the first time she opens the menu
-   * rather than on every studio load, because most of the time she is
-   * drawing against the demo and never asks.
+   * A real customer's invitation on the canvas. Their answers, drawn; and
+   * since the Invitation drawer, edited too — through the tab's own form
+   * and the tab's own save, never through the design, which holds no
+   * customer's words at all. The list is fetched the first time she opens
+   * the menu rather than on every studio load, because most of the time
+   * she is drawing against the demo and never asks.
    */
-  const [real, setReal] = useState<{ id: string; title: string; content: Record<string, unknown> } | null>(null);
+  const [real, setReal] = useState<Real | null>(p.against ?? null);
   const [theirs, setTheirs] = useState<{ id: string; title: string; tier: string; status: string }[] | null>(null);
   const [against, setAgainst] = useState({ busy: false, error: '' });
+  /*
+   * The demo's own words, kept here because the drawer can change them: a
+   * save that lands is folded in, so the canvas and the checklist read the
+   * demo as it now is rather than as the page found it.
+   */
+  const [demoContent, setDemoContent] = useState(p.content);
+  /** the part being typed in the drawer, drawn before it is saved: see withDraft */
+  const [draft, setDraft] = useState<StudioDraft | null>(null);
+  /** the part the drawer is on — kept here, so looking at the Pages list and coming back finds her where she was */
+  const [asked, setAsked] = useState<SectionKey | undefined>(undefined);
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
-  /** the left column: the pages, or the pieces any design can be built from */
-  const [drawer, setDrawer] = useState<'pages' | 'library' | 'guide'>('pages');
+  /** the left column: the pages, the invitation's form, or the pieces any design can be built from */
+  const [drawer, setDrawer] = useState<'pages' | 'invitation' | 'library' | 'guide'>(p.against ? 'invitation' : 'pages');
   /** what just happened, when it is worth saying and is not a fault */
   const [said, setSaid] = useState('');
   /*
@@ -182,11 +209,52 @@ export function Studio(p: Props) {
    * Who the canvas is drawn against. The checklist above is not switched
    * with it: it is a list about the design, and "the demo has no photo for
    * frame 4" is about the demo, not about whoever the canvas is showing.
+   *
+   * `shownId` is the invitation on the canvas — the demo's, a customer's,
+   * or nobody's for a made-up sample — and the part being typed in the
+   * drawer is laid over it only when it is that invitation's. `editing` is
+   * the one the drawer holds: the customer when the canvas shows a
+   * customer, else the demo.
    */
-  const shownContent = useMemo(
-    () => (sample === 'real' ? real?.content ?? {} : sampleContent(sample, { doc, occasion: p.occasion, demo: p.content })),
-    [sample, real, doc, p.occasion, p.content],
-  );
+  const shownId = sample === 'real' ? real?.id ?? '' : sample === 'demo' ? p.demoId : '';
+  // a customer she has loaded stays the drawer's while she tries a made-up
+  // sample on the canvas; only choosing the demo hands the drawer the demo
+  const editing = real && sample !== 'demo' ? real.id : p.demoId;
+  const shownContent = useMemo(() => {
+    const base = sample === 'real' ? real?.content ?? {} : sampleContent(sample, { doc, occasion: p.occasion, demo: demoContent });
+    return withDraft(base, draft, shownId);
+  }, [sample, real, doc, p.occasion, demoContent, draft, shownId]);
+  // a draft belongs to the invitation it was typed on; the form for another
+  // starts from that one's own words
+  useEffect(() => { setDraft(null); }, [editing]);
+  /**
+   * A save from the drawer, folded into what the canvas reads, so the page
+   * does not fall back to the words the studio opened with once the draft
+   * is gone. Told which invitation it was, rather than reading the one on
+   * the canvas: the form's save on the way out of a part lands after she
+   * may have moved the canvas to somebody else. And the whole invitation,
+   * when it is showing, is drawn again with the saved words.
+   */
+  const folded = useCallback((id: string, section: SectionKey, data: SectionData) => {
+    if (id === p.demoId) setDemoContent((c) => ({ ...c, [section]: data }));
+    setReal((r) => (r && r.id === id ? { ...r, content: { ...r.content, [section]: data } } : r));
+    // a save that landed outranks whatever the last one said went wrong
+    setAgainst((a) => (a.error ? { ...a, error: '' } : a));
+    setShown((n) => n + 1);
+  }, [p.demoId]);
+  /**
+   * The canvas follows the part under her hand: the page that carries the
+   * section, or the first drawn page with an element bound to it. Without
+   * this she would type into Story while the cover stayed on the canvas and
+   * see nothing land — which is the moving-out the drawer exists to end.
+   */
+  const follow = useCallback((key: SectionKey) => {
+    const pg = doc.pages.find((x) => x.sections.includes(key) || (x.elements ?? []).some((el) => bindingOf(el)?.section === key));
+    if (pg && pg.key !== pageKey) {
+      setPageKey(pg.key);
+      setSel([]);
+    }
+  }, [doc, pageKey]);
   /** the invitations on this design, asked for once and kept */
   const loadTheirs = useCallback(async () => {
     if (theirs !== null || against.busy) return;
@@ -202,7 +270,7 @@ export function Studio(p: Props) {
     setAgainst({ busy: true, error: '' });
     const r = await invitationContentAction(p.templateId, id).catch(() => ({ ok: false as const, error: 'Their words could not be read.' }));
     if (!r.ok) { setAgainst({ busy: false, error: r.error }); return; }
-    setReal({ id, title: r.title, content: r.content });
+    setReal({ id, slug: r.slug, title: r.title, tier: r.tier, status: r.status, content: r.content });
     setSample('real');
     setAgainst({ busy: false, error: '' });
   }, [p.templateId]);
@@ -1282,8 +1350,8 @@ export function Studio(p: Props) {
    * a checklist that lags is worse than none.
    */
   const needs = useMemo(
-    () => pageNeeds({ doc, occasion: p.occasion, content: p.content, weights: p.weights, lengths: p.lengths, shop: p.shop }),
-    [doc, p.occasion, p.content, p.weights, p.lengths, p.shop],
+    () => pageNeeds({ doc, occasion: p.occasion, content: demoContent, weights: p.weights, lengths: p.lengths, shop: p.shop }),
+    [doc, p.occasion, demoContent, p.weights, p.lengths, p.shop],
   );
   const here = useMemo(() => needs.filter((n) => n.page === pageKey), [needs, pageKey]);
   /** lines about the design rather than about any one page */
@@ -1332,10 +1400,33 @@ export function Studio(p: Props) {
       : ground ? { background: colourOf(ground.color, vars) } : {}),
   };
 
+  /*
+   * The columns. Bringing a page in is one screen: the properties column
+   * steps aside rather than describing a page she is not looking at. And
+   * the form wants more room than a list of pages does — its fields are the
+   * tab's, drawn at the tab's width — so the left column widens with it.
+   */
+  const wholeSlug = sample === 'real' && real ? real.slug : p.demoSlug;
+  const columns = view === 'import'
+    ? (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr]' : 'lg:grid-cols-[15rem_1fr]')
+    : (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr] 2xl:grid-cols-[26rem_1fr_19rem]' : 'lg:grid-cols-[15rem_1fr_19rem]');
+  // With the form open a laptop has no room for three columns and a page
+  // wide enough to read: the properties column waits until she is back on
+  // the Pages list, or the screen is wide enough for all three.
+  const propsAside = view === 'import' ? 'hidden' : drawer === 'invitation' ? 'hidden 2xl:block' : '';
+
+  /**
+   * What she edits is what she sees. The drawer edits an invitation, and a
+   * made-up sample is nobody's, so opening it over one puts the demo back
+   * on the canvas; a customer already there stays.
+   */
+  const openDrawer = (k: typeof drawer) => {
+    setDrawer(k);
+    if (k === 'invitation' && sample !== 'demo' && sample !== 'real') setSample(real ? 'real' : 'demo');
+  };
+
   return (
-    // Bringing a page in is one screen: the properties column steps aside
-    // rather than describing a page she is not looking at.
-    <div className={`grid gap-3 ${view === 'import' ? 'lg:grid-cols-[15rem_1fr]' : 'lg:grid-cols-[15rem_1fr_19rem]'}`}>
+    <div className={`grid gap-3 ${columns}`}>
       {/*
         * Every face of every set, in one request, so the font menu can be
         * drawn in the faces it offers and a set she tries takes effect on
@@ -1355,16 +1446,18 @@ export function Studio(p: Props) {
       {/* the pages */}
       <aside
         className="card h-fit p-2"
-        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
-        onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); void addSheets([...e.dataTransfer.files]); } }}
+        // not while the form is open: a photograph dropped on one of its
+        // fields is the customer's, not a page of the design
+        onDragOver={(e) => { if (drawer !== 'invitation' && e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+        onDrop={(e) => { if (drawer !== 'invitation' && e.dataTransfer.files.length) { e.preventDefault(); void addSheets([...e.dataTransfer.files]); } }}
       >
-        {/* the pages, or the pieces any design can be built from */}
+        {/* the pages, the invitation's own form, or the pieces any design can be built from */}
         <div className="mb-1 flex gap-1 text-xs">
-          {([['pages', 'Pages'], ['library', 'Library'], ['guide', 'Guide']] as const).map(([k, lbl]) => (
+          {([['pages', 'Pages'], ['invitation', 'Invitation'], ['library', 'Library'], ['guide', 'Guide']] as const).map(([k, lbl]) => (
             <button
               key={k}
               type="button"
-              onClick={() => setDrawer(k)}
+              onClick={() => openDrawer(k)}
               className={`rounded px-2 py-1 ${drawer === k ? 'bg-[color:var(--color-sand-200)] font-semibold' : 'text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]'}`}
             >
               {lbl}
@@ -1374,6 +1467,26 @@ export function Studio(p: Props) {
 
         {drawer === 'guide' ? (
           <GuideDrawer />
+        ) : drawer === 'invitation' ? (
+          /*
+           * The Invitation tab's form, beside the canvas. It edits the
+           * invitation on the canvas and saves to it as the tab does; the
+           * design's own draft is saved separately, by the bar above.
+           */
+          editing ? (
+            <InvitationDrawer
+              invitationId={editing}
+              title={real && editing === real.id ? `${real.title} · ${real.tier.toLowerCase()}` : `The demo — ${p.demoTitle}`}
+              asked={asked}
+              onStep={setAsked}
+              onShown={follow}
+              onDraft={(id, section, data) => setDraft({ id, section, data })}
+              onSaved={folded}
+              onError={(message) => setAgainst((a) => ({ ...a, error: message }))}
+            />
+          ) : (
+            <p className="hint px-1 py-2">This design has no demo invitation, so there is nothing to fill in. Give it one on the template&rsquo;s own page.</p>
+          )
         ) : drawer === 'library' ? (
           <LibraryDrawer
             selected={selected}
@@ -1547,7 +1660,7 @@ export function Studio(p: Props) {
           {view === 'page' && (
             <>
               <select
-                title="Who the page is drawn against. None of it is saved: it is what the canvas draws, not what anybody has."
+                title="Who the page is drawn against. A sample is what the canvas draws and nothing more; the Invitation drawer saves to the invitation itself."
                 value={sample === 'real' && real ? `inv:${real.id}` : sample}
                 onFocus={() => void loadTheirs()}
                 onChange={(e) => {
@@ -1559,16 +1672,18 @@ export function Studio(p: Props) {
               >
                 {SAMPLES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
                 <optgroup label="An invitation on this design">
+                  {/* the one on the canvas, before the list has been asked for and when the list does not reach it */}
+                  {real && !theirs?.some((t) => t.id === real.id) && <option value={`inv:${real.id}`}>{invitationName(real)}</option>}
                   {theirs === null
                     ? <option value="" disabled>{against.busy ? 'finding them…' : 'open again to list them'}</option>
                     : theirs.length === 0
                       ? <option value="" disabled>none built on this design yet</option>
-                      : theirs.map((t) => <option key={t.id} value={`inv:${t.id}`}>{t.title} · {t.tier.toLowerCase()}{t.status === 'PUBLISHED' ? ' · live' : ''}</option>)}
+                      : theirs.map((t) => <option key={t.id} value={`inv:${t.id}`}>{invitationName(t)}</option>)}
                 </optgroup>
               </select>
               {against.error && <span className="text-[11px] text-[color:var(--bad)]">{against.error}</span>}
-              {sample === 'real' && real && !against.error && (
-                <span className="text-[11px] text-[color:var(--color-ink-500)]">their words, read only</span>
+              {sample === 'real' && real && (
+                <button type="button" onClick={() => openDrawer('invitation')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Edit their details</button>
               )}
             </>
           )}
@@ -1639,12 +1754,13 @@ export function Studio(p: Props) {
 
         {view === 'whole' && (
           <div className="flex justify-center bg-[color:var(--color-sand-100)] p-4">
-            {p.demoSlug ? (
+            {/* the invitation on the canvas — a customer's when she is drawing against one — as the draft design serves it */}
+            {wholeSlug ? (
               <iframe
                 key={shown}
                 ref={frame}
                 title="The whole invitation"
-                src={`/${p.demoSlug}?bare=1&design=draft`}
+                src={`/${wholeSlug}?bare=1&design=draft`}
                 onLoad={showPage}
                 className="shadow-lg"
                 style={{ width, height: 780, border: 0, background: '#fff' }}
@@ -1831,7 +1947,7 @@ export function Studio(p: Props) {
       </section>
 
       {/* what is selected */}
-      <aside className={`card h-fit space-y-3 p-3 text-sm ${view === 'import' ? 'hidden' : ''}`}>
+      <aside className={`card h-fit space-y-3 p-3 text-sm ${propsAside}`}>
         {group.length > 1 ? (
           <GroupProps
             group={group}
@@ -1889,7 +2005,8 @@ export function Studio(p: Props) {
 // ---------------------------------------------------------------------------
 
 function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
-  const said: Record<string, string> = { clean: 'No unsaved changes', dirty: 'Not saved yet', saving: 'Saving…', saved: 'Draft saved', error: 'Not saved' };
+  // named, because the Invitation drawer has a saving line of its own on the same screen
+  const said: Record<string, string> = { clean: 'Design: no unsaved changes', dirty: 'Design: not saved yet', saving: 'Design: saving…', saved: 'Design draft saved', error: 'Design: not saved' };
   return (
     <div className="card col-span-full flex flex-wrap items-center gap-2 p-3">
       <p className="font-semibold">{name}</p>

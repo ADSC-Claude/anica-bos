@@ -502,25 +502,30 @@ export async function invitationsToDrawAction(templateId: string): Promise<{ id:
 /**
  * One invitation's answers, for the canvas to draw a page against.
  *
- * Read-only by construction rather than by promise: the studio hands this
- * to the canvas as what it draws, and everything the studio saves is the
- * design document, which has no customer's words in it at all. The only
- * way this could reach an invitation is if somebody wrote that code, and
- * there is none.
+ * Read-only here: the studio hands this to the canvas as what it draws,
+ * and everything the studio saves as the design is the design document,
+ * which has no customer's words in it at all. The one way from the studio
+ * back to an invitation is the form it now carries, and that saves through
+ * the customer's own actions and their own ownership check, not through
+ * anything the design can reach.
+ *
+ * The slug is for the whole-invitation view, so it can show the page she
+ * is drawing against rather than always the demo; the tier and status are
+ * what the sample menu names her by.
  *
  * Scoped to the design, so an id from anywhere else cannot be read through
  * the studio; and reading a customer's answers is an invitations
  * permission, not a design one, so it asks for that as well.
  */
 export async function invitationContentAction(templateId: string, id: string): Promise<
-  { ok: true; title: string; content: Record<string, unknown> } | { ok: false; error: string }
+  { ok: true; title: string; slug: string; tier: Tier; status: string; content: Record<string, unknown> } | { ok: false; error: string }
 > {
   const user = await requireStaffSession();
   assertPermission(user, 'templates.edit');
   assertPermission(user, 'invitations.view');
-  const inv = await prisma.invitation.findFirst({ where: { id, templateId }, select: { title: true, content: true } });
+  const inv = await prisma.invitation.findFirst({ where: { id, templateId }, select: { title: true, slug: true, tier: true, status: true, content: true } });
   if (!inv) return { ok: false, error: 'That invitation is not on this design any more.' };
-  return { ok: true, title: inv.title, content: contentOf(inv.content) as Record<string, unknown> };
+  return { ok: true, title: inv.title, slug: inv.slug, tier: inv.tier, status: inv.status, content: contentOf(inv.content) as Record<string, unknown> };
 }
 
 // --- the theme -------------------------------------------------------------

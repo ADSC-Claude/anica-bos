@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
+  starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
   flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
@@ -1131,4 +1131,45 @@ test('a decoration keeps its turn and its opacity, and its middle is its x', () 
   assert.equal(st.transform, 'translateX(-50%) rotate(-6deg)');
   assert.equal(st.opacity, '0.5');
   assert.equal(st.left, '20%');
+});
+
+/**
+ * What the studio opens on, for every design rather than the two built as
+ * pages. A flat design used to have no document and no base to make one
+ * from, so the studio refused it and a design made from the Templates list
+ * led to a form and stopped there.
+ */
+test('a design with pages of its own opens on them, and the draft wins', () => {
+  const drawn = starterDesign(['cover', 'story']);
+  const draft = starterDesign(['cover', 'rsvp']);
+  assert.deepEqual(studioDoc({ design: drawn, designDraft: draft, layout: 'classic' }), draft);
+  assert.deepEqual(studioDoc({ design: drawn, designDraft: {}, layout: 'classic' }), drawn);
+});
+
+test('the two built as pages still open on their own built-ins, not a starter', () => {
+  for (const layout of ['capiz', 'babyblue']) {
+    assert.deepEqual(
+      studioDoc({ design: {}, designDraft: {}, layout, occasion: 'WEDDING' }),
+      builtinDesign(layout),
+      `${layout} must keep its built-in`,
+    );
+  }
+});
+
+test('a flat design opens on a starter made from its occasion', () => {
+  const doc = studioDoc({ design: {}, designDraft: {}, layout: 'classic', occasion: 'CHRISTENING' });
+  assert.ok(doc, 'the studio has something to open');
+  assert.equal(doc!.pages[0].key, 'cover', 'the cover comes first');
+  assert.ok(doc!.pages.length > 3, `one page per section, not ${doc!.pages.length}`);
+  // Every page carries exactly the one section it stands for, which is what
+  // makes the starter a place to draw rather than a design already drawn.
+  for (const page of doc!.pages.slice(1)) assert.equal(page.sections.length, 1, page.key);
+  // A christening's sections, not a wedding's: no entourage on this one.
+  const sections = doc!.pages.flatMap((p) => p.sections);
+  assert.ok(sections.includes('sponsors'), 'ninong and ninang');
+  assert.ok(!sections.includes('entourage'), 'no wedding entourage');
+});
+
+test('without an occasion there is nothing to make a starter from', () => {
+  assert.equal(studioDoc({ design: {}, designDraft: {}, layout: 'classic' }), null);
 });

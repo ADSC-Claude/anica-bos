@@ -33,7 +33,7 @@ import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
-import { OCCASION_SECTIONS, sectionOrder, isPaged, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionOrder, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
 import { STAFF_ROLES } from '@/lib/rbac';
 import type { Permission } from '@/lib/rbac';
 
@@ -211,7 +211,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
      * It goes in the draft, never in what a guest renders: a design is
      * published from the studio and nowhere else.
      */
-    const start = !templateId && isPaged(layout)
+    const start = !templateId
       // in the layout's own order, not the form's: a starter should read like
       // an invitation — the story and the details, then the forms and the
       // countdown — rather than like the list of questions it came from
@@ -307,7 +307,7 @@ export async function templateShownAction(templateId: string, back: string, fd: 
     await prisma.template.update({ where: { id: templateId }, data: { published: on } });
     await audit(user, { module: 'templates', action: 'update', entityType: 'Template', entityId: t.id, summary: `${t.name} ${on ? 'put on the website' : 'hidden'}` });
     if (!on) return `${t.name} is hidden. Nobody new can pick it; the invitations already on it carry on.`;
-    const undrawn = isPaged(t.layout) && !documentOf(t) && Boolean(documentOf({ design: t.designDraft, layout: t.layout }));
+    const undrawn = !documentOf(t) && Boolean(documentOf({ design: t.designDraft, layout: t.layout }));
     return undrawn
       ? `${t.name} is on the website. Its pages are still a draft, so it shows the layout's own look until you press Publish in the studio.`
       : `${t.name} is on the website.`;

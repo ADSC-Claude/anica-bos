@@ -1615,10 +1615,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const mode = content.theme?.mode ?? 'day';
   const layout = isLayout(inv.template.layout) ? inv.template.layout : 'classic';
   const style = cssVars(palette, fonts) as CSSProperties;
-  // The format: the page structure the reference sets — the cover with its
-  // place and lines, the verse, the invitation rows, the venue and the way
-  // there, the interludes. Capiz is built to it; the look supplies the words.
-  const format = isPaged(layout);
   const capiz = layout === 'capiz';
   const babyblue = layout === 'babyblue';
   /**
@@ -1636,6 +1632,21 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    * measurement, rather than the first time somebody presses Publish.
    */
   const doc = documentOf(inv.template) ?? builtinDesign(layout);
+  /*
+   * The format: the page structure the reference sets — the cover with its
+   * place and lines, the verse, the invitation rows, the venue and the way
+   * there, the interludes. Capiz is built to it; the look supplies the words.
+   *
+   * Read off the document rather than off the layout's name, and that is the
+   * whole of what lets a design on any layout be drawn in the studio. It
+   * changes nothing for the designs there are: Capiz and Baby Blue have
+   * built-ins, so they are in the format exactly as they were, and a flat
+   * design nobody has drawn has no document and stays the plain stack of
+   * sections it always was. The new case is the third one — a flat design
+   * whose pages have been drawn and published — and that one renders as
+   * pages, because pages are what she drew.
+   */
+  const format = Boolean(doc);
   // A page with a ground of its own hands it to PageGround under the page's
   // key; the ground for a page the map does not name goes under a key no
   // page can have (page keys carry no underscore).

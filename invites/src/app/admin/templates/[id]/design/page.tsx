@@ -3,7 +3,6 @@ import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { contentOf, resolveTheme } from '@/lib/invitations';
-import { isPaged } from '@/lib/sections';
 import { cssVars, paletteFrom, fontsFrom, allFacesUrl } from '@/lib/theme';
 import { setForFaces } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
@@ -19,16 +18,18 @@ export const dynamic = 'force-dynamic';
 /**
  * The Design Studio: where a design's pages are drawn.
  *
- * Only a design whose layout lays pages can have one — the six flat layouts
- * would render a document as a plain list of sections, which is not a design
- * anybody drew. A design with no document of its own opens on its layout's
- * built-in, which is how a copy of Baby Blue starts life.
+ * Every design opens here, whatever its layout. One with a document of its
+ * own opens on that; a copy of Baby Blue opens on its layout's built-in; and
+ * a design on one of the six flat layouts — which have no built-in — opens on
+ * a starter, one page per section its occasion offers. Until this the studio
+ * refused those outright, so a design made from the Templates list led to a
+ * form and stopped there, which is not what a studio is for.
  */
 export default async function DesignStudioPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireStaffPage('templates.edit');
   const { id } = await params;
   const t = await prisma.template.findUnique({ where: { id } });
-  if (!t || !isPaged(t.layout)) notFound();
+  if (!t) notFound();
   const doc = studioDoc(t);
   if (!doc) notFound();
 

@@ -37,7 +37,7 @@ import { fontBook } from './font-book';
 import { hasPremiumOpening } from './openings';
 import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
-import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
+import { changeWindow, withDone, formComplete, doneSections, liveEditable, LIVE_LOCK, windowLock, type Progress } from './progress';
 import { documentOf } from './design';
 import { designForm, askedFields, designMedia } from './asks';
 import { notifyStaff } from './notifications';
@@ -61,7 +61,7 @@ export type StoredContent = Content & { theme?: ThemeOverride; progress?: Progre
 export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null }) {
   if (user.role !== 'CUSTOMER') return;
   const w = changeWindow(invitation.eventAt);
-  if (w?.closed) throw new HttpError(403, `Changes closed on ${formatDate(w.closesAt)}, three weeks before your event, so our team can finish the final touches by ${formatDate(w.finalAt)}. Message us for anything urgent.`);
+  if (w?.closed) throw new HttpError(403, windowLock(w));
 }
 
 /**
@@ -75,12 +75,14 @@ export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: D
  * than an allowance: there is no number of changes left to spend, and no row
  * an admin can raise to reopen one by accident. Staff are never gated, because
  * after publish a change is ours to make — that is what "message us" means.
+ *
+ * The one exception is the switches that run the day (LIVE_SECTIONS in
+ * progress.ts): saveSection lets those through, live or not, because a
+ * guestbook nobody can switch on at the reception is not a guestbook.
  */
 export function assertNotPublished(user: SessionUser, invitation: { status: string }) {
   if (user.role !== 'CUSTOMER') return;
-  if (invitation.status === 'PUBLISHED') {
-    throw new HttpError(403, 'Your invitation is already live, so changes to it are ours to make. Message us on Messenger or Viber and we will sort it out.');
-  }
+  if (invitation.status === 'PUBLISHED') throw new HttpError(403, LIVE_LOCK);
 }
 
 /**
@@ -235,8 +237,12 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
     include: { order: { select: { status: true } }, template: { select: { design: true, layout: true } } },
   });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
-  assertNotPublished(user, invitation);
-  assertOpenForChanges(user, invitation);
+  // The switches that run the day stay the customer's on a live page and
+  // inside the window; everything else passes to us.
+  if (!liveEditable(key)) {
+    assertNotPublished(user, invitation);
+    assertOpenForChanges(user, invitation);
+  }
   if (!sectionOnCard(key, invitation.occasion, Boolean(invitation.saveTheDateOfId))) throw new HttpError(400, 'That section does not belong to this card.');
   if (!sectionUnlocked(key, invitation.occasion, invitation.tier, invitation.addOns)) {
     throw new HttpError(403, 'That section is not included in your package. Upgrade to unlock it.');

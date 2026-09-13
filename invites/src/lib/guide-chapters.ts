@@ -116,7 +116,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Guestbook',
     tab: 'guestbook',
     body: [
-      'A wall of wishes on your page, written by your guests. Switch it on at the top of this tab, and choose whether you read each wish before it shows; the numbers say how many are on the wall and how many are waiting for you. Approve the wishes you want shown, and anything you delete is gone.',
+      'A wall of wishes on your page, written by your guests. Switch it on at the top of this tab — before the day or on it, live or not — and choose whether you read each wish before it shows; the numbers say how many are on the wall and how many are waiting for you. Approve the wishes you want shown, and anything you delete is gone.',
     ],
   },
   {
@@ -124,7 +124,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Guest photos',
     tab: 'photos',
     body: [
-      'An album your guests fill during and after the day, straight from their phones — no app, no login. Switch it on at the top of this tab, and choose whether each photo waits for your approval. Approve what shows on your page, hide what you would rather not, and download everything in one file afterwards.',
+      'An album your guests fill during and after the day, straight from their phones — no app, no login. Switch it on at the top of this tab — at the reception, if that is when you want it — and choose whether each photo waits for your approval. Approve what shows on your page, hide what you would rather not, and download everything in one file afterwards.',
     ],
   },
   {
@@ -147,7 +147,7 @@ export const CHAPTERS: Chapter[] = [
     key: 'faq',
     title: 'Common questions',
     body: [
-      'Can I change something after publishing? Small fixes are ours to make — message us on Messenger or Viber and we sort it out. Three weeks before your event the form closes to changes and passes to our team for the final touches, which are done two weeks before, so the last week is quiet.',
+      'Can I change something after publishing? Small fixes are ours to make — message us on Messenger or Viber and we sort it out. Three weeks before your event the form closes to changes and passes to our team for the final touches, which are done two weeks before, so the last week is quiet. The switches that run the day stay yours throughout: the guestbook, the guest album and your RSVP questions can be turned on and off from their own tabs at any time, live or not.',
       'Where do my photos go? On the page, where the design has a place for them, and in your account. Extra photos you send us are kept with your invitation and used only if a page has room, or if you ask.',
       'What does a guest see? Exactly what the phone beside your form shows, from the opening scene down to the RSVP. Guests do not need an app or an account.',
       'What if a guest answers twice? Both replies show on RSVP responses; remove the one to drop. A guest with a personal link can update their answer and it replaces the old one.',

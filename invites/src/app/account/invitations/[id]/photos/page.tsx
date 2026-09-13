@@ -5,8 +5,8 @@ import { entitled } from '@/lib/tiers';
 import { guestPhotos } from '@/lib/photos';
 import { contentOf } from '@/lib/invitations';
 import { bool, sectionOnCard } from '@/lib/sections';
-import { changeWindow } from '@/lib/progress';
-import { formatDate, formatDateTime } from '@/lib/datetime';
+import { whyLocked } from '@/lib/progress';
+import { formatDateTime } from '@/lib/datetime';
 import { PageHeader, Stat, Empty, Card } from '@/components/ui';
 import { SectionSwitches } from '@/components/account/section-switches';
 import { imageUrl, IMAGE } from '@/lib/images';
@@ -31,19 +31,14 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
   const waiting = media.length - shown;
 
   // The switches save the section, and saveSection refuses a customer's save
-  // for three reasons the page can see coming: the section is not on this
-  // card at all (a Save the Date carries no album), the invitation is live,
-  // or the three-week window has closed. Those are the builder's own locks,
-  // said here in its words, because a switch that always fails is worse than
+  // when the section is not on this card at all (a Save the Date carries no
+  // album). The album is one of the parts that stay theirs on a live page and
+  // inside the window — whyLocked says so — because it is switched on at the
+  // reception, which is inside both. A switch that always fails is worse than
   // one that says why it is off.
-  const changes = changeWindow(invitation.eventAt);
   const locked = !sectionOnCard('photos', invitation.occasion, Boolean(invitation.saveTheDateOfId))
     ? 'There is no album on this card, so there is nothing to switch on here.'
-    : invitation.status === 'PUBLISHED'
-      ? 'Your invitation is live, so these switches are ours to flip now. Message us on Messenger or Viber and we will sort it out.'
-      : changes?.closed
-        ? `Changes closed on ${formatDate(changes.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by ${formatDate(changes.finalAt)}. Message us for anything urgent.`
-        : undefined;
+    : whyLocked(invitation, 'photos');
 
   return (
     <>

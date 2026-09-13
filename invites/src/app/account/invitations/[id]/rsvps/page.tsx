@@ -14,7 +14,7 @@ import { awaitingDecision, replySeats } from '@/lib/seats';
 import { invitationUrl } from '@/lib/app-url';
 import { displayTitle, fieldsFor, bool } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
-import { changeWindow } from '@/lib/progress';
+import { whyLocked } from '@/lib/progress';
 import { rsvpStats, type BreakdownKey } from '@/lib/rsvp-stats';
 import { Decide } from './decide';
 import { Remove } from './remove';
@@ -119,11 +119,11 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   const folded = stats.messages.slice(MESSAGES_SHOWN);
 
   // What the questions card needs: the whole section, so a switch can send it
-  // all back; the window; and the deadline field's own words, so the two
-  // tabs never describe the same date two ways.
+  // all back; why it is locked, if it is (the RSVP questions stay the
+  // customer's on a live page — whyLocked says so); and the deadline field's
+  // own words, so the two tabs never describe the same date two ways.
   const rsvpSection = content.rsvp ?? {};
-  const w = changeWindow(inv.eventAt);
-  const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
+  const locked = whyLocked(inv, 'rsvp');
   const rsvpFields = fieldsFor('rsvp', inv.occasion);
   const deadlineHint = rsvpFields.find((f) => f.key === 'deadline')?.hint ?? '';
   const phonePlaceholder = rsvpFields.find((f) => f.key === 'contactPhone')?.placeholder ?? '';
@@ -221,7 +221,7 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
       )}
 
       <div className="mb-4">
-        <WhatGuestsSee invitationId={inv.id} slug={inv.slug} section={rsvpSection} window={window} live={inv.status === 'PUBLISHED'} confirms={confirms} deadlineHint={deadlineHint} phonePlaceholder={phonePlaceholder} />
+        <WhatGuestsSee invitationId={inv.id} slug={inv.slug} section={rsvpSection} locked={locked} live={inv.status === 'PUBLISHED'} confirms={confirms} deadlineHint={deadlineHint} phonePlaceholder={phonePlaceholder} />
       </div>
 
       {queue.length > 0 && (

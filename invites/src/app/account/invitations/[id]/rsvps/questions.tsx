@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import type { SectionData } from '@/lib/sections';
 import { saveSectionAction } from '@/app/account/actions';
 import { invitationPath } from '@/lib/app-url';
-import { formatDate } from '@/lib/datetime';
 import { TIER_LABELS } from '@/lib/tiers';
 import { Notice } from '@/components/ui';
 import { PhonePreview } from '@/components/account/phone';
@@ -47,7 +46,7 @@ export function WhatGuestsSee({
   invitationId,
   slug,
   section: initial,
-  window: changes,
+  locked,
   live,
   confirms,
   deadlineHint,
@@ -57,9 +56,9 @@ export function WhatGuestsSee({
   slug: string;
   /** The whole rsvp section as stored, so a save can send all of it back. */
   section: SectionData;
-  /** When changes close and when the final touches are due, or nothing for an event with no date. */
-  window: { closesAt: string; finalAt: string; closed: boolean } | null;
-  /** Published: the form belongs to our team now, the same as on the Invitation tab. */
+  /** Why the customer cannot save the questions right now, or nothing when they can. */
+  locked?: string;
+  /** Published: what they turn on is on the form for every guest from now. */
   live: boolean;
   /** Whether each guest who accepts and leaves an address is written back to. */
   confirms: boolean;
@@ -81,10 +80,10 @@ export function WhatGuestsSee({
   // a save asked for while one is in flight: it goes next
   const again = useRef(false);
 
-  // Two things close the questions to a customer, the same two that close
-  // the form: publishing, and the three-week window before the event.
-  const closed = live || Boolean(changes?.closed);
-  const when = (iso: string) => formatDate(new Date(iso));
+  // The page decides whether the questions are open, by the same rule the
+  // save enforces — and on a live page they are, because what the form asks
+  // is run from here, not designed.
+  const closed = Boolean(locked);
   const on = (field: string) => section[field] === true;
   const text = (field: string) => (typeof section[field] === 'string' ? (section[field] as string) : '');
 
@@ -173,13 +172,10 @@ export function WhatGuestsSee({
         <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">Turn a question on and it is on the form at once.</p>
 
         <div className="mt-3 space-y-2">
-          {live ? (
-            <Notice tone="info">
-              Your invitation is live, so this is how the form stands rather than something to change here.
-              Anything that still needs changing is ours to do — message us on Messenger or Viber and we will sort it out.
-            </Notice>
-          ) : closed && changes ? (
-            <Notice tone="warn">Changes closed on {when(changes.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(changes.finalAt)}. Message us for anything urgent.</Notice>
+          {locked ? (
+            <Notice tone="warn">{locked}</Notice>
+          ) : live ? (
+            <Notice tone="info">Your page is live: a question you turn on is on the form for every guest from now, and one you turn off comes off it.</Notice>
           ) : null}
         </div>
 

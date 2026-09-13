@@ -218,6 +218,7 @@ const PHRASES = {
   'contact.registration': { en: 'Registration', tl: 'Registration' },
   'checkin.title': { en: 'Check-in code', tl: 'Check-in code' },
   'checkin.hint': { en: 'Show this at the entrance.', tl: 'Ipakita ito sa entrance.' },
+  'checkin.open': { en: 'Open your check-in pass →', tl: 'Buksan ang iyong check-in pass →' },
 } as const;
 
 export type PhraseKey = keyof typeof PHRASES;

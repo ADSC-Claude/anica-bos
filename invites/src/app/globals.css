@@ -401,6 +401,437 @@ table.data tr:hover td {
   border-radius: 1rem;
   padding: 1.25rem;
 }
+/*
+ * The check-in desk's two big screens.
+ *
+ * Sized for arm's length rather than for a desktop: the person on the door is
+ * holding a phone, looking at a queue, and glancing down. So one thing per
+ * screen, the name as the largest thing on it, and a confirm button you cannot
+ * miss with a thumb.
+ */
+.desk-stage {
+  background: var(--card-bg);
+  /* Its own ink as well as its own paper: a panel that paints a background
+     and inherits its text colour is one theme change away from cream on
+     cream. */
+  color: var(--color-ink-900);
+  border: 1px solid var(--color-sand-200);
+  border-radius: 1.25rem;
+  padding: 1.75rem 1.35rem 1.5rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  position: relative;
+  max-width: 30rem;
+  margin: 0 auto;
+}
+.desk-back {
+  position: absolute;
+  top: 0.9rem;
+  left: 1rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  background: none;
+  border: 0;
+  color: var(--color-plum-600);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+.desk-monogram {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-sand-100);
+  color: var(--color-plum-600);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+}
+.desk-name { font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; line-height: 1.15; margin: 0.35rem 0 0; text-wrap: balance; }
+
+.desk-rows { width: 100%; display: grid; gap: 1px; margin: 0.9rem 0 0; background: var(--color-sand-200); border: 1px solid var(--color-sand-200); border-radius: 0.75rem; overflow: hidden; text-align: left; }
+.desk-rows > div { background: var(--card-bg); display: grid; grid-template-columns: minmax(0, 5.5rem) minmax(0, 1fr); gap: 0.75rem; padding: 0.6rem 0.85rem; align-items: baseline; }
+.desk-rows dt { font-size: 0.6875rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--color-ink-500); font-weight: 600; }
+.desk-rows dd { margin: 0; font-size: 0.9375rem; }
+.desk-quiet { color: var(--color-ink-500); }
+
+/* The confirm is green rather than plum: it is the one action on the screen
+   and it is an affirmation, not a brand moment. */
+.desk-go {
+  width: 100%;
+  margin-top: 1.1rem;
+  min-height: 3.25rem;
+  font-size: 1rem;
+  background: var(--ok);
+  color: #fff;
+}
+.desk-go:hover { background: #276b43; }
+.desk-go.btn-primary { background: var(--color-plum-600); }
+.desk-go.btn-primary:hover { background: var(--color-plum-700); }
+.desk-already { font-size: 0.875rem; color: var(--color-ink-500); margin: 1rem 0 0; }
+
+/* The camera, and the button that opens it. */
+.desk-scan {
+  width: 100%;
+  min-height: 3.5rem;
+  font-size: 1rem;
+  gap: 0.6rem;
+  background: var(--color-plum-600);
+  color: #fff;
+}
+.desk-scan:hover { background: var(--color-plum-700); }
+.desk-or {
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+  margin: 0.9rem 0 0.6rem;
+}
+.desk-link {
+  font: inherit;
+  font-size: 0.8125rem;
+  background: none;
+  border: 0;
+  color: var(--color-plum-600);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.4rem;
+}
+
+.scan { max-width: 30rem; margin: 0 auto; display: grid; gap: 0.9rem; justify-items: center; }
+.scan-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: #17120f;
+}
+.scan-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Four corners rather than a box: it frames without hiding what is under it. */
+.scan-reticle {
+  position: absolute;
+  inset: 16%;
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(#fff, #fff) 0 0 / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 0 0 / 3px 2rem no-repeat,
+    linear-gradient(#fff, #fff) 100% 0 / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 100% 0 / 3px 2rem no-repeat,
+    linear-gradient(#fff, #fff) 0 100% / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 0 100% / 3px 2rem no-repeat,
+    linear-gradient(#fff, #fff) 100% 100% / 2rem 3px no-repeat,
+    linear-gradient(#fff, #fff) 100% 100% / 3px 2rem no-repeat;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.5));
+}
+.scan-hint { font-size: 0.875rem; color: var(--color-ink-500); margin: 0; text-align: center; }
+.scan-error { font-size: 0.875rem; color: var(--bad); margin: 0; text-align: center; max-width: 26rem; line-height: 1.5; }
+.scan-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+.desk-done { padding-top: 2.25rem; }
+.desk-tick {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #e3f3e8;
+  color: var(--ok);
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.desk-said { font-size: 1rem; line-height: 1.5; margin: 0.2rem 0 0; max-width: 24rem; }
+
+/*
+ * The pass page: one guest's check-in screen, at its own link.
+ *
+ * The photograph is the design. It fills the screen, it is never washed out,
+ * and the words sit on it — there is no card, no frame, no border and no
+ * panel anywhere on the front of this page, because three earlier attempts
+ * were exactly that and a bordered rectangle is not what a guest wants to
+ * hold up at a door.
+ *
+ * What carries the type is the fall: the dark that comes up off the bottom
+ * the way it does on a film poster, deep where the words are and clear where
+ * the faces are. That is a composition, not a scrim over a photograph — the
+ * picture is at full strength everywhere above it.
+ */
+.pass {
+  position: relative;
+  min-height: 100dvh;
+  background: #14110e;
+  color: #fff;
+  font-family: var(--inv-body);
+  display: grid;
+  overflow: hidden;
+  isolation: isolate;
+}
+.pass-picture {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--inv-bg);
+  z-index: 0;
+}
+/* The fall. Nothing at all across the top — a bar of dark up there was the
+   first thing sent back — then down through the lower half so the words have
+   something to sit on. It stops short of black on purpose: the photograph has
+   to still be a photograph behind the names, which is the whole ask. */
+.pass-fall {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(to bottom, rgba(12, 10, 8, 0) 0%, rgba(12, 10, 8, 0) 34%, rgba(12, 10, 8, 0.28) 50%, rgba(12, 10, 8, 0.62) 68%, rgba(12, 10, 8, 0.82) 86%, rgba(12, 10, 8, 0.88) 100%);
+}
+.pass-stage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: end;
+  justify-items: center;
+  text-align: center;
+  gap: clamp(1.6rem, 6vw, 2.4rem);
+  padding: clamp(1.6rem, 7vw, 2.6rem) clamp(1.5rem, 6vw, 2.2rem) clamp(1.8rem, 7vw, 2.6rem);
+  min-height: 100dvh;
+}
+
+/* ── the words ──────────────────────────────────────────────────────── */
+.pass-words { display: grid; gap: 0.5rem; max-width: 22rem; justify-items: center; }
+.pass-intro {
+  font-size: 0.625rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+}
+/* The size is the point. A guest holds this up and somebody two feet away
+   reads the names off it; three lines of the same size is what made every
+   earlier attempt read as a form. */
+.pass-names {
+  font-family: var(--inv-display);
+  font-weight: 500;
+  font-size: clamp(2.6rem, 13vw, 3.4rem);
+  line-height: 0.94;
+  letter-spacing: -0.015em;
+  margin: 0.1rem 0 0;
+  text-wrap: balance;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.5);
+}
+.pass-when {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.88);
+  text-transform: uppercase;
+}
+/* Under it, and in sentence case: a venue in caps at this size is a shout,
+   and the date above it is the line that wants the emphasis. */
+.pass-venue {
+  margin: 0.15rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.74);
+  max-width: 17rem;
+  text-wrap: pretty;
+}
+
+/* ── the foot: whose pass, and the code standing on the picture ─────── */
+/* No rule across it and no panel around it. A line drawn to separate the code
+   from the words is the "cut or trimming" that got this page sent back; the
+   space does the separating. */
+.pass-scan {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.9rem;
+}
+.pass-who { min-width: 0; display: grid; gap: 0.3rem; }
+/* The guest's own name, in the display face. It is their pass and it is the
+   line the desk reads before they scan. */
+.pass-for {
+  font-family: var(--inv-display);
+  font-size: 1.5rem;
+  line-height: 1.1;
+  margin: 0;
+  text-wrap: balance;
+}
+.pass-note { font-size: 0.6875rem; line-height: 1.5; margin: 0; color: rgba(255, 255, 255, 0.72); max-width: 17rem; text-wrap: pretty; }
+
+/*
+ * The paper under the code: square, flat, with a straight edge.
+ *
+ * It was a soft disc for one version and that was wrong twice over — a circle
+ * where the code is a square, and a fade that reads as a glow shone at the
+ * photograph. Square, no radius, no shadow, no gradient.
+ *
+ * The photograph is still behind it rather than cut away: the paper is drawn
+ * at QR_VEIL, so the picture carries faintly through the panel instead of the
+ * code sitting on an opaque white sticker. That alpha is the measured one —
+ * see QR_VEIL for what it survives — and the panel is uniform, so every module
+ * stands on exactly the same amount of paper. The padding is the paper margin;
+ * the code's own four-module quiet zone is inside the drawing already.
+ */
+.pass-paper {
+  display: grid;
+  place-items: center;
+  padding: 0.5rem;
+  background: color-mix(in srgb, var(--pass-paper, #fff) 80%, transparent);
+}
+.pass-code-art { display: block; line-height: 0; width: 7.5rem; }
+.pass-code-art svg { width: 100%; height: auto; display: block; }
+.pass-cta {
+  margin: 0;
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+}
+
+/* ── after the scan: the paper comes up over the picture ────────────── */
+.pass-after {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  width: 100%;
+  background: var(--inv-surface);
+  color: var(--inv-ink);
+  border-radius: 1.25rem 1.25rem 0 0;
+  margin-top: 22vh;
+  padding-bottom: 0.5rem;
+  box-shadow: 0 -18px 50px -20px rgba(0, 0, 0, 0.6);
+}
+.pass-arrived { padding: 1.6rem 1.5rem 0.4rem; text-align: center; display: grid; gap: 0.4rem; justify-items: center; }
+.pass-tick {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--inv-accent) 16%, transparent);
+  color: var(--inv-accent);
+  font-size: 1.5rem;
+  line-height: 1;
+  margin: 0 0 0.35rem;
+}
+.pass-greet-title { font-family: var(--inv-display); font-weight: 500; font-size: 1.35rem; margin: 0; line-height: 1.2; }
+.pass-greet-body { font-size: 0.8125rem; color: var(--inv-muted); margin: 0; line-height: 1.5; }
+.pass-stamp { font-size: 0.6875rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--inv-muted); margin: 0.2rem 0 0; }
+
+.pass-links { margin: 1.15rem 1.5rem 0; display: grid; gap: 8px; }
+.pass-link {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
+  text-decoration: none;
+  color: inherit;
+}
+.pass-link:hover { background: color-mix(in srgb, var(--inv-accent2) 18%, transparent); }
+.pass-link-note { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inv-muted); font-weight: 600; }
+.pass-link-label { font-size: 0.9375rem; }
+
+.pass-details {
+  margin: 1.15rem 1.5rem 0;
+  display: grid;
+  gap: 1px;
+  background: color-mix(in srgb, var(--inv-accent2) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 45%, transparent);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+/* Stacked, not two columns: a fixed label column is a fixed width inside a
+   sheet that has to fit a phone, and it left "Table 7" wrapping to "Tabl 7". */
+.pass-detail { background: var(--inv-surface); display: grid; gap: 0.1rem; padding: 0.6rem 0.85rem; }
+.pass-detail dt { font-size: 0.6875rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--inv-muted); font-weight: 600; }
+.pass-detail dd { margin: 0; font-size: 0.875rem; }
+
+.pass-again { margin: 1.15rem 1.5rem 0; text-align: center; }
+.pass-again summary { font-size: 0.8125rem; color: var(--inv-accent); cursor: pointer; }
+.pass-again .pass-code-small { width: 10.5rem; margin: 0.75rem auto 0; }
+
+.pass-foot { padding: 1.15rem 1.5rem 1.6rem; text-align: center; }
+.pass-back { font-size: 0.8125rem; color: var(--inv-accent); text-decoration: none; }
+.pass-back:hover { text-decoration: underline; }
+
+/* ── the masthead: the names across the top, the picture under them ──── */
+.pass[data-look='cover'] .pass-fall {
+  background:
+    linear-gradient(to bottom, rgba(12, 10, 8, 0.9) 0%, rgba(12, 10, 8, 0.62) 22%, rgba(12, 10, 8, 0) 46%, rgba(12, 10, 8, 0) 58%, rgba(12, 10, 8, 0.78) 88%, rgba(12, 10, 8, 0.95) 100%);
+}
+.pass[data-look='cover'] .pass-stage { align-content: space-between; }
+.pass[data-look='cover'] .pass-words { max-width: none; }
+.pass[data-look='cover'] .pass-names {
+  font-size: clamp(2.4rem, 12.5vw, 3.2rem);
+  line-height: 0.92;
+}
+.pass[data-look='cover'] .pass-when { margin-top: 0.6rem; }
+
+/* A design with no artwork has no picture to fall onto, so the ground is its
+   own deep colour and the words sit on that. */
+.pass[data-look='ground'] .pass-picture { background-color: var(--inv-ink); }
+
+/*
+ * The check-in pass block on the invitation: the guest's own code, and the
+ * reminder that the pass exists so they open it again at the door.
+ *
+ * Same rule as the pass itself — the photograph stays at full strength and the
+ * code gets its own piece of paper, rather than the picture being veiled away
+ * under the modules until it is barely a picture at all.
+ */
+.inv-pass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  background-size: cover;
+  background-position: center;
+  text-align: center;
+}
+/* Darkened only enough to read the words over it. The code carries its own
+   light — see .inv-pass-paper — so this is for the type, not for the code. */
+.inv-pass-photo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.5));
+}
+.inv-pass-body {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+}
+.inv-pass-photo .inv-pass-body {
+  color: #fff;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55);
+}
+/* The same bloom as the pass, at the invitation's size: a round of the
+   design's own paper with the code standing on it and the photograph coming
+   back through between the modules. Same stops, same 260%, so the 54% the
+   code's corner lands at holds here too — tests/qr.test.ts checks both. */
+.inv-pass-paper {
+  display: grid;
+  place-items: center;
+  width: fit-content;
+  padding: 0.5rem;
+  margin: 0.4rem auto;
+  line-height: 0;
+  background: color-mix(in srgb, var(--pass-paper, #fff) 80%, transparent);
+}
+.inv-pass-paper > span { display: block; width: 7rem; }
+.inv-pass-paper svg { width: 100%; height: auto; display: block; }
+.inv-pass-open { font-size: 0.75rem; color: var(--inv-accent); text-decoration: underline; }
+.inv-pass-photo .inv-pass-open { color: #fff; }
+
 .inv-btn {
   display: inline-flex;
   align-items: center;

@@ -1116,6 +1116,23 @@ function capizDesign(): DesignDoc {
  * this — their columns are empty and the renderer walks the constants — which
  * is what makes a copy safe to make.
  */
+/**
+ * The design's own artwork, where it has any: the first page ground that is a
+ * picture rather than a colour.
+ *
+ * A design with nothing drawn on it returns blank, and blank is not a failure
+ * — it keeps its palette and its type, which is a card too. The invitation
+ * itself already picks a first ground this way for the save-the-date; this is
+ * the same choice, named, so the check-in pass can carry the same background
+ * to the door instead of inventing one.
+ */
+export function templateGround(t: { design?: unknown; layout?: string }): string {
+  const doc = documentOf(t) ?? builtinDesign(t.layout ?? '');
+  if (!doc) return '';
+  for (const page of doc.pages) if (page.ground && isPicture(page.ground)) return page.ground.url;
+  return '';
+}
+
 export function builtinDesign(layout: string): DesignDoc | null {
   if (layout === 'babyblue') return babyblueDesign();
   if (layout === 'capiz') return capizDesign();

@@ -225,8 +225,9 @@ function StylesInput({ field, value, onChange }: { field: Field; value: string; 
               // the next one.
               className={`min-w-0 rounded-xl border p-1.5 text-left transition ${on ? 'border-[color:var(--color-ink-700)] bg-[color:var(--color-sand-100)] shadow-sm' : 'border-[color:var(--color-sand-200)] hover:border-[color:var(--color-sand-300)]'}`}
             >
-              <StyleThumb kind={o.value} />
+              <StyleThumb kind={o.art ?? o.value} />
               <span className="mt-1 block break-words text-[11px] leading-tight text-[color:var(--color-ink-700)]">{o.label}</span>
+              {o.hint && <span className="mt-0.5 block break-words text-[10px] leading-tight text-[color:var(--color-ink-500)]">{o.hint}</span>}
             </button>
           );
         })}
@@ -241,6 +242,7 @@ function StyleThumb({ kind }: { kind: string }) {
   const ink = 'var(--color-ink-500)';
   const photo = 'color-mix(in srgb, var(--color-ink-500) 38%, transparent)';
   const line = (w: string) => <span style={{ display: 'block', height: 3, width: w, borderRadius: 2, background: ink, opacity: 0.55, margin: '0 auto' }} />;
+  if (kind.startsWith('pass-')) return <PassThumb look={kind.slice(5)} ink={ink} photo={photo} />;
   const frame: Record<string, CSSProperties> = {
     arch: { width: '58%', aspectRatio: '4 / 5', borderRadius: '999px 999px 3px 3px' },
     oval: { width: '52%', aspectRatio: '3 / 4', borderRadius: '50%', outline: `1px solid ${ink}`, outlineOffset: 2 },
@@ -269,6 +271,93 @@ function StyleThumb({ kind }: { kind: string }) {
         {line('62%')}
         <span style={{ display: 'block', height: 5 }} />
         {line('44%')}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The three check-in fronts, drawn rather than described.
+ *
+ * Each tile has to read as a poster — picture edge to edge, the dark falling
+ * off the bottom, big words on it — and it has to draw the code the way the
+ * page draws it: on a square of the couple's own paper, at the same alpha, so
+ * the picture carries faintly through it. That is the part a couple cannot
+ * picture from words. An earlier set drew a bordered card three times, which
+ * is the thing these fronts took out.
+ */
+function PassThumb({ look, photo }: { look: string; ink: string; photo: string }) {
+  const line = (w: string, h = 3, o = 0.95) => (
+    <span style={{ display: 'block', height: h, width: w, borderRadius: 1, background: '#fff', opacity: o }} />
+  );
+  /*
+   * The code on its square of paper, drawn the way the page draws it: straight
+   * edges, no radius, no shadow, and the picture carrying faintly through the
+   * paper rather than the code sitting on an opaque white sticker. The panel is
+   * the box, so it reserves its own room and cannot eat the line above it.
+   */
+  const mark = (
+    <span
+      style={{
+        display: 'grid', placeItems: 'center', width: '42%', aspectRatio: '1',
+        margin: '0 auto', padding: '6%', background: 'rgba(252,249,243,0.8)',
+      }}
+    >
+      <span style={{ position: 'relative', display: 'block', width: '100%', aspectRatio: '1' }}>
+        {[[0, 0], [66, 0], [0, 66]].map(([l, t]) => (
+          <span key={`${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '34%', height: '34%', border: '2px solid var(--color-ink-900)' }} />
+        ))}
+        {[[46, 22], [74, 40], [40, 52], [60, 66], [82, 72], [34, 78], [56, 88]].map(([l, t]) => (
+          <span key={`d-${l}-${t}`} style={{ position: 'absolute', left: `${l}%`, top: `${t}%`, width: '10%', height: '10%', background: 'var(--color-ink-900)' }} />
+        ))}
+      </span>
+    </span>
+  );
+  // A picture rather than a flat rectangle: two figures against a sky.
+  const picture = (
+    <>
+      <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, var(--color-sand-200) 0%, var(--color-sand-100) 42%, var(--color-sand-300) 100%)' }} />
+      <span style={{ position: 'absolute', left: '14%', bottom: '18%', width: '34%', height: '46%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.9 }} />
+      <span style={{ position: 'absolute', left: '44%', bottom: '16%', width: '36%', height: '52%', borderRadius: '50% 50% 40% 40%', background: photo, opacity: 0.75 }} />
+    </>
+  );
+  const fall = (css: string) => <span style={{ position: 'absolute', inset: 0, background: css }} />;
+  const words = (
+    <span style={{ display: 'grid', justifyItems: 'center', gap: 4 }}>
+      {line('54%', 2, 0.75)}
+      {line('88%', 7)}
+      {line('42%', 2, 0.6)}
+    </span>
+  );
+  return (
+    <span
+      aria-hidden
+      className="relative block w-full overflow-hidden rounded-lg border border-[color:var(--color-sand-200)]"
+      style={{ aspectRatio: '3 / 5', background: 'var(--color-sand-50)' }}
+    >
+      {look !== 'ground' && picture}
+      {look === 'ground' && (
+        <span style={{ position: 'absolute', inset: 0, background: `repeating-linear-gradient(135deg, ${photo} 0 5px, transparent 5px 12px), var(--color-sand-200)` }} />
+      )}
+      {/* the silhouette: the dark comes up off the bottom, the words sit in it */}
+      {look !== 'cover' && (
+        <>
+          {fall('linear-gradient(to bottom, rgba(12,10,8,0.3) 0%, rgba(12,10,8,0) 24%, rgba(12,10,8,0) 40%, rgba(12,10,8,0.72) 66%, rgba(12,10,8,0.96) 100%)')}
+          <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '44%' }}>{words}</span>
+        </>
+      )}
+      {/* the masthead: the dark at the top, the words across it */}
+      {look === 'cover' && (
+        <>
+          {fall('linear-gradient(to bottom, rgba(12,10,8,0.9) 0%, rgba(12,10,8,0.5) 24%, rgba(12,10,8,0) 48%, rgba(12,10,8,0) 60%, rgba(12,10,8,0.85) 92%, rgba(12,10,8,0.96) 100%)')}
+          <span style={{ position: 'absolute', left: '9%', right: '9%', top: '8%' }}>{words}</span>
+        </>
+      )}
+      {/* the guest's own line and the code, centred, on every one. No rule
+          across the tile: there is none on the page either. */}
+      <span style={{ position: 'absolute', left: '9%', right: '9%', bottom: '6%', display: 'grid', justifyItems: 'center', gap: 5 }}>
+        {line('52%', 4, 0.9)}
+        {mark}
       </span>
     </span>
   );

@@ -20,6 +20,7 @@ import { planReminders, sendReminders, planEmailReminders, sendEmailReminders } 
 import { eraseCustomer } from '@/lib/privacy';
 import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
+import { builderPropsFor } from '@/lib/builder-props';
 import { entitled } from '@/lib/tiers';
 import { withTone, withOverride, withPicked, type MessageKind, type Tone } from '@/lib/messages';
 import { CAMPAIGN_KINDS } from '@/lib/campaigns';
@@ -51,6 +52,22 @@ export async function sectionDoneAction(invitationId: string, key: SectionKey, d
     const list = await setSectionDone(user, invitationId, key, done);
     refresh(invitationId);
     return { done: list };
+  });
+}
+
+/**
+ * The form's props for one part, for a host that draws the form itself —
+ * the studio, which opens it beside the canvas. Exactly what the Invitation
+ * tab works out on its page, and one thing more: whether the order behind
+ * the card is paid. The tab redirects an unpaid one to the checkout; here
+ * the caller is told and decides, because a page and a panel do not answer
+ * that the same way.
+ */
+export async function builderPropsAction(invitationId: string, section?: string) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    return { ...builderPropsFor(user.role, inv, section), paid: !inv.order || inv.order.status === 'ACTIVE' || inv.order.status === 'PAID' };
   });
 }
 

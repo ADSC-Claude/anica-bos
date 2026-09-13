@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import Link from 'next/link';
-import type { Look } from '@/lib/looks';
+import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import {
   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
-  LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
+  wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
 } from '@/lib/design';
@@ -351,7 +351,7 @@ export function Studio(p: Props) {
 
   const drawIt = useCallback(() => {
     if (!page) return;
-    const { page: made, boxes, photos, left, short } = drawFromSection(page, p.occasion);
+    const { page: made, boxes, photos, left, short, tight } = drawFromSection(page, p.occasion);
     if (!boxes && !photos) {
       setSeeded(page.drawn
         ? 'This page is already placed by hand, and nothing here will write over what you have placed.'
@@ -371,6 +371,7 @@ export function Studio(p: Props) {
      * has to know that before she publishes, not after.
      */
     const over = [
+      ...(tight ? ['They are set closer together than they want to be, because this page is not tall enough to spread them out. It keeps the height it was drawn at — growing it would stretch the background with it — so if you want more air, make it taller yourself under “How tall, in screens” on the right.'] : []),
       ...(left ? [`${left} more this page carries did not fit — add them with + Words and + Photo frame, or leave this page to flow.`] : []),
       ...(short.length ? [`A list is drawn row by row: ${short.join(', ')} can hold more rows than are on the page, and only the rows here will show. Copy a row and set its number to draw another.`] : []),
     ].join(' ');
@@ -1262,8 +1263,8 @@ export function Studio(p: Props) {
       if (first && 'word' in first) {
         const w = first.word;
         return w.startsWith('title:')
-          ? TITLE_LABELS[w.slice(6) as keyof typeof TITLE_LABELS] ?? w
-          : LINE_LABELS[w as keyof typeof LINE_LABELS] ?? w;
+          ? titleLabel(w.slice(6) as TitleKey, p.occasion)
+          : lineLabel(w as LineKey, p.occasion);
       }
       if (first && 'copy' in first) return first.copy;
     }
@@ -1687,9 +1688,9 @@ export function Studio(p: Props) {
                   * height is the only part this canvas has to guess.
                   */}
                 {page && (page.drawn
-                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />
+                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id }} />
                   : (['under', 'over'] as const).map((layer) => (
-                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" layer={layer} edit={{ label, cropping: fit?.id }} />
+                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} layer={layer} edit={{ label, cropping: fit?.id }} />
                   )))}
                 {/*
                   * The handles, over the real page. The layer itself lets the
@@ -2338,7 +2339,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
       {el.kind === 'anim' && <AnimBlock el={el as AnimEl} onChange={onChange} num={num} />}
-      {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
+      {el.kind === 'text' && <TypeBlock el={el as TextEl} occasion={occasion} onChange={onChange} />}
       <label className="block">
         <span className="label">Opacity</span>
         <input type="range" min={0} max={1} step={0.05} value={el.opacity ?? 1} onChange={(e) => onChange((x) => ({ ...x, opacity: Number(e.target.value) }))} className="w-full" />
@@ -3015,7 +3016,7 @@ const offerable = (el: TextEl): boolean => {
   return sources.some((x) => 'bind' in x) && sources.some((x) => 'fixed' in x && x.fixed.en.trim());
 };
 
-function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) => Element) => void }) {
+function TypeBlock({ el, occasion, onChange }: { el: TextEl; occasion: Occasion; onChange: (fn: (e: Element) => Element) => void }) {
   const edit = (fn: (t: TextEl) => TextEl) => onChange((x) => fn(x as TextEl));
   const small = el.size !== undefined && el.size < LEGIBLE_CQW;
   return (
@@ -3129,6 +3130,7 @@ function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) =
             </div>
             <Words
               sources={l.sources}
+              occasion={occasion}
               onChange={(next) => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, sources: next } : x)) }))}
             />
           </li>
@@ -3149,11 +3151,20 @@ function moveLine(t: TextEl, i: number, by: number): TextEl {
   return { ...t, lines };
 }
 
-/** Every word the design can carry of its own: the look's lines, then its headings. */
-const WORDS: { key: WordKey; label: string }[] = [
-  ...LINE_KEYS.map((k) => ({ key: k as WordKey, label: LINE_LABELS[k] })),
-  ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}` })),
-];
+/**
+ * Every word the design can carry of its own, for this occasion: its lines,
+ * then its headings, each named the way the occasion names that part. A
+ * christening is not offered the Entourage's line or The Moment's three,
+ * because a christening has no entourage and no Moment — a word it cannot
+ * read is a word not worth offering.
+ */
+function wordsOffered(occasion: Occasion): { key: WordKey; label: string }[] {
+  const offered = wordsFor(occasion);
+  return [
+    ...offered.lines.map((k) => ({ key: k as WordKey, label: lineLabel(k, occasion) })),
+    ...offered.titles.map((k) => ({ key: titleWord(k), label: `Heading — ${titleLabel(k, occasion)}` })),
+  ];
+}
 
 /**
  * What a line says.
@@ -3170,7 +3181,8 @@ const WORDS: { key: WordKey; label: string }[] = [
  * own words are a key into the copy file, and a key typed by hand would be a
  * blank line nobody could explain. Both can still be taken out.
  */
-function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Source[]) => void }) {
+function Words({ sources, occasion, onChange }: { sources: Source[]; occasion: Occasion; onChange: (next: Source[]) => void }) {
+  const offered = wordsOffered(occasion);
   const set = (i: number, next: Source) => onChange(sources.map((x, j) => (j === i ? next : x)));
   const drop = (i: number) => onChange(sources.filter((_, j) => j !== i));
   const move = (i: number, by: number) => {
@@ -3200,7 +3212,7 @@ function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Sour
             </div>
           ) : 'word' in src ? (
             <select className="input mt-1 w-full text-xs" value={src.word} onChange={(e) => set(i, { word: e.target.value as WordKey })}>
-              {WORDS.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
+              {offered.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
             </select>
           ) : 'bind' in src ? (
             <p className="mt-0.5 text-[11px] text-[color:var(--color-ink-500)]">{src.bind.sub ?? src.bind.field}{src.bind.index === undefined ? '' : ` ${src.bind.index + 1}`} &middot; {src.bind.section} &mdash; set by <strong>Ask the customer</strong>.</p>
@@ -3211,7 +3223,7 @@ function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Sour
       ))}
       <div className="flex gap-1">
         <button type="button" onClick={() => onChange([...sources, { fixed: { en: '' } }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ words you type</button>
-        <button type="button" onClick={() => onChange([...sources, { word: WORDS[0].key }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ a word from the design</button>
+        <button type="button" onClick={() => onChange([...sources, { word: offered[0].key }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ a word from the design</button>
       </div>
       {sources.length === 0 && <p className="hint">Nothing yet, so this line draws nothing.</p>}
     </div>

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Look, LineKey, TitleKey } from './looks';
-import { OCCASION_SECTIONS, sectionOrder, type SectionKey } from './sections';
+import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
@@ -39,45 +39,99 @@ export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'm
 export const TITLE_KEYS: TitleKey[] = ['story', 'invitation', 'entourage', 'sponsors', 'gallery', 'venue', 'getting', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'contact'];
 
 /** Where each line is read, for the admin's form. */
-export const LINE_LABELS: Record<LineKey, string> = {
-  cover: 'Cover — above the names',
-  verse: 'Cover page — the verse',
-  verseRef: 'Cover page — the verse’s source',
-  moment1: 'The Moment — first line',
-  moment2: 'The Moment — second line',
-  moment3: 'The Moment — third line',
-  story: 'Our Story — under the heading',
-  invitation: 'The Invitation — under the heading',
-  sponsors: 'Under the ninong and ninang heading',
-  entourage: 'Entourage — under the heading',
-  gallery: 'Prenup — under the heading',
-  galleryNote: 'Prenup — between the large photograph and the arches',
-  galleryVideo: 'Prenup — written over the film',
-  galleryClose: 'Prenup — the last word',
-  venue: 'The Venue — under the heading',
-  interlude2: 'The Venue — the script line after the way there',
-  dressCode: 'Dress Code — under the heading, when no attire is set',
-  gentsNote: 'Dress Code — the note under the gentlemen’s pieces',
-  ladiesNote: 'Dress Code — the note under the ladies’ pieces',
-  dressNote: 'Dress Code — the note under the palette',
-  giftThanks: 'Gift — the thank-you in script',
-  program: 'Program — under the heading',
-  social: 'Snap and Share — under the heading',
-  socialCta: 'Snap and Share — the call to post',
-  guestbook: 'Guestbook — under the heading',
-  photos: 'Post Event Photos — under the heading',
-  photosIntro: 'Post Event Photos — the line above the upload',
-  countdown: 'Countdown — the line above the numbers',
-  contact: 'Assistance — the small line under the heading',
-  contactNote: 'Assistance — the note',
-  closingMessage: 'Closing — the thank-you',
-  closing: 'Closing — the line above the names',
-};
-export const TITLE_LABELS: Record<TitleKey, string> = {
-  story: 'Our Story', invitation: 'The Invitation', entourage: 'Entourage', sponsors: 'Ninong and Ninang', gallery: 'Prenup Photos', venue: 'The Venue', getting: 'Getting There',
-  dressCode: 'Dress Code', gift: 'Gift Request', program: 'Program', social: 'Snap and Share', guestbook: 'Guestbook', photos: 'Post Event Photos', rsvp: 'RSVP', contact: 'Assistance',
+/**
+ * Where each writing belongs, and where on that part it lands.
+ *
+ * Two things used to be one. The name of a box — "Prenup — under the
+ * heading" — was a fixed string, so a christening's form offered a box
+ * called Prenup for a part the app itself calls Baby photos, and offered
+ * boxes for Entourage and The Moment, which a christening does not have at
+ * all. The section's name already varies by occasion (`sectionLabel`, and
+ * `labelFor` in sections.ts has said `CHRISTENING: 'Baby photos'` all
+ * along); only this list did not ask it.
+ *
+ * So a writing names the part it is on, and the place on it. The name is
+ * worked out per occasion from the first, which makes the form and the
+ * studio speak the occasion's own words without a second list to keep in
+ * step — and makes it possible to leave out the writings for parts this
+ * occasion does not carry.
+ */
+export const LINE_ON: Record<LineKey, { on: SectionKey; where: string }> = {
+  cover: { on: 'cover', where: 'above the names' },
+  verse: { on: 'cover', where: 'the verse' },
+  verseRef: { on: 'cover', where: 'the verse\u2019s source' },
+  moment1: { on: 'moment', where: 'first line' },
+  moment2: { on: 'moment', where: 'second line' },
+  moment3: { on: 'moment', where: 'third line' },
+  story: { on: 'story', where: 'under the heading' },
+  invitation: { on: 'ceremony', where: 'under the heading' },
+  sponsors: { on: 'sponsors', where: 'under the heading' },
+  entourage: { on: 'entourage', where: 'under the heading' },
+  gallery: { on: 'gallery', where: 'under the heading' },
+  galleryNote: { on: 'gallery', where: 'between the large photograph and the arches' },
+  galleryVideo: { on: 'gallery', where: 'written over the film' },
+  galleryClose: { on: 'gallery', where: 'the last word' },
+  venue: { on: 'reception', where: 'under the heading' },
+  interlude2: { on: 'reception', where: 'the script line after the way there' },
+  dressCode: { on: 'dressCode', where: 'under the heading, when no attire is set' },
+  gentsNote: { on: 'dressCode', where: 'the note under the gentlemen\u2019s pieces' },
+  ladiesNote: { on: 'dressCode', where: 'the note under the ladies\u2019 pieces' },
+  dressNote: { on: 'dressCode', where: 'the note under the palette' },
+  giftThanks: { on: 'gift', where: 'the thank-you in script' },
+  program: { on: 'program', where: 'under the heading' },
+  social: { on: 'social', where: 'under the heading' },
+  socialCta: { on: 'social', where: 'the call to post' },
+  guestbook: { on: 'guestbook', where: 'under the heading' },
+  photos: { on: 'photos', where: 'under the heading' },
+  photosIntro: { on: 'photos', where: 'the line above the upload' },
+  countdown: { on: 'countdown', where: 'the line above the numbers' },
+  contact: { on: 'contact', where: 'the small line under the heading' },
+  contactNote: { on: 'contact', where: 'the note' },
+  closingMessage: { on: 'closing', where: 'the thank-you' },
+  closing: { on: 'closing', where: 'the line above the names' },
 };
 
+/** The part each heading names. */
+export const TITLE_ON: Record<TitleKey, SectionKey> = {
+  story: 'story', invitation: 'ceremony', entourage: 'entourage', sponsors: 'sponsors', gallery: 'gallery',
+  venue: 'reception', getting: 'reception', dressCode: 'dressCode', gift: 'gift', program: 'program',
+  social: 'social', guestbook: 'guestbook', photos: 'photos', rsvp: 'rsvp', contact: 'contact',
+};
+
+/** What a writing's box is called, in this occasion's own words. */
+export function lineLabel(key: LineKey, occasion: Occasion): string {
+  const { on, where } = LINE_ON[key];
+  return `${sectionLabel(on, occasion)} \u2014 ${where}`;
+}
+
+/**
+ * Two headings name the same part: the venue, and the map for getting to it.
+ * Without this they would both be called "Heading — Reception" and she would
+ * have to guess which box was which.
+ */
+const TITLE_ALSO: Partial<Record<TitleKey, string>> = { getting: 'getting there' };
+
+/** What a heading's box is called. The heading names a part, so that is its name. */
+export function titleLabel(key: TitleKey, occasion: Occasion): string {
+  const name = sectionLabel(TITLE_ON[key], occasion);
+  const also = TITLE_ALSO[key];
+  return also ? `${name} \u2014 ${also}` : name;
+}
+
+/**
+ * The writings an occasion has at all.
+ *
+ * A christening carries no entourage and no Moment, so a form that offers
+ * boxes for them is asking her to write words that can never be read. Only
+ * the parts this occasion carries are offered.
+ */
+export function wordsFor(occasion: Occasion): { titles: TitleKey[]; lines: LineKey[] } {
+  const has = new Set<SectionKey>(OCCASION_SECTIONS[occasion]);
+  return {
+    titles: TITLE_KEYS.filter((k) => has.has(TITLE_ON[k])),
+    lines: LINE_KEYS.filter((k) => has.has(LINE_ON[k].on)),
+  };
+}
 const isRecord = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
 /** The JSON column as words, anything malformed dropped. */
@@ -133,18 +187,30 @@ export function withWords(look: Look | undefined, words: DesignWords): Look | un
   if (!langs.length) return look;
   const lines = { ...look.lines };
   const titles = { ...look.titles };
+  /*
+   * What the design wrote, kept apart from what it inherited. The look's own
+   * wording is written for a wedding and some of it is withheld from other
+   * occasions (see `lookLine`); words typed for *this* design are never
+   * withheld, and by the time they are read the two are the same shape. So
+   * the keys are recorded as they are folded in.
+   */
+  const own: NonNullable<Look['own']> = { lines: {}, titles: {} };
   for (const lang of langs) {
     const block = words[lang] ?? {};
     for (const key of LINE_KEYS) {
       const v = block[key];
-      if (v) lines[key] = { ...lines[key], [lang]: v };
+      if (!v) continue;
+      lines[key] = { ...lines[key], [lang]: v };
+      own.lines![lang] = [...(own.lines![lang] ?? []), key];
     }
     for (const key of TITLE_KEYS) {
       const v = block[titleWord(key)];
-      if (v) titles[key] = { ...(titles[key] ?? { en: v, tl: v }), [lang]: v };
+      if (!v) continue;
+      titles[key] = { ...(titles[key] ?? { en: v, tl: v }), [lang]: v };
+      own.titles![lang] = [...(own.titles![lang] ?? []), key];
     }
   }
-  return { ...look, lines, titles };
+  return { ...look, lines, titles, own };
 }
 
 /**

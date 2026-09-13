@@ -185,7 +185,7 @@ export function plateWords(occasion: Occasion, content: Content, lang: Lang, loo
     // The line over the names: the couple's own, else the design's cover line
     // ("The christening of") where the clip's face has already said the guest
     // is invited, else the opening's own.
-    line: str(cover, 'openingLine') || (premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || OPENING_BY_KEY.cinematic.line[lang],
+    line: str(cover, 'openingLine') || (premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover', occasion) : '') || OPENING_BY_KEY.cinematic.line[lang],
     names: names.length ? names : [displayTitle(occasion, content)],
     and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
     date: openingDate(str(cover, 'date')),
@@ -218,7 +218,7 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   const place = content.ceremony && str(content.ceremony, 'venue') ? content.ceremony : content.reception;
   const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
   // the three lines under the place: the look's, or the couple's own where staff wrote them
-  const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
+  const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey, occasion) || '').filter(Boolean) : [];
   // A paged design's ground is its artwork, so the photograph cannot fill the
   // cover the way the other layouts do it. Capiz carries it one of five ways
   // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
@@ -1755,7 +1755,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // The line over the names: the couple's own, the design's cover line on
       // a premium card whose face has already said "you are invited", else
       // this opening's own line.
-      line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || def.line[lang],
+      line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover', occasion) : '') || def.line[lang],
       line2: plate.line2,
       and: plate.and,
       words: wordsOnCard,
@@ -1770,8 +1770,15 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
 
   const order = sectionOrder(occasion, layout);
   // The look's words: the line under each heading, and the headings it names.
-  const line = (key: LineKey) => lookLine(look, lang, key);
-  const named = (key: TitleKey, fallback: string) => lookTitle(look, lang, key) ?? fallback;
+  /*
+   * The look's words: the line under each heading, and the headings it names
+   * — asked in this invitation's occasion, so a look written for a wedding
+   * does not put "Join us as we say I do!" under a christening's Church &
+   * Mass heading. Where it has nothing to say for the occasion the heading
+   * stands alone, or the fallback below takes over.
+   */
+  const line = (key: LineKey) => lookLine(look, lang, key, occasion);
+  const named = (key: TitleKey, fallback: string) => lookTitle(look, lang, key, occasion) ?? fallback;
   const sameVenue = Boolean(str(content.ceremony, 'venue')) && str(content.ceremony, 'venue').trim().toLowerCase() === str(content.reception, 'venue').trim().toLowerCase();
   const hasReception = visible('reception') && Boolean(str(content.reception, 'venue'));
   const names = displayTitle(occasion, content);
@@ -1919,9 +1926,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // behind the words, then the words, then what the design asked to have
       // over them: see FlowDecor for why they cannot be one layer
       return [
-        <FlowDecor key="deco-under" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="under" />,
+        <FlowDecor key="deco-under" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} layer="under" />,
         ...body,
-        <FlowDecor key="deco-over" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="over" />,
+        <FlowDecor key="deco-over" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} layer="over" />,
       ];
     };
 
@@ -1948,7 +1955,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // names none depends on nothing — it is the design's own page, a
         // picture and some words — so it is always drawn.
         const parts = spec.drawn
-          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} />] : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;

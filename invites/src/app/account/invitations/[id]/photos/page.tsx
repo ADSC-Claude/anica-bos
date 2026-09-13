@@ -4,9 +4,11 @@ import { HttpError } from '@/lib/errors';
 import { entitled } from '@/lib/tiers';
 import { guestPhotos } from '@/lib/photos';
 import { contentOf } from '@/lib/invitations';
-import { bool } from '@/lib/sections';
-import { formatDateTime } from '@/lib/datetime';
-import { PageHeader, Empty } from '@/components/ui';
+import { bool, sectionOnCard } from '@/lib/sections';
+import { changeWindow } from '@/lib/progress';
+import { formatDate, formatDateTime } from '@/lib/datetime';
+import { PageHeader, Stat, Empty, Card } from '@/components/ui';
+import { SectionSwitches } from '@/components/account/section-switches';
 import { imageUrl, IMAGE } from '@/lib/images';
 import { PhotoButtons } from './buttons';
 
@@ -22,23 +24,60 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
   const media = await guestPhotos(invitation.id);
   if (!entitled(invitation, 'photoSharing')) redirect(`/account/invitations/${invitation.id}/upgrade`);
 
-  const section = contentOf(invitation.content).photos;
+  const section = contentOf(invitation.content).photos ?? {};
   const open = bool(section, 'enabled');
   const moderated = bool(section, 'moderated');
-  const waiting = media.filter((m) => !m.approved).length;
+  const shown = media.filter((m) => m.approved).length;
+  const waiting = media.length - shown;
+
+  // The switches save the section, and saveSection refuses a customer's save
+  // for three reasons the page can see coming: the section is not on this
+  // card at all (a Save the Date carries no album), the invitation is live,
+  // or the three-week window has closed. Those are the builder's own locks,
+  // said here in its words, because a switch that always fails is worse than
+  // one that says why it is off.
+  const changes = changeWindow(invitation.eventAt);
+  const locked = !sectionOnCard('photos', invitation.occasion, Boolean(invitation.saveTheDateOfId))
+    ? 'There is no album on this card, so there is nothing to switch on here.'
+    : invitation.status === 'PUBLISHED'
+      ? 'Your invitation is live, so these switches are ours to flip now. Message us on Messenger or Viber and we will sort it out.'
+      : changes?.closed
+        ? `Changes closed on ${formatDate(changes.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by ${formatDate(changes.finalAt)}. Message us for anything urgent.`
+        : undefined;
 
   return (
     <>
       <PageHeader
         title="Guest photos"
         subtitle={
-          open
-            ? moderated
-              ? 'Guests can add photos. Nothing appears on your page until you approve it.'
-              : 'Guests can add photos, and they appear on your page straight away. Hide anything you would rather not show.'
-            : 'The album is switched off. Turn it on in the Guest photos part of your invitation.'
+          !open
+            ? 'The album is off, so nothing shows on your page and guests cannot add photos.'
+            : moderated
+              ? 'Guests can add photos, and each one waits here for your approval.'
+              : 'Guests can add photos, and they go straight onto your page.'
         }
       />
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Shown" value={shown} hint={open ? 'in the album' : 'once the album is on'} />
+        <Stat label="Waiting for you" value={waiting} tone={waiting ? 'warn' : undefined} hint={waiting ? 'approve or hide below' : undefined} />
+      </div>
+
+      <Card title="Guest photos" className="mb-4">
+        <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">
+          A shared album your guests add to from their phones — no app, no login. Switch it on here, and choose whether you see each photo before it shows. When the day is over, download the whole album in one file.
+        </p>
+        <SectionSwitches
+          invitationId={invitation.id}
+          section="photos"
+          data={section}
+          disabled={locked}
+          switches={[
+            { field: 'enabled', label: 'Guests can add photos', on: 'The album is on your page and guests can add photos from their phones.', off: 'The album is off. Nothing shows on your page and nobody can add photos.' },
+            { field: 'moderated', label: 'Approve each photo before it shows', on: 'New photos wait here for you; approve the ones you want in the album.', off: 'Photos go straight into the album; hide or delete anything you would rather not show.' },
+          ]}
+        />
+      </Card>
 
       {media.length > 0 && (
         <p className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -51,14 +90,8 @@ export default async function PhotosPage({ params }: { params: Promise<{ id: str
         </p>
       )}
 
-      {waiting > 0 && (
-        <p className="card mb-4 p-4 text-sm">
-          <strong>{waiting}</strong> {waiting === 1 ? 'photo is' : 'photos are'} waiting for you.
-        </p>
-      )}
-
       {media.length === 0 ? (
-        <Empty>No photos yet. They will show up here as your guests send them.</Empty>
+        <Empty>{open ? 'No photos yet. They will appear here as your guests add them.' : 'The album is off — switch it on above and the photos your guests add will appear here.'}</Empty>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {media.map((m) => (

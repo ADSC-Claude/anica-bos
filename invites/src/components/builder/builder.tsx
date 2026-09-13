@@ -94,6 +94,10 @@ export function Builder({
   const [version, setVersion] = useState(0);
   const [done, setDone] = useState<SectionKey[]>(doneInitial);
   const [sheet, setSheet] = useState(false);
+  // The opening (the envelope, the clip) plays on the phone only when asked
+  // for: it is the guest's first moment, and worth a look, but a form that
+  // replayed it after every save would be a form nobody could work beside.
+  const [opening, setOpening] = useState(false);
   const [pending, start] = useTransition();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inflight = useRef(false);
@@ -195,7 +199,7 @@ export function Builder({
     });
   }
 
-  const previewSrc = `${invitationPath(slug)}?bare=1&at=${current}`;
+  const previewSrc = opening ? `${invitationPath(slug)}?at=${current}` : `${invitationPath(slug)}?bare=1&at=${current}`;
 
   // One column on a phone, two on a desk: the form and the phone. Every column
   // is min-w-0 so a wide list cannot set the page's width and zoom it out.
@@ -298,12 +302,17 @@ export function Builder({
       </section>
 
       <aside data-tour="phone" className={`min-w-0 lg:sticky lg:top-4 lg:block lg:self-start ${sheet ? 'fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-[#1f1d1a]/85 p-4 lg:static lg:z-auto lg:bg-transparent lg:p-0' : 'hidden'}`}>
-        <div className="mb-2 flex w-full max-w-[410px] items-center justify-between">
+        <div className="mb-2 flex w-full max-w-[410px] items-center justify-between gap-2">
           <p className={`text-xs font-semibold uppercase tracking-wide ${sheet ? 'text-white lg:text-[color:var(--color-ink-500)]' : 'text-[color:var(--color-ink-500)]'}`}>Your page, live</p>
-          <a href={invitationPath(slug)} target="_blank" rel="noopener" className={`text-xs underline ${sheet ? 'text-white lg:text-inherit' : ''}`}>Open in a new tab</a>
+          <span className={`flex items-center gap-2 text-xs ${sheet ? 'text-white lg:text-inherit' : ''}`}>
+            <button type="button" className={`rounded-full border px-2 py-0.5 ${opening ? 'border-[color:var(--color-plum-600)] bg-[color:var(--color-plum-600)] text-white' : 'border-[color:var(--color-sand-300)] bg-white text-[color:var(--color-ink-700)]'}`} onClick={() => setOpening((o) => !o)} title="Play the envelope or clip your guests see first">
+              {opening ? 'Opening: on' : 'Opening: off'}
+            </button>
+            <a href={invitationPath(slug)} target="_blank" rel="noopener" className="underline">Open in a new tab</a>
+          </span>
         </div>
         <div className="builder-phone w-full">
-          <PhonePreview src={previewSrc} version={version} />
+          <PhonePreview key={opening ? 'opening' : 'bare'} src={previewSrc} version={version} />
         </div>
         {sheet && <button type="button" className="btn btn-secondary lg:hidden" onClick={() => setSheet(false)}>Close</button>}
       </aside>

@@ -7,6 +7,11 @@ import { useEffect, useState } from 'react';
  * one in front shows the last save, the one behind loads the next, and
  * they swap only once the new page has arrived — so the customer never
  * watches a blank screen between one save and the next.
+ *
+ * It lives here rather than in the builder because two tabs now hold one:
+ * the Invitation tab beside the form, and the RSVP tab beside the questions.
+ * The bezel is the `.phone` frame in globals.css; a `.builder-phone` wrapper
+ * around it sizes the frame to a real handset's width.
  */
 export function PhonePreview({ src, version }: { src: string; version: number }) {
   const at = (v: number) => `${src}&v=${v}`;

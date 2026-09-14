@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { requireUser } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { welcomeDue } from '@/lib/welcome';
 import { OrderPill, PaymentPill } from '@/components/ui';
 
 export const metadata = { title: 'Order status', robots: { index: false } };
@@ -24,6 +25,12 @@ export default async function ConfirmPage({ params }: { params: Promise<{ refere
   const s = await getSettings();
   const latest = order.payments[0];
   const active = order.status === 'ACTIVE' || order.status === 'PAID';
+  // A first open lands on the Invitation tab, where the welcome carries the
+  // receipt — the order, the payment confirmed — and lays out the plan: one
+  // screen, not a receipt and then a button to press. Anyone coming back to
+  // this address later, or staff paying on a customer's behalf, still gets
+  // the receipt here.
+  if (active && order.invitation && welcomeDue(order.invitation, user)) redirect(`/account/invitations/${order.invitation.id}`);
   const waitingGateway = order.status === 'PENDING_PAYMENT' && latest?.provider === 'PAYMONGO' && latest.status === 'PENDING';
   const waitingProof = order.status === 'PENDING_PAYMENT' && latest?.provider === 'MANUAL' && latest.status === 'PENDING';
   const dfy = order.serviceMode !== 'DIY';

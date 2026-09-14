@@ -26,7 +26,7 @@ export const CHAPTERS: Chapter[] = [
       'On the Invitation tab the screen is in two halves: on the left you fill in, on the right you see your real page on a phone, exactly as a guest will. Every change saves by itself — there is no save button to forget — and the phone catches up a moment later, at the part you are working on.',
       'The Get started list at the top of the form is the plan: six lines, ticked by your invitation as you fill it in. Follow them down and you are done. This guide follows the same order.',
     ],
-    steps: ['Press Show me around on the Get started list for a two-minute walk through the screen.'],
+    steps: ['The first time you open your invitation we offer to show you around — say yes for a two-minute walk through the screen. Show me around stays on the Get started list for any time after.'],
   },
   {
     key: 'invitation',

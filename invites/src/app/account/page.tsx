@@ -64,7 +64,7 @@ export default async function AccountHome() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 border-t border-[color:var(--color-sand-100)] px-4 py-3 text-sm">
-                  <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{active ? (inv.status === 'PUBLISHED' ? 'Open' : dfy && inv.dfyJob?.status === 'NEW' ? 'Fill in your details' : 'Continue') : 'Open'}</Link>
+                  <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{active ? (inv.status === 'PUBLISHED' ? 'Open' : inv.status === 'DRAFT' && !inv.welcomedAt ? 'Get started' : dfy && inv.dfyJob?.status === 'NEW' ? 'Fill in your details' : 'Continue') : 'Open'}</Link>
                   {active && inv.status !== 'PUBLISHED' && <Link href={`/account/invitations/${inv.id}/share`} className="btn btn-secondary btn-sm">{dfy ? 'Preview & approval' : 'Publish'}</Link>}
                   {inv.status === 'PUBLISHED' && <a href={invitationPath(inv.slug)} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">View live</a>}
                 </div>

@@ -15,6 +15,7 @@ import { invitationPath } from '@/lib/app-url';
 import { formatDate } from '@/lib/datetime';
 import { Notice } from '@/components/ui';
 import { GetStarted, type SendToUs } from '@/components/account/checklist';
+import type { Welcome } from '@/lib/welcome';
 import { PhonePreview } from '@/components/account/phone';
 
 export type { BuilderSection };
@@ -65,6 +66,7 @@ export function Builder({
   hidesWhenEmpty = false,
   checklist = [],
   send = null,
+  welcome = null,
   embed = false,
   canEditClosed = false,
   onDraft,
@@ -98,6 +100,8 @@ export function Builder({
   checklist?: ChecklistLine[];
   /** The other ways of handing us the details, where the package has us typing them in. */
   send?: SendToUs | null;
+  /** The first open after paying: the receipt and the plan over the list, and the tour offered once. */
+  welcome?: Welcome | null;
   /**
    * Inside the studio: the form alone, filling whatever it is put in — no
    * checklist, no notices, no language and look choices, no phone. Its host
@@ -270,7 +274,7 @@ export function Builder({
 
   const form = (
     <section className="min-w-0">
-      {!embed && <GetStarted invitationId={invitationId} lines={checklist} send={send} />}
+      {!embed && <GetStarted invitationId={invitationId} lines={checklist} send={send} welcome={welcome} />}
 
       {!embed && (
         <div className="mb-4 space-y-2">

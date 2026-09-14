@@ -344,6 +344,17 @@ export async function setSectionDone(user: SessionUser, invitationId: string, ke
   return doneSections(content.progress);
 }
 
+/**
+ * The welcome answered: the tour taken or declined, so it is not offered
+ * again. Remembered on the invitation rather than in a browser, so a welcome
+ * answered on a phone is not asked again on the laptop. Only the owner's
+ * answer counts — staff opening a customer's invitation must not spend it —
+ * and a second answer changes nothing.
+ */
+export async function markWelcomed(user: SessionUser, invitationId: string) {
+  await prisma.invitation.updateMany({ where: { id: invitationId, userId: user.id, welcomedAt: null }, data: { welcomedAt: new Date() } });
+}
+
 export async function updateTheme(user: SessionUser, invitationId: string, theme: ThemeOverride) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
   assertNotPublished(user, invitation);

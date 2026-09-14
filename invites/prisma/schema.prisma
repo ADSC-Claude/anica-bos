@@ -581,6 +581,14 @@ model Invitation {
   /// e-mailing a guest a reply meant for staff.
   guestMessages Json @default("{}")
 
+  /// When the customer answered the welcome on the Invitation tab — took the
+  /// tour or said they would find their own way. Null until then, and the
+  /// welcome stays on the tab at every open until it is answered, because a
+  /// first open is not a moment to lose to a closed browser. Set once, by the
+  /// owner alone: staff opening a customer's invitation are not welcomed and
+  /// must not spend the customer's welcome for them.
+  welcomedAt DateTime?
+
   user          User        @relation(fields: [userId], references: [id])
   template      Template    @relation(fields: [templateId], references: [id])
   order         Order?

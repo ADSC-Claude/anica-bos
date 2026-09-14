@@ -13,7 +13,14 @@ import { useEffect } from 'react';
 export function ScrollTo({ id }: { id: string }) {
   useEffect(() => {
     if (!id) return;
-    const go = () => document.getElementById(id)?.scrollIntoView({ block: 'start' });
+    // The page's own window and nothing above it. scrollIntoView reaches up
+    // through a same-origin frame and scrolls the dashboard too, so the
+    // builder's phone dragged the Invitation tab down past the Get-started
+    // list — and the welcome — on every open.
+    const go = () => {
+      const el = document.getElementById(id);
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY });
+    };
     const t1 = setTimeout(go, 80);
     const t2 = setTimeout(go, 600);
     return () => {

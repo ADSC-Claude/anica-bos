@@ -6,7 +6,7 @@ import type { Occasion, Privacy, Tier } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
-import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
+import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening, markWelcomed } from '@/lib/invitations';
 import { restoreRevision } from '@/lib/revisions';
 import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, saveTable, deleteTable, assignTable, checkIn, setArrived, type GuestInput } from '@/lib/guests';
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
@@ -64,6 +64,16 @@ export async function sectionDoneAction(invitationId: string, key: SectionKey, d
     const list = await setSectionDone(user, invitationId, key, done);
     refresh(invitationId);
     return { done: list };
+  });
+}
+
+/** The welcome on the Invitation tab answered — the tour taken or declined — so it is not offered again. */
+export async function welcomedAction(invitationId: string) {
+  const user = await requireUser();
+  return action(async () => {
+    await markWelcomed(user, invitationId);
+    refresh(invitationId);
+    return {};
   });
 }
 

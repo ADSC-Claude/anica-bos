@@ -88,6 +88,13 @@ expanded, 1.98s, every time.
 
 Then add the name to `THEMES` in `envelope.js` so the engine accepts it.
 
+You do not style the surface. The paper's fibre, its mottling, the light
+falling across it, the lit cut edges and the creases are all engine-owned and
+come free with the variables above. In particular every highlight is mixed
+from `--envelope-color` itself rather than from white, so a burgundy or a
+near-black sheet gets a believable sheen instead of a blown-out one. Set the
+colour and the surface follows.
+
 ## Fitting it into a box
 
 The envelope sizes itself from the viewport and the opened slot is

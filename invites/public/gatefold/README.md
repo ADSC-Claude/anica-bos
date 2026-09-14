@@ -126,6 +126,13 @@ becomes a fade rather than a growth.
 
 Then add the name to `THEMES` in `gatefold.js` so the engine accepts it.
 
+You do not style the surface. The paper's fibre, its mottling, the light across
+each panel, the lit cut edges, the centre fold and the satin's weft are all
+engine-owned and come free with the variables above. In particular every
+highlight is mixed from `--primary-color` itself rather than from white, so the
+navy and the deep rose get a believable sheen instead of a blown-out one. Set
+the colour and the surface follows.
+
 ## Fitting it into a box
 
 The package sizes itself from the viewport and the opened card is

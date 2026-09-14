@@ -179,6 +179,35 @@
 }
 
 .gatefold {
+  /* --- the paper and the silk ------------------------------------------
+     What makes a drawn package read as a drawing is that its surfaces have
+     none: flat fills, perfectly even light, edges with no thickness. These
+     tiles are the surface. Both are SVG fractal noise inlined as a data URI
+     — no request leaves the page, and each is rasterised once and tiled.
+
+       --gf-grain   fine tooth, the fibre you see up close
+       --gf-mottle  slow cloudiness, the unevenness of a cotton sheet
+       --gf-weave   the weft of satin, fine lines along the ribbon's length
+
+     They go into the background stack of every face, under the light and
+     over the colour. Themes never touch them. A background tile costs
+     nothing when the element is transformed, which matters here: the panels
+     swing and the ribbon falls, and a filter would have to be recomputed
+     every frame where a tiled background is rasterised once. */
+  /* Every highlight on the paper is the paper's own colour lightened, never
+     white — white is only correct on a white sheet, and on the navy or the
+     deep rose it blows the surface out. One name for it, so a new theme gets
+     a believable highlight for free. */
+  --gf-lit: color-mix(in srgb, #fff 58%, var(--primary-color));
+
+  --gf-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.6'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.34'/%3E%3C/svg%3E");
+  --gf-mottle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.42'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='420' height='420' filter='url(%23m)' opacity='0.3'/%3E%3C/svg%3E");
+  /* Satin is smooth: its weft is a whisper, not a rib. Strong enough to see
+     and it stops being satin and turns into corduroy. */
+  --gf-weave: repeating-linear-gradient(90deg,
+    rgba(255, 255, 255, 0.028) 0 1px,
+    rgba(0, 0, 0, 0.03) 1px 2px);
+
   /* --- geometry (engine-owned) ---
      Sized from whichever edge runs out first. 47vw rather than something
      roomier because a gate-fold opened to 158° is 1.93 times as wide as it is
@@ -475,23 +504,40 @@
 }
 
 .gatefold__face--front {
-  background:
+  background-image:
+    var(--gf-grain),
+    var(--gf-mottle),
+    /* The sheen off a sheet that is not perfectly flat, and the fall-off
+       toward its edges. */
+    radial-gradient(110% 80% at 28% 6%,
+      color-mix(in srgb, color-mix(in srgb, #fff 55%, var(--primary-color)) 28%, transparent),
+      transparent 58%),
+    radial-gradient(130% 116% at 50% 46%, rgba(0, 0, 0, 0) 42%, rgba(30, 21, 12, 0.12) 100%),
     linear-gradient(114deg,
       color-mix(in srgb, var(--primary-color) 99%, #fff 1%) 0%,
       var(--primary-color) 46%,
       color-mix(in srgb, var(--primary-color) 88%, #000 12%) 100%);
+  background-size: 140px 140px, 420px 420px, auto, auto, auto;
   box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 20%, transparent),
+    /* A cut sheet catches the light along its top edge and goes dark at the
+       bottom where it meets its own shadow. */
+    inset 0 1px 0 color-mix(in srgb, var(--gf-lit) 48%, transparent),
+    inset 0 -1px 0 rgba(28, 20, 12, 0.2),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent-color) 14%, transparent),
     0 0.7rem 1.4rem -0.7rem rgba(34, 24, 14, 0.34);
 }
 
 .gatefold__face--back {
   transform: rotateY(180deg);
-  background:
+  background-image:
+    var(--gf-grain),
+    var(--gf-mottle),
     linear-gradient(114deg,
       color-mix(in srgb, var(--lining-color) 92%, #000 8%) 0%,
       var(--lining-color) 52%,
       color-mix(in srgb, var(--lining-color) 84%, #000 16%) 100%);
+  background-size: 140px 140px, 420px 420px, auto;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--gf-lit) 30%, transparent);
 }
 
 /* The seam down the middle of the closed package: each panel darkens toward
@@ -499,21 +545,37 @@
 .gatefold__panel--left .gatefold__face--front {
   border-radius: 5px 0 0 5px;
   background-image:
-    linear-gradient(90deg, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.11) 100%),
+    var(--gf-grain),
+    var(--gf-mottle),
+    /* The fold at the centre: dark on the face turning away from the light,
+       with the lit lip of the neighbouring panel beside it. */
+    linear-gradient(90deg, rgba(0, 0, 0, 0) 86%, rgba(24, 17, 10, 0.13) 99.5%, color-mix(in srgb, var(--gf-lit) 44%, transparent) 100%),
+    radial-gradient(110% 80% at 28% 6%,
+      color-mix(in srgb, color-mix(in srgb, #fff 55%, var(--primary-color)) 28%, transparent),
+      transparent 58%),
+    radial-gradient(130% 116% at 50% 46%, rgba(0, 0, 0, 0) 42%, rgba(30, 21, 12, 0.12) 100%),
     linear-gradient(114deg,
       color-mix(in srgb, var(--primary-color) 99%, #fff 1%) 0%,
       var(--primary-color) 46%,
       color-mix(in srgb, var(--primary-color) 88%, #000 12%) 100%);
+  background-size: 140px 140px, 420px 420px, auto, auto, auto, auto;
 }
 
 .gatefold__panel--right .gatefold__face--front {
   border-radius: 0 5px 5px 0;
   background-image:
-    linear-gradient(270deg, rgba(0, 0, 0, 0) 88%, rgba(0, 0, 0, 0.11) 100%),
+    var(--gf-grain),
+    var(--gf-mottle),
+    linear-gradient(270deg, rgba(0, 0, 0, 0) 86%, rgba(24, 17, 10, 0.13) 99.5%, color-mix(in srgb, var(--gf-lit) 44%, transparent) 100%),
+    radial-gradient(110% 80% at 72% 6%,
+      color-mix(in srgb, color-mix(in srgb, #fff 55%, var(--primary-color)) 28%, transparent),
+      transparent 58%),
+    radial-gradient(130% 116% at 50% 46%, rgba(0, 0, 0, 0) 42%, rgba(30, 21, 12, 0.12) 100%),
     linear-gradient(246deg,
       color-mix(in srgb, var(--primary-color) 99%, #fff 1%) 0%,
       var(--primary-color) 46%,
       color-mix(in srgb, var(--primary-color) 88%, #000 12%) 100%);
+  background-size: 140px 140px, 420px 420px, auto, auto, auto, auto;
 }
 
 .gatefold__panel--left .gatefold__face--back { border-radius: 0 5px 5px 0; }
@@ -538,14 +600,20 @@
   top: 43.5%;
   height: 11.5%;
   /* Satin: a band of light across the middle of the weave, darker at both
-     edges where it curves away. */
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--ribbon-color) 82%, #000 18%) 0%,
-    var(--ribbon-color) 26%,
-    var(--ribbon-highlight) 46%,
-    var(--ribbon-color) 66%,
-    color-mix(in srgb, var(--ribbon-color) 74%, #000 26%) 100%);
-  box-shadow: 0 0.3rem 0.5rem -0.35rem rgba(30, 12, 18, 0.5);
+     edges where it curves away — and the weft running along its length,
+     which is the thing that separates woven ribbon from a gradient. */
+  background-image:
+    var(--gf-weave),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--ribbon-color) 80%, #000 20%) 0%,
+      var(--ribbon-color) 24%,
+      var(--ribbon-highlight) 44%,
+      var(--ribbon-color) 64%,
+      color-mix(in srgb, var(--ribbon-color) 72%, #000 28%) 100%);
+  background-size: 2px 100%, auto;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 0.3rem 0.5rem -0.35rem rgba(30, 12, 18, 0.5);
   transition:
     transform var(--gf-slide-dur) var(--gf-ease-fall) var(--gf-slide-delay),
     opacity var(--gf-ribbon-fade-dur) var(--gf-ease-soft) var(--gf-ribbon-fade-delay);
@@ -1071,12 +1139,17 @@
   --font-heading: Georgia, "Iowan Old Style", "Times New Roman", serif;
 }
 
+/* A rule on an invitation is foil or a blind deboss, not a stroke in a drawing
+   program: the line is soft and close to the paper's own colour, and what you
+   actually see is the lip of paper standing up beside it, catching the light. */
 .gatefold.wedding .gatefold__face--front::after {
   content: "";
   position: absolute;
   inset: 7% 9%;
-  border: 1px solid color-mix(in srgb, var(--accent-color) 48%, transparent);
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--primary-color) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 36%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
 }
 
 .gatefold.wedding .gatefold__face--back::after {
@@ -1104,8 +1177,9 @@
   content: "";
   position: absolute;
   inset: 8% 10%;
-  border: 1px dashed color-mix(in srgb, var(--accent-color) 58%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent-color) 44%, transparent);
   border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 /* ---- birthday: sunlit coral, raspberry ribbon, confetti ---------------- */
@@ -1154,8 +1228,10 @@
   content: "";
   position: absolute;
   inset: 6% 8%;
-  border: 1px solid color-mix(in srgb, var(--accent-color) 62%, transparent);
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent-color) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-color) 50%, transparent);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 3px color-mix(in srgb, var(--accent-color) 16%, transparent);
   background-image:
     radial-gradient(circle at 50% 6%, var(--accent-color) 0 1.6%, transparent 2.1%),
     radial-gradient(circle at 50% 94%, var(--accent-color) 0 1.6%, transparent 2.1%);

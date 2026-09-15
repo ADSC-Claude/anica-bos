@@ -16,7 +16,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, runOf, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1666,6 +1666,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (doc.overflowGround && isPicture(doc.overflowGround)) groundPairs.push([OVERFLOW_BG, doc.overflowGround]);
   }
   const docGrounds = doc ? Object.fromEntries(groundPairs) : undefined;
+  // the pages that sit on the picture of a page before them, where one runs on
+  const runs = doc ? runOf(doc) : new Map<string, string>();
   /** Where the peek stops: the page the design marks, or the first page. */
   const peekPage = doc ? peekEndPage(doc) : 'story';
   // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
@@ -1880,7 +1882,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1890,6 +1892,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           className="inv-page"
           data-page={key}
           data-bg={o.bg}
+          // the head of the run this page's picture belongs to, on the head and on every page that sits on it: PageGround lays one paper down them all
+          data-run={o.run}
           data-seam={o.seam}
           data-foot={o.foot !== undefined ? '' : undefined}
           data-drawn={o.drawn ? '' : undefined}
@@ -1971,7 +1975,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec) }));
+        // its own picture, or the one that runs on from a page before it
+        const head = runs.get(spec.key);
+        const own = spec.ground && isPicture(spec.ground);
+        const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
+        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec) }));
       }
     }
     // a section the document does not name gets a page of its own, in its place
@@ -1980,7 +1988,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // the ground, and the one page the studio is drawing
       const ground = out.slice(0, 2);
       const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
-      const found = rest.filter((el) => el.props['data-page'] === only);
+      // A page that sits on a picture running on from a page before it is
+      // drawn with those pages above it, so the picture is where it will be;
+      // the studio scrolls its frame to the page it asked for.
+      const head = runs.get(only);
+      const from = head ? rest.findIndex((el) => el.props['data-page'] === head) : -1;
+      const to = rest.findIndex((el) => el.props['data-page'] === only);
+      const found = to < 0 ? [] : from >= 0 && from < to ? rest.slice(from, to + 1) : [rest[to]];
       if (found.length) return [...ground, ...found];
       /*
        * A page with nothing on it is not drawn for a guest, and the studio

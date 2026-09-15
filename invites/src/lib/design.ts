@@ -234,6 +234,12 @@ export type PictureGround = {
   slices?: { top: string; foot: string; mid: string };
   /** the same picture by night, when the design has one */
   night?: string;
+  /**
+   * How many pages after this one sit on this picture where it runs on,
+   * one length of it down all of them, instead of on a ground of their own.
+   * `runOf` says which pages actually do.
+   */
+  runsOn?: number;
 };
 
 /**
@@ -868,6 +874,7 @@ const zPictureGround = z.object({
   url: z.string().min(1).max(500), ratio: z.number().positive().max(40),
   top: zColour, bottom: zColour,
   slices: z.object({ top: z.string(), foot: z.string(), mid: z.string() }).optional(),
+  runsOn: z.number().int().min(1).max(6).optional(),
   night: z.string().max(500).optional(),
 }).strict();
 const zColourGround = z.object({ color: zColour, ratio: z.number().positive().max(40).optional() }).strict();
@@ -1756,6 +1763,32 @@ export function blastRadius(
  * which is the safe way round. A design that renames its story page keeps its
  * peek, because the mark travels with the page and not with its name.
  */
+/**
+ * Which page's picture each page sits on, where a picture runs on.
+ *
+ * A picture that says it runs on under the next pages is laid once, down all
+ * of them, one length of it — a tall design flows down the invitation the
+ * way it was drawn instead of starting again at every page. The page it was
+ * uploaded on is the head of the run, and the pages after sit on it for as
+ * long as they have no ground of their own and are not placed by hand:
+ * either ends the run early, whatever the number says. Only the pages that
+ * sit on another page's picture are in the map; a head sits on its own.
+ */
+export function runOf(doc: DesignDoc): Map<string, string> {
+  const on = new Map<string, string>();
+  const pages = doc.pages;
+  for (let i = 0; i < pages.length; i++) {
+    const g = pages[i].ground;
+    if (!g || !isPicture(g) || !g.runsOn) continue;
+    for (let j = i + 1; j <= i + g.runsOn && j < pages.length; j++) {
+      const p = pages[j];
+      if (p.ground || p.drawn) break;
+      on.set(p.key, pages[i].key);
+    }
+  }
+  return on;
+}
+
 export function peekEndPage(doc: DesignDoc | null): string | undefined {
   return doc?.pages.find((p) => p.peekEnd)?.key;
 }

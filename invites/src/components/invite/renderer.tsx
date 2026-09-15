@@ -4,7 +4,7 @@ import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
-import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -58,6 +58,15 @@ export type RenderProps = {
   bare?: boolean;
   /** A visitor's look at a design: the opening, the cover and Our Story, then the way in. Nothing after. */
   peek?: boolean;
+  /**
+   * The studio's canvas: this one page of the document and nothing else. Its
+   * decorations are left off, because the studio draws them over the page
+   * itself, live, with handles; the ground is still laid, so the page keeps
+   * its own background. Bare pages only.
+   */
+  only?: string;
+  /** With `only`: the height of the screen the page is drawn for, in pixels, for the rules that want one (see --inv-screen). */
+  screen?: number;
   /**
    * The peek, framed inside one of our own pages rather than opened as a page
    * of its own — the landing band's card. What changes is navigation: the
@@ -1595,7 +1604,7 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, embed = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, embed = false, only, screen, shape, look: lookOverride, sets, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
@@ -1922,7 +1931,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           </div>
         )]
         : parts;
-      if (!flowDecor(spec).length) return body;
+      // the studio draws a page's decorations itself, over this very page
+      if (!flowDecor(spec).length || only) return body;
       // behind the words, then the words, then what the design asked to have
       // over them: see FlowDecor for why they cannot be one layer
       return [
@@ -1964,6 +1974,33 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     }
     // a section the document does not name gets a page of its own, in its place
     for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    if (only) {
+      // the ground, and the one page the studio is drawing
+      const ground = out.slice(0, 2);
+      const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
+      const found = rest.filter((el) => el.props['data-page'] === only);
+      if (found.length) return [...ground, ...found];
+      /*
+       * A page with nothing on it is not drawn for a guest, and the studio
+       * would be left measuring an empty frame — which reads as the canvas
+       * being broken rather than as the page being empty. So the page is
+       * drawn here anyway, carrying the reason, and only here: a guest is
+       * still shown nothing.
+       */
+      const spec = doc?.pages.find((p) => p.key === only);
+      const carried = spec ? spec.sections : OCCASION_SECTIONS[occasion].includes(only as SectionKey) ? [only] : [];
+      const names = carried.map((k) => (k === 'verse' ? 'the verse' : k === 'gallery-video' ? 'the film' : (() => { try { return sectionLabel(k as SectionKey, occasion); } catch { return k; } })()));
+      const why = !carried.length
+        ? 'This page carries no part yet, so a guest is shown nothing here. Put a part on it on the right, or give it a picture of its own.'
+        : `A guest is shown nothing here: ${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} not written in on the invitation the canvas is drawn against. Fill ${names.length === 1 ? 'it' : 'them'} in under the Invitation tab, or draw against “Anybody” to see the page filled.`;
+      return [...ground, (
+        <div key={only} className="inv-page" data-page={only} data-empty="">
+          <section className="inv-section text-center text-sm" style={{ color: 'var(--inv-muted)', padding: '3rem 1.5rem' }}>
+            <p>{why}</p>
+          </section>
+        </div>
+      )];
+    }
     if (peek) {
       // the ground, then the pages up to the one the design ends the peek on
       const ground = out.slice(0, 2);
@@ -2097,7 +2134,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // than the body, because the colour is the design's and a variable set on
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
-    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours }} lang={lang}>
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
       {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
       {/* a face she uploaded, served from our own bucket rather than by Google */}
       {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}
@@ -2114,6 +2151,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         {peekEndBlock}
+        {/* the studio's frame is one page and nothing around it: no footer, no floating RSVP */}
+        {!only && (
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && !peek && (
             <div className="no-print mb-4 flex flex-wrap justify-center gap-2">
@@ -2123,7 +2162,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           )}
           <p>{businessName}</p>
         </footer>
-        {rsvpVisible && !print && !peek && (
+        )}
+        {rsvpVisible && !print && !peek && !only && (
           <a href="#rsvp" className="inv-btn inv-sticky no-print">{t(lang, 'nav.rsvp')}</a>
         )}
       </Shell>

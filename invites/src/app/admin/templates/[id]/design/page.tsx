@@ -12,6 +12,7 @@ import { signDraftLink } from '@/lib/draft-link';
 import { absoluteUrl } from '@/lib/app-url';
 import { BackLink } from '@/components/ui';
 import { Studio } from './studio';
+import { TemplateTabs } from '../tabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,7 +99,8 @@ export default async function DesignStudioPage({ params, searchParams }: { param
   return (
     <>
       {/* the way back is the way she came: the tab, when the tab sent her */}
-      <BackLink href={against ? `/account/invitations/${against.id}` : `/admin/templates/${t.id}`}>{against ? `${against.title} — the Invitation tab` : t.name}</BackLink>
+      <BackLink href={against ? `/account/invitations/${against.id}` : '/admin/templates'}>{against ? `${against.title} — the Invitation tab` : 'Templates'}</BackLink>
+      <TemplateTabs id={t.id} active="pages" />
       <Studio
         templateId={t.id}
         name={t.name}

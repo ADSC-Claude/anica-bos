@@ -33,7 +33,7 @@ import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
-import { OCCASION_SECTIONS, sectionOrder, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
 import { STAFF_ROLES } from '@/lib/rbac';
 import type { Permission } from '@/lib/rbac';
 
@@ -204,25 +204,22 @@ export async function saveTemplateAction(templateId: string | null, back: string
     if (!data.name) throw new HttpError(400, 'A template needs a name.');
     /*
      * A design made here starts with pages, so the studio has something to
-     * open on. Before this it started with nothing and the only way to get a
-     * design was to copy one of the two, which meant carrying their page
-     * names and their proportions whether they were wanted or not.
+     * open on: one page per part ticked above, in the order the form lists
+     * them, on plain colours. Its own structure and nobody else's — the
+     * option to start from Baby Blue's or Capiz's pages is gone, because a
+     * new design was never meant to inherit theirs; a copy of either is
+     * still made from the Templates list, where copying is what is meant.
      *
      * It goes in the draft, never in what a guest renders: a design is
      * published from the studio and nowhere else.
      */
-    const start = !templateId
-      // in the layout's own order, not the form's: a starter should read like
-      // an invitation — the story and the details, then the forms and the
-      // countdown — rather than like the list of questions it came from
-      ? (s(fd, 'startFrom') === 'layout' ? builtinDesign(layout) : null)
-        ?? starterDesign(sectionOrder(occasion as Occasion, layout).filter((k) => ticked.includes(k)))
-      : null;
+    const start = !templateId ? starterDesign(ticked) : null;
     const saved = templateId
       ? await prisma.template.update({ where: { id: templateId }, data })
       : await prisma.template.create({ data: { ...data, ...(start ? { designDraft: start as never } : {}) } });
     await audit(user, { module: 'templates', action: templateId ? 'update' : 'create', entityType: 'Template', entityId: saved.id, summary: saved.name });
-    if (!templateId) redirect(`/admin/templates/${saved.id}?ok=Created`);
+    // straight to the studio, with the invitation on the canvas
+    if (!templateId) redirect(`/admin/templates/${saved.id}/design`);
     return 'Template saved.';
   });
 }

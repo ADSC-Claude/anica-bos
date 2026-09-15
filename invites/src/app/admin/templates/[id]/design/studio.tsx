@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
-import {
-  isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
+import { pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
@@ -45,11 +44,12 @@ import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pa
  */
 
 /** The widths a guest actually reads on. "Laptop" is the widest column we ever draw. */
+/** Each width with the height of the screen it stands for, for the page under the canvas (see --inv-screen). */
 const WIDTHS = [
-  { key: 360, label: 'Small phone', hint: '360' },
-  { key: 390, label: 'Phone', hint: '390' },
-  { key: 430, label: 'Large phone', hint: '430' },
-  { key: 512, label: 'Laptop', hint: '512' },
+  { key: 360, label: 'Small phone', hint: '360', screen: 800 },
+  { key: 390, label: 'Phone', hint: '390', screen: 844 },
+  { key: 430, label: 'Large phone', hint: '430', screen: 932 },
+  { key: 512, label: 'Laptop', hint: '512', screen: 900 },
 ];
 
 /** How far a drag has to come to snap: a fifth of a percent of the page's width. */
@@ -149,6 +149,24 @@ export function Studio(p: Props) {
   const [shown, setShown] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
+  /*
+   * The page as a guest is served it, under the canvas.
+   *
+   * A page laid out by its words has no height of its own — its words
+   * decide — so the studio cannot draw it, and for a long time it did not:
+   * the canvas was a blank sheet with the decorations on it, and the words
+   * were only to be seen under The whole invitation, after a save. That is
+   * the canvas somebody opens and asks where the invitation is. Now the
+   * guest page draws it, one page at a time, from the draft as last saved,
+   * and it sits under the decorations here at its real height. `top` is
+   * where that page starts inside its frame and `height` how tall it came
+   * out, so the canvas is exactly the page and nothing around it.
+   */
+  const flowFrame = useRef<HTMLIFrameElement | null>(null);
+  const [flowBox, setFlowBox] = useState({ top: 0, height: 0 });
+  const flowWatch = useRef<ResizeObserver | null>(null);
+  /** the page chooser under +: a new page is asked what it carries */
+  const [adding, setAdding] = useState(false);
   /** who the canvas is drawn against: the demo, nobody, anybody, the longest — or a customer, when she came from their tab */
   const [sample, setSample] = useState<Sample | 'real'>(p.against ? 'real' : 'demo');
   /*
@@ -471,11 +489,12 @@ export function Studio(p: Props) {
     setState('error');
   }, [p.templateId, rev]);
 
-  // Two seconds after her hand stops, the draft is saved. Nothing a guest sees
-  // changes until she publishes.
+  // Six tenths of a second after her hand stops, the draft is saved — the
+  // page under the canvas is drawn from it, so a long wait is a page that
+  // lags behind her hand. Nothing a guest sees changes until she publishes.
   useEffect(() => {
     if (state !== 'dirty') return;
-    const id = setTimeout(() => { void save(doc); }, 2000);
+    const id = setTimeout(() => { void save(doc); }, 600);
     return () => clearTimeout(id);
   }, [state, doc, save]);
 
@@ -735,12 +754,18 @@ export function Studio(p: Props) {
       : '');
   }
 
-  /** A new page goes in after the one she is on, so it lands where she is looking. */
-  function addPage(from?: PageSpec) {
-    const key = freePageKey(from ? `${from.key}-copy` : 'page');
+  /**
+   * A new page goes in after the one she is on, so it lands where she is
+   * looking. It is made carrying the part she chose for it, under its own
+   * name: a page with nothing on it is not drawn at all, and until the
+   * chooser a new page was always that, which is how a page named
+   * "countdown" came to carry no countdown.
+   */
+  function addPage(from?: PageSpec, section?: PageSectionKey) {
+    const key = freePageKey(from ? `${from.key}-copy` : section ? pageKeyOf(section) : 'page');
     const made: PageSpec = from
       ? { ...JSON.parse(JSON.stringify(from)) as PageSpec, key, peekEnd: undefined }
-      : { key, sections: [] };
+      : { key, sections: section ? [section] : [] };
     const at = doc.pages.findIndex((x) => x.key === pageKey);
     const pages = [...doc.pages];
     pages.splice(at < 0 ? pages.length : at + 1, 0, made);
@@ -1001,6 +1026,17 @@ export function Studio(p: Props) {
     return keys.filter((k) => !here.has(k.key)).map((k) => ({ ...k, on: where.get(k.key) }));
   }, [doc, page, p.occasion]);
 
+  /** The parts not yet on any page, for a new page to carry. */
+  const unplaced = useMemo(() => {
+    const carried = new Set<string>(doc.pages.flatMap((x) => x.sections));
+    const keys: { key: PageSectionKey; label: string }[] = [
+      ...sectionsFor(p.occasion).map((d) => ({ key: d.key as PageSectionKey, label: sectionLabel(d.key, p.occasion) })),
+      { key: 'verse', label: 'The verse' },
+      { key: 'gallery-video', label: 'The film, and the photographs no frame holds' },
+    ];
+    return keys.filter((k) => !carried.has(k.key));
+  }, [doc, p.occasion]);
+
   /** A section already on the page, named the way the form names it. */
   const nameOf = useCallback((key: string) => {
     if (key === 'verse') return 'The verse';
@@ -1180,8 +1216,10 @@ export function Studio(p: Props) {
     const b = box();
     if (!b || !page) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const cx = b.left + ((el.x ?? 50) / 100) * b.width;
-    const cy = b.top + (el.y / 100) * b.height;
+    // where the box actually landed, which on a page laid out by its words is not a share of its height
+    const at = boxes[el.id];
+    const cx = at ? b.left + ((at.x + at.w / 2) / 100) * b.width : b.left + ((el.x ?? 50) / 100) * b.width;
+    const cy = at ? b.top + ((at.y + at.h / 2) / 100) * b.height : b.top + (el.y / 100) * b.height;
     past.current = [...past.current.slice(-49), doc];
     future.current = [];
     drag.current = { kind: 'turn', id: el.id, cx, cy, from: Math.atan2(e.clientY - cy, e.clientX - cx), rotate: el.rotate ?? 0 };
@@ -1196,12 +1234,22 @@ export function Studio(p: Props) {
       // moves by the same, so a group keeps its shape and snaps as one
       const lead = d.from[d.lead];
       if (!lead) return;
+      /*
+       * On a page laid out by its words, y is not a share of the height —
+       * the page has none of its own — but the gap from the edge the piece
+       * hangs off, as a share of the width (decorStyle). So the hand's
+       * travel is read against the width, and the other way up for a
+       * piece hung from the foot, which comes up the page as y grows.
+       */
+      const flow = !page.drawn;
+      const leadEl = elements.find((el) => el.id === d.lead);
+      const dir = flow && leadEl?.from === 'bottom' ? -1 : 1;
       let x = lead.x + ((e.clientX - d.px) / b.width) * 100;
-      let y = lead.y + ((e.clientY - d.py) / b.height) * 100;
+      let y = flow ? Math.max(0, lead.y + ((e.clientY - d.py) / b.width) * 100 * dir) : lead.y + ((e.clientY - d.py) / b.height) * 100;
       if (e.shiftKey) { if (Math.abs(e.clientX - d.px) > Math.abs(e.clientY - d.py)) y = lead.y; else x = lead.x; }
       const still = elements.filter((el) => !d.from[el.id]);
       x = snap(x, [50, ...still.map((el) => el.x ?? 50)]);
-      y = snap(y, still.map((el) => el.y));
+      if (!flow) y = snap(y, still.map((el) => el.y));
       const dx = x - lead.x;
       const dy = y - lead.y;
       editEls(d.ids, (el) => {
@@ -1394,7 +1442,10 @@ export function Studio(p: Props) {
     // so the canvas gives it a floor where a fixed page gets a proportion
     ...(page?.drawn
       ? (page.grow ? { minHeight: Math.max(width * ratio, grown + width * 0.04) } : { aspectRatio: `1 / ${ratio}` })
-      : { minHeight: width * 1.2 }),
+      // exactly the page box in the frame under it, whatever the stylesheet gives a page of this name
+      : { height: flowBox.height || width * 1.2, minHeight: 0, padding: 0, boxSizing: 'border-box' as const }),
+    // its own stacking context, so the frame under the canvas stays under the canvas
+    isolation: 'isolate',
     ...(ground && isPicture(ground)
       ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
       : ground ? { background: colourOf(ground.color, vars) } : {}),
@@ -1407,6 +1458,62 @@ export function Studio(p: Props) {
    * tab's, drawn at the tab's width — so the left column widens with it.
    */
   const wholeSlug = sample === 'real' && real ? real.slug : p.demoSlug;
+  /*
+   * Both frames are the real guest page, drawn from the draft, against
+   * whoever the canvas is drawn against and by day or by night as the
+   * canvas is: a made-up sample is asked for by name and the server makes
+   * the same one. `shown` is bumped when the draft saves, and the address
+   * changes with it, so the frame is re-pointed rather than remade — the
+   * last page stays up until the new one paints, where a new element
+   * would be a white box in between.
+   */
+  /*
+   * A design with no demo of its own — every design made a minute ago — is
+   * drawn on the form's stand-in instead: the preview route puts this
+   * design over an invitation of the same occasion. Before this the canvas
+   * of a new design was simply empty, which is not a canvas.
+   */
+  const frameBase = wholeSlug ? `/${wholeSlug}?bare=1&design=draft` : `/preview/template/${p.templateId}?design=draft`;
+  const wholeSrc = useMemo(() => {
+    const q = new URLSearchParams();
+    if (sample !== 'demo' && sample !== 'real') q.set('sample', sample);
+    if (night) q.set('mode', 'night');
+    const qs = q.toString();
+    return qs ? `${frameBase}&${qs}` : frameBase;
+  }, [frameBase, sample, night]);
+  const flowKey = page && !page.drawn ? page.key : '';
+  const screen = WIDTHS.find((w) => w.key === width)?.screen ?? 844;
+  const flowSrc = useMemo(() => {
+    if (!flowKey) return '';
+    const q = new URLSearchParams({ page: flowKey, screen: String(screen), v: String(shown) });
+    if (sample !== 'demo' && sample !== 'real') q.set('sample', sample);
+    if (night) q.set('mode', 'night');
+    return `${frameBase}&${q}`;
+  }, [frameBase, flowKey, screen, sample, night, shown]);
+  /** Where the page sits in its frame and how tall it is: the frame is same-origin, so it is simply read. */
+  const sizeFlow = useCallback(() => {
+    const win = flowFrame.current?.contentWindow;
+    const pg = win?.document.querySelector<HTMLElement>('[data-page]');
+    if (!win || !pg) return;
+    const r = pg.getBoundingClientRect();
+    const top = r.top + win.scrollY;
+    setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
+  }, []);
+  /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
+  const flowLoaded = useCallback(() => {
+    sizeFlow();
+    flowWatch.current?.disconnect();
+    const doc = flowFrame.current?.contentDocument;
+    if (!doc || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(sizeFlow);
+    ro.observe(doc.documentElement);
+    const pg = doc.querySelector('[data-page]');
+    if (pg) ro.observe(pg);
+    flowWatch.current = ro;
+  }, [sizeFlow]);
+  useEffect(() => () => flowWatch.current?.disconnect(), []);
+  // another page is another height; until it is measured the canvas guesses, as it always did
+  useEffect(() => { setFlowBox({ top: 0, height: 0 }); }, [flowKey]);
   const columns = view === 'import'
     ? (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr]' : 'lg:grid-cols-[15rem_1fr]')
     : (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr] 2xl:grid-cols-[26rem_1fr_19rem]' : 'lg:grid-cols-[15rem_1fr_19rem]');
@@ -1501,10 +1608,26 @@ export function Studio(p: Props) {
         <div className="flex items-center justify-between px-1">
           <p className="label">Pages</p>
           <span className="flex gap-1">
-            <button type="button" title="A new blank page after this one" onClick={() => addPage()} className="rounded bg-[color:var(--color-sand-200)] px-2 text-sm leading-6">+</button>
+            <button type="button" title="A new page after this one, carrying a part not yet on a page" aria-expanded={adding} onClick={() => setAdding((v) => !v)} className={`rounded px-2 text-sm leading-6 ${adding ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>+</button>
             <button type="button" title="A copy of this page after it" onClick={() => page && addPage(page)} className="rounded bg-[color:var(--color-sand-200)] px-2 text-xs leading-6">copy</button>
           </span>
         </div>
+        {adding && (
+          <div className="mx-1 mt-1 rounded-lg border border-[color:var(--color-sand-300)] bg-[color:var(--color-sand-100)] p-2 text-xs" data-testid="add-page">
+            <p className="mb-1 font-semibold">What will the new page carry?</p>
+            {unplaced.length ? (
+              <ul className="space-y-0.5">
+                {unplaced.map((k) => (
+                  <li key={k.key}><button type="button" onClick={() => { addPage(undefined, k.key); setAdding(false); }} className="w-full rounded px-2 py-1 text-left hover:bg-white">{k.label}</button></li>
+                ))}
+              </ul>
+            ) : (
+              <p className="hint">Every part is on a page already.</p>
+            )}
+            <button type="button" onClick={() => { addPage(); setAdding(false); }} className="mt-1 w-full rounded px-2 py-1 text-left text-[color:var(--color-ink-700)] hover:bg-white">A page with no part &mdash; artwork or a picture on its own</button>
+            <button type="button" onClick={() => setAdding(false)} className="mt-1 w-full rounded px-2 py-1 text-left text-[color:var(--color-ink-500)] hover:bg-white">Cancel</button>
+          </div>
+        )}
         <CopyFrom templateId={p.templateId} onCopy={addBrought} />
         <ol className="mt-1 space-y-1">
           {doc.pages.map((pg, i) => (
@@ -1755,19 +1878,15 @@ export function Studio(p: Props) {
         {view === 'whole' && (
           <div className="flex justify-center bg-[color:var(--color-sand-100)] p-4">
             {/* the invitation on the canvas — a customer's when she is drawing against one — as the draft design serves it */}
-            {wholeSlug ? (
-              <iframe
-                key={shown}
-                ref={frame}
-                title="The whole invitation"
-                src={`/${wholeSlug}?bare=1&design=draft`}
-                onLoad={showPage}
-                className="shadow-lg"
-                style={{ width, height: 780, border: 0, background: '#fff' }}
-              />
-            ) : (
-              <p className="hint py-12">This design has no demo invitation, so there is nothing to draw it against. Give it one on the template&rsquo;s own page.</p>
-            )}
+            <iframe
+              key={shown}
+              ref={frame}
+              title="The whole invitation"
+              src={wholeSrc}
+              onLoad={showPage}
+              className="shadow-lg"
+              style={{ width, height: 780, border: 0, background: '#fff' }}
+            />
           </div>
         )}
 
@@ -1795,14 +1914,27 @@ export function Studio(p: Props) {
               >
                 {/*
                   * A drawn page is its elements. A page laid out by its words
-                  * is its decorations and nothing else here: its words are its
-                  * customer's and their height is not known until the browser
-                  * has laid them out, which is what the whole-invitation tab
-                  * is for. The band is the page's width, and every decoration
+                  * is its decorations here, over the page itself: its words
+                  * are its customer's and their height is not known until the
+                  * browser has laid them out, so the guest page lays them out
+                  * in the frame above and this canvas takes its height from
+                  * it. The band is the page's width, and every decoration
                   * on it hangs off an edge by a share of that width — so what
                   * she sees here is exactly where it will be, on a page whose
                   * height is the only part this canvas has to guess.
                   */}
+                {page && !page.drawn && flowSrc && (
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
+                    <iframe
+                      ref={flowFrame}
+                      title="This page, as a guest sees it"
+                      src={flowSrc}
+                      onLoad={flowLoaded}
+                      tabIndex={-1}
+                      style={{ position: 'absolute', left: 0, top: -flowBox.top, width: '100%', height: flowBox.top + (flowBox.height || width * 1.2), border: 0, background: 'transparent' }}
+                    />
+                  </div>
+                )}
                 {page && (page.drawn
                   ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id }} />
                   : (['under', 'over'] as const).map((layer) => (
@@ -1878,10 +2010,11 @@ export function Studio(p: Props) {
                     })}
                   </div>
                 )}
-                {page?.drawn && (
+                {page && (page.drawn || pieces.decor.length > 0) && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
                     <Ties elements={elements} boxes={boxes} on={chosen} />
-                    {elements.map((el) => (
+                    {/* on a page laid out by its words the floats are among the words, in the frame, and only the decorations have handles here */}
+                    {(page.drawn ? elements : pieces.decor).map((el) => (
                       <Handle
                         key={el.id}
                         el={el}
@@ -1902,7 +2035,7 @@ export function Studio(p: Props) {
           </div>
         </div>
         {view === 'whole'
-          ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
+          ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; a moment after your hand stops &mdash; and scrolled to the page you are on.{!wholeSlug && ' This design has no demo invitation of its own, so it is drawn on a stand-in of the same occasion; give it a demo under Details to draw it on the real thing.'}</p>
           : view === 'page' && !page?.drawn && (
             <div className="mt-2">
               {/*
@@ -1918,7 +2051,7 @@ export function Studio(p: Props) {
                   <span className="hint ml-2">The writings this page already carries come onto it as boxes you can move and retype.</span>
                 </p>
               )}
-              <p className="hint mt-2">Until then it is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>
+              <p className="hint mt-2">This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against &mdash; and it is redrawn from the draft a moment after your hand stops. Its background, the parts it carries and the pictures and pieces on it are on the right; a piece along its head or foot is dragged here, and a picture the words flow past sits among them. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>
             </div>
           )}
         {/*

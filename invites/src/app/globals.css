@@ -1643,7 +1643,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   background: var(--inv-bg);
   color: var(--inv-ink);
   cursor: pointer;
-  transition: opacity 500ms ease 550ms, visibility 0s linear 1050ms;
+  transition: opacity calc(500ms * var(--moment-t, 1)) ease calc(550ms * var(--moment-t, 1)), visibility 0s linear calc(1050ms * var(--moment-t, 1));
 }
 .inv-open[data-open='true'] {
   opacity: 0;
@@ -1714,89 +1714,8 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 
 /* The Envelope and The Seal share a stage: a card inside a folded face with a
    wax seal. The seal lifts the card further and cracks the wax. */
-.inv-open-env {
-  position: relative;
-  width: min(17rem, 76vw);
-  aspect-ratio: 8 / 5;
-  perspective: 900px;
-}
-.inv-open-card {
-  position: absolute;
-  left: 7%;
-  right: 7%;
-  top: 8%;
-  bottom: 8%;
-  border-radius: 0.2rem;
-  background: var(--inv-surface);
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
-  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms, opacity 500ms ease 550ms;
-}
-.inv-open-flap {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 0.5rem;
-  background: var(--inv-surface);
-  border: 1px solid var(--inv-accent2);
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
-  transform-origin: top center;
-  transition: transform 750ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease 500ms;
-}
-.inv-open-flap::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.6;
-  background:
-    linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
-    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
-  background-size: 50% 100%;
-  background-repeat: no-repeat;
-  background-position: left top, right top;
-}
-.inv-open-wax {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
-  background: var(--inv-accent);
-  color: #fff;
-  font-family: var(--inv-display);
-  font-size: 1rem;
-  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.55);
-  transform: translate(-50%, -50%);
-  transition: transform 450ms ease, opacity 350ms ease 150ms;
-}
-.inv-open[data-style='seal'] .inv-open-wax::before {
-  content: '';
-  position: absolute;
-  inset: -0.5rem;
-  border-radius: 999px;
-  border: 1px dashed color-mix(in srgb, var(--inv-accent) 45%, transparent);
-}
-.inv-open[data-open='true'] .inv-open-flap {
-  transform: rotateX(-160deg);
-  opacity: 0;
-}
-.inv-open[data-open='true'] .inv-open-wax {
-  transform: translate(-50%, -50%) scale(1.4) rotate(12deg);
-  opacity: 0;
-}
-.inv-open[data-open='true'] .inv-open-card {
-  transform: translateY(-1rem);
-  opacity: 0;
-}
-.inv-open[data-open='true'][data-style='seal'] .inv-open-card {
-  transform: translateY(-3rem);
-}
-.inv-open[data-style='envelope'] .inv-open-env,
-.inv-open[data-style='seal'] .inv-open-env {
+.inv-open[data-style='envelope'] .inv-mo,
+.inv-open[data-style='seal'] .inv-mo {
   translate: 0 min(-6rem, -16vh);
 }
 .inv-open[data-style='envelope'] .inv-open-copy,
@@ -2287,9 +2206,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   .inv-open-drape,
   .inv-open-panel,
   .inv-open-shot,
-  .inv-open-flap,
-  .inv-open-card,
-  .inv-open-wax,
+  .inv-open .inv-mo *,
   .inv-open-curve {
     transition: opacity 300ms ease;
     transform: none !important;
@@ -3208,3 +3125,403 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   .ed-peek-frame,
   .ed-peek-still { transition: none; }
 }
+
+/* ==========================================================================
+   Interactive moments — src/components/invite/moments.tsx
+   --------------------------------------------------------------------------
+   One stylesheet serves a moment on a page (.inv-moment) and the invitation's
+   opening (.inv-open): both set data-state (closed → opening → open),
+   --moment-t (the speed, as a multiplier of every duration here) and
+   --moment-drag (how far a swipe or a hold has got, 0 to 1). Every scene is
+   drawn from the design's own colours and moves in transforms and opacity
+   only; nothing here bounces, and one light falls from the top left.
+   ========================================================================== */
+.inv-moment {
+  position: absolute;
+  aspect-ratio: 1 / var(--moment-aspect, 1);
+  container-type: inline-size;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  --moment-t: 1;
+  --moment-drag: 0;
+}
+.inv-moment[data-trigger='swipe'] { touch-action: none; }
+/* the decoration layer lets the words under it be selected; a moment is the one piece that takes the finger */
+.inv-deco .inv-moment { pointer-events: auto; }
+.inv-moment[data-still] { cursor: default; }
+.inv-moment:not([data-still]) { cursor: pointer; }
+.inv-moment:focus-visible { outline: 2px solid var(--inv-accent); outline-offset: 4px; }
+.inv-mo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  perspective: 1200cqw;
+  perspective-origin: 50% 40%;
+  contain: paint;
+}
+/* what it opens onto: under the scene, and up once the scene has moved aside */
+.inv-moment-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  padding: 6cqw;
+  text-align: center;
+  opacity: 0;
+  transition: opacity calc(600ms * var(--moment-t)) ease calc(var(--moment-reveal-at, 700ms) * var(--moment-t));
+}
+.inv-moment-reveal img { max-width: 100%; max-height: 100%; object-fit: cover; }
+.inv-moment:is([data-state='opening'], [data-state='open']) .inv-moment-reveal { opacity: 1; }
+.inv-moment[data-still] .inv-moment-reveal { transition: none; }
+.inv-moment-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 3cqw;
+  z-index: 5;
+  width: max-content;
+  max-width: 90%;
+  margin: 0;
+  padding: 1.2cqw 3cqw;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--inv-surface) 78%, transparent);
+  font-family: var(--inv-body);
+  font-size: 3.2cqw;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+.inv-moment:not([data-state='closed']) .inv-moment-hint { opacity: 0; }
+/* the hold's ring, over the middle, filling with --moment-drag */
+.inv-moment-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14cqw;
+  height: 14cqw;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  fill: none;
+  stroke-width: 1.6;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.inv-moment-ring circle { stroke: color-mix(in srgb, var(--inv-ink) 18%, transparent); }
+.inv-moment-ring .inv-moment-ring-fill {
+  stroke: var(--inv-accent);
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--moment-drag));
+  stroke-linecap: round;
+}
+.inv-moment:not([data-state='closed']) .inv-moment-ring { opacity: 0; transition: opacity 300ms ease; }
+/* while the finger has it, the pieces follow it and nothing eases */
+[data-dragging] .inv-mo * { transition-duration: 0s !important; transition-delay: 0s !important; }
+/* the still: no motion is wanted, or the page is printed */
+@media (prefers-reduced-motion: reduce) {
+  .inv-mo *, .inv-moment-reveal { transition: none !important; animation: none !important; }
+}
+@media print {
+  .inv-moment-hint, .inv-moment-ring { display: none; }
+  .inv-moment-reveal { opacity: 1; }
+}
+
+/* --- paper: the surface colour with a laid texture and a darker edge --- */
+.inv-mo-card, .inv-mo-back, .inv-mo-pocket, .inv-mo-flap, .inv-mo-sheet, .inv-mo-fold {
+  background-color: var(--inv-surface);
+  background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent);
+}
+
+/* --- the envelope and the wax seal ------------------------------------- */
+.inv-mo-env { filter: drop-shadow(0 4cqw 5cqw rgba(0, 0, 0, 0.16)); }
+.inv-mo-env .inv-mo-back {
+  position: absolute; inset: 0;
+  border-radius: 1.2cqw;
+  background-color: color-mix(in srgb, var(--inv-surface) 92%, var(--inv-ink));
+}
+.inv-mo-env .inv-mo-card {
+  position: absolute; left: 6%; right: 6%; top: 10%; bottom: 8%;
+  border-radius: 0.6cqw;
+  transform: translateY(0);
+  transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(500ms * var(--moment-t));
+}
+.inv-mo-env .inv-mo-pocket {
+  position: absolute; inset: 0;
+  border-radius: 1.2cqw;
+  clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%);
+  background-image:
+    linear-gradient(to bottom right, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%),
+    linear-gradient(to bottom left, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  background-size: 50% 100%, 50% 100%, auto;
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-position: left top, right top, 0 0;
+}
+.inv-mo-env .inv-mo-flap {
+  position: absolute; left: 0; right: 0; top: 0; height: 54%;
+  border-radius: 1.2cqw 1.2cqw 0 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  z-index: 3;
+  transition: transform calc(800ms * var(--moment-t)) cubic-bezier(0.4, 0, 0.2, 1), z-index 0s linear calc(400ms * var(--moment-t)), filter calc(800ms * var(--moment-t)) ease;
+}
+.inv-mo-env .inv-mo-flap::after {
+  /* the flap's own shadow on the pocket, lengthening as it lifts */
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 60%, color-mix(in srgb, var(--inv-ink) 10%, transparent));
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-env .inv-mo-flap { transform: rotateX(-172deg); z-index: 0; filter: brightness(0.94); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-env .inv-mo-card { transform: translateY(-58%); }
+[data-state='closed'] .inv-mo-env .inv-mo-card { transform: translateY(calc(var(--moment-drag) * -40%)); }
+.inv-mo-env .inv-mo-wax {
+  position: absolute; left: 50%; top: 52%; z-index: 4;
+  width: 17cqw; height: 17cqw;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 1.2cqw 1.6cqw rgba(0, 0, 0, 0.3));
+}
+.inv-mo-wax-half {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.34), transparent 42%),
+    radial-gradient(circle at 60% 75%, rgba(0, 0, 0, 0.16), transparent 50%),
+    var(--inv-accent);
+  color: color-mix(in srgb, var(--inv-surface) 85%, var(--inv-accent));
+  font-family: var(--inv-display);
+  font-size: 6.5cqw;
+  transition: transform calc(500ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.1, 1) calc(320ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(600ms * var(--moment-t));
+}
+.inv-mo-wax-half[data-side='l'] { clip-path: polygon(0 0, 52% 0, 40% 42%, 56% 58%, 46% 100%, 0 100%); }
+.inv-mo-wax-half[data-side='r'] { clip-path: polygon(52% 0, 100% 0, 100% 100%, 46% 100%, 56% 58%, 40% 42%); }
+.inv-mo-crack {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  fill: none;
+  stroke: color-mix(in srgb, var(--inv-ink) 55%, var(--inv-accent));
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset calc(320ms * var(--moment-t)) ease-in;
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-crack { stroke-dashoffset: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='l'] { transform: translate(-14%, 8%) rotate(-9deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='r'] { transform: translate(14%, 10%) rotate(9deg); opacity: 0; }
+/* the seal's flap waits for the wax to part */
+[data-moment='seal'] .inv-mo-flap, .inv-open[data-style='seal'] .inv-mo-flap { transition-delay: calc(600ms * var(--moment-t)), calc(1000ms * var(--moment-t)), calc(600ms * var(--moment-t)); }
+[data-moment='seal'] .inv-mo-card, .inv-open[data-style='seal'] .inv-mo-card { transition-delay: calc(1100ms * var(--moment-t)); }
+[data-moment='envelope'], [data-moment='seal'] { --moment-reveal-at: 1000ms; }
+[data-moment='seal'] { --moment-reveal-at: 1600ms; }
+/* the words and photograph rise on the card itself */
+[data-moment='envelope'] .inv-moment-reveal, [data-moment='seal'] .inv-moment-reveal {
+  left: 6%; right: 6%; top: -48%; bottom: 50%;
+  padding: 4cqw;
+}
+
+/* --- the ribbon ------------------------------------------------------- */
+.inv-mo-ribbon { filter: drop-shadow(0 3cqw 4cqw rgba(0, 0, 0, 0.14)); }
+.inv-mo-ribbon .inv-mo-card { position: absolute; inset: 0; border-radius: 0.8cqw; }
+.inv-mo-band {
+  position: absolute; z-index: 2;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.28) 38%, rgba(255, 255, 255, 0) 62%),
+    var(--inv-accent);
+  box-shadow: 0 0.4cqw 1cqw rgba(0, 0, 0, 0.14);
+  transition: transform calc(1000ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(400ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(1100ms * var(--moment-t));
+}
+.inv-mo-band[data-dir='v'] { left: 50%; top: -2%; bottom: -2%; width: 9cqw; margin-left: -4.5cqw; }
+.inv-mo-band[data-dir='h'] {
+  left: -2%; right: -2%; top: 50%; height: 9cqw; margin-top: -4.5cqw;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.28) 38%, rgba(255, 255, 255, 0) 62%),
+    var(--inv-accent);
+}
+.inv-mo-bow {
+  position: absolute; z-index: 3;
+  left: 50%; top: 50%;
+  width: 34cqw; height: auto;
+  transform: translate(-50%, -46%);
+  fill: var(--inv-accent);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(0, 0, 0, 0.22));
+  transition: transform calc(500ms * var(--moment-t)) ease-in calc(200ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(700ms * var(--moment-t));
+}
+.inv-mo-loop { transform-origin: 60px 40px; transition: transform calc(500ms * var(--moment-t)) ease-in; fill: color-mix(in srgb, var(--inv-accent) 88%, white); }
+.inv-mo-tail { fill: color-mix(in srgb, var(--inv-accent) 85%, black); transform-origin: 60px 44px; transition: transform calc(500ms * var(--moment-t)) ease-in; }
+.inv-mo-knot { fill: color-mix(in srgb, var(--inv-accent) 70%, black); }
+[data-state='closed'] .inv-mo-band[data-dir='h'] { transform: translateY(calc(var(--moment-drag) * 30%)); }
+[data-state='closed'] .inv-mo-bow { transform: translate(-50%, calc(-46% + var(--moment-drag) * 30%)) scale(calc(1 - var(--moment-drag) * 0.3)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-loop[data-side='l'] { transform: scale(0.15, 0.5) translate(40%, 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-loop[data-side='r'] { transform: scale(0.15, 0.5) translate(-40%, 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tail { transform: scaleY(1.3); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bow { transform: translate(-50%, 60%) rotate(4deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-band[data-dir='h'] { transform: translateY(140%) rotate(-3deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-band[data-dir='v'] { transform: translateY(130%) rotate(2deg); opacity: 0; }
+[data-moment='ribbon'] { --moment-reveal-at: 900ms; }
+
+/* --- the curtains, and the plain panels --------------------------------- */
+.inv-mo-curtains { overflow: hidden; border-radius: 0.6cqw; background: color-mix(in srgb, var(--inv-ink) 82%, var(--inv-accent)); }
+.inv-mo-behind { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.inv-mo-rod {
+  position: absolute; left: -2%; right: -2%; top: 0; height: 2.4cqw; z-index: 3;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent) 70%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 60%, black));
+  border-radius: 999px;
+  box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.3);
+}
+.inv-mo-panel {
+  position: absolute; top: 1.5cqw; bottom: 0; width: 51%; z-index: 2;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.24)),
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--inv-accent) 62%, black) 0 3%,
+      color-mix(in srgb, var(--inv-accent) 92%, white) 7%,
+      color-mix(in srgb, var(--inv-accent) 62%, black) 12%);
+  box-shadow: 0 0 3cqw rgba(0, 0, 0, 0.35);
+  transition: transform calc(1300ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-panel[data-side='l'] { left: 0; transform-origin: left center; }
+.inv-mo-panel[data-side='r'] { right: 0; transform-origin: right center; }
+[data-state='closed'] .inv-mo-panel[data-side='l'] { transform: translateX(calc(var(--moment-drag) * -80%)) scaleX(calc(1 - var(--moment-drag) * 0.5)); }
+[data-state='closed'] .inv-mo-panel[data-side='r'] { transform: translateX(calc(var(--moment-drag) * 80%)) scaleX(calc(1 - var(--moment-drag) * 0.5)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='l'] { transform: translateX(-88%) scaleX(0.3); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='r'] { transform: translateX(88%) scaleX(0.3); }
+/* the plain panels: two flat leaves in the surface colour, no folds, no rod */
+.inv-mo-curtains[data-panels] { background: var(--inv-surface); }
+.inv-mo-curtains[data-panels] .inv-mo-rod { display: none; }
+.inv-mo-curtains[data-panels] .inv-mo-panel {
+  top: 0;
+  background: var(--inv-surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent), 0 0 3cqw rgba(0, 0, 0, 0.18);
+}
+.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { border-right: 1px solid color-mix(in srgb, var(--inv-accent) 60%, transparent); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(-102%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(102%); }
+[data-moment='curtains'] { --moment-reveal-at: 500ms; }
+[data-moment='curtains'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 8cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+
+/* --- the doors ----------------------------------------------------------- */
+.inv-mo-doors { overflow: hidden; border-radius: 0.6cqw; background: color-mix(in srgb, var(--inv-ink) 88%, var(--inv-accent2)); }
+.inv-mo-doors[data-church] { border-radius: 50% 50% 0.6cqw 0.6cqw / 32% 32% 0.6cqw 0.6cqw; }
+.inv-mo-doors .inv-mo-light {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 248, 230, 0.55), transparent 60%);
+  opacity: 0;
+  transition: opacity calc(900ms * var(--moment-t)) ease;
+}
+.inv-mo-jamb {
+  position: absolute; inset: -1.5cqw; z-index: 3; pointer-events: none;
+  border: 1.5cqw solid color-mix(in srgb, var(--inv-accent2) 60%, var(--inv-ink));
+  border-radius: 1.2cqw;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.inv-mo-doors[data-church] .inv-mo-jamb { border-radius: 50% 50% 1.2cqw 1.2cqw / 32% 32% 1.2cqw 1.2cqw; }
+.inv-mo-leaf {
+  position: absolute; top: 0; bottom: 0; width: 50%; z-index: 2;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.12), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.12)),
+    repeating-linear-gradient(90deg, transparent 0 4%, rgba(0, 0, 0, 0.04) 4% 5%),
+    linear-gradient(180deg, color-mix(in srgb, var(--inv-accent2) 78%, white), var(--inv-accent2) 30%, color-mix(in srgb, var(--inv-accent2) 70%, black));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    inset 4cqw 4cqw 0 -3.2cqw rgba(0, 0, 0, 0.14),
+    inset -4cqw -4cqw 0 -3.2cqw rgba(255, 255, 255, 0.08);
+  backface-visibility: hidden;
+  transition: transform calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(150ms * var(--moment-t));
+}
+.inv-mo-leaf::before, .inv-mo-leaf::after {
+  /* two raised panels, lit from the top left */
+  content: ''; position: absolute; left: 18%; right: 18%;
+  border: 0.5cqw solid rgba(0, 0, 0, 0.2);
+  border-left-color: rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 0.4cqw rgba(0, 0, 0, 0.08);
+}
+.inv-mo-leaf::before { top: 9%; height: 30%; }
+.inv-mo-leaf::after { top: 50%; height: 40%; }
+.inv-mo-doors[data-church] .inv-mo-leaf::before { border-radius: 50% 50% 0 0 / 45% 45% 0 0; top: 12%; height: 28%; }
+.inv-mo-leaf[data-side='l'] { left: 0; transform-origin: left center; }
+.inv-mo-leaf[data-side='r'] { right: 0; transform-origin: right center; }
+.inv-mo-doors[data-church] .inv-mo-leaf[data-side='l'] { border-radius: 100% 0 0 0 / 32% 0 0 0; }
+.inv-mo-doors[data-church] .inv-mo-leaf[data-side='r'] { border-radius: 0 100% 0 0 / 0 32% 0 0; }
+.inv-mo-handle {
+  position: absolute; top: 52%; width: 3.2cqw; height: 3.2cqw; z-index: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--inv-accent) 55%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 60%, black));
+  box-shadow: 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.4);
+}
+.inv-mo-leaf[data-side='l'] .inv-mo-handle { right: 8%; }
+.inv-mo-leaf[data-side='r'] .inv-mo-handle { left: 8%; }
+[data-state='closed'] .inv-mo-leaf[data-side='l'] { transform: rotateY(calc(var(--moment-drag) * -70deg)); }
+[data-state='closed'] .inv-mo-leaf[data-side='r'] { transform: rotateY(calc(var(--moment-drag) * 70deg)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='l'] { transform: rotateY(-112deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='r'] { transform: rotateY(112deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-doors .inv-mo-light { opacity: 1; }
+[data-moment='doors'] { --moment-reveal-at: 500ms; }
+[data-moment='doors'] .inv-moment-reveal { color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+
+/* --- the capiz panels ---------------------------------------------------- */
+.inv-mo-capiz { background: color-mix(in srgb, var(--inv-surface) 60%, var(--inv-accent2)); border-radius: 0.6cqw; }
+.inv-mo-shell {
+  position: absolute; top: 0; bottom: 0; width: 25.2%; z-index: 2;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0.4) 70%, rgba(255, 255, 255, 0.05)),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-accent) 70%, transparent) 0 1px, transparent 1px 16.6%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 70%, transparent) 0 1px, transparent 1px 50%),
+    color-mix(in srgb, var(--inv-surface) 82%, var(--inv-accent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-accent) 60%, transparent), 0 0 2cqw rgba(0, 0, 0, 0.16);
+  backface-visibility: hidden;
+  transition: transform calc(1100ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-shell[data-i='0'] { left: 0; transform-origin: left center; transition-delay: calc(450ms * var(--moment-t)); }
+.inv-mo-shell[data-i='1'] { left: 25%; transform-origin: left center; }
+.inv-mo-shell[data-i='2'] { right: 25%; transform-origin: right center; }
+.inv-mo-shell[data-i='3'] { right: 0; transform-origin: right center; transition-delay: calc(450ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='0'],
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='1'] { transform: rotateY(-100deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='2'],
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='3'] { transform: rotateY(100deg); }
+[data-moment='capiz'] { --moment-reveal-at: 700ms; }
+
+/* --- the folded letter --------------------------------------------------- */
+.inv-mo-letter { perspective-origin: 50% 50%; filter: drop-shadow(0 3cqw 4cqw rgba(0, 0, 0, 0.14)); }
+.inv-mo-sheet { position: absolute; left: 8%; right: 8%; top: 33.3%; height: 33.4%; }
+.inv-mo-fold {
+  position: absolute; left: 8%; right: 8%; height: 33.4%; z-index: 2;
+  backface-visibility: visible;
+  transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0.1, 0.2, 1);
+}
+.inv-mo-fold::after {
+  /* the crease's shadow on the fold's back */
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 30%);
+}
+.inv-mo-fold[data-i='2'] { top: 66.6%; transform-origin: top center; transform: rotateX(180deg); }
+.inv-mo-fold[data-i='0'] { top: 0; transform-origin: bottom center; transform: rotateX(-180deg); z-index: 3; transition-delay: calc(600ms * var(--moment-t)); }
+.inv-mo-fold[data-i='0']::after { background: linear-gradient(0deg, rgba(0, 0, 0, 0.08), transparent 30%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-fold { transform: rotateX(0deg); }
+[data-moment='letter'] { --moment-reveal-at: 1300ms; }
+[data-moment='letter'] .inv-moment-reveal { left: 8%; right: 8%; padding: 4cqw; }
+
+/* --- the same scenes filling the screen as the invitation's opening ------- */
+.inv-open .inv-mo {
+  position: relative;
+  width: min(20rem, 80vw);
+  perspective: 1400px;
+}
+.inv-open .inv-mo-env { aspect-ratio: 8 / 5; }
+.inv-open .inv-mo-ribbon { aspect-ratio: 8 / 5.6; }
+.inv-open .inv-mo-letter { aspect-ratio: 8 / 6.4; }
+.inv-open .inv-mo-curtains, .inv-open .inv-mo-doors, .inv-open .inv-mo-capiz { aspect-ratio: 8 / 9.6; width: min(17rem, 72vw); }
+.inv-open .inv-mo { --moment-drag: var(--open-drag, 0); }
+/* the words sit under the scene, not over it: the scene goes up, the words down, as the envelope's do */
+.inv-open[data-style='ribbon'] .inv-mo, .inv-open[data-style='letter'] .inv-mo { translate: 0 min(-6rem, -16vh); }
+.inv-open[data-style='ribbon'] .inv-open-copy, .inv-open[data-style='letter'] .inv-open-copy { translate: 0 min(6.5rem, 18vh); }
+.inv-open[data-style='doors'] .inv-mo, .inv-open[data-style='capiz'] .inv-mo { translate: 0 min(-7rem, -18vh); }
+.inv-open[data-style='doors'] .inv-open-copy, .inv-open[data-style='capiz'] .inv-open-copy { translate: 0 min(12rem, 30vh); }
+.inv-open[data-trigger='swipe'] { touch-action: none; }

@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, runOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -1185,10 +1185,21 @@ test('the colour beside a page follows the page, unless the page says otherwise'
   assert.equal(outsideOf({ key: 'p', sections: [], ground: { url: '/x.webp', ratio: 2, top: '#fff', bottom: '#eee' } }), undefined);
   // and so does a page with no ground at all
   assert.equal(outsideOf({ key: 'p', sections: [] }), undefined);
-  // said otherwise: the design's surround whatever the page is on, or a colour of its own
-  assert.equal(outsideOf({ ...blue, outside: 'design' }), undefined);
-  assert.equal(outsideOf({ ...blue, outside: 'accent' }), 'accent');
-  assert.equal(outsideOf({ ...blue, outside: '#123456' }), '#123456');
+  // kept to the column: the design's surround, or a colour said beside it
+  assert.equal(outsideOf({ ...blue, bleed: false }), undefined);
+  assert.equal(outsideOf({ ...blue, bleed: false, outside: 'accent' }), 'accent');
+  assert.equal(outsideOf({ ...blue, bleed: false, outside: '#123456' }), '#123456');
+  // a colour said beside a page that reaches the edges is not read: the page's own colour is beside it
+  assert.equal(outsideOf({ ...blue, outside: 'accent' }), '#a9c6e8');
+  // a plain colour reaches unless told not to; a picture stays in the column unless told to reach; nothing reaches with nothing
+  assert.equal(bleeds(blue), true);
+  assert.equal(bleeds({ ...blue, bleed: false }), false);
+  const pic: PageSpec = { key: 'p', sections: [], ground: { url: '/x.webp', ratio: 2, top: '#fff', bottom: '#eee' } };
+  assert.equal(bleeds(pic), false);
+  assert.equal(bleeds({ ...pic, bleed: true }), true);
+  assert.equal(outsideOf({ ...pic, bleed: true }), undefined, 'a picture that reaches is laid by the ground, not as a colour');
+  assert.equal(bleeds({ key: 'p', sections: [] }), false);
+  assert.equal(designOf({ v: 1, pages: [{ ...pic, bleed: true }] }, 'classic').doc?.pages[0].bleed, true);
   // it is in the document and survives the parse
   const read = designOf({ v: 1, pages: [{ ...blue, outside: 'accent' }] }, 'classic');
   assert.equal(read.doc?.pages[0].outside, 'accent');

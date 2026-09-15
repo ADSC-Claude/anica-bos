@@ -1088,7 +1088,17 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const dusk = dark ? night?.[i] : '';
         return dusk ? { url: dusk, night: true } : { url: backgrounds[i], night: false };
       };
-      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean; run?: string }[] = [];
+      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean; run?: string; bleed?: boolean }[] = [];
+      /*
+       * A picture that reaches the whole website page is drawn at the
+       * stage's width — the window's, on a laptop — in the column and beside
+       * it alike, so the column shows exactly the middle of the one picture
+       * across the page. On a phone the stage is the column and nothing
+       * changes.
+       */
+      const stage = inv.closest<HTMLElement>('.inv-stage');
+      const stageW = stage?.clientWidth || width;
+      const stageTop = stage ? stage.getBoundingClientRect().top : invTop;
       let k = 0;
       pages.forEach((p, i) => {
         const r = p.getBoundingClientRect();
@@ -1132,7 +1142,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           const picked = own ? { url: dusk || own.url, night: Boolean(dusk) } : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
           // a page split over several backgrounds joins itself half and half
           const half = Math.round(seam / 2);
-          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own, run });
+          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own, run, bleed: own ? p.hasAttribute('data-bleed') : false });
         }
       });
       // The papers to draw: one per segment, and under a page shorter than its
@@ -1141,7 +1151,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
       // dissolves out across its foot (`out`) — over the next paper, which
       // starts that far up, opaque. A foot paper also fades in at its top
       // (`seam`), over its own page's ground.
-      const papers: { className: string; top: number; height: number; seam: number; out: number; z: number; draw: (el: HTMLElement) => void }[] = [];
+      const papers: { className: string; top: number; height: number; seam: number; out: number; z: number; draw: (el: HTMLElement) => void; bleed?: boolean; page?: HTMLElement }[] = [];
       segs.forEach((s, i) => {
         const first = i === 0;
         const final = i === segs.length - 1;
@@ -1156,7 +1166,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const z = 2 * (segs.length - i);
         const g = s.own;
         const bgH = Math.round(s.bg);
-        if (g && g.slices && s.height < bgH * 0.96) {
+        if (g && g.slices && s.height < bgH * 0.96 && !s.bleed) {
           // shorter than its ground: the foot of the picture comes in under the
           // words, fading up from nothing, so the page ends the way the ground
           // does; it runs to the paper's foot, so the join never cuts it
@@ -1172,8 +1182,17 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
             el.toggleAttribute('data-night-art', false);
           } });
         }
-        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: 0, out, z, draw: (el) => {
-        if (s.own) {
+        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 && !s.bleed ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: 0, out, z, bleed: s.bleed, page: s.bleed ? pages.find((p) => p.dataset.bg && grounds && grounds[p.dataset.bg] === s.own) : undefined, draw: (el) => {
+        if (s.own && s.bleed) {
+          // one picture across the whole page, at the stage's width, from the paper's top: the column shows its middle
+          const g = s.own;
+          const bgPx = Math.round(stageW * g.ratio);
+          el.style.backgroundImage = `url("${s.url}"), linear-gradient(to bottom, ${g.top} 0, ${g.top} 0px, ${g.bottom} ${bgPx}px, ${g.bottom} 100%)`;
+          el.style.backgroundSize = `${stageW}px auto, 100% 100%`;
+          el.style.backgroundPosition = 'center top, center top';
+          el.style.backgroundRepeat = 'no-repeat';
+          el.toggleAttribute('data-night-art', s.night);
+        } else if (s.own) {
           // A ground of the page's own, laid from the paper's top: for most
           // pages that is half a seam up inside the page before, so the picture
           // crosses into the one before it; for a drawn page it is the page's
@@ -1220,9 +1239,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
        * variables; by night a role would be the day's colour beside a
        * darkened page, so only a colour of the page's own is drawn then.
        */
-      const stage = inv.closest<HTMLElement>('.inv-stage');
       if (stage) {
-        const stageTop = stage.getBoundingClientRect().top;
         const stops: string[] = [];
         for (const p of pages) {
           const want = p.dataset.outside;
@@ -1267,6 +1284,53 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
        * Read off what was actually drawn, so the mark and the pictures cannot
        * disagree.
        */
+      /*
+       * Beside the column, the pictures that reach the whole website page:
+       * a band on the stage for each such paper, the same picture at the
+       * same size from the same top, with the paper's own dissolves, so the
+       * column's copy and the band read as one. A clip behind the page rides
+       * along as a copy of its own frame. Nothing is drawn where the stage
+       * is the column.
+       */
+      if (stage && stageW > width + 1) {
+        const bleeding = papers.filter((pp) => pp.bleed);
+        const bands = [...stage.querySelectorAll<HTMLElement>(':scope > .inv-beside')];
+        while (bands.length > bleeding.length) bands.pop()?.remove();
+        bleeding.forEach((pp, i) => {
+          let band = bands[i];
+          if (!band) {
+            band = document.createElement('div');
+            band.className = 'inv-paper inv-beside';
+            band.setAttribute('aria-hidden', 'true');
+            stage.insertBefore(band, stage.firstChild);
+            bands.push(band);
+          }
+          const paper = ground.children[papers.indexOf(pp)] as HTMLElement | undefined;
+          band.style.top = `${Math.round(pp.top + (invTop - stageTop))}px`;
+          band.style.height = `${Math.round(pp.height)}px`;
+          band.style.zIndex = String(pp.z);
+          band.style.setProperty('--seam', `${pp.seam}px`);
+          band.style.setProperty('--out', `${pp.out}px`);
+          if (paper) {
+            band.style.backgroundImage = paper.style.backgroundImage;
+            band.style.backgroundSize = paper.style.backgroundSize;
+            band.style.backgroundPosition = paper.style.backgroundPosition;
+            band.style.backgroundRepeat = paper.style.backgroundRepeat;
+            band.toggleAttribute('data-night-art', paper.hasAttribute('data-night-art'));
+          }
+          const clip = pp.page?.querySelector<HTMLElement>('.inv-bb-clip[data-bg] > video, .inv-bb-clip[data-bg] > img');
+          const had = band.firstElementChild as HTMLElement | null;
+          const src = clip?.getAttribute('src') ?? '';
+          if (clip && (!had || had.getAttribute('src') !== src)) {
+            band.replaceChildren();
+            const copy = clip.cloneNode(true) as HTMLElement;
+            if (copy instanceof HTMLVideoElement) { copy.muted = true; copy.autoplay = true; copy.loop = true; copy.playsInline = true; void copy.play().catch(() => {}); }
+            band.appendChild(copy);
+          } else if (!clip && had) band.replaceChildren();
+        });
+      } else if (stage) {
+        for (const band of stage.querySelectorAll(':scope > .inv-beside')) band.remove();
+      }
       const papersDrawn = [...ground.children] as HTMLElement[];
       ground.toggleAttribute('data-night-art', dark && papersDrawn.length > 0 && papersDrawn.every((el) => el.hasAttribute('data-night-art')));
     };

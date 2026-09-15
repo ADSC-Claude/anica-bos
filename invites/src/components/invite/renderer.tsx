@@ -16,7 +16,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, runOf, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1882,7 +1882,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1901,6 +1901,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           data-ground={o.colour}
           // the colour beside the page on a laptop, a role or a colour: PageGround lays the band on the stage
           data-outside={o.outside}
+          // a picture that reaches the whole website page: PageGround lays it across the stage too, and sizes the column's copy to line up
+          data-bleed={o.bleed ? '' : undefined}
           // told to be at least so many screens tall: the stylesheet reads --page-min against --inv-screen
           data-min={o.min !== undefined ? '' : undefined}
           data-dress={dress.kind}
@@ -1982,7 +1984,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const head = runs.get(spec.key);
         const own = spec.ground && isPicture(spec.ground);
         const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
-        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined }));
       }
     }
     // a section the document does not name gets a page of its own, in its place

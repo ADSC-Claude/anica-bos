@@ -1004,7 +1004,7 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * a multiple of the width (Baby Blue). `seam` is how far one ground dissolves
  * into the next, as a share of the width — longer where the tones differ.
  */
-type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string };
+type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string; runsOn?: number };
 export function PageGround({ ratio, order, last, backgrounds, night, grounds, seam: seamShare = 0.24 }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[]; grounds?: Record<string, Ground>; seam?: number }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
@@ -1088,7 +1088,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const dusk = dark ? night?.[i] : '';
         return dusk ? { url: dusk, night: true } : { url: backgrounds[i], night: false };
       };
-      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean }[] = [];
+      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean; run?: string }[] = [];
       let k = 0;
       pages.forEach((p, i) => {
         const r = p.getBoundingClientRect();
@@ -1097,6 +1097,19 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const own = grounds && p.dataset.bg ? grounds[p.dataset.bg] : undefined;
         const bg = width * (own ? own.ratio : ratio);
         if (!bg) return;
+        /*
+         * A picture that runs on. The page after the head sits on the same
+         * picture, so it joins the paper before it — one length of the
+         * picture down both, and no join between them — rather than
+         * starting a paper of its own.
+         */
+        const run = own ? p.dataset.run : undefined;
+        const prev = segs[segs.length - 1];
+        if (run && prev && prev.run === run) {
+          prev.height = top + r.height - prev.top;
+          prev.foot = lastPage;
+          return;
+        }
         const seam = seamOf(p);
         const join = joinOf(p, pages[i - 1], seam);
         // A page with a ground of its own always sits on that one ground,
@@ -1119,7 +1132,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           const picked = own ? { url: dusk || own.url, night: Boolean(dusk) } : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
           // a page split over several backgrounds joins itself half and half
           const half = Math.round(seam / 2);
-          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own });
+          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own, run });
         }
       });
       // The papers to draw: one per segment, and under a page shorter than its

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, runOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
@@ -1041,6 +1041,33 @@ export function Studio(p: Props) {
     });
   }
 
+  /**
+   * A picture that runs on under the pages after it. Set on the head; the
+   * pages it runs on under lose a ground of their own, since they sit on
+   * this picture now, and one given a ground again ends the run there.
+   */
+  function setRunsOn(n: number) {
+    if (!page || !page.ground || !isPicture(page.ground)) return;
+    const at = doc.pages.findIndex((x) => x.key === page.key);
+    const pages = doc.pages.map((x, i) => {
+      if (i === at) {
+        const g = { ...(x.ground as Extract<Ground, { url: string }>) };
+        if (n > 0) g.runsOn = n; else delete g.runsOn;
+        return { ...x, ground: g };
+      }
+      if (n > 0 && i > at && i <= at + n && !x.drawn && x.ground) {
+        const next = { ...x };
+        delete next.ground;
+        return next;
+      }
+      return x;
+    });
+    change({ ...doc, pages });
+  }
+  /** the pages that sit on a picture running on from a page before them, by the head's key */
+  const runs = useMemo(() => runOf(doc), [doc]);
+  const joinedTo = page ? runs.get(page.key) : undefined;
+
   /** What the page she is on carries, on a page laid out by its words. */
   const pieces = useMemo(
     () => (page && !page.drawn ? { floats: flowFloats(page), decor: flowDecor(page) } : { floats: [], decor: [] }),
@@ -1557,12 +1584,13 @@ export function Studio(p: Props) {
   /** Where the page sits in its frame and how tall it is: the frame is same-origin, so it is simply read. */
   const sizeFlow = useCallback(() => {
     const win = flowFrame.current?.contentWindow;
-    const pg = win?.document.querySelector<HTMLElement>('[data-page]');
+    // the page asked for, not the first: a page on a picture that runs on from above is drawn with those pages over it
+    const pg = win?.document.querySelector<HTMLElement>(`[data-page="${flowKey}"]`) ?? win?.document.querySelector<HTMLElement>('[data-page]');
     if (!win || !pg) return;
     const r = pg.getBoundingClientRect();
     const top = r.top + win.scrollY;
     setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
-  }, []);
+  }, [flowKey]);
   useEffect(() => { if (flowSrc) setDrawing(true); }, [flowSrc]);
   /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
   const flowLoaded = useCallback(() => {
@@ -1573,8 +1601,7 @@ export function Studio(p: Props) {
     if (!doc || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(sizeFlow);
     ro.observe(doc.documentElement);
-    const pg = doc.querySelector('[data-page]');
-    if (pg) ro.observe(pg);
+    for (const pg of Array.from(doc.querySelectorAll('[data-page]'))) ro.observe(pg);
     flowWatch.current = ro;
   }, [sizeFlow]);
   useEffect(() => () => flowWatch.current?.disconnect(), []);
@@ -1710,7 +1737,7 @@ export function Studio(p: Props) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{pg.label?.en ?? pg.key}</span>
                   <span className="block text-[11px] text-[color:var(--color-ink-500)]">
-                    {i + 1}. {pg.drawn ? 'drawn' : 'flows'}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}
+                    {i + 1}. {pg.drawn ? 'drawn' : 'flows'}{runs.has(pg.key) ? ' · on the picture above' : ''}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}
                     {(() => {
                       const c = needCount(needs, pg.key);
                       if (c.blocks) return <span className="font-semibold text-red-700"> · {c.blocks} to fix</span>;
@@ -2227,6 +2254,8 @@ export function Studio(p: Props) {
             page={page}
             onChange={editPage}
             onGround={setGround}
+            onRunsOn={setRunsOn}
+            joinedTo={joinedTo ? (doc.pages.find((x) => x.key === joinedTo)?.label?.en || joinedTo) : undefined}
             templateId={p.templateId}
             vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
@@ -4263,10 +4292,14 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces, dress, onDraw }: {
+function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, vars, sections, pieces, dress, onDraw }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
+  /** how many pages after this one its picture runs on under */
+  onRunsOn: (n: number) => void;
+  /** the page whose picture runs on under this one, by name, when this page sits on one */
+  joinedTo?: string;
   templateId: string;
   vars: Record<string, string>;
   sections: SectionTools;
@@ -4513,6 +4546,12 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
       )}
       <div className="border-t border-[color:var(--color-sand-300)] pt-3">
         <p className="label">Background</p>
+        {!ground && joinedTo && (
+          <p className="hint mb-1" data-testid="joined">
+            On the picture that runs on from <strong>{joinedTo}</strong> &mdash; one length of it down both pages, drawn here where it reaches.
+            A picture or a colour picked below gives this page a ground of its own and ends the run here.
+          </p>
+        )}
         <div className="mt-1 flex items-start gap-2">
           <span
             className="h-16 w-11 shrink-0 rounded border border-black/10 bg-cover bg-top"
@@ -4549,6 +4588,29 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
         </div>
         {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
         {heavy && <p className="hint text-amber-800">{heavy}</p>}
+        {/*
+          * A picture that runs on. A tall design is drawn as one length and
+          * meant to flow down the invitation; before this every page started
+          * its picture again at its own head, and the only way to carry one
+          * across was to cut it by hand. The head says how far it runs; the
+          * pages under it say so on their own Background, above.
+          */}
+        {ground && isPicture(ground) && !page.drawn && (
+          <label className="mt-2 block">
+            <span className="label">Runs on under</span>
+            <select className="input w-full text-xs" value={ground.runsOn ?? 0} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
+              <option value={0}>this page only</option>
+              <option value={1}>the next page too</option>
+              <option value={2}>the next 2 pages</option>
+              <option value={3}>the next 3 pages</option>
+              <option value={4}>the next 4 pages</option>
+            </select>
+            <span className="hint">
+              One length of the picture down this page and the ones after, the way a tall design is meant to flow. The pages it runs on under lose a background of their own, and one given a background again ends the run there.
+              Where the pages run past the picture&rsquo;s foot, it keeps its head and its foot whole and stretches the band between.
+            </span>
+          </label>
+        )}
         <p className="label mt-2">or a colour</p>
         <div className="mt-1 flex flex-wrap gap-1">
           {ROLES.map((r) => (
@@ -5074,7 +5136,7 @@ function GuideDrawer() {
         <>
           <div className="mb-2 rounded bg-[color:var(--color-sand-100)] p-2">
             <p className="font-semibold">The website and the phone</p>
-            <p className="mt-0.5 text-[color:var(--color-ink-700)]">The canvas is the website at <span className="font-mono">1280</span> px wide; the invitation column on it is <span className="font-mono">512</span> px; the phone is <span className="font-mono">390</span> px. A picture behind the whole page: <span className="font-mono">1920 &times; 1080</span> px to stretch across the window, or a <span className="font-mono">400 &times; 400</span> px tile to repeat.</p>
+            <p className="mt-0.5 text-[color:var(--color-ink-700)]">The canvas is the website at <span className="font-mono">1280</span> px wide; the invitation column on it is <span className="font-mono">512</span> px; the phone is <span className="font-mono">390</span> px. A picture behind the whole page: <span className="font-mono">1920 &times; 1080</span> px to stretch across the window, or a <span className="font-mono">400 &times; 400</span> px tile to repeat. A tall page background meant to flow down several pages: upload it on the first of them and set <em>Runs on under</em> on that page&rsquo;s Background.</p>
           </div>
           <p className="hint">Type the first size into Canva&rsquo;s <strong>Custom size</strong>, in pixels. The second is for artwork with fine detail; nothing needs more.</p>
           <ul className="mt-2 space-y-2">

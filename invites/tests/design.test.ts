@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, runOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -1212,4 +1212,43 @@ test('words are decorations on a page laid out by its words, and floats are not'
   assert.equal(decorOver(flowDecor(page)[2]), false);
   // and hang off the head like any other decoration
   assert.equal(decorStyle(flowDecor(page)[1]).top, '4cqw');
+});
+
+test('a picture that runs on is laid down the pages after it, until one has a ground of its own', () => {
+  const pic = { url: '/tall.webp', ratio: 5, top: '#fff', bottom: '#eee' };
+  const doc = {
+    v: 1 as const,
+    pages: [
+      { key: 'cover', sections: ['cover'], ground: { ...pic, runsOn: 2 } },
+      { key: 'countdown', sections: ['countdown'] },
+      { key: 'parents', sections: ['parents'] },
+      { key: 'sponsors', sections: ['sponsors'] },
+      { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, runsOn: 3 } },
+      { key: 'reception', sections: ['reception'] },
+      { key: 'dress-code', sections: ['dress-code'], ground: { color: 'bg' } },
+      { key: 'gift', sections: ['gift'] },
+      { key: 'rsvp', sections: ['rsvp'], ground: { ...pic, runsOn: 4 } },
+      { key: 'story', sections: ['story'], drawn: true as const, ground: { color: 'bg', ratio: 1.777 } },
+      { key: 'closing', sections: ['closing'] },
+    ],
+  } as unknown as Parameters<typeof runOf>[0];
+  const runs = runOf(doc);
+  // the two after the cover, and not the third
+  assert.equal(runs.get('countdown'), 'cover');
+  assert.equal(runs.get('parents'), 'cover');
+  assert.equal(runs.has('sponsors'), false);
+  // a page with a ground of its own ends the run early, whatever the number says
+  assert.equal(runs.get('reception'), 'ceremony');
+  assert.equal(runs.has('dress-code'), false);
+  assert.equal(runs.has('gift'), false);
+  // so does a page placed by hand
+  assert.equal(runs.has('story'), false);
+  assert.equal(runs.has('closing'), false);
+  // a head sits on its own picture and is not in the map
+  assert.equal(runs.has('cover'), false);
+  // the number is the document's and survives the parse
+  const read = designOf(doc, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const head = read.doc?.pages[0].ground;
+  assert.equal(head && 'url' in head ? head.runsOn : undefined, 2);
 });

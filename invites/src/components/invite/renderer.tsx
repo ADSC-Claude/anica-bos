@@ -16,7 +16,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -114,12 +114,50 @@ function videoEmbed(url: string): { src: string; poster?: string } | null {
   return null;
 }
 
-function Section({ id, eyebrow, title, tagline, children, className = '' }: { id: string; eyebrow?: string; title?: string; tagline?: string; children: ReactNode; className?: string }) {
+/**
+ * A writing of the page's own that the studio can lift off the flow into a
+ * box of its own: `data-w` names it, so a page can say it is off the flow
+ * (PageSpec.offFlow) and so the studio can find it in the frame; `data-src`
+ * says what the box that takes its place reads — the same answer, the same
+ * word of the design's — so the box stays in step with the form. A guest
+ * never reads either.
+ */
+function w(id: string, sources: Source[]): Record<string, string> {
+  return { 'data-w': id, 'data-src': JSON.stringify(sources) };
+}
+/** A writing that is the same in both languages — a name, a date, an answer of the customer's — as the page drew it. */
+const fx = (en: string): Source => ({ fixed: { en, tl: en } });
+/**
+ * Where a part's tagline is drawn from: the customer's own line where the
+ * part reads one, then the look's line under this key — so a tagline lifted
+ * off the flow follows the look in either language, as the part does.
+ */
+/** The parts whose heading is the look's word under another key than their own id. */
+const TITLE_KEY_OF: Record<string, TitleKey> = { ceremony: 'invitation', reception: 'venue', 'dress-code': 'dressCode', 'guest-photos': 'photos' };
+const TAGLINE_OF: Record<string, { key: LineKey; own?: string }> = {
+  ceremony: { key: 'invitation' }, reception: { key: 'venue' }, entourage: { key: 'entourage' }, sponsors: { key: 'sponsors' },
+  'dress-code': { key: 'dressCode' }, story: { key: 'story', own: 'line' }, gallery: { key: 'gallery', own: 'line' }, program: { key: 'program' },
+  social: { key: 'social' }, guestbook: { key: 'guestbook' }, 'guest-photos': { key: 'photos' }, closing: { key: 'closing', own: 'line' }, contact: { key: 'contact' },
+};
+
+/** The cover's names, field by field per occasion, so a lifted name still reads the form: the first that is filled wins. */
+const NAME_KEYS: Partial<Record<Occasion, string[][]>> = {
+  WEDDING: [['brideFirst'], ['groomFirst']], DEBUT: [['celebrantFirst']], CHRISTENING: [['childNick', 'childFull']], COMMUNION: [['childNick', 'childFull']],
+  KIDS_BIRTHDAY: [['celebrantFirst']], MILESTONE_BIRTHDAY: [['celebrantFirst']], BABY_SHOWER: [['momName'], ['dadName']], ANNIVERSARY: [['partnerA'], ['partnerB']],
+  ENGAGEMENT: [['partnerA'], ['partnerB']], GRADUATION: [['honoree']], CORPORATE: [['eventName']], HOUSEWARMING: [['familyName']], REUNION: [['groupName']], MEMORIAL: [['name']],
+};
+
+function Section({ id, eyebrow, title, tagline, eyebrowSrc, taglineSrc, children, className = '' }: { id: string; eyebrow?: string; title?: string; tagline?: string; /** what a lifted eyebrow or tagline reads, where the part knows better than TAGLINE_OF */ eyebrowSrc?: Source[]; taglineSrc?: Source[]; children: ReactNode; className?: string }) {
+  // the heading reads the design's own word for this part where it has one, so a lifted heading follows a change to that word
+  const titleKey = TITLE_KEY_OF[id] ?? (TITLE_KEYS.includes(id as TitleKey) ? (id as TitleKey) : undefined);
+  const titleSrc: Source[] = titleKey ? [{ word: titleWord(titleKey) }, fx(title ?? '')] : [fx(title ?? '')];
+  const tag = TAGLINE_OF[id];
+  const tagSrc: Source[] = taglineSrc ?? [...(tag?.own ? [{ bind: { section: id, field: tag.own } }] : []), ...(tag ? [{ word: tag.key }] : []), fx(tagline ?? '')];
   return (
     <section id={id} className={`inv-section ${className}`}>
-      {eyebrow && <p className="inv-eyebrow">{eyebrow}</p>}
-      {title && <h2 className="inv-title">{title}</h2>}
-      {tagline && <p className="inv-tagline">{tagline}</p>}
+      {eyebrow && <p className="inv-eyebrow" {...w(`${id}.eyebrow`, eyebrowSrc ?? [fx(eyebrow)])}>{eyebrow}</p>}
+      {title && <h2 className="inv-title" {...w(`${id}.title`, titleSrc)}>{title}</h2>}
+      {tagline && <p className="inv-tagline" {...w(`${id}.tagline`, tagSrc)}>{tagline}</p>}
       {children}
     </section>
   );
@@ -225,9 +263,12 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // The format's cover carries the place and the moment's three lines; the
   // sentence that does the inviting waits for the invitation block.
   const place = content.ceremony && str(content.ceremony, 'venue') ? content.ceremony : content.reception;
-  const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
+  const placeLines = format ? (['venue', 'address'] as const).map((field) => ({ field, text: str(place, field) })).filter((l) => l.text) : [];
   // the three lines under the place: the look's, or the couple's own where staff wrote them
-  const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey, occasion) || '').filter(Boolean) : [];
+  const momentLines = format && layout === 'capiz' ? [1, 2, 3].map((n) => ({ n, text: str(content.moment, `line${n}`) || lookLine(look, lang, `moment${n}` as LineKey, occasion) || '' })).filter((l) => l.text) : [];
+  // what a lifted eyebrow reads: the app's own words by their key, the look's line by its, so it follows the language
+  const eyebrowSrc: Source[] = saveTheDate ? [{ copy: 'cover.saveTheDate' }] : lookEyebrow ? [{ word: 'cover' }, fx(eyebrow)] : layout === 'capiz' && occasion === 'WEDDING' ? [{ copy: 'cover.invited' }] : [fx(eyebrow)];
+  const placeKey = place === content.ceremony ? 'ceremony' : 'reception';
   // A paged design's ground is its artwork, so the photograph cannot fill the
   // cover the way the other layouts do it. Capiz carries it one of five ways
   // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
@@ -263,10 +304,10 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
             Capiz holds them between the two strands of its plate. */}
         <div className="inv-hero-names">
           {monogram && <p className="inv-display mb-3 text-3xl opacity-90">{monogram}</p>}
-          {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }}>{eyebrow}</p>}
+          {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }} {...w('cover.eyebrow', eyebrowSrc)}>{eyebrow}</p>}
           <h1 className="inv-names">
             {copy.names.map((n, i) => (
-              <span key={i}>
+              <span key={i} {...w(`cover.name.${i}`, [...(NAME_KEYS[occasion]?.[i] ?? []).map((field) => ({ bind: { section: 'cover', field } })), fx(n)])}>
                 {i > 0 && (joiner === 'and' ? <span className="inv-amp" data-word="">{lang === 'tl' ? 'at' : 'and'}</span> : <span className="inv-amp">&amp;</span>)}
                 {n}
               </span>
@@ -276,11 +317,11 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
         <div className="inv-hero-details">
           {format ? (
             <>
-              {date && <p className="inv-hero-date">{dottedDate(date)}</p>}
-              {placeLines.map((l, i) => <p key={i} className="inv-eyebrow inv-hero-place">{l}</p>)}
+              {date && <p className="inv-hero-date" {...w('cover.date', [fx(dottedDate(date))])}>{dottedDate(date)}</p>}
+              {placeLines.map((l, i) => <p key={i} className="inv-eyebrow inv-hero-place" {...w(`cover.place.${i}`, [{ bind: { section: placeKey, field: l.field } }, fx(l.text)])}>{l.text}</p>)}
               {momentLines.length > 0 && (
                 <div className="inv-hero-lines">
-                  {momentLines.map((l, i) => <p key={i}>{l}</p>)}
+                  {momentLines.map((l, i) => <p key={i} {...w(`cover.line.${i}`, [{ bind: { section: 'moment', field: `line${l.n}` } }, { word: `moment${l.n}` as WordKey }, fx(l.text)])}>{l.text}</p>)}
                 </div>
               )}
               <p className="inv-scroll" aria-hidden>{t(lang, 'cover.scroll')}</p>
@@ -304,21 +345,21 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
 }
 
 /** The couple's verse or quotation, set in capitals after the cover. */
-function Verse({ text, source }: { text: string; source: string }) {
+function Verse({ text, source, own }: { text: string; source: string; /** the couple's own verse, so its reference is theirs too and never the look's */ own?: boolean }) {
   return (
     <section id="verse" className="inv-section inv-verse">
-      <p className="inv-verse-text">{text}</p>
-      {source && <p className="inv-eyebrow inv-verse-ref">{source}</p>}
+      <p className="inv-verse-text" {...w('verse.text', [{ bind: { section: 'cover', field: 'verse' } }, { word: 'verse' }, fx(text)])}>{text}</p>
+      {source && <p className="inv-eyebrow inv-verse-ref" {...w('verse.ref', own ? [{ bind: { section: 'cover', field: 'verseRef' } }] : [{ word: 'verseRef' }, fx(source)])}>{source}</p>}
       <span className="inv-rule" aria-hidden />
     </section>
   );
 }
 
 /** A line or two in script between chapters — the look's, or the couple's own. */
-function Interlude({ id, text }: { id: string; text: string }) {
+function Interlude({ id, text, src }: { id: string; text: string; /** what a lifted line reads; the line as drawn when the caller says nothing */ src?: Source[] }) {
   return (
     <section id={id} className="inv-section inv-interlude">
-      <p className="inv-tagline">{text}</p>
+      <p className="inv-tagline" {...w(`${id}.text`, src ?? [fx(text)])}>{text}</p>
     </section>
   );
 }
@@ -366,18 +407,18 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
   const note = str(data, 'note');
   if (!persons.length && !hosts.length && !note) return null;
   return (
-    <Section id="parents" eyebrow={t(lang, 'parents.hosts')}>
+    <Section id="parents" eyebrow={t(lang, 'parents.hosts')} eyebrowSrc={[{ copy: 'parents.hosts' }]}>
       <div className="inv-list text-lg">
         {persons.map((p, i) => (
           <p key={i}>{p}</p>
         ))}
         {hosts.map((h, i) => (
-          <p key={i}>
+          <p key={i} {...w(`parents.host.${i}`, [fx(h.relation ? `${h.name} · ${h.relation}` : h.name)])}>
             {h.name}
             {h.relation && <span className="inv-muted text-sm"> · {h.relation}</span>}
           </p>
         ))}
-        {note && <p className="inv-muted text-base">{note}</p>}
+        {note && <p className="inv-muted text-base" {...w('parents.note', [{ bind: { section: 'parents', field: 'note' } }, fx(note)])}>{note}</p>}
       </div>
     </Section>
   );
@@ -412,16 +453,16 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     const weekday = date ? formatDate(date, 'weekday').split(',')[0] : '';
     return (
       <Section id={id} title={title} tagline={tagline}>
-        {format.sub && <p className="inv-eyebrow inv-invite-sub">{format.sub}</p>}
-        {format.intro && <p className="inv-invite-intro">{format.intro}</p>}
+        {format.sub && <p className="inv-eyebrow inv-invite-sub" {...w(`${id}.sub`, [fx(format.sub)])}>{format.sub}</p>}
+        {format.intro && <p className="inv-invite-intro" {...w(`${id}.intro`, [{ bind: { section: 'cover', field: 'intro' } }, fx(format.intro)])}>{format.intro}</p>}
         <ul className="inv-rows">
-          {date && <li><Ico name="calendar" /><div><b>{weekday}</b><span>{formatDate(date)}</span></div></li>}
-          {time && <li><Ico name="clock" /><div><b>{formatTime(time)}</b><span>{t(lang, 'invitation.ceremony')}</span></div></li>}
-          <li><Ico name="pin" /><div><b>{venue}</b>{address && <span>{address}</span>}</div></li>
-          {format.attire && <li><Ico name="dress" /><div><b>{format.attire}</b></div></li>}
+          {date && <li><Ico name="calendar" /><div><b {...w(`${id}.weekday`, [fx(weekday)])}>{weekday}</b><span {...w(`${id}.date`, [fx(formatDate(date))])}>{formatDate(date)}</span></div></li>}
+          {time && <li><Ico name="clock" /><div><b {...w(`${id}.time`, [fx(formatTime(time))])}>{formatTime(time)}</b><span>{t(lang, 'invitation.ceremony')}</span></div></li>}
+          <li><Ico name="pin" /><div><b {...w(`${id}.venue`, [{ bind: { section: id, field: 'venue' } }, fx(venue)])}>{venue}</b>{address && <span {...w(`${id}.address`, [{ bind: { section: id, field: 'address' } }, fx(address)])}>{address}</span>}</div></li>
+          {format.attire && <li><Ico name="dress" /><div><b {...w(`${id}.attire`, [fx(format.attire)])}>{format.attire}</b></div></li>}
         </ul>
-        {str(data, 'seatedBy') && <p className="inv-muted mt-4 text-center text-sm">{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
-        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
+        {str(data, 'seatedBy') && <p className="inv-muted mt-4 text-center text-sm" {...w(`${id}.seatedBy`, [fx(`${t(lang, 'ceremony.seatedBy')} ${str(data, 'seatedBy')}`)])}>{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm" {...w(`${id}.note`, [{ bind: { section: id, field: 'note' } }])}>{str(data, 'note')}</p>}
         {(format.mapHere || calendarHref) && (
           <div className="no-print mt-5 flex flex-wrap justify-center gap-2">
             {format.mapHere && maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
@@ -439,10 +480,10 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     const cer = format.ceremony;
     const cerVenue = cer ? str(cer, 'venue') : '';
     const places = format.sameVenue || !cerVenue
-      ? [{ label: format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception'), data, time: format.sameVenue ? '' : time }]
+      ? [{ label: format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception'), key: format.sameVenue ? 'venue.both' : 'venue.reception', data, section: id, time: format.sameVenue ? '' : time }]
       : [
-          { label: t(lang, 'invitation.ceremony'), data: cer as SectionData, time: str(cer, 'time') },
-          { label: t(lang, 'venue.reception'), data, time },
+          { label: t(lang, 'invitation.ceremony'), key: 'invitation.ceremony', data: cer as SectionData, section: 'ceremony', time: str(cer, 'time') },
+          { label: t(lang, 'venue.reception'), key: 'venue.reception', data, section: id, time },
         ];
     const photoUrl = photo || (cer ? str(cer, 'photo') : '');
     return (
@@ -451,15 +492,15 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
         <div className="inv-venues">
           {places.map((p, i) => (
             <div key={i}>
-              <p className="inv-eyebrow">{p.label}</p>
-              <p className="inv-venue-name">{str(p.data, 'venue')}</p>
-              {str(p.data, 'address') && <p className="inv-venue-addr">{str(p.data, 'address')}</p>}
-              {p.time && <p className="mt-1 text-center">{formatTime(p.time)}</p>}
+              <p className="inv-eyebrow" {...w(`${id}.place.${i}.label`, [{ copy: p.key }])}>{p.label}</p>
+              <p className="inv-venue-name" {...w(`${id}.place.${i}.venue`, [{ bind: { section: p.section, field: 'venue' } }])}>{str(p.data, 'venue')}</p>
+              {str(p.data, 'address') && <p className="inv-venue-addr" {...w(`${id}.place.${i}.address`, [{ bind: { section: p.section, field: 'address' } }])}>{str(p.data, 'address')}</p>}
+              {p.time && <p className="mt-1 text-center" {...w(`${id}.place.${i}.time`, [fx(formatTime(p.time))])}>{formatTime(p.time)}</p>}
             </div>
           ))}
         </div>
-        {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm">{str(data, 'parkingNote')}</p>}
-        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
+        {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm" {...w(`${id}.parking`, [{ bind: { section: id, field: 'parkingNote' } }])}>{str(data, 'parkingNote')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm" {...w(`${id}.note`, [{ bind: { section: id, field: 'note' } }])}>{str(data, 'note')}</p>}
       </Section>
     );
   }
@@ -467,17 +508,17 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     <Section id={id} title={title} tagline={tagline}>
       <div className="inv-card text-center">
         {photo && <img src={imageUrl(photo, IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[3/2]" loading="lazy" />}
-        <p className="inv-display text-2xl">{venue}</p>
-        {str(data, 'address') && <p className="inv-muted mt-1">{str(data, 'address')}</p>}
+        <p className="inv-display text-2xl" {...w(`${id}.venue`, [{ bind: { section: id, field: 'venue' } }, fx(venue)])}>{venue}</p>
+        {str(data, 'address') && <p className="inv-muted mt-1" {...w(`${id}.address`, [{ bind: { section: id, field: 'address' } }])}>{str(data, 'address')}</p>}
         {(date || time) && (
           <p className="mt-3 text-lg">
-            {date && formatDate(date, 'weekday')}
-            {time && <span className="block">{formatTime(time)}</span>}
+            {date && <span {...w(`${id}.date`, [fx(formatDate(date, 'weekday'))])}>{formatDate(date, 'weekday')}</span>}
+            {time && <span className="block" {...w(`${id}.time`, [fx(formatTime(time))])}>{formatTime(time)}</span>}
           </p>
         )}
-        {str(data, 'seatedBy') && <p className="inv-muted mt-2 text-sm">{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
-        {str(data, 'parkingNote') && <p className="mt-2 text-sm">{str(data, 'parkingNote')}</p>}
-        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-sm">{str(data, 'note')}</p>}
+        {str(data, 'seatedBy') && <p className="inv-muted mt-2 text-sm" {...w(`${id}.seatedBy`, [fx(`${t(lang, 'ceremony.seatedBy')} ${str(data, 'seatedBy')}`)])}>{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
+        {str(data, 'parkingNote') && <p className="mt-2 text-sm" {...w(`${id}.parking`, [{ bind: { section: id, field: 'parkingNote' } }])}>{str(data, 'parkingNote')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-sm" {...w(`${id}.note`, [{ bind: { section: id, field: 'note' } }])}>{str(data, 'note')}</p>}
         <div className="no-print mt-4 flex flex-wrap justify-center gap-2">
           {maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
           {waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.waze')}</a>}
@@ -851,10 +892,10 @@ function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionDat
   return (
     <Section id="gift" title={title} tagline={tagline}>
       {format && <Ico name="gift" className="inv-ico-lg" />}
-      {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'text')}</p>}
+      {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center" {...w('gift.text', [{ bind: { section: 'gift', field: 'text' } }])}>{str(data, 'text')}</p>}
       {(qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
-          <p className="inv-eyebrow">{t(lang, 'gift.gcash')}</p>
+          <p className="inv-eyebrow" {...w('gift.gcashLabel', [{ copy: 'gift.gcash' }])}>{t(lang, 'gift.gcash')}</p>
           {/*
             Deliberately not resized. Everything else on this page goes through
             imageUrl(), but a QR code re-encoded as lossy WebP is a QR code that
@@ -862,14 +903,14 @@ function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionDat
             single small image; the bytes are not worth the risk.
           */}
           {qr && <img src={qr} alt="GCash QR" className="mx-auto mb-3 w-48 rounded-lg" loading="lazy" />}
-          {str(data, 'gcashName') && <p className="font-semibold">{str(data, 'gcashName')}</p>}
-          {str(data, 'gcashNumber') && <p className="tabular-nums">{str(data, 'gcashNumber')}</p>}
+          {str(data, 'gcashName') && <p className="font-semibold" {...w('gift.gcashName', [{ bind: { section: 'gift', field: 'gcashName' } }])}>{str(data, 'gcashName')}</p>}
+          {str(data, 'gcashNumber') && <p className="tabular-nums" {...w('gift.gcashNumber', [{ bind: { section: 'gift', field: 'gcashNumber' } }])}>{str(data, 'gcashNumber')}</p>}
         </div>
       )}
       {str(data, 'bankDetails') && (
         <div className="inv-card mt-3 text-center">
-          <p className="inv-eyebrow">{t(lang, 'gift.bank')}</p>
-          <p className="whitespace-pre-line text-sm">{str(data, 'bankDetails')}</p>
+          <p className="inv-eyebrow" {...w('gift.bankLabel', [{ copy: 'gift.bank' }])}>{t(lang, 'gift.bank')}</p>
+          <p className="whitespace-pre-line text-sm" {...w('gift.bankDetails', [{ bind: { section: 'gift', field: 'bankDetails' } }])}>{str(data, 'bankDetails')}</p>
         </div>
       )}
       {registry.length > 0 && (
@@ -1064,7 +1105,7 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
 type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[]; strand: string };
 
 
-function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat }) {
+function Gallery({ data, lang, tier, tagline, title, format, taglineSrc }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat; /** what a lifted tagline reads, where this is not the gallery's own line */ taglineSrc?: Source[] }) {
   const limit = galleryLimit(tier);
   const photos = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
   const video = hasFeature(tier, 'video') ? str(data, 'videoUrl') : '';
@@ -1072,7 +1113,7 @@ function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionDa
   const embed = video ? videoEmbed(video) : null;
   if (format) return <Prenup photos={photos} video={video} embed={embed} lang={lang} title={title ?? t(lang, 'gallery.title')} tagline={tagline} format={format} />;
   return (
-    <Section id="gallery" title={title ?? t(lang, 'gallery.title')} tagline={tagline}>
+    <Section id="gallery" title={title ?? t(lang, 'gallery.title')} tagline={tagline} taglineSrc={taglineSrc}>
       {photos.length > 0 && (
         <div className="inv-gallery">
           {photos.map((p, i) => (
@@ -1404,11 +1445,11 @@ function Closing({ data, lang, hashtag, tagline, names, date, message }: { data:
   return (
     <Section id="closing" title={tagline ? undefined : t(lang, 'closing.title')} tagline={tagline}>
       {str(data, 'photo') && <img src={imageUrl(str(data, 'photo'), IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
-      {thanks && <p className="mx-auto max-w-md whitespace-pre-line text-center">{thanks}</p>}
-      {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }}>{str(data, 'signature')}</p>}
-      {hashtag && <p className="inv-muted mt-2 text-center text-sm">{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
-      {names && <p className="inv-eyebrow mt-6">{names}</p>}
-      {date && <p className="inv-eyebrow" style={{ letterSpacing: '0.42em', textIndent: '0.42em' }}>{date}</p>}
+      {thanks && <p className="mx-auto max-w-md whitespace-pre-line text-center" {...w('closing.thanks', [{ bind: { section: 'closing', field: 'message' } }, { word: 'closingMessage' }, fx(thanks)])}>{thanks}</p>}
+      {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }} {...w('closing.signature', [{ bind: { section: 'closing', field: 'signature' } }])}>{str(data, 'signature')}</p>}
+      {hashtag && <p className="inv-muted mt-2 text-center text-sm" {...w('closing.hashtag', [{ bind: { section: 'social', field: 'hashtag' } }])}>{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
+      {names && <p className="inv-eyebrow mt-6" {...w('closing.names', [fx(names)])}>{names}</p>}
+      {date && <p className="inv-eyebrow" style={{ letterSpacing: '0.42em', textIndent: '0.42em' }} {...w('closing.date', [fx(date)])}>{date}</p>}
     </Section>
   );
 }
@@ -1796,7 +1837,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // the couple's own verse with its own source; else the look's, a fixed writing
   const ownVerse = str(content.cover, 'verse');
   const verseText = ownVerse || line('verse') || '';
-  const verse = format && verseText ? <Verse key="verse" text={verseText} source={ownVerse ? str(content.cover, 'verseRef') : line('verseRef') || ''} /> : null;
+  const verse = format && verseText ? <Verse key="verse" text={verseText} source={ownVerse ? str(content.cover, 'verseRef') : line('verseRef') || ''} own={Boolean(ownVerse)} /> : null;
   // The peek ends with Our Story, or with the cover where the design has no
   // story: the pages up to that one, then the way in.
   const peekEnd = (keys: string[]) => { const i = keys.indexOf('story'); return i < 0 ? 1 : i + 1; };
@@ -1882,7 +1923,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean; off?: string[] } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1914,6 +1955,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             ...dress.vars,
           } as CSSProperties}
         >
+          {/* the page's own writings a box of words has taken off the flow: drawn nowhere, for a guest or the studio (PageSpec.offFlow) */}
+          {o.off?.length ? <style>{o.off.map((id) => `.inv-page[data-page="${key}"] [data-w="${id.replace(/[^a-zA-Z0-9.:_-]/g, '')}"]{display:none!important}`).join('')}</style> : null}
           {parts}
         </div>
       );
@@ -1984,7 +2027,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const head = runs.get(spec.key);
         const own = spec.ground && isPicture(spec.ground);
         const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
-        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
     // a section the document does not name gets a page of its own, in its place
@@ -2039,7 +2082,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} spec={coverOf(doc)} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
-          <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>
+          <Section
+            key={key}
+            id="countdown"
+            eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')}
+            eyebrowSrc={[{ bind: { section: 'countdown', field: 'label' } }, { copy: 'countdown.title' }]}
+            tagline={look ? str(data, 'label') || line('countdown') : undefined}
+            taglineSrc={[{ bind: { section: 'countdown', field: 'label' } }, { word: 'countdown' }, fx(str(data, 'label') || line('countdown') || '')]}
+          >
             <Countdown target={eventAt.toISOString()} labels={[t(lang, 'countdown.days'), t(lang, 'countdown.hours'), t(lang, 'countdown.minutes'), t(lang, 'countdown.seconds')]} today={t(lang, 'countdown.today')} />
           </Section>
         ) : null;
@@ -2078,7 +2128,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           <Fragment key={key}>
             {block}
             {format && <GettingThere data={data} ceremony={content.ceremony} sameVenue={sameVenue} lang={lang} title={named('getting', t(lang, 'venue.getting'))} />}
-            {after && <Interlude id="interlude-2" text={after} />}
+            {after && <Interlude id="interlude-2" text={after} src={[{ bind: { section: 'cover', field: 'interlude2' } }, { word: 'interlude2' }, fx(after)]} />}
           </Fragment>
         );
       }
@@ -2107,7 +2157,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           // stops at four for this design. A video, which no frame can hold,
           // gets a page of its own after it, which the document names
           // 'gallery-video'.
-          babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} /> : null;
+          babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} taglineSrc={[{ bind: { section: 'gallery', field: 'close' } }, { word: 'galleryClose' }, fx(str(data, 'close') || line('galleryClose') || '')]} /> : null;
         }
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
       }

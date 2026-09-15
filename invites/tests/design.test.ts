@@ -1271,3 +1271,20 @@ test('a page laid out by its words can be told to be at least so many screens ta
   // and not to be smaller than a third of one, or taller than six
   assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], minScreens: 9 }] }, 'classic').doc?.pages.length, 0);
 });
+
+test('a writing lifted off the page is remembered on the page and on the box that took its place', () => {
+  const read = designOf({
+    v: 1,
+    pages: [{
+      key: 'p', sections: ['ceremony'], offFlow: ['ceremony.title'],
+      elements: [{ id: 'words-1', kind: 'text', block: 'head', x: 50, y: 6, w: 80, anchor: 'top', z: 1, lifted: 'ceremony.title', lines: [{ role: 'title', align: 'center', sources: [{ word: 'ceremonyTitle' }, { fixed: { en: 'Ceremony' } }], size: 5.6 }] }],
+    }],
+  }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.pages[0].offFlow, ['ceremony.title']);
+  const el = read.doc?.pages[0].elements?.[0];
+  assert.equal(el && el.kind === 'text' ? el.lifted : undefined, 'ceremony.title');
+  // and it is a decoration of the page, over the words, hung off the head
+  assert.equal(flowDecor(read.doc!.pages[0]).length, 1);
+  assert.equal(decorOver(flowDecor(read.doc!.pages[0])[0]), true);
+});

@@ -362,12 +362,13 @@ test('the one gathering nobody announces in advance is not sold a Save the Date'
 
 test('a Save the Date cover drops the opening controls, and an ordinary one keeps them', () => {
   const keys = (std: boolean) => fieldsFor('cover', 'WEDDING', 'COMPLETE', std).map((f) => f.key);
-  for (const k of ['opening', 'openingLine', 'openingLine2']) {
+  const controls = ['opening', 'openingSpeed', 'openingTrigger', 'openingLine', 'openingLine2'];
+  for (const k of controls) {
     assert.ok(keys(false).includes(k), `an invitation still offers ${k}`);
     assert.equal(keys(true).includes(k), false, `a Save the Date does not offer ${k}`);
   }
   // Everything else about the cover is untouched: same fields, same order.
-  assert.deepEqual(keys(true), keys(false).filter((k) => !['opening', 'openingLine', 'openingLine2'].includes(k)));
+  assert.deepEqual(keys(true), keys(false).filter((k) => !controls.includes(k)));
   // And only the cover is filtered — the countdown has no opening to lose.
   assert.deepEqual(fieldsFor('countdown', 'WEDDING', 'COMPLETE', true), fieldsFor('countdown', 'WEDDING', 'COMPLETE'));
 });

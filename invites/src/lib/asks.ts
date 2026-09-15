@@ -1,6 +1,7 @@
 import type { Occasion } from '@prisma/client';
 import { fieldsFor, sectionLabel, OCCASION_SECTIONS, type Field, type SectionKey } from './sections';
-import { frameLists, type DesignDoc, type Element, type FieldRef, type PhotoEl, type TextEl } from './design';
+import { frameLists, type DesignDoc, type Element, type FieldRef, type PhotoEl, type TextEl, type MomentEl } from './design';
+import { MOMENT_BY_KEY, momentName } from './moments';
 
 /**
  * What a design asks its customer for.
@@ -37,6 +38,8 @@ export type Ask = {
   ifEmpty?: 'leave' | { piece: string };
   /** the design points at a field this occasion does not have */
   orphan?: boolean;
+  /** which of a moment's photographs this is, where it has more than one */
+  slot?: number;
 };
 
 /** A frame's proportions, in a word. */
@@ -75,6 +78,23 @@ const refOf = (el: Element): FieldRef | undefined => {
   return undefined;
 };
 
+/**
+ * What a moment asks for: each of its photographs that reads a field, then
+ * the first field its words read. One moment can be several questions —
+ * the polaroid stack is three photographs — so each is its own line, named
+ * by the scene ("a photograph in the stack") rather than by a frame number.
+ */
+function momentAsks(el: MomentEl): Array<{ ref: FieldRef; kind: 'photo' | 'text'; slot?: number; what: string; shape?: AskShape }> {
+  const def = MOMENT_BY_KEY[el.moment];
+  const out: Array<{ ref: FieldRef; kind: 'photo' | 'text'; slot?: number; what: string; shape?: AskShape }> = [];
+  (el.photos ?? []).forEach((p, i) => {
+    if ('asset' in p.bind) return;
+    out.push({ ref: p.bind, kind: 'photo', slot: i, what: def?.photos.label || 'a photograph', shape: def?.photos.shape });
+  });
+  for (const line of el.lines ?? []) for (const s of line.sources) if ('bind' in s) { out.push({ ref: s.bind, kind: 'text', what: 'its words' }); return out; }
+  return out;
+}
+
 /** The field a binding points at, if the occasion has it. */
 export function fieldOf(ref: FieldRef, occasion: Occasion): Field | undefined {
   if (!OCCASION_SECTIONS[occasion].includes(ref.section as SectionKey)) return undefined;
@@ -90,7 +110,24 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
   const out: Ask[] = [];
   for (const page of doc?.pages ?? []) {
     for (const el of page.elements ?? []) {
-      if (!el.ask || (el.kind !== 'photo' && el.kind !== 'text')) continue;
+      if (!el.ask) continue;
+      if (el.kind === 'moment') {
+        for (const a of momentAsks(el)) {
+          const field = fieldOf(a.ref, occasion);
+          const of = lists.get(`${a.ref.section}.${a.ref.field}`);
+          const place = a.ref.index === undefined ? '' : of && of > 1 ? ` (${a.ref.index + 1} of ${of})` : ` ${a.ref.index + 1}`;
+          out.push({
+            id: el.id, page: page.key, kind: a.kind, ref: a.ref, field: field?.key,
+            label: `${sectionLabel(a.ref.section as SectionKey, occasion)} — ${momentName(el.moment, el.variant)}: ${a.what}${place}`,
+            ...(a.slot !== undefined ? { slot: a.slot } : {}),
+            ...(a.shape ? { shape: a.shape, guidance: SHAPE_GUIDANCE[a.shape] } : {}),
+            ...(el.ifEmpty ? { ifEmpty: el.ifEmpty } : {}),
+            ...(field ? {} : { orphan: true }),
+          });
+        }
+        continue;
+      }
+      if (el.kind !== 'photo' && el.kind !== 'text') continue;
       const ref = refOf(el);
       if (!ref) continue;
       const field = fieldOf(ref, occasion);

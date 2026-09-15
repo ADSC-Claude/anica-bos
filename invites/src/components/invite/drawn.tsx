@@ -6,9 +6,11 @@ import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
   decorStyle, decorOver, flowFloats, flowDecor, motionOf,
-  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef,
+  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
+import { Moment } from './moments';
+import { MOMENT_BY_KEY, momentHint, triggerOf, type MomentKey } from '@/lib/moments';
 
 /**
  * A page drawn from the design's document.
@@ -181,7 +183,55 @@ function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
   if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'anim') return <Anim el={el} read={read} grow={grow} deco={deco} />;
+  if (el.kind === 'moment') return <MomentBox el={el} read={read} grow={grow} deco={deco} />;
   return null;
+}
+
+/**
+ * An interactive moment in its box, resolved for this invitation: the
+ * photographs it carries (the customer's, or the design's own), and the
+ * words it reveals, read the way a text box's lines are. The scene and the
+ * gesture are the client's (Moment); this is the part that knows the form.
+ */
+function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: number; deco?: boolean }) {
+  const def = MOMENT_BY_KEY[el.moment];
+  const photos = (el.photos ?? []).map((p) => ('asset' in p.bind ? p.bind.asset : valueAt(read.content, p.bind))).filter(Boolean);
+  const texts = (el.lines ?? []).map((l) => lineText(l.sources, read));
+  const hasWords = texts.some(Boolean);
+  const wants = def?.photos.count ?? 0;
+  // nothing to show and nothing asked: the moment is not there for this invitation
+  if (!read.edit && el.hidden !== 'never' && wants > 0 && !photos.length && !hasWords) return null;
+  const style = {
+    ...(deco ? decorStyle(el) : elementStyle(el, grow)),
+    ['--moment-aspect' as string]: String(el.aspect ?? def?.aspect ?? 1),
+    ...motionOf(el).vars,
+  } as CSSProperties;
+  const trigger = triggerOf(el.moment, el.trigger);
+  // the words it reveals, read the way a text box's lines are; in the studio an empty moment says what fills it
+  const words = hasWords
+    ? <>{el.lines?.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null))}</>
+    : read.edit && !photos.length ? <p className="inv-bb-ask">{read.edit.label(el)}</p> : undefined;
+  return (
+    <Moment
+      id={el.id}
+      scene={el.moment}
+      variant={el.variant}
+      trigger={trigger}
+      speed={el.speed}
+      plays={el.plays}
+      hint={momentHint(el.moment, trigger, read.lang)}
+      edit={Boolean(read.edit)}
+      photos={photos.map((u) => imageUrl(u, IMAGE.grid))}
+      words={words}
+      code={el.code}
+      style={style}
+      attrs={{
+        ...(motionOf(el).attrs as Record<string, string | undefined>),
+        ...(read.edit ? { 'data-el': el.id, 'data-empty': !photos.length && !hasWords ? '' : undefined } : {}),
+        ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}),
+      }}
+    />
+  );
 }
 
 /**

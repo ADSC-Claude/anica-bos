@@ -1643,7 +1643,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   background: var(--inv-bg);
   color: var(--inv-ink);
   cursor: pointer;
-  transition: opacity 500ms ease 550ms, visibility 0s linear 1050ms;
+  transition: opacity calc(500ms * var(--moment-t, 1)) ease calc(550ms * var(--moment-t, 1)), visibility 0s linear calc(1050ms * var(--moment-t, 1));
 }
 .inv-open[data-open='true'] {
   opacity: 0;
@@ -1714,89 +1714,8 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 
 /* The Envelope and The Seal share a stage: a card inside a folded face with a
    wax seal. The seal lifts the card further and cracks the wax. */
-.inv-open-env {
-  position: relative;
-  width: min(17rem, 76vw);
-  aspect-ratio: 8 / 5;
-  perspective: 900px;
-}
-.inv-open-card {
-  position: absolute;
-  left: 7%;
-  right: 7%;
-  top: 8%;
-  bottom: 8%;
-  border-radius: 0.2rem;
-  background: var(--inv-surface);
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
-  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms, opacity 500ms ease 550ms;
-}
-.inv-open-flap {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 0.5rem;
-  background: var(--inv-surface);
-  border: 1px solid var(--inv-accent2);
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
-  transform-origin: top center;
-  transition: transform 750ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease 500ms;
-}
-.inv-open-flap::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.6;
-  background:
-    linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
-    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
-  background-size: 50% 100%;
-  background-repeat: no-repeat;
-  background-position: left top, right top;
-}
-.inv-open-wax {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
-  background: var(--inv-accent);
-  color: #fff;
-  font-family: var(--inv-display);
-  font-size: 1rem;
-  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.55);
-  transform: translate(-50%, -50%);
-  transition: transform 450ms ease, opacity 350ms ease 150ms;
-}
-.inv-open[data-style='seal'] .inv-open-wax::before {
-  content: '';
-  position: absolute;
-  inset: -0.5rem;
-  border-radius: 999px;
-  border: 1px dashed color-mix(in srgb, var(--inv-accent) 45%, transparent);
-}
-.inv-open[data-open='true'] .inv-open-flap {
-  transform: rotateX(-160deg);
-  opacity: 0;
-}
-.inv-open[data-open='true'] .inv-open-wax {
-  transform: translate(-50%, -50%) scale(1.4) rotate(12deg);
-  opacity: 0;
-}
-.inv-open[data-open='true'] .inv-open-card {
-  transform: translateY(-1rem);
-  opacity: 0;
-}
-.inv-open[data-open='true'][data-style='seal'] .inv-open-card {
-  transform: translateY(-3rem);
-}
-.inv-open[data-style='envelope'] .inv-open-env,
-.inv-open[data-style='seal'] .inv-open-env {
+.inv-open[data-style='envelope'] .inv-mo,
+.inv-open[data-style='seal'] .inv-mo {
   translate: 0 min(-6rem, -16vh);
 }
 .inv-open[data-style='envelope'] .inv-open-copy,
@@ -2287,9 +2206,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   .inv-open-drape,
   .inv-open-panel,
   .inv-open-shot,
-  .inv-open-flap,
-  .inv-open-card,
-  .inv-open-wax,
+  .inv-open .inv-mo *,
   .inv-open-curve {
     transition: opacity 300ms ease;
     transform: none !important;
@@ -3208,3 +3125,850 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   .ed-peek-frame,
   .ed-peek-still { transition: none; }
 }
+
+/* ==========================================================================
+   Interactive moments — src/components/invite/moments.tsx
+   --------------------------------------------------------------------------
+   One stylesheet serves a moment on a page (.inv-moment) and the invitation's
+   opening (.inv-open): both set data-state (closed → opening → open),
+   --moment-t (the speed, as a multiplier of every duration here) and
+   --moment-drag (how far a swipe or a hold has got, 0 to 1). Every scene is
+   drawn from the design's own colours and moves in transforms and opacity
+   only; nothing here bounces, and one light falls from the top left.
+   ========================================================================== */
+.inv-moment {
+  position: absolute;
+  aspect-ratio: 1 / var(--moment-aspect, 1);
+  container-type: inline-size;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  --moment-t: 1;
+  --moment-drag: 0;
+}
+.inv-moment[data-trigger='swipe'] { touch-action: none; }
+/* a picture in a moment is never what the finger holds: the box or the strip is, and the browser must not start dragging the image itself */
+.inv-moment img { pointer-events: none; -webkit-user-drag: none; user-select: none; -webkit-user-select: none; }
+/* the decoration layer lets the words under it be selected; a moment is the one piece that takes the finger */
+.inv-deco .inv-moment { pointer-events: auto; }
+.inv-moment[data-still] { cursor: default; }
+.inv-moment:not([data-still]) { cursor: pointer; }
+.inv-moment:focus-visible { outline: 2px solid var(--inv-accent); outline-offset: 4px; }
+.inv-mo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  perspective: 1200cqw;
+  perspective-origin: 50% 40%;
+  contain: paint;
+}
+/* what it opens onto: under the scene, and up once the scene has moved aside */
+.inv-moment-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  padding: 6cqw;
+  text-align: center;
+  opacity: 0;
+  transition: opacity calc(600ms * var(--moment-t)) ease calc(var(--moment-reveal-at, 700ms) * var(--moment-t));
+}
+.inv-moment-reveal img { max-width: 100%; max-height: 100%; object-fit: cover; }
+.inv-moment:is([data-state='opening'], [data-state='open']) .inv-moment-reveal { opacity: 1; }
+.inv-moment[data-still] .inv-moment-reveal { transition: none; }
+.inv-moment-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 3cqw;
+  z-index: 5;
+  width: max-content;
+  max-width: 90%;
+  margin: 0;
+  padding: 1.2cqw 3cqw;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--inv-surface) 78%, transparent);
+  font-family: var(--inv-body);
+  font-size: 3.2cqw;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+.inv-moment:not([data-state='closed']) .inv-moment-hint { opacity: 0; }
+/* the hold's ring, over the middle, filling with --moment-drag */
+.inv-moment-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14cqw;
+  height: 14cqw;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  fill: none;
+  stroke-width: 1.6;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.inv-moment-ring circle { stroke: color-mix(in srgb, var(--inv-ink) 18%, transparent); }
+.inv-moment-ring .inv-moment-ring-fill {
+  stroke: var(--inv-accent);
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--moment-drag));
+  stroke-linecap: round;
+}
+.inv-moment:not([data-state='closed']) .inv-moment-ring { opacity: 0; transition: opacity 300ms ease; }
+/* while the finger has it, the pieces follow it and nothing eases */
+[data-dragging] .inv-mo * { transition-duration: 0s !important; transition-delay: 0s !important; }
+/* the still: no motion is wanted, or the page is printed */
+@media (prefers-reduced-motion: reduce) {
+  .inv-mo *, .inv-moment-reveal { transition: none !important; animation: none !important; }
+}
+@media print {
+  .inv-moment-hint, .inv-moment-ring { display: none; }
+  .inv-moment-reveal { opacity: 1; }
+}
+
+/* --- paper: the surface colour with a laid texture and a darker edge --- */
+.inv-mo-card, .inv-mo-back, .inv-mo-pocket, .inv-mo-flap, .inv-mo-sheet, .inv-mo-fold {
+  background-color: var(--inv-surface);
+  background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent);
+}
+
+/* --- the envelope and the wax seal ------------------------------------- */
+.inv-mo-env { filter: drop-shadow(0 4cqw 5cqw rgba(0, 0, 0, 0.16)); }
+.inv-mo-env .inv-mo-back {
+  position: absolute; inset: 0;
+  border-radius: 1.2cqw;
+  background-color: color-mix(in srgb, var(--inv-surface) 92%, var(--inv-ink));
+}
+.inv-mo-env .inv-mo-card {
+  position: absolute; left: 6%; right: 6%; top: 10%; bottom: 8%;
+  border-radius: 0.6cqw;
+  transform: translateY(0);
+  transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(500ms * var(--moment-t));
+}
+.inv-mo-env .inv-mo-pocket {
+  position: absolute; inset: 0;
+  border-radius: 1.2cqw;
+  clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%);
+  background-image:
+    linear-gradient(to bottom right, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%),
+    linear-gradient(to bottom left, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  background-size: 50% 100%, 50% 100%, auto;
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-position: left top, right top, 0 0;
+}
+.inv-mo-env .inv-mo-flap {
+  position: absolute; left: 0; right: 0; top: 0; height: 54%;
+  border-radius: 1.2cqw 1.2cqw 0 0;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  z-index: 3;
+  transition: transform calc(800ms * var(--moment-t)) cubic-bezier(0.4, 0, 0.2, 1), z-index 0s linear calc(400ms * var(--moment-t)), filter calc(800ms * var(--moment-t)) ease;
+}
+.inv-mo-env .inv-mo-flap::after {
+  /* the flap's own shadow on the pocket, lengthening as it lifts */
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, transparent 60%, color-mix(in srgb, var(--inv-ink) 10%, transparent));
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-env .inv-mo-flap { transform: rotateX(-172deg); z-index: 0; filter: brightness(0.94); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-env .inv-mo-card { transform: translateY(-58%); }
+[data-state='closed'] .inv-mo-env .inv-mo-card { transform: translateY(calc(var(--moment-drag) * -40%)); }
+.inv-mo-env .inv-mo-wax {
+  position: absolute; left: 50%; top: 52%; z-index: 4;
+  width: 17cqw; height: 17cqw;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 1.2cqw 1.6cqw rgba(0, 0, 0, 0.3));
+}
+.inv-mo-wax-half {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.34), transparent 42%),
+    radial-gradient(circle at 60% 75%, rgba(0, 0, 0, 0.16), transparent 50%),
+    var(--inv-accent);
+  color: color-mix(in srgb, var(--inv-surface) 85%, var(--inv-accent));
+  font-family: var(--inv-display);
+  font-size: 6.5cqw;
+  transition: transform calc(500ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.1, 1) calc(320ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(600ms * var(--moment-t));
+}
+.inv-mo-wax-half[data-side='l'] { clip-path: polygon(0 0, 52% 0, 40% 42%, 56% 58%, 46% 100%, 0 100%); }
+.inv-mo-wax-half[data-side='r'] { clip-path: polygon(52% 0, 100% 0, 100% 100%, 46% 100%, 56% 58%, 40% 42%); }
+.inv-mo-crack {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  fill: none;
+  stroke: color-mix(in srgb, var(--inv-ink) 55%, var(--inv-accent));
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset calc(320ms * var(--moment-t)) ease-in;
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-crack { stroke-dashoffset: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='l'] { transform: translate(-14%, 8%) rotate(-9deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='r'] { transform: translate(14%, 10%) rotate(9deg); opacity: 0; }
+/* the seal's flap waits for the wax to part */
+[data-moment='seal'] .inv-mo-flap, .inv-open[data-style='seal'] .inv-mo-flap { transition-delay: calc(600ms * var(--moment-t)), calc(1000ms * var(--moment-t)), calc(600ms * var(--moment-t)); }
+[data-moment='seal'] .inv-mo-card, .inv-open[data-style='seal'] .inv-mo-card { transition-delay: calc(1100ms * var(--moment-t)); }
+[data-moment='envelope'], [data-moment='seal'] { --moment-reveal-at: 1000ms; }
+[data-moment='seal'] { --moment-reveal-at: 1600ms; }
+/* the words and photograph rise on the card itself */
+[data-moment='envelope'] .inv-moment-reveal, [data-moment='seal'] .inv-moment-reveal {
+  left: 6%; right: 6%; top: -48%; bottom: 50%;
+  padding: 4cqw;
+}
+
+/* --- the ribbon ------------------------------------------------------- */
+.inv-mo-ribbon { filter: drop-shadow(0 3cqw 4cqw rgba(0, 0, 0, 0.14)); }
+.inv-mo-ribbon .inv-mo-card { position: absolute; inset: 0; border-radius: 0.8cqw; }
+.inv-mo-band {
+  position: absolute; z-index: 2;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.28) 38%, rgba(255, 255, 255, 0) 62%),
+    var(--inv-accent);
+  box-shadow: 0 0.4cqw 1cqw rgba(0, 0, 0, 0.14);
+  transition: transform calc(1000ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(400ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(1100ms * var(--moment-t));
+}
+.inv-mo-band[data-dir='v'] { left: 50%; top: -2%; bottom: -2%; width: 9cqw; margin-left: -4.5cqw; }
+.inv-mo-band[data-dir='h'] {
+  left: -2%; right: -2%; top: 50%; height: 9cqw; margin-top: -4.5cqw;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.28) 38%, rgba(255, 255, 255, 0) 62%),
+    var(--inv-accent);
+}
+.inv-mo-bow {
+  position: absolute; z-index: 3;
+  left: 50%; top: 50%;
+  width: 34cqw; height: auto;
+  transform: translate(-50%, -46%);
+  fill: var(--inv-accent);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(0, 0, 0, 0.22));
+  transition: transform calc(500ms * var(--moment-t)) ease-in calc(200ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(700ms * var(--moment-t));
+}
+.inv-mo-loop { transform-origin: 60px 40px; transition: transform calc(500ms * var(--moment-t)) ease-in; fill: color-mix(in srgb, var(--inv-accent) 88%, white); }
+.inv-mo-tail { fill: color-mix(in srgb, var(--inv-accent) 85%, black); transform-origin: 60px 44px; transition: transform calc(500ms * var(--moment-t)) ease-in; }
+.inv-mo-knot { fill: color-mix(in srgb, var(--inv-accent) 70%, black); }
+[data-state='closed'] .inv-mo-band[data-dir='h'] { transform: translateY(calc(var(--moment-drag) * 30%)); }
+[data-state='closed'] .inv-mo-bow { transform: translate(-50%, calc(-46% + var(--moment-drag) * 30%)) scale(calc(1 - var(--moment-drag) * 0.3)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-loop[data-side='l'] { transform: scale(0.15, 0.5) translate(40%, 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-loop[data-side='r'] { transform: scale(0.15, 0.5) translate(-40%, 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tail { transform: scaleY(1.3); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bow { transform: translate(-50%, 60%) rotate(4deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-band[data-dir='h'] { transform: translateY(140%) rotate(-3deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-band[data-dir='v'] { transform: translateY(130%) rotate(2deg); opacity: 0; }
+[data-moment='ribbon'] { --moment-reveal-at: 900ms; }
+
+/* --- the curtains, and the plain panels --------------------------------- */
+.inv-mo-curtains { overflow: hidden; border-radius: 0.6cqw; background: color-mix(in srgb, var(--inv-ink) 82%, var(--inv-accent)); }
+.inv-mo-behind { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.inv-mo-rod {
+  position: absolute; left: -2%; right: -2%; top: 0; height: 2.4cqw; z-index: 3;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent) 70%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 60%, black));
+  border-radius: 999px;
+  box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.3);
+}
+.inv-mo-panel {
+  position: absolute; top: 1.5cqw; bottom: 0; width: 51%; z-index: 2;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.24)),
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--inv-accent) 62%, black) 0 3%,
+      color-mix(in srgb, var(--inv-accent) 92%, white) 7%,
+      color-mix(in srgb, var(--inv-accent) 62%, black) 12%);
+  box-shadow: 0 0 3cqw rgba(0, 0, 0, 0.35);
+  transition: transform calc(1300ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-panel[data-side='l'] { left: 0; transform-origin: left center; }
+.inv-mo-panel[data-side='r'] { right: 0; transform-origin: right center; }
+[data-state='closed'] .inv-mo-panel[data-side='l'] { transform: translateX(calc(var(--moment-drag) * -80%)) scaleX(calc(1 - var(--moment-drag) * 0.5)); }
+[data-state='closed'] .inv-mo-panel[data-side='r'] { transform: translateX(calc(var(--moment-drag) * 80%)) scaleX(calc(1 - var(--moment-drag) * 0.5)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='l'] { transform: translateX(-88%) scaleX(0.3); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='r'] { transform: translateX(88%) scaleX(0.3); }
+/* the plain panels: two flat leaves in the surface colour, no folds, no rod */
+.inv-mo-curtains[data-panels] { background: var(--inv-surface); }
+.inv-mo-curtains[data-panels] .inv-mo-rod { display: none; }
+.inv-mo-curtains[data-panels] .inv-mo-panel {
+  top: 0;
+  background: var(--inv-surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent), 0 0 3cqw rgba(0, 0, 0, 0.18);
+}
+.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { border-right: 1px solid color-mix(in srgb, var(--inv-accent) 60%, transparent); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(-102%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(102%); }
+[data-moment='curtains'] { --moment-reveal-at: 500ms; }
+[data-moment='curtains'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 8cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+
+/* --- the doors ----------------------------------------------------------- */
+.inv-mo-doors { overflow: hidden; border-radius: 0.6cqw; background: color-mix(in srgb, var(--inv-ink) 88%, var(--inv-accent2)); }
+.inv-mo-doors[data-church] { border-radius: 50% 50% 0.6cqw 0.6cqw / 32% 32% 0.6cqw 0.6cqw; }
+.inv-mo-doors .inv-mo-light {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 248, 230, 0.55), transparent 60%);
+  opacity: 0;
+  transition: opacity calc(900ms * var(--moment-t)) ease;
+}
+.inv-mo-jamb {
+  position: absolute; inset: -1.5cqw; z-index: 3; pointer-events: none;
+  border: 1.5cqw solid color-mix(in srgb, var(--inv-accent2) 60%, var(--inv-ink));
+  border-radius: 1.2cqw;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.inv-mo-doors[data-church] .inv-mo-jamb { border-radius: 50% 50% 1.2cqw 1.2cqw / 32% 32% 1.2cqw 1.2cqw; }
+.inv-mo-leaf {
+  position: absolute; top: 0; bottom: 0; width: 50%; z-index: 2;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.12), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.12)),
+    repeating-linear-gradient(90deg, transparent 0 4%, rgba(0, 0, 0, 0.04) 4% 5%),
+    linear-gradient(180deg, color-mix(in srgb, var(--inv-accent2) 78%, white), var(--inv-accent2) 30%, color-mix(in srgb, var(--inv-accent2) 70%, black));
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    inset 4cqw 4cqw 0 -3.2cqw rgba(0, 0, 0, 0.14),
+    inset -4cqw -4cqw 0 -3.2cqw rgba(255, 255, 255, 0.08);
+  backface-visibility: hidden;
+  transition: transform calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(150ms * var(--moment-t));
+}
+.inv-mo-leaf::before, .inv-mo-leaf::after {
+  /* two raised panels, lit from the top left */
+  content: ''; position: absolute; left: 18%; right: 18%;
+  border: 0.5cqw solid rgba(0, 0, 0, 0.2);
+  border-left-color: rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 0.4cqw rgba(0, 0, 0, 0.08);
+}
+.inv-mo-leaf::before { top: 9%; height: 30%; }
+.inv-mo-leaf::after { top: 50%; height: 40%; }
+.inv-mo-doors[data-church] .inv-mo-leaf::before { border-radius: 50% 50% 0 0 / 45% 45% 0 0; top: 12%; height: 28%; }
+.inv-mo-leaf[data-side='l'] { left: 0; transform-origin: left center; }
+.inv-mo-leaf[data-side='r'] { right: 0; transform-origin: right center; }
+.inv-mo-doors[data-church] .inv-mo-leaf[data-side='l'] { border-radius: 100% 0 0 0 / 32% 0 0 0; }
+.inv-mo-doors[data-church] .inv-mo-leaf[data-side='r'] { border-radius: 0 100% 0 0 / 0 32% 0 0; }
+.inv-mo-handle {
+  position: absolute; top: 52%; width: 3.2cqw; height: 3.2cqw; z-index: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--inv-accent) 55%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 60%, black));
+  box-shadow: 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.4);
+}
+.inv-mo-leaf[data-side='l'] .inv-mo-handle { right: 8%; }
+.inv-mo-leaf[data-side='r'] .inv-mo-handle { left: 8%; }
+[data-state='closed'] .inv-mo-leaf[data-side='l'] { transform: rotateY(calc(var(--moment-drag) * -70deg)); }
+[data-state='closed'] .inv-mo-leaf[data-side='r'] { transform: rotateY(calc(var(--moment-drag) * 70deg)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='l'] { transform: rotateY(-112deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='r'] { transform: rotateY(112deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-doors .inv-mo-light { opacity: 1; }
+[data-moment='doors'] { --moment-reveal-at: 500ms; }
+[data-moment='doors'] .inv-moment-reveal { color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+
+/* --- the capiz panels ---------------------------------------------------- */
+.inv-mo-capiz { background: color-mix(in srgb, var(--inv-surface) 60%, var(--inv-accent2)); border-radius: 0.6cqw; }
+.inv-mo-shell {
+  position: absolute; top: 0; bottom: 0; width: 25.2%; z-index: 2;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.08) 45%, rgba(255, 255, 255, 0.4) 70%, rgba(255, 255, 255, 0.05)),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-accent) 70%, transparent) 0 1px, transparent 1px 16.6%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 70%, transparent) 0 1px, transparent 1px 50%),
+    color-mix(in srgb, var(--inv-surface) 82%, var(--inv-accent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-accent) 60%, transparent), 0 0 2cqw rgba(0, 0, 0, 0.16);
+  backface-visibility: hidden;
+  transition: transform calc(1100ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-shell[data-i='0'] { left: 0; transform-origin: left center; transition-delay: calc(450ms * var(--moment-t)); }
+.inv-mo-shell[data-i='1'] { left: 25%; transform-origin: left center; }
+.inv-mo-shell[data-i='2'] { right: 25%; transform-origin: right center; }
+.inv-mo-shell[data-i='3'] { right: 0; transform-origin: right center; transition-delay: calc(450ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='0'],
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='1'] { transform: rotateY(-100deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='2'],
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='3'] { transform: rotateY(100deg); }
+[data-moment='capiz'] { --moment-reveal-at: 700ms; }
+
+/* --- the folded letter --------------------------------------------------- */
+.inv-mo-letter { perspective-origin: 50% 50%; filter: drop-shadow(0 3cqw 4cqw rgba(0, 0, 0, 0.14)); }
+.inv-mo-sheet { position: absolute; left: 8%; right: 8%; top: 33.3%; height: 33.4%; }
+.inv-mo-fold {
+  position: absolute; left: 8%; right: 8%; height: 33.4%; z-index: 2;
+  backface-visibility: visible;
+  transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0.1, 0.2, 1);
+}
+.inv-mo-fold::after {
+  /* the crease's shadow on the fold's back */
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 30%);
+}
+.inv-mo-fold[data-i='2'] { top: 66.6%; transform-origin: top center; transform: rotateX(180deg); }
+.inv-mo-fold[data-i='0'] { top: 0; transform-origin: bottom center; transform: rotateX(-180deg); z-index: 3; transition-delay: calc(600ms * var(--moment-t)); }
+.inv-mo-fold[data-i='0']::after { background: linear-gradient(0deg, rgba(0, 0, 0, 0.08), transparent 30%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-fold { transform: rotateX(0deg); }
+[data-moment='letter'] { --moment-reveal-at: 1300ms; }
+[data-moment='letter'] .inv-moment-reveal { left: 8%; right: 8%; padding: 4cqw; }
+
+/* --- the same scenes filling the screen as the invitation's opening ------- */
+.inv-open .inv-mo {
+  position: relative;
+  width: min(20rem, 80vw);
+  perspective: 1400px;
+}
+.inv-open .inv-mo-env { aspect-ratio: 8 / 5; }
+.inv-open .inv-mo-ribbon { aspect-ratio: 8 / 5.6; }
+.inv-open .inv-mo-letter { aspect-ratio: 8 / 6.4; }
+.inv-open .inv-mo-curtains, .inv-open .inv-mo-doors, .inv-open .inv-mo-capiz { aspect-ratio: 8 / 9.6; width: min(17rem, 72vw); }
+.inv-open .inv-mo { --moment-drag: var(--open-drag, 0); }
+/* the words sit under the scene, not over it: the scene goes up, the words down, as the envelope's do */
+.inv-open[data-style='ribbon'] .inv-mo, .inv-open[data-style='letter'] .inv-mo { translate: 0 min(-6rem, -16vh); }
+.inv-open[data-style='ribbon'] .inv-open-copy, .inv-open[data-style='letter'] .inv-open-copy { translate: 0 min(6.5rem, 18vh); }
+.inv-open[data-style='doors'] .inv-mo, .inv-open[data-style='capiz'] .inv-mo { translate: 0 min(-7rem, -18vh); }
+.inv-open[data-style='doors'] .inv-open-copy, .inv-open[data-style='capiz'] .inv-open-copy { translate: 0 min(12rem, 30vh); }
+.inv-open[data-trigger='swipe'] { touch-action: none; }
+
+/* --- Tap & Reveal and the Surprise shelf ---------------------------------- */
+
+/* the instant camera: a matte body, one flash, and a print that slides out and develops */
+.inv-mo-camera { perspective: none; }
+.inv-mo-cam-body {
+  position: absolute; left: 12%; right: 12%; bottom: 0; height: 46%; z-index: 3;
+  border-radius: 4cqw 4cqw 3cqw 3cqw;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--inv-ink) 78%, var(--inv-surface)), color-mix(in srgb, var(--inv-ink) 92%, black));
+  box-shadow: 0 3cqw 4cqw -1cqw rgba(0, 0, 0, 0.35), inset 0 -1cqw 0 rgba(0, 0, 0, 0.25);
+}
+.inv-mo-cam-slot { position: absolute; left: 10%; right: 10%; top: 4%; height: 2.2cqw; border-radius: 999px; background: #000; box-shadow: inset 0 0.4cqw 0.6cqw rgba(255, 255, 255, 0.15); }
+.inv-mo-cam-lens {
+  position: absolute; left: 50%; top: 50%; width: 22cqw; height: 22cqw; transform: translate(-50%, -40%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 35%, #6a7080, #1b1e26 55%, #000 70%);
+  box-shadow: 0 0 0 1.6cqw color-mix(in srgb, var(--inv-ink) 60%, var(--inv-surface)), 0 0 0 2.2cqw rgba(0, 0, 0, 0.4), inset 0 0 2cqw rgba(0, 0, 0, 0.6);
+}
+.inv-mo-cam-lens span { position: absolute; left: 30%; top: 25%; width: 18%; height: 12%; border-radius: 999px; background: rgba(255, 255, 255, 0.45); transform: rotate(-30deg); }
+.inv-mo-cam-flash { position: absolute; left: 12%; top: 26%; width: 14cqw; height: 9cqw; border-radius: 1cqw; background: linear-gradient(135deg, #fff9e6, #cfc7b0); box-shadow: inset 0 0 0 0.5cqw rgba(0, 0, 0, 0.3); }
+.inv-mo-cam-button { position: absolute; right: 12%; top: 28%; width: 6cqw; height: 6cqw; border-radius: 999px; background: var(--inv-accent); box-shadow: 0 0.4cqw 0.6cqw rgba(0, 0, 0, 0.4); }
+.inv-mo-flashlight {
+  position: absolute; inset: -10%; z-index: 4; pointer-events: none;
+  background: radial-gradient(circle at 20% 60%, #fff 0%, rgba(255, 255, 255, 0.85) 30%, transparent 70%);
+  opacity: 0;
+  transition: opacity calc(120ms * var(--moment-t)) ease-out;
+}
+:is([data-state='opening']) .inv-mo-flashlight { opacity: 1; transition: opacity calc(80ms * var(--moment-t)) ease-in; }
+:is([data-state='open']) .inv-mo-flashlight { opacity: 0; transition: opacity calc(500ms * var(--moment-t)) ease-out; }
+.inv-mo-print {
+  position: absolute; left: 22%; right: 22%; bottom: 40%; z-index: 2;
+  aspect-ratio: 0.82;
+  padding: 3cqw 3cqw 9cqw;
+  background: #fbfaf7;
+  box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+  transform: translateY(96%);
+  transition: transform calc(1600ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(500ms * var(--moment-t));
+}
+.inv-mo-print-photo { display: block; width: 100%; aspect-ratio: 1; overflow: hidden; background: #d9d6cf; filter: grayscale(1) brightness(1.35) contrast(0.55); transition: filter calc(2200ms * var(--moment-t)) ease calc(1200ms * var(--moment-t)); }
+.inv-mo-print-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-print-caption { display: block; height: 7cqw; margin-top: 1.4cqw; font-family: var(--inv-script, var(--inv-display)); font-size: 3.6cqw; line-height: 1.2; color: var(--inv-ink); text-align: center; opacity: 0; transition: opacity calc(600ms * var(--moment-t)) ease calc(2600ms * var(--moment-t)); }
+.inv-mo-print-caption > * { margin: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print { transform: translateY(-2%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print-photo { filter: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print-caption { opacity: 1; }
+[data-still] .inv-mo-print, [data-still] .inv-mo-print-photo, [data-still] .inv-mo-print-caption { transition: none; }
+
+/* the ring box: velvet, a hinge at the back, a stone that catches the light */
+.inv-mo-ringbox { perspective: 900cqw; perspective-origin: 50% 20%; }
+.inv-mo-box-base {
+  position: absolute; left: 14%; right: 14%; bottom: 8%; height: 46%;
+  border-radius: 2cqw;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent) 70%, black), color-mix(in srgb, var(--inv-accent) 50%, black));
+  box-shadow: 0 3cqw 4cqw -1cqw rgba(0, 0, 0, 0.4), inset 0 0.6cqw 0 rgba(255, 255, 255, 0.12);
+}
+.inv-mo-cushion { position: absolute; left: 6%; right: 6%; top: 10%; bottom: 10%; border-radius: 1.6cqw; background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--inv-accent) 55%, white), color-mix(in srgb, var(--inv-accent) 70%, black) 90%); box-shadow: inset 0 -1cqw 2cqw rgba(0, 0, 0, 0.35); }
+.inv-mo-cushion::after { content: ''; position: absolute; left: 50%; top: 8%; bottom: 8%; width: 1cqw; margin-left: -0.5cqw; background: rgba(0, 0, 0, 0.35); border-radius: 999px; }
+.inv-mo-ring { position: absolute; left: 50%; top: -40%; width: 40%; height: auto; transform: translateX(-50%) scale(0.6); fill: none; stroke: #e8d38f; stroke-width: 4; opacity: 0; transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(700ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(700ms * var(--moment-t)); }
+.inv-mo-ring .inv-mo-stone { fill: #fff; stroke: #cfe3f5; stroke-width: 1.5; filter: drop-shadow(0 0 1cqw rgba(255, 255, 255, 0.9)); }
+.inv-mo-box-lid {
+  position: absolute; left: 14%; right: 14%; bottom: 54%; height: 30%; z-index: 2;
+  border-radius: 2cqw 2cqw 0.6cqw 0.6cqw;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent) 62%, black), color-mix(in srgb, var(--inv-accent) 72%, black));
+  box-shadow: inset 0 0.6cqw 0 rgba(255, 255, 255, 0.12), 0 1cqw 2cqw rgba(0, 0, 0, 0.3);
+  transform-origin: 50% 0%;
+  transition: transform calc(1100ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1);
+}
+.inv-mo-box-lid-inner { position: absolute; inset: 8%; border-radius: 1cqw; background: color-mix(in srgb, var(--inv-accent) 40%, white); opacity: 0; transition: opacity calc(300ms * var(--moment-t)) ease calc(500ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-box-lid { transform: rotateX(-118deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-box-lid-inner { opacity: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-ring { transform: translateX(-50%) scale(1); opacity: 1; }
+[data-moment='ring-box'] { --moment-reveal-at: 1300ms; }
+[data-moment='ring-box'] .inv-moment-reveal { top: auto; bottom: -22cqw; padding: 0; }
+
+/* the magic light: a dark veil over the reveal, one soft flash from the tap, and it is gone */
+[data-moment='light'] .inv-mo, [data-moment='hold'] .inv-mo { z-index: 2; pointer-events: none; }
+[data-moment='light'] .inv-moment-reveal, [data-moment='hold'] .inv-moment-reveal, [data-moment='scratch'] .inv-moment-reveal, [data-moment='code'] .inv-moment-reveal { opacity: 1; transition: none; }
+.inv-mo-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--inv-ink) 94%, var(--inv-accent)); transition: opacity calc(900ms * var(--moment-t)) ease calc(200ms * var(--moment-t)); }
+.inv-mo-veil[data-frost] { background: color-mix(in srgb, var(--inv-surface) 55%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: opacity calc(700ms * var(--moment-t)) ease, backdrop-filter calc(700ms * var(--moment-t)) ease; }
+.inv-mo-glow { position: absolute; left: 50%; top: 50%; width: 40%; aspect-ratio: 1; border-radius: 999px; transform: translate(-50%, -50%) scale(0.2); background: radial-gradient(circle, #fff8e8 0%, rgba(255, 248, 232, 0.6) 35%, transparent 70%); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light .inv-mo-glow { animation: inv-mo-flash calc(1100ms * var(--moment-t)) ease-out forwards; }
+.inv-mo-light[data-flash] .inv-mo-glow { background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0.9) 45%, transparent 70%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light[data-flash] .inv-mo-glow { animation-duration: calc(500ms * var(--moment-t)); }
+@keyframes inv-mo-flash {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(3.4); }
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-veil { opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-veil[data-frost] { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+[data-still] .inv-mo-veil { display: none; }
+[data-moment='light'] .inv-moment-reveal img, [data-moment='hold'] .inv-moment-reveal img { position: absolute; inset: 0; width: 100%; height: 100%; }
+[data-moment='light'] .inv-moment-reveal > :not(img), [data-moment='hold'] .inv-moment-reveal > :not(img) { position: relative; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+
+/* the flower: eight petals in the accent, closed over the photograph, opening from the centre one after another */
+.inv-mo-bloom { perspective: none; }
+.inv-mo-bloom-centre { position: absolute; left: 30%; top: 30%; width: 40%; aspect-ratio: 1; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--inv-accent) 30%, var(--inv-surface)); box-shadow: inset 0 0 2cqw rgba(0, 0, 0, 0.2); }
+.inv-mo-bloom-centre img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-petals { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.inv-mo-petal {
+  fill: color-mix(in srgb, var(--inv-accent) 82%, white);
+  stroke: color-mix(in srgb, var(--inv-accent) 60%, black);
+  stroke-width: 0.6;
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  transform: rotate(calc(var(--petal) * 45deg)) scale(0.62);
+  transition: transform calc(1300ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--petal) * 70ms * var(--moment-t)), fill calc(1300ms * var(--moment-t)) ease;
+}
+.inv-mo-petal:nth-child(even) { fill: color-mix(in srgb, var(--inv-accent) 70%, white); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-petal { transform: rotate(calc(var(--petal) * 45deg)) scale(1); }
+[data-moment='bloom'] { --moment-reveal-at: 1100ms; }
+[data-moment='bloom'] .inv-moment-reveal { top: auto; bottom: -18cqw; padding: 0; }
+
+/* the candle: a taper that lights on the tap; the cake blows its candle out instead */
+.inv-mo-candle { perspective: none; }
+.inv-mo-taper { position: absolute; left: 50%; bottom: 20%; width: 9cqw; height: 46%; transform: translateX(-50%); border-radius: 1cqw 1cqw 0.4cqw 0.4cqw; background: linear-gradient(90deg, #efe6d3, #fbf6ea 45%, #d9cfb8); box-shadow: 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.35), inset 0 0.6cqw 0.4cqw rgba(0, 0, 0, 0.08); }
+.inv-mo-candle[data-cake] .inv-mo-taper { width: 3.2cqw; height: 22%; bottom: 46%; background: linear-gradient(90deg, #d9b6c9, #f2dbe8 45%, #c9a0ba); }
+.inv-mo-wick { position: absolute; left: 50%; top: -3cqw; width: 0.7cqw; height: 3.4cqw; margin-left: -0.35cqw; background: #2a2622; border-radius: 999px; }
+.inv-mo-flame {
+  position: absolute; left: 50%; top: -12cqw; width: 5.5cqw; height: 10cqw; margin-left: -2.75cqw;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: radial-gradient(ellipse at 50% 70%, #fff6c9 0%, #ffcf5a 35%, #ff8f2a 70%, rgba(255, 90, 20, 0) 100%);
+  filter: blur(0.3cqw);
+  transform-origin: 50% 100%;
+  transform: scale(0);
+  transition: transform calc(500ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.1, 1) calc(200ms * var(--moment-t));
+}
+.inv-mo-candle .inv-mo-glow { position: absolute; left: 50%; top: 20%; width: 90%; aspect-ratio: 1; transform: translate(-50%, -30%); border-radius: 999px; background: radial-gradient(circle, rgba(255, 200, 100, 0.45), transparent 60%); opacity: 0; transition: opacity calc(900ms * var(--moment-t)) ease calc(400ms * var(--moment-t)); }
+.inv-mo-smoke { position: absolute; left: 50%; top: -12cqw; width: 2cqw; height: 8cqw; margin-left: -1cqw; border-radius: 999px; background: linear-gradient(180deg, rgba(120, 120, 120, 0), rgba(120, 120, 120, 0.45)); filter: blur(0.6cqw); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle:not([data-cake]) .inv-mo-flame { transform: scale(1); animation: inv-mo-flicker 1.6s ease-in-out calc(700ms * var(--moment-t)) infinite; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle:not([data-cake]) .inv-mo-glow { opacity: 1; }
+[data-state='closed'] .inv-mo-candle[data-cake] .inv-mo-flame { transform: scale(1); animation: inv-mo-flicker 1.6s ease-in-out infinite; }
+[data-state='closed'] .inv-mo-candle[data-cake] .inv-mo-glow { opacity: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-flame { transform: scale(0); transition-delay: 0s; transition-duration: calc(250ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-smoke { animation: inv-mo-smoke calc(1800ms * var(--moment-t)) ease-out calc(200ms * var(--moment-t)) forwards; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-glow { opacity: 0; transition-delay: 0s; }
+@keyframes inv-mo-flicker { 0%, 100% { transform: scale(1) rotate(-1.5deg); } 30% { transform: scale(1.06, 0.96) rotate(1.5deg); } 60% { transform: scale(0.97, 1.05) rotate(-1deg); } }
+@keyframes inv-mo-smoke { 0% { opacity: 0; transform: translateY(0) scaleX(1); } 20% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-16cqw) scaleX(2.2); } }
+.inv-mo-cake { position: absolute; left: 18%; right: 18%; bottom: 14%; height: 34%; }
+.inv-mo-cake-side { position: absolute; left: 0; right: 0; top: 18%; bottom: 0; border-radius: 0 0 8cqw 8cqw / 0 0 4cqw 4cqw; background: linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 55%, white), color-mix(in srgb, var(--inv-accent) 78%, white) 40%, color-mix(in srgb, var(--inv-accent) 55%, black)); box-shadow: 0 3cqw 4cqw -1cqw rgba(0, 0, 0, 0.35); }
+.inv-mo-cake-top { position: absolute; left: 0; right: 0; top: 0; height: 36%; border-radius: 50%; background: radial-gradient(ellipse at 40% 40%, #fff, color-mix(in srgb, var(--inv-accent) 35%, white) 70%); box-shadow: inset 0 -0.6cqw 1cqw rgba(0, 0, 0, 0.12); }
+[data-moment='candle'] { --moment-reveal-at: 900ms; }
+[data-moment='candle'] .inv-moment-reveal { justify-content: flex-start; padding-top: 3cqw; }
+[data-moment='candle'][data-variant='cake'] .inv-moment-reveal { padding-top: 6cqw; }
+
+/* the gift: a lidded box with a satin band; the lid lifts and what is inside rises */
+.inv-mo-gift { perspective: none; }
+.inv-mo-gift-box { position: absolute; left: 18%; right: 18%; bottom: 10%; height: 40%; z-index: 3; border-radius: 1cqw; background: linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 55%, black), color-mix(in srgb, var(--inv-accent) 70%, white) 45%, color-mix(in srgb, var(--inv-accent) 55%, black)); box-shadow: 0 3cqw 4cqw -1cqw rgba(0, 0, 0, 0.4); }
+.inv-mo-gift-band { position: absolute; left: 50%; top: 0; bottom: 0; width: 12%; margin-left: -6%; background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.55) 40%, rgba(255, 255, 255, 0.2)), color-mix(in srgb, var(--inv-surface) 85%, var(--inv-accent)); transition: opacity calc(400ms * var(--moment-t)) ease; }
+.inv-mo-gift-lid { position: absolute; left: 14%; right: 14%; bottom: 48%; height: 14%; z-index: 2; border-radius: 1cqw; background: linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 50%, black), color-mix(in srgb, var(--inv-accent) 75%, white) 45%, color-mix(in srgb, var(--inv-accent) 50%, black)); box-shadow: 0 1.5cqw 2cqw rgba(0, 0, 0, 0.3); transform-origin: 20% 100%; transition: transform calc(1200ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(150ms * var(--moment-t)); }
+.inv-mo-gift-bow { position: absolute; left: 50%; top: -9cqw; width: 18cqw; height: 10cqw; margin-left: -9cqw; transition: transform calc(400ms * var(--moment-t)) ease, opacity calc(300ms * var(--moment-t)) ease; }
+.inv-mo-gift-bow::before, .inv-mo-gift-bow::after { content: ''; position: absolute; top: 15%; width: 46%; height: 70%; border-radius: 60% 60% 60% 60% / 100% 100% 40% 40%; background: color-mix(in srgb, var(--inv-surface) 85%, var(--inv-accent)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08), 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.2); }
+.inv-mo-gift-bow::before { left: 4%; transform: rotate(-20deg); }
+.inv-mo-gift-bow::after { right: 4%; transform: rotate(20deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift-lid { transform: translateY(-58%) rotate(-14deg); }
+/* the mystery box shakes first; the holiday box lets its ribbon go first */
+:is([data-state='opening']) .inv-mo-gift[data-kind='mystery'] { animation: inv-mo-shake calc(600ms * var(--moment-t)) ease-in-out; }
+.inv-mo-gift[data-kind='mystery'] .inv-mo-gift-lid { transition-delay: calc(750ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift[data-kind='holiday'] .inv-mo-gift-band, :is([data-state='opening'], [data-state='open']) .inv-mo-gift[data-kind='holiday'] .inv-mo-gift-bow { opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift[data-kind='holiday'] .inv-mo-gift-bow { transform: translateY(2cqw) scale(0.6); }
+.inv-mo-gift[data-kind='holiday'] .inv-mo-gift-lid { transition-delay: calc(550ms * var(--moment-t)); }
+@keyframes inv-mo-shake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-2deg) translateX(-1%); } 40% { transform: rotate(2deg) translateX(1%); } 60% { transform: rotate(-1.5deg); } 80% { transform: rotate(1.5deg); } }
+[data-moment='gift'] { --moment-reveal-at: 900ms; }
+[data-moment='gift'][data-variant='mystery'] { --moment-reveal-at: 1500ms; }
+[data-moment='gift'][data-variant='holiday'] { --moment-reveal-at: 1300ms; }
+[data-moment='gift'] .inv-moment-reveal { top: 0; bottom: 34%; z-index: 1; padding: 4cqw 24% 0; transform: translateY(24%); transition: opacity calc(600ms * var(--moment-t)) ease calc(var(--moment-reveal-at) * var(--moment-t)), transform calc(1200ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--moment-reveal-at) * var(--moment-t)); }
+[data-moment='gift'] .inv-moment-reveal img { max-height: 60%; border: 0.8cqw solid #fff; box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, 0.25); }
+:is([data-state='opening'], [data-state='open']) [data-moment='gift'] .inv-moment-reveal, [data-moment='gift']:is([data-state='opening'], [data-state='open']) .inv-moment-reveal { transform: translateY(0); }
+
+/* the photo frame: a thin frame in the accent, and a cloth drawn off the photograph */
+.inv-mo-frame { perspective: none; padding: 3cqw; box-shadow: inset 0 0 0 1.4cqw var(--inv-accent), inset 0 0 0 1.8cqw color-mix(in srgb, var(--inv-accent) 60%, black), 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.3); background: var(--inv-surface); }
+.inv-mo-frame-photo { position: absolute; inset: 3cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 10%, var(--inv-surface)); }
+.inv-mo-frame-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-cloth { position: absolute; inset: 3cqw; background: linear-gradient(180deg, color-mix(in srgb, var(--inv-surface) 92%, var(--inv-ink)), var(--inv-surface) 30%, color-mix(in srgb, var(--inv-surface) 90%, var(--inv-ink))), repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.025) 0 1px, transparent 1px 5px); clip-path: inset(0 0 0 0); transition: clip-path calc(1100ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-cloth { clip-path: inset(0 0 100% 0); }
+[data-moment='frame'] { --moment-reveal-at: 800ms; }
+[data-moment='frame'] .inv-moment-reveal { top: auto; bottom: -14cqw; padding: 0; }
+
+/* the scratch card: the foil over the card, cleared by the finger; the card is the reveal */
+[data-moment='scratch'] { border-radius: 1.2cqw; overflow: hidden; background: var(--inv-surface); box-shadow: 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.25), inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 12%, transparent); }
+[data-moment='scratch'] .inv-moment-reveal { padding: 5cqw; }
+[data-moment='scratch'] .inv-moment-reveal img { max-height: 64%; }
+.inv-mo-foil { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; touch-action: none; cursor: crosshair; transition: opacity calc(700ms * var(--moment-t)) ease; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-foil { opacity: 0; pointer-events: none; }
+
+/* the secret code: a latch plate over the reveal, and the dials under it */
+[data-moment='code'] { border-radius: 1.2cqw; overflow: hidden; background: var(--inv-surface); box-shadow: 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.25); }
+[data-moment='code'] .inv-mo { z-index: 2; pointer-events: none; }
+.inv-mo-latch { position: absolute; inset: 0; background: linear-gradient(180deg, color-mix(in srgb, var(--inv-ink) 82%, var(--inv-accent)), color-mix(in srgb, var(--inv-ink) 92%, black)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1), opacity calc(500ms * var(--moment-t)) ease calc(500ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-latch { transform: translateY(100%); opacity: 0; }
+.inv-mo-keys { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 5cqw; transition: opacity calc(300ms * var(--moment-t)) ease; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-keys { opacity: 0; pointer-events: none; }
+.inv-mo-dial { display: flex; gap: 2.4cqw; margin: 0 0 1cqw; }
+.inv-mo-dial span { width: 4cqw; height: 4cqw; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.6); background: transparent; transition: background 150ms ease; }
+.inv-mo-dial span[data-on] { background: #fff; }
+.inv-mo-keys[data-wrong] .inv-mo-dial { animation: inv-mo-wrong 500ms ease-in-out; }
+.inv-mo-keys[data-wrong] .inv-mo-dial span[data-on] { background: #e06a6a; border-color: #e06a6a; }
+@keyframes inv-mo-wrong { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2cqw); } 75% { transform: translateX(2cqw); } }
+.inv-mo-keygrid { display: grid; grid-template-columns: repeat(3, 11cqw); gap: 1.6cqw; }
+.inv-mo-keygrid button { height: 9cqw; border-radius: 1.2cqw; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(255, 255, 255, 0.08); color: #fff; font-family: var(--inv-body); font-size: 4cqw; cursor: pointer; }
+.inv-mo-keygrid button:active { background: rgba(255, 255, 255, 0.22); }
+
+/* the puzzle: nine tiles of the photograph, swapped two taps at a time */
+[data-moment='puzzle'] { background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); }
+.inv-mo-tiles { position: absolute; inset: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0.6cqw; padding: 0.6cqw; transition: gap calc(700ms * var(--moment-t)) ease, padding calc(700ms * var(--moment-t)) ease; }
+.inv-mo-tile { display: block; padding: 0; border: 0; border-radius: 0.4cqw; background-size: 300% 300%; background-color: color-mix(in srgb, var(--inv-ink) 15%, var(--inv-surface)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); cursor: pointer; transition: transform 200ms ease, box-shadow 200ms ease, border-radius calc(700ms * var(--moment-t)) ease; }
+.inv-mo-tile[data-picked] { transform: scale(0.92); box-shadow: 0 0 0 0.8cqw var(--inv-accent), 0 1cqw 2cqw rgba(0, 0, 0, 0.3); z-index: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tiles { gap: 0; padding: 0; pointer-events: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tile { border-radius: 0; box-shadow: none; }
+
+/* the flip card: a card that turns on its vertical axis, the words on its back */
+.inv-mo-flip { perspective: 1000cqw; }
+.inv-mo-flip-card { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform calc(1000ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1); }
+.inv-mo-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 5cqw; text-align: center; border-radius: 1.6cqw; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: var(--inv-surface); box-shadow: 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.3), inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 12%, transparent); }
+.inv-mo-face[data-side='front'] { padding: 0; }
+.inv-mo-face[data-side='front'] img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-face[data-side='back'] { transform: rotateY(180deg); background: color-mix(in srgb, var(--inv-surface) 92%, var(--inv-accent)); }
+.inv-mo-face[data-side='back'] > * { margin: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flip-card { transform: rotateY(180deg); }
+
+/* --- Swipe & Pull ------------------------------------------------------------ */
+
+/* pull the invitation: the card follows the finger up out of its pocket, its shadow deepening as more of it is out */
+.inv-mo-pull { perspective: none; }
+.inv-mo-pull-card {
+  position: absolute; left: 10%; right: 10%; top: 30%; bottom: 8%; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 4cqw;
+  border-radius: 0.8cqw; text-align: center;
+  background-color: var(--inv-surface);
+  background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent), 0 calc(1cqw + var(--moment-drag) * 3cqw) calc(2cqw + var(--moment-drag) * 4cqw) rgba(0, 0, 0, calc(0.12 + var(--moment-drag) * 0.14));
+  transform: translateY(calc(var(--moment-drag) * -64%));
+  transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow calc(900ms * var(--moment-t)) ease;
+}
+.inv-mo-pull-photo { display: block; width: 100%; max-height: 55%; overflow: hidden; border-radius: 0.4cqw; }
+.inv-mo-pull-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-pull-words > * { margin: 0; }
+.inv-mo-pull-pocket {
+  position: absolute; left: 4%; right: 4%; bottom: 0; height: 52%; z-index: 2;
+  border-radius: 1.2cqw;
+  background-color: color-mix(in srgb, var(--inv-surface) 90%, var(--inv-ink));
+  background-image: linear-gradient(to bottom right, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%), linear-gradient(to bottom left, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%), repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  background-size: 50% 100%, 50% 100%, auto; background-repeat: no-repeat, no-repeat, repeat; background-position: left top, right top, 0 0;
+  clip-path: polygon(0 0, 50% 45%, 100% 0, 100% 100%, 0 100%);
+  box-shadow: 0 -0.6cqw 1.6cqw rgba(0, 0, 0, 0.12);
+}
+.inv-mo-pull-lip { position: absolute; left: 4%; right: 4%; bottom: 0; height: 52%; z-index: 0; border-radius: 1.2cqw; background: color-mix(in srgb, var(--inv-surface) 84%, var(--inv-ink)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-pull-card { transform: translateY(-64%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-pull-pocket, :is([data-state='opening'], [data-state='open']) .inv-mo-pull-lip { opacity: 0.55; transition: opacity calc(800ms * var(--moment-t)) ease calc(300ms * var(--moment-t)); }
+[data-moment='pull-card'] .inv-moment-reveal { display: none; }
+
+/* peel the sticker: the corner curls with a lighter back and a shadow under the curl, and the peel follows the finger across */
+.inv-mo-sticker, .inv-mo-frost { perspective: none; border-radius: 1.2cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); }
+.inv-mo-under { position: absolute; inset: 0; }
+.inv-mo-under img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-peel { position: absolute; inset: 0; z-index: 2; clip-path: inset(0 calc(var(--moment-drag) * 100%) 0 0); transition: clip-path calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1); }
+.inv-mo-peel-face {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 40%, transparent 60%, rgba(0, 0, 0, 0.06)),
+    var(--inv-accent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.inv-mo-peel-face::after { content: ''; position: absolute; inset: 6%; border-radius: 999px; border: 0.5cqw dotted rgba(255, 255, 255, 0.5); }
+.inv-mo-peel-curl {
+  position: absolute; top: 0; bottom: 0; width: 9cqw; right: calc(var(--moment-drag) * 100% - 4.5cqw); z-index: 3;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.85) 45%, color-mix(in srgb, var(--inv-accent) 40%, white) 60%, rgba(0, 0, 0, 0.18));
+  border-radius: 999px;
+  opacity: calc(min(1, var(--moment-drag) * 8));
+  transition: right calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1), opacity 200ms ease;
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-peel { clip-path: inset(0 100% 0 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-peel-curl { right: calc(100% - 4.5cqw); opacity: 0; }
+[data-moment='sticker'] { --moment-reveal-at: 500ms; }
+[data-moment='sticker'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+
+/* frosted glass: the photograph is there, out of focus, and comes clear wherever the finger passes */
+[data-moment='frost'] .inv-mo-foil { cursor: default; }
+[data-moment='frost'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+[data-moment='frost'] { --moment-reveal-at: 300ms; }
+
+/* the scroll: paper on a rod that unfurls downward with the finger, the roll shrinking as it goes; the diploma is tied first */
+.inv-mo-scroll { perspective: none; }
+.inv-mo-scroll .inv-mo-rod { position: absolute; left: -3%; right: -3%; top: 2cqw; height: 3cqw; z-index: 3; border-radius: 999px; background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent2) 70%, white), var(--inv-accent2) 55%, color-mix(in srgb, var(--inv-accent2) 60%, black)); box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.3); }
+.inv-mo-scroll .inv-mo-rod::before, .inv-mo-scroll .inv-mo-rod::after { content: ''; position: absolute; top: -0.8cqw; width: 4.6cqw; height: 4.6cqw; border-radius: 999px; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--inv-accent) 55%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 60%, black)); }
+.inv-mo-scroll .inv-mo-rod::before { left: -1cqw; }
+.inv-mo-scroll .inv-mo-rod::after { right: -1cqw; }
+.inv-mo-paper {
+  position: absolute; left: 6%; right: 6%; top: 3.5cqw; bottom: 4%; z-index: 1;
+  display: flex; align-items: center; justify-content: center; padding: 6cqw 5cqw; text-align: center;
+  background-color: color-mix(in srgb, var(--inv-surface) 96%, var(--inv-accent2));
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.07), transparent 8%, transparent 92%, rgba(0, 0, 0, 0.07)), repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent);
+  clip-path: inset(0 0 calc((1 - var(--moment-drag)) * 100%) 0);
+  transition: clip-path calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-paper-words > * { margin: 0; }
+.inv-mo-roll {
+  position: absolute; left: 4%; right: 4%; top: calc(3.5cqw + var(--moment-drag) * (100% - 12cqw)); height: 8cqw; z-index: 2;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-surface) 80%, var(--inv-accent2)), color-mix(in srgb, var(--inv-surface) 96%, white) 40%, color-mix(in srgb, var(--inv-surface) 70%, var(--inv-ink)));
+  box-shadow: 0 1cqw 1.6cqw rgba(0, 0, 0, 0.28);
+  transform: scaleY(calc(1 - var(--moment-drag) * 0.55));
+  transition: top calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1), transform calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-roll-tie { display: none; position: absolute; left: 44%; top: -1cqw; bottom: -1cqw; width: 12%; border-radius: 0.6cqw; background: linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 70%, black), var(--inv-accent) 40%, color-mix(in srgb, var(--inv-accent) 70%, black)); box-shadow: 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.3); transition: opacity calc(300ms * var(--moment-t)) ease, transform calc(400ms * var(--moment-t)) ease; }
+.inv-mo-scroll[data-diploma] .inv-mo-roll-tie { display: block; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-paper { clip-path: inset(0 0 0 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll { top: calc(3.5cqw + (100% - 12cqw)); transform: scaleY(0.45); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll-tie { opacity: 0; transform: translateY(2cqw) scaleX(0.6); }
+.inv-mo-scroll[data-diploma] .inv-mo-paper, .inv-mo-scroll[data-diploma] .inv-mo-roll { transition-delay: calc(350ms * var(--moment-t)); }
+[data-moment='scroll'] .inv-moment-reveal { display: none; }
+
+/* --- Photo Moments and the Occasion shelf --------------------------------------- */
+
+/* the polaroid stack: three prints squared in a pile that slide out into a fan */
+.inv-mo-stack { perspective: none; }
+.inv-mo-stack .inv-mo-print { left: 24%; right: 24%; bottom: auto; top: 6%; transform: translate(0, 0) rotate(0deg); transition: transform calc(1100ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--stack-delay, 0ms) * var(--moment-t)); }
+.inv-mo-stack .inv-mo-print[data-i='0'] { z-index: 3; }
+.inv-mo-stack .inv-mo-print[data-i='1'] { z-index: 2; --stack-delay: 120ms; }
+.inv-mo-stack .inv-mo-print[data-i='2'] { z-index: 1; --stack-delay: 240ms; }
+.inv-mo-stack .inv-mo-print-photo { filter: none; }
+.inv-mo-stack .inv-mo-print-caption { height: 5cqw; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print[data-i='0'] { transform: translate(-40%, 8%) rotate(-9deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print[data-i='1'] { transform: translate(0, 0) rotate(2deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print[data-i='2'] { transform: translate(40%, 6%) rotate(8deg); }
+[data-moment='polaroid-stack'] { --moment-reveal-at: 900ms; }
+[data-moment='polaroid-stack'] .inv-moment-reveal { top: auto; bottom: 0; padding: 0 4cqw 2cqw; }
+
+/* the photo booth: a count of three with a flash each, then the strip drops from the slot and swings once */
+.inv-mo-booth { perspective: none; }
+.inv-mo-booth-front { position: absolute; left: 16%; right: 16%; top: 0; height: 44%; z-index: 3; border-radius: 3cqw 3cqw 1cqw 1cqw; background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent) 55%, black), color-mix(in srgb, var(--inv-accent) 40%, black)); box-shadow: 0 3cqw 4cqw -1cqw rgba(0, 0, 0, 0.4), inset 0 0.6cqw 0 rgba(255, 255, 255, 0.1); }
+.inv-mo-booth-screen { position: absolute; left: 10%; top: 10%; width: 34%; height: 40%; border-radius: 1cqw; background: #111; box-shadow: inset 0 0 0 0.4cqw rgba(255, 255, 255, 0.12); overflow: hidden; }
+.inv-mo-booth-screen b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--inv-display); font-size: 9cqw; color: #fff; opacity: 0; }
+.inv-mo-booth .inv-mo-cam-lens { left: 68%; top: 34%; width: 14cqw; height: 14cqw; transform: translate(-50%, -50%); }
+.inv-mo-booth-slot { position: absolute; left: 20%; right: 20%; bottom: 10%; height: 2cqw; border-radius: 999px; background: #000; box-shadow: inset 0 0.4cqw 0.6cqw rgba(255, 255, 255, 0.15); }
+.inv-mo-strip { position: absolute; left: 34%; right: 34%; top: 38%; z-index: 2; display: flex; flex-direction: column; gap: 1.2cqw; padding: 1.6cqw; background: #fbfaf7; box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, 0.2); transform-origin: 50% 0; transform: translateY(-100%); opacity: 0; transition: transform calc(1400ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(2700ms * var(--moment-t)), opacity 0s linear calc(2700ms * var(--moment-t)); }
+.inv-mo-strip-shot { display: block; aspect-ratio: 1; overflow: hidden; background: #d9d6cf; }
+.inv-mo-strip-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-screen b[data-n='3'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease both; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-screen b[data-n='2'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(700ms * var(--moment-t)) both; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-screen b[data-n='1'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(1400ms * var(--moment-t)) both; }
+:is([data-state='opening']) .inv-mo-booth .inv-mo-flashlight { animation: inv-mo-boothflash calc(2400ms * var(--moment-t)) linear; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-strip { transform: translateY(6%); opacity: 1; }
+:is([data-state='opening']) .inv-mo-strip { animation: inv-mo-swing calc(1600ms * var(--moment-t)) ease-out calc(4000ms * var(--moment-t)); }
+[data-still] .inv-mo-strip { transition: none; animation: none; }
+@keyframes inv-mo-count { 0% { opacity: 0; transform: scale(0.7); } 20%, 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes inv-mo-boothflash { 0%, 26%, 40%, 55%, 70%, 85% { opacity: 0; } 30%, 60%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes inv-mo-swing { 0% { rotate: 0deg; } 30% { rotate: 3deg; } 60% { rotate: -2deg; } 100% { rotate: 0deg; } }
+
+/* the projector: the lamp comes on, the beam widens in a haze, the picture resolves inside it */
+.inv-mo-projector { perspective: none; background: color-mix(in srgb, var(--inv-ink) 90%, var(--inv-accent2)); border-radius: 1.2cqw; overflow: hidden; }
+.inv-mo-screen { position: absolute; left: 34%; right: 6%; top: 14%; bottom: 30%; overflow: hidden; background: #f4f1ea; opacity: 0; filter: blur(8px) brightness(1.4); transition: opacity calc(1200ms * var(--moment-t)) ease calc(500ms * var(--moment-t)), filter calc(1600ms * var(--moment-t)) ease calc(700ms * var(--moment-t)); }
+.inv-mo-screen img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-beam { position: absolute; left: 20%; right: 6%; top: 14%; bottom: 30%; clip-path: polygon(0 47%, 0 53%, 100% 100%, 100% 0); background: linear-gradient(90deg, rgba(255, 244, 214, 0.75), rgba(255, 244, 214, 0.08)); opacity: 0; transform-origin: 0 50%; transform: scaleX(0.2); transition: opacity calc(600ms * var(--moment-t)) ease calc(200ms * var(--moment-t)), transform calc(1200ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1) calc(200ms * var(--moment-t)); }
+.inv-mo-proj-body { position: absolute; left: 6%; bottom: 10%; width: 26%; height: 30%; border-radius: 1cqw; background: linear-gradient(180deg, #5a5f68, #2a2e35); box-shadow: 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.5); }
+.inv-mo-reel { position: absolute; top: -34%; width: 40%; aspect-ratio: 1; border-radius: 999px; background: radial-gradient(circle, #2a2e35 26%, #6a6f78 28%, #3a3e45 60%, #6a6f78 62%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+.inv-mo-reel[data-i='0'] { left: 6%; }
+.inv-mo-reel[data-i='1'] { left: 52%; }
+.inv-mo-proj-lens { position: absolute; right: -8%; top: 40%; width: 20%; aspect-ratio: 1; border-radius: 999px; background: radial-gradient(circle at 40% 35%, #cfd3da, #3a3e45 70%); box-shadow: 0 0 0 0.6cqw #23262c; transition: box-shadow calc(400ms * var(--moment-t)) ease; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-beam { opacity: 1; transform: scaleX(1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-screen { opacity: 1; filter: blur(0) brightness(1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-proj-lens { box-shadow: 0 0 0 0.6cqw #23262c, 0 0 3cqw 1cqw rgba(255, 244, 214, 0.7); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-reel { animation: inv-mo-spin 4s linear infinite; }
+@keyframes inv-mo-spin { to { rotate: 360deg; } }
+[data-moment='projector'] .inv-moment-reveal { top: auto; bottom: -14cqw; padding: 0; }
+
+/* browsed, not opened: the strip, the carousel and the album */
+.inv-mo-browse { position: absolute; inset: 0; z-index: 3; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
+.inv-mo-browse:active { cursor: grabbing; }
+.inv-mo-track { position: absolute; left: 0; top: 0; bottom: 0; display: flex; }
+.inv-mo-shot { position: relative; display: block; flex: none; overflow: hidden; }
+.inv-mo-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-caption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1.5cqw 3cqw 3cqw; text-align: center; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.35)); pointer-events: none; }
+.inv-mo-caption > * { margin: 0; }
+.inv-mo-dots { position: absolute; left: 0; right: 0; bottom: 1.4cqw; z-index: 3; display: flex; justify-content: center; gap: 1.2cqw; pointer-events: none; }
+.inv-mo-dots i { width: 1.6cqw; height: 1.6cqw; border-radius: 999px; background: rgba(255, 255, 255, 0.45); }
+.inv-mo-dots i[data-on] { background: #fff; }
+[data-moment='film-strip'] .inv-moment-hint, [data-moment='carousel'] .inv-moment-hint, [data-moment='album'] .inv-moment-hint { bottom: 4.5cqw; }
+/* the film strip: dark, sprocketed, one frame at a time under the finger */
+[data-moment='film-strip'] { background: #15161a; border-radius: 0.6cqw; overflow: hidden; }
+.inv-mo-browse.inv-mo-strip { top: 0; }
+.inv-mo-browse.inv-mo-strip .inv-mo-track { top: 12%; bottom: 12%; gap: 2cqw; padding: 0 2cqw; transform: translateX(calc(var(--browse-at) * -100% + var(--browse-drag) * 50%)); transition: transform calc(500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1); }
+.inv-mo-browse.inv-mo-strip[data-dragging] .inv-mo-track { transition: none; }
+.inv-mo-browse.inv-mo-strip .inv-mo-shot { width: calc(100cqw - 4cqw); border-radius: 0.4cqw; background: #333; }
+.inv-mo-sprockets { position: absolute; left: 0; right: 0; height: 8%; background: repeating-linear-gradient(90deg, transparent 0 3cqw, #2b2d33 3cqw 5.4cqw, transparent 5.4cqw 6.6cqw); }
+.inv-mo-sprockets[data-edge='top'] { top: 2%; }
+.inv-mo-sprockets[data-edge='bottom'] { bottom: 2%; }
+/* the carousel: the one in front larger, the neighbours peeking, sliding under the finger */
+[data-moment='carousel'] { background: color-mix(in srgb, var(--inv-ink) 6%, var(--inv-surface)); border-radius: 1.2cqw; overflow: hidden; }
+.inv-mo-browse.inv-mo-carousel .inv-mo-track { left: 50%; top: 6%; bottom: 6%; gap: 4cqw; transform: translateX(calc(-36cqw - var(--browse-at) * 76cqw + var(--browse-drag) * 38cqw)); transition: transform calc(600ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1); }
+.inv-mo-browse.inv-mo-carousel[data-dragging] .inv-mo-track { transition: none; }
+.inv-mo-browse.inv-mo-carousel .inv-mo-shot { width: 72cqw; border-radius: 1cqw; box-shadow: 0 1.6cqw 2.4cqw rgba(0, 0, 0, 0.22); transform: scale(0.92); opacity: 0.75; transition: transform calc(600ms * var(--moment-t)) ease, opacity calc(600ms * var(--moment-t)) ease; }
+.inv-mo-browse.inv-mo-carousel .inv-mo-shot[data-at] { transform: scale(1); opacity: 1; }
+/* the album: two pages on a spine, a leaf that turns in perspective with a fold shadow */
+[data-moment='album'] { perspective: 1200cqw; }
+.inv-mo-album { background: color-mix(in srgb, var(--inv-accent2) 60%, var(--inv-ink)); border-radius: 1.2cqw; padding: 3cqw; box-shadow: 0 2cqw 4cqw -1cqw rgba(0, 0, 0, 0.4); transform-style: preserve-3d; }
+.inv-mo-album-page { position: absolute; top: 3cqw; bottom: 3cqw; width: calc(50% - 3cqw); overflow: hidden; background: #f7f4ee; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
+.inv-mo-album-page[data-side='l'] { left: 3cqw; border-radius: 0.8cqw 0 0 0.8cqw; }
+.inv-mo-album-page[data-side='r'] { right: 3cqw; border-radius: 0 0.8cqw 0.8cqw 0; }
+.inv-mo-album-page img { width: 88%; height: 88%; margin: 6%; object-fit: cover; display: block; box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.18); }
+.inv-mo-album-spine { position: absolute; left: 50%; top: 3cqw; bottom: 3cqw; width: 1.2cqw; margin-left: -0.6cqw; background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.02) 50%, rgba(0, 0, 0, 0.18)); z-index: 2; }
+.inv-mo-album-leaf { position: absolute; top: 3cqw; bottom: 3cqw; width: calc(50% - 3cqw); z-index: 4; transform-style: preserve-3d; animation: inv-mo-turn calc(900ms * var(--moment-t)) cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.inv-mo-album-leaf[data-dir='next'] { right: 3cqw; transform-origin: left center; }
+.inv-mo-album-leaf[data-dir='prev'] { left: 3cqw; transform-origin: right center; animation-name: inv-mo-turn-back; }
+.inv-mo-album-face { position: absolute; inset: 0; overflow: hidden; background: #f7f4ee; backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
+.inv-mo-album-face img { width: 88%; height: 88%; margin: 6%; object-fit: cover; display: block; }
+.inv-mo-album-face[data-face='back'] { transform: rotateY(180deg); }
+.inv-mo-album-face::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, 0.16), transparent 30%); opacity: 0; animation: inv-mo-fold calc(900ms * var(--moment-t)) ease; }
+@keyframes inv-mo-turn { to { transform: rotateY(-180deg); } }
+@keyframes inv-mo-turn-back { to { transform: rotateY(180deg); } }
+@keyframes inv-mo-fold { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+.inv-mo-album .inv-mo-caption { bottom: 3cqw; left: 3cqw; right: 3cqw; color: var(--inv-ink); text-shadow: none; background: linear-gradient(180deg, transparent, rgba(247, 244, 238, 0.9)); }
+
+/* the baby reveal: a soft cloud that parts in two */
+.inv-mo-baby { perspective: none; }
+.inv-mo-cloud { position: absolute; top: 18%; bottom: 18%; width: 62%; z-index: 2; border-radius: 999px; background: radial-gradient(ellipse at 40% 40%, #fff, #eef2f8 60%, #dfe6f1); box-shadow: 0 2cqw 4cqw rgba(0, 0, 0, 0.12), inset 0 -2cqw 4cqw rgba(0, 0, 0, 0.05); filter: blur(0.3cqw); transition: transform calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1), opacity calc(900ms * var(--moment-t)) ease calc(700ms * var(--moment-t)); }
+.inv-mo-cloud::before, .inv-mo-cloud::after { content: ''; position: absolute; border-radius: 999px; background: inherit; }
+.inv-mo-cloud::before { left: 12%; top: -28%; width: 46%; height: 70%; }
+.inv-mo-cloud::after { right: 10%; top: -18%; width: 40%; height: 60%; }
+.inv-mo-cloud[data-side='l'] { left: -6%; }
+.inv-mo-cloud[data-side='r'] { right: -6%; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-cloud[data-side='l'] { transform: translateX(-70%); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-cloud[data-side='r'] { transform: translateX(70%); opacity: 0; }
+[data-moment='baby'] { --moment-reveal-at: 300ms; }
+[data-moment='baby'] .inv-moment-reveal img { max-height: 62%; border-radius: 999px; aspect-ratio: 1; }
+
+/* champagne cheers: two flutes that meet on a real arc, one ring of light at the touch */
+.inv-mo-cheers { perspective: none; }
+.inv-mo-flute { position: absolute; bottom: 24%; width: 16%; height: 60%; transform-origin: 50% 100%; transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1); }
+.inv-mo-flute[data-side='l'] { left: 24%; transform: rotate(-16deg); }
+.inv-mo-flute[data-side='r'] { right: 24%; transform: rotate(16deg); }
+.inv-mo-bowl { position: absolute; left: 0; right: 0; top: 0; height: 56%; border-radius: 30% 30% 45% 45% / 10% 10% 60% 60%; background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.15) 40%, rgba(255, 255, 255, 0.5)), linear-gradient(180deg, rgba(250, 228, 170, 0.1), rgba(240, 205, 120, 0.75) 40%, rgba(226, 180, 90, 0.9)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), inset 0 -1cqw 2cqw rgba(0, 0, 0, 0.08); }
+.inv-mo-bowl::after { content: ''; position: absolute; left: 30%; top: 8%; width: 12%; height: 60%; border-radius: 999px; background: rgba(255, 255, 255, 0.55); }
+.inv-mo-stem { position: absolute; left: 50%; top: 55%; width: 1.4cqw; height: 34%; margin-left: -0.7cqw; background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(200, 200, 200, 0.5)); }
+.inv-mo-foot { position: absolute; left: 20%; right: 20%; bottom: 0; height: 8%; border-radius: 999px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(190, 190, 190, 0.6)); }
+.inv-mo-clink { position: absolute; left: 50%; top: 26%; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 999px; border: 0.5cqw solid rgba(255, 250, 230, 0.95); opacity: 0; box-shadow: 0 0 2cqw rgba(255, 244, 214, 0.9); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='l'] { transform: rotate(-6deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='r'] { transform: rotate(6deg); }
+:is([data-state='opening']) .inv-mo-clink { animation: inv-mo-clink calc(900ms * var(--moment-t)) ease-out calc(800ms * var(--moment-t)); }
+@keyframes inv-mo-clink { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(3); } }
+[data-moment='cheers'] { --moment-reveal-at: 1400ms; }
+[data-moment='cheers'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 2cqw; }

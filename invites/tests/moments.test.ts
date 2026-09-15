@@ -42,10 +42,12 @@ test('a scene on more than one shelf is one scene with two tags, as she asked', 
   assert.equal(MOMENTS.length, 31);
 });
 
-test('the seven openings are built and stand on a page; the rest are marked as coming', () => {
+test('the openings, Tap & Reveal and Surprise are built; the rest are marked as coming', () => {
   for (const e of SHELVES.opening) assert.equal(MOMENT_BY_KEY[e.key].built, true, e.key);
   const built = MOMENTS.filter((m) => m.built).map((m) => m.key).sort();
-  assert.deepEqual(built, ['capiz', 'curtains', 'doors', 'envelope', 'letter', 'ribbon', 'seal']);
+  assert.deepEqual(built, ['bloom', 'candle', 'capiz', 'code', 'curtains', 'doors', 'envelope', 'flip', 'frame', 'gift', 'hold', 'instant-camera', 'letter', 'light', 'puzzle', 'ribbon', 'ring-box', 'scratch', 'seal']);
+  // every row on Tap & Reveal and Surprise is built
+  for (const e of [...SHELVES.tap, ...SHELVES.surprise]) assert.equal(MOMENT_BY_KEY[e.key].built, true, e.key);
   // and the four new openings are in the openings catalogue, every package's, with their own line
   for (const k of ['ribbon', 'doors', 'capiz', 'letter'] as const) {
     assert.ok(OPENING_KEYS.includes(k), k);

@@ -458,15 +458,12 @@ export function Studio(p: Props) {
     if (!prev) return;
     setDoc((now) => { future.current = [...future.current, now]; return prev; });
     setState('dirty');
-    // what the last drawing said is about a page that is no longer there
-    setSeeded('');
   }, []);
   const redo = useCallback(() => {
     const next = future.current.pop();
     if (!next) return;
     setDoc((now) => { past.current = [...past.current, now]; return next; });
     setState('dirty');
-    setSeeded('');
   }, []);
 
   // --- saving ---------------------------------------------------------------

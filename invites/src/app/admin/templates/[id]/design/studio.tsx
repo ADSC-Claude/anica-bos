@@ -8,7 +8,9 @@ import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
+  type MomentEl,
 } from '@/lib/design';
+import { MOMENTS, MOMENT_BY_KEY, SHELVES, SHELF_KEYS, SHELF_NAMES, SPEEDS, SPEED_NAMES, momentName, momentOf, shelvesOf, type MomentKey, type Shelf, type ShelfEntry, type Trigger as MomentTrigger } from '@/lib/moments';
 import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey, type SectionData } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, fieldOf, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
@@ -234,6 +236,8 @@ export function Studio(p: Props) {
   const [draft, setDraft] = useState<StudioDraft | null>(null);
   /** the part the drawer is on — kept here, so looking at the Pages list and coming back finds her where she was */
   const [asked, setAsked] = useState<SectionKey | undefined>(undefined);
+  /** the library of moments, open under the toolbar */
+  const [momentSheet, setMomentSheet] = useState(false);
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
   /** the left column: the pages, the invitation's form, or the pieces any design can be built from */
@@ -429,6 +433,13 @@ export function Studio(p: Props) {
     // nothing happens at all
     void node.offsetWidth;
     requestAnimationFrame(() => node.setAttribute('data-in', ''));
+  }, []);
+
+  /** Play a moment on the canvas: it closes and opens again, wherever the canvas drew it — in the studio's own page or in the guest frame. */
+  const playMoment = useCallback((id: string) => {
+    const sel = `[data-el="${CSS.escape(id)}"]`;
+    const node = stage.current?.querySelector<HTMLElement>(sel) ?? flowFrame.current?.contentDocument?.querySelector<HTMLElement>(sel);
+    node?.dispatchEvent(new CustomEvent('inv-moment-play'));
   }, []);
 
   // --- changing the document ------------------------------------------------
@@ -792,9 +803,29 @@ export function Studio(p: Props) {
   }
 
   /** Something new on the page, in the middle of it, selected and ready to drag. */
-  function addElement(kind: 'text' | 'photo' | 'shape' | 'frame') {
+  function addElement(kind: 'text' | 'photo' | 'shape' | 'frame' | 'moment', pick?: ShelfEntry) {
     if (!page) return;
-    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : kind === 'frame' ? 'frame' : 'words');
+    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : kind === 'frame' ? 'frame' : kind === 'moment' ? (pick?.key ?? 'moment') : 'words');
+    if (kind === 'moment') {
+      /*
+       * A moment from the library: it lands at the width and shape the scene
+       * wants, with a slot for each photograph it opens onto — asked of the
+       * customer to begin with, since the surprise is theirs.
+       */
+      if (!pick) return;
+      const def = MOMENT_BY_KEY[pick.key];
+      if (!def?.built) return;
+      const slots = Array.from({ length: def.photos.count }, () => ({ bind: { asset: '' } }));
+      const moment: Element = {
+        id, kind: 'moment', moment: pick.key, ...(pick.variant ? { variant: pick.variant } : {}),
+        x: 50, y: page.drawn ? 40 : 4, w: def.width, anchor: page.drawn ? 'centre' : 'top',
+        ...(slots.length ? { photos: slots, ask: true } : {}),
+        ...(page.drawn ? {} : { z: 1 }),
+      };
+      editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), moment] }));
+      setSel([id]);
+      return;
+    }
     /*
      * Where a new piece lands. On a drawn page, four tenths down it, which is
      * in view and clear of both edges. On a page laid out by its words there
@@ -1459,6 +1490,7 @@ export function Studio(p: Props) {
     }
     if (el.kind === 'photo') return 'A picture of yours';
     if (el.kind === 'video') return 'The design’s own clip';
+    if (el.kind === 'moment') return `${momentName(el.moment, el.variant)} — ${MOMENT_BY_KEY[el.moment]?.photos.count ? 'a picture of yours opens it' : 'tap to open'}`;
     /*
      * A box of words with no question behind it is not empty: it holds the
      * design's own word for a section, or words typed straight into it. The
@@ -1945,9 +1977,11 @@ export function Studio(p: Props) {
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
               <button type="button" onClick={() => addElement('frame')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Frame</button>
+              <button type="button" data-testid="add-moment" title="A thing a guest taps, swipes or holds: the envelope, the doors, the instant camera" onClick={() => setMomentSheet((o) => !o)} className={`rounded px-2 py-1 ${momentSheet ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>+ Moment</button>
               <AddMoving templateId={p.templateId} onAdd={addMoving} />
               <AddAnim templateId={p.templateId} onAdd={addAnim} />
               <AddClip templateId={p.templateId} onAdd={addClip} />
+              {momentSheet && <MomentSheet occasion={p.occasion} onPick={(e) => { addElement('moment', e); setMomentSheet(false); }} onClose={() => setMomentSheet(false)} />}
             </>
           ) : (
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
@@ -2328,6 +2362,7 @@ export function Studio(p: Props) {
             onDuplicate={duplicate}
             onRemove={remove}
             onReplay={() => replay(selected.id)}
+            onPlayMoment={() => playMoment(selected.id)}
             label={label(selected)}
             templateId={p.templateId}
             flow={!page?.drawn}
@@ -2795,7 +2830,7 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, onPlayMoment, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
   /** the page is laid out by its words, so a picture on it floats rather than being placed */
   flow: boolean;
@@ -2805,6 +2840,8 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
   /** take the arrival off this element and put it back, so she can watch it again */
   onReplay: () => void;
+  /** close a moment on the canvas and open it again */
+  onPlayMoment: () => void;
   measureRoom: () => number | undefined;
   attachable: Named[];
   grows: boolean;
@@ -2821,7 +2858,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind === 'video' ? 'Clip' : el.kind}</p>
+        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind === 'video' ? 'Clip' : el.kind === 'moment' ? 'Moment' : el.kind}</p>
         <p className="text-[11px] text-[color:var(--color-ink-500)]">{el.id}</p>
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
@@ -2870,6 +2907,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
       {el.kind === 'anim' && <AnimBlock el={el as AnimEl} onChange={onChange} num={num} />}
+      {el.kind === 'moment' && <MomentBlock el={el as MomentEl} occasion={occasion} onChange={onChange} onPlay={onPlayMoment} />}
       {el.kind === 'text' && <TypeBlock el={el as TextEl} occasion={occasion} onChange={onChange} vars={vars} />}
       <label className="block">
         <span className="label">Opacity</span>
@@ -3787,6 +3825,176 @@ function Words({ sources, occasion, onChange }: { sources: Source[]; occasion: O
  * from. A frame she has asked for also says what it shows when nobody
  * answers, so a half-filled page still looks designed.
  */
+/**
+ * The library of moments, under the toolbar: six shelves, seven to a shelf,
+ * as she listed them. A row on two shelves says so; one not built yet says
+ * it is coming and cannot be placed; one made for other occasions says
+ * which, and can still be placed.
+ */
+function MomentSheet({ occasion, onPick, onClose }: { occasion: Occasion; onPick: (entry: ShelfEntry) => void; onClose: () => void }) {
+  const [shelf, setShelf] = useState<Shelf>('opening');
+  return (
+    <div className="basis-full rounded border border-[color:var(--color-sand-300)] bg-white p-2" data-testid="moment-sheet">
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        {SHELF_KEYS.map((s) => (
+          <button key={s} type="button" onClick={() => setShelf(s)} className={`rounded px-2 py-1 ${shelf === s ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-100)]'}`}>{SHELF_NAMES[s]}</button>
+        ))}
+        <span className="ml-auto" />
+        <span className="hint">{MOMENTS.filter((m) => m.built).length} of {MOMENTS.length} scenes built</span>
+        <button type="button" onClick={onClose} className="rounded bg-[color:var(--color-sand-100)] px-2 py-1">✕</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+        {SHELVES[shelf].map((e) => {
+          const def = momentOf(e);
+          const also = shelvesOf(e.key).filter((x) => x !== shelf);
+          const forThis = !e.occasions || e.occasions.includes(occasion);
+          return (
+            <button
+              key={`${e.key}:${e.variant ?? ''}`}
+              type="button"
+              disabled={!def.built}
+              data-testid={`moment-${e.key}${e.variant ? `-${e.variant}` : ''}`}
+              onClick={() => onPick(e)}
+              className="rounded border border-[color:var(--color-sand-300)] p-2 text-left hover:bg-[color:var(--color-sand-100)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="block font-semibold">{e.name}{!def.built && <span className="ml-1 font-normal text-[color:var(--color-ink-500)]">· coming</span>}</span>
+              <span className="block text-[11px] text-[color:var(--color-ink-500)]">{e.action} — {e.happens}</span>
+              {also.length > 0 && <span className="mt-1 block text-[11px] text-[color:var(--color-ink-500)]">also under {also.map((x) => SHELF_NAMES[x]).join(', ')}</span>}
+              {!forThis && e.occasions && <span className="mt-1 block text-[11px] text-[color:var(--color-plum-600)]">made for {e.occasions.map((o) => o.toLowerCase().replace('_', ' ')).join(', ')}</span>}
+              {def.photos.count > 0 && <span className="mt-1 block text-[11px]">{def.photos.count === 1 ? 'one photograph' : `${def.photos.count} photographs`}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A placed moment's own settings: how it is opened and how fast, whether it
+ * plays once or every time, the photographs it opens onto and the words it
+ * reveals — each read the way a frame's and a text box's are, so the form
+ * asks for them in the one list — and a button to watch it.
+ */
+function MomentBlock({ el, occasion, onChange, onPlay }: { el: MomentEl; occasion: Occasion; onChange: (fn: (e: Element) => Element) => void; onPlay: () => void }) {
+  const def = MOMENT_BY_KEY[el.moment];
+  const edit = (fn: (m: MomentEl) => MomentEl) => onChange((x) => fn(x as MomentEl));
+  const photoOffers = useMemo(() => askable(occasion, 'photo'), [occasion]);
+  const textOffers = useMemo(() => askable(occasion, 'text'), [occasion]);
+  const slots = el.photos ?? [];
+  const row = SHELF_KEYS.flatMap((s) => SHELVES[s]).find((e) => e.key === el.moment && (e.variant ?? '') === (el.variant ?? ''));
+  const setSlot = (i: number, bind: FieldRef | { asset: string }) => edit((m) => {
+    const next = [...(m.photos ?? [])];
+    while (next.length <= i) next.push({ bind: { asset: '' } });
+    next[i] = { ...next[i], bind };
+    return { ...m, photos: next };
+  });
+  const line = el.lines?.[0];
+  const lineBind = line?.sources.find((x) => 'bind' in x) as { bind: FieldRef } | undefined;
+  const lineFixed = line?.sources.find((x) => 'fixed' in x) as { fixed: { en: string; tl?: string } } | undefined;
+  const setLine = (bind: FieldRef | undefined, fixed: { en: string; tl?: string } | undefined) => edit((m) => {
+    const sources = [...(bind ? [{ bind }] : []), ...(fixed && fixed.en ? [{ fixed }] : [])];
+    if (!sources.length) { const { lines: _gone, ...rest } = m; void _gone; return rest as MomentEl; }
+    return { ...m, lines: [{ ...(m.lines?.[0] ?? { role: 'body' as const, align: 'center' as const }), sources }] };
+  });
+  if (!def) return null;
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <div className="flex items-center justify-between">
+        <p className="label">{momentName(el.moment, el.variant)}</p>
+        <button type="button" onClick={onPlay} data-testid="play-moment" className="btn btn-ghost btn-sm">Play it</button>
+      </div>
+      {row && <p className="hint">{row.action} — {row.happens}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        {def.triggers.length > 1 ? (
+          <label className="block">
+            <span className="label">Opened by</span>
+            <select className="input w-full" value={el.trigger ?? def.triggers[0]} onChange={(e) => edit((m) => ({ ...m, trigger: e.target.value as MomentTrigger }))}>
+              {def.triggers.map((t) => <option key={t} value={t}>{t === 'tap' ? 'a tap' : t === 'swipe' ? `a swipe${def.swipe === 'apart' ? ' apart' : def.swipe === 'down' ? ' down' : def.swipe === 'up' ? ' up' : ''}` : 'a press and hold'}</option>)}
+            </select>
+          </label>
+        ) : (
+          <p className="hint self-end">Opened by {def.mechanic === 'rub' ? 'rubbing' : def.mechanic === 'drag' ? 'dragging the pieces' : def.mechanic === 'keys' ? 'the code' : def.triggers[0] === 'hold' ? 'a press and hold' : def.triggers[0] === 'swipe' ? 'a swipe' : 'a tap'}.</p>
+        )}
+        <label className="block">
+          <span className="label">Speed</span>
+          <select className="input w-full" value={el.speed ?? 'normal'} onChange={(e) => edit((m) => { const v = e.target.value as MomentEl['speed']; const n: MomentEl = { ...m, speed: v }; if (v === 'normal') delete n.speed; return n; })}>
+            {SPEEDS.map((sp) => <option key={sp} value={sp}>{SPEED_NAMES[sp]}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="label">Plays</span>
+          <select className="input w-full" value={el.plays ?? 'once'} onChange={(e) => edit((m) => { const v = e.target.value as MomentEl['plays']; const n: MomentEl = { ...m, plays: v }; if (v === 'once') delete n.plays; return n; })}>
+            <option value="once">once, then stays open</option>
+            <option value="always">every time it comes into view</option>
+          </select>
+        </label>
+        {def.variants && (
+          <label className="block">
+            <span className="label">Version</span>
+            <select className="input w-full" value={el.variant ?? ''} onChange={(e) => edit((m) => { const n: MomentEl = { ...m, variant: e.target.value || undefined }; if (!n.variant) delete n.variant; return n; })}>
+              <option value="">{def.name}</option>
+              {Object.entries(def.variants).map(([k, name]) => <option key={k} value={k}>{name}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+      {def.photos.count > 0 && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={Boolean(el.ask)} onChange={(e) => onChange((x) => ({ ...x, ask: e.target.checked ? true : undefined }))} className="h-4 w-4" />
+            <span className="font-semibold">Ask the customer for {def.photos.count === 1 ? 'the photograph' : 'the photographs'}</span>
+          </label>
+          {Array.from({ length: def.photos.count }, (_, i) => {
+            const b = slots[i]?.bind;
+            const ref = b && !('asset' in b) ? b : undefined;
+            const at = ref ? photoOffers.find((o) => o.section === ref.section && o.field === ref.field && (o.sub ?? undefined) === (ref.sub ?? undefined)) : undefined;
+            return (
+              <div key={i} className="rounded border border-[color:var(--color-sand-300)] p-2">
+                <p className="label">{def.photos.count === 1 ? def.photos.label : `${def.photos.label} ${i + 1}`} · a {def.photos.shape}</p>
+                <select className="input w-full" value={at ? key(at) : ''} onChange={(e) => { const o = photoOffers.find((x) => key(x) === e.target.value); setSlot(i, o ? { section: o.section, field: o.field, ...(o.sub ? { sub: o.sub } : {}), ...(o.list ? { index: ref?.index ?? i } : {}) } : { asset: '' }); }}>
+                  <option value="">— the design's own picture —</option>
+                  {Object.entries(groupBy(photoOffers)).map(([section, list]) => (
+                    <optgroup key={section} label={section}>{list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}</optgroup>
+                  ))}
+                </select>
+                {at?.list && <input type="number" min={1} max={40} className="input mt-1 w-full" value={(ref?.index ?? 0) + 1} onChange={(e) => setSlot(i, { ...ref!, index: Math.max(0, Math.round(Number(e.target.value)) - 1) })} />}
+                {!ref && (
+                  <input className="input mt-1 w-full font-mono text-xs" placeholder="/babyblue/cover.webp — or pick one in the Library" value={b && 'asset' in b ? b.asset : ''} onChange={(e) => setSlot(i, { asset: e.target.value })} />
+                )}
+              </div>
+            );
+          })}
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={el.ifEmpty === 'leave'} onChange={(e) => onChange((x) => { const n: Element = { ...x, ifEmpty: e.target.checked ? ('leave' as const) : undefined }; if (!n.ifEmpty) delete n.ifEmpty; return n; })} className="h-4 w-4" />
+            <span>Leave it out when the customer gives no photograph</span>
+          </label>
+        </div>
+      )}
+      {def.words && def.words !== 'code' && (
+        <div className="space-y-1">
+          <p className="label">Words it reveals</p>
+          <select className="input w-full" value={lineBind ? key({ section: lineBind.bind.section, field: lineBind.bind.field, sub: lineBind.bind.sub } as Askable) : ''} onChange={(e) => { const o = textOffers.find((x) => key(x) === e.target.value); setLine(o ? { section: o.section, field: o.field, ...(o.sub ? { sub: o.sub } : {}) } : undefined, lineFixed?.fixed); }}>
+            <option value="">— none of the customer's —</option>
+            {Object.entries(groupBy(textOffers)).map(([section, list]) => (
+              <optgroup key={section} label={section}>{list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}</optgroup>
+            ))}
+          </select>
+          <input className="input w-full" placeholder="Or the design's own words, in English" value={lineFixed?.fixed.en ?? ''} onChange={(e) => setLine(lineBind?.bind, { en: e.target.value, ...(lineFixed?.fixed.tl !== undefined ? { tl: lineFixed.fixed.tl } : {}) })} />
+          <input className="input w-full" placeholder="sa Tagalog" value={lineFixed?.fixed.tl ?? ''} onChange={(e) => setLine(lineBind?.bind, { en: lineFixed?.fixed.en ?? '', ...(e.target.value ? { tl: e.target.value } : {}) })} />
+        </div>
+      )}
+      {el.moment === 'code' && (
+        <label className="block">
+          <span className="label">The code (3 to 8 digits)</span>
+          <input className="input w-full font-mono" inputMode="numeric" value={el.code ?? ''} onChange={(e) => edit((m) => { const v = e.target.value.replace(/\D/g, '').slice(0, 8); const n: MomentEl = { ...m, code: v }; if (!v) delete n.code; return n; })} />
+        </label>
+      )}
+      <p className="hint">{def.realism}</p>
+    </div>
+  );
+}
+
 function AskBlock({ el, occasion, onChange, measureRoom }: {
   el: PhotoEl | TextEl;
   occasion: Occasion;
@@ -4560,7 +4768,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
             {pieces.decor.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
                 <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
-                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : el.kind === 'text' ? (el.lifted ? 'a writing of the page\u2019s own, lifted' : 'words') : el.kind === 'anim' ? 'an animation' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
+                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : el.kind === 'text' ? (el.lifted ? 'a writing of the page\u2019s own, lifted' : 'words') : el.kind === 'anim' ? 'an animation' : el.kind === 'moment' ? `a moment: ${momentName(el.moment, el.variant).toLowerCase()}` : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
                 </button>
                 <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>

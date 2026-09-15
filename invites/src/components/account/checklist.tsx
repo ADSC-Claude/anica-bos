@@ -85,6 +85,9 @@ export function GetStarted({ invitationId, lines, send, welcome = null }: { invi
           </li>
         ))}
       </ol>
+      <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">
+        Prefer paper? <Link href={`/account/invitations/${invitationId}/details-sheet`} className="underline">Download the details sheet</Link> — every part your package asks for, as a Word file to fill in offline or send back over Messenger.
+      </p>
       {send && <SendToUsCard invitationId={invitationId} {...send} />}
       {words ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">

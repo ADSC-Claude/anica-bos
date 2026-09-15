@@ -361,8 +361,16 @@ table.data tr:hover td {
  * it always was — the two shipped designs name the same four colours the two
  * layout rules used to carry, so neither moves by a shade.
  */
-.inv-stage { background: var(--inv-surround, var(--inv-bg)); }
-.inv-stage:has(.inv[data-paged][data-mode='night']) { background: var(--night-surround, #12131c); }
+.inv-stage {
+  background-color: var(--inv-surround, var(--inv-bg));
+  /* a picture behind the whole page, edge to edge, when the design gives one (designVars) */
+  background-image: var(--inv-surround-art, none);
+  background-position: center top;
+  background-size: var(--inv-surround-size, cover);
+  background-repeat: var(--inv-surround-repeat, no-repeat);
+  background-attachment: var(--inv-surround-attach, scroll);
+}
+.inv-stage:has(.inv[data-paged][data-mode='night']) { background-color: var(--night-surround, #12131c); }
 /*
  * --inv-screen: the height of a screen, where a rule wants one. A guest's page
  * reads the real one, so the variable is never set there. The studio draws

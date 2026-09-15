@@ -899,7 +899,8 @@ test('the two shipped designs carry the four colours the stylesheet used to', ()
    */
   assert.ok(css.includes('background: var(--inv-paper, var(--inv-bg))'), 'the column reads the design’s paper');
   assert.ok(css.includes('background-color: var(--inv-paper, #f2e8dc)'), 'and so does the paged rule, which reaches further');
-  assert.ok(css.includes('background: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
+  // the surround is a colour and, since the picture behind the whole page, an image over it: the colour keeps its own property
+  assert.ok(css.includes('background-color: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
 });
 
 /**

@@ -36,3 +36,24 @@ test('a sample stands in on a page laid out by its words as well as on a drawn o
   const demo = { ceremony: { venue: 'San Agustin' } };
   assert.equal(sampleContent('demo', { doc, occasion: 'WEDDING', demo }), demo);
 });
+
+test('a picture behind the whole website page travels in the document and comes out as the stage\'s variables', async () => {
+  const { designOf, designVars } = await import('../src/lib/design');
+  const raw = { ...starterDesign(['cover', 'ceremony']), surroundArt: { url: '/uploads/stripes.webp', fit: 'cover' } };
+  const read = designOf(raw, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.surroundArt, { url: '/uploads/stripes.webp', fit: 'cover' });
+  const vars = designVars(read.doc);
+  assert.equal(vars['--inv-surround-art'], 'url(/uploads/stripes.webp)');
+  assert.equal(vars['--inv-surround-size'], 'cover');
+  assert.equal(vars['--inv-surround-repeat'], 'no-repeat');
+  assert.equal(vars['--inv-surround-attach'], 'fixed');
+  const tiled = designVars({ ...read.doc!, surroundArt: { url: '/uploads/dot.webp', fit: 'tile' } });
+  assert.equal(tiled['--inv-surround-size'], 'auto');
+  assert.equal(tiled['--inv-surround-repeat'], 'repeat');
+  // a picture that says how it fills in a way the stylesheet has no rule for is refused, not guessed
+  const bad = designOf({ ...raw, surroundArt: { url: '/x.webp', fit: 'stretch' } }, 'classic');
+  assert.equal(bad.doc, null);
+  // and a design with none is exactly as it was
+  assert.equal(designVars(starterDesign(['cover']))['--inv-surround-art'], undefined);
+});

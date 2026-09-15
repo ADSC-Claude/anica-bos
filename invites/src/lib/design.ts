@@ -445,6 +445,15 @@ export type PageSpec = {
    */
   outside?: 'design' | ColorRole | string;
   /**
+   * Whether this page's background reaches the whole website page. On a
+   * laptop the column stops short of the window's edge; a background that
+   * reaches runs edge to edge behind it — a colour out to the edges, or one
+   * picture across the whole page with the column showing the middle of it
+   * — and a phone shows the middle of it. Absent: a plain colour reaches,
+   * a picture stays in the column. `bleeds` is the rule.
+   */
+  bleed?: boolean;
+  /**
    * A page laid out by its words, told to be taller than they are: at least
    * this many screens. The words sit in the middle of it and the pieces
    * around them. Absent, the page is as tall as its words.
@@ -962,6 +971,7 @@ const zPage = z.object({
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
   outside: z.union([z.literal('design'), zColour]).optional(),
+  bleed: z.boolean().optional(),
   minScreens: z.number().min(0.3).max(6).optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
@@ -1417,10 +1427,25 @@ export const flowDecor = (page: PageSpec): Element[] =>
  * design set, since a picture has edges and the surround is what frames it.
  */
 export function outsideOf(page: PageSpec): string | undefined {
-  if (page.outside === 'design') return undefined;
-  if (page.outside) return page.outside;
   const g = page.ground;
-  return g && !isPicture(g) ? g.color : undefined;
+  // a plain colour that reaches the edges is the colour beside the page
+  if (g && !isPicture(g) && bleeds(page)) return g.color;
+  // a background kept to the column: the design's surround, or a colour said here
+  if (!bleeds(page) && page.outside && page.outside !== 'design') return page.outside;
+  return undefined;
+}
+
+/**
+ * Whether a page's background reaches the whole website page. A plain
+ * colour does unless the page says otherwise, since a blue page in a cream
+ * window read as "the outside did not change"; a picture stays in the
+ * column unless the page says otherwise, since a picture has edges. A page
+ * with no background has nothing to reach with.
+ */
+export function bleeds(page: PageSpec): boolean {
+  const g = page.ground;
+  if (!g) return false;
+  return page.bleed ?? !isPicture(g);
 }
 
 /**

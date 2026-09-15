@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, runOf, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, bleeds, runOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
@@ -782,9 +782,9 @@ export function Studio(p: Props) {
   }
 
   /** Something new on the page, in the middle of it, selected and ready to drag. */
-  function addElement(kind: 'text' | 'photo' | 'shape') {
+  function addElement(kind: 'text' | 'photo' | 'shape' | 'frame') {
     if (!page) return;
-    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : 'words');
+    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : kind === 'frame' ? 'frame' : 'words');
     /*
      * Where a new piece lands. On a drawn page, four tenths down it, which is
      * in view and clear of both edges. On a page laid out by its words there
@@ -798,6 +798,9 @@ export function Studio(p: Props) {
       : kind === 'shape'
         // behind the words, not over them: a card is what a shape is usually for
         ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
+        // a plain frame: an outline and nothing inside it, around whatever it is put around
+        : kind === 'frame'
+          ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 84, h: 60, anchor: 'centre', z: -1, stroke: 'ink', strokeWidth: 0.4, radius: 0 }
         // over the section's own words on a page laid out by them: a box of words behind words cannot be read
         : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }], ...(page.drawn ? {} : { z: 1 }) };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
@@ -1833,6 +1836,7 @@ export function Studio(p: Props) {
               <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
+              <button type="button" onClick={() => addElement('frame')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Frame</button>
               <AddMoving templateId={p.templateId} onAdd={addMoving} />
               <AddAnim templateId={p.templateId} onAdd={addAnim} />
               <AddClip templateId={p.templateId} onAdd={addClip} />
@@ -2143,7 +2147,7 @@ export function Studio(p: Props) {
                 */}
               <p className="hint">
                 This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against.
-                <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
+                <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong>, <strong>+ Frame</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
                 An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them.
                 The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces, and a clip you have picked plays where it is.
                 A page taller than its words is set on the right, under Background: at least so many screens.
@@ -2740,7 +2744,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
       {el.kind === 'anim' && <AnimBlock el={el as AnimEl} onChange={onChange} num={num} />}
-      {el.kind === 'text' && <TypeBlock el={el as TextEl} occasion={occasion} onChange={onChange} />}
+      {el.kind === 'text' && <TypeBlock el={el as TextEl} occasion={occasion} onChange={onChange} vars={vars} />}
       <label className="block">
         <span className="label">Opacity</span>
         <input type="range" min={0} max={1} step={0.05} value={el.opacity ?? 1} onChange={(e) => onChange((x) => ({ ...x, opacity: Number(e.target.value) }))} className="w-full" />
@@ -3417,7 +3421,7 @@ const offerable = (el: TextEl): boolean => {
   return sources.some((x) => 'bind' in x) && sources.some((x) => 'fixed' in x && x.fixed.en.trim());
 };
 
-function TypeBlock({ el, occasion, onChange }: { el: TextEl; occasion: Occasion; onChange: (fn: (e: Element) => Element) => void }) {
+function TypeBlock({ el, occasion, onChange, vars }: { el: TextEl; occasion: Occasion; onChange: (fn: (e: Element) => Element) => void; vars: Record<string, string> }) {
   const edit = (fn: (t: TextEl) => TextEl) => onChange((x) => fn(x as TextEl));
   const small = el.size !== undefined && el.size < LEGIBLE_CQW;
   return (
@@ -3528,6 +3532,21 @@ function TypeBlock({ el, occasion, onChange }: { el: TextEl; occasion: Occasion;
                 </button>
               ))}
               {l.sources.length > 1 && <span className="ml-auto text-[11px] text-[color:var(--color-ink-500)]">falls back {l.sources.length - 1}×</span>}
+            </div>
+            {/* the line's colour, one of the palette's ink roles so it follows the palette into night; none is the role's own */}
+            <div className="mt-1 flex items-center gap-1" data-testid="line-colour">
+              <span className="text-[11px] text-[color:var(--color-ink-500)]">Colour</span>
+              {ROLES.filter((r) => ['ink', 'muted', 'accent', 'accent2'].includes(r.key)).map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  title={r.label}
+                  onClick={() => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, color: x.color === r.key ? undefined : (r.key as TextEl['lines'][number]['color']) } : x)) }))}
+                  className={`h-5 w-5 rounded border ${l.color === r.key ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
+                  style={{ background: colourOf(r.key, vars) }}
+                />
+              ))}
+              {l.color && <button type="button" onClick={() => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, color: undefined } : x)) }))} className="text-[11px] underline">its own</button>}
             </div>
             <Words
               sources={l.sources}
@@ -4596,37 +4615,54 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
         />
         <p className="hint">A role colour follows the palette, so it turns itself down at night. A colour of your own does not.</p>
         {/*
-          * The colour beside the page on a laptop, where the column stops
-          * short of the window's edge. It follows the page unless she says
-          * otherwise: a page on a plain colour carries it out to the edges —
-          * a blue page in a cream window read as "the outside did not
-          * change" — and a page on a picture keeps the design's own
-          * surround, the one under Theme…, Beside it.
+          * Whether the background reaches the whole website page. On a
+          * laptop the column stops short of the window's edge; a background
+          * that reaches runs edge to edge behind it — a colour out to the
+          * edges, or one picture across the whole page with the column
+          * showing the middle of it — and a phone shows the middle of it.
+          * Kept to the column, the colour beside it is the design's own
+          * surround (Theme…, Beside it) or one said here.
           */}
-        <p className="label mt-2">Beside the page, on a laptop</p>
-        <div className="mt-1 flex items-center gap-1" data-testid="outside">
-          <select
-            className="input min-w-0 flex-1 text-xs"
-            value={page.outside === undefined ? '' : page.outside === 'design' ? 'design' : ROLES.some((r) => r.key === page.outside) ? page.outside : 'own'}
-            onChange={(e) => {
-              const v = e.target.value;
-              onChange((p) => {
-                const next = { ...p, outside: v === '' ? undefined : v === 'own' ? (p.outside?.startsWith('#') ? p.outside : '#ffffff') : v };
-                if (next.outside === undefined) delete next.outside;
-                return next;
-              });
-            }}
-          >
-            <option value="">{ground && !isPicture(ground) ? 'The page’s own colour, out to the edges' : 'The design’s surround'}</option>
-            <option value="design">The design’s surround (Theme…, Beside it)</option>
-            {ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-            <option value="own">A colour of its own</option>
-          </select>
-          {page.outside?.startsWith('#') && (
-            <input type="color" value={page.outside} onChange={(e) => onChange((p) => ({ ...p, outside: e.target.value }))} className="h-7 w-7 shrink-0 cursor-pointer rounded border border-black/15 p-0" />
-          )}
-        </div>
-        <p className="hint">A laptop shows it beside the page; a phone is the page edge to edge.</p>
+        {ground && (
+          <label className="mt-2 flex items-start gap-2" data-testid="bleed">
+            <input
+              type="checkbox"
+              checked={bleeds(page)}
+              onChange={(e) => onChange((p) => { const next: PageSpec = { ...p, bleed: e.target.checked }; if (next.bleed === (p.ground ? !isPicture(p.ground) : false)) delete next.bleed; return next; })}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span>
+              Reaches the whole website page
+              <span className="hint block">On a laptop it runs edge to edge behind the column &mdash; {ground && isPicture(ground) ? 'one picture across the whole page, the column showing the middle of it' : 'the colour out to the window\u2019s edges'} &mdash; and a phone shows the middle of it. A clip behind the page reaches with it. Off, it stays in the column.</span>
+            </span>
+          </label>
+        )}
+        {!bleeds(page) && (
+          <>
+            <p className="label mt-2">Beside the page, on a laptop</p>
+            <div className="mt-1 flex items-center gap-1" data-testid="outside">
+              <select
+                className="input min-w-0 flex-1 text-xs"
+                value={page.outside === undefined || page.outside === 'design' ? '' : ROLES.some((r) => r.key === page.outside) ? page.outside : 'own'}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  onChange((p) => {
+                    const next = { ...p, outside: v === '' ? undefined : v === 'own' ? (p.outside?.startsWith('#') ? p.outside : '#ffffff') : v };
+                    if (next.outside === undefined) delete next.outside;
+                    return next;
+                  });
+                }}
+              >
+                <option value="">The design&rsquo;s surround (Theme…, Beside it)</option>
+                {ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                <option value="own">A colour of its own</option>
+              </select>
+              {page.outside?.startsWith('#') && (
+                <input type="color" value={page.outside} onChange={(e) => onChange((p) => ({ ...p, outside: e.target.value }))} className="h-7 w-7 shrink-0 cursor-pointer rounded border border-black/15 p-0" />
+              )}
+            </div>
+          </>
+        )}
         {/*
           * "Make it longer." A page laid out by its words is as tall as they
           * are, and a background or a piece wanting more room had nowhere to

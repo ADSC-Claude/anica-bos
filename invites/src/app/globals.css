@@ -362,6 +362,7 @@ table.data tr:hover td {
  * layout rules used to carry, so neither moves by a shade.
  */
 .inv-stage {
+  position: relative;
   background-color: var(--inv-surround, var(--inv-bg));
   /* the colour beside each page that names one, as bands PageGround lays (--inv-outside);
      under them a picture behind the whole page, edge to edge, when the design gives one (designVars) */
@@ -677,6 +678,10 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    its upper part and the verse at its foot. */
 .inv[data-paged] { --capiz-bg: min(264.5vw, 84.6rem); }
 .inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+/* a picture that reaches the whole website page: a band beside the column, under it (PageGround) */
+.inv-stage > .inv { position: relative; z-index: 1; }
+.inv-stage > .inv-beside { z-index: 0; overflow: hidden; pointer-events: none; }
+.inv-stage > .inv-beside > video, .inv-stage > .inv-beside > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .inv-paper {
   position: absolute; left: 0; right: 0;
   background-repeat: no-repeat; background-size: 100% auto; background-position: center top;

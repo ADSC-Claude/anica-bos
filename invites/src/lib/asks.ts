@@ -281,6 +281,11 @@ function bound(doc: DesignDoc): Record<string, true> {
         if (el.alt) refs.push(el.alt);
       }
       if (el.kind === 'text') refs.push(...el.lines.flatMap((l) => l.sources).flatMap((x) => ('bind' in x ? [x.bind] : [])));
+      // a moment's photographs and its words are places for a customer's own, the same as a frame's and a box's
+      if (el.kind === 'moment') {
+        for (const p of el.photos ?? []) if (!('asset' in p.bind)) refs.push(p.bind);
+        refs.push(...(el.lines ?? []).flatMap((l) => l.sources).flatMap((x) => ('bind' in x ? [x.bind] : [])));
+      }
       for (const r of refs) out[`${r.section}.${r.field}${r.sub ? `.${r.sub}` : ''}`] = true;
     }
   }

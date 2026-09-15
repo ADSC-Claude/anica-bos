@@ -26,7 +26,7 @@ const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.
 const dry = process.argv.includes('--dry');
 
 async function main() {
-  const existing = await prisma.template.findMany({ select: { id: true, slug: true, name: true } });
+  const existing = await prisma.template.findMany({ select: { id: true, slug: true, name: true, design: true } });
   const bySlug = new Map(existing.map((t) => [t.slug, t]));
   let created = 0;
   let updated = 0;
@@ -38,10 +38,13 @@ async function main() {
       // `published` is only in the payload for a retired design: if staff
       // unpublished a live design in the admin, a sync must not put it back
       // on the shop floor; a retired one comes off it.
-      const { published, ...rest } = data;
-      if (!dry) await prisma.template.update({ where: { slug: t.slug }, data: t.retired ? { ...rest, published } : rest });
+      const { published, design, ...rest } = data;
+      // a document the studio wrote into this row is hers and stays; the catalogue's goes only into an empty column
+      const own = found.design && typeof found.design === 'object' && Object.keys(found.design as object).length > 0;
+      const payload = own ? rest : { ...rest, design };
+      if (!dry) await prisma.template.update({ where: { slug: t.slug }, data: t.retired ? { ...payload, published } : payload });
       updated++;
-      console.info(`  ${t.retired ? 'retired ' : 'updated '} ${t.slug.padEnd(20)} ${t.name}`);
+      console.info(`  ${t.retired ? 'retired ' : 'updated '} ${t.slug.padEnd(20)} ${t.name}${own ? ' (its own document kept)' : ''}`);
     } else {
       if (!dry) await prisma.template.create({ data });
       created++;

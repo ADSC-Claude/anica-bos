@@ -229,9 +229,9 @@ export const MOMENTS: MomentDef[] = [
   {
     key: 'polaroid-stack', name: 'Polaroid Stack', triggers: ['tap'],
     photos: { count: 3, shape: 'square', label: 'a photograph in the stack' }, words: 'lines', aspect: 1.1, width: 80, duration: 1600, minTier: 'STANDARD',
-    realism: 'Three prints squared in a pile; they slide out into a fan, each turning a few degrees and settling with a paper shadow.',
+    realism: 'Three prints squared in a pile; they slide out into a fan, each turning a few degrees and settling with a paper shadow. The words are written on the top print.',
     built: true,
-    holds: { photo: true },
+    holds: { photo: true, words: true },
   },
   {
     key: 'film-strip', name: 'Film Strip', triggers: [], mechanic: 'browse', swipe: 'left',

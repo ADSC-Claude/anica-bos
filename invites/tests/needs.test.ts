@@ -20,7 +20,11 @@ const el = (doc: DesignDoc, page: string, id: string) => on(doc, page).elements!
  */
 test('the two designs as shipped need nothing', () => {
   assert.deepEqual(run(base), []);
-  assert.deepEqual(pageNeeds({ doc: builtinDesign('capiz'), occasion: 'WEDDING' as never }), []);
+  // Capiz carries its storyline, so the one line it gets is the count of what it asks for — nothing to fix
+  const capiz = pageNeeds({ doc: builtinDesign('capiz'), occasion: 'WEDDING' as never });
+  assert.deepEqual(capiz.map((n) => n.rule), ['asks']);
+  assert.match(capiz[0].text, /3 photographs and 2 writings/);
+  assert.equal(publishable(capiz), true);
   assert.equal(publishable(run(base)), true);
   assert.deepEqual(pageNeeds({ doc: null, occasion: 'WEDDING' as never }), []);
 });

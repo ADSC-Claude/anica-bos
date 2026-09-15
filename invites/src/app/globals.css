@@ -2554,6 +2554,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-mode='night'] .inv-paper:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
 .inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
+/* the band beside the column for a picture that reaches the whole page sits outside the invitation, so night reaches it from the stage: turned down the same way as the paper it copies */
+.inv-stage:has(.inv[data-mode='night']) > .inv-beside:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
+.inv-stage:has(.inv[data-mode='night']) > .inv-beside:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
 .inv[data-paged][data-mode='night'] .inv-card,
 .inv[data-paged][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }
 .inv[data-paged][data-mode='night'] .inv-field::placeholder { color: var(--inv-muted); }

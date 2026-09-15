@@ -5,7 +5,7 @@ import type { Field, Person, SectionData } from '@/lib/sections';
 import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
-import { listToGrid, gridToList, sheetFilename } from '@/lib/sheet';
+import { listToGrid, gridToList, sheetFilename, pastedToGrid, pasteColumns } from '@/lib/sheet';
 import { toCsv } from '@/lib/csv';
 import { parseSheetAction } from '@/app/account/actions';
 
@@ -707,6 +707,35 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
     [copy[i], copy[j]] = [copy[j], copy[i]];
     onChange(copy);
   };
+  const [pasting, setPasting] = useState(false);
+  const [pasted, setPasted] = useState('');
+  const [note, setNote] = useState('');
+  const [arranging, setArranging] = useState(false);
+  // The columns a pasted line can fill: the list's leading text boxes. A list
+  // that opens with a choice (the honour's title, a sponsor's role) has no
+  // column for a name to land in first, so it takes a sheet but not a paste.
+  const columns = pasteColumns(item);
+  const room = Math.max(0, max - value.length);
+
+  function addPasted() {
+    const grid = pastedToGrid(pasted, columns);
+    const rows = gridToList(item, grid, room).map((r) => ({ ...blank(), ...r }));
+    if (rows.length === 0) {
+      setNote('Nothing to add — one per line.');
+      return;
+    }
+    onChange([...value, ...rows]);
+    const leftOut = grid.length - rows.length;
+    setNote(`${rows.length} added${leftOut > 0 && rows.length >= room ? `, ${leftOut} left out — ${limit !== undefined && limit <= 12 ? 'the page holds' : 'your package includes up to'} ${max} here` : ''}.`);
+    setPasted('');
+    setPasting(false);
+  }
+
+  const pasteHint =
+    columns >= 2
+      ? `One ${columns === 2 ? 'pair' : 'row'} per line, the ${item.slice(0, columns).map((f) => f.label.toLowerCase()).join(columns === 2 ? ' and the ' : ', the ')} separated by a tab (as pasted from Excel), a slash or an ampersand. Numbered or bulleted lines are fine.`
+      : `One ${item[0]?.key === 'name' ? 'name' : 'entry'} per line. Numbered or bulleted lines are fine.`;
+
   return (
     <div>
       <div className="flex items-end justify-between gap-2">
@@ -716,30 +745,137 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
           <ListSheet field={field} value={value} onChange={onChange} invitationId={invitationId} max={max} />
         </div>
       </div>
-      <div className="space-y-2">
-        {value.map((row, i) => (
-          <div key={i} className="rounded-xl border border-[color:var(--color-sand-200)] bg-white p-3">
-            <div className="grid gap-2 sm:grid-cols-2">
-              {item.map((sub) => (
-                <div key={sub.key} className={sub.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                  <FieldInput field={sub} value={row[sub.key]} onChange={(v) => update(i, { ...row, [sub.key]: v })} onPreset={(target, text, v) => update(i, { ...row, [sub.key]: v, [target]: text })} lang={lang} invitationId={invitationId} sibling={row} />
-                </div>
-              ))}
-            </div>
-            <div className="mt-2 flex gap-1 text-xs">
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
-              <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, 1)} disabled={i === value.length - 1} aria-label="Move down">↓</button>
-              <button type="button" className="btn btn-ghost btn-sm text-[color:var(--bad)]" onClick={() => onChange(value.filter((_, j) => j !== i))}>Remove</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      {value.length < max ? (
-        <button type="button" className="btn btn-secondary btn-sm mt-2" onClick={() => onChange([...value, blank()])}>+ {field.addLabel ?? 'Add'}</button>
+      {arranging ? (
+        <Arrange field={field} item={item} value={value} onChange={onChange} onDone={() => setArranging(false)} />
       ) : (
-        <p className="hint">{limit !== undefined && limit < (field.max ?? 200) && limit <= 12 ? `The page holds ${max} here.` : `Your package includes up to ${max} here. Upgrade for more.`}</p>
+        <div className="space-y-2">
+          {value.map((row, i) => (
+            <div key={i} className="rounded-xl border border-[color:var(--color-sand-200)] bg-white p-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {item.map((sub) => (
+                  <div key={sub.key} className={sub.type === 'textarea' ? 'sm:col-span-2' : ''}>
+                    <FieldInput field={sub} value={row[sub.key]} onChange={(v) => update(i, { ...row, [sub.key]: v })} onPreset={(target, text, v) => update(i, { ...row, [sub.key]: v, [target]: text })} lang={lang} invitationId={invitationId} sibling={row} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-1 text-xs">
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, 1)} disabled={i === value.length - 1} aria-label="Move down">↓</button>
+                <button type="button" className="btn btn-ghost btn-sm text-[color:var(--bad)]" onClick={() => onChange(value.filter((_, j) => j !== i))}>Remove</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {pasting && !arranging && (
+        <div className="mt-2 rounded-xl border border-dashed border-[color:var(--color-sand-300)] p-3">
+          <label className="label" htmlFor={`paste-${field.key}`}>Paste {field.label.replace(/\s*\(.*?\)/g, '').toLowerCase()}</label>
+          <textarea id={`paste-${field.key}`} className="field font-mono text-sm" rows={Math.min(8, Math.max(4, pasted.split('\n').length + 1))} value={pasted} onChange={(e) => setPasted(e.target.value)} placeholder={columns >= 2 ? `${item[0].placeholder ?? 'Mr. Jose Santos'} / ${item[1].placeholder ?? 'Mrs. Ana Santos'}` : 'Mr. Jose Santos'} autoFocus />
+          <p className="hint">{pasteHint}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-primary btn-sm" onClick={addPasted} disabled={!pasted.trim()}>Add these</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPasting(false); setPasted(''); setNote(''); }}>Cancel</button>
+            {note && <span role="status" className="text-xs text-[color:var(--color-ink-500)]">{note}</span>}
+          </div>
+        </div>
+      )}
+      {!arranging && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {value.length < max ? (
+            <>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange([...value, blank()])}>+ {field.addLabel ?? 'Add'}</button>
+              {columns > 0 && !pasting && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setPasting(true); setNote(''); }}>Paste a list</button>}
+            </>
+          ) : (
+            <p className="hint">{limit !== undefined && limit < (field.max ?? 200) && limit <= 12 ? `The page holds ${max} here.` : `Your package includes up to ${max} here. Upgrade for more.`}</p>
+          )}
+          {value.length >= 2 && <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setArranging(true); setPasting(false); }}>Arrange</button>}
+          {note && !pasting && <span role="status" className="text-xs text-[color:var(--color-ink-500)]">{note}</span>}
+        </div>
       )}
       <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/**
+ * The list as a stack of one-line cards, to put in order. A row here reads
+ * as what it names — "Jose Santos · Ana Santos" — rather than as its boxes,
+ * so eighteen pairs fit on one phone screen and a name can be dragged from the
+ * bottom to the top in one movement.
+ *
+ * The drag is written on pointer events rather than the HTML drag-and-drop
+ * API, because that API does not fire on a touch screen and a phone is where
+ * the arrows are slowest. The handle owns the touch (touch-none), so pulling
+ * it moves the name and not the page; the rest of the row still scrolls. As
+ * the pointer crosses other rows the row moves under it, and each move is a
+ * change like any other — one auto-save once the finger lifts. The arrows
+ * stay for a keyboard.
+ */
+function Arrange({ field, item, value, onChange, onDone }: { field: Field; item: Field[]; value: Record<string, unknown>[]; onChange: (v: unknown) => void; onDone: () => void }) {
+  const list = useRef<HTMLOListElement>(null);
+  const drag = useRef<number | null>(null);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const summary = (row: Record<string, unknown>) => {
+    const words = item.filter((f) => f.type === 'text' || f.type === 'select').map((f) => {
+      const v = String(row[f.key] ?? '').trim();
+      return f.type === 'select' ? (f.options?.find((o) => o.value === v)?.label ?? '') : v;
+    }).filter(Boolean);
+    return words.join(' · ');
+  };
+  const relocate = (from: number, to: number) => {
+    if (from === to) return;
+    const copy = [...value];
+    const [row] = copy.splice(from, 1);
+    copy.splice(to, 0, row);
+    onChange(copy);
+  };
+  const start = (i: number, e: React.PointerEvent<HTMLButtonElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = i;
+    setDragging(i);
+  };
+  const over = (e: React.PointerEvent<HTMLOListElement>) => {
+    const from = drag.current;
+    if (from === null || !list.current) return;
+    // Where the finger is among the other rows: the count of them whose middle
+    // it has passed is the place the dragged row belongs.
+    const rows = Array.from(list.current.children) as HTMLElement[];
+    let to = 0;
+    rows.forEach((el, j) => {
+      if (j === from) return;
+      const r = el.getBoundingClientRect();
+      if (e.clientY > r.top + r.height / 2) to++;
+    });
+    if (to !== from) {
+      relocate(from, to);
+      drag.current = to;
+      setDragging(to);
+    }
+  };
+  const stop = () => {
+    drag.current = null;
+    setDragging(null);
+  };
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j >= 0 && j < value.length) relocate(i, j);
+  };
+  return (
+    <div className="rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] p-2" data-testid={`arrange-${field.key}`}>
+      <p className="mb-2 px-1 text-xs text-[color:var(--color-ink-500)]">Drag the handle to put them in order — this is the order on your page.</p>
+      <ol ref={list} className="space-y-1" onPointerMove={over} onPointerUp={stop} onPointerCancel={stop}>
+        {value.map((row, i) => (
+          <li key={i} className={`flex items-center gap-2 rounded-lg border bg-white px-2 py-1.5 text-sm ${dragging === i ? 'border-[color:var(--color-plum-600)] shadow-md' : 'border-[color:var(--color-sand-200)]'}`}>
+            <button type="button" className="touch-none select-none cursor-grab px-1 text-base leading-none text-[color:var(--color-ink-500)] active:cursor-grabbing" aria-label={`Drag to move ${summary(row) || `row ${i + 1}`}`} onPointerDown={(e) => start(i, e)}>⋮⋮</button>
+            <span className="w-5 shrink-0 text-xs tabular-nums text-[color:var(--color-ink-500)]">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate">{summary(row) || <em className="text-[color:var(--color-ink-500)]">blank</em>}</span>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Move up">↑</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => move(i, 1)} disabled={i === value.length - 1} aria-label="Move down">↓</button>
+          </li>
+        ))}
+      </ol>
+      <button type="button" className="btn btn-secondary btn-sm mt-2" onClick={onDone}>Done arranging</button>
     </div>
   );
 }

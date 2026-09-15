@@ -305,6 +305,8 @@ export const CAPIZ_DEFAULT_ART: Required<Pick<DesignArt, 'backgrounds' | 'strand
 /** A section on a page. Two are not sections: the verse, and the clip that no frame can hold. */
 export type PageSectionKey = SectionKey | 'verse' | 'gallery-video';
 
+export type SurroundArt = { url: string; fit: 'cover' | 'tile' };
+
 export type DesignDoc = {
   v: 1;
   pages: PageSpec[];
@@ -314,6 +316,15 @@ export type DesignDoc = {
   paper?: string;
   /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
   surround?: string;
+  /**
+   * A picture behind the whole website page, edge to edge, on a laptop —
+   * the column sits on top of it, and on a phone the column covers it.
+   * `cover` stretches one picture across the window and keeps it still as
+   * the page scrolls; `tile` repeats a small one. This is the thing the
+   * owner exports from Canva as "the background" and judges on the whole
+   * page rather than on a phone strip.
+   */
+  surroundArt?: SurroundArt;
   /**
    * This design's own colours by night.
    *
@@ -947,6 +958,7 @@ const zDoc = z.object({
   overflowGround: zGround.optional(),
   paper: zColour.optional(),
   surround: zColour.optional(),
+  surroundArt: z.object({ url: z.string().min(1).max(500), fit: z.enum(['cover', 'tile']) }).strict().optional(),
   strand: z.string().min(1).max(500).optional(),
   nightColours: z.object({
     ink: zColour.optional(), muted: zColour.optional(), surface: zColour.optional(),
@@ -1828,6 +1840,12 @@ export function designVars(doc: DesignDoc | null): Record<string, string> {
   if (!doc) return vars;
   if (doc.paper) vars['--inv-paper'] = colourVar(doc.paper);
   if (doc.surround) vars['--inv-surround'] = colourVar(doc.surround);
+  if (doc.surroundArt?.url) {
+    vars['--inv-surround-art'] = `url(${doc.surroundArt.url})`;
+    vars['--inv-surround-size'] = doc.surroundArt.fit === 'tile' ? 'auto' : 'cover';
+    vars['--inv-surround-repeat'] = doc.surroundArt.fit === 'tile' ? 'repeat' : 'no-repeat';
+    vars['--inv-surround-attach'] = doc.surroundArt.fit === 'tile' ? 'scroll' : 'fixed';
+  }
   for (const [role, name] of Object.entries(NIGHT_VAR) as [keyof NightPalette, string][]) {
     const colour = doc.nightColours?.[role];
     // a role name by night would follow the *day* palette, which is the one

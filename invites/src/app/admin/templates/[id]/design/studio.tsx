@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
-import { pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
+import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
@@ -44,13 +44,21 @@ import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pa
  */
 
 /** The widths a guest actually reads on. "Laptop" is the widest column we ever draw. */
-/** Each width with the height of the screen it stands for, for the page under the canvas (see --inv-screen). */
-const WIDTHS = [
-  { key: 360, label: 'Small phone', hint: '360', screen: 800 },
-  { key: 390, label: 'Phone', hint: '390', screen: 844 },
-  { key: 430, label: 'Large phone', hint: '430', screen: 932 },
-  { key: 512, label: 'Laptop', hint: '512', screen: 900 },
-];
+/**
+ * The two ways the page is looked at. The website is the page as a laptop
+ * shows it — the column on its surround, a background edge to edge — and
+ * the phone is the cut of it a guest holds. Each carries the width of the
+ * window and the height of the screen it stands for, for the page under the
+ * canvas (see --inv-screen). Four phone widths used to sit here; what an
+ * owner judges is the website, and the one cut that matters is the phone.
+ */
+const VIEWS = [
+  { key: 'website', label: 'Website', hint: '1280', width: 1280, screen: 800 },
+  { key: 'phone', label: 'Phone', hint: '390', width: 390, screen: 844 },
+] as const;
+type ViewKey = (typeof VIEWS)[number]['key'];
+/** The invitation column is never wider than this, whatever the window: see `.inv[data-paged]`. */
+const COLUMN = 512;
 
 /** How far a drag has to come to snap: a fifth of a percent of the page's width. */
 const SNAP = 0.8;
@@ -143,7 +151,34 @@ export function Studio(p: Props) {
   const [doc, setDoc] = useState<DesignDoc>(p.doc);
   const [pageKey, setPageKey] = useState(p.doc.pages[0]?.key ?? '');
   const [sel, setSel] = useState<string[]>([]);
-  const [width, setWidth] = useState(390);
+  const [size, setSize] = useState<ViewKey>('website');
+  const width = VIEWS.find((v) => v.key === size)!.width;
+  /** the column on the canvas: the window, or the phone column when the window is wider */
+  const column = Math.min(width, COLUMN);
+  /*
+   * Zoom. The website is wider than the studio's middle column, so it is
+   * shown to fit unless she asks for more or less; the canvas is scaled as
+   * a whole (CSS zoom, which the browser lays out and measures in), so a
+   * drag reads the same at every zoom and the handles sit where the boxes
+   * are.
+   */
+  const [zoom, setZoom] = useState<number | 'fit'>('fit');
+  const canvasRef = useRef<HTMLElement | null>(null);
+  const [room, setRoom] = useState(0);
+  useLayoutEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    setRoom(el.clientWidth);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setRoom(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+    // the observer sees the column beside it open and close, which is when the room changes
+  }, []);
+  // the card's own padding and the canvas's, which the website has to fit inside
+  const scale = zoom === 'fit' ? (room ? Math.max(0.25, Math.min(1, (room - 56) / width)) : 1) : zoom;
+  const scaleRef = useRef(1);
+  scaleRef.current = scale;
   /** the page under her hand, or the whole invitation as a guest scrolls it */
   const [view, setView] = useState<'page' | 'whole' | 'import'>('page');
   const [shown, setShown] = useState(0);
@@ -346,8 +381,8 @@ export function Studio(p: Props) {
         w: (r.width / b.width) * 100,
         h: (r.height / b.height) * 100,
       };
-      // what holds the foot follows the page down and never pushes it
-      if (!node.hasAttribute('data-foot') && r.height) low = Math.max(low, r.bottom - b.top);
+      // what holds the foot follows the page down and never pushes it (in the page's own pixels, not the zoomed ones)
+      if (!node.hasAttribute('data-foot') && r.height) low = Math.max(low, (r.bottom - b.top) / scaleRef.current);
     }
     setBoxes(next);
     setGrown((was) => (Math.abs(was - low) < 0.5 ? was : low));
@@ -927,6 +962,13 @@ export function Studio(p: Props) {
     change(next);
   }
 
+  /** A picture behind the whole website page, or none: the design's own, so it is in the draft. */
+  function setSurroundArt(art: SurroundArt | undefined) {
+    const next: DesignDoc = { ...doc, surroundArt: art };
+    if (!art) delete next.surroundArt;
+    change(next);
+  }
+
   function setNightColour(role: keyof NightPalette, colour: string | undefined) {
     const night = { ...(doc.nightColours ?? {}) };
     if (colour) night[role] = colour;
@@ -1427,29 +1469,38 @@ export function Studio(p: Props) {
     const advance = ctx.measureText(sample).width / sample.length + (parseFloat(cs.letterSpacing) || 0);
     if (!(advance > 0)) return undefined;
     const box = inner.getBoundingClientRect();
-    const width = box.width || node.getBoundingClientRect().width;
+    // the rectangle is measured zoomed and the faces are not, so it is read back in the page's own pixels
+    const width = (box.width || node.getBoundingClientRect().width) / scaleRef.current;
     const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
-    const lines = Math.max(1, Math.round(box.height / line));
+    const lines = Math.max(1, Math.round(box.height / scaleRef.current / line));
     if (!(width > 0)) return undefined;
     return Math.max(1, Math.floor((width / advance) * lines));
   }, []);
 
   const ratio = page ? pageRatio(page) : 1;
   const ground = page?.ground;
+  const flowKey = page && !page.drawn ? page.key : '';
+  /** a page laid out by its words, with the guest page under it: the stage is clear glass over the frame */
+  // every design has a frame to draw on now — its demo, a customer, or the form's stand-in
+  const framed = Boolean(flowKey);
   const stageStyle: CSSProperties = {
-    width,
+    width: column,
     // a page that grows is at least its ground and taller when its words are,
     // so the canvas gives it a floor where a fixed page gets a proportion
     ...(page?.drawn
-      ? (page.grow ? { minHeight: Math.max(width * ratio, grown + width * 0.04) } : { aspectRatio: `1 / ${ratio}` })
+      ? (page.grow ? { minHeight: Math.max(column * ratio, grown + column * 0.04) } : { aspectRatio: `1 / ${ratio}` })
       // exactly the page box in the frame under it, whatever the stylesheet gives a page of this name
-      : { height: flowBox.height || width * 1.2, minHeight: 0, padding: 0, boxSizing: 'border-box' as const }),
-    // its own stacking context, so the frame under the canvas stays under the canvas
+      : { height: flowBox.height || column * 1.2, minHeight: 0, padding: 0, boxSizing: 'border-box' as const }),
+    // its own stacking context, so what is drawn under the words stays in the page
     isolation: 'isolate',
-    ...(ground && isPicture(ground)
-      ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
-      : ground ? { background: colourOf(ground.color, vars) } : {}),
+    ...(framed
+      ? { background: 'transparent' }
+      : ground && isPicture(ground)
+        ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
+        : ground ? { background: colourOf(ground.color, vars) } : {}),
   };
+  /** the design's own surround — the colour beside the column, and a picture behind the whole page — for the canvas around a drawn page */
+  const ownVars = designVars(doc);
 
   /*
    * The columns. Bringing a page in is one screen: the properties column
@@ -1481,8 +1532,7 @@ export function Studio(p: Props) {
     const qs = q.toString();
     return qs ? `${frameBase}&${qs}` : frameBase;
   }, [frameBase, sample, night]);
-  const flowKey = page && !page.drawn ? page.key : '';
-  const screen = WIDTHS.find((w) => w.key === width)?.screen ?? 844;
+  const screen = VIEWS.find((v) => v.key === size)?.screen ?? 844;
   const flowSrc = useMemo(() => {
     if (!flowKey) return '';
     const q = new URLSearchParams({ page: flowKey, screen: String(screen), v: String(shown) });
@@ -1679,7 +1729,7 @@ export function Studio(p: Props) {
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
         {said && <p className="hint mt-1">{said}</p>}
         <HidesPanel occasion={p.occasion} hides={doc.hides ?? []} onToggle={toggleHide} />
-        <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} />
+        <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} onSurroundArt={setSurroundArt} />
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -1750,11 +1800,16 @@ export function Studio(p: Props) {
       </aside>
 
       {/* the page */}
-      <section className="card p-3">
+      <section ref={canvasRef} className="card min-w-0 p-3">
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-          {WIDTHS.map((w) => (
-            <button key={w.key} type="button" onClick={() => setWidth(w.key)} className={`rounded px-2 py-1 ${width === w.key ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{w.label}<span className="ml-1 opacity-60">{w.hint}</span></button>
+          {VIEWS.map((v) => (
+            <button key={v.key} type="button" onClick={() => setSize(v.key)} className={`rounded px-2 py-1 ${size === v.key ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{v.label}<span className="ml-1 opacity-60">{v.hint}</span></button>
           ))}
+          <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
+          <button type="button" title="Zoom out" onClick={() => setZoom(Math.max(0.25, Math.round((scale - 0.1) * 10) / 10))} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">&minus;</button>
+          <span className="w-10 text-center tabular-nums" data-testid="zoom">{Math.round(scale * 100)}%</span>
+          <button type="button" title="Zoom in" onClick={() => setZoom(Math.min(2, Math.round((scale + 0.1) * 10) / 10))} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+</button>
+          <button type="button" title="Fit the whole width" onClick={() => setZoom('fit')} className={`rounded px-2 py-1 ${zoom === 'fit' ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Fit</button>
           <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
           {view === 'page' ? (
             <>
@@ -1876,22 +1931,45 @@ export function Studio(p: Props) {
         )}
 
         {view === 'whole' && (
-          <div className="flex justify-center bg-[color:var(--color-sand-100)] p-4">
-            {/* the invitation on the canvas — a customer's when she is drawing against one — as the draft design serves it */}
-            <iframe
-              key={shown}
-              ref={frame}
-              title="The whole invitation"
-              src={wholeSrc}
-              onLoad={showPage}
-              className="shadow-lg"
-              style={{ width, height: 780, border: 0, background: '#fff' }}
-            />
+          <div className="flex justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4">
+            {/* the invitation on the canvas — a customer's when she is drawing against one — as the draft design serves it, at the view's width */}
+            <div style={{ zoom: scale } as CSSProperties}>
+              <iframe
+                key={shown}
+                ref={frame}
+                title="The whole invitation"
+                src={wholeSrc}
+                onLoad={showPage}
+                className="shadow-lg"
+                style={{ width, height: size === 'website' ? 800 : 780, border: 0, background: '#fff' }}
+              />
+            </div>
           </div>
         )}
 
         <div className={`justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4 ${view === 'page' ? 'flex' : 'hidden'}`}>
-          <div className="relative shadow-lg" style={{ width }}>
+          {/*
+            * The browser. The whole website page at the width of the view,
+            * zoomed to fit or as she asks. It is the guest page's own stage —
+            * the same class, the same variables — so the column sits on the
+            * design's surround exactly where a laptop puts it, and a picture
+            * behind the whole page runs edge to edge under it. Under a page
+            * laid out by its words the frame *is* the page, the whole window
+            * of it, and everything of ours over it is clear glass.
+            */}
+          <div className="inv-stage relative shadow-lg" data-canvas="" style={{ ...vars, ...ownVars, width, zoom: scale, isolation: 'isolate', ...(framed ? { background: 'transparent' } : {}) } as CSSProperties}>
+            {framed && flowSrc && (
+              <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
+                <iframe
+                  ref={flowFrame}
+                  title="This page, as a guest sees it"
+                  src={flowSrc}
+                  onLoad={flowLoaded}
+                  tabIndex={-1}
+                  style={{ position: 'absolute', left: 0, top: -flowBox.top, width: '100%', height: flowBox.top + (flowBox.height || column * 1.2), border: 0, background: 'transparent' }}
+                />
+              </div>
+            )}
             {/*
               * `data-motion` here and not from the island: the canvas is not
               * a guest's page and she is drawing, so what she needs is to see
@@ -1899,7 +1977,7 @@ export function Studio(p: Props) {
               * element is marked arrived a frame after it is drawn (below), so
               * nothing she places is invisible while she places it.
               */}
-            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-motion="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
+            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-motion="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0, ...(framed ? { background: 'transparent' } : {}) } as CSSProperties} lang="en">
               <div
                 ref={stage}
                 className="inv-page relative"
@@ -1923,18 +2001,6 @@ export function Studio(p: Props) {
                   * she sees here is exactly where it will be, on a page whose
                   * height is the only part this canvas has to guess.
                   */}
-                {page && !page.drawn && flowSrc && (
-                  <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
-                    <iframe
-                      ref={flowFrame}
-                      title="This page, as a guest sees it"
-                      src={flowSrc}
-                      onLoad={flowLoaded}
-                      tabIndex={-1}
-                      style={{ position: 'absolute', left: 0, top: -flowBox.top, width: '100%', height: flowBox.top + (flowBox.height || width * 1.2), border: 0, background: 'transparent' }}
-                    />
-                  </div>
-                )}
                 {page && (page.drawn
                   ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id }} />
                   : (['under', 'over'] as const).map((layer) => (
@@ -2340,14 +2406,15 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
  * were the same kind of literal: two per layout, in the stylesheet, which is
  * why a design drawn here wore its layout's and could not say otherwise.
  */
-function ColoursPanel({ doc, onColumn, onNight }: {
+function ColoursPanel({ doc, onColumn, onNight, onSurroundArt }: {
   doc: DesignDoc;
   onColumn: (key: 'paper' | 'surround', colour: string | undefined) => void;
   onNight: (role: keyof NightPalette, colour: string | undefined) => void;
+  onSurroundArt: (art: SurroundArt | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
   const night = doc.nightColours ?? {};
-  const set = (doc.paper ? 1 : 0) + (doc.surround ? 1 : 0) + Object.keys(night).length;
+  const set = (doc.paper ? 1 : 0) + (doc.surround ? 1 : 0) + (doc.surroundArt ? 1 : 0) + Object.keys(night).length;
   return (
     <div className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
       <button type="button" onClick={() => setOpen((x) => !x)} className="flex w-full items-center justify-between text-left">
@@ -2360,6 +2427,7 @@ function ColoursPanel({ doc, onColumn, onNight }: {
             <p className="hint">The column itself, and what is beside it on a laptop.</p>
             <OwnColour label="The column" colour={doc.paper} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('paper', c)} />
             <OwnColour label="Beside it" colour={doc.surround} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('surround', c)} />
+            <SurroundPicture art={doc.surroundArt} onChange={onSurroundArt} />
           </div>
           <div className="space-y-1">
             <p className="hint">By night. Anything you leave alone stays ours.</p>
@@ -2378,6 +2446,62 @@ function ColoursPanel({ doc, onColumn, onNight }: {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A picture behind the whole website page, edge to edge.
+ *
+ * The one thing an owner exports from Canva as "the background" and wants
+ * to judge on the whole page rather than on a phone strip: it goes here
+ * once, the column sits on it, and a phone covers it with the column. It
+ * goes up through the library, so it is also a piece she can place.
+ */
+function SurroundPicture({ art, onChange }: { art?: SurroundArt; onChange: (a: SurroundArt | undefined) => void }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  async function pick(file: File) {
+    setError('');
+    setBusy('Sending…');
+    try {
+      const read = await readPicture(file);
+      const fd = new FormData();
+      fd.set('file', new File([read.blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
+      fd.set('library', '1');
+      fd.set('name', `Behind the page — ${file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ')}`);
+      fd.set('width', String(read.width));
+      fd.set('height', String(read.height));
+      const res = await fetch('/api/admin/design-upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
+      onChange({ url: json.url as string, fit: art?.fit ?? 'cover' });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy('');
+  }
+  return (
+    <div className="rounded bg-[color:var(--color-sand-100)] p-2" data-testid="surround-picture">
+      <p className="text-xs font-semibold">Behind the whole page, on a laptop</p>
+      <p className="hint">A picture edge to edge under the column &mdash; the background you export from Canva, 1920 &times; 1080 px. A phone covers it with the column.</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {art?.url && <span className="h-8 w-12 shrink-0 rounded-sm border border-black/10 bg-cover bg-center" style={{ backgroundImage: `url(${art.url})` }} />}
+        <label className="btn btn-secondary btn-sm cursor-pointer">
+          {busy || (art?.url ? 'Change the picture' : 'Upload a picture')}
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = ''; }} />
+        </label>
+        {art?.url && (
+          <>
+            <select className="input w-auto text-xs" value={art.fit} onChange={(e) => onChange({ ...art, fit: e.target.value as SurroundArt['fit'] })} aria-label="How the picture fills the page">
+              <option value="cover">one picture across the window, still as the page scrolls</option>
+              <option value="tile">a small picture, repeated</option>
+            </select>
+            <button type="button" onClick={() => onChange(undefined)} className="text-xs text-red-700 underline">Remove</button>
+          </>
+        )}
+      </div>
+      {error && <p role="alert" className="mt-1 text-xs text-[color:var(--bad)]">{error}</p>}
     </div>
   );
 }
@@ -4877,6 +5001,10 @@ function GuideDrawer() {
 
       {open === 'sizes' && (
         <>
+          <div className="mb-2 rounded bg-[color:var(--color-sand-100)] p-2">
+            <p className="font-semibold">The website and the phone</p>
+            <p className="mt-0.5 text-[color:var(--color-ink-700)]">The canvas is the website at <span className="font-mono">1280</span> px wide; the invitation column on it is <span className="font-mono">512</span> px; the phone is <span className="font-mono">390</span> px. A picture behind the whole page: <span className="font-mono">1920 &times; 1080</span> px to stretch across the window, or a <span className="font-mono">400 &times; 400</span> px tile to repeat.</p>
+          </div>
           <p className="hint">Type the first size into Canva&rsquo;s <strong>Custom size</strong>, in pixels. The second is for artwork with fine detail; nothing needs more.</p>
           <ul className="mt-2 space-y-2">
             {PAGE_SHAPES.map((sh) => {

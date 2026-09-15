@@ -1,9 +1,10 @@
+import { MOMENT_BY_KEY, momentName } from './moments';
 import type { Occasion } from '@prisma/client';
 import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
   frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
-  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl, type AnimEl,
+  type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl, type AnimEl, type MomentEl
 } from './design';
 import { contrast } from './palette';
 import { GLARE, HEAVY_CLIP_BYTES, LONG_CLIP_MS, VIDEO_BUDGET_BYTES, VIDEO_BUDGET_LABEL } from './clips';
@@ -75,6 +76,10 @@ export const NEED_RULES = [
   'moving',
   'motion',
   'asks',
+  'moment-photo',
+  'moment-code',
+  'moment-small',
+  'moment-many',
 ] as const;
 
 export type NeedRule = (typeof NEED_RULES)[number];
@@ -213,8 +218,14 @@ function nameOf(el: Element, n: number): string {
     if (role === 'caption') return 'This caption';
     if (role === 'label-title' || role === 'label-text') return 'This label';
   }
+  if (el.kind === 'moment') return `The ${momentName((el as MomentEl).moment, (el as MomentEl).variant).toLowerCase()}`;
   return 'This box';
 }
+
+/** The narrowest a moment may be drawn, as a share of the column: a thumb has to land on it. */
+const MOMENT_MIN_WIDTH = 28;
+/** More than this many on one page and the page is a fairground. */
+const MOST_MOMENTS = 3;
 
 export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Look): Need[] {
   if (!doc) return [];
@@ -227,6 +238,8 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
       out.push({ level, rule, page: page.key, text, ...(id ? { id } : {}) });
     const named = page.label?.en || page.key;
     const elements = page.elements ?? [];
+    const moments = elements.filter((e) => e.kind === 'moment');
+    if (moments.length > MOST_MOMENTS) say('says', 'moment-many', `${named} has ${moments.length} moments to open. Three on a page is plenty; more and none of them is a surprise.`, moments[MOST_MOMENTS]!.id);
     const frames = elements.filter((e) => e.kind === 'photo');
     const ratio = pageRatio(page);
 
@@ -379,6 +392,26 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
         const bytes = weights?.[('asset' in moving.bind ? moving.bind.asset : '')];
         if (bytes !== undefined && bytes > HEAVY_MOVING_BYTES) {
           say('says', 'moving', `${name} is ${Math.round(bytes / 1024)} kB. A moving picture is never resized or re-encoded, so every guest downloads it whole: under ${Math.round(HEAVY_MOVING_BYTES / 1024)} kB is what a phone on mobile data has before they scroll to it. Fewer frames or a smaller export is the only way down.`, el.id);
+        }
+      }
+      if (el.kind === 'moment') {
+        const m = el as MomentEl;
+        const def = MOMENT_BY_KEY[m.moment];
+        const name = nameOf(el, i + 1);
+        // a photograph slot that reads nothing: the scene opens onto a blank
+        const slots = m.photos ?? [];
+        const wants = def?.photos.count ?? 0;
+        if (wants > 0 && (!slots.length || slots.some((p) => 'asset' in p.bind && !p.bind.asset)) && m.ifEmpty !== 'leave') {
+          say('blocks', 'moment-photo', `${name} opens onto ${def?.photos.label || 'a photograph'}, and no photograph is linked. Point it at a field the customer fills, or at a picture from the library, or mark it to leave out when empty.`, el.id);
+        }
+        if (m.moment === 'code' && !m.code) say('blocks', 'moment-code', `${name} has no code to unlock it.`, el.id);
+        if (m.w !== undefined && m.w < MOMENT_MIN_WIDTH) say('blocks', 'moment-small', `${name} is ${Math.round(m.w)}% of the page wide: too small to tap on a phone. ${MOMENT_MIN_WIDTH}% is the least.`, el.id);
+        for (const line of m.lines ?? []) {
+          for (const src of line.sources) {
+            if ('fixed' in src && src.fixed.en.trim() && src.fixed.tl === undefined) {
+              say('blocks', 'no-tagalog', `${name} has English but no Tagalog.`, el.id);
+            }
+          }
         }
       }
       if (el.kind === 'text') {

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { plateChars } from '@/lib/openings';
+import { Scene, useMomentGesture } from './moments';
+import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
 import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
 
@@ -49,7 +51,14 @@ export type OpeningProps = {
   and?: string;
   /** "Tap to open". */
   hint: string;
+  /** the opening's pace: the same motion, slower or quicker */
+  speed?: Speed;
+  /** how the guest opens it, where the opening takes more than one way */
+  trigger?: Trigger;
 };
+
+/** The scene an opening plays, where it is one of the moments' — the envelope and the seal are, since #174. */
+const SCENE_OF: Partial<Record<string, MomentKey>> = { envelope: 'envelope', seal: 'seal', ribbon: 'ribbon', doors: 'doors', capiz: 'capiz', letter: 'letter' };
 
 function Stage({ style, monogram, photos, video, poster, videoRef }: {
   style: string;
@@ -78,13 +87,12 @@ function Stage({ style, monogram, photos, video, poster, videoRef }: {
       );
     case 'envelope':
     case 'seal':
-      return (
-        <span className="inv-open-env" aria-hidden>
-          <span className="inv-open-card" />
-          <span className="inv-open-flap" />
-          <span className="inv-open-wax">{monogram || '♥'}</span>
-        </span>
-      );
+    case 'ribbon':
+    case 'doors':
+    case 'capiz':
+    case 'letter':
+      // the same scene a moment on a page plays, filling the screen
+      return <Scene scene={SCENE_OF[style]!} photos={photos} monogram={monogram} />;
     case 'drape':
       return <span className="inv-open-drape" aria-hidden />;
     case 'curtain':
@@ -165,6 +173,11 @@ export function Shell({
 }) {
   const closed = opening.style !== 'none';
   const [open, setOpen] = useState(!closed);
+  // how it is opened: the trigger the invitation chose where the scene takes it, else the scene's own; a tap for the openings that are not scenes
+  const scene = SCENE_OF[opening.style];
+  const sceneDef = scene ? MOMENT_BY_KEY[scene] : undefined;
+  const trigger: Trigger = sceneDef && opening.trigger && sceneDef.triggers.includes(opening.trigger) ? opening.trigger : sceneDef?.triggers[0] ?? 'tap';
+  const speed: Speed = opening.speed ?? 'normal';
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const clip = useRef<HTMLVideoElement | null>(null);
@@ -257,7 +270,13 @@ export function Shell({
    * The tap is also what makes both of these work at all on a phone: playing
    * video or audio without a user gesture is blocked, and this is the gesture.
    */
+  const gesture = useMomentGesture({ trigger, speed, duration: sceneDef?.duration ?? 1200, swipe: sceneDef?.swipe, disabled: open, onOpen: () => revealNow() });
   const reveal = () => {
+    if (trigger !== 'tap') return; // a swipe or a hold arrives through the gesture, never through a click
+    revealNow();
+  };
+  const revealNow = () => {
+    if (tapped) return;
     setTapped(true);
     if (music) void play();
     const video = clip.current;
@@ -348,14 +367,22 @@ export function Shell({
             data-style={opening.style}
             data-clip={opening.clip || undefined}
             data-open={open}
+            data-state={open || tapped ? 'open' : 'closed'}
+            data-trigger={trigger}
+            data-dragging={gesture.dragging ? '' : undefined}
             data-tapped={tapped}
             data-still={still || undefined}
+            style={{ ['--moment-t' as string]: String(SPEED_FACTOR[speed]), ['--open-drag' as string]: gesture.drag.toFixed(3) }}
             role="button"
             tabIndex={open ? -1 : 0}
             aria-label={opening.hint}
             aria-hidden={open}
             onClick={reveal}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && reveal()}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && revealNow()}
+            onPointerDown={gesture.handlers.onPointerDown}
+            onPointerMove={gesture.handlers.onPointerMove}
+            onPointerUp={gesture.handlers.onPointerUp}
+            onPointerCancel={gesture.handlers.onPointerCancel}
           >
             <div className="inv-open-stage">
               <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />

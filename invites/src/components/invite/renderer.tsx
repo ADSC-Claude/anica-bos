@@ -2,6 +2,7 @@ import type { Occasion, Tier } from '@prisma/client';
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
+import { MOMENT_BY_KEY, triggerOf, type MomentKey, type Trigger } from '@/lib/moments';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
 import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
@@ -1776,6 +1777,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           cinematic: Boolean(assets.video) && hasPremiumOpening(inv),
         });
     const def = OPENING_BY_KEY[key];
+    // how it is opened: the couple's choice where the scene takes it, else the scene's own way
+    const chosenTrigger = str(content.cover, 'openingTrigger') as Trigger | '';
+    const trigger = triggerOf(key as MomentKey, chosenTrigger || undefined);
     // The Letter is a clip like the premium opening, only shared: the same
     // stage plays it, from the universal file rather than the design's.
     const universal = key === 'universal';
@@ -1815,8 +1819,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       photos,
       video: universal ? UNIVERSAL_OPENING.video : style === 'cinematic' ? assets.video : '',
       poster: universal ? UNIVERSAL_OPENING.poster : style === 'cinematic' ? assets.poster : '',
-      hint: t(lang, 'envelope.open'),
+      hint: openingHint(),
+      speed: (['slow', 'fast'].includes(str(content.cover, 'openingSpeed')) ? str(content.cover, 'openingSpeed') : undefined) as 'slow' | 'fast' | undefined,
+      trigger,
     };
+    // the hint under the opening says what the guest does: a scene that is swiped or held says so
+    function openingHint(): string {
+      const scene = MOMENT_BY_KEY[key as MomentKey];
+      if (trigger === 'hold') return t(lang, 'envelope.hold');
+      if (trigger === 'swipe') return scene?.swipe === 'apart' ? t(lang, 'envelope.swipeApart') : scene?.swipe === 'down' ? t(lang, 'envelope.swipeDown') : t(lang, 'envelope.swipe');
+      return t(lang, 'envelope.open');
+    }
   }
   const opening = openingProps();
 

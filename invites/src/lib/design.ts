@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Look, LineKey, TitleKey } from './looks';
+import { MOMENT_KEYS, type MomentKey, type Trigger as MomentTrigger, type Speed as MomentSpeed } from './moments';
 import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
@@ -680,7 +681,37 @@ export type VideoEl = Base & {
 export type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };
 export type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: string; stroke?: string; strokeWidth?: number; radius?: number; h?: number };
 
-export type Element = PhotoEl | TextEl | VideoEl | AnimEl | ShapeEl;
+/**
+ * An interactive moment: a thing a guest taps, swipes or holds, and what it
+ * reveals — the instant camera, the ring box, the doors. The scene is one of
+ * the library's (src/lib/moments.ts); the photographs and the words it
+ * reveals are the customer's, bound the way a frame's and a text box's are,
+ * so the form asks for them in the one list. `lifted` on a line is the
+ * page's own writing dropped into it (see TextEl.lifted).
+ */
+export type MomentEl = Base & {
+  kind: 'moment';
+  moment: MomentKey;
+  /** a shelf's version of the scene: 'church' doors, a 'cake' candle, a 'mystery' gift */
+  variant?: string;
+  /** blank means the scene's own first trigger */
+  trigger?: MomentTrigger;
+  speed?: MomentSpeed;
+  /** once: it stays open after the guest opened it; always: it closes again out of view */
+  plays?: 'once' | 'always';
+  /** its photographs, each a frame like any other */
+  photos?: Array<{ bind: FieldRef | { asset: string }; crop?: PhotoEl['crop'] }>;
+  /** what it reveals in writing */
+  lines?: Line[];
+  /** the writing a lifted line took the place of, so removing the moment gives it back */
+  lifted?: string;
+  /** the Secret Code's answer */
+  code?: string;
+  /** height over width of its box, where it is not the scene's own */
+  aspect?: number;
+};
+
+export type Element = PhotoEl | TextEl | VideoEl | AnimEl | ShapeEl | MomentEl;
 
 /** The wrapper class each kind of text block is drawn in. */
 export const BLOCK_CLASS: Record<TextEl['block'], string> = {
@@ -970,6 +1001,16 @@ const zElement = z.union([
   }).strict(),
   z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional(), glare: z.number().int().min(0).max(255).optional(), bg: z.literal(true).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
+  z.object({
+    ...zBase, kind: z.literal('moment'), moment: z.enum(MOMENT_KEYS), variant: z.string().regex(/^[a-z]{1,20}$/).optional(),
+    trigger: z.enum(['tap', 'swipe', 'hold']).optional(), speed: z.enum(['slow', 'normal', 'fast']).optional(), plays: z.enum(['once', 'always']).optional(),
+    photos: z.array(z.object({
+      bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
+      crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
+    }).strict()).max(6).optional(),
+    lines: z.array(zLine).max(8).optional(), lifted: z.string().max(80).optional(), code: z.string().regex(/^[0-9]{3,8}$/).optional(),
+    aspect: z.number().positive().max(10).optional(),
+  }).strict(),
   z.object({ ...zBase, kind: z.literal('shape'), shape: z.enum(['rect', 'ellipse', 'line']), fill: zColour.optional(), stroke: zColour.optional(), strokeWidth: z.number().min(0).max(40).optional(), radius: z.number().min(0).max(100).optional(), h: z.number().min(0).max(200).optional() }).strict(),
 ]);
 const zPage = z.object({

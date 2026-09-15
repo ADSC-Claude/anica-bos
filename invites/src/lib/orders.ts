@@ -220,7 +220,7 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
 
   const dfy = order.serviceMode !== 'DIY';
   const nextStep = dfy
-    ? 'Next: fill in your details. Open your invitation from your dashboard — every part saves as you go and shows on your page as you type — or send everything over Messenger or Viber and we will type it in for you.'
+    ? 'Next: fill in your details. Open your invitation from your dashboard — every part saves as you go and shows on your page as you type — or send everything over Messenger and we will type it in for you.'
     : 'Your invitation is unlocked — open it from your dashboard to start filling it in.';
 
   await notify(order.userId, 'Payment confirmed', nextStep, order.invitationId ? `/account/invitations/${order.invitationId}` : '/account');

@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 const BUSINESS = ['business.name', 'business.tagline', 'business.intro', 'business.email', 'business.phone', 'business.address', 'business.logoUrl', 'business.facebook', 'business.instagram', 'business.invitesCreatedLabel', 'business.rsvpsCollectedLabel', 'site.comingSoon', 'site.demoSlug'];
 const LANDING = ['landing.heroImageUrl', 'landing.bandImageUrl'];
-const CONTACT = ['contact.messenger', 'contact.viber', 'contact.whatsapp', 'contact.hoursNote'];
+const CONTACT = ['contact.messenger', 'contact.whatsapp', 'contact.hoursNote'];
 const PAYMENTS = ['payments.manualEnabled', 'payments.gcashName', 'payments.gcashNumber', 'payments.gcashQrUrl', 'payments.mayaName', 'payments.mayaNumber', 'payments.bankAccounts', 'payments.manualNote', 'orders.unpaidExpiryDays'];
 const SERVICE = ['dfy.turnaroundDays', 'dfy.turnaroundDaysMax', 'concierge.turnaroundDays', 'concierge.turnaroundDaysMax', 'rush.turnaroundHours'];
 const POLICY = ['policy.refund', 'policy.privacy'];
@@ -69,7 +69,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <form className="card space-y-3 p-4">
           <h2 className="font-semibold">How customers reach you</h2>
           <Field label="Messenger link" name="contact.messenger" defaultValue={s['contact.messenger']} hint="m.me/yourpage" />
-          <Field label="Viber link" name="contact.viber" defaultValue={s['contact.viber']} hint="viber://chat?number=%2B639…" />
           <Field label="WhatsApp link" name="contact.whatsapp" defaultValue={s['contact.whatsapp']} />
           <Field label="Hours note" name="contact.hoursNote" defaultValue={s['contact.hoursNote']} />
           <Save keys={CONTACT} />

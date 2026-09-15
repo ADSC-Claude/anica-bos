@@ -44,14 +44,14 @@ const FAQ = [
   { q: 'Can my lola open it?', a: 'That is exactly who we built it for. Big text, big buttons, loads fast on mobile data, and there is a “Download as image” button so you can forward a picture version to relatives who prefer that.' },
   { q: 'Can I print it?', a: 'Yes. Every invitation has a print view (Save as PDF from your phone or laptop) and a downloadable image with a QR code that opens the full invitation.' },
   { q: 'Can I change details after publishing?', a: 'Message us and we will sort it out. Most of the changing happens before we publish: you review a preview and tell us what to fix, with two rounds included. After it is live, guests always see the latest version at the same link — there is nothing for them to re-download.' },
-  { q: 'Do I have to design or build anything?', a: 'No. Pick a package and a design, pay, and then send us the details however is easiest — our form, Messenger, Viber or an Excel file. Photos and screenshots are fine. An encoder builds it in 7 to 10 working days — an estimate, not a queue, so if yours is ready sooner you get it sooner — you review a preview on your phone, ask for changes (two rounds included), approve, and we publish.' },
+  { q: 'Do I have to design or build anything?', a: 'No. Pick a package and a design, pay, and then send us the details however is easiest — our form or Messenger — an Excel file is fine. Photos and screenshots are fine. An encoder builds it in 7 to 10 working days — an estimate, not a queue, so if yours is ready sooner you get it sooner — you review a preview on your phone, ask for changes (two rounds included), approve, and we publish.' },
   { q: 'What is the refund policy?', a: 'Because each invitation is built to order, payments are non-refundable once published or once our team has started building it. If we cannot deliver, you get a full refund.' },
   { q: 'Is my guest list safe?', a: 'Guest lists are personal data. We collect only what an invitation needs, never sell or share it, and keep personal links unguessable. Your dashboard has a Your data page that downloads everything we hold about you and deletes all of it on request — in line with the Data Privacy Act of 2012.' },
 ];
 
 const TESTIMONIALS = [
   { name: 'Bea & Miguel', event: 'Wedding · Tagaytay', quote: 'Our ninongs and ninangs got their own links with their names on it. The titas were so impressed. RSVP was done in a week — no more chasing on Messenger.', photo: 'https://picsum.photos/seed/bea/160/160' },
-  { name: 'Tita Joy', event: 'Debut · Quezon City', quote: 'I had zero time. Sent everything on Viber, got the preview a few days later, approved it, done. Sulit.', photo: 'https://picsum.photos/seed/joy/160/160' },
+  { name: 'Tita Joy', event: 'Debut · Quezon City', quote: 'I had zero time. Sent everything on Messenger, got the preview a few days later, approved it, done. Sulit.', photo: 'https://picsum.photos/seed/joy/160/160' },
   { name: 'Carlo & Ana', event: 'Binyag + 1st Birthday · Cebu', quote: 'The GCash QR on the gift note was a game changer. And it loaded fine on my dad’s old Samsung.', photo: 'https://picsum.photos/seed/carlo/160/160' },
 ];
 
@@ -209,7 +209,7 @@ export default async function Landing() {
               <span className="ed-eyebrow ed-eyebrow-ruled block">Effortlessly elegant</span>
               <h2 className="ed-display ed-display-lg mt-7 text-[color:var(--color-sand-50)]">Invitations<br />Made Simple</h2>
               <p className="mt-6 text-lg leading-relaxed text-[color:var(--color-sand-50)]/70">
-                Designed to celebrate what matters, without the hassle. You send us the details however is easiest — our form, Messenger, Viber, even a photo of a list — and we build it.
+                Designed to celebrate what matters, without the hassle. You send us the details however is easiest — our form or Messenger, even a photo of a list — and we build it.
               </p>
               <Link href="/#templates" className="ed-link mt-10 w-full max-w-xs">Explore templates<Arrow /></Link>
             </div>
@@ -249,7 +249,7 @@ export default async function Landing() {
           <div className="mt-8 grid gap-6 md:grid-cols-4">
             {[
               { title: 'Pick and pay', sub: 'A few minutes', steps: ['Choose the occasion, a package and a design', 'Pay with GCash, Maya, card or a bank transfer'] },
-              { title: 'Tell us the details', sub: 'At your own pace', steps: ['Fill in one form — names, entourage, venues, photos, RSVP', 'Or send them over Messenger, Viber or Excel; screenshots are fine'] },
+              { title: 'Tell us the details', sub: 'At your own pace', steps: ['Fill in one form — names, entourage, venues, photos, RSVP', 'Or send them over Messenger; Excel and screenshots are fine'] },
               { title: 'We build it', sub: '7 to 10 working days, usually less', steps: ['An encoder lays out your invitation on the design you chose', 'We prepare the photos and the music so it opens the way it should'] },
               { title: 'Approve and share', sub: 'Two rounds of changes', steps: ['Review a preview on your phone and tell us what to change', 'We publish; you share the link and QR on Messenger, Viber or SMS'] },
             ].map((flow) => (
@@ -363,7 +363,7 @@ export default async function Landing() {
             <div className="mt-10 flex flex-wrap items-center gap-8">
               <Link href="/checkout" className="ed-link w-full max-w-xs">Start creating today<Arrow /></Link>
             </div>
-            <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-10" />
+            <ContactButtons messenger={s['contact.messenger']} className="mt-10" />
           </div>
         </section>
 

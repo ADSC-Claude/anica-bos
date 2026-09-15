@@ -46,7 +46,7 @@ export function liveEditable(key: SectionKey): boolean {
 }
 
 /** The two reasons a customer's save is refused, in the words every page and the server use. */
-export const LIVE_LOCK = 'Your invitation is already live, so changes to it are ours to make. Message us on Messenger or Viber and we will sort it out.';
+export const LIVE_LOCK = 'Your invitation is already live, so changes to it are ours to make. Message us on Messenger and we will sort it out.';
 export function windowLock(w: ChangeWindow): string {
   return `Changes closed on ${formatDate(w.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by ${formatDate(w.finalAt)}. Message us for anything urgent.`;
 }

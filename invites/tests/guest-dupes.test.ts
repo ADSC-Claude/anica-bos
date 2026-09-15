@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { guestKeys, duplicateRows, importNotice } from '../src/lib/guest-dupes';
+import { guestKeys, duplicateRows, importNotice, isTemplateLine, TEMPLATE_NOTES } from '../src/lib/guest-dupes';
 
 /**
  * A list sent twice must not double. A row is a repeat when its name, mobile
@@ -52,9 +52,24 @@ test('two different people do not match', () => {
 });
 
 test('the notice counts in words, singular and plural, and says nothing about a zero', () => {
-  assert.equal(importNotice({ added: 12, skipped: 0, duplicates: 3 }), 'Imported 12 guests. 3 already on the list were skipped.');
-  assert.equal(importNotice({ added: 1, skipped: 0, duplicates: 1 }), 'Imported 1 guest. 1 already on the list was skipped.');
-  assert.equal(importNotice({ added: 5, skipped: 0, duplicates: 0 }), 'Imported 5 guests.');
-  assert.equal(importNotice({ added: 0, skipped: 2, duplicates: 4 }), 'Imported 0 guests. 4 already on the list were skipped. 2 blank rows were left out.');
-  assert.equal(importNotice({ added: 3, skipped: 1, duplicates: 0 }), 'Imported 3 guests. 1 blank row was left out.');
+  assert.equal(importNotice({ added: 12, skipped: 0, duplicates: 3, examples: 0 }), 'Imported 12 guests. 3 already on the list were skipped.');
+  assert.equal(importNotice({ added: 1, skipped: 0, duplicates: 1, examples: 0 }), 'Imported 1 guest. 1 already on the list was skipped.');
+  assert.equal(importNotice({ added: 5, skipped: 0, duplicates: 0, examples: 0 }), 'Imported 5 guests.');
+  assert.equal(importNotice({ added: 0, skipped: 2, duplicates: 4, examples: 0 }), 'Imported 0 guests. 4 already on the list were skipped. 2 blank rows were left out.');
+  assert.equal(importNotice({ added: 3, skipped: 1, duplicates: 0, examples: 0 }), 'Imported 3 guests. 1 blank row was left out.');
+});
+
+test("the blank's own example guests and notes are known by sight", () => {
+  assert.equal(isTemplateLine('Ninong Fred', '0918 765 4321'), true, 'the example, number and all');
+  assert.equal(isTemplateLine('Ninong Fred', '0918-765-4321'), true, 'however the number is punctuated');
+  assert.equal(isTemplateLine('Ninong Fred', '0917 000 0000'), false, 'a real Ninong Fred with a number of his own is a guest');
+  assert.equal(isTemplateLine('Mr. & Mrs. Dela Cruz', '0917 123 4567'), true);
+  for (const note of TEMPLATE_NOTES) assert.equal(isTemplateLine(note), true, note);
+  assert.equal(isTemplateLine('Group can be any of:', ''), true);
+  assert.equal(isTemplateLine('Tita Baby', ''), false);
+});
+
+test('the notice says when the template lines were left out', () => {
+  assert.equal(importNotice({ added: 4, skipped: 0, duplicates: 0, examples: 7 }), "Imported 4 guests. The template's example rows and notes were left out.");
+  assert.equal(importNotice({ added: 0, skipped: 0, duplicates: 0, examples: 7 }), "Imported 0 guests. The template's example rows and notes were left out.");
 });

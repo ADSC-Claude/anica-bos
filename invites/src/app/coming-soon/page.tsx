@@ -13,7 +13,7 @@ export default async function ComingSoon() {
       <p className="eyebrow">Opening soon</p>
       <h1 className="display mt-2 text-4xl sm:text-5xl">{s['business.name']}</h1>
       <p className="mt-4 max-w-md text-[color:var(--color-ink-700)]">{s['business.tagline']}. Message us to be first in line.</p>
-      <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mt-6 justify-center" />
+      <ContactButtons messenger={s['contact.messenger']} className="mt-6 justify-center" />
     </main>
   );
 }

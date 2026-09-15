@@ -1176,7 +1176,7 @@ test('without an occasion there is nothing to make a starter from', () => {
 });
 
 test('the colour beside a page follows the page, unless the page says otherwise', () => {
-  const blue = { key: 'p', sections: ['countdown'], ground: { color: '#a9c6e8' } } as const;
+  const blue: PageSpec = { key: 'p', sections: ['countdown'], ground: { color: '#a9c6e8' } };
   // a page on a plain colour carries it out to the window's edges
   assert.equal(outsideOf(blue), '#a9c6e8');
   // by role too, so night can turn it down with the palette

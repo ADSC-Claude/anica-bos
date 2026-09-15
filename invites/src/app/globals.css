@@ -1484,6 +1484,8 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * page has no padding at all, by design, so foot room means nothing there.
  */
 .inv .inv-page[data-foot] { padding-bottom: calc(var(--page-foot) * min(11vw, 3.5rem)); }
+/* a page laid out by its words, told to be at least so many screens tall (PageSpec.minScreens) */
+.inv[data-doc] .inv-page[data-min] { min-height: calc(var(--inv-screen, 100dvh) * var(--page-min, 1)); }
 
 /*
  * A picture the words flow around, on a page laid out by its words.

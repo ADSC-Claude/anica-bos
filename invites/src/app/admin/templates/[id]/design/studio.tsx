@@ -13,7 +13,6 @@ import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey, type Sectio
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
 import { asksOf, askable, askCounts, fieldOf, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
 import { pageNeeds, needCount, GUTTER, HEAVY_GROUND, type Need } from '@/lib/needs';
-import { drawFromSection } from '@/lib/seed-page';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import { withDraft, type StudioDraft } from '@/lib/studio-draft';
 import type { Occasion } from '@prisma/client';
@@ -453,66 +452,18 @@ export function Studio(p: Props) {
 
   const editEl = useCallback((id: string, fn: (e: Element) => Element, mark = true) => editEls([id], fn, mark), [editEls]);
 
-  /**
-   * Drawing a page from the section it already carries.
-   *
-   * The gap this closes: a flow page has all the writings on it and none of
-   * them can be touched, and ticking "Drawn page" gave a blank sheet. So the
-   * only way to a page of her own was to place forty boxes by hand and bind
-   * each one back to the question it belongs to — which nobody would do, and
-   * which is why the studio read as a form rather than a workplace.
-   *
-   * One press, and the section's writings are on the page as separate boxes,
-   * stacked down it in order, each still carrying the customer's own answer
-   * (see `drawFromSection`). Everything after that is dragging, retyping and
-   * adding. It is one change, so one undo puts the page back as it was.
-   */
-  const [seeded, setSeeded] = useState('');
-  useEffect(() => { setSeeded(''); }, [pageKey]);
-
-  const drawIt = useCallback(() => {
-    if (!page) return;
-    const { page: made, boxes, photos, left, short, tight } = drawFromSection(page, p.occasion);
-    if (!boxes && !photos) {
-      setSeeded(page.drawn
-        ? 'This page is already placed by hand, and nothing here will write over what you have placed.'
-        : 'This page carries no section, so there is nothing to draw from. Tick one on the right first.');
-      return;
-    }
-    editPage(() => made);
-    setSel([]);
-    const count = [
-      `${boxes} writing${boxes === 1 ? '' : 's'}`,
-      ...(photos ? [`${photos} photo frame${photos === 1 ? '' : 's'}`] : []),
-    ].join(' and ');
-    /*
-     * What was left off, said out loud. A drawn page shows what is drawn on
-     * it and nothing else, so a section whose lists run longer than the rows
-     * placed here would quietly lose the rest of a customer's answers. She
-     * has to know that before she publishes, not after.
-     */
-    const over = [
-      ...(tight ? ['They are set closer together than they want to be, because this page is not tall enough to spread them out. It keeps the height it was drawn at — growing it would stretch the background with it — so if you want more air, make it taller yourself under “How tall, in screens” on the right.'] : []),
-      ...(left ? [`${left} more this page carries did not fit — add them with + Words and + Photo frame, or leave this page to flow.`] : []),
-      ...(short.length ? [`A list is drawn row by row: ${short.join(', ')} can hold more rows than are on the page, and only the rows here will show. Copy a row and set its number to draw another.`] : []),
-    ].join(' ');
-    setSeeded(`${count} laid down the page. Drag them where you want them, change the face and the size of any of them, and retype one over the question it holds if you want your own words there instead. A box that is empty is drawn here so you can move it; a guest is shown nothing in its place.${over ? ` ${over}` : ''}`);
-  }, [page, p.occasion, editPage]);
 
   const undo = useCallback(() => {
     const prev = past.current.pop();
     if (!prev) return;
     setDoc((now) => { future.current = [...future.current, now]; return prev; });
     setState('dirty');
-    // what the last drawing said is about a page that is no longer there
-    setSeeded('');
   }, []);
   const redo = useCallback(() => {
     const next = future.current.pop();
     if (!next) return;
     setDoc((now) => { past.current = [...past.current, now]; return next; });
     setState('dirty');
-    setSeeded('');
   }, []);
 
   // --- saving ---------------------------------------------------------------
@@ -1592,6 +1543,28 @@ export function Studio(p: Props) {
     setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
   }, [flowKey]);
   useEffect(() => { if (flowSrc) setDrawing(true); }, [flowSrc]);
+  /*
+   * At once, not after the save. The frame is the guest page and it is
+   * same-origin, so a colour, the colour beside the page and a height are
+   * put on it the moment they are picked; the save that follows redraws the
+   * page from the draft and lands on the same thing. Without this a colour
+   * took two seconds to show, and two seconds reads as "nothing happened".
+   */
+  useEffect(() => {
+    if (!framed || !page) return;
+    const win = flowFrame.current?.contentWindow;
+    const pg = win?.document.querySelector<HTMLElement>(`[data-page="${page.key}"]`);
+    if (!win || !pg) return;
+    const g = page.ground;
+    pg.style.background = g && !isPicture(g) ? colourOf(g.color, vars) : '';
+    pg.style.minHeight = page.minScreens ? `calc(var(--inv-screen, 100dvh) * ${page.minScreens})` : '';
+    const beside = outsideOf(page);
+    const stage = win.document.querySelector<HTMLElement>('.inv-stage');
+    if (stage) {
+      if (beside) stage.style.setProperty('--inv-outside', `linear-gradient(${colourOf(beside, vars)}, ${colourOf(beside, vars)})`);
+      else stage.style.removeProperty('--inv-outside');
+    }
+  }, [framed, page, vars]);
   /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
   const flowLoaded = useCallback(() => {
     setDrawing(false);
@@ -2049,28 +2022,19 @@ export function Studio(p: Props) {
                   * is its decorations here, over the page itself: its words
                   * are its customer's and their height is not known until the
                   * browser has laid them out, so the guest page lays them out
-                  * in the frame above and this canvas takes its height from
-                  * it. The band is the page's width, and every decoration
-                  * on it hangs off an edge by a share of that width — so what
-                  * she sees here is exactly where it will be, on a page whose
+                  * in the frame under the browser box above and this canvas
+                  * takes its height from it. (One frame, not two: a second
+                  * copy of the same frame used to sit inside the page as
+                  * well, loading the page twice and hiding the colour beside
+                  * it.) The band is the page's width, and every decoration on
+                  * it hangs off an edge by a share of that width — so what she
+                  * sees here is exactly where it will be, on a page whose
                   * height is the only part this canvas has to guess.
                   */}
-                {page && !page.drawn && flowSrc && (
-                  <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
-                    <iframe
-                      ref={flowFrame}
-                      title="This page, as a guest sees it"
-                      src={flowSrc}
-                      onLoad={flowLoaded}
-                      tabIndex={-1}
-                      style={{ position: 'absolute', left: 0, top: -flowBox.top, width: '100%', height: flowBox.top + (flowBox.height || width * 1.2), border: 0, background: 'transparent' }}
-                    />
-                  </div>
-                )}
                 {page && (page.drawn
-                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id }} />
+                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
                   : (['under', 'over'] as const).map((layer) => (
-                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} layer={layer} edit={{ label, cropping: fit?.id }} />
+                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} layer={layer} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
                   )))}
                 {/*
                   * The handles, over the real page. The layer itself lets the
@@ -2181,7 +2145,8 @@ export function Studio(p: Props) {
                 This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against.
                 <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
                 An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them.
-                The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces.
+                The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces, and a clip you have picked plays where it is.
+                A page taller than its words is set on the right, under Background: at least so many screens.
                 The page is redrawn from the draft a moment after your hand stops; the label above says when. Its background, the colour beside it, the parts it carries and the pieces on it are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.
               </p>
             </div>
@@ -2202,11 +2167,6 @@ export function Studio(p: Props) {
             {guide
               ? <>The guide shows the three things a phone does change: words inside the shaded gutter read as cut, the striped band at the foot is where a phone browser&rsquo;s own bar sits until the guest scrolls, and a ring marks anything the checklist has a line about. Switch between the widths above to see how big the writing actually gets.</>
               : <>Turn on <strong>Phone guide</strong> above to see where words are safe, where a phone browser&rsquo;s bar sits, and whatever the checklist says about this page.</>}
-          </p>
-        )}
-        {seeded && view === 'page' && (
-          <p className="hint mt-2 text-[color:var(--color-ink-700)]">
-            {seeded} <button type="button" onClick={() => setSeeded('')} className="underline">Hide this</button>
           </p>
         )}
       </section>
@@ -2261,7 +2221,6 @@ export function Studio(p: Props) {
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
             pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
             dress={{ value: page?.sectionStyle, set: setDress }}
-            onDraw={drawIt}
           />
         )}
       </aside>
@@ -4292,7 +4251,7 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, vars, sections, pieces, dress, onDraw }: {
+function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, vars, sections, pieces, dress }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   onGround: (g: Ground | undefined) => void;
@@ -4310,8 +4269,6 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
   };
   /** how that page dresses the sections it carries */
   dress: { value?: SectionStyle; set: (change: (d: SectionStyle) => SectionStyle) => void };
-  /** turn this page into a drawn one carrying its section's writings */
-  onDraw: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -4670,30 +4627,31 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
           )}
         </div>
         <p className="hint">A laptop shows it beside the page; a phone is the page edge to edge.</p>
-
-        {ground && (
-          <label className="mt-2 flex items-center gap-2">
+        {/*
+          * "Make it longer." A page laid out by its words is as tall as they
+          * are, and a background or a piece wanting more room had nowhere to
+          * get it from. Screens rather than pixels, because a screen is what
+          * a guest sees at a time and the same number holds on a phone and a
+          * laptop.
+          */}
+        {!page.drawn && (
+          <label className="mt-2 block">
+            <span className="label">At least this tall, in screens</span>
             <input
-              type="checkbox"
-              checked={Boolean(page.drawn)}
-              onChange={(e) => onChange((p) => ({ ...p, drawn: e.target.checked ? true : undefined }))}
-              className="h-4 w-4"
+              type="number" min={0.3} max={6} step={0.1}
+              value={page.minScreens ?? ''}
+              placeholder="as tall as its words"
+              data-testid="min-screens"
+              onChange={(e) => {
+                const v = e.target.value === '' ? undefined : place(Math.min(6, Math.max(0.3, Number(e.target.value) || 0.3)));
+                onChange((pg) => { const next = { ...pg, minScreens: v }; if (v === undefined) delete next.minScreens; return next; });
+              }}
+              className="input w-full"
             />
-            <span>Drawn page &mdash; things are placed on it by hand</span>
+            <span className="hint">1 is one screen, 2 is two; the words sit in the middle of it with the pieces around them. Blank is as tall as its words.</span>
           </label>
         )}
-        {/*
-          * Ticking the box above on a page that carries writings gives a
-          * blank sheet and leaves them off the design; this hands them over
-          * instead, each box still filled from the customer's own answer. It
-          * is the same button as the one under the canvas.
-          */}
-        {ground && !page.drawn && Boolean(page.sections.length) && (
-          <div className="mt-1">
-            <button type="button" onClick={onDraw} className="btn btn-secondary btn-sm">Place its writings by hand instead</button>
-            <p className="hint mt-1">One box for the heading and one for every writing this page carries, stacked down it, ready to move &mdash; and nothing else. A countdown, an RSVP form, a map or a film is not drawn on a page placed by hand, so a page that carries one is better left to its words, with pieces laid over them. Undo puts the page back.</p>
-          </div>
-        )}
+
         {page.drawn && (
           <label className="mt-2 flex items-center gap-2">
             <input

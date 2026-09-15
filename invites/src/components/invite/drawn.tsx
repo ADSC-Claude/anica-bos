@@ -46,6 +46,8 @@ export type EditView = {
    * geometry to keep in step.
    */
   cropping?: string;
+  /** the clip she has picked, which plays on the canvas so she can see what it looks like where it is; the rest stay their posters */
+  playing?: string;
 };
 
 /**
@@ -261,11 +263,14 @@ function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !el.url ? '' : undefined}
     >
-      {read.edit || !el.url
-        ? poster
-          ? <img src={poster} alt="" />
-          : <span className="inv-bb-ask">{read.edit!.label(el)}</span>
-        : <LazyVideo src={el.url} webm={el.webm} poster={poster} loop={el.loop !== false} />}
+      {read.edit && el.url && read.edit.playing === el.id
+        // the one she has picked plays, muted and looping, so she can see what it looks like where it is
+        ? <video src={el.url} poster={poster} muted autoPlay loop playsInline />
+        : read.edit || !el.url
+          ? poster
+            ? <img src={poster} alt="" />
+            : <span className="inv-bb-ask">{read.edit!.label(el)}</span>
+          : <LazyVideo src={el.url} webm={el.webm} poster={poster} loop={el.loop !== false} />}
     </div>
   );
 }

@@ -1252,3 +1252,11 @@ test('a picture that runs on is laid down the pages after it, until one has a gr
   const head = read.doc?.pages[0].ground;
   assert.equal(head && 'url' in head ? head.runsOn : undefined, 2);
 });
+
+test('a page laid out by its words can be told to be at least so many screens tall', () => {
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], minScreens: 1.5 }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.pages[0].minScreens, 1.5);
+  // and not to be smaller than a third of one, or taller than six
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], minScreens: 9 }] }, 'classic').doc?.pages.length, 0);
+});

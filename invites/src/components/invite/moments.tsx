@@ -218,7 +218,8 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
   const def = MOMENT_BY_KEY[scene];
   const box = useRef<HTMLDivElement | null>(null);
   // the still: open from the start where motion is not wanted, in the studio, where this guest already opened it, or where a code has no answer
-  const [still, setStill] = useState(Boolean(edit) || (def?.mechanic === 'keys' && !code));
+  const browses = def?.mechanic === 'browse';
+  const [still, setStill] = useState(Boolean(edit) || (def?.mechanic === 'keys' && !code) || browses);
   const g = useMomentGesture({ trigger, speed, duration: def?.duration ?? 1200, swipe: def?.swipe, disabled: still });
   // the latest gesture, for the handlers that outlive a render (the studio's Play it fires after the still is taken off)
   const latest = useRef(g);
@@ -289,13 +290,92 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
       {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} frost={scene === 'frost' ? photos[0] : undefined} />}
       {def?.mechanic === 'keys' && !still && code && <Keypad code={code} open={g.open} state={g.state} />}
       {def?.mechanic === 'drag' && <Tiles id={id} photo={photos[0]} open={g.open} state={state} still={still} />}
+      {browses && <Browse scene={scene} photos={photos} words={words} edit={Boolean(edit)} speed={speed} />}
       {trigger === 'hold' && !still && (
         <svg className="inv-moment-ring" viewBox="0 0 40 40" aria-hidden>
           <circle cx="20" cy="20" r="18" pathLength={1} />
           <circle cx="20" cy="20" r="18" pathLength={1} className="inv-moment-ring-fill" />
         </svg>
       )}
-      {!still && <p className="inv-moment-hint" aria-hidden>{hint}</p>}
+      {(!still || (browses && !edit && photos.length > 1)) && <p className="inv-moment-hint" aria-hidden>{hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * The film strip, the album and the carousel: photographs a guest browses
+ * rather than opens. The strip and the carousel slide under the finger and
+ * settle on the nearest; the album turns a leaf. Words, where the moment
+ * has them, are the caption under whichever is showing.
+ */
+function Browse({ scene, photos, words, edit, speed = 'normal' }: { scene: MomentKey; photos: string[]; words?: ReactNode; edit: boolean; speed?: Speed }) {
+  const [at, setAt] = useState(0);
+  const [drag, setDrag] = useState(0);
+  const [turning, setTurning] = useState<'next' | 'prev' | null>(null);
+  const start = useRef<{ x: number; w: number } | null>(null);
+  const t = SPEED_FACTOR[speed] ?? 1;
+  const per = scene === 'album' ? 2 : 1;
+  const pages = Math.max(1, Math.ceil(photos.length / per));
+  const go = (dir: 1 | -1) => {
+    const next = Math.max(0, Math.min(pages - 1, at + dir));
+    if (next === at) return;
+    if (scene === 'album') {
+      setTurning(dir > 0 ? 'next' : 'prev');
+      window.setTimeout(() => { setAt(next); setTurning(null); }, Math.round(900 * t));
+    } else setAt(next);
+  };
+  const onDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (edit || turning) return;
+    start.current = { x: e.clientX, w: e.currentTarget.getBoundingClientRect().width };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const st = start.current;
+    if (!st) return;
+    setDrag(Math.max(-1, Math.min(1, (e.clientX - st.x) / (st.w * 0.5))));
+  };
+  const onUp = () => {
+    if (!start.current) return;
+    start.current = null;
+    const d = drag;
+    setDrag(0);
+    if (d <= -0.35) go(1);
+    else if (d >= 0.35) go(-1);
+  };
+  const vars = { ['--browse-at' as string]: String(at), ['--browse-drag' as string]: drag.toFixed(3), ['--moment-t' as string]: String(t) } as CSSProperties;
+  const caption = words ? <div className="inv-mo-caption">{words}</div> : null;
+  if (scene === 'album') {
+    const spread = (i: number) => [photos[i * 2], photos[i * 2 + 1]];
+    const [l, r] = spread(at);
+    const [nl, nr] = spread(at + 1);
+    const [pl, pr] = spread(at - 1);
+    return (
+      <div className="inv-mo-browse inv-mo-album" style={vars} data-turning={turning ?? undefined} data-first={at === 0 ? '' : undefined} data-last={at >= pages - 1 ? '' : undefined} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+        <span className="inv-mo-album-page" data-side="l">{turning === 'prev' ? (pl && <img src={pl} alt="" />) : (l && <img src={l} alt="" />)}</span>
+        <span className="inv-mo-album-page" data-side="r">{turning === 'next' ? (nr && <img src={nr} alt="" />) : (r && <img src={r} alt="" />)}</span>
+        {turning && (
+          <span className="inv-mo-album-leaf" data-dir={turning}>
+            <span className="inv-mo-album-face" data-face="front">{turning === 'next' ? (r && <img src={r} alt="" />) : (l && <img src={l} alt="" />)}</span>
+            <span className="inv-mo-album-face" data-face="back">{turning === 'next' ? (nl && <img src={nl} alt="" />) : (pr && <img src={pr} alt="" />)}</span>
+          </span>
+        )}
+        <span className="inv-mo-album-spine" />
+        {caption}
+      </div>
+    );
+  }
+  return (
+    <div className={`inv-mo-browse inv-mo-${scene === 'film-strip' ? 'strip' : 'carousel'}`} style={vars} data-first={at === 0 ? '' : undefined} data-last={at >= pages - 1 ? '' : undefined} data-dragging={drag !== 0 ? '' : undefined} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+      <span className="inv-mo-track">
+        {photos.map((u, i) => (
+          <span key={i} className="inv-mo-shot" data-at={i === at ? '' : undefined} style={{ ['--i' as string]: String(i) }}><img src={u} alt="" loading="lazy" /></span>
+        ))}
+      </span>
+      {scene === 'film-strip' && <><span className="inv-mo-sprockets" data-edge="top" /><span className="inv-mo-sprockets" data-edge="bottom" /></>}
+      {caption}
+      {photos.length > 1 && (
+        <span className="inv-mo-dots">{photos.map((_, i) => <i key={i} data-on={i === at ? '' : undefined} />)}</span>
+      )}
     </div>
   );
 }
@@ -666,6 +746,61 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           <span className="inv-mo-rod" data-end="top" />
           <span className="inv-mo-paper"><span className="inv-mo-paper-words">{words}</span></span>
           <span className="inv-mo-roll"><span className="inv-mo-roll-tie" /></span>
+        </span>
+      );
+    // ── Photo Moments ──
+    case 'polaroid-stack':
+      return (
+        <span className="inv-mo inv-mo-stack" aria-hidden>
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="inv-mo-print" data-i={i}>
+              <span className="inv-mo-print-photo">{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>
+              <span className="inv-mo-print-caption" />
+            </span>
+          ))}
+        </span>
+      );
+    case 'photo-booth':
+      return (
+        <span className="inv-mo inv-mo-booth" aria-hidden>
+          <span className="inv-mo-booth-front">
+            <span className="inv-mo-booth-screen"><b data-n="3">3</b><b data-n="2">2</b><b data-n="1">1</b></span>
+            <span className="inv-mo-cam-lens"><span /></span>
+            <span className="inv-mo-booth-slot" />
+          </span>
+          <span className="inv-mo-flashlight" />
+          <span className="inv-mo-strip">
+            {[0, 1, 2].map((i) => <span key={i} className="inv-mo-strip-shot">{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>)}
+          </span>
+        </span>
+      );
+    case 'projector':
+      return (
+        <span className="inv-mo inv-mo-projector" aria-hidden>
+          <span className="inv-mo-screen">{photo && <img src={photo} alt="" loading="lazy" />}</span>
+          <span className="inv-mo-beam" />
+          <span className="inv-mo-proj-body"><span className="inv-mo-reel" data-i="0" /><span className="inv-mo-reel" data-i="1" /><span className="inv-mo-proj-lens" /></span>
+        </span>
+      );
+    case 'film-strip':
+    case 'album':
+    case 'carousel':
+      // browsed, not opened: the box adds the strip, the leaves or the cards
+      return null;
+    // ── Occasion ──
+    case 'baby':
+      return (
+        <span className="inv-mo inv-mo-baby" aria-hidden>
+          <span className="inv-mo-cloud" data-side="l" />
+          <span className="inv-mo-cloud" data-side="r" />
+        </span>
+      );
+    case 'cheers':
+      return (
+        <span className="inv-mo inv-mo-cheers" aria-hidden>
+          <span className="inv-mo-flute" data-side="l"><span className="inv-mo-bowl" /><span className="inv-mo-stem" /><span className="inv-mo-foot" /></span>
+          <span className="inv-mo-flute" data-side="r"><span className="inv-mo-bowl" /><span className="inv-mo-stem" /><span className="inv-mo-foot" /></span>
+          <span className="inv-mo-clink" />
         </span>
       );
     // ── Surprise ──

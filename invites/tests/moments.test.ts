@@ -42,12 +42,15 @@ test('a scene on more than one shelf is one scene with two tags, as she asked', 
   assert.equal(MOMENTS.length, 31);
 });
 
-test('the openings, Tap & Reveal, Swipe & Pull and Surprise are built; the rest are marked as coming', () => {
+test('every one of the 42 is built, and the four new openings are in the catalogue', () => {
   for (const e of SHELVES.opening) assert.equal(MOMENT_BY_KEY[e.key].built, true, e.key);
   const built = MOMENTS.filter((m) => m.built).map((m) => m.key).sort();
-  assert.deepEqual(built, ['bloom', 'candle', 'capiz', 'code', 'curtains', 'doors', 'envelope', 'flip', 'frame', 'frost', 'gift', 'hold', 'instant-camera', 'letter', 'light', 'pull-card', 'puzzle', 'ribbon', 'ring-box', 'scratch', 'scroll', 'seal', 'sticker']);
-  // every row on Tap & Reveal, Swipe & Pull and Surprise is built
-  for (const e of [...SHELVES.tap, ...SHELVES.swipe, ...SHELVES.surprise]) assert.equal(MOMENT_BY_KEY[e.key].built, true, e.key);
+  assert.equal(built.length, MOMENTS.length, 'every scene is built');
+  // every row on every shelf is built: the 42, as she listed them
+  for (const s of SHELF_KEYS) for (const e of SHELVES[s]) assert.equal(MOMENT_BY_KEY[e.key].built, true, `${s}: ${e.key}`);
+  // the three that are browsed rather than opened say so
+  for (const k of ['film-strip', 'album', 'carousel'] as const) assert.equal(MOMENT_BY_KEY[k].mechanic, 'browse');
+  assert.equal(momentHint('album', undefined, 'en'), 'Swipe for the next');
   // and the four new openings are in the openings catalogue, every package's, with their own line
   for (const k of ['ribbon', 'doors', 'capiz', 'letter'] as const) {
     assert.ok(OPENING_KEYS.includes(k), k);

@@ -40,7 +40,7 @@ export const SHELF_KEYS: Shelf[] = ['opening', 'tap', 'swipe', 'photo', 'occasio
 /** What the guest does. A scene says which of these it takes; the first is its default. */
 export type Trigger = 'tap' | 'swipe' | 'hold';
 /** A way of opening that is the scene's own and not a choice: a scratch card is rubbed, a puzzle is dragged, a code is typed. */
-export type Mechanic = 'rub' | 'drag' | 'keys';
+export type Mechanic = 'rub' | 'drag' | 'keys' | 'browse';
 export type Speed = 'slow' | 'normal' | 'fast';
 
 export const SPEEDS: Speed[] = ['slow', 'normal', 'fast'];
@@ -230,50 +230,56 @@ export const MOMENTS: MomentDef[] = [
     key: 'polaroid-stack', name: 'Polaroid Stack', triggers: ['tap'],
     photos: { count: 3, shape: 'square', label: 'a photograph in the stack' }, words: 'lines', aspect: 1.1, width: 80, duration: 1600, minTier: 'STANDARD',
     realism: 'Three prints squared in a pile; they slide out into a fan, each turning a few degrees and settling with a paper shadow.',
-    built: false,
+    built: true,
+    holds: { photo: true },
   },
   {
-    key: 'film-strip', name: 'Film Strip', triggers: ['swipe'], swipe: 'left',
+    key: 'film-strip', name: 'Film Strip', triggers: [], mechanic: 'browse', swipe: 'left',
     photos: { count: 6, shape: 'landscape', label: 'a frame on the film strip' }, aspect: 0.55, width: 100, duration: 600, minTier: 'STANDARD',
     realism: 'A sprocketed strip that snaps frame to frame under the finger; the frames are the photographs, dark between.',
-    built: false,
+    built: true,
+    holds: { photo: true, words: true },
   },
   {
-    key: 'album', name: 'Photo Album', triggers: ['swipe'], swipe: 'left',
+    key: 'album', name: 'Photo Album', triggers: [], mechanic: 'browse', swipe: 'left',
     photos: { count: 6, shape: 'portrait', label: 'a photograph in the album' }, words: 'lines', aspect: 0.8, width: 92, duration: 1000, minTier: 'STANDARD',
     realism: 'A page turns on the spine in perspective with a fold shadow that sweeps across; the next spread is under it from the start.',
-    built: false,
+    built: true,
+    holds: { photo: true, words: true },
   },
   {
     key: 'photo-booth', name: 'Photo Booth', triggers: ['tap'],
     photos: { count: 3, shape: 'square', label: 'a photograph on the booth strip' }, aspect: 1.4, width: 56, duration: 3200, minTier: 'COMPLETE',
     realism: 'A count of three, one flash each, then the strip drops from the slot on a slow ease and swings once.',
-    built: false,
+    built: true,
+    holds: { photo: true },
   },
   {
     key: 'projector', name: 'Projector', triggers: ['tap'],
     photos: { count: 1, shape: 'landscape', label: 'the picture in the projector beam' }, aspect: 0.8, width: 90, duration: 1600, minTier: 'COMPLETE',
     realism: 'A reel projector that warms up: the lamp comes on, the beam widens in a haze, and the picture resolves inside it.',
-    built: false,
+    built: true,
+    holds: { photo: true },
   },
   {
-    key: 'carousel', name: 'Photo Carousel', triggers: ['swipe'], swipe: 'left',
+    key: 'carousel', name: 'Photo Carousel', triggers: [], mechanic: 'browse', swipe: 'left',
     photos: { count: 6, shape: 'portrait', label: 'a photograph in the carousel' }, words: 'lines', aspect: 1.1, width: 92, duration: 700, minTier: 'STANDARD',
     realism: 'Photographs that slide to the next under the finger with a slight scale on the one in front; nothing spins.',
-    built: false,
+    built: true,
+    holds: { photo: true, words: true },
   },
   // ── Occasion ──
   {
     key: 'baby', name: 'Baby Reveal', triggers: ['tap'],
     photos: { count: 1, shape: 'square', label: 'the photograph the reveal shows' }, words: 'line', aspect: 1, width: 64, duration: 1600, minTier: 'STANDARD',
     realism: 'A soft cloud that parts in two on a slow ease, the photograph and the announcement behind it.',
-    built: false,
+    built: true,
   },
   {
     key: 'cheers', name: 'Champagne Cheers', triggers: ['tap'],
     photos: { count: 0, shape: 'square', label: '' }, words: 'line', aspect: 0.9, width: 60, duration: 1400, minTier: 'STANDARD',
     realism: 'Two flutes that meet on a real arc, one ring of light at the touch, and the words come up beneath them.',
-    built: false,
+    built: true,
   },
   // ── Surprise ──
   {
@@ -409,6 +415,7 @@ export function momentHint(key: MomentKey, trigger: Trigger | undefined, lang: '
   if (def?.mechanic === 'rub') return tl ? 'Kuskusin para makita' : 'Rub to reveal';
   if (def?.mechanic === 'drag') return tl ? 'Ayusin ang mga piraso' : 'Put the pieces together';
   if (def?.mechanic === 'keys') return tl ? 'Ilagay ang code' : 'Enter the code';
+  if (def?.mechanic === 'browse') return tl ? 'I-swipe para sa susunod' : 'Swipe for the next';
   if (trigger === 'hold') return tl ? 'Pindutin nang matagal' : 'Press and hold';
   if (trigger === 'swipe') {
     switch (def?.swipe) {

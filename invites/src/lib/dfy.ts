@@ -11,6 +11,7 @@ import { publish as publishInvitation } from './invitations';
 import { cleanSection, fieldsFor, sectionsFor, sectionUnlocked, type Content } from './sections';
 import { addDays } from './datetime';
 import type { SessionUser } from './auth';
+import { intakeMethod } from './intake-method';
 
 /**
  * Done-For-You. The job moves left to right on the admin kanban:
@@ -75,7 +76,7 @@ export async function saveIntake(
     if (!sectionUnlocked(def.key, occasion, job.invitation.tier, job.invitation.addOns)) continue;
     cleaned[def.key] = cleanSection(fieldsFor(def.key, occasion), raw[def.key]).data;
   }
-  const method = ['FORM', 'MESSENGER', 'EXCEL'].includes(input.method) ? input.method : 'FORM';
+  const method = intakeMethod(input.method);
   const intake = { content: cleaned, notes: input.notes.trim().slice(0, 4000), method };
 
   const updated = await prisma.dfyJob.update({

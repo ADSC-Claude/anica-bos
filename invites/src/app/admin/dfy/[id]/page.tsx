@@ -11,6 +11,7 @@ import { PageHeader, DfyPill, BackLink } from '@/components/ui';
 import { Flash, type FlashParams } from '../../flash';
 import { dfyAssignAction, dfyMoveAction, dfyReplyAction, dfyNotesAction, dfyExtendAction, dfyOpeningAction } from '../../actions';
 import { invitationPath } from '@/lib/app-url';
+import { intakeMethodLabel } from '@/lib/intake-method';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +39,7 @@ export default async function DfyJobPage({ params, searchParams }: { params: Pro
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
           <section className="card p-4">
-            <h2 className="mb-2 font-semibold">Customer intake {intake.method && <span className="pill pill-muted ml-1">via {intake.method.toLowerCase()}</span>}{job.intakeSubmittedAt && <span className="ml-2 text-xs font-normal text-[color:var(--color-ink-500)]">submitted {formatDateTime(job.intakeSubmittedAt)}</span>}</h2>
+            <h2 className="mb-2 font-semibold">Customer intake {intake.method && <span className="pill pill-muted ml-1">via {intakeMethodLabel(intake.method)}</span>}{job.intakeSubmittedAt && <span className="ml-2 text-xs font-normal text-[color:var(--color-ink-500)]">submitted {formatDateTime(job.intakeSubmittedAt)}</span>}</h2>
             {!job.intakeSubmittedAt && <p className="text-sm text-[color:var(--color-ink-500)]">Not submitted yet. If the customer sent details by chat, put them in through <Link href={`/admin/dfy/${job.id}/encode`} className="underline">Encode</Link>.</p>}
             {intake.notes && <p className="mb-3 whitespace-pre-line rounded-lg bg-[color:var(--color-sand-100)] p-3 text-sm">{intake.notes}</p>}
             {intake.content && (

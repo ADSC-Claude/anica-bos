@@ -306,6 +306,8 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
           OPENINGS.filter((o) => !o.staffOnly).map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
           { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
         ),
+        select('openingSpeed', 'How fast it opens', [{ value: '', label: 'Normal' }, { value: 'slow', label: 'Slow — ceremonial' }, { value: 'fast', label: 'Fast — a flick' }], { hint: 'The same opening at its own pace.' }),
+        select('openingTrigger', 'How a guest opens it', [{ value: '', label: 'As the opening is made to be' }, { value: 'tap', label: 'Tap' }, { value: 'swipe', label: 'Swipe' }, { value: 'hold', label: 'Press and hold' }], { hint: 'Where the opening takes it: the ribbon can be pulled or tapped, the curtains swiped apart or tapped.' }),
         text('openingLine', 'Words on the opening', { placeholder: "You're invited", hint: 'The line on the closed screen. Leave blank and each opening uses its own.' }),
         text('openingLine2', 'Words as it opens', { placeholder: 'Good things begin together', hint: 'Shown while the opening plays. Leave blank to show nothing.' }),
       ]),
@@ -1148,7 +1150,7 @@ export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
 export const SAVE_THE_DATE_SECTIONS: readonly SectionKey[] = ['cover', 'countdown'];
 
 /** The cover's opening controls, which a Save the Date has no use for. */
-const OPENING_FIELDS = new Set(['opening', 'openingLine', 'openingLine2', 'envelope']);
+const OPENING_FIELDS = new Set(['opening', 'openingLine', 'openingLine2', 'openingSpeed', 'openingTrigger', 'envelope']);
 
 export function sectionsFor(occasion: Occasion, saveTheDate = false): SectionDef[] {
   const keys = saveTheDate ? OCCASION_SECTIONS[occasion].filter((k) => SAVE_THE_DATE_SECTIONS.includes(k)) : OCCASION_SECTIONS[occasion];

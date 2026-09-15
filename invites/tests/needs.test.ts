@@ -520,6 +520,13 @@ test('every rule the type names can be made to fire', () => {
   cap.lines[0].sources = [...cap.lines[0].sources, { fixed: { en: 'Much longer than eight letters' } }];
   add(o);
 
+  // a moment: one that opens onto a photograph nothing is linked to, a secret
+  // code with no code, one too narrow to tap, and four on one page
+  const mo = clone(); on(mo, 'story').elements!.push({ id: 'mo-1', kind: 'moment', moment: 'curtains', x: 50, y: 40, w: 60, photos: [] }); add(mo);
+  const mc = clone(); on(mc, 'story').elements!.push({ id: 'mo-code', kind: 'moment', moment: 'code', x: 50, y: 40, w: 60, photos: [{ bind: { asset: '/p.webp' } }] }); add(mc);
+  const ms = clone(); on(ms, 'story').elements!.push({ id: 'mo-small', kind: 'moment', moment: 'capiz', x: 50, y: 40, w: 20 }); add(ms);
+  const mm = clone(); on(mm, 'story').elements!.push(...[1, 2, 3, 4].map((n) => ({ id: `mo-${n}`, kind: 'moment' as const, moment: 'capiz' as const, x: 50, y: 15 * n, w: 40 }))); add(mm);
+
   // the four about clips: one too heavy, one too long, bare words on a
   // bright one, and every clip in the design over the budget together
   runRow(withClip({ glare: 240 }), { weights: { 'u/c.mp4': 5_000_000 }, lengths: { 'u/c.mp4': 20_000 } }).forEach((x) => fired.add(x.rule));

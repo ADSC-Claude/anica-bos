@@ -14,7 +14,7 @@ import { tierAtLeast } from './tiers';
  * are what differ.
  */
 /** In catalogue order — simplest first, so the builder's dropdown reads as a ladder. Every package includes all of the drawn ones. */
-export const OPENING_KEYS = ['none', 'universal', 'envelope', 'line', 'curtain', 'drape', 'seal', 'photo', 'cinematic'] as const;
+export const OPENING_KEYS = ['none', 'universal', 'envelope', 'line', 'curtain', 'drape', 'seal', 'ribbon', 'doors', 'capiz', 'letter', 'photo', 'cinematic'] as const;
 export type OpeningKey = (typeof OPENING_KEYS)[number];
 
 export type OpeningDef = {
@@ -119,6 +119,50 @@ export const OPENINGS: OpeningDef[] = [
     photos: 0,
     line: { en: 'Our forever begins here', tl: 'Dito nagsisimula ang forever' },
     caps: true,
+  },
+  {
+    key: 'ribbon',
+    name: 'The Ribbon',
+    tagline: 'Pull, and it comes undone.',
+    description: 'A satin ribbon tied around the card in a bow. Pulled, the bow slackens and the ribbon falls away.',
+    minTier: 'BASIC',
+    photos: 0,
+    line: { en: 'Something to untie', tl: 'May bubuksan' },
+    caps: true,
+    lineOnly: true,
+  },
+  {
+    key: 'doors',
+    name: 'The Doors',
+    tagline: 'Two doors, and the light behind them.',
+    description: 'A pair of panelled doors with brass handles. They swing outward and the invitation is behind them.',
+    minTier: 'BASIC',
+    photos: 1,
+    line: { en: 'Come in', tl: 'Tuloy po kayo' },
+    caps: true,
+    lineOnly: true,
+  },
+  {
+    key: 'capiz',
+    name: 'The Capiz',
+    tagline: 'Shell panels, folding back.',
+    description: 'Four capiz-shell panels in the design\'s colours. Tapped, the middle two fold outward and the outer two follow.',
+    minTier: 'BASIC',
+    photos: 0,
+    line: { en: 'Please come in', tl: 'Tuloy po' },
+    caps: true,
+    lineOnly: true,
+  },
+  {
+    key: 'letter',
+    name: 'The Folded Letter',
+    tagline: 'A letter, opened by hand.',
+    description: 'A tri-folded letter. The lower fold opens first, then the upper, and the invitation is on the sheet.',
+    minTier: 'BASIC',
+    photos: 0,
+    line: { en: 'A letter for you', tl: 'May sulat para sa iyo' },
+    caps: true,
+    lineOnly: true,
   },
   {
     key: 'photo',

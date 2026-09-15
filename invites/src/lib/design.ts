@@ -444,6 +444,12 @@ export type PageSpec = {
    * `outsideOf` is the rule.
    */
   outside?: 'design' | ColorRole | string;
+  /**
+   * A page laid out by its words, told to be taller than they are: at least
+   * this many screens. The words sit in the middle of it and the pieces
+   * around them. Absent, the page is as tall as its words.
+   */
+  minScreens?: number;
   /** the cover page's own settings; ignored on any other page */
   cover?: CoverSpec;
   /**
@@ -956,6 +962,7 @@ const zPage = z.object({
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
   outside: z.union([z.literal('design'), zColour]).optional(),
+  minScreens: z.number().min(0.3).max(6).optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
     inset: zPlace(0, 40).optional(),

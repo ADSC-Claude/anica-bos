@@ -11,6 +11,7 @@ import { OCCASION_KEYS } from '@/lib/occasions';
 import { TIERS } from '@/lib/tiers';
 import type { Tier } from '@prisma/client';
 import { HttpError } from '@/lib/errors';
+import { onlinePaymentsOffered } from '@/lib/paymongo';
 
 const placeSchema = z.object({
   occasion: z.enum(OCCASION_KEYS as [string, ...string[]]),
@@ -49,6 +50,7 @@ export async function payOnlineAction(reference: string) {
   const user = await requireUser();
   const order = await prisma.order.findUnique({ where: { reference }, select: { userId: true } });
   if (!order || order.userId !== user.id) throw new HttpError(404, 'Order not found.');
+  if (!onlinePaymentsOffered()) throw new HttpError(400, 'Paying online is not available yet — please pay by GCash, Maya or bank transfer and upload your receipt.');
   const start = await startCheckout(reference);
   redirect(start.checkoutUrl);
 }

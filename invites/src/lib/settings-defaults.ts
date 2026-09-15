@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS = {
   /** viber://chat?number=%2B639... or a viber.me link. Empty hides the button. */
   'contact.viber': 'viber://chat?number=%2B639000000000',
   'contact.whatsapp': '',
-  'contact.hoursNote': 'We reply on Messenger and Viber from 9 AM to 9 PM, Manila time.',
+  'contact.hoursNote': 'We reply on Messenger from 9 AM to 9 PM, Manila time.',
 
   // --- manual payment details shown to customers who transfer directly ---
   'payments.manualEnabled': true,

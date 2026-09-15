@@ -281,7 +281,7 @@ export function Builder({
           {live ? (
             <Notice tone="info">
               Your invitation is live, so this is how it stands rather than something to change here.
-              Revisions happen before we publish; anything that still needs fixing is ours to do — message us on Messenger or Viber and we will sort it out.
+              Revisions happen before we publish; anything that still needs fixing is ours to do — message us on Messenger and we will sort it out.
             </Notice>
           ) : closed && changes ? (
             <Notice tone="warn">Changes closed on {when(changes.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(changes.finalAt)}. Message us for anything urgent.</Notice>

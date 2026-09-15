@@ -40,7 +40,7 @@ export default async function InvitationPage({ params, searchParams }: { params:
   // over stay on offer — up to the point the job is approved.
   const dfy = Boolean(inv.order?.serviceMode && inv.order.serviceMode !== 'DIY') && job;
   const send: SendToUs | null = dfy && job
-    ? { method: job.intakeMethod, submittedAt: job.intakeSubmittedAt?.toISOString() ?? null, messenger: s['contact.messenger'], viber: s['contact.viber'], reference: inv.order?.reference ?? '', editable: ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status) }
+    ? { method: job.intakeMethod, submittedAt: job.intakeSubmittedAt?.toISOString() ?? null, messenger: s['contact.messenger'], reference: inv.order?.reference ?? '', editable: ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status) }
     : null;
   // The first open after paying: the checkout sends the customer straight
   // here, and the receipt, the plan and the offer of a tour sit over the

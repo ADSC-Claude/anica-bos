@@ -10,7 +10,7 @@ export function PolicyBody({ kind, s }: { kind: 'terms' | 'privacy' | 'refund'; 
     return (
       <div className="prose-site mt-6 text-[color:var(--color-ink-700)]">
         <p>{s['policy.refund']}</p>
-        <p>To request a refund where one applies, message us on Messenger or Viber with your order reference. Refunds go back to the original payment method; e-wallet refunds can take a few days to settle.</p>
+        <p>To request a refund where one applies, message us on Messenger with your order reference. Refunds go back to the original payment method; e-wallet refunds can take a few days to settle.</p>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export function PolicyBody({ kind, s }: { kind: 'terms' | 'privacy' | 'refund'; 
       <p><b>Building your invitation.</b> Turnaround times are counted in working days from the moment we receive complete details. Revision rounds are as stated on your package; small corrections after approval are handled with goodwill.</p>
       <p><b>Availability.</b> We aim for the invitation to be reachable at all times and back everything up daily, but we cannot guarantee uninterrupted service and are not liable for indirect losses.</p>
       <p><b>Refunds.</b> {s['policy.refund']}</p>
-      <p><b>Contact.</b> {s['business.email']}, or Messenger and Viber from any page.</p>
+      <p><b>Contact.</b> {s['business.email']}, or Messenger from any page.</p>
     </div>
   );
 }

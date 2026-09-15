@@ -49,7 +49,7 @@ export function welcomeFor(user: { name: string }, inv: { tier: Tier; order: { r
 export function welcomeLines(w: Welcome): { eyebrow: string; title: string; body: string } {
   const who = w.name ? `, ${w.name}` : '';
   const plan = w.dfy
-    ? 'Here is the plan. Fill in the parts below — each one shows on your page as you type — or send your details, photos or an Excel over Messenger or Viber and we will type them in for you. Everything saves as you go.'
+    ? 'Here is the plan. Fill in the parts below — each one shows on your page as you type — or send your details, photos or an Excel over Messenger and we will type them in for you. Everything saves as you go.'
     : 'Here is the plan. Work down the list and each line ticks itself as you fill in. Everything saves as you go, and your page shows beside the form — or under Preview on a phone — exactly as a guest will see it.';
   return w.reference
     ? { eyebrow: `Order ${w.reference} · payment confirmed`, title: `Salamat${who}! Your ${w.packageName} package is unlocked.`, body: plan }

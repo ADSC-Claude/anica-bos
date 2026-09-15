@@ -76,7 +76,7 @@ export default async function SharePage({ params }: { params: Promise<{ id: stri
                   <li key={c.key} className={`rounded-full px-3 py-1 ${i < stage ? 'bg-[#e3f3e8] text-[#1e5c37]' : i === stage ? 'bg-[color:var(--color-plum-600)] text-white' : 'bg-[color:var(--color-sand-100)] text-[color:var(--color-ink-500)]'}`}>{c.label}</li>
                 ))}
               </ol>
-              {job.status === 'NEW' && <Notice tone="info">Paid and ready. Fill in your details on the <Link href={`/account/invitations/${inv.id}`} className="underline">Invitation tab</Link> — or send them over Messenger or Viber — and we start within a working day.</Notice>}
+              {job.status === 'NEW' && <Notice tone="info">Paid and ready. Fill in your details on the <Link href={`/account/invitations/${inv.id}`} className="underline">Invitation tab</Link> — or send them over Messenger — and we start within a working day.</Notice>}
               {job.status === 'INTAKE_RECEIVED' && <Notice tone="info">We have your details and are typing them in. Your preview comes here{job.dueAt ? ` by ${formatDate(job.dueAt)}` : ''}.</Notice>}
               {job.status === 'ENCODING' && <Notice tone="info">Your encoder is on it. Your preview comes here{job.dueAt ? ` by ${formatDate(job.dueAt)}` : ''}.</Notice>}
               {job.status === 'PREVIEW_SENT' && <Notice tone="warn">Your preview is ready. <a href={invitationPath(inv.slug)} target="_blank" rel="noopener" className="underline">Open it on your phone</a>, then approve it below or tell us what to change. {left} revision round{left === 1 ? '' : 's'} left.</Notice>}

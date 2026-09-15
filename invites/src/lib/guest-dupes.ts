@@ -25,7 +25,32 @@ export type GuestLike = { name: string; phone?: string | null; email?: string | 
 export type GuestKeys = { name: string; phone: string; email: string };
 
 /** What an import came to: rows added, blank rows left out, rows already on the list. */
-export type ImportResult = { added: number; skipped: number; duplicates: number };
+export type ImportResult = { added: number; skipped: number; duplicates: number; examples: number };
+
+/**
+ * The blank guest list's own lines: two made-up guests to show the shape,
+ * and the notes under them. A file sent back with the examples still in it —
+ * which happens — must not seat Ninong Fred at the wedding, so the importer
+ * knows them by sight. An example is known by its name and its number
+ * together: a real Ninong Fred with a number of his own is kept.
+ */
+export const TEMPLATE_EXAMPLES = [
+  { name: 'Mr. & Mrs. Dela Cruz', group: "Bride's family", seats: '2', phone: '0917 123 4567', email: 'delacruz@email.com', greeting: 'Tito Ben & Tita Let' },
+  { name: 'Ninong Fred', group: 'Principal sponsors', seats: '1', phone: '0918 765 4321', email: 'fred@email.com', greeting: 'Ninong Fred' },
+];
+export const TEMPLATE_NOTES = [
+  'Delete these two example rows before you send this back.',
+  'Seats is how many places you are setting aside for that name — a couple is 2.',
+  'Phone and Email are what a reminder is sent to. Fill in what you have; a blank one is simply skipped.',
+  'Greeting is how the invitation addresses them: "Dear ___". Leave it blank to use the name.',
+  'Group can be any of:',
+  'Group can be any word you like — it is how the headcount sheet is sorted.',
+];
+const digits = (s: string) => s.replace(/\D/g, '');
+export function isTemplateLine(name: string, phone = ''): boolean {
+  const n = name.trim();
+  return TEMPLATE_NOTES.includes(n) || TEMPLATE_EXAMPLES.some((e) => e.name === n && digits(e.phone) === digits(phone));
+}
 
 export function guestKeys(g: GuestLike): GuestKeys {
   return { name: nameKey(g.name), phone: phoneKey(g.phone), email: emailKey(g.email) };
@@ -91,9 +116,10 @@ export function duplicateRows(existing: GuestLike[], rows: GuestLike[]): Set<num
  * sentence of their own: a customer who sent the same file twice should read
  * that nothing doubled, not wonder why the count came out low.
  */
-export function importNotice({ added, skipped, duplicates }: ImportResult): string {
+export function importNotice({ added, skipped, duplicates, examples }: ImportResult): string {
   const parts = [`Imported ${added} ${added === 1 ? 'guest' : 'guests'}.`];
   if (duplicates) parts.push(`${duplicates} already on the list ${duplicates === 1 ? 'was' : 'were'} skipped.`);
   if (skipped) parts.push(`${skipped} blank ${skipped === 1 ? 'row was' : 'rows were'} left out.`);
+  if (examples) parts.push("The template's example rows and notes were left out.");
   return parts.join(' ');
 }

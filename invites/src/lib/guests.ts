@@ -4,7 +4,7 @@ import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { seatsHeld, headsArrived, replySeats } from './seats';
 import { parseCsv, toCsv } from './csv';
-import { duplicateRows, type ImportResult } from './guest-dupes';
+import { duplicateRows, isTemplateLine, TEMPLATE_EXAMPLES, TEMPLATE_NOTES, type ImportResult } from './guest-dupes';
 import { entitled, TIER_LABELS, FEATURE_MIN_TIER, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
@@ -94,7 +94,7 @@ export async function importGuests(invitation: Entitled & { id: string }, text: 
  */
 export async function importGuestRows(invitation: Entitled & { id: string }, rows: string[][]): Promise<ImportResult> {
   requireGuestManager(invitation);
-  if (rows.length === 0) return { added: 0, skipped: 0, duplicates: 0 };
+  if (rows.length === 0) return { added: 0, skipped: 0, duplicates: 0, examples: 0 };
 
   const header = rows[0].map((h) => h.toLowerCase());
   const hasHeader = header.some((h) => ['name', 'guest', 'group', 'seats', 'pax', 'phone', 'mobile'].includes(h));
@@ -120,11 +120,17 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
   if (existing.length + body.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
 
   let skipped = 0;
+  let examples = 0;
   const parsed = [];
   for (const r of body) {
     const name = (cName >= 0 ? r[cName] : '')?.trim();
     if (!name) {
       skipped++;
+      continue;
+    }
+    // The blank's own example guests and notes, sent back unedited.
+    if (isTemplateLine(name, cPhone >= 0 ? r[cPhone] ?? '' : '')) {
+      examples++;
       continue;
     }
     parsed.push({
@@ -141,7 +147,7 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
   const dupes = duplicateRows(existing, parsed);
   const data = parsed.filter((_, i) => !dupes.has(i));
   if (data.length) await prisma.guest.createMany({ data });
-  return { added: data.length, skipped, duplicates: dupes.size };
+  return { added: data.length, skipped, duplicates: dupes.size, examples };
 }
 
 /**
@@ -158,18 +164,10 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
  * upload reads it.
  */
 export function guestTemplateCsv(groups: string[]): string {
-  const rows = [
-    ['Mr. & Mrs. Dela Cruz', groups[0] ?? "Bride's family", '2', '0917 123 4567', 'delacruz@email.com', 'Tito Ben & Tita Let'],
-    ['Ninong Fred', groups[1] ?? 'Principal sponsors', '1', '0918 765 4321', 'fred@email.com', 'Ninong Fred'],
-  ];
-  const notes = [
-    [],
-    ['Delete these two example rows before you send this back.'],
-    ['Seats is how many places you are setting aside for that name — a couple is 2.'],
-    ['Phone and Email are what a reminder is sent to. Fill in what you have; a blank one is simply skipped.'],
-    ['Greeting is how the invitation addresses them: "Dear ___". Leave it blank to use the name.'],
-    groups.length ? ['Group can be any of:', ...groups] : ['Group can be any word you like — it is how the headcount sheet is sorted.'],
-  ];
+  // The same lines the importer knows to leave out, so the two cannot drift.
+  const rows = TEMPLATE_EXAMPLES.map((e, i) => [e.name, groups[i] ?? e.group, e.seats, e.phone, e.email, e.greeting]);
+  const [del, seats, contact, greeting, anyOf, anyWord] = TEMPLATE_NOTES;
+  const notes = [[], [del], [seats], [contact], [greeting], groups.length ? [anyOf, ...groups] : [anyWord]];
   return toCsv(['Name', 'Group', 'Seats', 'Phone', 'Email', 'Greeting'], [...rows, ...notes]);
 }
 

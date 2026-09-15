@@ -33,7 +33,8 @@ test('the greeting uses the first name and the package label', () => {
 test('done-for-you offers the other ways of handing the details over', () => {
   const w = welcomeFor({ name: 'Juan' }, { tier: 'LUXURY', order: { reference: 'YIT-9', serviceMode: 'DFY' } });
   assert.equal(w.dfy, true);
-  assert.match(welcomeLines(w).body, /Messenger or Viber/);
+  assert.match(welcomeLines(w).body, /over Messenger/);
+  assert.doesNotMatch(welcomeLines(w).body, /Viber/);
 });
 
 test('an invitation made by staff, with no order, is welcomed without a receipt', () => {

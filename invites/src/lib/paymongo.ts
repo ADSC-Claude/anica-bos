@@ -31,6 +31,18 @@ export function isSimulated(): boolean {
   return gatewayMode() === 'simulated';
 }
 
+/**
+ * Whether paying online is offered at all. Without a key the app runs a
+ * simulated gateway so the whole flow can be walked in development — but
+ * its checkout page refuses to render in production, so on the live site an
+ * unset key would put a "Pay now" button in front of a customer that leads
+ * to a page that is not there. Until the gateway is live, the transfer with
+ * a screenshot is the way to pay, and the site says so instead.
+ */
+export function onlinePaymentsOffered(): boolean {
+  return !isSimulated() || process.env.NODE_ENV !== 'production';
+}
+
 function authHeader(): string {
   const key = process.env.PAYMONGO_SECRET_KEY ?? '';
   return `Basic ${Buffer.from(`${key}:`).toString('base64')}`;

@@ -110,9 +110,9 @@ export function GetStarted({ invitationId, lines, send, welcome = null }: { invi
  * ninongs, or a bride who would rather send screenshots by chat, should not
  * have to copy it all into boxes. One button tells the team to expect it.
  */
-export type SendToUs = { method: string; submittedAt: string | null; messenger: string; viber: string; reference: string; editable: boolean };
+export type SendToUs = { method: string; submittedAt: string | null; messenger: string; reference: string; editable: boolean };
 
-function SendToUsCard({ invitationId, method: initial, submittedAt, messenger, viber, reference, editable }: SendToUs & { invitationId: string }) {
+function SendToUsCard({ invitationId, method: initial, submittedAt, messenger, reference, editable }: SendToUs & { invitationId: string }) {
   const [pending, start] = useTransition();
   const [method, setMethod] = useState(initial === 'EXCEL' ? 'EXCEL' : 'MESSENGER');
   const [note, setNote] = useState('');
@@ -126,14 +126,13 @@ function SendToUsCard({ invitationId, method: initial, submittedAt, messenger, v
   return (
     <div className="mt-3 rounded-xl border border-dashed border-[color:var(--color-sand-300)] p-3 text-sm">
       <p className="font-semibold">Prefer to send it to us?</p>
-      <p className="text-xs text-[color:var(--color-ink-700)]">Message your details, photos or an Excel over Messenger or Viber — mention order <b>{reference}</b> — and we will type them in for you.</p>
+      <p className="text-xs text-[color:var(--color-ink-700)]">Message your details, photos or an Excel over Messenger — mention order <b>{reference}</b> — and we will type them in for you.</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {messenger && <a href={messenger} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Messenger</a>}
-        {viber && <a href={viber} className="btn btn-secondary btn-sm">Viber</a>}
         {editable && !sent && (
           <>
             <select className="field min-h-0 w-auto py-1 text-xs" value={method} onChange={(e) => setMethod(e.target.value)} aria-label="How you are sending it">
-              <option value="MESSENGER">by chat</option>
+              <option value="MESSENGER">by Messenger</option>
               <option value="EXCEL">as an Excel file</option>
             </select>
             <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={tell}>{pending ? 'Telling the team…' : 'I have sent it — tell the team'}</button>

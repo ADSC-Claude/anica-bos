@@ -1198,6 +1198,38 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         }
         } });
       });
+      /*
+       * The colour beside each page, out to the window's edge. The stage is
+       * what is beside the column, so the bands are its background: one
+       * gradient with a hard-edged stripe for every page that names a colour
+       * (`data-outside`, see outsideOf), measured here because a page's
+       * height is its words'. A role is read off the invitation's own
+       * variables; by night a role would be the day's colour beside a
+       * darkened page, so only a colour of the page's own is drawn then.
+       */
+      const stage = inv.closest<HTMLElement>('.inv-stage');
+      if (stage) {
+        const stageTop = stage.getBoundingClientRect().top;
+        const stops: string[] = [];
+        for (const p of pages) {
+          const want = p.dataset.outside;
+          if (!want) continue;
+          const role = ['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'].includes(want);
+          if (role && dark) continue;
+          const colour = role ? getComputedStyle(inv).getPropertyValue(`--inv-${want}`).trim() : want;
+          if (!colour) continue;
+          const r = p.getBoundingClientRect();
+          const a = Math.round(r.top - stageTop);
+          const b = Math.round(r.bottom - stageTop);
+          if (b <= a) continue;
+          stops.push(`transparent ${a}px, ${colour} ${a}px, ${colour} ${b}px, transparent ${b}px`);
+        }
+        const beside = stops.length ? `linear-gradient(to bottom, ${stops.join(', ')})` : '';
+        if (stage.style.getPropertyValue('--inv-outside') !== beside) {
+          if (beside) stage.style.setProperty('--inv-outside', beside);
+          else stage.style.removeProperty('--inv-outside');
+        }
+      }
       while (ground.children.length > papers.length) ground.lastElementChild?.remove();
       papers.forEach((pp, i) => {
         let el = ground.children[i] as HTMLElement | undefined;

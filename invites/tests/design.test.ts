@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -1090,8 +1090,8 @@ test('a flow page sorts what it carries into floats, decorations and words', () 
     { id: 'e', kind: 'video', y: 0, url: '/e.mp4', poster: '/e.jpg', bg: true, z: -2 },
   ]);
   assert.deepEqual(flowFloats(page).map((e) => e.id), ['a'], 'only the one that names a side floats');
-  assert.deepEqual(flowDecor(page).map((e) => e.id), ['b', 'c', 'e'], 'the picture, the rule and the clip are decorations');
-  assert.ok(!flowDecor(page).some((e) => e.kind === 'text'), 'a flow page’s words are its sections’');
+  // words too: a box of words hung off the head is a caption or a title over the section's own words, which keep flowing under it
+  assert.deepEqual(flowDecor(page).map((e) => e.id), ['b', 'c', 'd', 'e'], 'the picture, the rule, the words and the clip are decorations');
 });
 
 test('a decoration hangs off an edge by a share of the page’s width', () => {
@@ -1173,4 +1173,43 @@ test('a flat design opens on a starter made from its occasion', () => {
 
 test('without an occasion there is nothing to make a starter from', () => {
   assert.equal(studioDoc({ design: {}, designDraft: {}, layout: 'classic' }), null);
+});
+
+test('the colour beside a page follows the page, unless the page says otherwise', () => {
+  const blue = { key: 'p', sections: ['countdown'], ground: { color: '#a9c6e8' } } as const;
+  // a page on a plain colour carries it out to the window's edges
+  assert.equal(outsideOf(blue), '#a9c6e8');
+  // by role too, so night can turn it down with the palette
+  assert.equal(outsideOf({ key: 'p', sections: [], ground: { color: 'surface' } }), 'surface');
+  // a page on a picture keeps the design's own surround
+  assert.equal(outsideOf({ key: 'p', sections: [], ground: { url: '/x.webp', ratio: 2, top: '#fff', bottom: '#eee' } }), undefined);
+  // and so does a page with no ground at all
+  assert.equal(outsideOf({ key: 'p', sections: [] }), undefined);
+  // said otherwise: the design's surround whatever the page is on, or a colour of its own
+  assert.equal(outsideOf({ ...blue, outside: 'design' }), undefined);
+  assert.equal(outsideOf({ ...blue, outside: 'accent' }), 'accent');
+  assert.equal(outsideOf({ ...blue, outside: '#123456' }), '#123456');
+  // it is in the document and survives the parse
+  const read = designOf({ v: 1, pages: [{ ...blue, outside: 'accent' }] }, 'classic');
+  assert.equal(read.doc?.pages[0].outside, 'accent');
+  assert.deepEqual(read.dropped, []);
+});
+
+test('words are decorations on a page laid out by its words, and floats are not', () => {
+  const page = {
+    key: 'p', sections: ['countdown'],
+    elements: [
+      { id: 'photo-1', kind: 'photo', y: 0, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } },
+      { id: 'photo-2', kind: 'photo', x: 50, y: 4, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } },
+      { id: 'words-1', kind: 'text', block: 'free', x: 50, y: 4, w: 70, z: 1, lines: [{ role: 'body', sources: [{ fixed: { en: 'A line beside the numbers' } }] }] },
+      { id: 'shape-1', kind: 'shape', shape: 'rect', x: 50, y: 0, w: 70, h: 30, z: -1, fill: 'surface' },
+    ],
+  } as unknown as Parameters<typeof flowDecor>[0];
+  assert.deepEqual(flowFloats(page).map((e) => e.id), ['photo-1']);
+  assert.deepEqual(flowDecor(page).map((e) => e.id), ['photo-2', 'words-1', 'shape-1']);
+  // the words go over the section's own, which is what the studio sets them to
+  assert.equal(decorOver(flowDecor(page)[1]), true);
+  assert.equal(decorOver(flowDecor(page)[2]), false);
+  // and hang off the head like any other decoration
+  assert.equal(decorStyle(flowDecor(page)[1]).top, '4cqw');
 });

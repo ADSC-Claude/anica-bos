@@ -2001,6 +2001,18 @@ export function Studio(p: Props) {
                   * she sees here is exactly where it will be, on a page whose
                   * height is the only part this canvas has to guess.
                   */}
+                {page && !page.drawn && flowSrc && (
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
+                    <iframe
+                      ref={flowFrame}
+                      title="This page, as a guest sees it"
+                      src={flowSrc}
+                      onLoad={flowLoaded}
+                      tabIndex={-1}
+                      style={{ position: 'absolute', left: 0, top: -flowBox.top, width: '100%', height: flowBox.top + (flowBox.height || width * 1.2), border: 0, background: 'transparent' }}
+                    />
+                  </div>
+                )}
                 {page && (page.drawn
                   ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id }} />
                   : (['under', 'over'] as const).map((layer) => (

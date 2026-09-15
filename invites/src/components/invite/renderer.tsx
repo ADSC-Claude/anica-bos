@@ -4,7 +4,7 @@ import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
-import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -1978,7 +1978,28 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // the ground, and the one page the studio is drawing
       const ground = out.slice(0, 2);
       const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
-      return [...ground, ...rest.filter((el) => el.props['data-page'] === only)];
+      const found = rest.filter((el) => el.props['data-page'] === only);
+      if (found.length) return [...ground, ...found];
+      /*
+       * A page with nothing on it is not drawn for a guest, and the studio
+       * would be left measuring an empty frame — which reads as the canvas
+       * being broken rather than as the page being empty. So the page is
+       * drawn here anyway, carrying the reason, and only here: a guest is
+       * still shown nothing.
+       */
+      const spec = doc?.pages.find((p) => p.key === only);
+      const carried = spec ? spec.sections : OCCASION_SECTIONS[occasion].includes(only as SectionKey) ? [only] : [];
+      const names = carried.map((k) => (k === 'verse' ? 'the verse' : k === 'gallery-video' ? 'the film' : (() => { try { return sectionLabel(k as SectionKey, occasion); } catch { return k; } })()));
+      const why = !carried.length
+        ? 'This page carries no part yet, so a guest is shown nothing here. Put a part on it on the right, or give it a picture of its own.'
+        : `A guest is shown nothing here: ${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} not written in on the invitation the canvas is drawn against. Fill ${names.length === 1 ? 'it' : 'them'} in under the Invitation tab, or draw against “Anybody” to see the page filled.`;
+      return [...ground, (
+        <div key={only} className="inv-page" data-page={only} data-empty="">
+          <section className="inv-section text-center text-sm" style={{ color: 'var(--inv-muted)', padding: '3rem 1.5rem' }}>
+            <p>{why}</p>
+          </section>
+        </div>
+      )];
     }
     if (peek) {
       // the ground, then the pages up to the one the design ends the peek on
@@ -2130,6 +2151,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         {peekEndBlock}
+        {/* the studio's frame is one page and nothing around it: no footer, no floating RSVP */}
+        {!only && (
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && !peek && (
             <div className="no-print mb-4 flex flex-wrap justify-center gap-2">
@@ -2139,7 +2162,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           )}
           <p>{businessName}</p>
         </footer>
-        {rsvpVisible && !print && !peek && (
+        )}
+        {rsvpVisible && !print && !peek && !only && (
           <a href="#rsvp" className="inv-btn inv-sticky no-print">{t(lang, 'nav.rsvp')}</a>
         )}
       </Shell>

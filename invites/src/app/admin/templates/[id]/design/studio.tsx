@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
@@ -504,12 +504,15 @@ export function Studio(p: Props) {
     if (!prev) return;
     setDoc((now) => { future.current = [...future.current, now]; return prev; });
     setState('dirty');
+    // what the last drawing said is about a page that is no longer there
+    setSeeded('');
   }, []);
   const redo = useCallback(() => {
     const next = future.current.pop();
     if (!next) return;
     setDoc((now) => { past.current = [...past.current, now]; return next; });
     setState('dirty');
+    setSeeded('');
   }, []);
 
   // --- saving ---------------------------------------------------------------
@@ -711,7 +714,7 @@ export function Studio(p: Props) {
       // on a page laid out by its words a piece hangs off the head: there is
       // no canvas to place it on, and flush with the head is where she can
       // see it (addElement says the same thing about a blank frame)
-      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 40, anchor: 'centre',
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 4, w: 40, anchor: 'centre',
       aspect: place(shape), frame: 'none', bind: { asset: url },
       // a moving picture is served as it is: the flag is what keeps it out of
       // the transform endpoint, which would send back one frame of it
@@ -835,16 +838,17 @@ export function Studio(p: Props) {
      * Where a new piece lands. On a drawn page, four tenths down it, which is
      * in view and clear of both edges. On a page laid out by its words there
      * is no such place — the piece hangs off the head or the foot — so it
-     * lands flush with the head, where she can see it and push it down by as
-     * much as she likes.
+     * lands just under the head, where she can see it whole and push it down
+     * by as much as she likes.
      */
-    const y = page.drawn ? 40 : 0;
+    const y = page.drawn ? 40 : 4;
     const made: Element = kind === 'photo'
       ? { id, kind: 'photo', x: 50, y, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
       : kind === 'shape'
         // behind the words, not over them: a card is what a shape is usually for
         ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
-        : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+        // over the section's own words on a page laid out by them: a box of words behind words cannot be read
+        : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }], ...(page.drawn ? {} : { z: 1 }) };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -863,7 +867,7 @@ export function Studio(p: Props) {
     if (!page) return;
     const id = freeId(doc, 'moving');
     const made: Element = {
-      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 32, anchor: 'centre',
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 4, w: 32, anchor: 'centre',
       aspect: place(up.ratio), frame: 'none', bind: { asset: up.url }, animated: true,
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
@@ -883,7 +887,7 @@ export function Studio(p: Props) {
     if (!page) return;
     const id = freeId(doc, 'anim');
     const made: Element = {
-      id, kind: 'anim', x: 50, y: page.drawn ? 40 : 0, w: 34, anchor: 'centre',
+      id, kind: 'anim', x: 50, y: page.drawn ? 40 : 4, w: 34, anchor: 'centre',
       url: up.url, poster: up.poster, aspect: place(up.aspect), loop: true,
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
@@ -902,7 +906,7 @@ export function Studio(p: Props) {
   function addClip(up: SentClip) {
     if (!page) return;
     const id = freeId(doc, 'clip');
-    const made: Element = { id, kind: 'video', x: 50, y: page.drawn ? 40 : 0, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
+    const made: Element = { id, kind: 'video', x: 50, y: page.drawn ? 40 : 4, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -1501,6 +1505,14 @@ export function Studio(p: Props) {
   };
   /** the design's own surround — the colour beside the column, and a picture behind the whole page — for the canvas around a drawn page */
   const ownVars = designVars(doc);
+  /*
+   * The colour beside a page placed by hand, on the canvas around it. A page
+   * laid out by its words has it from the frame under the canvas, which is
+   * the guest page and lays its own band (PageGround); the canvas over it is
+   * clear glass, so it is drawn here only where there is no frame.
+   */
+  const beside = page && !framed ? outsideOf(page) : undefined;
+  const besideVars = beside ? { ['--inv-outside' as string]: `linear-gradient(${colourOf(beside, vars)}, ${colourOf(beside, vars)})` } : {};
 
   /*
    * The columns. Bringing a page in is one screen: the properties column
@@ -1533,6 +1545,8 @@ export function Studio(p: Props) {
     return qs ? `${frameBase}&${qs}` : frameBase;
   }, [frameBase, sample, night]);
   const screen = VIEWS.find((v) => v.key === size)?.screen ?? 844;
+  /** the frame is being drawn again: from the address changing until it has loaded */
+  const [drawing, setDrawing] = useState(false);
   const flowSrc = useMemo(() => {
     if (!flowKey) return '';
     const q = new URLSearchParams({ page: flowKey, screen: String(screen), v: String(shown) });
@@ -1549,8 +1563,10 @@ export function Studio(p: Props) {
     const top = r.top + win.scrollY;
     setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
   }, []);
+  useEffect(() => { if (flowSrc) setDrawing(true); }, [flowSrc]);
   /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
   const flowLoaded = useCallback(() => {
+    setDrawing(false);
     sizeFlow();
     flowWatch.current?.disconnect();
     const doc = flowFrame.current?.contentDocument;
@@ -1813,8 +1829,8 @@ export function Studio(p: Props) {
           <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
           {view === 'page' ? (
             <>
-              {/* a flow page's words are its sections': see flowDecor */}
-              {page?.drawn && <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>}
+              {/* on a page laid out by its words a box of words hangs off its head or foot, over the section's own: see flowDecor */}
+              <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
               <AddMoving templateId={p.templateId} onAdd={addMoving} />
@@ -1825,6 +1841,17 @@ export function Studio(p: Props) {
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
           )}
           <span className="ml-auto" />
+          {/*
+            * What the canvas is doing, said where she is looking. A page laid
+            * out by its words is drawn from the saved draft, so a change is
+            * seen a moment after her hand stops — and until this said so,
+            * that moment read as nothing having happened.
+            */}
+          {view === 'page' && framed && (
+            <span data-testid="redraw" aria-live="polite" className={`rounded-full px-2 py-0.5 text-[11px] ${state === 'error' ? 'bg-red-50 text-red-800' : state === 'dirty' || state === 'saving' || drawing ? 'bg-amber-50 text-amber-900' : 'bg-[color:var(--color-sand-100)] text-[color:var(--color-ink-500)]'}`}>
+              {state === 'error' ? 'Not saved' : state === 'dirty' ? 'Changed · saving in a moment' : state === 'saving' ? 'Saving…' : drawing ? 'Redrawing the page…' : 'The page as saved'}
+            </span>
+          )}
           {view === 'page' && page?.drawn && (
             <button
               type="button"
@@ -1957,7 +1984,7 @@ export function Studio(p: Props) {
             * laid out by its words the frame *is* the page, the whole window
             * of it, and everything of ours over it is clear glass.
             */}
-          <div className="inv-stage relative shadow-lg" data-canvas="" style={{ ...vars, ...ownVars, width, zoom: scale, isolation: 'isolate', ...(framed ? { background: 'transparent' } : {}) } as CSSProperties}>
+          <div className="inv-stage relative shadow-lg" data-canvas="" style={{ ...vars, ...ownVars, ...besideVars, width, zoom: scale, isolation: 'isolate', ...(framed ? { background: 'transparent' } : {}) } as CSSProperties}>
             {framed && flowSrc && (
               <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
                 <iframe
@@ -2117,19 +2144,19 @@ export function Studio(p: Props) {
           : view === 'page' && !page?.drawn && (
             <div className="mt-2">
               {/*
-                * The way out of a flow page, on the page itself.
-                *
-                * This is the sentence somebody reads when the canvas looks
-                * empty and they are asking why, so the button belongs in it
-                * rather than only in the panel on the right.
+                * The sentence somebody reads when they have pressed a button
+                * and are asking what happened. It used to offer a way out of
+                * the page — drawing it by hand — which left a countdown page
+                * as two empty boxes; now it says how to put things on the
+                * page as it is.
                 */}
-              {Boolean(page?.sections.length) && (
-                <p className="mt-1">
-                  <button type="button" onClick={drawIt} className="btn btn-primary btn-sm">Draw this page by hand</button>
-                  <span className="hint ml-2">The writings this page already carries come onto it as boxes you can move and retype.</span>
-                </p>
-              )}
-              <p className="hint mt-2">This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against &mdash; and it is redrawn from the draft a moment after your hand stops. Its background, the parts it carries and the pictures and pieces on it are on the right; a piece along its head or foot is dragged here, and a picture the words flow past sits among them. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>
+              <p className="hint">
+                This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against.
+                <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
+                An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them.
+                The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces.
+                The page is redrawn from the draft a moment after your hand stops; the label above says when. Its background, the colour beside it, the parts it carries and the pieces on it are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.
+              </p>
             </div>
           )}
         {/*
@@ -4398,7 +4425,7 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
             {pieces.decor.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
                 <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
-                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
+                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : el.kind === 'text' ? 'words' : el.kind === 'anim' ? 'an animation' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
                 </button>
                 <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>
@@ -4549,6 +4576,38 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
           onPick={(c) => onGround({ color: c, ratio: ground && !isPicture(ground) ? ground.ratio : undefined })}
         />
         <p className="hint">A role colour follows the palette, so it turns itself down at night. A colour of your own does not.</p>
+        {/*
+          * The colour beside the page on a laptop, where the column stops
+          * short of the window's edge. It follows the page unless she says
+          * otherwise: a page on a plain colour carries it out to the edges —
+          * a blue page in a cream window read as "the outside did not
+          * change" — and a page on a picture keeps the design's own
+          * surround, the one under Theme…, Beside it.
+          */}
+        <p className="label mt-2">Beside the page, on a laptop</p>
+        <div className="mt-1 flex items-center gap-1" data-testid="outside">
+          <select
+            className="input min-w-0 flex-1 text-xs"
+            value={page.outside === undefined ? '' : page.outside === 'design' ? 'design' : ROLES.some((r) => r.key === page.outside) ? page.outside : 'own'}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange((p) => {
+                const next = { ...p, outside: v === '' ? undefined : v === 'own' ? (p.outside?.startsWith('#') ? p.outside : '#ffffff') : v };
+                if (next.outside === undefined) delete next.outside;
+                return next;
+              });
+            }}
+          >
+            <option value="">{ground && !isPicture(ground) ? 'The page’s own colour, out to the edges' : 'The design’s surround'}</option>
+            <option value="design">The design’s surround (Theme…, Beside it)</option>
+            {ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            <option value="own">A colour of its own</option>
+          </select>
+          {page.outside?.startsWith('#') && (
+            <input type="color" value={page.outside} onChange={(e) => onChange((p) => ({ ...p, outside: e.target.value }))} className="h-7 w-7 shrink-0 cursor-pointer rounded border border-black/15 p-0" />
+          )}
+        </div>
+        <p className="hint">A laptop shows it beside the page; a phone is the page edge to edge.</p>
 
         {ground && (
           <label className="mt-2 flex items-center gap-2">
@@ -4569,8 +4628,8 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
           */}
         {ground && !page.drawn && Boolean(page.sections.length) && (
           <div className="mt-1">
-            <button type="button" onClick={onDraw} className="btn btn-secondary btn-sm">Draw it from its writings</button>
-            <p className="hint mt-1">One box for the heading and one for every writing this page carries, stacked down it, ready to move.</p>
+            <button type="button" onClick={onDraw} className="btn btn-secondary btn-sm">Place its writings by hand instead</button>
+            <p className="hint mt-1">One box for the heading and one for every writing this page carries, stacked down it, ready to move &mdash; and nothing else. A countdown, an RSVP form, a map or a film is not drawn on a page placed by hand, so a page that carries one is better left to its words, with pieces laid over them. Undo puts the page back.</p>
           </div>
         )}
         {page.drawn && (

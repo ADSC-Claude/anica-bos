@@ -363,12 +363,13 @@ table.data tr:hover td {
  */
 .inv-stage {
   background-color: var(--inv-surround, var(--inv-bg));
-  /* a picture behind the whole page, edge to edge, when the design gives one (designVars) */
-  background-image: var(--inv-surround-art, none);
-  background-position: center top;
-  background-size: var(--inv-surround-size, cover);
-  background-repeat: var(--inv-surround-repeat, no-repeat);
-  background-attachment: var(--inv-surround-attach, scroll);
+  /* the colour beside each page that names one, as bands PageGround lays (--inv-outside);
+     under them a picture behind the whole page, edge to edge, when the design gives one (designVars) */
+  background-image: var(--inv-outside, none), var(--inv-surround-art, none);
+  background-position: center top, center top;
+  background-size: 100% 100%, var(--inv-surround-size, cover);
+  background-repeat: no-repeat, var(--inv-surround-repeat, no-repeat);
+  background-attachment: scroll, var(--inv-surround-attach, scroll);
 }
 .inv-stage:has(.inv[data-paged][data-mode='night']) { background-color: var(--night-surround, #12131c); }
 /*
@@ -1450,14 +1451,14 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * while she is drawing: it shows where it is and says what fills it. Nothing
  * carries `data-empty` on a guest's page, so a guest sees none of this.
  */
-.inv [data-empty] { outline: 1px dashed rgba(47, 111, 208, 0.55); background: rgba(47, 111, 208, 0.06); }
+.inv [data-empty] { outline: 2px dashed rgba(47, 111, 208, 0.85); outline-offset: -1px; background: rgba(47, 111, 208, 0.12); }
 .inv figure[data-empty] { display: flex; align-items: center; justify-content: center; }
 /* A text box the studio placed that is not one of the design's own kinds. */
 .inv[data-paged] .inv-bb-art > .inv-bb-text { position: absolute; text-align: center; }
 .inv-bb-text .inv-bb-body { font-family: var(--inv-body); font-size: 2.6cqw; line-height: 1.5; color: var(--inv-ink); }
 /* The paper role is the one colour the night block sets on .inv rather than on the variable. */
 .inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: var(--night-paper, #1a1b26); }
-.inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 2.3cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
+.inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 3.2cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }

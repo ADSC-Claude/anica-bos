@@ -429,6 +429,15 @@ export type PageSpec = {
   grow?: true;
   /** the public peek stops after this page */
   peekEnd?: true;
+  /**
+   * The colour beside this page on a laptop, where the column does not reach
+   * the window's edge. Absent, it follows the page: a page on a plain colour
+   * carries that colour out to the edges, and a page on a picture leaves the
+   * design's own surround. 'design' says the design's surround whatever the
+   * page is on; anything else is a palette role or a colour of its own.
+   * `outsideOf` is the rule.
+   */
+  outside?: 'design' | ColorRole | string;
   /** the cover page's own settings; ignored on any other page */
   cover?: CoverSpec;
   /**
@@ -939,6 +948,7 @@ const zPage = z.object({
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
+  outside: z.union([z.literal('design'), zColour]).optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
     inset: zPlace(0, 40).optional(),
@@ -1376,9 +1386,28 @@ const round = (n: number) => Math.round(n * 1e4) / 1e4;
 export const flowFloats = (page: PageSpec): PhotoEl[] =>
   (page.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean(e.float));
 
-/** The decorations on a flow page: everything but the floats and the words. */
+/**
+ * The decorations on a flow page: everything but the floats. Words too, now:
+ * a box of words hung off the head or the foot is a caption, a title over a
+ * picture, a line beside the numbers — not the section's words, which stay
+ * the customer's and keep flowing under it.
+ */
 export const flowDecor = (page: PageSpec): Element[] =>
-  (page.elements ?? []).filter((e) => e.kind !== 'text' && !(e.kind === 'photo' && e.float));
+  (page.elements ?? []).filter((e) => !(e.kind === 'photo' && e.float));
+
+/**
+ * The colour beside a page on a laptop, or nothing for the design's own
+ * surround. A page on a plain colour carries that colour out to the window's
+ * edges unless it says otherwise: a blue page in a cream window read as "the
+ * outside did not change", and a page on a picture keeps the surround the
+ * design set, since a picture has edges and the surround is what frames it.
+ */
+export function outsideOf(page: PageSpec): string | undefined {
+  if (page.outside === 'design') return undefined;
+  if (page.outside) return page.outside;
+  const g = page.ground;
+  return g && !isPicture(g) ? g.color : undefined;
+}
 
 /**
  * Whether a decoration sits over the page's words or behind them.

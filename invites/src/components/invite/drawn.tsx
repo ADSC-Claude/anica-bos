@@ -174,8 +174,8 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
 
 function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
   if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} deco={deco} />;
-  // a flow page's words are its sections': see flowDecor
-  if (el.kind === 'text') return deco ? null : <Block el={el} read={read} grow={grow} />;
+  // on a flow page a box of words hangs off the head or the foot like any other decoration: see flowDecor
+  if (el.kind === 'text') return <Block el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'anim') return <Anim el={el} read={read} grow={grow} deco={deco} />;
@@ -331,11 +331,11 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
  * line under it, or a milestone's name with its sentence. An empty line is
  * dropped; a block whose every line is empty draws nothing.
  */
-function Block({ el, read, grow }: { el: TextEl; read: Read; grow?: number }) {
+function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number; deco?: boolean }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
   if (blank && el.hidden !== 'never' && !read.edit) return null;
-  const style = { ...elementStyle(el, grow), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
+  const style = { ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
   // `data-foot` says this one is placed from the foot: what holds the bottom
   // of a page that grows follows the page down and is never what pushes it

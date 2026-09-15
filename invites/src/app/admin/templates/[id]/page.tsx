@@ -15,6 +15,7 @@ import { wordsOf, artOf, documentOf, offeredSections, wordsFor, lineLabel, title
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
 import { PreviewPanel } from './preview-panel';
+import { TemplateTabs } from './tabs';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
@@ -87,6 +88,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         }
       />
       <Flash {...sp} />
+      {t && <TemplateTabs id={t.id} active="details" />}
       {t && (
         <div className="mb-4">
           <AsksSheet
@@ -126,25 +128,6 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </div>
         <div className="card space-y-3 p-4">
           <Select label="Layout" name="layout" defaultValue={t?.layout ?? 'classic'} options={LAYOUTS.map((l) => ({ value: l, label: l }))} hint="classic: full-bleed photo hero · editorial: portrait photo, big serif · garden: arched photo · modern: uppercase sans · festive: confetti · quiet: memorial" />
-          {/*
-            * Where its pages come from, asked once and never again: a design
-            * with pages of its own is edited in the studio from then on. A
-            * starter is one page per section this occasion offers, on plain
-            * colours; the layout's own is Baby Blue's or Capiz's pages
-            * exactly, which is the same thing Duplicate makes.
-            */}
-          {isNew && (
-            <Select
-              label="Start the pages from"
-              name="startFrom"
-              defaultValue="starter"
-              options={[
-                { value: 'starter', label: 'A starter — one page per section you tick, on plain colours' },
-                { value: 'layout', label: "The layout's own pages, as Baby Blue and Capiz are built" },
-              ]}
-              hint="A starter is one page per section you tick, on plain colours, ready to draw on. The layout's own pages are Capiz's or Baby Blue's, and only those two layouts have any."
-            />
-          )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
           {/*
             * The same one-tap the studio's Theme popover has: six roles made

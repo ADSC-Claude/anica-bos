@@ -12,6 +12,9 @@ import { isOccasion } from '@/lib/occasions';
 import { previewSitter } from '@/lib/sitter';
 import { paletteFromForm, fontsFromForm, sitterContent } from '@/lib/preview';
 import { Invitation } from '@/components/invite/renderer';
+import { documentOf } from '@/lib/design';
+import { sampleContent, isSample } from '@/lib/samples';
+import { screenPx } from '@/app/[slug]/shared';
 
 export const metadata: Metadata = { title: 'Preview', robots: { index: false } };
 export const dynamic = 'force-dynamic';
@@ -79,11 +82,30 @@ export default async function TemplatePreviewPage({ params, searchParams }: Para
    * set — which is what that customer would really see. The panel names who
    * is sitting, so "why is this Modern?" has its answer on the screen.
    */
+  /*
+   * The pages as the studio is drawing them. The form's panel asks for the
+   * draft, because what she is making is what she wants to see beside the
+   * knobs; a guest still gets what was published, from the row.
+   */
+  const draft = get('design') === 'draft' && row?.designDraft && typeof row.designDraft === 'object' && Object.keys(row.designDraft as object).length ? row.designDraft : undefined;
+  /*
+   * The studio's canvas, for a design with no demo of its own: one page at a
+   * time, against the sitter or a made-up sample, at a screen's height. The
+   * same three the guest page takes for a design that has a demo; this
+   * route is what the studio falls back to, so a design made a minute ago
+   * is drawn on somebody rather than on nothing.
+   */
+  const only = get('page') || undefined;
+  const words = contentOf(inv.content) as Record<string, unknown>;
+  const sampled = isSample(get('sample')) && get('sample') !== 'demo'
+    ? sampleContent(get('sample') as never, { doc: documentOf({ design: draft ?? row?.design, layout }), occasion, demo: words })
+    : words;
   const shown = {
     ...inv,
-    content: sitterContent(contentOf(inv.content), mode) as never,
+    content: sitterContent(sampled as { theme?: unknown }, mode) as never,
     template: {
       ...(row ?? inv.template),
+      ...(draft ? { design: draft } : {}),
       layout,
       look: findSet(get('look'), sets)?.key ?? '',
       palette: (get('bg') || get('paletteFamily') || get('paletteKey')
@@ -93,5 +115,5 @@ export default async function TemplatePreviewPage({ params, searchParams }: Para
     },
   };
 
-  return <Invitation invitation={shown} bare shape="phone" sets={sets} businessName={s['business.name']} />;
+  return <Invitation invitation={shown} bare shape="phone" only={only} screen={screenPx(get('screen'))} sets={sets} businessName={s['business.name']} />;
 }

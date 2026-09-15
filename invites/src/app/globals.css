@@ -363,11 +363,18 @@ table.data tr:hover td {
  */
 .inv-stage { background: var(--inv-surround, var(--inv-bg)); }
 .inv-stage:has(.inv[data-paged][data-mode='night']) { background: var(--night-surround, #12131c); }
+/*
+ * --inv-screen: the height of a screen, where a rule wants one. A guest's page
+ * reads the real one, so the variable is never set there. The studio draws
+ * one page in a frame exactly as tall as the page, and a rule measured
+ * against that frame's height would measure the page against itself and
+ * grow without end; so the studio hands in a phone's height instead.
+ */
 .inv {
   background: var(--inv-paper, var(--inv-bg));
   color: var(--inv-ink);
   font-family: var(--inv-body);
-  min-height: 100dvh;
+  min-height: var(--inv-screen, 100dvh);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -518,7 +525,7 @@ table.data tr:hover td {
 /* Hero variants by template layout. */
 .inv-hero {
   position: relative;
-  min-height: 92dvh;
+  min-height: calc(var(--inv-screen, 100dvh) * 0.92);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1375,7 +1382,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    rather than sharing the screen with the name. */
 .inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 0; justify-content: flex-start; padding-top: 0; padding-bottom: min(14vw, 4.5rem); }
 /* the names centred in the sky above the verse; a short screen grows the page rather than laying one over the other */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; min-height: 100vh; min-height: 100dvh; justify-content: center; padding: min(10vw, 3.2rem) 0 min(12vw, 3.6rem); box-sizing: border-box; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; min-height: 100vh; min-height: var(--inv-screen, 100dvh); justify-content: center; padding: min(10vw, 3.2rem) 0 min(12vw, 3.6rem); box-sizing: border-box; }
 .inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: 0; padding-top: 0.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */

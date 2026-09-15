@@ -59,6 +59,15 @@ export type RenderProps = {
   /** A visitor's look at a design: the opening, the cover and Our Story, then the way in. Nothing after. */
   peek?: boolean;
   /**
+   * The studio's canvas: this one page of the document and nothing else. Its
+   * decorations are left off, because the studio draws them over the page
+   * itself, live, with handles; the ground is still laid, so the page keeps
+   * its own background. Bare pages only.
+   */
+  only?: string;
+  /** With `only`: the height of the screen the page is drawn for, in pixels, for the rules that want one (see --inv-screen). */
+  screen?: number;
+  /**
    * The peek, framed inside one of our own pages rather than opened as a page
    * of its own — the landing band's card. What changes is navigation: the
    * corner controls go, because a card on the landing page has no "back" to
@@ -1595,7 +1604,7 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, embed = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, embed = false, only, screen, shape, look: lookOverride, sets, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
@@ -1922,7 +1931,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           </div>
         )]
         : parts;
-      if (!flowDecor(spec).length) return body;
+      // the studio draws a page's decorations itself, over this very page
+      if (!flowDecor(spec).length || only) return body;
       // behind the words, then the words, then what the design asked to have
       // over them: see FlowDecor for why they cannot be one layer
       return [
@@ -1964,6 +1974,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     }
     // a section the document does not name gets a page of its own, in its place
     for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    if (only) {
+      // the ground, and the one page the studio is drawing
+      const ground = out.slice(0, 2);
+      const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
+      return [...ground, ...rest.filter((el) => el.props['data-page'] === only)];
+    }
     if (peek) {
       // the ground, then the pages up to the one the design ends the peek on
       const ground = out.slice(0, 2);
@@ -2097,7 +2113,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // than the body, because the colour is the design's and a variable set on
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
-    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours }} lang={lang}>
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
       {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
       {/* a face she uploaded, served from our own bucket rather than by Google */}
       {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}

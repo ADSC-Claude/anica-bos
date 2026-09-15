@@ -1,6 +1,7 @@
 import type { Occasion } from '@prisma/client';
 import { fieldOf, shapeOf } from './asks';
 import type { DesignDoc, FieldRef, PhotoEl, TextEl } from './design';
+import { SECTION_BY_KEY, fieldsFor, type Field, type SectionKey } from './sections';
 
 /**
  * What the canvas is drawn against.
@@ -39,6 +40,8 @@ export const SAMPLES: { key: Sample; label: string }[] = [
   { key: 'anybody', label: 'Anybody — every box filled' },
   { key: 'longest', label: 'The longest a customer can type' },
 ];
+
+export const isSample = (v: unknown): v is Sample => SAMPLES.some((s) => s.key === v);
 
 /**
  * Names and words with the shapes Filipino names actually have: long ones,
@@ -133,5 +136,59 @@ export function sampleContent(
     const cap = Math.min(field?.max ?? 60, el.room ?? Number.POSITIVE_INFINITY);
     putAt(out, ref, longestWords(cap));
   }
+  /*
+   * A page laid out by its words draws its whole section, so what stands in
+   * for a customer there is every box of the form that section asks — not a
+   * binding, because nothing on such a page is bound. Without this the
+   * canvas, now that it draws such a page for real, showed it empty under
+   * every sample but the demo, which read as a broken page and not as a
+   * sample of anybody.
+   */
+  for (const key of doc.pages.filter((p) => !p.drawn).flatMap((p) => p.sections)) {
+    if (!(key in SECTION_BY_KEY)) continue;
+    const section = (out[key] as Record<string, unknown> | undefined) ?? {};
+    out[key] = section;
+    for (const f of fieldsFor(key as SectionKey, occasion)) {
+      if (f.staff || f.byDesign || section[f.key] !== undefined) continue;
+      const v = standInFor(f, kind);
+      if (v !== undefined) section[f.key] = v;
+    }
+  }
   return out;
+}
+
+/**
+ * One box of the form, filled the way the sample means: the question's own
+ * name, or as many letters as it takes. A list gets two rows; a switch is on,
+ * so a countdown counts; a date and a time are a day in the year after next,
+ * so the same countdown has something to count to; a choice is its first.
+ * A person, a picture, a colour — anything with a shape of its own — is left
+ * alone, and the page shows whatever it shows without it.
+ */
+function standInFor(f: Field, kind: Sample): unknown {
+  const words = (max?: number) => (kind === 'anybody' ? f.label : longestWords(Math.min(max ?? 60, 400)));
+  switch (f.type) {
+    case 'text':
+    case 'textarea':
+      return words(f.max);
+    case 'url':
+      return kind === 'anybody' ? 'https://example.com/' : 'https://example.com/' + longestWords(40).replace(/\s+/g, '-').toLowerCase();
+    case 'number':
+      return '2';
+    case 'toggle':
+      return true;
+    case 'date':
+      return `${new Date().getFullYear() + 2}-06-12`;
+    case 'time':
+      return '15:00';
+    case 'select':
+      return f.options?.[0]?.value ?? '';
+    case 'list': {
+      if (!f.item) return undefined;
+      const row = () => Object.fromEntries(f.item!.map((sub) => [sub.key, standInFor(sub, kind)]).filter(([, v]) => v !== undefined));
+      return [row(), row()];
+    }
+    default:
+      return undefined;
+  }
 }

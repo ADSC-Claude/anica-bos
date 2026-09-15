@@ -1226,7 +1226,7 @@ export function starterDesign(sections: PageSectionKey[]): DesignDoc {
 }
 
 /** A section's key as a page would spell it: `dressCode` becomes `dress-code`. */
-const pageKeyOf = (key: string): string => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+export const pageKeyOf = (key: string): string => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
 /**
  * The document a design renders from, or null for one that has none — which

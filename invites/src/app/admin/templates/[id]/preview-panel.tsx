@@ -35,6 +35,8 @@ export function PreviewPanel({ templateId, sitter, ownDemo }: { templateId: stri
       if (value) q.set(name, value);
     }
     q.set('mode', mode);
+    // the pages as the studio is drawing them, not only as last published
+    q.set('design', 'draft');
     return `/preview/template/${templateId}?${q.toString()}`;
   }, [mode, templateId]);
 
@@ -95,7 +97,7 @@ export function PreviewPanel({ templateId, sitter, ownDemo }: { templateId: stri
       </div>
       <p className="hint mt-2">
         The colours, the fonts, the set and the layout follow the form as you change them — nothing is saved until you press Save.
-        The design&rsquo;s own words and pictures are shown as they were last saved.
+        The design&rsquo;s own words and pictures are shown as they were last saved, and the pages as the studio is drawing them.
       </p>
       <p className="hint mt-1">
         Drawn on <strong>{sitter}</strong>

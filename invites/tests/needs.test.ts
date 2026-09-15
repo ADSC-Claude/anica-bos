@@ -324,18 +324,17 @@ test('a decoration running off the side of the page still says so', () => {
   assert.equal(b[0].level, 'blocks');
 });
 
-test('words on a page laid out by its words are never drawn, and it says so', () => {
+test('words on a page laid out by its words are drawn over it, so a box there is nothing to fix', () => {
+  // a page laid out by its words draws its boxes over the words (flowDecor),
+  // so a writing lifted off the flow, or words added beside it, pass as they
+  // would on a page drawn by hand
   const d = clone();
-  on(d, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
-  const n = run(d).filter((x) => x.rule === 'not-drawn');
-  assert.equal(n.length, 1);
-  assert.equal(n[0].level, 'blocks');
-  assert.match(n[0].text, /never drawn/);
-  assert.equal(publishable(run(d)), false);
-  // the same box on a drawn page is exactly where it belongs
+  on(d, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lifted: 'venue.title', lines: [{ role: 'body', sources: [{ word: 'venue' }, { fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
+  assert.deepEqual(run(d).filter((x) => x.id === 'stray'), []);
+  assert.equal(publishable(run(d)), true);
   const drawn = clone();
   on(drawn, 'story').elements!.push({ id: 'fine', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'here', tl: 'dito' } }] }] });
-  assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
+  assert.deepEqual(run(drawn).filter((x) => x.id === 'fine'), []);
 });
 
 // --- what a guest downloads --------------------------------------------------

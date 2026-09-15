@@ -459,6 +459,15 @@ export type PageSpec = {
    * around them. Absent, the page is as tall as its words.
    */
   minScreens?: number;
+  /**
+   * The page's own writings taken off its flow, by the ids the renderer
+   * marks them with (`data-w`), because a box of words carries each one
+   * now — dragged off the page in the studio, still reading the same
+   * answer. The renderer draws nothing for these; the box that took a
+   * writing's place says which one (`TextEl.lifted`), and taking the box
+   * off puts the writing back.
+   */
+  offFlow?: string[];
   /** the cover page's own settings; ignored on any other page */
   cover?: CoverSpec;
   /**
@@ -638,6 +647,8 @@ export type TextEl = Base & {
   room?: number;
   /** the design's own line is offered to the customer as an example under their box */
   offerLine?: boolean;
+  /** the page's own writing this box took the place of (its data-w id, in PageSpec.offFlow); taking the box off puts the writing back */
+  lifted?: string;
 };
 
 /**
@@ -955,6 +966,7 @@ const zElement = z.union([
     tracking: z.number().min(-0.05).max(0.4).optional(),
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
+    lifted: z.string().max(80).optional(),
   }).strict(),
   z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional(), glare: z.number().int().min(0).max(255).optional(), bg: z.literal(true).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
@@ -973,6 +985,7 @@ const zPage = z.object({
   outside: z.union([z.literal('design'), zColour]).optional(),
   bleed: z.boolean().optional(),
   minScreens: z.number().min(0.3).max(6).optional(),
+  offFlow: z.array(z.string().max(80)).max(80).optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
     inset: zPlace(0, 40).optional(),

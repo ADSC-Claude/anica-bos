@@ -72,7 +72,6 @@ export const NEED_RULES = [
   'clip-length',
   'clip-budget',
   'clip-glare',
-  'not-drawn',
   'moving',
   'motion',
   'asks',
@@ -344,13 +343,6 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
         if (el.x < 0 || el.x > 100) say('blocks', 'off-page', `${nameOf(el, i + 1)} sits off the side of the page.`, el.id);
         else if (left < -BLEED || right > 100 + BLEED) say('says', 'off-page', `${nameOf(el, i + 1)} runs off the side of the page.`, el.id);
       });
-      // words on a page laid out by its words are its sections', so a text
-      // box here is in the document and drawn nowhere
-      for (const el of elements) {
-        if (el.kind === 'text') {
-          say('blocks', 'not-drawn', `${named} is laid out by its words, so its words come from the sections it carries — ${nameOf(el, elements.indexOf(el) + 1)} is never drawn. Put it on a page drawn by hand, or say it in the section's own line.`, el.id);
-        }
-      }
     }
 
     elements.forEach((el, i) => {

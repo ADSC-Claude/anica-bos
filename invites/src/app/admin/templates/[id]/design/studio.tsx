@@ -124,13 +124,23 @@ type Props = {
   shareLink: string;
 };
 
+/**
+ * A writing of the page's own, as the frame under the canvas drew it: where
+ * it sits on the page (shares of the page's box), what it reads (the sources
+ * the box that takes its place is given, from `data-src`), the role its
+ * class says, its size as a share of the width, and its words for the label.
+ */
+type Writing = { id: string; src: TextEl['lines'][number]['sources']; role: LineRole; text: string; x: number; y: number; w: number; h: number; sizeCqw: number };
+
 type Drag =
   /** every id that is travelling, where each started, and which one the pointer holds */
   | { kind: 'move'; ids: string[]; from: Record<string, { x: number; y: number }>; lead: string; px: number; py: number }
   | { kind: 'size'; id: string; w: number; px: number }
   | { kind: 'turn'; id: string; cx: number; cy: number; from: number; rotate: number }
   /** fitting a picture inside a frame that does not move: the window pans */
-  | { kind: 'crop'; id: string; px: number; py: number; cx: number; cy: number };
+  | { kind: 'crop'; id: string; px: number; py: number; cx: number; cy: number }
+  /** a writing of the page's own being dragged off the flow: nothing moves until the hand lets go */
+  | { kind: 'lift'; w: Writing; px: number; py: number };
 
 /**
  * A picture being fitted: which frame, how big the file actually is, and
@@ -1106,12 +1116,26 @@ export function Studio(p: Props) {
   /** Deleting what something followed leaves it free, not pointing at a ghost. */
   function remove() {
     if (!sel.length) return;
-    editPage((pg) => ({
-      ...pg,
-      elements: (pg.elements ?? [])
-        .filter((e) => !chosen.has(e.id))
-        .map((e) => (e.attachTo && chosen.has(e.attachTo) ? { ...e, attachTo: undefined } : e)),
-    }));
+    editPage((pg) => {
+      // a box that took a writing off the flow gives it back as it goes
+      const back = new Set((pg.elements ?? []).filter((e) => chosen.has(e.id) && e.kind === 'text' && e.lifted).map((e) => (e as TextEl).lifted as string));
+      const offFlow = (pg.offFlow ?? []).filter((id) => !back.has(id));
+      const next: PageSpec = {
+        ...pg,
+        elements: (pg.elements ?? [])
+          .filter((e) => !chosen.has(e.id))
+          .map((e) => (e.attachTo && chosen.has(e.attachTo) ? { ...e, attachTo: undefined } : e)),
+        offFlow: offFlow.length ? offFlow : undefined,
+      };
+      if (!next.offFlow) delete next.offFlow;
+      // the page's own copy comes back at once, not after the save that redraws the frame
+      const fdoc = flowFrame.current?.contentDocument;
+      for (const id of back) {
+        const el = fdoc?.querySelector<HTMLElement>(`[data-page="${pg.key}"] [data-w="${id}"]`);
+        if (el) el.style.setProperty('display', 'revert', 'important');
+      }
+      return next;
+    });
     setSel([]);
   }
 
@@ -1291,7 +1315,7 @@ export function Studio(p: Props) {
       let deg = d.rotate + ((Math.atan2(e.clientY - d.cy, e.clientX - d.cx) - d.from) * 180) / Math.PI;
       if (e.shiftKey) deg = Math.round(deg / 15) * 15;
       editEl(d.id, (el) => ({ ...el, rotate: place(((deg + 180) % 360) - 180) }), false);
-    } else {
+    } else if (d.kind === 'crop') {
       // panning a picture inside a frame that does not move. The frame may be
       // turned — Baby Blue's polaroids all are — so the hand's travel is
       // turned back the other way before it is read as across and down.
@@ -1309,7 +1333,48 @@ export function Studio(p: Props) {
       putFit({ ...f, cx: d.cx - (across / fw) * win.w, cy: d.cy - (down / fh) * win.h });
     }
   }
-  const endDrag = () => { drag.current = null; };
+  const endDrag = (e?: RPointerEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    // a writing dragged far enough comes off the flow where the hand let go; a mere press leaves it be
+    if (d && d.kind === 'lift' && e && Math.hypot(e.clientX - d.px, e.clientY - d.py) >= 4) liftWriting(d.w, e.clientX - d.px, e.clientY - d.py);
+  };
+
+  /**
+   * A writing of the page's own, off the flow and into a box of its own.
+   *
+   * "The writings that sync from the form: movable and editable on the
+   * page." The box reads what the writing read — the same answer on the
+   * form, the same word of the design's — so it stays in step; it is placed
+   * where the writing was plus the drag, set in the role and at the size the
+   * writing had; and the page says the writing is off its flow, so the app
+   * draws it nowhere. Taking the box off puts the writing back (see remove).
+   */
+  function liftWriting(wr: Writing, dx: number, dy: number) {
+    if (!page || page.drawn) return;
+    const b = box();
+    if (!b || !b.width) return;
+    const id = freeId(doc, 'words');
+    // x is the box's middle as a share of the width; y is the gap from the head as a share of the width (decorStyle)
+    const x = place(Math.max(0, Math.min(100, wr.x + wr.w / 2 + (dx / b.width) * 100)));
+    const y = place(Math.max(0, ((wr.y / 100) * b.height) / b.width * 100 + (dy / b.width) * 100));
+    const made: Element = {
+      id, kind: 'text', block: wr.role === 'title' ? 'head' : 'free', x, y, w: place(Math.max(12, Math.min(100, wr.w + 2))), anchor: 'top', z: 1, lifted: wr.id,
+      lines: [{ role: wr.role, align: 'center', sources: wr.src.length ? wr.src : [{ fixed: { en: wr.text, tl: wr.text } }], size: place(Math.max(1, wr.sizeCqw)) }],
+    };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made], offFlow: [...new Set([...(pg.offFlow ?? []), wr.id])] }));
+    setSel([id]);
+    // the page's own copy goes at once, not after the save that redraws the frame
+    const el = flowFrame.current?.contentDocument?.querySelector<HTMLElement>(`[data-page="${page.key}"] [data-w="${wr.id}"]`);
+    if (el) el.style.display = 'none';
+  }
+
+  /** Double-click on a writing: the part it belongs to opens in the Invitation drawer, at the words themselves. */
+  function editWriting(wr: Writing) {
+    const part = wr.id.split('.')[0];
+    if (part in SECTION_BY_KEY) setAsked(part as SectionKey);
+    openDrawer('invitation');
+  }
 
   // --- fitting a picture inside its frame -----------------------------------
 
@@ -1528,6 +1593,8 @@ export function Studio(p: Props) {
   const screen = VIEWS.find((v) => v.key === size)?.screen ?? 844;
   /** the frame is being drawn again: from the address changing until it has loaded */
   const [drawing, setDrawing] = useState(false);
+  /** the page's own writings, as the frame drew them, for the handles that lift one off the flow */
+  const [writings, setWritings] = useState<Writing[]>([]);
   const flowSrc = useMemo(() => {
     if (!flowKey) return '';
     const q = new URLSearchParams({ page: flowKey, screen: String(screen), v: String(shown) });
@@ -1544,6 +1611,47 @@ export function Studio(p: Props) {
     const r = pg.getBoundingClientRect();
     const top = r.top + win.scrollY;
     setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
+    /*
+     * The page's own writings, where the frame drew them. Each is a handle
+     * on the canvas she can drag off the flow into a box of its own. The
+     * role is read off the class the renderer set, so the box is set the
+     * way the writing was; the size off the computed font, as a share of
+     * the width, for the same reason.
+     */
+    if (r.width > 0) {
+      const roleOf = (el: HTMLElement): LineRole => {
+        const c = el.className;
+        if (c.includes('inv-title') || c.includes('inv-names')) return 'title';
+        if (c.includes('inv-display')) return 'script';
+        if (c.includes('inv-eyebrow')) return 'eyebrow';
+        if (c.includes('inv-tagline')) return 'sub';
+        if (c.includes('inv-venue-name')) return 'label-title';
+        if (c.includes('inv-hero-date')) return 'label-text';
+        return 'body';
+      };
+      const found: Writing[] = [];
+      for (const el of Array.from(pg.querySelectorAll<HTMLElement>('[data-w]'))) {
+        /*
+         * One off the flow is drawn nowhere, so it has no box to measure:
+         * it is shown for the measure and hidden again, so that its handle
+         * is ready the moment the box that took its place goes.
+         */
+        const hidden = getComputedStyle(el).display === 'none';
+        const was = [el.style.getPropertyValue('display'), el.style.getPropertyPriority('display')] as const;
+        if (hidden) el.style.setProperty('display', 'revert', 'important');
+        const er = el.getBoundingClientRect();
+        if (hidden) el.style.setProperty('display', was[0], was[1]);
+        if (!er.width || !er.height) continue;
+        let src: Writing['src'] = [];
+        try { src = JSON.parse(el.dataset.src || '[]') as Writing['src']; } catch { src = []; }
+        found.push({
+          id: el.dataset.w || '', src, role: roleOf(el), text: (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+          x: ((er.left - r.left) / r.width) * 100, y: ((er.top - r.top) / r.height) * 100, w: (er.width / r.width) * 100, h: (er.height / r.height) * 100,
+          sizeCqw: (parseFloat(getComputedStyle(el).fontSize) / r.width) * 100,
+        });
+      }
+      setWritings(found);
+    }
   }, [flowKey]);
   useEffect(() => { if (flowSrc) setDrawing(true); }, [flowSrc]);
   /*
@@ -2110,7 +2218,7 @@ export function Studio(p: Props) {
                     })}
                   </div>
                 )}
-                {page && (page.drawn || pieces.decor.length > 0) && (
+                {page && (page.drawn || pieces.decor.length > 0 || writings.length > 0) && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
                     <Ties elements={elements} boxes={boxes} on={chosen} />
                     {/* on a page laid out by its words the floats are among the words, in the frame, and only the decorations have handles here */}
@@ -2126,6 +2234,23 @@ export function Studio(p: Props) {
                         onSize={(e) => startSize(e, el)}
                         onTurn={(e) => startTurn(e, el)}
                         onFit={() => startFit(el.id)}
+                      />
+                    ))}
+                    {/*
+                      * The page's own writings, each a handle she can drag
+                      * off the flow into a box of its own. Faint, and green
+                      * rather than the pieces' blue, so what is the app's
+                      * and what is hers read apart; one already lifted has
+                      * no handle, since the box that took its place has one.
+                      */}
+                    {!page.drawn && writings.filter((wr) => !(page.offFlow ?? []).includes(wr.id)).map((wr) => (
+                      <div
+                        key={`w:${wr.id}`}
+                        data-writing={wr.id}
+                        title={`${wr.text} — drag to take it off the page into a box of its own, still reading the same answer; double-click to edit its words`}
+                        onPointerDown={(e) => { e.stopPropagation(); drag.current = { kind: 'lift', w: wr, px: e.clientX, py: e.clientY }; }}
+                        onDoubleClick={() => editWriting(wr)}
+                        style={{ position: 'absolute', left: `${wr.x}%`, top: `${wr.y}%`, width: `${wr.w}%`, height: `${wr.h}%`, outline: '1px dashed rgba(16, 122, 84, 0.5)', cursor: 'grab', pointerEvents: 'auto' }}
                       />
                     ))}
                   </div>
@@ -2149,6 +2274,7 @@ export function Studio(p: Props) {
                 This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against.
                 <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong>, <strong>+ Frame</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
                 An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them.
+                The page&rsquo;s own writings show a faint green outline: drag one to take it off the flow into a box of its own that still reads the same answer, and it moves and sets like any other box; double-click one to edit its words in the Invitation drawer. Taking the box off (&#x2715;) puts the writing back.
                 The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces, and a clip you have picked plays where it is.
                 A page taller than its words is set on the right, under Background: at least so many screens.
                 The page is redrawn from the draft a moment after your hand stops; the label above says when. Its background, the colour beside it, the parts it carries and the pieces on it are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.
@@ -4434,7 +4560,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
             {pieces.decor.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
                 <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
-                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : el.kind === 'text' ? 'words' : el.kind === 'anim' ? 'an animation' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
+                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : el.kind === 'text' ? (el.lifted ? 'a writing of the page\u2019s own, lifted' : 'words') : el.kind === 'anim' ? 'an animation' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
                 </button>
                 <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>

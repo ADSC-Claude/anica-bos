@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
@@ -387,7 +387,26 @@ export function Studio(p: Props) {
    * its words and the two headings carry no box of their own at all: the
    * stylesheet gives them one. A handle has to sit on what a guest sees.
    */
-  const [boxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  const [ownBoxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  /**
+   * Where the frame laid the floats.
+   *
+   * Everything else on the canvas is drawn by the studio itself, so its box
+   * is measured from the studio's own page. A float is not: it is in among
+   * the words, inside the frame, and only the frame knows where the words
+   * let it land. Same-origin, so it is read rather than guessed (`sizeFlow`).
+   */
+  const [flowBoxes, setFlowBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  /**
+   * The column the words are in, as a share of the page: where it starts and
+   * how wide it is. A float's place is a share of *that* — it stands in the
+   * column, and a margin on it is a share of the column — while every other
+   * number on the canvas is a share of the page. So the hand's travel is
+   * turned into the column's numbers before it is written, and the column is
+   * measured rather than assumed (`sizeFlow`).
+   */
+  const [flowCol, setFlowCol] = useState({ left: 0, width: 100 });
+  const boxes = useMemo(() => ({ ...ownBoxes, ...flowBoxes }), [ownBoxes, flowBoxes]);
   /** how far down the lowest thing reaches, in pixels: what a page that grows grows to */
   const [grown, setGrown] = useState(0);
   useLayoutEffect(() => {
@@ -1014,9 +1033,10 @@ export function Studio(p: Props) {
   function addFloat() {
     if (!page) return;
     const id = freeId(doc, 'photo');
-    // y is required of every element and means nothing on a flow page, where
-    // the words decide where a float lands; 0 is the honest value for it
-    const made: Element = { id, kind: 'photo', y: 0, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } };
+    // A place of its own from the start, so she can drag it the moment it is
+    // there: a fifth of the way in on the left, a little down the words
+    // (both shares of the width — see `floatAt`).
+    const made: Element = { id, kind: 'photo', x: 24, y: 4, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -1249,6 +1269,42 @@ export function Studio(p: Props) {
     setSel([]);
   }
 
+  /**
+   * One writing back into the flow of the words: the box that took it off
+   * goes, and the page stops saying the writing is off its flow. `remove`
+   * does the same for whatever is selected; this is the button beside its
+   * name in the list, which should not have to select it first.
+   */
+  function putBack(id: string) {
+    editPage((pg) => {
+      const el = (pg.elements ?? []).find((e) => e.id === id);
+      const back = el && el.kind === 'text' ? el.lifted : undefined;
+      const offFlow = (pg.offFlow ?? []).filter((w) => w !== back);
+      const next: PageSpec = {
+        ...pg,
+        elements: (pg.elements ?? []).filter((e) => e.id !== id).map((e) => (e.attachTo === id ? { ...e, attachTo: undefined } : e)),
+        offFlow: offFlow.length ? offFlow : undefined,
+      };
+      if (!next.offFlow) delete next.offFlow;
+      // the page's own copy comes back at once, not after the save
+      const at = back ? flowFrame.current?.contentDocument?.querySelector<HTMLElement>(`[data-page="${pg.key}"] [data-w="${back}"]`) : null;
+      if (at) at.style.setProperty('display', 'revert', 'important');
+      return next;
+    });
+    setSel((was) => was.filter((x) => x !== id));
+  }
+
+  /** What to call a writing in a list: the words it reads, or where it reads them from. */
+  const nameOfWords = (el: TextEl): string => {
+    const src = el.lines?.[0]?.sources?.[0];
+    if (!src) return 'a writing';
+    if ('fixed' in src) return src.fixed.en;
+    if ('bind' in src) return `${src.bind.section} · ${src.bind.field}`;
+    if ('word' in src) return src.word;
+    if ('copy' in src) return src.copy;
+    return 'a writing';
+  };
+
   function layer(by: number) {
     if (!sel.length || !page) return;
     const list = [...(page.elements ?? [])];
@@ -1321,12 +1377,44 @@ export function Studio(p: Props) {
    * numbers become the design's: taken from where the stylesheet had put it,
    * so the box does not jump on the first pixel of the drag.
    */
+  /**
+   * Where a float would be, for one the frame drew nothing for.
+   *
+   * An empty frame draws nothing on a page laid out by its words — a
+   * customer who gave no picture gets their words and no gap — and a
+   * template's floats are mostly frames asked of the customer, so most of
+   * them are empty while she is drawing. The handle is put where the place
+   * says it will land, worked out the same way the stylesheet does it, so an
+   * empty frame is as draggable as a full one.
+   */
+  const wouldFloat = useCallback((el: Element) => {
+    if (el.kind !== 'photo' || !el.float || !column || !flowBox.height) return undefined;
+    const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
+    const wide = (el.w ?? 40) * shape.width;
+    const at = floatAt(el, wide);
+    // the column's numbers, as a share of the page, and then as the box the
+    // handle is drawn in: the page's own percentages like every other box
+    const colPx = (flowCol.width / 100) * column;
+    const wpx = (wide / 100) * colPx;
+    const leftPx = (flowCol.left / 100) * column + (at.side === 'left' ? (at.inset / 100) * colPx : colPx - (at.inset / 100) * colPx - wpx);
+    return {
+      x: place((leftPx / column) * 100),
+      y: place((((at.down / 100) * colPx) / flowBox.height) * 100),
+      w: place((wpx / column) * 100),
+      h: place(((wpx * (shape.height / shape.width)) / flowBox.height) * 100),
+    };
+  }, [column, flowBox.height, flowCol]);
+
   const settled = useCallback((el: Element) => {
     const at = boxes[el.id];
-    const x = el.x ?? (at ? place(at.x + at.w / 2) : 50);
-    const w = el.w ?? (at ? place(at.w) : 20);
+    // a float's place is a share of the words' column, so a box measured off
+    // the page is read back in the column's numbers (`floatAt`)
+    const floated = el.kind === 'photo' && Boolean(el.float);
+    const mid = at ? at.x + at.w / 2 : 50;
+    const x = el.x ?? (at && floated && flowCol.width ? place(((mid - flowCol.left) / flowCol.width) * 100) : place(mid));
+    const w = el.w ?? (at ? place(floated && flowCol.width ? (at.w / flowCol.width) * 100 : at.w) : 20);
     return { x, w };
-  }, [boxes]);
+  }, [boxes, flowCol]);
 
   /**
    * Shift adds to the selection, and takes away again — the same gesture every
@@ -1405,8 +1493,15 @@ export function Studio(p: Props) {
       const flow = !page.drawn;
       const leadEl = elements.find((el) => el.id === d.lead);
       const dir = flow && leadEl?.from === 'bottom' ? -1 : 1;
-      let x = lead.x + ((e.clientX - d.px) / b.width) * 100;
-      let y = flow ? Math.max(0, lead.y + ((e.clientY - d.py) / b.width) * 100 * dir) : lead.y + ((e.clientY - d.py) / b.height) * 100;
+      /*
+       * A float's place is a share of the words' column, not of the page, so
+       * the hand's travel is turned into the column's numbers: drag it a
+       * tenth of the page and it moves a tenth of the page, which is a
+       * little more than a tenth of the narrower column.
+       */
+      const per = flow && leadEl?.kind === 'photo' && leadEl.float && flowCol.width ? 100 / flowCol.width : 1;
+      let x = lead.x + ((e.clientX - d.px) / b.width) * 100 * per;
+      let y = flow ? Math.max(0, lead.y + ((e.clientY - d.py) / b.width) * 100 * per * dir) : lead.y + ((e.clientY - d.py) / b.height) * 100;
       if (e.shiftKey) { if (Math.abs(e.clientX - d.px) > Math.abs(e.clientY - d.py)) y = lead.y; else x = lead.x; }
       const still = elements.filter((el) => !d.from[el.id]);
       x = snap(x, [50, ...still.map((el) => el.x ?? 50)]);
@@ -1415,7 +1510,11 @@ export function Studio(p: Props) {
       const dy = y - lead.y;
       editEls(d.ids, (el) => {
         const was = d.from[el.id];
-        return was ? { ...el, x: place(was.x + dx), y: place(was.y + dy) } : el;
+        if (!was) return el;
+        const at = { ...el, x: place(was.x + dx), y: place(was.y + dy) };
+        // a float dragged across the middle of the column changes sides: the
+        // side is `floatAt`'s answer, written back so the document reads plainly
+        return at.kind === 'photo' && at.float ? { ...at, float: (at.x ?? 50) < 50 ? 'left' as const : 'right' as const } : at;
       }, false);
     } else if (d.kind === 'size') {
       // the box is centred on x, so the corner moves half of what the width does
@@ -1723,6 +1822,36 @@ export function Studio(p: Props) {
     const top = r.top + win.scrollY;
     setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
     /*
+     * The floats, where the words let them land. A float is the one thing on
+     * the canvas the studio does not draw — it is in among the words inside
+     * the frame — so its handle is put over the box the frame gave it,
+     * measured here in the page's own percentages like every other box.
+     */
+    if (r.width > 0 && r.height > 0) {
+      const col = pg.querySelector<HTMLElement>('.inv-flow') ?? pg;
+      const cr = col.getBoundingClientRect();
+      if (cr.width > 0) {
+        const next = { left: place(((cr.left - r.left) / r.width) * 100), width: place((cr.width / r.width) * 100) };
+        setFlowCol((was) => (Math.abs(was.left - next.left) < 0.1 && Math.abs(was.width - next.width) < 0.1 ? was : next));
+      }
+      const found: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const node of Array.from(pg.querySelectorAll<HTMLElement>('.inv-bb-float[data-el]'))) {
+        const fr = node.getBoundingClientRect();
+        found[node.dataset.el!] = {
+          x: ((fr.left - r.left) / r.width) * 100,
+          y: ((fr.top - r.top) / r.height) * 100,
+          w: (fr.width / r.width) * 100,
+          h: (fr.height / r.height) * 100,
+        };
+      }
+      setFlowBoxes((was) => {
+        const keys = Object.keys(found);
+        const same = keys.length === Object.keys(was).length
+          && keys.every((k) => was[k] && Math.abs(was[k].x - found[k].x) < 0.1 && Math.abs(was[k].y - found[k].y) < 0.1 && Math.abs(was[k].w - found[k].w) < 0.1);
+        return same ? was : found;
+      });
+    }
+    /*
      * A picture pinned to the screen is a layer fixed to the frame's
      * window — and the frame's window is the whole page, of which the
      * canvas shows this page's box. The layer is told the box, so the
@@ -1824,6 +1953,22 @@ export function Studio(p: Props) {
     const win = flowFrame.current?.contentWindow;
     const pg = win?.document.querySelector<HTMLElement>(`[data-page="${page.key}"]`);
     if (!win || !pg) return;
+    /*
+     * The floats, as she drags them. They live in the frame, so without this
+     * the handle moved and the picture stayed where the last save left it —
+     * two seconds of the page disagreeing with her hand. The place is the
+     * same one `FlowFloats` writes, so what she sees while dragging is what
+     * the save lands on.
+     */
+    for (const el of flowFloats(page)) {
+      const node = win.document.querySelector<HTMLElement>(`.inv-bb-float[data-el="${CSS.escape(el.id)}"]`);
+      if (!node) continue;
+      const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
+      const at = floatAt(el, (el.w ?? 40) * shape.width);
+      node.dataset.float = at.side;
+      node.style.setProperty('--float-x', `${at.inset}%`);
+      node.style.setProperty('--float-y', `${at.down}%`);
+    }
     const g = page.ground;
     // a page on a picture pinned to the screen is see-through: its colour waits (pinOf)
     pg.style.background = g && !isPicture(g) && !pins.has(page.key) ? colourOf(g.color, vars) : '';
@@ -2395,11 +2540,11 @@ export function Studio(p: Props) {
                   <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
                     <Ties elements={elements} boxes={boxes} on={chosen} />
                     {/* on a page laid out by its words the floats are among the words, in the frame, and only the decorations have handles here */}
-                    {(page.drawn ? elements : pieces.decor).map((el) => (
+                    {(page.drawn ? elements : [...pieces.floats, ...pieces.decor]).map((el) => (
                       <Handle
                         key={el.id}
                         el={el}
-                        at={boxes[el.id]}
+                        at={boxes[el.id] ?? wouldFloat(el)}
                         on={chosen.has(el.id)}
                         solo={sel.length === 1}
                         fitting={fit ? (fit.id === el.id ? 'this' : 'other') : undefined}
@@ -2446,7 +2591,7 @@ export function Studio(p: Props) {
               <p className="hint">
                 This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against.
                 <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong>, <strong>+ Frame</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
-                An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them.
+                An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them. A picture the words flow past can be dragged where you want it: the words flow on whichever side of the middle you leave it.
                 The page&rsquo;s own writings show a faint green outline: drag one to take it off the flow into a box of its own that still reads the same answer, and it moves and sets like any other box; double-click one to edit its words in the Invitation drawer. Taking the box off (&#x2715;) puts the writing back.
                 The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces, and a clip you have picked plays where it is.
                 A page taller than its words is set on the right, under Background: at least so many screens.
@@ -2522,6 +2667,13 @@ export function Studio(p: Props) {
             onGround={setGround}
             onBackground={setBackground}
             onRunsOn={setRunsOn}
+            words={{
+              flowing: writings.map((w) => ({ id: w.id, text: w.text })),
+              steady: (page?.elements ?? []).filter((e): e is TextEl => e.kind === 'text' && Boolean(e.lifted)).map((e) => ({ id: e.id, text: nameOfWords(e) })),
+              lift: (id) => { const w = writings.find((x) => x.id === id); if (w) liftWriting(w, 0, 0); },
+              back: (id) => putBack(id),
+              pick: (id) => setSel([id]),
+            }}
             pinnedOn={pinnedOn}
             joinedTo={joinedTo ? (doc.pages.find((x) => x.key === joinedTo)?.label?.en || joinedTo) : undefined}
             templateId={p.templateId}
@@ -2933,6 +3085,11 @@ function Handle({ el, at, on, solo, fitting, onDown, onSize, onTurn, onFit }: {
       onDoubleClick={el.kind === 'photo' && !fitting ? onFit : undefined}
       style={{
         position: 'absolute', left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%`, height: `${at.h}%`,
+        // above the page's own writings, which are handles too and are drawn
+        // after these: a picture the words flow past stands among them, so
+        // without this its handle is under one of theirs and never gets the
+        // pointer at all
+        zIndex: 1,
         cursor: fitting === 'this' ? 'grab' : 'move', background: 'transparent',
         // everything but the picture being fitted waits: a stray click while
         // she is panning must not pick something else up
@@ -3017,19 +3174,17 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         * the edge it is measured from. A drawn page is as it always was.
         */}
       <div className="grid grid-cols-2 gap-2">
-        {!floated && <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>}
-        {!floated && (
-          <label className="block">
-            <span className="label">{deco ? (el.from === 'bottom' ? 'Up from the foot' : 'Down from the head') : 'Down'}</span>
-            {num(el.y, (n) => onMoveTo({ y: n }))}
-          </label>
-        )}
+        <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>
+        <label className="block">
+          <span className="label">{floated ? 'Down the words' : deco ? (el.from === 'bottom' ? 'Up from the foot' : 'Down from the head') : 'Down'}</span>
+          {num(el.y, (n) => onMoveTo({ y: n }))}
+        </label>
         <label className="block"><span className="label">Width</span>{num(el.w, (n) => onChange((e) => ({ ...e, w: n })))}</label>
         <label className="block"><span className="label">Turn</span>{num(el.rotate, (n) => onChange((e) => ({ ...e, rotate: n })), 0.5)}</label>
       </div>
       <p className="hint">
         {floated
-          ? `Width is a share of the page's width. This page is laid out by its words, so there is nowhere to put it: it goes where the words make room for it.`
+          ? `Drag it where you want it, or set it here: across is the middle of the box and down is how far down the words it begins, both a share of the page's width — the width for down as well, because this page's height is its customer's words. The words flow past it on whichever side of the middle you leave it, and two floats on the same side stack rather than overlap. A phone is too narrow to read four words a line beside a picture, so there it stands on its own at that point in the words.`
           : deco
             ? `Across, width and the gap from the edge are all a share of the page's width — this page's height is its words', so a share of it would move as a customer typed.`
             : `Across and width are a share of the page's width; down is a share of its height. This page is ${ratio.toFixed(2)} screens tall.`}
@@ -4767,7 +4922,7 @@ const BACKGROUND_SLOTS: { key: 'phone' | 'website'; name: string; size: string; 
   },
 ];
 
-function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress }: {
+function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   /** the whole background at once: a colour, a drawn page's picture, or none */
@@ -4776,6 +4931,19 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo,
   onBackground: (which: 'phone' | 'website', pic: Picture | undefined) => void;
   /** how many pages after this one its background also stands behind */
   onRunsOn: (n: number) => void;
+  /**
+   * The page's own writings: the ones still flowing with the words, the ones
+   * she has made steady, and the two ways between them. A writing flows
+   * unless she says otherwise, and saying otherwise used to be a drag and
+   * nothing else — which is a gesture nobody finds. It is a button now.
+   */
+  words: {
+    flowing: { id: string; text: string }[];
+    steady: { id: string; text: string }[];
+    lift: (id: string) => void;
+    back: (id: string) => void;
+    pick: (id: string) => void;
+  };
   /** the page whose picture runs on under this one, by name, when this page sits on one */
   joinedTo?: string;
   /** the page whose picture is pinned to the screen under this one, by name, when this page scrolls over one */
@@ -4811,6 +4979,8 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo,
     website: page.pin === 'column' ? undefined : picture,
   };
   const flows = groundKind(page) === 'flow';
+  /** both sizes given: the window is what picks between them (`PHONE_WINDOW`) */
+  const both = Boolean(slots.phone && slots.website);
 
   async function pick(file: File, which: 'phone' | 'website') {
     setBusy(true);
@@ -4968,7 +5138,7 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo,
             {pieces.floats.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
                 <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
-                  The words flow past it, {el.float === 'right' ? 'on the right' : 'on the left'} · {el.w ?? 40}% wide{el.rotate ? ` · turned ${el.rotate}°` : ''}
+                  The words flow past it, {el.float === 'right' ? 'on the right' : 'on the left'} · {el.w ?? 40}% wide{el.x !== undefined ? ` · ${Math.round(el.x)} across, ${Math.round(el.y)} down` : ''}{el.rotate ? ` · turned ${el.rotate}°` : ''}
                 </button>
                 <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>
@@ -4982,6 +5152,38 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo,
               </li>
             ))}
           </ol>
+          {/*
+            * The page's own writings, and the one thing to say about each:
+            * does it flow with the words or stay where she puts it. Making
+            * one steady was a drag on a faint outline and nothing else, so
+            * it is a button here too — and the way back is a button beside
+            * it rather than deleting a box and hoping.
+            */}
+          {(words.flowing.length > 0 || words.steady.length > 0) && (
+            <div className="mt-2">
+              <p className="label">The words on this page</p>
+              <ol className="mt-1 space-y-1">
+                {words.steady.map((w) => (
+                  <li key={w.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                    <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => words.pick(w.id)}>
+                      {w.text || 'a writing'} &middot; steady where you put it
+                    </button>
+                    <button type="button" onClick={() => words.back(w.id)} className="shrink-0 rounded bg-white px-1.5">Let it flow</button>
+                  </li>
+                ))}
+                {words.flowing.map((w) => (
+                  <li key={w.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                    <span className="min-w-0 flex-1 truncate">{w.text || 'a writing'} &middot; flows with the words</span>
+                    <button type="button" onClick={() => words.lift(w.id)} className="shrink-0 rounded bg-white px-1.5">Make it steady</button>
+                  </li>
+                ))}
+              </ol>
+              <p className="hint">
+                A writing flows with the words above and below it, which is how a page laid out by its words reads.
+                <strong> Make it steady</strong> takes it out of that flow into a box of its own, where you place it, size it and turn it like any other piece &mdash; and it still reads the same answer from the form. Dragging its faint outline on the page does the same thing.
+              </p>
+            </div>
+          )}
           <div className="mt-1 flex gap-1">
             <button type="button" onClick={pieces.addFloat} className="flex-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
               + one the words flow past
@@ -5152,29 +5354,71 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo,
         {heavy && <p className="hint text-amber-800">{heavy}</p>}
         {shape && <p className="hint text-amber-800" data-testid="shape">{shape}</p>}
         {/*
-          * How far it reaches: this page, or this page and the ones after it
-          * she picks. A pinned background simply stands behind them all —
-          * one still picture, the writings moving over it — which is what
-          * she means by one background flowing over the pages. The tall
-          * grounds the two shipped designs were drawn on are the other
-          * case, and say so.
+          * The four backgrounds, in the four lines she asked for them in:
+          * one for the phone and one for the whole website, each of them
+          * either this page's alone or flowing over the pages she picks.
+          *
+          * Which size it is comes from the slot the picture is in, so the
+          * size half of each line is checked from that and a line whose
+          * size she has not uploaded says so rather than pretending. How
+          * far it reaches is `runsOn`, and it is the same answer for both
+          * sizes, because the pages a background stands behind are the
+          * page's own business and not the picture's: where she has given
+          * both, the line under them says the window is what picks.
           */}
         {picture && !page.drawn && (
-          <label className="mt-2 block">
-            <span className="label">Where it reaches</span>
-            <select className="input w-full text-xs" value={picture.runsOn ?? 0} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
-              <option value={0}>this page only</option>
-              <option value={1}>this page and the next</option>
-              <option value={2}>this page and the next 2</option>
-              <option value={3}>this page and the next 3</option>
-              <option value={4}>this page and the next 4</option>
-            </select>
-            <span className="hint">
+          <div className="mt-2" data-testid="reach">
+            <p className="label">What is this background?</p>
+            <div className="mt-1 flex flex-col gap-1">
+              {([
+                ['phone', 0, 'Background for the phone — this page only'],
+                ['phone', 1, 'Background for the phone — flowing over the pages I pick'],
+                ['website', 0, 'Background for the whole website — this page only'],
+                ['website', 1, 'Background for the whole website — flowing over the pages I pick'],
+              ] as const).map(([which, reaches, name]) => {
+                const has = Boolean(slots[which]);
+                const isSize = both || (which === 'phone' ? page.pin === 'column' : page.pin !== 'column');
+                const flowing = (picture.runsOn ?? 0) > 0;
+                return (
+                  <label key={`${which}-${reaches}`} className={`flex items-start gap-2 ${has ? '' : 'opacity-60'}`}>
+                    <input
+                      type="radio"
+                      name={`reach-${page.key}`}
+                      checked={has && isSize && flowing === Boolean(reaches)}
+                      disabled={busy || !has}
+                      onChange={() => onRunsOn(reaches ? Math.max(1, picture.runsOn ?? 1) : 0)}
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <span>
+                      {name}
+                      {!has && <span className="hint block">Upload one in the {which === 'phone' ? 'phone' : 'website'} slot above to use this.</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {both && (
+              <p className="hint mt-1" data-testid="both">
+                You have given both sizes, so the window picks between them: a phone gets the phone background and a laptop the wide one. How far they reach is the same for both.
+              </p>
+            )}
+            {(picture.runsOn ?? 0) > 0 && (
+              <label className="mt-2 block">
+                <span className="label">Flowing over</span>
+                <select className="input w-full text-xs" value={picture.runsOn ?? 1} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
+                  <option value={1}>this page and the next</option>
+                  <option value={2}>this page and the next 2</option>
+                  <option value={3}>this page and the next 3</option>
+                  <option value={4}>this page and the next 4</option>
+                </select>
+              </label>
+            )}
+            <p className="hint mt-1">
               {flows
-                ? <>One length of the picture down this page and the ones you pick, the way this design was drawn. The pages it flows over lose a background of their own, and where they run past its foot it keeps its head and its foot whole and stretches the band between &mdash; which is why an uploaded background is never laid this way.</>
-                : <>The same picture stands behind every page you pick: it stays put and only the writings move over it, so it never stretches. A page with a background of its own ends it there, and so does a page drawn by hand.</>}
-            </span>
-          </label>
+                ? <>This design&rsquo;s own background is laid as one length down the pages it covers, and where they run past its foot it keeps its head and its foot whole and stretches the band between &mdash; which is why an uploaded background is never laid that way.</>
+                : <>A background that flows over pages is one still picture standing behind them all: the writings move over it and it never moves or stretches. A page with a background of its own ends it there, and so does a page drawn by hand.</>}
+            </p>
+          </div>
         )}
         {flows && (
           <p className="hint mt-2" data-testid="flows">

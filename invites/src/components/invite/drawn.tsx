@@ -4,7 +4,7 @@ import type { Occasion } from '@prisma/client';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, floatAt, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
   decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
@@ -129,19 +129,29 @@ export function FlowFloats({ page, content, lang }: { page: PageSpec; content: R
         if (!url) return null;
         const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
         const alt = el.alt ? valueAt(content, el.alt) : '';
+        // the whole width of what floats, and from it the place she dropped it
+        const box = (el.w ?? 40) * shape.width;
+        const at = floatAt(el, box);
         return (
           <figure
             key={el.id}
             className="inv-bb-float"
-            data-float={el.float}
+            data-el={el.id}
+            data-float={at.side}
             data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
             data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
             style={{
-              width: `${(el.w ?? 40) * shape.width}%`,
+              width: `${box}%`,
               aspectRatio: `${shape.width} / ${shape.height}`,
               shapeOutside: shape.polygon,
               ['--float-inner' as string]: `${shape.inner}%`,
               ['--float-turn' as string]: `${el.rotate ?? 0}deg`,
+              // the place, as margins: in from its own side, down from where
+              // the words start. Per-cent, so both are shares of the column
+              // the words are in — which is what a float's place is measured
+              // in, because the column is what it stands in (`floatAt`).
+              ['--float-x' as string]: `${at.inset}%`,
+              ['--float-y' as string]: `${at.down}%`,
             } as CSSProperties}
           >
             <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" lang={lang === 'tl' ? 'tl' : undefined} />

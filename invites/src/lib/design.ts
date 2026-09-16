@@ -688,7 +688,15 @@ export type PhotoEl = Base & {
   /** a moving picture: never re-encoded, never sent through imageUrl() */
   animated?: boolean;
   /**
-   * On a page laid out by its words: the side the words flow around it on.
+   * On a page laid out by its words: that the words flow around it, and
+   * which side of them it stands on.
+   *
+   * The side is the last word on it, but not the first: a float carries a
+   * place of its own now (`x` across and `y` down, both shares of the
+   * page's width — see `floatAt`), and the side follows whichever edge the
+   * place is nearer unless a hand-written document says otherwise. The
+   * studio writes both from the drag, so dragging one across the middle
+   * moves it to the other side of the words.
    *
    * Only a flow page reads it. A drawn page places everything by hand and
    * has no words to flow, so a float there would mean nothing; the studio
@@ -1551,6 +1559,38 @@ export function canAttach(elements: Element[], id: string, to: string): boolean 
  * Pure trigonometry, so the polygon can be asserted without a browser — a
  * square turned 45° has to come out a diamond, and it does.
  */
+/**
+ * Where a float lands, from the place she dropped it at.
+ *
+ * A float is in among the words — that is the whole of what it is, and it
+ * is what lets them flow past it — so it cannot simply be put at a
+ * coordinate the way a drawn page's frame is. What it *can* have is the
+ * two things a margin gives it: how far in from the side of the column it
+ * stands, and how far down the words it begins. Between them those are a
+ * place, and they are the place a drag writes.
+ *
+ * `x` is the middle of the box, as it is on every drawn page, and `y` how
+ * far down the words it begins. Both are shares of the width of *the column
+ * the words are in* — not of the whole page, as a drawn page's numbers and a
+ * decoration's are, because the column is what a float stands in and a
+ * margin on it is a share of that. The width for `y` as well, because a flow
+ * page's height is its customer's words and a share of that would move as
+ * they typed. The side is whichever edge that middle is nearer, so dragging
+ * one across the middle of the column hands it to the other side of the
+ * words; a document that names a side and no `x` keeps the side it names and
+ * stands against that edge.
+ *
+ * `box` is the float's whole width as the page sees it — the frame's width
+ * times the bounding box a turn needs (`floatShape`) — so an inset can
+ * never push what floats out past the column's other edge.
+ */
+export function floatAt(el: { x?: number; y?: number; float?: 'left' | 'right' }, box: number): { side: 'left' | 'right'; inset: number; down: number } {
+  const wide = Math.max(0, Math.min(100, box));
+  const side = el.x === undefined ? el.float ?? 'left' : el.x < 50 ? 'left' : 'right';
+  const edge = el.x === undefined ? 0 : side === 'left' ? el.x - wide / 2 : 100 - (el.x + wide / 2);
+  return { side, inset: Math.max(0, Math.min(100 - wide, place(edge))), down: Math.max(0, place(el.y ?? 0)) };
+}
+
 export function floatShape(aspect: number, rotate = 0): { width: number; height: number; inner: number; polygon: string } {
   const h = Math.max(0.01, aspect);
   const rad = (rotate * Math.PI) / 180;

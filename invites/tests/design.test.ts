@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
+  starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape, floatAt,
   flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
@@ -1052,6 +1052,41 @@ test('an untilted frame floats as its own box', () => {
   assert.equal(tall.width, 1);
   assert.equal(tall.height, 1.5);
   assert.equal(tall.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
+});
+
+/**
+ * A float has a place of its own now: she drags it where she wants it and the
+ * words flow past it there. `floatAt` is the whole of that rule — the side
+ * from which half of the column the middle of the box is in, and the two
+ * margins that put it where she left it.
+ */
+test('a float lands where she put it, on the side of the words its middle is nearer', () => {
+  // a 40-wide box whose middle is a quarter across: on the left, 5 in from it
+  assert.deepEqual(floatAt({ x: 25, y: 8 }, 40), { side: 'left', inset: 5, down: 8 });
+  // the same box dragged across the middle changes sides, and the inset is
+  // measured off the right edge
+  assert.deepEqual(floatAt({ x: 75, y: 8 }, 40), { side: 'right', inset: 5, down: 8 });
+  // hard against its own edge
+  assert.deepEqual(floatAt({ x: 20, y: 0 }, 40), { side: 'left', inset: 0, down: 0 });
+  // and a place that would push it out past the other edge is held inside
+  assert.deepEqual(floatAt({ x: 5, y: 0 }, 40), { side: 'left', inset: 0, down: 0 });
+  assert.deepEqual(floatAt({ x: 49, y: 0 }, 90), { side: 'left', inset: 4, down: 0 });
+  assert.equal(floatAt({ x: 10, y: 0 }, 120).inset, 0, 'a box wider than the page has nowhere to be inset to');
+  // no place at all: the side it names, against that edge, at the top — which
+  // is exactly where every float drawn before this sat
+  assert.deepEqual(floatAt({ float: 'right' }, 40), { side: 'right', inset: 0, down: 0 });
+  assert.deepEqual(floatAt({}, 40), { side: 'left', inset: 0, down: 0 });
+  // a downward place is never negative, whatever a hand-written document says
+  assert.equal(floatAt({ x: 25, y: -10 }, 40).down, 0);
+  // and it survives the parse, on a float as on anything else
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], elements: [
+    { id: 'photo-1', kind: 'photo', x: 25, y: 8, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '/x.webp' } },
+  ] }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const el = read.doc?.pages[0].elements?.[0] as PhotoEl;
+  assert.equal(el.x, 25);
+  assert.equal(el.y, 8);
+  assert.equal(el.float, 'left');
 });
 
 test('a square turned 45° floats a bigger box and its shape is a diamond', () => {

@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -1279,8 +1279,9 @@ test('a picture that runs on is laid down the pages after it, until one has a gr
   assert.equal(head && 'url' in head ? head.runsOn : undefined, 2);
 });
 
-test('a picture pinned to the screen is the pages after it too, until one brings a picture of its own', () => {
+test('a picture pinned behind the words is the pages after it too, until one brings a picture of its own', () => {
   const pic = { url: '/screen.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const tall = { url: '/long.webp', ratio: 2.989, top: '#fff', bottom: '#eee' };
   const doc = {
     v: 1 as const,
     pages: [
@@ -1289,10 +1290,10 @@ test('a picture pinned to the screen is the pages after it too, until one brings
       { key: 'parents', sections: ['parents'], ground: { color: 'surface' } },
       { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, url: '/church.webp' } },
       { key: 'reception', sections: ['reception'] },
-      { key: 'dress-code', sections: ['dress-code'], ground: pic, pin: true as const },
+      { key: 'dress-code', sections: ['dress-code'], ground: { ...pic, url: '/dress.webp' }, pin: 'column' as const },
       { key: 'gift', sections: ['gift'] },
       { key: 'story', sections: ['story'], drawn: true as const, ground: { color: 'bg', ratio: 1.777 } },
-      { key: 'closing', sections: ['closing'] },
+      { key: 'closing', sections: ['closing'], ground: tall },
       { key: 'thanks', sections: ['thanks'], ground: { color: 'bg' }, pin: true as const },
       { key: 'map', sections: ['map'] },
     ],
@@ -1302,14 +1303,20 @@ test('a picture pinned to the screen is the pages after it too, until one brings
   assert.equal(pins.get('cover'), 'cover');
   assert.equal(pins.get('countdown'), 'cover');
   assert.equal(pins.get('parents'), 'cover');
-  // a page with a picture of its own ends it, pinned or not, and one not pinned pins nothing
-  assert.equal(pins.has('ceremony'), false);
-  assert.equal(pins.has('reception'), false);
-  // a second pin starts afresh
+  /*
+   * A page with a picture of its own starts afresh — and a picture wider
+   * than it is tall pins whether or not the page was ever told to. It is
+   * the website's background: there is no length of it to flow down a page,
+   * and the page after it rides on it like any other pin.
+   */
+  assert.equal(pins.get('ceremony'), 'ceremony');
+  assert.equal(pins.get('reception'), 'ceremony');
+  // the phone's background pins too, to the column rather than the window
   assert.equal(pins.get('dress-code'), 'dress-code');
   assert.equal(pins.get('gift'), 'dress-code');
   // a page placed by hand ends it and pins nothing
   assert.equal(pins.has('story'), false);
+  // a picture drawn to flow down the pages is the one that does not pin
   assert.equal(pins.has('closing'), false);
   // a pin on a colour pins nothing
   assert.equal(pins.has('thanks'), false);
@@ -1319,7 +1326,52 @@ test('a picture pinned to the screen is the pages after it too, until one brings
   assert.deepEqual(read.dropped, []);
   assert.equal(read.doc?.pages[0].pin, true);
   assert.equal(read.doc?.pages[1].pin, undefined);
+  assert.equal(read.doc?.pages[5].pin, 'column');
   assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], ground: pic, pin: false }] }, 'classic').doc?.pages.length, 0);
+});
+
+/**
+ * The three backgrounds, which is the whole of what a picture behind a page
+ * can be. The rule that matters most is the last one: a picture wider than it
+ * is tall is never cut in three and stretched down a page, whatever an older
+ * draft says, because that is what turned a 1920-by-1080 upload into a long
+ * band of pulled middle.
+ */
+test('a picture behind a page is one of three backgrounds, and a wide one is never stretched', () => {
+  const wide = { url: '/w.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const phone = { url: '/p.webp', ratio: 1.777, top: '#fff', bottom: '#eee' };
+  const long = { url: '/l.webp', ratio: 2.989, top: '#fff', bottom: '#eee' };
+  const on = (ground: unknown, rest: Partial<PageSpec> = {}): PageSpec => ({ key: 'p', sections: [], ground, ...rest } as PageSpec);
+  // what the page says
+  assert.equal(groundKind(on(phone, { pin: 'column' })), 'phone');
+  assert.equal(groundKind(on(long, { pin: true })), 'website');
+  assert.equal(groundKind(on(long)), 'flow');
+  assert.equal(groundKind(on(phone)), 'flow');
+  // a picture wider than it is tall is the website's background, told or not
+  assert.equal(groundKind(on(wide)), 'website');
+  assert.equal(groundKind(on(wide, { pin: 'column' })), 'phone');
+  // a colour is no kind of picture, and neither is a page drawn by hand
+  assert.equal(groundKind(on({ color: 'bg' })), undefined);
+  assert.equal(groundKind({ key: 'p', sections: [] }), undefined);
+  assert.equal(groundKind(on(long, { drawn: true })), undefined);
+  // what a picture of each shape arrives as, so that uploading one is the whole job
+  assert.equal(kindOfShape(0.5625), 'website');
+  assert.equal(kindOfShape(1), 'phone');
+  assert.equal(kindOfShape(1.777), 'phone');
+  assert.equal(kindOfShape(2.989), 'flow');
+  // the website's background is the whole page by definition; the phone's is the column
+  assert.equal(bleeds(on(wide)), true);
+  assert.equal(bleeds(on(phone, { pin: 'column' })), false);
+  assert.equal(bleeds(on(phone, { pin: 'column', bleed: true })), false, 'the choice answers it, not a leftover tick');
+  assert.equal(outsideOf(on(wide, { outside: 'accent' })), undefined, 'the picture is what is beside the column');
+  assert.equal(outsideOf(on(phone, { pin: 'column', outside: 'accent' })), 'accent');
+  // and a page with a background pinned behind it is a screen tall unless it says otherwise
+  assert.equal(screensOf(on(wide)), 1);
+  assert.equal(screensOf(on(phone, { pin: 'column' })), 1);
+  assert.equal(screensOf(on(wide, { minScreens: 2.5 })), 2.5);
+  assert.equal(screensOf(on(long)), undefined);
+  assert.equal(screensOf({ key: 'p', sections: [] }), undefined);
+  assert.equal(screensOf(on(long, { drawn: true, minScreens: 2 })), undefined);
 });
 
 test('a page laid out by its words can be told to be at least so many screens tall', () => {

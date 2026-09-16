@@ -17,7 +17,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1715,7 +1715,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // the pages that sit on a picture pinned to the screen, by the page whose picture it is (pinOf)
   const pins = doc ? pinOf(doc) : new Map<string, string>();
   // the pinned pictures themselves, for the layer fixed behind the column
-  const pinned = doc ? doc.pages.filter((p) => pins.get(p.key) === p.key && p.ground && isPicture(p.ground)).map((p) => ({ key: p.key, url: (p.ground as { url: string }).url, night: (p.ground as { night?: string }).night })) : [];
+  const pinned = doc
+    ? doc.pages
+        .filter((p) => pins.get(p.key) === p.key && p.ground && isPicture(p.ground))
+        // the phone's background keeps to the column; the website's fills the window
+        .map((p) => ({ key: p.key, url: (p.ground as { url: string }).url, night: (p.ground as { night?: string }).night, column: groundKind(p) === 'phone' }))
+    : [];
   /** Where the peek stops: the page the design marks, or the first page. */
   const peekPage = doc ? peekEndPage(doc) : 'story';
   // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
@@ -2057,8 +2062,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const pin = pins.get(spec.key);
         if (parts.length) out.push(page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
-          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: spec.minScreens, off: spec.offFlow }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
+          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), off: spec.offFlow }
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
     // a section the document does not name gets a page of its own, in its place

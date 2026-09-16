@@ -1032,7 +1032,7 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * arrives: a head shorter than half a screen keeps its picture, and on a
  * laptop the sides of a page that sits on no pin keep the last one.
  */
-export function Pinned({ pins }: { pins: { key: string; url: string; night?: string }[] }) {
+export function Pinned({ pins }: { pins: { key: string; url: string; night?: string; column?: boolean }[] }) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const layer = ref.current;
@@ -1082,7 +1082,7 @@ export function Pinned({ pins }: { pins: { key: string; url: string; night?: str
   return (
     <div ref={ref} className="inv-pins" aria-hidden="true">
       {pins.map((pin) => (
-        <div key={pin.key} className="inv-pin" data-pin={pin.key} data-night-art={pin.night ? '' : undefined}>
+        <div key={pin.key} className="inv-pin" data-pin={pin.key} data-column={pin.column ? '' : undefined} data-night-art={pin.night ? '' : undefined}>
           <img src={pin.url} alt="" data-day="" decoding="async" />
           {pin.night && <img src={pin.night} alt="" data-night="" decoding="async" loading="lazy" />}
         </div>

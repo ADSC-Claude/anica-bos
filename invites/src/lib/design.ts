@@ -34,6 +34,12 @@ export type DesignArt = {
    * the ground by the page's key. Blank keys keep the layout's own file.
    */
   grounds?: Record<string, string>;
+  /**
+   * The photographed parts a moment's scene is built from, by `scene/part`
+   * (the keys in MOMENT_PARTS): a design's own camera, curtain or door in
+   * place of the set shipped under /moments. Blank keeps the shipped one.
+   */
+  parts?: Record<string, string>;
 };
 
 export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'moment2', 'moment3', 'story', 'invitation', 'entourage', 'sponsors', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'gentsNote', 'ladiesNote', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closingMessage', 'closing'];
@@ -172,6 +178,14 @@ export function artOf(raw: unknown): DesignArt {
       if (u && /^[a-z][a-z0-9-]{0,30}$/.test(k)) grounds[k] = u;
     }
     if (Object.keys(grounds).length) out.grounds = grounds;
+  }
+  if (raw.parts && typeof raw.parts === 'object') {
+    const parts: Record<string, string> = {};
+    for (const [k, v] of Object.entries(raw.parts as Record<string, unknown>)) {
+      const u = url(v);
+      if (u && /^[a-z][a-z0-9-]{0,30}\/[a-z][a-z0-9-]{0,30}$/.test(k)) parts[k] = u;
+    }
+    if (Object.keys(parts).length) out.parts = parts;
   }
   return out;
 }
@@ -1306,7 +1320,7 @@ const CAPIZ_STORYLINE: Record<string, { headPad?: number; footPad?: number; elem
     }],
   },
   invitation: {
-    headPad: 10,
+    headPad: 11,
     elements: [{
       id: 'church-doors', kind: 'moment', moment: 'doors', variant: 'church', x: 50, y: 4, w: 84, ask: true, ifEmpty: 'leave', plays: 'once',
       photos: [{ bind: { section: 'ceremony', field: 'photo' } }],

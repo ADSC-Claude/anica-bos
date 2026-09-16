@@ -84,6 +84,8 @@ type Props = {
   demoId: string;
   demoTitle: string;
   content: Record<string, unknown>;
+  /** the design's own photographed parts, for the moments on the canvas */
+  parts?: Record<string, string>;
   /**
    * The invitation she came from, when the Invitation tab sent her here:
    * the studio opens drawn against it, with its form open beside the
@@ -2178,7 +2180,7 @@ export function Studio(p: Props) {
                   * height is the only part this canvas has to guess.
                   */}
                 {page && (page.drawn
-                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
+                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} parts={p.parts} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
                   : (['under', 'over'] as const).map((layer) => (
                     <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} layer={layer} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
                   )))}

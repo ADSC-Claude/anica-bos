@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
+import { MOMENT_BY_KEY, SPEED_FACTOR, partUrl, type MomentKey, type PartKey, type Speed, type Trigger } from '@/lib/moments';
 
 /**
  * An interactive moment as a guest meets it: a thing that is closed until
@@ -197,7 +197,7 @@ export function useMomentGesture({ trigger, speed = 'normal', duration, swipe, d
  * canvas the finger clears, the secret code is a keypad, the puzzle is
  * nine tiles swapped by two taps.
  */
-export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, photos = [], words, code, monogram, className, style, attrs }: {
+export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, photos = [], words, code, monogram, parts, className, style, attrs }: {
   id: string;
   scene: MomentKey;
   variant?: string;
@@ -211,6 +211,8 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
   /** the secret code's answer */
   code?: string;
   monogram?: string;
+  /** the design's own photographed parts, by PartKey; the shipped set otherwise */
+  parts?: Record<string, string>;
   className?: string;
   style?: CSSProperties;
   attrs?: Record<string, string | undefined>;
@@ -285,9 +287,9 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
       {...(gestured ? g.handlers : {})}
       {...attrs}
     >
-      <Scene scene={scene} variant={variant} photos={holds.photo ? photos : []} monogram={monogram} words={holds.words ? words : undefined} />
+      <Scene scene={scene} variant={variant} photos={holds.photo ? photos : []} monogram={monogram} words={holds.words ? words : undefined} parts={parts} />
       {reveal !== undefined && <div className="inv-moment-reveal">{reveal}</div>}
-      {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} frost={scene === 'frost' ? photos[0] : undefined} />}
+      {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} frost={scene === 'frost' ? photos[0] : undefined} foil={scene === 'scratch' ? partUrl('scratch/foil', parts) : undefined} />}
       {def?.mechanic === 'keys' && !still && code && <Keypad code={code} open={g.open} state={g.state} />}
       {def?.mechanic === 'drag' && <Tiles id={id} photo={photos[0]} open={g.open} state={state} still={still} />}
       {browses && <Browse scene={scene} photos={photos} words={words} edit={Boolean(edit)} speed={speed} />}
@@ -389,7 +391,7 @@ const SCRATCH_DONE = 0.55;
  * circle out of it; every few strokes the cleared share is read off a
  * coarse sample of the pixels, and past six tenths the whole card opens.
  */
-function Scratch({ open, state, frost }: { open: () => void; state: MomentState; /** the photograph, for a frosted glass: a blurred, whitened copy is what the finger clears */ frost?: string }) {
+function Scratch({ open, state, frost, foil }: { open: () => void; state: MomentState; /** the photograph, for a frosted glass: a blurred, whitened copy is what the finger clears */ frost?: string; /** the foil as photographed, painted edge to edge under the finger */ foil?: string }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const down = useRef(false);
   const strokes = useRef(0);
@@ -428,6 +430,24 @@ function Scratch({ open, state, frost }: { open: () => void; state: MomentState;
         return;
       }
       const accent = cs.getPropertyValue('--inv-accent').trim() || '#a08a5a';
+      if (foil) {
+        // the photographed foil, laid edge to edge, and one hairline of light round it; until it arrives, a grey stands in
+        ctx.fillStyle = '#b9b9bd'; ctx.fillRect(0, 0, c.width, c.height);
+        const img = new Image();
+        img.onload = () => {
+          const ctx2 = c.getContext('2d');
+          if (!ctx2) return;
+          ctx2.globalCompositeOperation = 'source-over';
+          const s = Math.max(c.width / img.width, c.height / img.height);
+          const dw = img.width * s, dh = img.height * s;
+          ctx2.drawImage(img, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+          ctx2.strokeStyle = 'rgba(255,255,255,0.35)'; ctx2.lineWidth = 2; ctx2.strokeRect(1, 1, c.width - 2, c.height - 2);
+          ctx2.globalCompositeOperation = 'destination-out';
+        };
+        img.src = foil;
+        ctx.globalCompositeOperation = 'destination-out';
+        return;
+      }
       // brushed foil: the accent as a metal — two bands of light across it at a slant, fine brushing along
       // the length, a tarnish in the corners and one hairline of light round the edge
       ctx.fillStyle = accent; ctx.fillRect(0, 0, c.width, c.height);
@@ -570,8 +590,10 @@ function Tiles({ id, photo, open, state, still }: { id: string; photo?: string; 
  * `aria-hidden`: the moment's box carries the label, and what it reveals is
  * ordinary content.
  */
-export function Scene({ scene, variant, photos = [], monogram, words }: { scene: MomentKey; variant?: string; photos?: string[]; monogram?: string; words?: ReactNode }) {
+export function Scene({ scene, variant, photos = [], monogram, words, parts }: { scene: MomentKey; variant?: string; photos?: string[]; monogram?: string; words?: ReactNode; parts?: Record<string, string> }) {
   const photo = photos[0];
+  // a photographed part: the design's own where it brought one, else the one shipped
+  const part = (k: PartKey) => partUrl(k, parts);
   // the gradients a scene's SVG paints with are defined inside it, and two of the same scene on one page must not share an id
   const uid = useId().replace(/:/g, '');
   switch (scene) {
@@ -585,8 +607,8 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           <span className="inv-mo-flap" />
           {scene === 'seal' && (
             <span className="inv-mo-wax">
-              <span className="inv-mo-wax-half" data-side="l"><b>{monogram || '♥'}</b></span>
-              <span className="inv-mo-wax-half" data-side="r"><b>{monogram || '♥'}</b></span>
+              <span className="inv-mo-wax-half" data-side="l"><img className="inv-mo-part" src={part('seal/wax')} alt="" /><b>{monogram || '♥'}</b></span>
+              <span className="inv-mo-wax-half" data-side="r"><img className="inv-mo-part" src={part('seal/wax')} alt="" /><b>{monogram || '♥'}</b></span>
               <svg className="inv-mo-crack" viewBox="0 0 40 40">
                 <path d="M4 17 L11 21 L17 16 L22 23 L28 19 L36 22" pathLength={1} />
               </svg>
@@ -609,25 +631,33 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           </svg>
         </span>
       );
-    case 'curtains':
+    case 'curtains': {
+      // velvet is photographed; the plain panels are drawn
+      const panels = variant === 'panels';
       return (
-        <span className="inv-mo inv-mo-curtains" data-panels={variant === 'panels' ? '' : undefined} aria-hidden>
+        <span className="inv-mo inv-mo-curtains" data-panels={panels ? '' : undefined} aria-hidden>
           {photo && <img className="inv-mo-behind" src={photo} alt="" loading="lazy" />}
-          <span className="inv-mo-rod" />
-          <span className="inv-mo-panel" data-side="l" />
-          <span className="inv-mo-panel" data-side="r" />
+          {!panels && <img className="inv-mo-part inv-mo-pelmet" src={part('curtains/pelmet')} alt="" />}
+          <span className="inv-mo-panel" data-side="l">{!panels && <img className="inv-mo-part" src={part('curtains/panel')} alt="" />}</span>
+          <span className="inv-mo-panel" data-side="r">{!panels && <img className="inv-mo-part" src={part('curtains/panel')} alt="" />}</span>
         </span>
       );
-    case 'doors':
+    }
+    case 'doors': {
+      // the leaves are photographed oak either way; the church sets them in a photographed stone arch, the plain doors in a drawn jamb
+      const church = variant === 'church';
       return (
-        <span className="inv-mo inv-mo-doors" data-church={variant === 'church' ? '' : undefined} aria-hidden>
-          {photo && <img className="inv-mo-behind" src={photo} alt="" loading="lazy" />}
-          <span className="inv-mo-light" />
-          <span className="inv-mo-leaf" data-side="l"><span className="inv-mo-handle" /></span>
-          <span className="inv-mo-leaf" data-side="r"><span className="inv-mo-handle" /></span>
-          <span className="inv-mo-jamb" />
+        <span className="inv-mo inv-mo-doors" data-church={church ? '' : undefined} aria-hidden>
+          <span className="inv-mo-way">
+            {photo && <img className="inv-mo-behind" src={photo} alt="" loading="lazy" />}
+            <span className="inv-mo-light" />
+            <span className="inv-mo-leaf" data-side="l"><img className="inv-mo-part" src={part('doors/leaf-l')} alt="" /></span>
+            <span className="inv-mo-leaf" data-side="r"><img className="inv-mo-part" src={part('doors/leaf-r')} alt="" /></span>
+          </span>
+          {church ? <img className="inv-mo-part inv-mo-arch" src={part('doors/arch')} alt="" /> : <span className="inv-mo-jamb" />}
         </span>
       );
+    }
     case 'capiz':
       return (
         <span className="inv-mo inv-mo-capiz" aria-hidden>
@@ -651,14 +681,10 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
         <span className="inv-mo inv-mo-camera" aria-hidden>
           <span className="inv-mo-print">
             <span className="inv-mo-print-photo">{photo && <img src={photo} alt="" loading="lazy" />}</span>
+            <img className="inv-mo-part inv-mo-print-frame" src={part('instant-camera/print')} alt="" />
             <span className="inv-mo-print-caption">{words}</span>
           </span>
-          <span className="inv-mo-cam-body">
-            <span className="inv-mo-cam-slot" />
-            <span className="inv-mo-cam-lens"><span /></span>
-            <span className="inv-mo-cam-flash" />
-            <span className="inv-mo-cam-button" />
-          </span>
+          <span className="inv-mo-cam-body"><img className="inv-mo-part" src={part('instant-camera/body')} alt="" /></span>
           <span className="inv-mo-flashlight" />
         </span>
       );
@@ -771,6 +797,7 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           {[0, 1, 2].map((i) => (
             <span key={i} className="inv-mo-print" data-i={i}>
               <span className="inv-mo-print-photo">{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>
+              <img className="inv-mo-part inv-mo-print-frame" src={part('instant-camera/print')} alt="" />
               <span className="inv-mo-print-caption">{i === 0 ? words : null}</span>
             </span>
           ))}

@@ -10,7 +10,7 @@ import {
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
 import { Moment } from './moments';
-import { MOMENT_BY_KEY, momentHint, triggerOf, type MomentKey } from '@/lib/moments';
+import { MOMENT_BY_KEY, momentHint, triggerOf, type MomentKey, aspectOf } from '@/lib/moments';
 
 /**
  * A page drawn from the design's document.
@@ -61,18 +61,19 @@ export type EditView = {
  * holding `{word: 'invitation'}` on a christening must not read "Join us as
  * we say I do!". Without one, a look answers as written.
  */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView): Read {
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>): Read {
   return {
     content,
     lang,
     edit,
+    parts,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey, occasion) : lookLine(look, lang, key as LineKey, occasion)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
 }
 
-export function DrawnPage({ page, content, look, lang, occasion, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView }) {
-  const read = reader(content, look, lang, occasion, edit);
+export function DrawnPage({ page, content, look, lang, occasion, edit, parts }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string> }) {
+  const read = reader(content, look, lang, occasion, edit, parts);
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -83,7 +84,7 @@ export function DrawnPage({ page, content, look, lang, occasion, edit }: { page:
   );
 }
 
-type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView };
+type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView; /** the design's own photographed parts for its moments, by PartKey */ parts?: Record<string, string> };
 
 /**
  * The pictures a flow page's words flow around.
@@ -203,7 +204,7 @@ function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: 
   if (!read.edit && el.hidden !== 'never' && wants > 0 && !photos.length && !hasWords) return null;
   const style = {
     ...(deco ? decorStyle(el) : elementStyle(el, grow)),
-    ['--moment-aspect' as string]: String(el.aspect ?? def?.aspect ?? 1),
+    ['--moment-aspect' as string]: String(el.aspect ?? aspectOf(el.moment, el.variant)),
     ...motionOf(el).vars,
   } as CSSProperties;
   const trigger = triggerOf(el.moment, el.trigger);
@@ -224,6 +225,7 @@ function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: 
       photos={photos.map((u) => imageUrl(u, IMAGE.grid))}
       words={words}
       code={el.code}
+      parts={read.parts}
       style={style}
       attrs={{
         ...(motionOf(el).attrs as Record<string, string | undefined>),

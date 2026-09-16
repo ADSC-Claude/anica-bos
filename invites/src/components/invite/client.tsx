@@ -29,6 +29,8 @@ export type OpeningProps = {
   /** An OpeningKey. "none" renders nothing at all. */
   style: string;
   monogram: string;
+  /** the design's own photographed parts for the scene, by PartKey; the shipped set otherwise */
+  parts?: Record<string, string>;
   names: string;
   /** "08 · 24 · 26" — already formatted by the server. */
   date: string;
@@ -60,10 +62,11 @@ export type OpeningProps = {
 /** The scene an opening plays, where it is one of the moments' — the envelope and the seal are, since #174. */
 const SCENE_OF: Partial<Record<string, MomentKey>> = { envelope: 'envelope', seal: 'seal', ribbon: 'ribbon', doors: 'doors', capiz: 'capiz', letter: 'letter' };
 
-function Stage({ style, monogram, photos, video, poster, videoRef }: {
+function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
   style: string;
   monogram: string;
   photos: string[];
+  parts?: Record<string, string>;
   video: string;
   poster: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -92,7 +95,7 @@ function Stage({ style, monogram, photos, video, poster, videoRef }: {
     case 'capiz':
     case 'letter':
       // the same scene a moment on a page plays, filling the screen
-      return <Scene scene={SCENE_OF[style]!} photos={photos} monogram={monogram} />;
+      return <Scene scene={SCENE_OF[style]!} photos={photos} monogram={monogram} parts={parts} />;
     case 'drape':
       return <span className="inv-open-drape" aria-hidden />;
     case 'curtain':
@@ -385,7 +388,7 @@ export function Shell({
             onPointerCancel={gesture.handlers.onPointerCancel}
           >
             <div className="inv-open-stage">
-              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} parts={opening.parts} />
             </div>
             {/* the card the words go on when the clip could not play */}
             {opening.words && <div className="inv-open-still" data-show={still} aria-hidden />}

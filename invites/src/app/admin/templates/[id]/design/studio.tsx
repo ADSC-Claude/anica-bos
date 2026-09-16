@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
   cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, APP_NIGHT,
-  wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
+  wordsFor, lineLabel, titleLabel, titleSaid, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
   type MomentEl, type Picture, type ColourGround,
@@ -18,7 +18,8 @@ import { pageNeeds, needCount, GUTTER, HEAVY_GROUND, type Need } from '@/lib/nee
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
 import { withDraft, type StudioDraft } from '@/lib/studio-draft';
 import type { Occasion } from '@prisma/client';
-import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
+import { framesFromDifference, photoFromRect, guessOffer, type Rect, type Offer, type Word } from '@/lib/importing';
+import { phraseFor } from '@/lib/copy';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import { cssVars, fontsFrom, PALETTE_PRESETS, type Fonts, type Palette } from '@/lib/theme';
 import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
@@ -676,7 +677,7 @@ export function Studio(p: Props) {
       for (const t of b.texts) {
         const id = freeIdIn(ids, 'words');
         ids.add(id);
-        elements.push(wordsFromPdf(id, t));
+        elements.push(wordsFromPdf(id, t.text, t.from));
       }
       const page: PageSpec = {
         key, label: { en: b.name }, sections: [], drawn: true, importedFrom: b.from,
@@ -4569,7 +4570,36 @@ function GroupProps({ group, others, attached, onLineUp, onSameWidth, onSpaceDow
  * better of leaves nothing behind.
  */
 type Proposal = { rect: Rect; keep: boolean; pick: string; index: number };
-type Wording = { text: PdfText; keep: boolean };
+/**
+ * A writing read off an imported page, and what fills it.
+ *
+ * `pick` is the same idea as a frame's, and for the same reason: a
+ * placeholder brought in as the words it was standing in for is a design
+ * that says Amelia and Matthew are getting married whoever the customer is.
+ * It is one of four things — a question, the design's own heading, the
+ * app's own words, or the words kept as typed — so it carries which kind
+ * it is as well as which one (`ASK`/`WORD`/`APP`, below).
+ *
+ * `why` is what the reading made of it, shown beside the answer so she can
+ * see at a glance whether the guess was sound rather than having to check
+ * it against the page.
+ */
+type Wording = { text: PdfText; keep: boolean; pick: string; index: number; show?: FieldRef['show']; why?: string };
+
+/** What a writing's pick is wired to. The prefix is what tells the three apart. */
+const ASK = 'ask:';
+const WORD = 'word:';
+const APP = 'app:';
+
+/** A writing's pick as the one source the box will carry, or nothing where the words are kept as typed. */
+function sourceOfPick(pick: string, show: FieldRef['show']): Source | undefined {
+  if (pick.startsWith(WORD)) return { word: pick.slice(WORD.length) as WordKey };
+  if (pick.startsWith(APP)) return { copy: pick.slice(APP.length) };
+  if (!pick.startsWith(ASK)) return undefined;
+  const [section, field, sub] = pick.slice(ASK.length).split('|');
+  if (!section || !field) return undefined;
+  return { bind: { section, field, ...(sub ? { sub } : {}), ...(show ? { show } : {}) } };
+}
 
 /** One page waiting to be brought in, whichever way it was read. */
 type Sheet = {
@@ -4597,15 +4627,46 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
   const [error, setError] = useState('');
   const [sheets, setSheets] = useState<Sheet[] | null>(null);
   const offers = useMemo(() => askable(occasion, 'photo'), [occasion]);
+  /** The questions a writing can be wired to, in the shape the reading wants them. */
+  const sayings = useMemo<Offer[]>(() => askable(occasion, 'text').map((a) => ({
+    key: key(a), section: a.section, field: a.field, sub: a.sub, label: a.label, list: a.list, type: a.type,
+  })), [occasion]);
+  /** The design's own headings, each with every wording it might have been printed as. */
+  const headings = useMemo<Word[]>(() => {
+    const offered = wordsFor(occasion);
+    return [
+      ...offered.titles.map((k) => ({ key: titleWord(k) as string, label: titleLabel(k, occasion), said: titleSaid(k, occasion) })),
+      ...offered.lines.map((k) => ({ key: k as string, label: lineLabel(k, occasion) })),
+    ];
+  }, [occasion]);
 
   // the pages are shown from the blobs in hand, so they are on screen before
   // anything has been sent anywhere
   useEffect(() => () => { for (const s of sheets ?? []) if (s.url) URL.revokeObjectURL(s.url); }, [sheets]);
 
-  const carry = (rects: Rect[], texts: PdfText[] = []): Pick<Sheet, 'frames' | 'texts'> => ({
-    frames: rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })),
-    texts: texts.map((text) => ({ text, keep: true })),
-  });
+  /*
+   * Every frame and every writing as it arrives, with each writing already
+   * read: a guess to confirm rather than a hundred questions to hunt
+   * through, and the reason beside it so a bad guess is obvious at a glance.
+   *
+   * The questions taken are carried down the page, so a master naming the
+   * bride on three of them does not wire all three to the same box.
+   */
+  const carry = (rects: Rect[], texts: PdfText[] = []): Pick<Sheet, 'frames' | 'texts'> => {
+    const taken = new Set<string>();
+    return {
+      frames: rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })),
+      texts: texts.map((text) => {
+        const read = guessOffer(text.lines, sayings, headings, taken, phraseFor);
+        if (read?.offer) taken.add(read.offer.key);
+        const pick = read?.offer ? `${ASK}${read.offer.key}`
+          : read?.word ? `${WORD}${read.word}`
+          : read?.copy ? `${APP}${read.copy}`
+          : '';
+        return { text, keep: true, pick, index: 0, show: read?.show, why: read?.why };
+      }),
+    };
+  };
 
   async function readPair() {
     if (!designed || !emptied) return;
@@ -4677,6 +4738,23 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
     }));
   }
 
+  /**
+   * What fills a writing, picked or re-picked.
+   *
+   * A date or a time comes with a way of saying it already chosen, because
+   * a box wired to one and told nothing would print `2026-12-18` on a cover
+   * — and the whole reason a master carries the date as words is that a
+   * guest reads words. Anything else clears it.
+   */
+  function wire(s: number, at: number, value: string) {
+    const chosen = sayings.find((o) => `${ASK}${o.key}` === value);
+    const show: Wording['show'] = chosen?.type === 'date' ? 'date' : chosen?.type === 'time' ? 'time' : undefined;
+    edit(s, (sheet) => ({
+      ...sheet,
+      texts: sheet.texts.map((t, i) => (i === at ? { ...t, pick: value, show, index: 0 } : t)),
+    }));
+  }
+
   async function add() {
     const usable = (sheets ?? []).filter((s) => s.read && !s.trouble);
     if (!usable.length) return;
@@ -4689,7 +4767,7 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
         pages.push({
           name: s.name, up, from: s.from,
           frames: s.frames.filter((r) => r.keep).map((r) => ({ rect: r.rect, bind: refOf(r) })),
-          texts: s.texts.filter((t) => t.keep).map((t) => t.text),
+          texts: s.texts.filter((t) => t.keep).map((t) => ({ text: t.text, from: sourceOfPick(t.pick, t.show) })),
         });
       }
       onAdd(pages);
@@ -4845,19 +4923,79 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
                       </li>
                     );
                   })}
-                  {sheet.texts.map((t, i) => (
-                    <li key={`t${i}`} className={`flex flex-wrap items-center gap-2 rounded bg-white p-2 ${t.keep ? '' : 'opacity-50'}`}>
-                      <span className="rounded bg-[color:var(--color-ink-700)] px-1.5 py-0.5 text-[11px] font-semibold text-white">&ldquo;&rdquo;</span>
-                      <span className="min-w-[12rem] flex-1 truncate text-sm">{t.text.lines.join(' / ')}</span>
-                      <span className="text-[11px] text-[color:var(--color-ink-500)]">{t.text.size.toFixed(1)}cqw{t.text.face ? ` · the ${t.text.face} face` : ''}</span>
-                      <button
-                        type="button" className="btn btn-ghost btn-sm"
-                        onClick={() => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, keep: !y.keep } : y)) }))}
-                      >
-                        {t.keep ? 'Discard' : 'Keep'}
-                      </button>
-                    </li>
-                  ))}
+                  {sheet.texts.map((t, i) => {
+                    const chosen = sayings.find((o) => `${ASK}${o.key}` === t.pick);
+                    return (
+                      <li key={`t${i}`} className={`rounded bg-white p-2 ${t.keep ? '' : 'opacity-50'}`} data-testid="writing">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-[color:var(--color-ink-700)] px-1.5 py-0.5 text-[11px] font-semibold text-white">&ldquo;&rdquo;</span>
+                          <span className="min-w-[10rem] flex-1 truncate text-sm">{t.text.lines.join(' / ')}</span>
+                          <span className="text-[11px] text-[color:var(--color-ink-500)]">{t.text.size.toFixed(1)}cqw{t.text.face ? ` · the ${t.text.face} face` : ''}</span>
+                          <button
+                            type="button" className="btn btn-ghost btn-sm"
+                            onClick={() => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, keep: !y.keep } : y)) }))}
+                          >
+                            {t.keep ? 'Discard' : 'Keep'}
+                          </button>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-end gap-2">
+                          <label className="min-w-[14rem] flex-1">
+                            <select
+                              className="input w-full text-xs" value={t.pick} disabled={!t.keep} data-testid="fills"
+                              onChange={(e) => wire(s, i, e.target.value)}
+                            >
+                              <option value="">Keep these words as they are</option>
+                              <optgroup label="The customer answers this">
+                                {Object.entries(groupBy(askable(occasion, 'text'))).map(([section, list]) => (
+                                  <optgroup key={section} label={`— ${section}`}>
+                                    {list.map((o) => <option key={key(o)} value={`${ASK}${key(o)}`}>{o.label}</option>)}
+                                  </optgroup>
+                                ))}
+                              </optgroup>
+                              <optgroup label="The design&rsquo;s own words">
+                                {headings.map((w) => <option key={w.key} value={`${WORD}${w.key}`}>{w.label}</option>)}
+                              </optgroup>
+                              {t.pick.startsWith(APP) && (
+                                <optgroup label="The app&rsquo;s own words">
+                                  <option value={t.pick}>{t.text.lines.join(' ')} — in the guest&rsquo;s language</option>
+                                </optgroup>
+                              )}
+                            </select>
+                          </label>
+                          {chosen?.list && (
+                            <label className="w-20">
+                              <span className="label">Which</span>
+                              <input
+                                type="number" min={1} max={40} className="input w-full" disabled={!t.keep}
+                                value={t.index + 1}
+                                onChange={(e) => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, index: Math.max(0, Math.round(Number(e.target.value)) - 1) } : y)) }))}
+                              />
+                            </label>
+                          )}
+                          {(chosen?.type === 'date' || chosen?.type === 'time') && (
+                            <label className="min-w-[8rem]">
+                              <span className="label">Said as</span>
+                              <select
+                                className="input w-full text-xs" disabled={!t.keep} value={t.show ?? ''}
+                                onChange={(e) => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, show: (e.target.value || undefined) as Wording['show'] } : y)) }))}
+                              >
+                                <option value="">As it is stored</option>
+                                <option value="date">18 December 2026</option>
+                                <option value="dateShort">Dec 18, 2026</option>
+                                <option value="weekday">Friday</option>
+                                <option value="time">4:00 PM</option>
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                        {t.why && (
+                          <p className="hint mt-1" data-testid="why">
+                            {t.pick ? 'Read as' : 'Left to you —'} {t.why}.
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
               </>
             )}
@@ -5761,7 +5899,7 @@ type Brought = {
   up: Uploaded;
   from: 'diff' | 'pdf';
   frames: { rect: Rect; bind?: FieldRef }[];
-  texts: PdfText[];
+  texts: { text: PdfText; from?: Source }[];
 };
 
 /**
@@ -5773,7 +5911,7 @@ type Brought = {
  * unwritten, so the checklist asks for it — English with no Tagalog beside
  * it is a line half the country cannot read.
  */
-function wordsFromPdf(id: string, t: PdfText): TextEl {
+function wordsFromPdf(id: string, t: PdfText, from?: Source): TextEl {
   return {
     id, kind: 'text', block: 'free', anchor: 'top',
     x: place(t.left + t.width / 2),
@@ -5781,11 +5919,31 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
     w: place(t.width),
     size: t.size,
     ...(t.face ? { face: t.face } : {}),
-    lines: t.lines.map((words) => ({
-      role: 'body' as const,
-      align: t.align,
-      sources: [{ fixed: { en: words } }],
-    })),
+    /*
+     * Wired, it is one line and nothing else.
+     *
+     * One line because a placeholder set over three lines \u2014 AMELIA, &,
+     * MATTHEW \u2014 is still one answer, and three lines each carrying the
+     * same binding would print the name three times. The box keeps the
+     * width and the size the placeholder had, so the answer wraps inside it
+     * the way the words it replaced did.
+     *
+     * And nothing else: no fixed words behind it as a fallback. A guest
+     * whose answer is empty must see nothing, not the name of whoever the
+     * master was designed for \u2014 the canvas draws an empty box labelled
+     * with what fills it, which is how she can still see and move one.
+     *
+     * Unwired, the words stay exactly as they were read, line for line,
+     * which is right for a heading nobody can rename and for anything the
+     * reading could not place.
+     */
+    lines: from
+      ? [{ role: 'body' as const, align: t.align, sources: [from] }]
+      : t.lines.map((words) => ({
+        role: 'body' as const,
+        align: t.align,
+        sources: [{ fixed: { en: words } }],
+      })),
   };
 }
 

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
-import type { Lang } from './copy';
-import type { Look, LineKey, TitleKey } from './looks';
+import { t, type Lang } from './copy';
+import { formatDate, formatTime, parseDateKey } from './datetime';
+import { LOOKS, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
 import { MOMENT_KEYS, type MomentKey, type Trigger as MomentTrigger, type Speed as MomentSpeed } from './moments';
 import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
 import {
@@ -118,6 +119,40 @@ export function lineLabel(key: LineKey, occasion: Occasion): string {
  * have to guess which box was which.
  */
 const TITLE_ALSO: Partial<Record<TitleKey, string>> = { getting: 'getting there' };
+
+/**
+ * Every wording a design might have printed for this heading.
+ *
+ * A master designed elsewhere carries its headings as *words* — "Our
+ * Story", "Gift Request", "Ninongs" — and a page brought in has to
+ * recognise them to wire them to the heading they are, rather than to
+ * whichever question happens to have a similar label. There is no one right
+ * wording to compare against: the app has its own phrase, each of the five
+ * looks has its own, and the part carries a name of its own in this
+ * occasion's words. A designer will have used any of them.
+ *
+ * So all of them are offered, and the reader matches on any. It is cheap,
+ * it is real data rather than a word list somebody has to maintain, and it
+ * grows by itself every time a look gains a heading.
+ */
+export function titleSaid(key: TitleKey, occasion: Occasion): string[] {
+  const said = new Set<string>([titleLabel(key, occasion), sectionLabel(TITLE_ON[key], occasion)]);
+  for (const lang of ['en', 'tl'] as Lang[]) {
+    /*
+     * Two of the headings have no phrase of their own in the copy file (the
+     * invitation's and the way there's, both of which are written into their
+     * blocks), so the key is asked for loosely and an answer that comes back
+     * as the key itself is the copy file saying it has none.
+     */
+    const own = t(lang, `${key}.title` as Parameters<typeof t>[1]);
+    if (own && own !== `${key}.title`) said.add(own);
+    for (const look of LOOKS) {
+      const its = lookTitle(look, lang, key, occasion);
+      if (its) said.add(its);
+    }
+  }
+  return [...said].filter(Boolean);
+}
 
 /** What a heading's box is called. The heading names a part, so that is its name. */
 export function titleLabel(key: TitleKey, occasion: Occasion): string {
@@ -687,7 +722,29 @@ type Base = {
  * including the blanks. It names a field rather than being a flag because a
  * frame and the caption beside it must count the same rows.
  */
-export type FieldRef = { section: string; field: string; index?: number; sub?: string; skipEmpty?: string };
+export type FieldRef = {
+  section: string;
+  field: string;
+  index?: number;
+  sub?: string;
+  skipEmpty?: string;
+  /**
+   * How a stored date or time is read out, where the field holds one.
+   *
+   * A date is kept as `2026-12-18` and a time as `16:00`, because that is
+   * what a date field and a time field are; printed on a cover they are
+   * neither of them what a guest should see. So a box bound to one says how
+   * to say it — "18 December 2026", "Dec 18, 2026", "Friday", "4:00 PM" —
+   * and the design, not the store, decides.
+   *
+   * It matters most for a page brought in from somewhere else: a master
+   * designed elsewhere carries the date as *words*, in the designer's own
+   * format, and a box put where those words were has to be able to say them
+   * the same way. Absent, the value is read out exactly as it is stored,
+   * which is right for every other field.
+   */
+  show?: 'date' | 'dateShort' | 'weekday' | 'time';
+};
 
 /** One text source. A line tries its sources in order and shows the first that has something. */
 export type Source =
@@ -1049,6 +1106,7 @@ const zFieldRef = z.object({
   section: z.string().regex(FIELD), field: z.string().regex(FIELD),
   index: z.number().int().min(0).max(199).optional(), sub: z.string().regex(FIELD).optional(),
   skipEmpty: z.string().regex(FIELD).optional(),
+  show: z.enum(['date', 'dateShort', 'weekday', 'time']).optional(),
 }).strict();
 const zSource = z.union([
   z.object({ bind: zFieldRef }).strict(),
@@ -2242,14 +2300,30 @@ const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'n
 export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef): string {
   const data = isRecord(content?.[ref.section]) ? (content![ref.section] as Rowish) : undefined;
   if (!data) return '';
-  if (ref.index === undefined) return text(data[ref.field]);
+  if (ref.index === undefined) return said(text(data[ref.field]), ref.show);
   const raw = data[ref.field];
   if (!Array.isArray(raw)) return '';
   const all = raw.filter(isRecord) as Rowish[];
   const list = ref.skipEmpty ? all.filter((r) => text(r[ref.skipEmpty!])) : all;
   const row = list[ref.index];
   if (!row) return '';
-  return text(ref.sub ? row[ref.sub] : row.value);
+  return said(text(ref.sub ? row[ref.sub] : row.value), ref.show);
+}
+
+/**
+ * A stored value said the way the box asks for it (`FieldRef.show`).
+ *
+ * Nothing said is the value itself, which is what every field but a date or
+ * a time wants. A value that will not parse is handed back untouched rather
+ * than blanked: a half-typed date is better on the page than nothing, and
+ * the checklist is where a bad one gets caught.
+ */
+function said(value: string, show: FieldRef['show']): string {
+  if (!show || !value) return value;
+  if (show === 'time') return formatTime(value) || value;
+  const when = parseDateKey(value);
+  if (!when) return value;
+  return formatDate(when, show === 'dateShort' ? 'short' : show === 'weekday' ? 'weekday' : 'long') || value;
 }
 
 /**

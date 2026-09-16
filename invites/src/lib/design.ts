@@ -439,6 +439,30 @@ export type DesignDoc = {
    */
   sheet?: SheetSpec;
   /**
+   * A list of the parts, for a guest who does not want to scroll all of it.
+   *
+   * An invitation is one column read top to bottom, and for a guest who came
+   * to read it that is the right shape. But a tita who only wants the church
+   * address should not have to swipe past the entourage to find it, and a
+   * ninong checking the dress code should not meet the whole love story on
+   * the way. Set, the guest gets a small way in to a list of every part this
+   * invitation actually carries, in its own order, and a tap takes them
+   * there.
+   *
+   * **It is the app's, not the design's, and that is deliberate.** The parts
+   * an invitation carries depend on the package, on which questions the
+   * customer answered and on what the design draws — so a list drawn by hand
+   * would go stale the first time a customer left the programme blank, and
+   * would offer a guest a part that is not there. It is built at render time
+   * from the parts that were drawn, labelled in the words the occasion uses,
+   * and it takes this design's fonts and colours so it looks like the
+   * invitation rather than like a website.
+   *
+   * Absent on a design that has not asked for one: the two originals do not
+   * have it, and a Save the Date — three lines and a date — never wants one.
+   */
+  contents?: boolean;
+  /**
    * This design's own colours by night.
    *
    * Night was one fixed set of colours for every design — an ivory ink, a
@@ -1281,6 +1305,7 @@ const zDoc = z.object({
     // the same shape as a page key, because that is what these are
     hide: z.array(z.string().regex(KEY)).max(60).optional(),
   }).strict().optional(),
+  contents: z.literal(true).optional(),
 }).strict();
 
 /**

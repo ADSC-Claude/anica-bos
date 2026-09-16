@@ -90,3 +90,25 @@ test('the two shipped designs are off the shop floor, and recoverable', () => {
   // nothing at all is on sale
   assert.equal(TEMPLATES.filter((t) => !t.retired).length, 0);
 });
+
+/**
+ * The guest's list of parts, and the one trap in its stylesheet.
+ *
+ * Its backdrop is a `position: fixed` child of the button's own container,
+ * so it only covers the screen while nothing above it is transformed — a
+ * transformed element becomes the containing block for fixed descendants,
+ * and then `inset: 0` means that element's box instead of the viewport. A
+ * rise added to the fade did exactly that: the backdrop came back the size
+ * of the button, and a tap on the artwork stopped closing the sheet. It
+ * looks harmless in the CSS and it is not, so it is written down here.
+ */
+test('nothing over the guest’s list of parts is transformed', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const block = css.slice(css.indexOf('.inv-contents {'));
+  const fade = block.slice(block.indexOf('@keyframes inv-contents-in'), block.indexOf('@keyframes inv-contents-in') + 200);
+  assert.doesNotMatch(fade, /transform/, 'a transform here re-parents the backdrop and the outside tap stops closing');
+  // and the button has to sit above the backdrop, which is a later sibling
+  assert.match(block, /\.inv-contents-open \{\s*position: relative;\s*z-index: 2;/, 'the backdrop will cover its own button');
+  // paper does not scroll
+  assert.match(css, /@media print \{ \.inv-contents \{ display: none; \} \}/);
+});

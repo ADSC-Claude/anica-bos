@@ -1762,3 +1762,20 @@ export function readForward<T extends Content>(content: T): T {
     },
   };
 }
+
+/**
+ * Where each part lands on the page — the ids the renderer gives its
+ * sections, for anything that wants to scroll to one: the builder's phone
+ * coming back to the part being edited, and the guest's own list of parts.
+ *
+ * It lives here rather than beside either of them because both need it and a
+ * second copy would drift: an id that changed in the renderer and not in the
+ * list would give a guest a tap that goes nowhere.
+ *
+ * A part with no place of its own — the music, the spare photographs — goes
+ * to the top.
+ */
+const ANCHOR: Partial<Record<SectionKey, string>> = { cover: 'top', dressCode: 'dress-code', photos: 'guest-photos' };
+export function anchorOf(section: string): string {
+  return ANCHOR[section as SectionKey] ?? (section === 'music' || section === 'extras' ? 'top' : section);
+}

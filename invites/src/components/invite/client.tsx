@@ -1778,3 +1778,65 @@ export function LazyVideo({ src, webm, poster, loop = true, className, style }: 
     </video>
   );
 }
+
+/**
+ * The parts, listed, for a guest who does not want to read all of it.
+ *
+ * `parts` is worked out on the server from what was actually drawn, so this
+ * only ever offers somewhere that exists. It is a button and a sheet rather
+ * than a bar across the page: an invitation's artwork is the thing being
+ * sold, and a permanent strip of navigation over a hand-drawn sky is the one
+ * way to make a beautiful design look like a brochure. The button is small,
+ * sits clear of the phone's own bars, and gets out of the way once used.
+ *
+ * Scrolling is smooth unless the guest has asked their phone for less
+ * motion, in which case it jumps — the same courtesy the rest of the
+ * invitation pays.
+ */
+export function Contents({ parts, label, closeLabel }: { parts: { id: string; label: string }[]; label: string; closeLabel: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const go = (id: string) => {
+    setOpen(false);
+    // The anchor lives in the invitation, which on the print view and in the
+    // studio's single-page canvas may not be this element's own document.
+    const doc = ref.current?.ownerDocument ?? document;
+    const target = id === 'top' ? doc.querySelector<HTMLElement>('.inv') : doc.getElementById(id);
+    if (!target) return;
+    const gentle = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({ behavior: gentle ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  if (parts.length < 2) return null;
+
+  return (
+    <div className="inv-contents" ref={ref} data-open={open ? '' : undefined}>
+      <button type="button" className="inv-contents-open" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="inv-contents-list">
+        <span aria-hidden="true" className="inv-contents-rules" />
+        {label}
+      </button>
+      {open && (
+        <>
+          <button type="button" className="inv-contents-behind" onClick={() => setOpen(false)} aria-label={closeLabel} />
+          <nav id="inv-contents-list" className="inv-contents-list" aria-label={label}>
+            <ul>
+              {parts.map((p) => (
+                <li key={p.id}>
+                  <button type="button" onClick={() => go(p.id)}>{p.label}</button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </>
+      )}
+    </div>
+  );
+}

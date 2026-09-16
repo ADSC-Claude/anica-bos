@@ -5,7 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { MOMENT_BY_KEY, triggerOf, type MomentKey, type Trigger } from '@/lib/moments';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
-import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, anchorOf as anchorIn, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -17,7 +17,7 @@ import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, invitationPages, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
@@ -1932,6 +1932,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const opening = openingProps();
 
   const order = sectionOrder(occasion, layout);
+  /*
+   * Filled in by pages() below, which is the only place that knows which
+   * parts were actually drawn. Declared here so the list survives out to the
+   * render, where the guest's Contents gets it.
+   */
+  let reachable: { id: string; label: string }[] = [];
   // The look's words: the line under each heading, and the headings it names.
   /*
    * The look's words: the line under each heading, and the headings it names
@@ -2059,6 +2065,18 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       if (el) drawn.set(key, el);
     }
     if (verse) drawn.set('verse', verse);
+    /*
+     * The parts, for the list a guest taps. Built here because this is the
+     * one place that knows what was *drawn* rather than what was offered — a
+     * part the package leaves out, or the customer left blank, never reaches
+     * this map, so the list can never send a guest somewhere that is not
+     * there. Walking `order` rather than the map's own keys also leaves the
+     * verse out for free — it is a line under the names, not a destination,
+     * and it is the one entry in `drawn` that is not a part.
+     */
+    reachable = order
+      .filter((k) => drawn.has(k))
+      .map((k) => ({ id: anchorIn(k), label: sectionLabel(k, occasion) }));
     const placed = new Set<string>();
     const out: ReactNode[] = [];
     /**
@@ -2384,6 +2402,20 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         */}
       {print && !!sheetRules(doc) && <style precedence="default" href="inv-sheet">{sheetRules(doc)}</style>}
       {peek && !embed && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
+      {/*
+        * The list a guest taps, where the design asked for one. Not on the
+        * printable sheet (paper does not scroll), not on the peek (a snippet
+        * has nowhere to go), not on a Save the Date (one card), and not on
+        * the studio's single-page canvas, where the only page there is is the
+        * one she is drawing.
+        */}
+      {doc?.contents && !print && !peek && !saveTheDate && !only && (
+        <Contents
+          parts={reachable}
+          label={lang === 'tl' ? 'Mga bahagi' : 'Jump to'}
+          closeLabel={lang === 'tl' ? 'Isara' : 'Close'}
+        />
+      )}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}
       {!print && <Motion />}

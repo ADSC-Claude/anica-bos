@@ -1527,6 +1527,33 @@ test('the parents are a part a design can carry, with a heading and a line of it
 });
 
 /**
+ * The guest's list of parts survives being saved.
+ *
+ * `zDoc` is `.strict()`, so a field the *type* knows and the schema does not
+ * is not quietly stripped — the whole parse fails and the design falls back
+ * to its built-in. That caught the Save the Date and the paper settings out
+ * twice: both saved perfectly and rendered nothing at all. So this asserts
+ * the round trip rather than the type.
+ */
+test('a design that offers a list of parts still says so after a save', () => {
+  const base = builtinDesign('capiz')!;
+  const written = JSON.parse(JSON.stringify({ ...base, contents: true }));
+  const read = designOf(written, 'capiz');
+  assert.deepEqual(read.dropped, [], 'the document did not survive the schema');
+  assert.equal(read.doc?.contents, true, 'the list was stripped on the way through');
+
+  // and the designs that have not asked for one say nothing, which is what
+  // keeps the two originals exactly as they were
+  assert.equal(builtinDesign('capiz')!.contents, undefined);
+  assert.equal(builtinDesign('babyblue')!.contents, undefined);
+
+  // it is a switch, not a number of parts or a list of keys: anything else
+  // is a design document somebody hand-edited, and it is refused
+  assert.equal(designOf({ ...written, contents: false }, 'capiz').doc, null, 'false is not a thing a document may say');
+  assert.equal(designOf({ ...written, contents: 3 }, 'capiz').doc, null);
+});
+
+/**
  * A page kept for the Save the Date leaves the invitation.
  *
  * The hazard this is really about: a Save the Date names the cover section,

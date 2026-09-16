@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ['@prisma/client', 'bcryptjs'],
   eslint: { ignoreDuringBuilds: true },
+  /*
+   * Next's image optimiser is switched off: nothing in this app imports
+   * `next/image`, so the endpoint served no page of ours and only offered a
+   * stranger a way to have our server fetch and decode a picture. It is also
+   * where the unauthenticated remote-code-execution advisory patched in
+   * 15.5.25 lived. Off, the route is not built.
+   */
+  images: { unoptimized: true },
   async headers() {
     return [
       {

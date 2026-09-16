@@ -3,21 +3,23 @@
 A mobile-first platform where customers in the Philippines buy a templated
 **digital invitation** — a shareable link plus QR — for a wedding, debut,
 christening, birthday or any of fourteen occasions, pay **once** in ₱ via
-GCash / Maya / card / bank transfer, and either build it themselves or have
-our team encode it (**Done-For-You**).
+GCash / Maya / card / bank transfer, and tell us the details — **we build it**
+and they approve it before a guest sees it.
 
 Four surfaces, one backend:
 
 | Surface | Path | What it does |
 |---|---|---|
-| Public site | `/` | Landing page, template gallery, packages with a DIY / DFY toggle, comparison table, FAQ, live demo |
+| Public site | `/` | Landing page, template gallery, packages, comparison table, FAQ, live demo |
 | Customer dashboard | `/account` | Checkout, builder with live phone preview, publish & share (QR, Messenger, Viber, WhatsApp, SMS), guest list with per-guest links, RSVP dashboard, seating, QR check-in, guestbook, DFY intake and revisions |
-| Guest page | `/i/juan-and-maria` and `/i/juan-and-maria/<token>` | The invitation itself: no login, no app, works inside the Messenger and Viber browsers, one-tap RSVP, add-to-calendar, Maps & Waze, download as image, print / PDF |
+| Guest page | `/juan-and-maria` and `/juan-and-maria/<token>` | The invitation itself: no login, no app, works inside the Messenger and Viber browsers, one-tap RSVP, add-to-calendar, Maps & Waze, download as image, print / PDF |
 | Admin | `/admin` | Orders & payments (PayMongo webhook + manual proof review), DFY kanban, templates, customers, invitations, coupons, support inbox, reports, settings (pricing editor, payment accounts, copy, staff, audit trail) |
 
 Same toolchain as the ANICA spa and rental apps in this repository, and
-otherwise entirely separate from them: its own database, its own Vercel
-project, no shared code or rows.
+otherwise separate from them: its own Vercel project, no shared code, no
+shared rows. Not its own database, though — it is its own **schema**,
+`invites`, inside the Postgres the spa also uses, and the distance between
+those two facts is one environment variable. See step 6 of [Deployment](#deployment).
 
 ---
 
@@ -28,6 +30,7 @@ project, no shared code or rows.
 - [How it works](#how-it-works)
 - [Packages, tiers and gating](#packages-tiers-and-gating)
 - [Occasions and sections](#occasions-and-sections)
+- [Collections and openings](#collections-and-openings)
 - [Money and payments](#money-and-payments)
 - [Done-For-You](#done-for-you)
 - [Guest data and privacy](#guest-data-and-privacy)
@@ -61,7 +64,7 @@ npm run dev                 # http://localhost:3000
 You now have:
 
 - `http://localhost:3000` — the landing page
-- `http://localhost:3000/i/juan-and-maria` — the demo invitation
+- `http://localhost:3000/juan-and-maria` — the demo invitation
 - `http://localhost:3000/checkout` — buy → pay (simulated gateway) → build → publish, end to end
 - `http://localhost:3000/login` — sign in (the seed prints the accounts)
 - `http://localhost:3000/admin` — the staff dashboard
@@ -82,15 +85,16 @@ reconciles with itself.
   That is because its built-in password is written in `prisma/seed.ts` in a
   public repository, on an account whose role is ADMIN — and being forced to
   change it on first sign-in protects nothing if a stranger signs in first.
-- **Customers:** Maria (owns the demo, plus a christening order waiting for
-  proof-of-payment review) and Sofia (a Done-For-You debut mid-encoding).
-- **Catalogue:** Basic / Standard / Complete packages for Wedding, Debut,
+- **Customers:** Maria (owns the two demos, plus a christening order waiting
+  for proof-of-payment review) and Denise (a Done-For-You christening on Baby
+  Blue, form in, waiting for the encoder).
+- **Catalogue:** Basic / Standard / Signature packages for Wedding, Debut,
   Christening and Kids' Birthday, plus a generic fallback used by every other
   occasion; seven add-ons; three coupons (`LAUNCH20`, `REFER500`, one expired).
 - **Templates:** five wedding designs (one premium), two debut, one each for
   christening, kids' birthday, milestone birthday, anniversary, corporate and
   memorial.
-- **The demo, "Juan & Maria":** a Complete-tier wedding with parents (one
+- **The demo, "Juan & Maria":** a Signature-package wedding with parents (one
   marked *the late*), six pairs of principal sponsors, secondary sponsors,
   the full wedding party, dress code with four motif swatches, a gift note
   with a GCash QR, RSVP with meal choices and an adults-only policy, story
@@ -100,7 +104,7 @@ reconciles with itself.
 
 ## The shared album
 
-A Complete-tier invitation can collect photos from its guests. The couple
+A Signature-package invitation can collect photos from its guests. The couple
 switches it on in the builder under *Guest photos*, and the guest page grows a
 wall and an upload form beneath it. Guests need no account; the form takes a
 name, a photo and an optional caption.
@@ -121,7 +125,7 @@ bytes rather than the name the browser claimed.
 Photos go out through Supabase's image transformation endpoint, not as the
 file the phone uploaded. A phone photo is three or four megabytes and four
 thousand pixels wide; the guest page shows it in a grid cell a couple of
-hundred pixels across, and a Complete-tier album holds up to five hundred of
+hundred pixels across, and a Signature-package album holds up to five hundred of
 them. Served raw, one album opened by two hundred guests is hundreds of
 gigabytes of egress — on its own enough to exhaust a month's allowance for
 every app sharing the Supabase project.
@@ -167,18 +171,35 @@ or a single spent credit.
 
 ## How it works
 
-**DIY:** Landing → checkout (occasion → package → service mode → template →
-add-ons → coupon) → pay → order `PENDING_PAYMENT → PAID → ACTIVE` → builder
-unlocks → sections with a progress bar and tier-locked sections shown with an
-*Upgrade* badge → live preview (phone / desktop) → publish → share.
+Landing → checkout (occasion → package → template → add-ons → coupon) → pay →
+order `PENDING_PAYMENT → PAID → ACTIVE` → a `DfyJob` is created → the customer
+fills the intake form, or says they will send it via Messenger / Viber / Excel
+→ an encoder is assigned and builds it in the builder → moves the job to
+*Preview sent* (customer gets a link by dashboard + email) → customer requests
+changes (rounds are counted) or approves → staff publishes → the invitation is
+live, and closed to the customer: they read it, and ask us for any change.
 
-**Done-For-You:** same checkout with DFY ticked → pay → a `DfyJob` is created
-→ the customer fills the intake form (the same fields as the builder, in one
-page), or says they will send it via Messenger / Viber / Excel → an encoder is
-assigned, builds it in the same builder → moves the job to *Preview sent*
-(customer gets a link by dashboard + email) → customer requests changes
-(rounds are counted) or approves → staff publishes → the customer can still
-edit afterwards.
+**There is one service, and it is not a choice.** `ServiceMode` still has three
+values and `serviceModeAvailable()` in `src/lib/pricing.ts` sells exactly one
+of them, the way a withdrawn mode has been handled here before:
+
+- `CONCIERGE` went when speed became the rush and priority add-ons — buying it
+  as a mode meant giving up Done-For-You to get it, which is backwards.
+- `DIY` went because there was nothing behind it. `src/lib/sections.ts`
+  generates the builder's forms *and* the intake form from one definition, so
+  the two products differed only in who typed; a customer who bought the
+  service and then filled in the same form had paid a fee to do the work
+  themselves. The build is now included in the base price
+  (₱2,500 / ₱4,000 / ₱6,000), which is what a Done-For-You order came to
+  before.
+
+Withdrawn is not deleted. `SERVICE_MODES` still carries all three so an order
+sold under any of them names itself correctly in the admin, on a receipt and in
+a customer's history, and `DIY` stays the stored value for an order with no
+build behind it: an upgrade order, or an invitation staff made with no order at
+all. Nothing about the builder is removed either — encoders live in it, the
+intake form is generated from it, and a customer can read their own invitation
+in it once it is published — read, not change.
 
 Every write to an invitation goes through `src/lib/invitations.ts`; every
 read of it by a guest goes through `loadPublic()`. Drafts are visible only to
@@ -196,6 +217,25 @@ Prices are rows, not code (`Package`, `AddOn`), editable at
 `/admin/settings/pricing`. A `Package` row with `occasion = null` is the
 fallback for occasions without their own pricing. Orders snapshot the quote
 at purchase; a later price change never moves money already agreed.
+
+Because they are rows, changing the code does not change what a live database
+charges: `npm run db:pricing` applies the grid in `scripts/set-pricing.ts`
+(`-- --dry` to see it first), and that is the only thing that moves an existing
+catalogue to ₱2,500 / ₱4,000 / ₱6,000 with both service fees at zero.
+
+**Revisions happen before we publish.** The customer reads a preview, says what
+to change, and the rounds are counted on the `DfyJob`. How many is the
+package's: `Package.revisionRounds`, 2 / 4 / 6 by tier, capped lower when the
+build was rushed (`revisionRounds()` — there is no room for four rounds of
+back-and-forth inside 24 hours). Publishing ends that conversation rather than
+starting a second one: `assertNotPublished()` in `src/lib/invitations.ts` closes
+a published invitation to its customer — words, photos, colours and design
+alike — and a change after that is ours to make, so staff are never gated by it.
+It is a rule, not an allowance: there is no number left to spend and no row an
+admin can raise to reopen one. The invitation's `editsAllowed` / `editsUsed`
+are retired columns, kept but never read; the package column that fed them was
+renamed to `revisionRounds` and now buys rounds before publishing instead,
+which is what the numbers in it always described best.
 
 Service modes stack a fee on top of the package (`dfyFeeCents`,
 `conciergeFeeCents`). The arithmetic lives in one place, `src/lib/pricing.ts`,
@@ -224,6 +264,293 @@ Fixed labels on the guest page come from `src/lib/copy.ts` in English and
 everyday Tagalog ("Mga Magulang", "Paki-confirm po ang inyong pagdalo bago
 ang…"), switched per invitation. The default copy blocks (intro lines, gift
 notes, adults-only, unplugged ceremony, RSVP note) have Tagalog variants too.
+
+## Collections and openings
+
+A **collection** is a colour family that cuts across occasions — the way a
+couple actually shops ("show me the white ones") rather than the way the
+database is organised. `src/lib/collections.ts` declares them; a template
+carries at most one in `Template.collection`. A collection with no published
+design of its own is never shown and has no page, so the list can be written
+ahead of the designs.
+
+**Capiz** is the flagship, in the Filipiniana Collection at
+`/collections/filipiniana`: capiz shell and bronze wax, opening with the seal.
+It has its own `capiz` layout, whose shell border is drawn from the palette
+rather than supplied as artwork, so the design recolours with the customer's
+own accent instead of framing the page in a colour that no longer matches it.
+A couple's cover photo cannot fill the cover the way the other layouts do it —
+the ground is the artwork — so it sits one of five ways, chosen on the cover
+form (`photoStyle`, `PHOTO_STYLES` in `sections.ts`, one `data-style` each on
+`.inv-portrait`): behind the names under a veil of the paper, or framed above
+them as an arch in a bronze line, an oval with a double line, a round
+medallion, or a photo card tucked under the drape. A couple who wants their
+photo carried differently is one pick away.
+
+Both paged designs carry it, each in its own light. Capiz's frames are drawn
+in its gold and its default is the veil; Baby Blue's are drawn in its soft
+blue, its shade is navy rather than brown, its default is the tucked card, and
+every frame is capped against the screen's height as well as its width,
+because its cover is one screen of sky by construction and a frame sized off
+the width alone pushes the child's name toward the fold on a short phone. Its
+veil needs its own mask too: Capiz's fades to 64% of the box, which is wider
+than the box, so its edges never reach transparent — invisible on painted
+paper, a panel with corners on clean sky.
+
+The choice is made from pictures, not words. The cover's picker (`styles`, a
+field type of its own, drawn in `builder/fields.tsx`) shows each option as a
+little page with the words on it and the frame the photograph would sit in —
+nothing is loaded to draw them, they are boxes and radii. The first tile is
+the blank value, meaning whatever the design was drawn to do, and the second
+is no photograph at all: a client who does not want one on the cover picks it
+like any other look rather than hunting for a switch. Turning it off does not
+throw the photograph away — it stays the link preview in Messenger and Viber,
+and the first picture on the photos page.
+
+Every photograph a demo needs is the grey placeholder in `public/demo/`, in
+the shape the slot takes (portrait, square, wide): a demo that carried stock
+photographs showed a visitor pictures that were nobody's, and the placeholder
+reads as "your photo goes here". The seed's `pic()` hands it out.
+
+The gallery's premium-opening preview sets the words on the clip's card from
+the design's demo, with the same `plateWords` the guest page uses — rename
+the child in the demo's form and the preview follows — and describes each clip
+from its catalogue entry (`blurb`).
+
+**The card's writing is never a beat you have to catch.** The preview plays
+the clip, brings the words up on the card, holds them, lets the invitation's
+cover fade in beneath as a guest gets it — and then comes back to the card and
+rests there, because the writing is what the visitor opened it to read. And
+when a clip will not play at all — a phone in low power mode refuses autoplay
+outright, a slow line has not finished the file, a browser will not decode it
+— the words come up anyway, on a card in the design's own colours rather than
+over a poster whose artwork already says "you're invited" in its own hand.
+The guest page has had those guards since it was built (`LOAD_GRACE_MS`,
+`END_GRACE_MS` in `components/invite/client.tsx`); the preview now has its own,
+and the guest page now has the card too (`.inv-open-still`): its words used to
+land on the poster, where the Capiz seal's own "YOU'RE INVITED" printed
+through the couple's.
+
+**Day and night is sold, not hidden.** Every paged design reads twice over:
+the same pages by daylight and after dark. The couple sets which one their
+invitation opens in — or lets it follow the guest's own clock, evening from
+six — and the guest may switch with the moon in the corner, their phone
+keeping the choice per invitation. That is now said on All designs
+(`app/templates/page.tsx`), because it is a reason to buy and nobody could
+have known it from the covers.
+
+**What is typed reaches both surfaces.** The card's words are `plateWords()`
+over the invitation's own cover fields — the monogram, the line, the names,
+the date and the words under it — so renaming the child in the builder renames
+them on the guest's card and on the gallery's preview at once, with nobody
+retyping anything. The faces follow the same rule: the guest page sets the
+overlay inside the invitation's own `.inv` wrapper, and the preview resolves
+the demo's theme the same way (`resolveTheme` in `lib/peek.ts`), so a look
+changed in the builder changes the writing in the opening too.
+
+**Each clip's words are set where that clip leaves room.** Capiz's card is
+narrow and upright, so its words are stacked down the middle of it. The Baby
+Blue bow opens a diamond of clear satin, measured off the clip's last frame at
+21%–55% of the frame, widest at 42%, with its axis two points right of the
+frame's middle — so the bow's words are set to that box, on that axis, and
+sized to fill it. The owner marked the centre they wanted on their own phone,
+37.9% down the screen and 51.7% across; this box lands the writing's middle
+within a tenth of a point of it. The two surfaces show them in the same place: the gallery's
+9:16 phone crops 11.09% off each end of the 976:2120 frame, and the preview's
+box is the guest page's put through that crop. The name's size comes down as
+the name gets longer (`--plate-chars`, from `plateChars` in `lib/openings.ts`)
+so "Juan Sebastian" keeps the same clearance from the satin that "Lucas" has:
+the divisor is what sets how wide a long name runs, and it is scored against
+"Maximilian", not the demo's five letters. The cap and the divisor move
+together — the owner asked for the writing a little smaller, and dropping only
+the cap would have left a long name bigger than a short one. Sideways the clip is letterboxed
+and the words' box is letterboxed with it — the media query has to sit BELOW
+the unconditional rule, because the two weigh the same and while it sat above
+it never applied, which left the box four times the screen's width.
+
+**A snippet says nothing about what is under it.** A design's peek
+(`/<demo slug>?peek=1`) runs from the opening to Our Story and ends with the
+design's name, the way in, and the way back — never a line explaining which
+pages the visitor is not being shown. Every design we add works this way: the
+catalogue is where the pages are described, and a snippet that has to explain
+itself is a snippet that is not doing its job.
+
+**Every movement has a way out.** A page a visitor stepped into carries a back
+sign, and anything that covers the screen carries a cross that closes it. The
+peek gets both, fixed above the opening so nobody is held by a clip they have
+seen enough of (`PeekControls`): the arrow steps back through their own
+history when they came from a page of ours, and falls back to `/templates`
+when they landed on the link cold. The premium-opening preview keeps its cross
+in the corner of the dimmed screen the whole time, beside Escape and a click
+on the backdrop. `BackArrow` (`src/components/back.tsx`) is the same arrow for
+ordinary pages: all designs, a collection, checkout, signing up, the policies.
+
+**Baby Blue** is the christening design, in the Baby Blue Theme at
+`/collections/babyblue`: sky and clouds with a dove and the church bell for
+the cover, blue and cream organza for the rest. Its `babyblue` layout lays one
+of the designer's ten grounds behind each page (`src/lib/design.ts` names
+them; `PageGround` trims each to its page, keeps a taller page's head and foot
+whole and stretches the band between, and brings a short page's foot in under
+the words). Two grounds are drawn pages — Our Story with six polaroid frames
+down a timeline, Baby Photos with four — whose frames take the client's
+photographs and whose writings are set live where the designer set hers
+(`src/lib/babyblue.ts` holds the measured slots), so staff and the client can
+change them. The christening's story is told in six milestones, the design's
+own to start.
+
+An **opening** is the short moving scene before the invitation. The guest taps
+once, it plays, and the invitation is underneath. `src/lib/openings.ts` is the
+catalogue:
+
+| Opening | Tier | What the guest sees |
+| --- | --- | --- |
+| The Envelope | Basic | A closed envelope, the monogram on the seal, the flap opening. |
+| The Line | Standard | A gold curve drawing itself across warm white. |
+| The Curtain | Standard | Two sheer curtains over the couple's photo, parting to the sides. |
+| The Drape | Every package | Hanging silk with the names on it, lifted away. |
+| The Seal | Every package | Wax pressed with the monogram; it lifts, the flap folds back, the card rises. |
+| Photo Story | Every package | Three photos fanned like prints, sliding apart. |
+| Cinematic | The premium opening add-on | The clip drawn for the design: the Capiz seal breaking, or the Baby Blue bow untying and its ribbons sweeping aside. |
+
+**None of these is a video.** Every one is drawn by the browser from the
+couple's own palette, words and photos — a `<div>`, a CSS transition and, for
+The Line, one SVG path. That is not a stylistic preference:
+
+- The names, date and line are live text, so a couple can change a nickname at
+  11pm and the opening says the new one on the next reload. A rendered clip
+  would have to be re-made per couple, per edit, by hand.
+- It weighs nothing. A 4-second 1080p clip is 2–6 MB before it plays; this is
+  a few kilobytes of markup already in the page. The product is a link opened
+  on mobile data in a Messenger in-app browser, and the first screen is the
+  one that decides whether the guest waits.
+- It re-skins itself. The stage reads `--inv-accent`, `--inv-surface` and the
+  rest, so an opening works on all twelve palettes without a second asset.
+- Nothing goes through storage, so nothing is charged for egress.
+
+That holds for the six drawn openings. **The cinematic one is the exception,
+and it is deliberate.** Photoreal cloth — a silk bow untying, beadwork with
+raised shadow — cannot be drawn in CSS or in Lottie, which is vector. It is
+artwork somebody makes, so it is a file.
+
+Because it is artwork for one theme, it is not offered to every design.
+`src/lib/premium-openings.ts` is the catalogue: each clip names the designs it
+was drawn for, and the collection it belongs to so a theme's next design
+inherits it. An invitation is offered its own theme's clips and no others —
+Capiz has one, the Baby Blue Theme has the Blue Bow with more to come, and a
+christening is never shown a wedding's seal. A theme with more than one clip
+becomes a choice: the customer picks theirs under Settings once the add-on is
+on the order, staff can set it from the invitation's admin page, and the
+design's row carries the first as its default, which is what the gallery
+previews. Adding a clip is one entry in that file plus two files under
+`public/openings`; the checkout gate, the picker and the guest's page all read
+the catalogue.
+
+What makes it affordable is that the file is still shared. One clip per
+design, not per couple: the names never appear inside it, so the same few
+hundred kilobytes serve every customer on that design and the CDN caches it
+after the first guest. `preload="none"` means it is not fetched at all until
+the tap, so it costs a guest who never opens the invitation nothing, and the
+tap is a user gesture, which is what lets it play on iOS at all.
+
+Because it is artwork rather than a setting, it is never offered in the
+builder (`staffOnly`) and never chosen by a customer. It arrives with a
+Done-For-You or Concierge order: staff attach the clip and its poster to the
+design (`Template.openingVideoUrl`) or, for Concierge, to the one invitation
+it was drawn for (`Invitation.openingVideoUrl`), from the DFY job page. The
+poster is required alongside the clip, because that still *is* the closed
+screen until the guest taps.
+
+Generated video also has a place on the marketing pages — a hero loop, one
+asset made once. What must not be a file is a *render per couple*: that is the
+thing that cannot carry live text and cannot be made at self-serve prices.
+
+Which opening a guest gets is `resolveOpening()`: the customer's choice
+(`content.cover.opening`), else the design's default (`Template.opening`),
+else none. An opening above the invitation's tier falls back to The Envelope
+rather than to nothing, so a downgrade never leaves a guest looking at a blank
+first screen where there used to be one.
+
+Three things every opening must do, and the tests and the CSS enforce:
+
+- **Work without JavaScript.** The overlay is server-rendered, so a `<noscript>`
+  rule hides it outright — otherwise a guest with scripts off would tap a
+  screen that never opens.
+- **Respect `prefers-reduced-motion`.** The tap-to-open moment stays; nothing
+  slides, sways or draws. The overlay simply fades.
+- **Disappear from print.** `/[slug]/print` and Save as PDF render the
+  invitation only.
+
+The cinematic one adds two of its own, both tested: a clip that 404s or will
+not decode reveals the invitation anyway rather than stranding the guest on a
+screen that never opens, and under `prefers-reduced-motion` the poster stands
+in — the same artwork, held still — and the clip never plays.
+
+An invitation without the premium opening add-on is not served the clip at all: the `<video>` is
+never rendered, so there are no bytes to decline. Its design's own drawn
+opening carries on instead.
+
+### The Moment, and where the scenery lives
+
+An early version of the cinematic opening baked the scenery into the clip. It
+should not: the clip is shared by every couple on a design, so a fixed view
+hands a Batangas couple somebody else's horizon, and no encoder can change it
+without commissioning new video.
+
+So the scenery is a **page section**, not part of the opening. `moment` is a
+frame — a capiz arch, a capiz window, or none — with three layers behind it
+that are deliberately independent:
+
+1. **the backdrop** — the couple's own photograph, which an encoder swaps at
+   any time without touching anything else,
+2. **the painted scene** (`src/lib/backdrops.ts`), used only when there is no
+   photograph, because a snapshot often fights a design built from capiz and
+   warm ivory, and forcing one in is worse than not,
+3. **the words** — three short lines, typed by the customer like every other
+   field.
+
+Every painted scene is somewhere in the Philippines: El Nido, Batangas, Taal,
+Boracay, Bohol, Banaue, Sagada, Intramuros. A couple marrying in Batangas is
+not handed a lake in Lombardy because the illustration happened to be pretty.
+A scene whose artwork does not exist yet is never offered, so the list can be
+written ahead of the painting, and an unpainted choice leaves the frame
+holding the page's own colour rather than a broken image.
+
+The frame itself is drawn in CSS from the palette, not supplied as a second
+image — so it re-skins with the design instead of needing one commission per
+colourway. The arch is the backdrop's own `border-radius` rather than a hole
+punched through an overlay, because an inverse mask has to hard-code the page
+colour into a shadow, which then lies the moment a customer picks another
+palette.
+
+**Nothing on the opening is fixed copy either.** Both its lines — the one on
+the closed screen and the one shown as it plays — are cover fields. An earlier
+version hid the text layer on the cinematic opening on the reasoning that the
+artwork carried the screen; that was wrong, and it meant the one opening a
+customer pays most for was the one they could not put their own words on.
+
+### Shipping a design
+
+`prisma/templates.ts` is the catalogue, as data. The seed creates it on an
+empty database; `npm run db:templates` upserts it into one that already has
+customers — matching on slug, so a design keeps its id and every invitation
+built on it keeps rendering. `-- --dry` lists the changes without writing
+them. `published` is deliberately not synced: a design staff unpublished in
+the admin stays unpublished.
+
+In production, run the **Sync the invitation designs** workflow. It deletes
+nothing, which is why it needs no confirmation phrase — unlike the seed, which
+truncates the schema.
+
+### The Design Studio
+
+Today a new design is a code change: its pages, its grounds and the places its
+photo frames and labels sit are constants in `src/lib/design.ts`,
+`src/lib/babyblue.ts` and the renderer. The plan for moving those numbers onto
+the design row, so the owner can draw a design on a phone-sized page in the
+admin and publish it without a release, is
+[`docs/design-studio-plan.md`](docs/design-studio-plan.md) — seven phases, what
+each one lets her do, and what it will not do that Canva does. It is the
+working document: a phase begins by reading its section.
 
 ## Money and payments
 
@@ -255,9 +582,47 @@ the turnaround in Settings), an assignee, internal notes, a revision counter
 and a customer-facing thread. Overdue jobs are flagged red and nudge the queue
 daily. Reports show average intake-to-preview and preview-to-publish hours.
 
+### The encoder's workspace
+
+The client's form is already word for word and photo by segment, and it is
+copied into the invitation the moment they submit it (`saveIntake`). What an
+encoder adds is the fit: whether the intro sits on the cover, whether the
+prenup photos are in the right order, whether a milestone was written in the
+right box, whether the wording reads the way a guest should read it. **Encode**
+on a job (`/admin/dfy/<job>/encode`) is built for exactly that, in three
+columns:
+
+- the segments in the order the page shows them, with a mark for what the
+  client wrote (✎), what has been started and what has been checked off;
+- the client's own answers for the segment in hand beside the form for it
+  (every field, the fixed writings included), with one button to put their
+  answers into the form and, for any list of photographs, a strip of
+  thumbnails to reorder — the first is the large one at the top of a prenup
+  page;
+- the page itself, scrolled to that segment and reloaded on every save, so
+  the encoder sees what the words do before the client does. The preview
+  opens with `?bare=1`, which for a previewer drops the opening, the music and
+  the day-and-night toggle; a guest's link never does.
+
+Checking a segment off is the builder's Done mark, so the client's dashboard
+and the encoder's progress agree. Marking the job as encoding and sending the
+preview are one button each at the top.
+
+### How much a writing can hold
+
+Every text a client types has a limit sized to the page it lands on: a first
+name is set large in script across a phone, a milestone's title sits inside a
+drawn frame, a note under the palette is a line or two. `FIT` in
+`src/lib/sections.ts` holds the number per field (`cover.intro`,
+`story.timeline.title`, …), the type's default covers the rest, and every
+section's fields carry it as `max`. The form counts it down once a third is
+used and turns amber in the last stretch; the save cuts anything past it, in
+the builder, the intake and the workspace alike. When a design gains or loses
+room, the number changes in one place.
+
 ## Guest data and privacy
 
-- A guest's personal link is `/i/<slug>/<token>` where the token is 18
+- A guest's personal link is `/<slug>/<token>` where the token is 18
   random bytes. It resolves to that guest's name, reserved seats and table,
   and to nobody else's. Personal links are `noindex`; the general link is
   indexable only when the customer chooses *Public*.
@@ -292,7 +657,7 @@ at `/admin/settings` with sane defaults in `src/lib/settings-defaults.ts`.
 
 `POST /api/jobs/daily` (bearer `CRON_SECRET`; `vercel.json` schedules it at
 06:00 Manila) expires links past their validity, warns a week before, cancels
-stale unpaid orders, auto-closes Complete-tier RSVPs after the deadline, and
+stale unpaid orders, auto-closes Signature-package RSVPs after the deadline, and
 flags overdue DFY jobs. Idempotent. `npm run jobs:daily` runs it from a shell.
 
 ## Deployment
@@ -316,8 +681,46 @@ stripped) so a first deploy fails with a sentence rather than a stack trace.
    different secrets.
 4. **Email.** `RESEND_API_KEY` and a verified `EMAIL_FROM`.
 5. **Vercel.** Region `sin1`. Set `NEXT_PUBLIC_APP_URL` to the final domain —
-   it is baked into every share link and QR code. Set `CRON_SECRET`.
-6. **Seed** the production database once, then sign in as the Owner, change
+   it is baked into every share link and QR code, so a QR printed on a hundred
+   cards carries whatever this said at *build* time. It is a `NEXT_PUBLIC_`
+   variable, which means changing it in the dashboard does nothing until the
+   next build: redeploy after editing it. Production is
+   `https://youreinvitedto.com`, with `www.` redirecting to the apex.
+   Set `CRON_SECRET`.
+6. **Keep previews off the production database.** Vercel gives every
+   environment the same variables unless you scope them, so out of the box a
+   preview build applies its branch's migrations to the live database. That is
+   how a column rename on a branch took the storefront down: the rename ran
+   from the branch's own preview, production's code kept asking for the old
+   name, and every page reading the catalogue served 500 until the branch
+   merged — with a green preview the whole time, because the preview's code
+   matched the schema it had just changed.
+
+   In Vercel → Settings → Environment Variables, add `DATABASE_SCHEMA` scoped
+   to **Preview** only, with a schema of its own — `invites_preview`. Nothing
+   needs provisioning: Prisma creates the schema on the first preview build and
+   migrates it, and the seed workflow fills it. Previews then have their own
+   catalogue and their own orders, and no branch can reach a customer's guest
+   list. `scripts/build.mjs` refuses to build a preview that is still pointed at
+   production's schema, so this cannot quietly come undone; if a preview ever
+   has a genuinely separate database that reuses the name, set
+   `PRODUCTION_DATABASE_SCHEMA` to whatever production actually uses.
+
+   **Add that variable; do not edit the existing one.** Rescoping the single
+   all-environments row to Preview is the same edit as deleting Production's
+   copy, and a production build naming no schema is not pointed at nothing —
+   it is pointed at `public`. That happened. The build ran the invitations'
+   first migration there and failed at `CREATE TYPE "Role"`, because `public`
+   in this database holds an abandoned copy of the spa's tables from a move
+   that was never finished, and it rolled back having created nothing.
+
+   The failure was the lucky outcome. Against any *empty* schema that
+   migration succeeds, the build goes green, and production comes up serving a
+   catalogue with no packages and no invitations while the real rows sit in
+   `invites` with nothing reading them. `scripts/build.mjs` now refuses a
+   production build pointed anywhere but production's own schema — the preview
+   rule read from the other side.
+7. **Seed** the production database once, then sign in as the Owner, change
    the passwords, and replace the demo's placeholder photos and the sample
    testimonials on the landing page.
 
@@ -407,14 +810,15 @@ image, a 404, the admin redirect and the RSVP endpoint.
 
 ```
 invites/
-  prisma/           schema, migrations, seed
-  scripts/          build guard, integrity check, jobs runner
+  prisma/           schema, migrations, seed, the design catalogue
+  scripts/          build guard, integrity check, jobs runner, design sync
   src/lib/          the domain: sections, tiers, pricing, copy, invitations,
                     orders, payments, guests, rsvp, dfy, reports, jobs,
                     plus auth, guard, rbac, db, storage, paymongo, email
   src/components/   invite renderer + client pieces, builder form engine,
                     landing page pieces, site chrome, shared UI
-  src/app/          (public) /, /templates, /demo, /i/[slug], policies
+  src/app/          (public) /, /templates, /collections/*, /demo, /[slug],
+                    policies
                     /login, /signup, /checkout/*
                     /account/*  customer dashboard
                     /admin/*    staff dashboard
@@ -428,3 +832,10 @@ Phase 1 and most of Phase 2 from the build brief are here. Not yet built:
 Google / Facebook sign-in (email works everywhere including the Messenger
 browser), custom domains, and the Save-the-Date mini-invite as a separate page
 (it is currently a *card type* on the cover).
+
+Blush, Garden and Midnight have one design each, carried over from the
+existing catalogue; Filipiniana has two. White is declared but has no designs,
+so it does not appear anywhere and `/collections/white` is a 404 — which is
+the intended behaviour of a collection written ahead of its designs, and what
+happened when an earlier set was withdrawn. Filling one out is a row per
+design in `prisma/templates.ts` and a run of the sync workflow.

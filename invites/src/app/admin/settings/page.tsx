@@ -3,15 +3,17 @@ import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
 import { getSettings } from '@/lib/settings';
 import { PageHeader, Field, TextArea, Checkbox } from '@/components/ui';
+import { UploadField } from '@/components/admin/upload-field';
 import { Flash, type FlashParams } from '../flash';
 import { saveSettingsAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
 const BUSINESS = ['business.name', 'business.tagline', 'business.intro', 'business.email', 'business.phone', 'business.address', 'business.logoUrl', 'business.facebook', 'business.instagram', 'business.invitesCreatedLabel', 'business.rsvpsCollectedLabel', 'site.comingSoon', 'site.demoSlug'];
-const CONTACT = ['contact.messenger', 'contact.viber', 'contact.whatsapp', 'contact.hoursNote'];
+const LANDING = ['landing.heroImageUrl', 'landing.bandImageUrl'];
+const CONTACT = ['contact.messenger', 'contact.whatsapp', 'contact.hoursNote'];
 const PAYMENTS = ['payments.manualEnabled', 'payments.gcashName', 'payments.gcashNumber', 'payments.gcashQrUrl', 'payments.mayaName', 'payments.mayaNumber', 'payments.bankAccounts', 'payments.manualNote', 'orders.unpaidExpiryDays'];
-const SERVICE = ['dfy.turnaroundDays', 'dfy.revisions', 'concierge.turnaroundDays', 'concierge.revisions', 'rush.turnaroundHours'];
+const SERVICE = ['dfy.turnaroundDays', 'dfy.turnaroundDaysMax', 'concierge.turnaroundDays', 'concierge.turnaroundDaysMax', 'rush.turnaroundHours'];
 const POLICY = ['policy.refund', 'policy.privacy'];
 const TEMPLATES = ['email.orderReceived', 'email.orderActive', 'email.previewReady', 'email.rsvpReceived', 'sms.rsvpReminder', 'sms.senderName'];
 
@@ -23,7 +25,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const Save = ({ keys }: { keys: string[] }) => (ro ? null : <button className="btn btn-primary btn-sm" type="submit" formAction={saveSettingsAction.bind(null, keys, '/admin/settings')}>Save</button>);
   return (
     <>
-      <PageHeader title="Settings" subtitle="Business details, payment accounts, service levels, policies and message templates." actions={<><Link href="/admin/settings/pricing" className="btn btn-secondary btn-sm">Packages & add-ons</Link>{can(user.role, 'users.manage') && <Link href="/admin/settings/users" className="btn btn-secondary btn-sm">Staff accounts</Link>}{can(user.role, 'audit.view') && <Link href="/admin/settings/audit" className="btn btn-secondary btn-sm">Audit trail</Link>}</>} />
+      <PageHeader title="Settings" subtitle="Business details, payment accounts, service levels, policies and message templates." actions={<><Link href="/admin/settings/pricing" className="btn btn-secondary btn-sm">Packages & add-ons</Link>{can(user.role, 'users.manage') && <Link href="/admin/settings/users" className="btn btn-secondary btn-sm">Staff accounts</Link>}{can(user.role, 'audit.view') && <Link href="/admin/settings/audit" className="btn btn-secondary btn-sm">Audit trail</Link>}{can(user.role, 'audit.view') && <Link href="/admin/settings/signins" className="btn btn-secondary btn-sm">Sign-ins</Link>}</>} />
       <Flash {...sp} />
       <div className="grid gap-4 lg:grid-cols-2">
         <form className="card space-y-3 p-4">
@@ -33,7 +35,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <TextArea label="Intro (meta description)" name="business.intro" defaultValue={s['business.intro']} rows={2} />
           <div className="grid grid-cols-2 gap-2"><Field label="Email" name="business.email" defaultValue={s['business.email']} /><Field label="Phone" name="business.phone" defaultValue={s['business.phone']} /></div>
           <Field label="Address" name="business.address" defaultValue={s['business.address']} />
-          <Field label="Logo URL" name="business.logoUrl" defaultValue={s['business.logoUrl']} />
+          <UploadField label="Logo" name="business.logoUrl" defaultValue={s['business.logoUrl']} endpoint="/api/admin/site-upload" preview="wide" hint="Leave empty for the logo the site ships with." />
           <div className="grid grid-cols-2 gap-2"><Field label="Facebook page" name="business.facebook" defaultValue={s['business.facebook']} /><Field label="Instagram" name="business.instagram" defaultValue={s['business.instagram']} /></div>
           <div className="grid grid-cols-2 gap-2"><Field label="Trust bar: invites created" name="business.invitesCreatedLabel" defaultValue={s['business.invitesCreatedLabel']} placeholder="e.g. 1,200+" /><Field label="Trust bar: RSVPs collected" name="business.rsvpsCollectedLabel" defaultValue={s['business.rsvpsCollectedLabel']} placeholder="e.g. 85,000+" /></div>
           <Field label="Demo invitation slug" name="site.demoSlug" defaultValue={s['site.demoSlug']} />
@@ -41,9 +43,32 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Save keys={BUSINESS} />
         </form>
         <form className="card space-y-3 p-4">
+          <h2 className="font-semibold">Landing page photographs</h2>
+          <p className="hint">
+            The two pictures the front page is built around. Upload them here rather than
+            through the code, so changing the front page is not a deploy.
+          </p>
+          <UploadField
+            label="Hero — behind the headline"
+            name="landing.heroImageUrl"
+            defaultValue={s['landing.heroImageUrl']}
+            endpoint="/api/admin/site-upload"
+            preview="wide"
+            hint="A wide photograph of a set — the phone stands in front of it, so leave the lower middle clear. Empty falls back to the drawn alcove."
+          />
+          <UploadField
+            label="Closing band — behind the last call to action"
+            name="landing.bandImageUrl"
+            defaultValue={s['landing.bandImageUrl']}
+            endpoint="/api/admin/site-upload"
+            preview="wide"
+            hint="Very wide and dark, with its subject on the right: the headline sits on the left of it. Empty falls back to plain wine."
+          />
+          <Save keys={LANDING} />
+        </form>
+        <form className="card space-y-3 p-4">
           <h2 className="font-semibold">How customers reach you</h2>
           <Field label="Messenger link" name="contact.messenger" defaultValue={s['contact.messenger']} hint="m.me/yourpage" />
-          <Field label="Viber link" name="contact.viber" defaultValue={s['contact.viber']} hint="viber://chat?number=%2B639…" />
           <Field label="WhatsApp link" name="contact.whatsapp" defaultValue={s['contact.whatsapp']} />
           <Field label="Hours note" name="contact.hoursNote" defaultValue={s['contact.hoursNote']} />
           <Save keys={CONTACT} />
@@ -66,10 +91,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <form className="card space-y-3 p-4">
           <h2 className="font-semibold">Service levels</h2>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="DFY turnaround (working days)" name="dfy.turnaroundDays" type="number" defaultValue={s['dfy.turnaroundDays']} />
-            <Field label="DFY revision rounds" name="dfy.revisions" type="number" defaultValue={s['dfy.revisions']} />
-            <Field label="Concierge turnaround (days)" name="concierge.turnaroundDays" type="number" defaultValue={s['concierge.turnaroundDays']} />
-            <Field label="Concierge revision rounds" name="concierge.revisions" type="number" defaultValue={s['concierge.revisions']} />
+            {/* Both ends of each promise. The near one is what we quote, the far
+                one is what a due date is set from. */}
+            <Field label="Build turnaround, from (working days)" name="dfy.turnaroundDays" type="number" defaultValue={s['dfy.turnaroundDays']} />
+            <Field label="Build turnaround, to (working days)" name="dfy.turnaroundDaysMax" type="number" defaultValue={s['dfy.turnaroundDaysMax']} />
+            <Field label="Priority turnaround, from (days)" name="concierge.turnaroundDays" type="number" defaultValue={s['concierge.turnaroundDays']} />
+            <Field label="Priority turnaround, to (days)" name="concierge.turnaroundDaysMax" type="number" defaultValue={s['concierge.turnaroundDaysMax']} />
             <Field label="Rush publish (hours)" name="rush.turnaroundHours" type="number" defaultValue={s['rush.turnaroundHours']} />
           </div>
           <Save keys={SERVICE} />

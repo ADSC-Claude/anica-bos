@@ -12,8 +12,8 @@ export default async function SupportPage() {
   const [s, messages] = await Promise.all([getSettings(), prisma.supportMessage.findMany({ where: { userId: user.id }, orderBy: { createdAt: 'asc' }, take: 200 })]);
   return (
     <>
-      <PageHeader title="Help" subtitle="Messenger and Viber are fastest. Or leave a note here and we reply on your dashboard and by email." />
-      <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} className="mb-6" />
+      <PageHeader title="Help" subtitle="Messenger is fastest. Or leave a note here and we reply on your dashboard and by email." />
+      <ContactButtons messenger={s['contact.messenger']} className="mb-6" />
       <div className="grid gap-4 md:grid-cols-[1fr_20rem]">
         <div className="card p-4">
           {messages.length === 0 ? <p className="text-sm text-[color:var(--color-ink-500)]">No messages yet.</p> : (

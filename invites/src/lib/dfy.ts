@@ -6,11 +6,12 @@ import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
 import { sendEmail, render, baseVars } from './email';
 import { getSettings } from './settings';
-import { absoluteUrl } from './app-url';
+import { absoluteUrl, invitationUrl } from './app-url';
 import { publish as publishInvitation } from './invitations';
-import { cleanSection, fieldsFor, sectionsFor, type Content } from './sections';
+import { cleanSection, fieldsFor, sectionsFor, sectionUnlocked, type Content } from './sections';
 import { addDays } from './datetime';
 import type { SessionUser } from './auth';
+import { intakeMethod } from './intake-method';
 
 /**
  * Done-For-You. The job moves left to right on the admin kanban:
@@ -36,7 +37,7 @@ const ORDER: DfyStatus[] = DFY_COLUMNS.map((c) => c.key);
 export async function loadJobForCustomer(user: SessionUser, invitationId: string) {
   const job = await prisma.dfyJob.findUnique({
     where: { invitationId },
-    include: { invitation: true, order: true, assignee: { select: { name: true } }, revisions: { orderBy: { createdAt: 'asc' } } },
+    include: { invitation: true, order: { include: { items: true } }, assignee: { select: { name: true } }, revisions: { orderBy: { createdAt: 'asc' } } },
   });
   if (!job || job.invitation.userId !== user.id) return null;
   return job;
@@ -60,9 +61,22 @@ export async function saveIntake(
   const raw = (input.content && typeof input.content === 'object' ? input.content : {}) as Record<string, unknown>;
   const cleaned: Content = {};
   for (const def of sectionsFor(occasion)) {
-    if (raw[def.key] !== undefined) cleaned[def.key] = cleanSection(fieldsFor(def.key, occasion), raw[def.key]).data;
+    if (raw[def.key] === undefined) continue;
+    // A section the package does not include is dropped, not stored. The
+    // intake form shows those sections now — locked, as an upsell — so a
+    // stale or hand-made payload naming one is something to expect rather
+    // than a curiosity, and content that was never paid for must not reach
+    // the invitation this merges into on submit.
+    //
+    // Dropped rather than refused, unlike the builder's saveSection, which
+    // answers 403: that saves one section at a time, where refusing costs
+    // the customer nothing. This saves every section at once, and throwing
+    // the whole intake away over one key a client sent before it caught up
+    // with a tier change would lose somebody's typing.
+    if (!sectionUnlocked(def.key, occasion, job.invitation.tier, job.invitation.addOns)) continue;
+    cleaned[def.key] = cleanSection(fieldsFor(def.key, occasion), raw[def.key]).data;
   }
-  const method = ['FORM', 'MESSENGER', 'EXCEL'].includes(input.method) ? input.method : 'FORM';
+  const method = intakeMethod(input.method);
   const intake = { content: cleaned, notes: input.notes.trim().slice(0, 4000), method };
 
   const updated = await prisma.dfyJob.update({
@@ -116,11 +130,11 @@ export async function moveJob(staff: SessionUser, jobId: string, status: DfyStat
 
 export async function sendPreview(staff: SessionUser, jobId: string) {
   const job = await prisma.dfyJob.findUniqueOrThrow({ where: { id: jobId }, include: { invitation: { include: { user: true } }, order: true } });
-  const previewUrl = absoluteUrl(`/account/invitations/${job.invitationId}/dfy`);
+  const previewUrl = absoluteUrl(`/account/invitations/${job.invitationId}/share`);
   const updated = await prisma.dfyJob.update({ where: { id: jobId }, data: { status: 'PREVIEW_SENT', previewSentAt: new Date() } });
   const s = await getSettings();
   const left = job.revisionsAllowed - job.revisionsUsed;
-  await notify(job.invitation.userId, 'Your preview is ready', 'Have a look, then approve it or request changes.', `/account/invitations/${job.invitationId}/dfy`);
+  await notify(job.invitation.userId, 'Your preview is ready', 'Have a look, then approve it or request changes.', `/account/invitations/${job.invitationId}/share`);
   await sendEmail({
     to: job.invitation.user.email,
     subject: `Your invitation preview is ready — ${job.order.reference}`,
@@ -183,7 +197,7 @@ export async function publishJob(staff: SessionUser, jobId: string) {
   const job = await prisma.dfyJob.findUniqueOrThrow({ where: { id: jobId }, include: { invitation: true } });
   const invitation = await publishInvitation(staff, job.invitationId);
   const updated = await prisma.dfyJob.update({ where: { id: jobId }, data: { status: 'PUBLISHED', publishedAt: new Date() } });
-  await notify(job.invitation.userId, 'Your invitation is live!', `Share it: ${absoluteUrl(`/i/${invitation.slug}`)}`, `/account/invitations/${job.invitationId}`);
+  await notify(job.invitation.userId, 'Your invitation is live!', `Share it: ${invitationUrl(invitation.slug)}`, `/account/invitations/${job.invitationId}`);
   await audit(staff, { module: 'dfy', action: 'publish', entityType: 'DfyJob', entityId: jobId });
   return updated;
 }

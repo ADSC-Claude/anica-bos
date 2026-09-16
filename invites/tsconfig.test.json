@@ -1,0 +1,7 @@
+{
+  "//": "Running a React component in a test means compiling its JSX. The app's own tsconfig says `preserve`, because Next does that compiling; tsx needs it done for it, with the automatic runtime so no file has to import React by hand.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  }
+}

@@ -1,0 +1,134 @@
+#
+# Ships the design catalogue to the live invitations database.
+#
+# Unlike the seed, this deletes nothing. It upserts every row of
+# invites/prisma/templates.ts by slug: a design already in the database keeps
+# its id — so every invitation built on it keeps rendering — and only its
+# name, colours, collection and opening are refreshed. A design in the
+# database that is not in the catalogue is reported and left alone.
+#
+# That is why it needs no confirmation phrase: the worst it can do is restyle
+# a template, and the fix is to edit the catalogue and run it again.
+#
+# Setup, once: Settings → Secrets and variables → Actions → New repository secret
+#   INVITES_DIRECT_URL   Supabase → Connect → Session pooler (port 5432)
+#
+# Not DIRECT_URL: that secret belongs to the spa and points at a different
+# database.
+#
+name: Sync the invitation designs
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List the changes without writing them.'
+        required: false
+        default: true
+        type: boolean
+      schema:
+        description: 'Which schema to write to.'
+        required: true
+        default: invites
+        type: string
+
+concurrency:
+  group: invites-templates
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync designs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: invites
+
+    env:
+      DATABASE_SCHEMA: ${{ inputs.schema }}
+      DATABASE_URL: ${{ secrets.INVITES_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.INVITES_DIRECT_URL }}
+
+    steps:
+      # Before actions/checkout, so it runs at the workspace root — `invites`
+      # does not exist yet, and a step inheriting the job's working-directory
+      # cannot start there at all.
+      - name: Refuse a schema that is not ours
+        if: inputs.schema == 'public' || inputs.schema == ''
+        working-directory: ${{ github.workspace }}
+        run: |
+          echo "::error::Refusing to write to '$DATABASE_SCHEMA'."
+          echo "'public' belongs to the spa on this database. The invitations app uses its own schema."
+          exit 1
+
+      - name: Check the secret is present
+        working-directory: ${{ github.workspace }}
+        run: |
+          if [ -z "$DIRECT_URL" ]; then
+            echo "::error::The INVITES_DIRECT_URL repository secret is not set."
+            echo "Add it under Settings → Secrets and variables → Actions,"
+            echo "using the Supabase Session pooler string (port 5432)."
+            exit 1
+          fi
+
+      # Prisma reports a refused password, a TLS mismatch and a pooler hangup
+      # all as P1001, "can't reach database server", which reads as a network
+      # fault and usually is not one. psql prints what the server actually said.
+      - name: Ask Postgres what is actually wrong
+        working-directory: ${{ github.workspace }}
+        run: |
+          if ! command -v psql >/dev/null; then
+            echo "psql not on this runner; skipping"
+            exit 0
+          fi
+          if out=$(PGCONNECT_TIMEOUT=15 psql "$DIRECT_URL" -tAc 'select current_user' 2>&1); then
+            echo "connected as $out"
+          else
+            printf '%s\n' "$out" | head -4
+            if printf '%s' "$out" | grep -q 'password authentication failed'; then
+              echo "::error::The password in INVITES_DIRECT_URL is wrong. The pooler found the"
+              echo "right database and refused the password. Supabase → Settings → Database →"
+              echo "Reset database password, then paste the whole Session pooler URI into the"
+              echo "secret — the Connect dialog hands it to you with [YOUR-PASSWORD] still in it."
+              exit 1
+            fi
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: invites/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate the Prisma client
+        run: npx prisma generate
+
+      # Through scripts/migrate.mjs, which knows about DATABASE_SCHEMA. The
+      # bare CLI does not, and would migrate into `public`. The catalogue has
+      # columns the live database may not have yet.
+      - name: Apply migrations
+        run: npm run db:deploy
+
+      - name: Sync the designs
+        run: npm run db:templates ${{ inputs.dry_run && '-- --dry' || '' }}
+
+      - name: Say what landed
+        run: |
+          {
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "### Dry run against \`$DATABASE_SCHEMA\`"
+              echo
+              echo "Nothing was written. Re-run with **dry_run** unticked to apply it."
+            else
+              echo "### Designs synced to \`$DATABASE_SCHEMA\`"
+              echo
+              echo "See the step above for what was created and updated."
+              echo "- Collections: \`/templates\` and \`/collections/white\`"
+              echo "- Demo invitation: \`/juan-and-maria\`"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

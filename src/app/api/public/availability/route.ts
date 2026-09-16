@@ -26,6 +26,34 @@ export const dynamic = 'force-dynamic';
  * `startAt` — the therapists and rooms actually free for that window.
  */
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+
+  /**
+   * A request whose only job is to be first.
+   *
+   * On Vercel every route is its own function, so the booking page warms up
+   * `/api/public/catalog` when it loads and then hits this one cold thirty
+   * seconds later, when the guest picks a treatment — a fresh function, a
+   * fresh database connection, and her watching a spinner for the whole of it.
+   *
+   * The page sends this the moment it opens. `SELECT 1` is not the point; the
+   * connection it opens is. By the time she has chosen, the expensive part has
+   * already happened while she was reading the price list.
+   *
+   * It returns before the lapsed-booking sweep below, deliberately: warming is
+   * not a reason to run housekeeping, and the sweep would make the cheap
+   * request expensive.
+   */
+  if (url.searchParams.get('warm') === '1') {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      // A warm-up that fails has cost the guest nothing — the real request
+      // will report the problem properly. Saying so here would be noise.
+    }
+    return NextResponse.json({ warm: true }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+
   // Tidy up bookings whose window has closed before answering what is free.
   //
   // Availability already ignores a lapsed hold, so the times returned below are
@@ -35,7 +63,6 @@ export async function GET(req: Request) {
   // instead, throttled to once a minute per instance.
   await sweepLapsedBookings();
 
-  const url = new URL(req.url);
   const dateKey = url.searchParams.get('date') ?? '';
   const serviceIds = (url.searchParams.get('serviceIds') ?? '').split(',').filter(Boolean);
   const startAtParam = url.searchParams.get('startAt');

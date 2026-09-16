@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { closedForNow } from '@/lib/storefront';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { home } from '@/lib/guard';
@@ -9,6 +10,8 @@ export const metadata = { title: 'Create an account', robots: { index: false } }
 export const dynamic = 'force-dynamic';
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const session = await getSession();
   const { next } = await searchParams;
   if (session) redirect(next?.startsWith('/') ? next : home(session.role));
@@ -21,6 +24,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
         <SignupForm next={next} />
       </div>
       <p className="mt-6 text-center text-xs text-[color:var(--color-ink-500)]">Google and Facebook sign-in are on the roadmap — for now, email works everywhere, including inside the Messenger browser.</p>
+      <Link href="/" className="mt-4 text-center text-sm text-[color:var(--color-plum-600)] hover:underline">← Back to the website</Link>
     </main>
   );
 }

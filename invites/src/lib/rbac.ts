@@ -23,6 +23,18 @@ export const PERMISSIONS = [
 
   'templates.view',
   'templates.edit',
+  /**
+   * Making a drawn design live. Saving a draft in the studio is `templates.edit`
+   * and touches nobody; publishing redraws every invitation already built on
+   * the design, live ones included, so it is the owner's to press.
+   */
+  'templates.publish',
+  /**
+   * Removing a design altogether. Separate from `templates.edit` because it
+   * is the one template action nothing undoes: an encoder may draw and save
+   * all day, but throwing a design away is the owner's.
+   */
+  'templates.delete',
 
   'customers.view',
   'customers.edit',
@@ -124,6 +136,7 @@ export const ADMIN_MODULES = [
   { key: 'dfy', label: 'DFY queue', href: '/admin/dfy', icon: '❖', permission: 'dfy.view' },
   { key: 'invitations', label: 'Invitations', href: '/admin/invitations', icon: '✉', permission: 'invitations.view' },
   { key: 'templates', label: 'Templates', href: '/admin/templates', icon: '▦', permission: 'templates.view' },
+  { key: 'fonts', label: 'Fonts', href: '/admin/fonts', icon: 'Aa', permission: 'templates.view' },
   { key: 'customers', label: 'Customers', href: '/admin/customers', icon: '☺', permission: 'customers.view' },
   { key: 'coupons', label: 'Coupons', href: '/admin/coupons', icon: '✂', permission: 'coupons.manage' },
   { key: 'support', label: 'Support', href: '/admin/support', icon: '✆', permission: 'support.view' },

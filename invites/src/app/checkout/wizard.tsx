@@ -2,32 +2,39 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import type { Occasion, ServiceMode, Tier } from '@prisma/client';
-import { OCCASIONS } from '@/lib/occasions';
-import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
-import { SERVICE_MODES, quote, type CouponLike } from '@/lib/pricing';
+import { OCCASIONS, templateSuits } from '@/lib/occasions';
+import { PREMIUM_OPENING_CODE } from '@/lib/openings';
+import { TIERS, TIER_LABELS, COMPARISON, tierAtLeast } from '@/lib/tiers';
+import { SERVICE_MODES, quote, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnIncluded, revisionRounds, RUSH_CODE, PRIORITY_CODE, type CouponLike } from '@/lib/pricing';
 import { formatPesoShort, formatPeso } from '@/lib/money';
 import { placeOrderAction, checkCouponAction } from './actions';
+import { invitationPath } from '@/lib/app-url';
 
-export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number };
-export type WizardAddOn = { code: string; name: string; description: string; priceCents: number; quoted: boolean };
-export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string } };
+export type WizardPackage = { code: string; name: string; tagline: string; occasion: Occasion | null; tier: Tier; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number };
+export type WizardAddOn = { code: string; name: string; description: string; imageUrl: string; priceCents: number; quoted: boolean };
+export type WizardTemplate = { id: string; slug: string; name: string; occasion: Occasion; occasions: Occasion[]; minTier: Tier; premium: boolean; thumbnailUrl: string; description: string; palette: { bg: string; accent: string; accent2: string }; /** the premium openings drawn for this design, by name. Empty means the add-on is not sold with it. */ premiumOpenings: string[] };
 
 export type WizardProps = {
   packages: WizardPackage[];
   addOns: WizardAddOn[];
   templates: WizardTemplate[];
-  initial: { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string };
+  initial: { occasion?: string; tier?: string; template?: string; coupon?: string; addon?: string };
   demoSlug: string;
+  /** Whether paying online is offered; otherwise the transfer with a receipt is the way to pay. */
+  online: boolean;
 };
-
-const RANK: Record<Tier, number> = { BASIC: 0, STANDARD: 1, COMPLETE: 2 };
 
 export function CheckoutWizard(p: WizardProps) {
   const [occasion, setOccasion] = useState<Occasion>((OCCASIONS.some((o) => o.key === p.initial.occasion) ? p.initial.occasion : 'WEDDING') as Occasion);
   const [tier, setTier] = useState<Tier>((TIERS.includes(p.initial.tier as Tier) ? p.initial.tier : 'STANDARD') as Tier);
-  const [mode, setMode] = useState<ServiceMode>((['DIY', 'DFY', 'CONCIERGE'].includes(p.initial.mode ?? '') ? p.initial.mode : 'DIY') as ServiceMode);
+  // There is one service and it is not a choice: we build every invitation.
+  // A ?mode= left in an old link or a bookmark is ignored rather than honoured
+  // — the server decides the mode now, and a withdrawn one must not be able to
+  // price a page differently from the order it produces.
+  const mode = DEFAULT_SERVICE_MODE;
   const [templateId, setTemplateId] = useState<string>(p.initial.template ?? '');
-  const [addOns, setAddOns] = useState<string[]>([]);
+  // an add-on named in the link (the gallery's "with the premium opening") starts ticked
+  const [addOns, setAddOns] = useState<string[]>(p.addOns.some((a) => a.code === p.initial.addon && a.quoted) ? [p.initial.addon as string] : []);
   const [couponCode, setCouponCode] = useState(p.initial.coupon ?? '');
   const [coupon, setCoupon] = useState<CouponLike | null>(null);
   const [couponError, setCouponError] = useState('');
@@ -37,12 +44,19 @@ export function CheckoutWizard(p: WizardProps) {
   const [pending, start] = useTransition();
 
   const pkg = useMemo(() => p.packages.find((x) => x.occasion === occasion && x.tier === tier) ?? p.packages.find((x) => x.occasion === null && x.tier === tier), [p.packages, occasion, tier]);
-  const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted);
-  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, coupon]);
-
-  const templates = p.templates.filter((t) => t.occasion === occasion && (tier === 'COMPLETE' || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
+  const templates = p.templates.filter((t) => templateSuits(t, occasion) && (tierAtLeast(tier, 'COMPLETE') || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
+  // the premium opening is sold per design: a design with no clip yet cannot carry it
+  const premiumOk = !template || template.premiumOpenings.length > 0;
+  const chosenAddOns = p.addOns.filter((a) => addOns.includes(a.code) && a.quoted && (a.code !== PREMIUM_OPENING_CODE || premiumOk));
+  const q = useMemo(() => (pkg ? quote({ pkg, serviceMode: mode, addOns: chosenAddOns, occasion, coupon: coupon ?? undefined }) : null), [pkg, mode, chosenAddOns, occasion, coupon]);
+
   const modeInfo = SERVICE_MODES.find((m) => m.key === mode)!;
+  // Rounds are the package's, and buying speed spends some of them: there is no
+  // room for four rounds of back-and-forth inside 24 hours, so rush caps them.
+  const rushed = chosenAddOns.some((a) => a.code === RUSH_CODE || a.code === PRIORITY_CODE);
+  const rounds = pkg ? revisionRounds(tier, rushed, pkg.revisionRounds) : 0;
+  const roundsLabel = `${rounds} round${rounds === 1 ? '' : 's'}`;
 
   async function applyCoupon() {
     setCouponError('');
@@ -67,7 +81,7 @@ export function CheckoutWizard(p: WizardProps) {
       return;
     }
     start(async () => {
-      const res = await placeOrderAction({ occasion, tier, serviceMode: mode, templateId: template.id, addOnCodes: addOns, couponCode: coupon?.code, language, notes });
+      const res = await placeOrderAction({ occasion, tier, templateId: template.id, addOnCodes: chosenAddOns.map((a) => a.code), couponCode: coupon?.code, language, notes });
       if (res && !res.ok) setError(res.error);
     });
   }
@@ -91,12 +105,12 @@ export function CheckoutWizard(p: WizardProps) {
         {/* 2 — tier */}
         <section>
           <h2 className="display mb-3 text-xl">2. Choose a package</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {TIERS.map((t) => {
               const row = p.packages.find((x) => x.occasion === occasion && x.tier === t) ?? p.packages.find((x) => x.occasion === null && x.tier === t);
               if (!row) return null;
               return (
-                <button key={t} type="button" onClick={() => { setTier(t); if (template && (t === 'BASIC' ? template.minTier !== 'BASIC' : false) || (template?.premium && t !== 'COMPLETE')) setTemplateId(''); }} className={`card p-4 text-left ${tier === t ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={tier === t}>
+                <button key={t} type="button" onClick={() => { setTier(t); if (template && (t === 'BASIC' ? template.minTier !== 'BASIC' : false) || (template?.premium && !tierAtLeast(t, 'COMPLETE'))) setTemplateId(''); }} className={`card p-4 text-left ${tier === t ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={tier === t}>
                   <span className="eyebrow">{TIER_LABELS[t]}</span>
                   <span className="display mt-1 block text-2xl">{formatPesoShort(row.priceCents)}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{row.tagline}</span>
@@ -119,22 +133,23 @@ export function CheckoutWizard(p: WizardProps) {
           </details>
         </section>
 
-        {/* 3 — service mode */}
+        {/* 3 — what the package includes; not a choice any more */}
         <section>
-          <h2 className="display mb-3 text-xl">3. Who fills in the details?</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {SERVICE_MODES.map((m) => {
-              const fee = pkg ? (m.key === 'DFY' ? pkg.dfyFeeCents : m.key === 'CONCIERGE' ? pkg.conciergeFeeCents : 0) : 0;
-              return (
-                <button key={m.key} type="button" onClick={() => setMode(m.key)} className={`card p-4 text-left ${mode === m.key ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={mode === m.key}>
-                  <span className="block font-semibold">{m.label}</span>
-                  <span className="block text-sm text-[color:var(--color-ink-700)]">{fee ? `+ ${formatPesoShort(fee)}` : 'Included'}</span>
-                  <span className="mt-1 block text-xs text-[color:var(--color-ink-500)]">{m.blurb}</span>
-                  <span className="mt-1 block text-xs text-[color:var(--color-ink-500)]">Turnaround: {m.turnaround} · Revisions: {m.revisions}</span>
-                </button>
-              );
-            })}
-          </div>
+          <h2 className="display mb-3 text-xl">3. What happens after you pay</h2>
+          <ol className="grid gap-3 sm:grid-cols-3">
+            {[
+              { title: 'You tell us the details', body: 'Fill in one form — names, entourage, venues, photos, RSVP. Or send them over Messenger — an Excel file or screenshots are fine — if that is easier.' },
+              { title: 'We build it', body: `Our team encodes and lays out your invitation. ${modeInfo.turnaround}.` },
+              { title: 'You approve, we publish', body: `A preview on your phone, ${roundsLabel} of changes, then your link and QR go live.` },
+            ].map((step, i) => (
+              <li key={step.title} className="card p-4">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--color-plum-600)] text-sm font-semibold text-white">{i + 1}</span>
+                <span className="mt-2 block text-sm font-semibold">{step.title}</span>
+                <span className="mt-1 block text-xs text-[color:var(--color-ink-500)]">{step.body}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">Included in every package — there is no separate encoding fee.</p>
         </section>
 
         {/* 4 — template */}
@@ -146,34 +161,48 @@ export function CheckoutWizard(p: WizardProps) {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {templates.map((tp) => (
                 <button key={tp.id} type="button" onClick={() => setTemplateId(tp.id)} className={`card overflow-hidden text-left ${templateId === tp.id ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={templateId === tp.id}>
-                  <div className="aspect-[4/5] w-full" style={{ background: tp.thumbnailUrl ? `center/cover url(${tp.thumbnailUrl})` : `linear-gradient(160deg, ${tp.palette.bg}, ${tp.palette.accent2})` }}>
+                  <div className="aspect-[9/16] w-full" style={{ background: tp.thumbnailUrl ? `top/cover url(${tp.thumbnailUrl})` : `linear-gradient(160deg, ${tp.palette.bg}, ${tp.palette.accent2})` }}>
                     {!tp.thumbnailUrl && <div className="flex h-full items-end p-3"><span className="display text-lg" style={{ color: tp.palette.accent }}>{tp.name}</span></div>}
                   </div>
                   <div className="p-2">
                     <span className="block text-sm font-semibold">{tp.name}</span>
-                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? 'Premium · Complete' : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}</span>
+                    <span className="block text-xs text-[color:var(--color-ink-500)]">{tp.premium ? `${TIER_LABELS.COMPLETE} only` : tp.minTier === 'BASIC' ? 'Basic set' : 'Standard & up'}{tp.premiumOpenings.length ? ' · premium opening add-on' : ''}</span>
                   </div>
                 </button>
               ))}
             </div>
           )}
-          <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">You can switch designs later without losing anything you typed. See a full example: <a href={`/i/${p.demoSlug}`} target="_blank" rel="noopener" className="underline">the demo invitation</a>.</p>
+          <p className="mt-2 text-xs text-[color:var(--color-ink-500)]">You can switch designs later without losing anything you typed. See a full example: <a href={invitationPath(p.demoSlug)} target="_blank" rel="noopener" className="underline">the demo invitation</a>.</p>
         </section>
 
         {/* 5 — add-ons */}
         <section>
           <h2 className="display mb-3 text-xl">5. Add-ons <span className="text-sm font-normal text-[color:var(--color-ink-500)]">(optional)</span></h2>
           <div className="space-y-2">
-            {p.addOns.map((a) => (
-              <label key={a.code} className={`card flex items-start gap-3 p-3 ${!a.quoted ? 'opacity-70' : ''}`}>
-                <input type="checkbox" className="mt-1 h-4 w-4" disabled={!a.quoted} checked={addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />
+            {p.addOns.map((a) => {
+              const offered = a.quoted && addOnAvailable(a.code, tier, occasion) && (a.code !== PREMIUM_OPENING_CODE || premiumOk);
+              return (
+              <label key={a.code} className={`card flex items-start gap-3 p-3 ${!offered ? 'opacity-70' : ''}`}>
+                <input type="checkbox" className="mt-1 h-4 w-4" disabled={!offered} checked={offered && addOns.includes(a.code)} onChange={(e) => setAddOns((s) => (e.target.checked ? [...s, a.code] : s.filter((c) => c !== a.code)))} />
+                {a.imageUrl && (
+                  <img
+                    src={a.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    className="hidden h-16 w-24 shrink-0 rounded-lg border border-[color:var(--color-sand-200)] object-cover object-top sm:block"
+                  />
+                )}
                 <span className="flex-1">
                   <span className="block text-sm font-semibold">{a.name}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
+                  {a.code === PREMIUM_OPENING_CODE && template && (template.premiumOpenings.length
+                    ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours under Link & design once it is yours.' : '.'}</span>
+                    : <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>)}
                 </span>
-                <span className="text-sm font-semibold">{a.quoted ? formatPesoShort(a.priceCents) : 'Ask us'}</span>
+                <span className="text-sm font-semibold">{addOnIncluded(a.code, tier) ? 'Included' : a.quoted ? formatPesoShort(addOnPrice(a, tier)) : 'Ask us'}</span>
               </label>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -227,8 +256,8 @@ export function CheckoutWizard(p: WizardProps) {
               <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">One-time payment. No subscription. Link valid until well after the event.</p>
               <dl className="mt-3 space-y-1 text-xs text-[color:var(--color-ink-700)]">
                 <div className="flex justify-between"><dt>Design</dt><dd>{template?.name ?? '— pick one —'}</dd></div>
-                <div className="flex justify-between"><dt>Service</dt><dd>{modeInfo.label}</dd></div>
-                <div className="flex justify-between"><dt>Turnaround</dt><dd>{modeInfo.turnaround}</dd></div>
+                <div className="flex justify-between"><dt>We build it</dt><dd>{modeInfo.turnaround}</dd></div>
+                <div className="flex justify-between"><dt>Changes before publishing</dt><dd>{roundsLabel}{rushed && rounds < pkg.revisionRounds ? ' (rushed)' : ''}</dd></div>
               </dl>
             </>
           ) : (
@@ -238,7 +267,7 @@ export function CheckoutWizard(p: WizardProps) {
           <button type="button" className="btn btn-primary mt-4 w-full" onClick={submit} disabled={pending || !q}>
             {pending ? 'Placing order…' : 'Continue to payment'}
           </button>
-          <p className="mt-3 text-center text-xs text-[color:var(--color-ink-500)]">GCash · Maya · Cards · Bank transfer</p>
+          <p className="mt-3 text-center text-xs text-[color:var(--color-ink-500)]">{p.online ? 'GCash · Maya · Cards · Bank transfer' : 'GCash · Maya · Bank transfer — upload your receipt, verified within business hours'}</p>
         </div>
       </aside>
     </div>

@@ -10,7 +10,12 @@
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { describeDatabaseUrl, resolveDatabaseUrl } from './db-url.mjs';
+import {
+  describeDatabaseUrl,
+  resolveDatabaseUrl,
+  previewOnProductionSchema,
+  productionOffProductionSchema,
+} from './db-url.mjs';
 
 function fail(message, hint) {
   console.error(`\n✗ ${message}`);
@@ -37,17 +42,22 @@ function run(command, env = {}) {
  */
 function attempt(command, seconds, env = {}) {
   try {
-    execSync(command, {
-      stdio: ['ignore', 'ignore', 'pipe'],
+    // stdout is kept as well as stderr so a step can report what it did —
+    // a stocking run that added ninety rows should say ninety, and the
+    // alternative is letting the command's own output into the build log,
+    // which for that one is ninety lines.
+    const stdout = execSync(command, {
+      stdio: ['ignore', 'pipe', 'pipe'],
       timeout: seconds * 1000,
       killSignal: 'SIGKILL',
       env: { ...process.env, ...env },
     });
-    return { ok: true };
+    return { ok: true, stdout: String(stdout ?? '').trim() };
   } catch (error) {
     return {
       ok: false,
       timedOut: error.signal === 'SIGKILL' || error.code === 'ETIMEDOUT',
+      stdout: String(error.stdout ?? '').trim(),
       stderr: String(error.stderr ?? '').trim(),
     };
   }
@@ -222,11 +232,110 @@ if (production && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   );
 }
 
+/**
+ * A preview deployment must not be pointed at the schema production serves.
+ *
+ * Vercel gives every environment the same variables unless someone scopes them,
+ * so by default a preview build runs *this branch's* migrations against the
+ * live database. That is not a hypothetical: a column rename on a branch was
+ * applied to production by its own preview build, production's code went on
+ * asking for the old name, and every page that reads the catalogue served 500
+ * until the branch merged. Nothing warned anybody — the preview went green,
+ * because the preview's code matched the schema it had just changed.
+ *
+ * The fix is one variable: set DATABASE_SCHEMA on the Preview environment to a
+ * schema of its own. Prisma creates it on the first migration, so there is
+ * nothing to provision; seed it once and previews have their own catalogue,
+ * their own orders, and none of a customer's guest list.
+ *
+ * This refuses to build instead of warning, because a warning in a build log is
+ * exactly what did not stop it the first time.
+ */
+if (previewOnProductionSchema()) {
+  fail(
+    `This is a preview build, and it is pointed at "${process.env.DATABASE_SCHEMA || 'public'}" — the schema production serves.`,
+    'Building would apply this branch\'s migrations to live customer data. In Vercel → Settings →\n' +
+      '  Environment Variables, add DATABASE_SCHEMA scoped to Preview only (invites_preview is a fine\n' +
+      '  name). The first preview build creates the schema and migrates it; run the seed once to fill\n' +
+      '  the catalogue. If a preview genuinely has its own database and reuses the name, set\n' +
+      '  PRODUCTION_DATABASE_SCHEMA to whatever production actually uses.',
+  );
+}
+
+// And the same refusal the other way round. A production build that names no
+// schema is not pointed at nothing; it is pointed at `public`, which in this
+// database belongs to the spa. See productionOffProductionSchema for the hour
+// that rule cost.
+if (productionOffProductionSchema()) {
+  fail(
+    `This is a production build, and it is pointed at "${process.env.DATABASE_SCHEMA || 'public'}" — not "${process.env.PRODUCTION_DATABASE_SCHEMA || 'invites'}", the schema production serves.`,
+    'Building would migrate somebody else\'s schema in the same database. In Vercel → Settings →\n' +
+      '  Environment Variables, set DATABASE_SCHEMA for Production back to the schema this app owns.\n' +
+      '  Scope the preview\'s own value to Preview alone rather than editing this one, so the two\n' +
+      '  environments cannot be changed by the same edit. If production really has moved schema, set\n' +
+      '  PRODUCTION_DATABASE_SCHEMA to the new name so this check knows what it is checking against.',
+  );
+}
+
 run('prisma generate');
 // scripts/migrate.mjs, not `prisma migrate deploy`: it is the one place that
 // knows which schema the migration belongs in, and the seed workflow uses it
 // too. See the comment at the top of that file.
 run('node scripts/migrate.mjs');
+
+/*
+ * The faces and pairings the invitations are set in, topped up.
+ *
+ * The migration creates FontFace and FontSet empty, so without this there is a
+ * window between a deploy and somebody remembering a command in which the
+ * tables a guest's page reads are bare. Nothing breaks — every reader falls
+ * back to the book written into the code — but "it works because a fallback
+ * caught it" is not a state to leave a deployment in, and a manual step
+ * nobody is reminded of is a manual step that does not happen.
+ *
+ * `sync-fonts.ts` is create-only: it adds what is missing and never touches a
+ * row the owner has edited, which is exactly what makes it safe to run on
+ * every build. It writes one statement per table, and the faces before the
+ * pairings, so a run cut short here leaves the pairings table empty rather
+ * than half full — and an empty table is the one state the reader falls back
+ * from. See the comment at the top of it for why that ordering is load-bearing.
+ *
+ * **It must not fail the build.** The tables are a top-up, not a
+ * prerequisite: the fallback serves the same book, and a deployment held back
+ * because the pooler was busy for a second would be a worse outcome than an
+ * unstocked table. So this warns and carries on, and the connection check
+ * below is still the step that decides whether the database is usable.
+ */
+console.info('\n▸ stocking the faces and pairings (create-only)');
+const fonts = attempt('npx tsx scripts/sync-fonts.ts', 60);
+if (fonts.ok) {
+  // the script's last line is its own summary: "Added n; m of her own left alone."
+  console.info(`  ✓ ${fonts.stdout.split('\n').filter(Boolean).pop() ?? 'up to date'}`);
+} else {
+  // The line that says what happened, not the tail of a stack trace: the
+  // last three lines of a Node failure are a brace, a blank and the version.
+  //
+  // Lines have to be stepped over to get there, and this was measured against
+  // real failures rather than guessed. Stack frames (`at ei.handleRequest…`)
+  // name our node_modules, not the fault. Prisma leads with a bare class name
+  // on its own line, and `PrismaClientInitializationError:` matches on "error"
+  // while carrying none of the information — the line under it is the one that
+  // says "Can't reach database server at 127.0.0.1:5499". Same trick one level
+  // down: "Invalid `prisma.fontFace.findMany()` invocation:" introduces "The
+  // table `invites.FontFace` does not exist in the current database." So a
+  // line ending in a colon is an introduction, and the sentence is preferred —
+  // but taken if it is all there is, since half an answer beats none.
+  const lines = (fonts.stderr || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('at ') && !/^[\w.]*(Error|Exception):?$/.test(line))
+    .filter((line) => /error|invalid|denied|refused|timeout|reach|does not exist/i.test(line));
+  const said = lines.find((line) => !line.endsWith(':')) ?? lines[0];
+  console.warn(
+    `  ! could not stock them${fonts.timedOut ? ' (timed out)' : ''} — nothing was half-written; the tables stand as they were.\n` +
+      `    An empty pair falls back to the book in the code. Run \`npm run db:fonts\` when the database is reachable.${said ? `\n    ${said.slice(0, 300)}` : ''}`,
+  );
+}
 
 // The migration proves DIRECT_URL works. It proves nothing about DATABASE_URL,
 // which is a different host, and every page depends on it — so ask it a

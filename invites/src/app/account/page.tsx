@@ -3,9 +3,11 @@ import { requireCustomerPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS } from '@/lib/tiers';
+import { serviceModeLabel } from '@/lib/pricing';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader, InvitationPill, OrderPill, Empty, Money } from '@/components/ui';
 import { imageUrl, IMAGE } from '@/lib/images';
+import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,15 +58,15 @@ export default async function AccountHome() {
                       <h2 className="display truncate text-lg">{inv.title}</h2>
                       <InvitationPill status={inv.status} />
                     </div>
-                    <p className="text-xs text-[color:var(--color-ink-500)]">{occasionLabel(inv.occasion)} · {TIER_LABELS[inv.tier]}{dfy ? ` · ${inv.order?.serviceMode === 'CONCIERGE' ? 'Concierge' : 'Done-For-You'}` : ''}{inv.eventAt ? ` · ${formatDate(inv.eventAt)}` : ''}</p>
+                    <p className="text-xs text-[color:var(--color-ink-500)]">{occasionLabel(inv.occasion)} · {TIER_LABELS[inv.tier]}{dfy && inv.order ? ` · ${serviceModeLabel(inv.order.serviceMode)}` : ''}{inv.eventAt ? ` · ${formatDate(inv.eventAt)}` : ''}</p>
                     <p className="mt-1 text-xs text-[color:var(--color-ink-500)]">{inv.viewCount} views · {inv._count.rsvps} RSVPs{inv._count.guests ? ` · ${inv._count.guests} guests` : ''}</p>
                     {!active && inv.order && <p className="mt-1 text-xs"><OrderPill status={inv.order.status} /> <Link href={`/checkout/pay/${inv.order.reference}`} className="underline">Pay to unlock</Link></p>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 border-t border-[color:var(--color-sand-100)] px-4 py-3 text-sm">
-                  <Link href={`/account/invitations/${inv.id}`} className="btn btn-secondary btn-sm">Dashboard</Link>
-                  {active && (dfy ? <Link href={`/account/invitations/${inv.id}/dfy`} className="btn btn-primary btn-sm">{inv.dfyJob?.status === 'NEW' ? 'Send details' : 'DFY status'}</Link> : <Link href={`/account/invitations/${inv.id}/builder`} className="btn btn-primary btn-sm">Edit</Link>)}
-                  {inv.status === 'PUBLISHED' && <a href={`/i/${inv.slug}`} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">View live</a>}
+                  <Link href={`/account/invitations/${inv.id}`} className="btn btn-primary btn-sm">{active ? (inv.status === 'PUBLISHED' ? 'Open' : inv.status === 'DRAFT' && !inv.welcomedAt ? 'Get started' : dfy && inv.dfyJob?.status === 'NEW' ? 'Fill in your details' : 'Continue') : 'Open'}</Link>
+                  {active && inv.status !== 'PUBLISHED' && <Link href={`/account/invitations/${inv.id}/share`} className="btn btn-secondary btn-sm">{dfy ? 'Preview & approval' : 'Publish'}</Link>}
+                  {inv.status === 'PUBLISHED' && <a href={invitationPath(inv.slug)} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">View live</a>}
                 </div>
               </div>
             );

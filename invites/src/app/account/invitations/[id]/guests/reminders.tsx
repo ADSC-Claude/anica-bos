@@ -1,27 +1,68 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { previewRemindersAction, sendRemindersAction } from '@/app/account/actions';
+import {
+  previewRemindersAction,
+  sendRemindersAction,
+  previewEmailRemindersAction,
+  sendEmailRemindersAction,
+} from '@/app/account/actions';
 
-type Plan = {
-  count: number;
-  credits: number;
-  sample: string;
-  skipped: { name: string; reason: 'answered' | 'no number' | 'texted today' }[];
-};
+/**
+ * The two blasts, which are the same two steps in different clothes: work out
+ * who and what it would cost, show the message that will actually arrive, and
+ * only then send. One component, because the difference between them is words
+ * and a price — and a text blast and an e-mail blast that behaved differently
+ * would be a worse surprise than either.
+ */
 
-const REASONS: Record<Plan['skipped'][number]['reason'], string> = {
+type Skip = { name: string; reason: string };
+type Plan = { count: number; credits?: number; sample: string; skipped: Skip[] };
+
+/** What a guest is not being sent to, in the words of the channel they are not being sent by. */
+const REASONS: Record<string, string> = {
   answered: 'already answered',
   'no number': 'no mobile number',
   'texted today': 'texted in the last 24 hours',
+  'no address': 'no e-mail address',
+  'e-mailed today': 'e-mailed in the last 24 hours',
 };
 
-/**
- * A blast is spending money on someone else's phone, so it is deliberately two
- * steps: work out who and what it costs, show the message that will actually
- * arrive, and only then send.
- */
-export function Reminders({ invitationId, live }: { invitationId: string; live: boolean }) {
+type Channel = {
+  title: string;
+  blurb: string;
+  /** What is missing when nothing can be sent at all. */
+  keyless: string;
+  verb: string;
+  reasons: readonly string[];
+  preview: (id: string, everyone: boolean) => Promise<{ ok: boolean; error?: string; data?: unknown }>;
+  send: (id: string, everyone: boolean) => Promise<{ ok: boolean; error?: string; data?: unknown }>;
+};
+
+const CHANNELS: Record<'sms' | 'email', Channel> = {
+  sms: {
+    title: 'Text an RSVP reminder',
+    blurb: 'Each guest gets their own link. Anyone texted in the last 24 hours is left alone.',
+    keyless: 'No SMS key is configured, so messages will be written to the server log instead of sent.',
+    verb: 'texted',
+    reasons: ['answered', 'no number', 'texted today'],
+    preview: previewRemindersAction,
+    send: sendRemindersAction,
+  },
+  email: {
+    title: 'E-mail an RSVP reminder',
+    blurb:
+      'Each guest gets their own link. Anyone e-mailed in the last 24 hours is left alone, and it reaches the guests abroad that a text cannot.',
+    keyless: 'No e-mail key is configured, so messages will be written to the server log instead of sent.',
+    verb: 'e-mailed',
+    reasons: ['answered', 'no address', 'e-mailed today'],
+    preview: previewEmailRemindersAction,
+    send: sendEmailRemindersAction,
+  },
+};
+
+export function Reminders({ invitationId, live, channel = 'sms' }: { invitationId: string; live: boolean; channel?: 'sms' | 'email' }) {
+  const c = CHANNELS[channel];
   const [pending, start] = useTransition();
   const [everyone, setEveryone] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -32,7 +73,7 @@ export function Reminders({ invitationId, live }: { invitationId: string; live: 
     start(async () => {
       setError('');
       setResult('');
-      const r = await previewRemindersAction(invitationId, next);
+      const r = await c.preview(invitationId, next);
       if (!r.ok) setError(r.error ?? 'Something went wrong.');
       else setPlan(r.data as Plan);
     });
@@ -41,7 +82,7 @@ export function Reminders({ invitationId, live }: { invitationId: string; live: 
   function send() {
     start(async () => {
       setError('');
-      const r = await sendRemindersAction(invitationId, everyone);
+      const r = await c.send(invitationId, everyone);
       if (!r.ok) {
         setError(r.error ?? 'Something went wrong.');
         return;
@@ -51,7 +92,7 @@ export function Reminders({ invitationId, live }: { invitationId: string; live: 
       setResult(
         [
           o.sent ? `${o.sent} sent` : '',
-          o.logged ? `${o.logged} logged to the console (no SMS key set)` : '',
+          o.logged ? `${o.logged} logged to the console (no key set)` : '',
           o.failed ? `${o.failed} failed` : '',
         ]
           .filter(Boolean)
@@ -61,7 +102,7 @@ export function Reminders({ invitationId, live }: { invitationId: string; live: 
   }
 
   const grouped = plan
-    ? (['answered', 'no number', 'texted today'] as const)
+    ? c.reasons
         .map((reason) => ({ reason, n: plan.skipped.filter((s) => s.reason === reason).length }))
         .filter((g) => g.n > 0)
     : [];
@@ -70,10 +111,10 @@ export function Reminders({ invitationId, live }: { invitationId: string; live: 
     <div className="card space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-semibold">Text an RSVP reminder</h2>
+          <h2 className="font-semibold">{c.title}</h2>
           <p className="text-sm text-[color:var(--color-ink-500)]">
-            Each guest gets their own link. Anyone texted in the last 24 hours is left alone.
-            {!live && ' No SMS key is configured, so messages will be written to the server log instead of sent.'}
+            {c.blurb}
+            {!live && ` ${c.keyless}`}
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm">
@@ -95,19 +136,21 @@ export function Reminders({ invitationId, live }: { invitationId: string; live: 
 
       {!plan ? (
         <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={() => preview()}>
-          {pending ? 'Checking…' : 'See who would be texted'}
+          {pending ? 'Checking…' : `See who would be ${c.verb}`}
         </button>
       ) : (
         <div className="space-y-3">
           <p className="text-sm">
-            <strong>{plan.count}</strong> {plan.count === 1 ? 'guest' : 'guests'} would be texted
-            {plan.credits > 0 && <> · {plan.credits} {plan.credits === 1 ? 'credit' : 'credits'}</>}
+            <strong>{plan.count}</strong> {plan.count === 1 ? 'guest' : 'guests'} would be {c.verb}
+            {/* Only a text has a price. An e-mail says nothing rather than "0 credits",
+                which would read as a charge that happened to come to nothing. */}
+            {plan.credits ? <> · {plan.credits} {plan.credits === 1 ? 'credit' : 'credits'}</> : null}
             {grouped.length > 0 && (
-              <> · skipping {grouped.map((g) => `${g.n} ${REASONS[g.reason]}`).join(', ')}</>
+              <> · skipping {grouped.map((g) => `${g.n} ${REASONS[g.reason] ?? g.reason}`).join(', ')}</>
             )}
           </p>
           {plan.sample && (
-            <blockquote className="rounded-xl bg-[color:var(--color-sand-100)] p-3 text-sm">
+            <blockquote className="whitespace-pre-line rounded-xl bg-[color:var(--color-sand-100)] p-3 text-sm">
               {plan.sample}
             </blockquote>
           )}

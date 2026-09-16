@@ -1,9 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { listGuests } from '@/lib/guests';
-import { hasFeature } from '@/lib/tiers';
+import { entitled } from '@/lib/tiers';
+import { seatsHeld, replyState } from '@/lib/seats';
+import { companionsOf, attendeeLine } from '@/lib/attendees';
 import { PageHeader } from '@/components/ui';
 import { CheckInDesk } from './desk';
 
@@ -13,13 +14,12 @@ export default async function CheckInPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const user = await requireCustomerPage();
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
-  if (!hasFeature(inv.tier, 'checkin')) redirect(`/account/invitations/${inv.id}/upgrade`);
+  if (!entitled(inv, 'checkin')) redirect(`/account/invitations/${inv.id}/upgrade`);
   const guests = await listGuests(inv.id);
   return (
     <>
-      <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
-      <PageHeader title="Event-day check-in" subtitle="Scan a guest's QR with any camera app, paste the link here, or search by name. Works on a phone at the door." />
-      <CheckInDesk invitationId={inv.id} guests={guests.map((g) => ({ id: g.id, name: g.name, groupName: g.groupName, seats: g.rsvps[0]?.response === 'ACCEPT' ? g.rsvps[0].seats : g.seatsAllotted, table: g.table?.name ?? '', checkedIn: Boolean(g.checkedInAt), token: g.token }))} />
+      <PageHeader title="Event-day check-in" subtitle="Scan a guest's QR with any camera app, paste the link here, or search by name — a companion's name finds their party too. A scan counts the whole party in; if some of them did not come, correct the number beside them." />
+      <CheckInDesk invitationId={inv.id} guests={guests.map((g) => ({ id: g.id, name: g.name, groupName: g.groupName, seats: seatsHeld(g.seatsAllotted, g.rsvps[0]), state: replyState(g.rsvps[0]), table: g.table?.name ?? '', checkedIn: Boolean(g.checkedInAt), arrived: g.arrivedCount, companions: g.rsvps[0] ? companionsOf(g.rsvps[0].attendees).map((a) => attendeeLine(a)) : [], token: g.token }))} />
     </>
   );
 }

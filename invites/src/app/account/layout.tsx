@@ -12,14 +12,19 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const user = await requireCustomerPage();
   const [s, unread] = await Promise.all([getSettings(), unreadCount(user.id)]);
   return (
-    <div className="min-h-dvh bg-[color:var(--color-sand-50)]">
-      <header className="border-b border-[color:var(--color-sand-200)] bg-white">
+    <div className="min-h-dvh bg-[color:var(--color-sand-50)] print:min-h-0 print:bg-white">
+      <header className="no-print border-b border-[color:var(--color-sand-200)] bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <Link href="/account" className="display text-xl">{s['business.name']}</Link>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             <Link href="/account" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">My invitations</Link>
+            {/* No Help tab. Messenger is at the foot of every page
+                and answer faster; a support inbox in the navigation invited a
+                written thread about invitations that were already finished,
+                and answering those costs more than the tab ever saved. The
+                page at /account/support still works, so a reply we send still
+                has somewhere to land. */}
             <Link href="/account/orders" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">Orders</Link>
-            <Link href="/account/support" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">Help</Link>
             <Link href="/account/privacy" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">Your data</Link>
             <Link href="/account/notifications" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">
               Notifications{unread > 0 && <span className="pill pill-bad ml-1">{unread}</span>}
@@ -30,11 +35,11 @@ export default async function AccountLayout({ children }: { children: React.Reac
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-5 py-6">{children}</main>
-      <footer className="mx-auto max-w-6xl px-5 pb-10 text-xs text-[color:var(--color-ink-500)]">
+      <main className="mx-auto max-w-6xl px-5 py-6 print:max-w-none print:p-0">{children}</main>
+      <footer className="no-print mx-auto max-w-6xl px-5 pb-10 text-xs text-[color:var(--color-ink-500)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--color-sand-200)] pt-4">
           <span>Need a hand? {s['contact.hoursNote']}</span>
-          <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} size="sm" />
+          <ContactButtons messenger={s['contact.messenger']} size="sm" />
         </div>
       </footer>
     </div>

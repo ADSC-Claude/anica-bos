@@ -93,9 +93,14 @@ export default async function PrivacyPage() {
             © {new Date().getFullYear()} {settings['business.name']} ·{' '}
             {settings['business.address']}
           </p>
-          <Link href="/" className="underline underline-offset-4">
-            Back to the spa
-          </Link>
+          <span className="flex gap-4">
+            <Link href="/refunds" className="underline underline-offset-4">
+              Refund policy
+            </Link>
+            <Link href="/" className="underline underline-offset-4">
+              Back to the spa
+            </Link>
+          </span>
         </div>
       </footer>
     </div>

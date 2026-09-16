@@ -131,6 +131,11 @@ export default async function ConfirmationPage({
               To cancel or move your booking, contact us on{' '}
               {settings['business.contact']} and quote {appt.reference}.
             </p>
+            <p className="mt-1">
+              <Link href="/refunds" className="underline underline-offset-4 hover:text-gilt-600">
+                Read the full refund policy
+              </Link>
+            </p>
           </div>
         )}
 

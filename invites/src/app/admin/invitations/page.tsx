@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { occasionLabel } from '@/lib/occasions';
 import { formatDate } from '@/lib/datetime';
 import { PageHeader, InvitationPill, Empty } from '@/components/ui';
+import { invitationPath } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 const STATUSES: InvitationStatus[] = ['DRAFT', 'PUBLISHED', 'EXPIRED', 'ARCHIVED'];
@@ -25,7 +26,7 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
       {rows.length === 0 ? <Empty>Nothing matches.</Empty> : (
         <div className="card overflow-x-auto"><table className="data">
           <thead><tr><th>Title</th><th>Customer</th><th>Occasion</th><th>Tier</th><th>Status</th><th>Event</th><th>Views</th><th>RSVPs</th></tr></thead>
-          <tbody>{rows.map((i) => <tr key={i.id}><td><Link href={`/admin/invitations/${i.id}`} className="underline">{i.title}</Link><span className="block text-xs text-[color:var(--color-ink-500)]">/i/{i.slug} · {i.template.name}</span></td><td>{i.user.name}</td><td>{occasionLabel(i.occasion)}</td><td>{i.tier}</td><td><InvitationPill status={i.status} /></td><td className="text-xs">{formatDate(i.eventAt, 'short')}</td><td>{i.viewCount}</td><td>{i._count.rsvps}{i._count.guests ? ` / ${i._count.guests}` : ''}</td></tr>)}</tbody>
+          <tbody>{rows.map((i) => <tr key={i.id}><td><Link href={`/admin/invitations/${i.id}`} className="underline">{i.title}</Link><span className="block text-xs text-[color:var(--color-ink-500)]">{invitationPath(i.slug)} · {i.template.name}</span></td><td>{i.user.name}</td><td>{occasionLabel(i.occasion)}</td><td>{i.tier}</td><td><InvitationPill status={i.status} /></td><td className="text-xs">{formatDate(i.eventAt, 'short')}</td><td>{i.viewCount}</td><td>{i._count.rsvps}{i._count.guests ? ` / ${i._count.guests}` : ''}</td></tr>)}</tbody>
         </table></div>
       )}
     </>

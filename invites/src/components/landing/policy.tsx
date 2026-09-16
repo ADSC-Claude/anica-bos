@@ -10,7 +10,7 @@ export function PolicyBody({ kind, s }: { kind: 'terms' | 'privacy' | 'refund'; 
     return (
       <div className="prose-site mt-6 text-[color:var(--color-ink-700)]">
         <p>{s['policy.refund']}</p>
-        <p>To request a refund where one applies, message us on Messenger or Viber with your order reference. Refunds go back to the original payment method; e-wallet refunds can take a few days to settle.</p>
+        <p>To request a refund where one applies, message us on Messenger with your order reference. Refunds go back to the original payment method; e-wallet refunds can take a few days to settle.</p>
       </div>
     );
   }
@@ -32,10 +32,10 @@ export function PolicyBody({ kind, s }: { kind: 'terms' | 'privacy' | 'refund'; 
       <p>By purchasing an invitation from {s['business.name']} you agree to the following.</p>
       <p><b>What you buy.</b> A one-time licence to publish one invitation at one link for the validity period of your package, counted from your event date. There is no subscription and no renewal fee. Link extensions are available on request.</p>
       <p><b>Your content.</b> You are responsible for the names, photos and text on your invitation and for having the right to use them. We may remove content that is unlawful or abusive.</p>
-      <p><b>Done-For-You.</b> Turnaround times are counted in working days from the moment we receive complete details. Revision rounds are as stated on your package; small corrections after approval are handled with goodwill.</p>
+      <p><b>Building your invitation.</b> Turnaround times are counted in working days from the moment we receive complete details. Revision rounds are as stated on your package; small corrections after approval are handled with goodwill.</p>
       <p><b>Availability.</b> We aim for the invitation to be reachable at all times and back everything up daily, but we cannot guarantee uninterrupted service and are not liable for indirect losses.</p>
       <p><b>Refunds.</b> {s['policy.refund']}</p>
-      <p><b>Contact.</b> {s['business.email']}, or Messenger and Viber from any page.</p>
+      <p><b>Contact.</b> {s['business.email']}, or Messenger from any page.</p>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, TIERS } from '../src/lib/tiers';
+import { hasFeature, galleryLimit, tierAtLeast, nextTier, COMPARISON, COMPARISON_ALL, FUTURE_FEATURES, featureOffered, TIERS, type FeatureKey } from '../src/lib/tiers';
+import { sectionUnlocked, type SectionKey } from '../src/lib/sections';
+import { ADDONS } from '../src/lib/addon-catalogue';
 import { t, INTRO_PRESETS, GIFT_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, preset } from '../src/lib/copy';
 import { slugify, guestToken, orderReference } from '../src/lib/codes';
 import { parseCsv, toCsv } from '../src/lib/csv';
@@ -12,15 +14,72 @@ import { formatTime, formatDate, manilaDateKey } from '../src/lib/datetime';
 test('features unlock in order', () => {
   assert.equal(tierAtLeast('COMPLETE', 'BASIC'), true);
   assert.equal(tierAtLeast('BASIC', 'STANDARD'), false);
-  assert.equal(nextTier('COMPLETE'), null);
+  assert.equal(nextTier('COMPLETE'), 'LUXURY');
+  assert.equal(nextTier('LUXURY'), null, 'and there is nothing above the top');
   assert.equal(hasFeature('BASIC', 'rsvp.personalLinks'), false);
   assert.equal(hasFeature('COMPLETE', 'rsvp.personalLinks'), true);
   assert.equal(hasFeature('STANDARD', 'slug.custom'), true);
   assert.equal(hasFeature('STANDARD', 'privacy.password'), false);
-  assert.equal(galleryLimit('BASIC'), 1);
-  assert.equal(galleryLimit('STANDARD'), 10);
-  assert.equal(galleryLimit('COMPLETE'), Infinity);
+  assert.equal(galleryLimit('BASIC'), 0, 'Basic has no gallery — its one photo is the cover photo');
+  // Sold as ranges — five to seven, ten to fifteen — so the limit is the top
+  // of the range the customer was shown.
+  assert.equal(galleryLimit('STANDARD'), 7);
+  assert.equal(galleryLimit('COMPLETE'), 15);
+  assert.equal(galleryLimit('LUXURY'), 20);
+  const photos = COMPARISON.find((r) => r.label === 'Photos')!;
+  assert.match(String(photos.cells.STANDARD), /5 to 7/);
+  assert.match(String(photos.cells.COMPLETE), /10 to 15/);
+  // The number and the word move together, or the package promises one thing
+  // and accepts another. This caught the pair coming apart.
+  assert.equal(photos.cells.LUXURY, '20 photos + video');
+  for (const cell of Object.values(photos.cells)) {
+    if (typeof cell === 'string') assert.doesNotMatch(cell, /unlimited/i, 'the table still says unlimited');
+  }
   for (const row of COMPARISON) for (const tier of TIERS) assert.notEqual(row.cells[tier], undefined, `${row.label} ${tier}`);
+
+  // Revisions are rounds of changes before we publish — after it, an
+  // invitation guests are already opening is ours to change, not the
+  // customer's, so the table must not promise them a number they can spend.
+  const revisions = COMPARISON.find((r) => r.label.startsWith('Revisions'));
+  assert.ok(revisions, 'the table names the revision rounds');
+  assert.ok(revisions!.label.includes('before we publish'), 'and says when they happen');
+  assert.deepEqual(
+    [revisions!.cells.BASIC, revisions!.cells.STANDARD, revisions!.cells.COMPLETE, revisions!.cells.LUXURY],
+    ['2 rounds', '4 rounds', '6 rounds', '8 rounds'],
+    'a bigger package buys more of them',
+  );
+  // What happens after publishing is not a row. Every answer it could give is
+  // "message us", which reads as an invitation to open a conversation about an
+  // invitation that is finished — and answering those costs more than the row
+  // ever sold.
+  assert.equal(COMPARISON.find((r) => r.label.startsWith('Changes after publishing')), undefined);
+
+  // The guest list manager, its Excel import, the seating chart and event-day
+  // check-in were built and then withheld, on the reasoning that they were too
+  // much to encode for Done-For-You. A guest list is not encoding work — it is
+  // the one part of an invitation only the couple can supply — so they are
+  // Signature's and they are sold. Their pages are reached through
+  // featureOffered, so a table that lists them while that returns false would
+  // sell a link nobody can click.
+  for (const feature of ['guests.manager', 'guests.import'] as const) {
+    assert.equal(featureOffered(feature), true, `${feature} is offered`);
+    assert.equal(hasFeature('COMPLETE', feature), true, `${feature} is Signature's`);
+    assert.equal(hasFeature('STANDARD', feature), false, `${feature} is not Standard's`);
+  }
+  // The event-day half of the service is what Luxury sells: the chart a guest
+  // looks themselves up on, the desk at the door, the album afterwards.
+  for (const feature of ['seating', 'checkin', 'photoSharing', 'saveTheDate.included', 'rsvp.emailConfirmation'] as const) {
+    assert.equal(featureOffered(feature), true, `${feature} is offered`);
+    assert.equal(hasFeature('LUXURY', feature), true, `${feature} is Luxury's`);
+    assert.equal(hasFeature('COMPLETE', feature), false, `${feature} is not Signature's`);
+  }
+  assert.deepEqual([...FUTURE_FEATURES], [], 'no feature key is held back — accommodation is a section, held back by its row');
+  for (const label of ['Seating chart', 'QR check-in', 'Guest list manager', 'Parents section', 'FAQ section', 'Save the Date', 'E-mail confirmation']) {
+    assert.ok(COMPARISON.some((r) => r.label.includes(label)), `the table names ${label}`);
+  }
+  // Built, and working for anyone who has it, but not drawn on the website.
+  assert.ok(COMPARISON_ALL.some((r) => r.label.includes('Accommodation')), 'accommodation still exists');
+  assert.equal(COMPARISON.find((r) => r.label.includes('Accommodation')), undefined, 'and is not on the table');
 });
 
 test('every phrase exists in both languages and substitutes variables', () => {
@@ -48,7 +107,7 @@ test('csv round-trips names with commas and ñ, and reads pasted tabs', () => {
 });
 
 test('qr, ics, theme and dates', () => {
-  const svg = qrSvg('https://example.com/i/juan-and-maria');
+  const svg = qrSvg('https://example.com/juan-and-maria');
   assert.match(svg, /^<svg/);
   assert.match(svg, /<path d="M/);
   const ics = buildIcs({ uid: 'x', title: 'Juan & Maria; wedding', start: new Date('2026-12-12T06:00:00Z'), location: 'Manila, PH' });
@@ -62,4 +121,78 @@ test('qr, ics, theme and dates', () => {
   assert.equal(formatTime('00:05'), '12:05 AM');
   assert.equal(formatDate('2026-12-12', 'long'), 'December 12, 2026');
   assert.match(manilaDateKey(new Date('2026-12-12T20:00:00Z')), /^2026-12-13$/, 'evening UTC is the next day in Manila');
+});
+
+// A section in the builder and a feature in the table can describe the same
+// thing twice: the badge on a locked section is drawn from sectionMinTier, and
+// whether the thing actually works is decided by hasFeature. When the two
+// disagree the builder offers an upgrade to a package that does not carry what
+// it is offering — which is exactly what happened when the album moved to
+// Luxury and its section stayed on Signature.
+test('a section and the feature behind it name the same package', () => {
+  const pairs: [SectionKey, FeatureKey][] = [
+    ['photos', 'photoSharing'],
+    ['guestbook', 'guestbook'],
+  ];
+  for (const [section, feature] of pairs) {
+    for (const tier of TIERS) {
+      assert.equal(
+        sectionUnlocked(section, 'WEDDING', tier),
+        hasFeature(tier, feature),
+        `${section} / ${feature} disagree on ${tier}`,
+      );
+    }
+  }
+});
+
+// A cell that says "Add-on" is a price list: it tells a customer they can buy
+// the thing. Both of these said it while nothing in the catalogue sold it —
+// there is no e-mail-confirmation add-on at all, and the SMS blast comes with
+// the guest list manager rather than being bought. So each row is pinned to
+// the gate that actually decides it: a package either has it or it does not,
+// and the table has to say the same thing the code does.
+test('the two messaging rows say what the gates actually allow', () => {
+  const confirmation = COMPARISON.find((r) => r.label.startsWith('E-mail confirmation'))!;
+  for (const tier of TIERS) {
+    assert.equal(
+      Boolean(confirmation.cells[tier]),
+      hasFeature(tier, 'rsvp.emailConfirmation'),
+      `confirmation row disagrees with the gate on ${tier}`,
+    );
+  }
+
+  // The blast itself is the guest list manager's; what costs money is the
+  // texts, which is why the cell quotes rather than prices.
+  const blast = COMPARISON.find((r) => r.label.startsWith('SMS blast'))!;
+  for (const tier of TIERS) {
+    assert.equal(Boolean(blast.cells[tier]), hasFeature(tier, 'guests.manager'), `SMS row disagrees with the gate on ${tier}`);
+  }
+  assert.match(String(blast.cells.COMPLETE), /Ask us/, 'and does not print a price we have not set');
+
+  // Nothing else may claim to be buyable unless something actually sells it.
+  // The bug this catches is a row reading "Add-on" for a thing no customer can
+  // buy at any price, which is what both rows above did.
+  //
+  // Each such row names the add-on it is offering, and that add-on has to be
+  // real: either the catalogue prices it — and has not held it back — or it is
+  // one of the three the catalogue deliberately leaves to the admin, whose
+  // prices are theirs and are seeded rather than reconciled.
+  const ADMIN_PRICED = ['PREMIUM_OPENING', 'PRINTABLE', 'CUSTOM_DOMAIN'];
+  const SELLS: Record<string, string> = {
+    'Premium opening video': 'PREMIUM_OPENING',
+    'Save the Date card': 'SAVE_THE_DATE',
+    "Seating chart on the guest's page": 'SEATING_VIEWER',
+    'QR check-in on event day': 'QR_CHECKIN',
+    'Password on the link': 'PASSWORD',
+    'Post-event photo sharing': 'PHOTO_SHARING',
+  };
+  for (const row of COMPARISON) {
+    if (!TIERS.some((t) => String(row.cells[t]) === 'Add-on')) continue;
+    const code = Object.entries(SELLS).find(([label]) => row.label.startsWith(label))?.[1];
+    assert.ok(code, `${row.label} says "Add-on" but names no add-on`);
+    const priced = ADDONS.find((a) => a.code === code);
+    if (ADMIN_PRICED.includes(code!)) continue;
+    assert.ok(priced, `${row.label} offers ${code}, which the catalogue does not sell`);
+    assert.ok(!priced!.held, `${row.label} offers ${code}, which is priced but held back from sale`);
+  }
 });

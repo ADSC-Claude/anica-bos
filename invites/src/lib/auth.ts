@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import type { Role } from '@prisma/client';
 import { prisma } from './db';
 import { HttpError } from './errors';
+import { audit } from './audit';
 
 const COOKIE = 'invites_session';
 /** Customers build an invitation over evenings; a week keeps them signed in. */
@@ -215,13 +216,40 @@ export async function signup(input: {
 
 export async function changePassword(userId: string, current: string, next: string): Promise<void> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  const actor: SessionUser = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+  };
+
   if (!(await verifyPassword(current, user.passwordHash))) {
+    // Recorded, and sensitive: somebody holding a stolen session trying to
+    // take the account outright looks exactly like this, and the attempt is
+    // the only warning there is.
+    await audit(actor, {
+      module: 'auth',
+      action: 'password.change_refused',
+      entityType: 'user',
+      entityId: user.id,
+      summary: 'Current password did not match.',
+      sensitive: true,
+    });
     throw new HttpError(400, 'Your current password is incorrect.');
   }
   if (next.length < 8) throw new HttpError(400, 'Use at least 8 characters.');
   await prisma.user.update({
     where: { id: userId },
     data: { passwordHash: await hashPassword(next), mustChangePassword: false },
+  });
+  await audit(actor, {
+    module: 'auth',
+    action: 'password.changed',
+    entityType: 'user',
+    entityId: user.id,
+    summary: `${user.email} changed their own password.`,
+    sensitive: true,
   });
   await createSession({
     id: user.id,

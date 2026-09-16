@@ -13,6 +13,19 @@ export const DEFAULT_SETTINGS = {
   'business.phone': '+63 900 000 0000',
   'business.address': 'Quezon City, Metro Manila, Philippines',
   'business.logoUrl': '',
+  /*
+   * The landing page's two photographs, uploaded from admin settings rather
+   * than committed to the repository — the owner changes the picture on the
+   * front page without a deploy, and without us.
+   *
+   * Empty falls back to what the code ships with: the CSS alcove behind the
+   * hero's phone, and plain wine under the closing band. Both slots are
+   * wide — roughly 3:2 for the hero, wider still for the band — and the band's
+   * photograph wants its subject on the right, because the headline sits on
+   * the left of it.
+   */
+  'landing.heroImageUrl': '',
+  'landing.bandImageUrl': '',
   'business.facebook': '',
   'business.instagram': '',
   /** Shown in the trust bar. Updated by the owner, not computed, so it can be honest and round. */
@@ -25,7 +38,7 @@ export const DEFAULT_SETTINGS = {
   /** viber://chat?number=%2B639... or a viber.me link. Empty hides the button. */
   'contact.viber': 'viber://chat?number=%2B639000000000',
   'contact.whatsapp': '',
-  'contact.hoursNote': 'We reply on Messenger and Viber from 9 AM to 9 PM, Manila time.',
+  'contact.hoursNote': 'We reply on Messenger from 9 AM to 9 PM, Manila time.',
 
   // --- manual payment details shown to customers who transfer directly ---
   'payments.manualEnabled': true,
@@ -44,15 +57,33 @@ export const DEFAULT_SETTINGS = {
   'orders.unpaidExpiryDays': 7,
 
   // --- service levels ---
-  'dfy.turnaroundDays': 3,
-  'dfy.revisions': 2,
-  'concierge.turnaroundDays': 5,
-  'concierge.revisions': 3,
+  /**
+   * The ordinary Done-For-You promise, as a range: seven to ten working days.
+   *
+   * Both ends do work. The near end is what we quote, the far end is what a
+   * due date is set from, because the far end is the promise. Neither is a
+   * queue: an invitation finished on the eighth day is sent on the eighth day,
+   * and nobody is held to the end of an estimate because it was written down.
+   */
+  'dfy.turnaroundDays': 7,
+  'dfy.turnaroundDaysMax': 10,
+  /**
+   * Priority, the queue jump Signature and Luxury are sold: two to three
+   * working days. Not one — those builds carry too much to encode overnight,
+   * which is the same reason rush is not offered with them at all.
+   *
+   * Its revision rounds are not here: a hurried build's rounds are capped by
+   * tier in pricing.ts, because buying speed reduces the rounds rather than
+   * setting them.
+   */
+  'concierge.turnaroundDays': 2,
+  'concierge.turnaroundDaysMax': 3,
+  /** Rush, the Basic and Standard queue jump. */
   'rush.turnaroundHours': 24,
 
   // --- policies shown on the site ---
   'policy.refund':
-    'Because every invitation is built to order, payments are non-refundable once your invitation has been published or your Done-For-You build has started. If we cannot deliver, you get a full refund.',
+    'Because every invitation is built to order, payments are non-refundable once your invitation has been published or once our team has started building it. If we cannot deliver, you get a full refund.',
   'policy.privacy':
     'Guest lists are personal data. We collect only what an invitation needs, never share it, and delete it on request — in line with the Data Privacy Act of 2012 (RA 10173).',
 
@@ -67,8 +98,56 @@ export const DEFAULT_SETTINGS = {
     'Hi {{customerName}},\n\n{{guestName}} just responded to {{invitationTitle}}: {{response}} ({{seats}} seat(s)).\n\nSee all responses: {{appUrl}}/account/invitations/{{invitationId}}/rsvps\n\n— {{businessName}}',
   'sms.rsvpReminder':
     'Hi {{guestName}}! {{hosts}} would love to know if you can make it on {{eventDate}}. Please RSVP here: {{link}}',
+  /**
+   * The same reminder by e-mail, and longer on purpose: a text is charged by
+   * the segment and reads on a lock screen, while an e-mail is free and read
+   * in an inbox beside a hundred others. So it says who it is from in the
+   * subject, and the body has room to name the day and the place.
+   */
+  'email.rsvpReminderSubject': 'RSVP for {{hosts}} — {{eventDate}}',
+  'email.rsvpReminder':
+    'Hi {{guestName}},\n\n{{hosts}} would love to know if you can make it on {{eventDate}}.\n\nYour invitation, and the RSVP, are here:\n{{link}}\n\nThe link is yours — it already knows your name and the seats set aside for you, so there is nothing to look up.\n\nSee you soon!\n{{hosts}}',
+  /**
+   * What a guest gets back for replying: proof they did, and the link again.
+   *
+   * It is written to be read once and then found in a search months later,
+   * which is why the subject carries the hosts and the day rather than the
+   * word "confirmation" — nobody searches their inbox for that.
+   */
+  'email.rsvpConfirmationSubject': 'Your RSVP for {{hosts}} — {{eventDate}}',
+  'email.rsvpConfirmation':
+    'Hi {{guestName}},\n\nThank you — we have you down as {{response}}{{seatsLine}}.\n\n{{hosts}} · {{eventDate}}\n\n{{updateLine}}\n{{link}}\n\nSee you soon!\n{{hosts}}',
+  /**
+   * The sentence above the link, in the two cases it has to cover.
+   *
+   * Whether a guest can change their answer is decided by one thing: whether
+   * the link we are handing them carries their token. submitRsvp() recognises
+   * a second answer as the same guest editing their first only by that token —
+   * without one it has nothing to match on but a typed name, and matching on
+   * that would let anybody who knows a guest's name overwrite their reply.
+   *
+   * So a plain link cannot keep the promise. Answering through it again makes
+   * a second row, and the couple sees the same person twice with no way to
+   * tell which one they meant. The wording follows the token rather than
+   * hoping: where there is one it offers the edit, and where there is none it
+   * sends them to the hosts, who can settle it in a sentence.
+   */
+  'email.rsvpConfirmationUpdate': 'If anything changes, you can update your reply on the same link:',
+  'email.rsvpConfirmationNoUpdate':
+    'If anything changes, please let {{hosts}} know. The invitation is here if you need the details again:',
   /** Semaphore sender ID. Blank uses the account default. */
   'sms.senderName': '',
+  /**
+   * Whether the daily job sends the scheduled campaigns.
+   *
+   * Off, and deliberately the one setting in this file that starts off. It is
+   * the difference between a job that reads some rows and a job that texts a
+   * thousand strangers at six in the morning at our expense, and the two are
+   * one boolean apart. Turn it on when the sender ID is registered and the
+   * campaign rows are actually on sale — not before, because until then every
+   * invitation it would find is one nobody paid for a campaign on.
+   */
+  'campaigns.enabled': false,
 
   // --- the public site ---
   'site.comingSoon': false,

@@ -4,6 +4,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import { resolveDatabaseUrl } from '../src/lib/db-url';
+import { TIERS } from '../src/lib/tiers';
 
 const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
 let failures = 0;
@@ -35,7 +36,7 @@ async function main() {
   check('personal-link RSVPs never exceed the allotment (+1)', rsvps.filter((r) => r.guest).every((r) => r.seats <= r.guest!.seatsAllotted + (r.guest!.plusOneAllowed ? 1 : 0)));
 
   const packages = await prisma.package.findMany({ where: { active: true } });
-  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE'] as const) {
+  for (const tier of TIERS) {
     check(`a generic ${tier} package exists`, packages.some((p) => p.occasion === null && p.tier === tier));
   }
 

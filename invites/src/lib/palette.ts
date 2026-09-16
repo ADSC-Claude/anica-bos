@@ -1,0 +1,316 @@
+/**
+ * The clothing colour palette — the colours a couple picks from for the dress
+ * code: the motif (four to eight), the suits and the gowns. Each has a name,
+ * so the form reads "Dusty Rose" and "Sage" rather than hex, and the guest
+ * page can say the name under the swatch. The values were read off the
+ * designer's palette sheet, family by family; the metallics are drawn with a
+ * sheen. The presets are the sheet's "trending colour families": four colours
+ * that go together, picked in one tap and added to from the palette.
+ *
+ * What is stored on the invitation is still the hex, so a colour saved before
+ * the palette existed keeps working — it simply has no name.
+ */
+export type Swatch = {
+  key: string;
+  name: string;
+  hex: string;
+  /** drawn with a sheen on the page */
+  metallic?: boolean;
+  /**
+   * Not from the owner's original sheet — added when the book was taken to
+   * ten shades a family. Kept on the row so the sheet she approves can show
+   * what is new, and so striking one is a one-line change here.
+   */
+  added?: true;
+};
+export type SwatchGroup = { key: string; label: string; swatches: Swatch[] };
+export type Preset = { key: string; name: string; /** swatch keys, four of them */ colours: string[] };
+
+export const MOTIF_MIN = 4;
+export const MOTIF_MAX = 8;
+
+const keyOf = (name: string) => name.toLowerCase().replace(/[^a-z]+/g, '-');
+const group = (key: string, label: string, rows: [string, string, string?, boolean?][], metallic = false): SwatchGroup => ({
+  key,
+  label,
+  swatches: rows.map(([name, hex, k, added]) => ({
+    key: k || keyOf(name),
+    name,
+    hex,
+    ...(metallic ? { metallic: true as const } : {}),
+    ...(added ? { added: true as const } : {}),
+  })),
+});
+
+/*
+ * Every family at ten shades or more, which is what the design-studio plan
+ * asks of the book. Ten because a family is a *range* to pick from: four
+ * shades of light green is a choice between two, and a couple matching a
+ * gown to a bridesmaid's sash to a table runner needs the steps in between.
+ *
+ * The shades that were already here are untouched — key, name and hex —
+ * because an invitation stores the hex and reads its name back out of the
+ * book, so a changed hex would quietly leave somebody's "Dusty Rose"
+ * nameless. A test pins all 102 of them.
+ *
+ * The new ones are marked `added` so the sheet the owner approves can show
+ * her what is new against what she gave us, and so a shade she strikes can
+ * be found again. Every name is one a supplier would recognise; none is
+ * invented for this file.
+ *
+ * **Blacks are the exception, and on purpose.** Ten blacks is not a range,
+ * it is the same square ten times: the whole family lives inside a contrast
+ * ratio of 1.3, where the standards' own threshold for two colours being
+ * *different* is 3. Six is where a person can still tell one from the next
+ * on a phone in daylight, so six is where it stops. See the blacks test.
+ */
+export const PALETTE: SwatchGroup[] = [
+  group('neutrals', 'Whites & neutrals', [
+    ['White', '#ffffff'], ['Off White', '#f7f5f0'], ['Ivory', '#fcf8eb'], ['Cream', '#fef5df'], ['Ecru', '#faf1e4'], ['Champagne', '#f0e1c9'],
+    ['Beige', '#ead4bf'], ['Nude', '#ead0bd'], ['Sand', '#dcccc0'], ['Khaki', '#d5bfa7'], ['Kaupe', '#cdbbaa'], ['Taupe', '#c8b9ac'], ['Greige', '#c5b4a6'],
+  ]),
+  group('pinks', 'Pinks', [
+    ['Baby Pink', '#fbe4e7'], ['Pastel Pink', '#fddce1'], ['Blush', '#f8cfcc'], ['Dusty Pink', '#f3c8c7'], ['Dusty Rose', '#dba8a8'], ['Rose Pink', '#e0abb3'],
+    ['Old Rose', '#ca9ba1'], ['Mauve Pink', '#d4a1aa'], ['Salmon', '#f4a99f'], ['Hot Pink', '#f73b8e'], ['Fuchsia', '#cc1b72'],
+  ]),
+  group('reds', 'Reds & wines', [
+    // Every red she gave us is a deep one, so the light end is what the
+    // family was missing — a red bouquet and a red sash are not the same red.
+    ['Poppy', '#e8493f', '', true], ['Brick', '#9e3b32', '', true],
+    ['Red', '#b9202f'], ['Scarlet', '#c81921'], ['Cherry', '#a31727'], ['Ruby', '#9e172f'], ['Crimson', '#80092c'],
+    ['Burgundy', '#661129'], ['Garnet', '#6e1423', '', true], ['Wine', '#5f1b2d'], ['Maroon', '#582120'], ['Oxblood', '#512120'],
+  ]),
+  group('oranges', 'Peach, orange & terracotta', [
+    ['Peach', '#fdc1a6'], ['Apricot', '#fdbca0'], ['Melon', '#fbb491', '', true], ['Coral', '#fa9b8c'], ['Salmon', '#fba78f', 'salmon-orange'],
+    ['Orange', '#f47940'], ['Tangerine', '#f08a3c', '', true], ['Pumpkin', '#d4711f', '', true],
+    ['Burnt Orange', '#c76b43'], ['Terracotta', '#b36446'], ['Rust', '#b55838'], ['Sienna', '#96523a', '', true],
+  ]),
+  group('yellows', 'Yellows', [
+    ['Butter Yellow', '#fef4c0'], ['Pastel Yellow', '#feefac'], ['Lemon', '#fef098'], ['Straw', '#f2e3a3', '', true],
+    ['Canary', '#fddc56'], ['Honey', '#edc75a', '', true], ['Golden Yellow', '#e6b244'], ['Amber', '#e8a72c', '', true],
+    ['Mustard', '#d5a546'], ['Marigold', '#d98f21', '', true], ['Ochre', '#b8842b', '', true],
+  ]),
+  group('greens-light', 'Greens (light)', [
+    // Four shades was the thinnest family in the book, and light green is
+    // the one every garden wedding asks for.
+    ['Honeydew', '#e6f2d9', '', true], ['Mint', '#dbf3e2'], ['Seafoam', '#cfe8dc', '', true],
+    ['Pastel Green', '#ccdcc8'], ['Tea Green', '#c7d9b0', '', true], ['Pistachio', '#c4cca9'], ['Celadon', '#bcd3bd', '', true],
+    ['Sage', '#a2aa8b'], ['Fern', '#93a87e', '', true], ['Laurel', '#869b76', '', true],
+  ]),
+  group('greens-deep', 'Greens (deep)', [
+    ['Teal', '#0f8288'], ['Eucalyptus', '#6c9385'], ['Jade', '#3f8f6f', '', true], ['Olive', '#727955'], ['Moss', '#6c7550'],
+    ['Basil', '#4f7a3f', '', true], ['Emerald', '#026742'], ['Pine', '#2f5d4a', '', true], ['Forest Green', '#1b5039'], ['Hunter Green', '#024f3c'],
+  ]),
+  group('blues', 'Blues', [
+    ['Baby Blue', '#cde3fc'], ['Powder Blue', '#bbd6f0'], ['Sky Blue', '#9ec9ef'], ['Dusty Blue', '#8fa6c7'], ['Cornflower', '#84a3d6'],
+    ['Periwinkle', '#a6a2e0'], ['Cobalt', '#1550b4'], ['Royal Blue', '#053b99'], ['Navy', '#1c2e56'], ['Midnight Blue', '#1c2c4b'],
+  ]),
+  group('purples', 'Purples', [
+    ['Heather', '#b8a2c8', '', true],
+    ['Lavender', '#dbc7ef'], ['Lilac', '#d8ccf1'], ['Mauve', '#c197ac'], ['Orchid', '#cb93b7'], ['Wisteria', '#c3b2e2'],
+    ['Violet', '#9772ad'], ['Amethyst', '#8b599c'], ['Plum', '#713e68'], ['Eggplant', '#492153'],
+  ]),
+  group('browns', 'Browns & earth tones', [
+    ['Tan', '#d9b89c'], ['Camel', '#cda480'], ['Caramel', '#ba8d6e'], ['Cinnamon', '#b97753'], ['Mocha', '#7b5e4e'],
+    ['Coffee', '#73594b'], ['Cocoa', '#765b4d'], ['Walnut', '#5c4033', '', true], ['Chocolate', '#432a1e'], ['Espresso', '#32231c'],
+  ]),
+  group('grays', 'Grays', [
+    ['Fog', '#ececeb', '', true],
+    ['Pearl Gray', '#e0dfdf'], ['Dove Gray', '#d8d7d7'], ['Light Gray', '#cbcbcc'], ['Silver Gray', '#b8b8b9'],
+    ['Ash Gray', '#9c9d9e', '', true],
+    ['Steel Gray', '#8a8b8c'], ['Slate', '#6d7073'], ['Charcoal', '#484848'], ['Graphite', '#454545'],
+  ]),
+  group('blacks', 'Blacks', [
+    ['Black', '#000000'], ['Onyx', '#0b0b0b', '', true], ['Ink', '#14181f', '', true], ['Soft Black', '#1a1a1a'],
+    ['Ebony', '#201f1f', '', true], ['Raven', '#2a2a2e', '', true],
+  ]),
+  group('metallics', 'Metallics', [
+    ['Platinum', '#dcdee0', '', true], ['Champagne Gold', '#e9d5bf'], ['Gold', '#dcb46b'], ['Rose Gold', '#e8baa4'],
+    ['Silver', '#c4c6c8', 'silver-metallic'], ['Brass', '#c5a24a', '', true], ['Copper', '#d89b6a'], ['Bronze', '#c8824d'],
+    ['Antique Gold', '#b8912f', '', true], ['Pewter', '#96999c', '', true],
+  ], true),
+];
+
+export const SWATCHES: Swatch[] = PALETTE.flatMap((g) => g.swatches);
+const BY_HEX = new Map(SWATCHES.map((s) => [s.hex, s]));
+const BY_KEY = new Map(SWATCHES.map((s) => [s.key, s]));
+
+/** The sheet's trending colour families: four colours that go together, by swatch key. */
+export const PRESETS: Preset[] = [
+  { key: 'pastels', name: 'Pastels', colours: ['baby-pink', 'powder-blue', 'mint', 'lavender'] },
+  { key: 'neutrals', name: 'Neutrals', colours: ['cream', 'taupe', 'light-gray', 'silver-gray'] },
+  { key: 'earth', name: 'Earth tones', colours: ['cinnamon', 'caramel', 'mocha', 'olive'] },
+  { key: 'jewel', name: 'Jewel tones', colours: ['emerald', 'navy', 'burgundy', 'eggplant'] },
+  { key: 'warm', name: 'Warm tones', colours: ['red', 'coral', 'golden-yellow', 'lemon'] },
+  { key: 'cool', name: 'Cool tones', colours: ['cornflower', 'eucalyptus', 'sky-blue', 'violet'] },
+  { key: 'autumn', name: 'Autumn tones', colours: ['rust', 'cinnamon', 'mustard', 'moss'] },
+  { key: 'tropical', name: 'Tropical / brights', colours: ['hot-pink', 'canary', 'coral', 'teal'] },
+  { key: 'garden', name: 'Garden', colours: ['powder-blue', 'silver-gray', 'sage', 'moss'] },
+  { key: 'monochrome', name: 'Monochromatic', colours: ['dusty-blue', 'slate', 'pearl-gray', 'dove-gray'] },
+  { key: 'classic', name: 'Classic', colours: ['black', 'white', 'ivory', 'gold'] },
+];
+
+/** The palette's swatch for a stored colour, if it is one of them. */
+export function swatchByHex(hex: string): Swatch | undefined {
+  return BY_HEX.get(hex.trim().toLowerCase());
+}
+
+/** The swatch's name, or nothing for a colour that is not in the palette. */
+export function swatchName(hex: string): string {
+  return swatchByHex(hex)?.name ?? '';
+}
+
+/** A swatch's colour by its key — how the code names a colour without writing a hex. */
+export function swatchHex(key: string): string {
+  const s = BY_KEY.get(key);
+  if (!s) throw new Error(`No swatch "${key}" in the palette.`);
+  return s.hex;
+}
+
+/** A preset's colours as hex, in its order. */
+export function presetColours(preset: Preset): string[] {
+  return preset.colours.map(swatchHex);
+}
+
+const mix = (hex: string, to: number, amount: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift: number) => Math.round(((n >> shift) & 255) * (1 - amount) + to * amount).toString(16).padStart(2, '0');
+  return `#${ch(16)}${ch(8)}${ch(0)}`;
+};
+
+/** The CSS background for a swatch: the colour, or a sheen for a metallic. */
+export function swatchStyle(hex: string, metallic = false): string {
+  if (!metallic || !/^#[0-9a-f]{6}$/i.test(hex)) return hex;
+  return `linear-gradient(135deg, ${mix(hex, 255, 0.45)} 0%, ${hex} 48%, ${mix(hex, 0, 0.28)} 100%)`;
+}
+
+/**
+ * The six colour roles, made from one family of the book in one tap.
+ *
+ * A design's palette is six colours that have to work together: a ground, a
+ * surface, ink to read, a muted ink, and two accents. Picking six by hand
+ * from two hundred swatches is a long afternoon; picking a family is a
+ * decision a person can make in a second, and one family's shades work
+ * together by construction — that is what a family is.
+ *
+ * The shape of it: the palest shade is the ground, the second palest is the
+ * quiet accent, the darkest is the ink, and the muted ink and the accent are
+ * the palest two shades that can still carry words. The surface stays white,
+ * because a card has to lift off the page whatever the family is.
+ *
+ * Three guards, and all three are about being able to read the page.
+ *
+ * A family of pale shades has no shade dark enough to read as ink — every
+ * neutral in the book is paler than the grey a person can read comfortably —
+ * so where the darkest shade is still pale, the ink is the book's own
+ * near-black instead. A family of deep shades has nothing pale enough to be
+ * a ground: the palest red in the book is a pillar-box red, and ink on it
+ * cannot be read at all, so the ground becomes a very pale tint of that
+ * shade, which is what a designer reaches for anyway.
+ *
+ * The third was found by measuring, after the button had been shipping for
+ * two phases: **nine of the thirteen families made a heading nobody could
+ * read.** Taking the accent from the middle of the family by lightness is
+ * fine for a family that runs from cream to espresso and hopeless for one
+ * that runs from cream to beige — neutrals put an eyebrow in Nude on White,
+ * 1.5 to 1. And the accent is not only headings: `.inv-eyebrow` sets an
+ * eleven-pixel line in it and `.inv-btn` puts white words on it, so it has
+ * to stand off the paper *and* off white. So the accent and the muted ink
+ * are chosen for that rather than by position, and a family with no shade
+ * deep enough has its own darkest taken down until it has one — the same
+ * answer as the ground guard, at the other end. A palette that cannot be
+ * read is not a palette.
+ */
+export const READABLE_INK = '#2b2b28';
+
+/** 0 for black, 1 for white: the eye's own weighting of the channels. */
+export function lightness(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/** How pale the darkest shade may be and still read as ink. */
+const INK_CEILING = 0.36;
+/** How deep the palest shade may be and still be a page to read on. */
+const GROUND_FLOOR = 0.62;
+/** How far toward white a deep shade is taken to become a ground. */
+const TINT = 0.86;
+/**
+ * What a shade must reach, against the paper and against white, to carry
+ * words. The standards' bar for text at a normal size, which is what both
+ * the eyebrow and a button's label are.
+ */
+const CARRIES = 4.5;
+
+/** Whether this shade can carry small words on that paper, and white words on itself. */
+const canCarry = (hex: string, bg: string): boolean => contrast(hex, bg) >= CARRIES && contrast(hex, '#ffffff') >= CARRIES;
+
+/** The family's own colour, taken toward black in tenths until it can carry words. */
+function deepen(hex: string, bg: string): string {
+  for (let amount = 0.1; amount < 1; amount += 0.1) {
+    const darker = mix(hex, 0, amount);
+    if (canCarry(darker, bg)) return darker;
+  }
+  return READABLE_INK;
+}
+
+export function familyPalette(family: string): { bg: string; surface: string; ink: string; muted: string; accent: string; accent2: string } {
+  const group = PALETTE.find((g) => g.key === family);
+  if (!group || !group.swatches.length) throw new Error(`No colour family "${family}" in the book.`);
+  const shades = [...group.swatches].sort((a, b) => lightness(b.hex) - lightness(a.hex)).map((s) => s.hex);
+  const at = (i: number) => shades[Math.min(Math.max(i, 0), shades.length - 1)];
+  const darkest = at(shades.length - 1);
+  const palest = at(0);
+  const bg = lightness(palest) >= GROUND_FLOOR ? palest : mix(palest, 255, TINT);
+  // the palest shades that carry words, so the family keeps its colour
+  // rather than falling to near-black the moment a bar is not met
+  const carrying = shades.filter((h) => canCarry(h, bg));
+  const muted = carrying[0] ?? deepen(darkest, bg);
+  // and the heading a shade deeper than the caption, as the shipped palettes have it
+  const accent = carrying[1] ?? deepen(muted, bg);
+  return {
+    bg,
+    surface: '#ffffff',
+    /*
+     * The ink is asked both questions, because lightness and contrast
+     * disagree at the edges and the book has a family where they do: the
+     * darkest pink is Fuchsia, dark enough by lightness and 4.4 to 1 against
+     * a baby-pink paper, which is a page of body words a hair under the bar.
+     * The near-black is the better answer there.
+     */
+    ink: lightness(darkest) <= INK_CEILING && contrast(darkest, bg) >= CARRIES ? darkest : READABLE_INK,
+    muted,
+    accent,
+    accent2: at(1),
+  };
+}
+
+/** The families, for a picker: the key, the name, and what it would make. */
+export function colourFamilies(): { key: string; label: string; palette: ReturnType<typeof familyPalette> }[] {
+  return PALETTE.filter((g) => g.swatches.length >= 3).map((g) => ({ key: g.key, label: g.label, palette: familyPalette(g.key) }));
+}
+
+/**
+ * The contrast between two colours: 1 is none at all, 21 is black on white.
+ *
+ * The standards' own ratio, which is not the difference of the two
+ * lightnesses above: the eye's response to light is not linear, so each
+ * channel is straightened out first (the sRGB transfer function) before the
+ * three are weighted. It matters at the ends — two pale colours can look
+ * far apart and be 1.2 apart — which is exactly where a page stops being
+ * readable. Under 3 is where words the size of a heading stop being
+ * comfortable and under 4.5 where body words do.
+ */
+export function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    const channel = (shift: number) => {
+      const c = ((n >> shift) & 255) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}

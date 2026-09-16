@@ -2,10 +2,15 @@ import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { can } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
-import { occasionLabel } from '@/lib/occasions';
+import { occasionLabel, templateOccasions } from '@/lib/occasions';
+import { TIER_LABELS } from '@/lib/tiers';
 import { paletteFrom } from '@/lib/theme';
+import { documentOf, builtinDesign } from '@/lib/design';
+import { pageNeeds, needCount } from '@/lib/needs';
+import { designFilesFor } from '@/lib/design-files';
 import { PageHeader, Pill } from '@/components/ui';
 import { Flash, type FlashParams } from '../flash';
+import { duplicateTemplateAction, templateShownAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +18,12 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
   const user = await requireStaffPage('templates.view');
   const sp = await searchParams;
   const templates = await prisma.template.findMany({ orderBy: [{ occasion: 'asc' }, { sortOrder: 'asc' }], include: { _count: { select: { invitations: true } } } });
+  /*
+   * The weights and lengths for every design at once, so the count beside a
+   * design is the same count the publish door will apply. One query for the
+   * list rather than one per card.
+   */
+  const files = await designFilesFor(templates.map((t) => t.id));
   return (
     <>
       <PageHeader title="Templates" subtitle={`${templates.length} designs`} actions={can(user.role, 'templates.edit') && <Link href="/admin/templates/new" className="btn btn-primary btn-sm">+ New template</Link>} />
@@ -20,14 +31,38 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {templates.map((t) => {
           const pal = paletteFrom(t.palette);
+          // A design can be copied when it has pages of its own to copy: the
+          // document it already carries, or the one its layout is built from.
+          const copyable = Boolean(documentOf(t) ?? builtinDesign(t.layout));
+          // drawn in the studio: it carries a document, published or still a draft
+          const draft = documentOf({ design: t.designDraft, layout: t.layout });
+          const drawn = Boolean(documentOf(t)) || Boolean(draft);
+          // what the draft still needs, so she can see it without opening it
+          const todo = draft ? needCount(pageNeeds({ doc: draft, occasion: t.occasion, weights: files[t.id]?.weights, lengths: files[t.id]?.lengths })) : null;
           return (
-            <Link key={t.id} href={`/admin/templates/${t.id}`} className="card overflow-hidden text-sm hover:bg-[color:var(--color-sand-100)]">
-              <div className="aspect-[4/3]" style={{ background: t.thumbnailUrl ? `center/cover url(${t.thumbnailUrl})` : `linear-gradient(160deg, ${pal.bg}, ${pal.accent2})` }} />
-              <div className="p-3">
-                <p className="font-semibold">{t.name} {t.featured && <Pill tone="info">Featured</Pill>} {!t.published && <Pill tone="warn">Unpublished</Pill>}</p>
-                <p className="text-xs text-[color:var(--color-ink-500)]">{occasionLabel(t.occasion)} · {t.premium ? 'Premium' : t.minTier} · {t.layout} · used {t._count.invitations}×</p>
-              </div>
-            </Link>
+            <div key={t.id} className="card overflow-hidden text-sm">
+              <Link href={`/admin/templates/${t.id}`} className="block hover:bg-[color:var(--color-sand-100)]">
+                <div className="aspect-[9/16]" style={{ background: t.thumbnailUrl ? `top/cover url(${t.thumbnailUrl})` : `linear-gradient(160deg, ${pal.bg}, ${pal.accent2})` }} />
+                <div className="p-3">
+                  <p className="font-semibold">{t.name} {t.featured && <Pill tone="info">Featured</Pill>} {!t.published && <Pill tone="warn">Hidden</Pill>} {drawn && <Pill tone="info">Drawn</Pill>} {todo?.blocks ? <Pill tone="warn">{todo.blocks} to fix</Pill> : null}</p>
+                  <p className="text-xs text-[color:var(--color-ink-500)]">{templateOccasions(t).map(occasionLabel).join(', ')} · {t.premium ? `${TIER_LABELS.COMPLETE} and up` : TIER_LABELS[t.minTier]} · {t.layout} · used {t._count.invitations}×</p>
+                </div>
+              </Link>
+              {can(user.role, 'templates.edit') && (
+                <div className="flex flex-wrap gap-2 border-t border-[color:var(--color-sand-300)] px-3 py-2">
+                  {/* the one question asked oftenest, without opening the form: a design saved half-drawn is parked here and let out here */}
+                  <form action={templateShownAction.bind(null, t.id, '/admin/templates')}>
+                    <input type="hidden" name="published" value={t.published ? 'false' : 'true'} />
+                    <button className="btn btn-ghost btn-sm" type="submit" aria-label={`${t.published ? 'Hide' : 'Put on the website'}: ${t.name}`}>{t.published ? 'Hide' : 'Put on the website'}</button>
+                  </form>
+                  {copyable && (
+                    <form action={duplicateTemplateAction.bind(null, t.id, '/admin/templates')}>
+                      <button className="btn btn-ghost btn-sm" type="submit" aria-label={`Duplicate ${t.name}`}>Duplicate</button>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>

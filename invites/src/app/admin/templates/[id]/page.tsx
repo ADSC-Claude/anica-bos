@@ -1,67 +1,294 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
+import { can } from '@/lib/rbac';
+import { previewSitter } from '@/lib/sitter';
 import { prisma } from '@/lib/db';
 import { OCCASIONS } from '@/lib/occasions';
-import { TIERS } from '@/lib/tiers';
+import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { LAYOUTS, PALETTE_PRESETS, FONT_PRESETS, paletteFrom } from '@/lib/theme';
-import { OCCASION_SECTIONS, SECTION_BY_KEY } from '@/lib/sections';
-import { PageHeader, BackLink, Field, TextArea, Select, Checkbox } from '@/components/ui';
+import { lookLine, lookTitle, type LineKey, type TitleKey } from '@/lib/looks';
+import { colourFamilies } from '@/lib/palette';
+import { findSet } from '@/lib/fonts';
+import { fontBook } from '@/lib/font-book';
+import { wordsOf, artOf, documentOf, offeredSections, wordsFor, lineLabel, titleLabel, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
+import { MOMENT_PARTS } from '@/lib/moments';
+import { UploadField } from './upload-field';
+import { OpeningUpload } from './opening-upload';
+import { PreviewPanel } from './preview-panel';
+import { SectionTicks } from './section-ticks';
+import { TemplateTabs } from './tabs';
+import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, type SectionKey } from '@/lib/sections';
+import { COLLECTIONS } from '@/lib/collections';
+import { OPENINGS } from '@/lib/openings';
+import { PageHeader, BackLink, Field, TextArea, Select, Checkbox, Pill } from '@/components/ui';
+import { AsksSheet, asksFor } from '@/components/asks-sheet';
 import { Flash, type FlashParams } from '../../flash';
-import { saveTemplateAction } from '../../actions';
+import { saveTemplateAction, deleteTemplateAction } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
+const GROUND_LABELS: Record<string, string> = {
+  cover: 'Cover and Bible verse', story: 'Our Story (drawn: six frames)', invitation: 'The Invitation', sponsors: 'Ninong and Ninang', babyphotos: 'Baby Photos (drawn: four frames)',
+  venue: 'The Venue', dresscode: 'Dress Code and Motif', program: 'Gift Request and Program', share: 'Snap and Share, Post Event Photos', closing: 'RSVP, Countdown, Assistance and Ending',
+};
+
 export default async function TemplateEditor({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<FlashParams> }) {
-  await requireStaffPage('templates.edit');
+  const user = await requireStaffPage('templates.edit');
   const { id } = await params;
   const sp = await searchParams;
   const isNew = id === 'new';
-  const t = isNew ? null : await prisma.template.findUnique({ where: { id } });
+  const t = isNew ? null : await prisma.template.findUnique({ where: { id }, include: { _count: { select: { invitations: true } } } });
   if (!isNew && !t) notFound();
   const pal = paletteFrom(t?.palette);
   const occasion = t?.occasion ?? 'WEDDING';
   const fontsKey = FONT_PRESETS.find((f) => JSON.stringify(f.fonts) === JSON.stringify(t?.fonts))?.key ?? 'serif';
+  // Every pairing she has switched on, and the one this design is set in.
+  const sets = await fontBook();
+  const families = colourFamilies();
+  const set = findSet(t?.look ?? '', sets);
+  // the design's own words and pictures, and the wording they replace
+  const words = wordsOf(t?.words);
+  const art = artOf(t?.art);
+  const look = set?.look;
+  /*
+   * Only the writings this occasion has, named in its own words, with its own
+   * wording greyed behind them. A christening was being offered a box called
+   * "Prenup — under the heading" for a part the app itself calls Baby photos,
+   * and boxes for Entourage and The Moment, which a christening has not got.
+   */
+  const offered = wordsFor(occasion);
+  const wordRows: { key: WordKey; label: string; en: string; tl: string }[] = [
+    ...offered.titles.map((k) => ({ key: titleWord(k), label: `Heading — ${titleLabel(k, occasion)}`, en: lookTitle(look, 'en', k, occasion) ?? '', tl: lookTitle(look, 'tl', k, occasion) ?? '' })),
+    ...offered.lines.map((k) => ({ key: k as WordKey, label: lineLabel(k, occasion), en: lookLine(look, 'en', k, occasion) ?? '', tl: lookLine(look, 'tl', k, occasion) ?? '' })),
+  ];
+  const tid = t?.id ?? 'new';
+  /*
+   * What the design itself says it offers. Read from the published document,
+   * not the draft: this is the design as it stands, and the draft is the
+   * studio's business until it is published.
+   */
+  // Who the panel draws the design on, named under it so a stand-in is never a surprise.
+  const seat = await previewSitter(t?.demoSlug ?? '', occasion);
+  const doc = t ? documentOf(t) : null;
+  const drawn = Boolean(doc);
+  const offers = doc ? offeredSections(doc, occasion) : [];
+  const hidden = doc?.hides ?? [];
   return (
     <>
       <BackLink href="/admin/templates">Templates</BackLink>
-      <PageHeader title={isNew ? 'New template' : t!.name} subtitle="A template is a layout, a palette and fonts. Content never lives here." />
+      <PageHeader
+        title={isNew ? 'New template' : t!.name}
+        subtitle={isNew ? 'Name it and pick its occasion here. The pages are drawn in the studio, which opens the moment it is created.' : 'A template is a layout, a palette and fonts. Content never lives here.'}
+        actions={
+          t ? (
+            <>
+              {t.published ? <Pill tone="ok">On the website</Pill> : <Pill tone="warn">Hidden</Pill>}
+              <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link>
+            </>
+          ) : (
+            <button form="template-form" type="submit" className="btn btn-primary btn-sm">Create and open the studio</button>
+          )
+        }
+      />
       <Flash {...sp} />
-      <form action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
+      <TemplateTabs id={t?.id ?? null} active="details" />
+      {isNew && (
+        <div className="card mb-4 p-4 text-sm" data-testid="where-to-design">
+          <p className="font-semibold">Where the design happens</p>
+          <p className="mt-1">
+            Not on this page. This page is the name, the occasion and the details. Tick the parts the design needs below, then press <strong>Create and open the studio</strong>:
+            the studio opens by itself, with every ticked part already a page, and that is where the pictures, the backgrounds and the decorations are placed and moved.
+            Come back to this tab any time for the details.
+          </p>
+        </div>
+      )}
+      {t && (
+        <div className="mb-4">
+          <AsksSheet
+            asks={asksFor(t, occasion)}
+            intro="Every customer on this design is asked for these, and for nothing else the design does not draw."
+          />
+        </div>
+      )}
+      <div className="xl:flex xl:items-start xl:gap-4">
+      <div className="min-w-0 xl:flex-1">
+      <form id="template-form" action={saveTemplateAction.bind(null, t?.id ?? null, isNew ? '/admin/templates/new' : `/admin/templates/${id}`)} className="grid gap-4 lg:grid-cols-2">
         <div className="card space-y-3 p-4">
           <Field label="Name" name="name" defaultValue={t?.name} required />
           <Field label="Slug" name="slug" defaultValue={t?.slug} hint="Lowercase, dashes. Used in URLs and the gallery." />
-          <Select label="Occasion" name="occasion" defaultValue={occasion} options={OCCASIONS.map((o) => ({ value: o.key, label: o.label }))} hint="Changing the occasion changes which sections apply — save, then tick sections again." />
+          <Select label="Occasion" name="occasion" defaultValue={occasion} options={OCCASIONS.map((o) => ({ value: o.key, label: o.label }))} hint="The parts below follow it the moment it is picked." />
+          <div>
+            <p className="label">Also offered for</p>
+            <div className="grid grid-cols-2 gap-1 text-sm">
+              {OCCASIONS.map((o) => (
+                <label key={o.key} className="flex items-center gap-2"><input type="checkbox" name={`occ_${o.key}`} defaultChecked={t?.occasions.includes(o.key) ?? false} className="h-4 w-4" />{o.label}</label>
+              ))}
+            </div>
+            <p className="hint">A design can suit more than one occasion. Tick the others it should show under on the site and in the checkout; the occasion above is always included, and its sections are what you tick below.</p>
+          </div>
           <Select label="Lowest tier" name="minTier" defaultValue={t?.minTier ?? 'BASIC'} options={TIERS.map((x) => ({ value: x, label: x }))} />
-          <Checkbox label="Premium (Complete tier only)" name="premium" defaultChecked={t?.premium} />
+          <Select label="Collection" name="collection" defaultValue={t?.collection ?? ''} options={[{ value: '', label: '— none —' }, ...COLLECTIONS.map((c) => ({ value: c.key, label: c.label }))]} hint="The colour family this design is shown under in the gallery." />
+          <Select label="Opening" name="opening" defaultValue={t?.opening ?? ''} options={[{ value: '', label: '— none —' }, ...OPENINGS.filter((o) => o.key !== 'none').map((o) => ({ value: o.key, label: `${o.name} — ${o.tagline}` }))]} hint="What this design opens with when the customer has not picked one. Their choice always wins." />
+          <Checkbox label={`${TIER_LABELS.COMPLETE} and up (kept out of Basic and Standard)`} name="premium" defaultChecked={t?.premium} />
           <TextArea label="Description" name="description" defaultValue={t?.description} rows={2} />
-          <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="Portrait image shown in the gallery. Leave blank to show the palette." />
+          <Field label="Thumbnail URL" name="thumbnailUrl" defaultValue={t?.thumbnailUrl} hint="The cover page, portrait (9:16), shown in the gallery and the checkout. Leave blank to show the palette." />
+          <OpeningUpload templateId={tid} video={t?.openingVideoUrl ?? ''} poster={t?.openingPosterUrl ?? ''} />
           <div className="grid grid-cols-3 gap-2">
             <Field label="Sort order" name="sortOrder" type="number" defaultValue={t?.sortOrder ?? 0} />
             <div className="pt-6"><Checkbox label="Featured" name="featured" defaultChecked={t?.featured} /></div>
-            <div className="pt-6"><Checkbox label="Published" name="published" defaultChecked={t?.published ?? true} /></div>
+            <div className="pt-6"><Checkbox label="Published" name="published" defaultChecked={t?.published ?? false} hint="On the website: the gallery, the occasion pages and the checkout. Unticked, it is saved and yours to work on and nobody else sees it." /></div>
           </div>
         </div>
         <div className="card space-y-3 p-4">
           <Select label="Layout" name="layout" defaultValue={t?.layout ?? 'classic'} options={LAYOUTS.map((l) => ({ value: l, label: l }))} hint="classic: full-bleed photo hero · editorial: portrait photo, big serif · garden: arched photo · modern: uppercase sans · festive: confetti · quiet: memorial" />
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
+          {/*
+            * The same one-tap the studio's Theme popover has: six roles made
+            * from one family of the colour book. The palest shade is the
+            * paper, the deepest is the ink, and two from the middle carry
+            * the headings — see familyPalette, which guards both ends so the
+            * page can still be read.
+            */}
+          <Select label="…or from a colour family" name="paletteFamily" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...families.map((f) => ({ value: f.key, label: `${f.label} — paper ${f.palette.bg}, ink ${f.palette.ink}` }))]} hint="One family of the colour book, made into the six roles. Clear the six colours below to apply it; a family wins over a preset." />
           <div className="grid grid-cols-3 gap-2">
             {(['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'] as const).map((k) => (
               <div key={k}><label className="label" htmlFor={k}>{k}</label><input id={k} name={k} type="text" defaultValue={pal[k]} className="field font-mono text-xs" pattern="#[0-9a-fA-F]{6}" /></div>
             ))}
           </div>
-          <Select label="Fonts" name="fontsKey" defaultValue={fontsKey} options={FONT_PRESETS.map((f) => ({ value: f.key, label: f.label }))} />
-          <div>
-            <p className="label">Sections this layout renders</p>
-            <div className="grid grid-cols-2 gap-1 text-sm">
-              {OCCASION_SECTIONS[occasion].map((k) => (
-                <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{SECTION_BY_KEY[k].label}</label>
+          <Select label="Fonts" name="fontsKey" defaultValue={fontsKey} options={FONT_PRESETS.map((f) => ({ value: f.key, label: f.label }))} hint="Used only when no look is set below." />
+          <Select label="Font set" name="look" defaultValue={t?.look ?? ''} options={[{ value: '', label: '— none: the fonts above, no lines under the headings —' }, ...sets.map((x) => ({ value: x.key, label: `${x.name} — ${x.tagline}` }))]} hint="A set is the faces a page is set in and, through its voice, the lines under each heading in English and Tagalog. The list is yours to edit under Fonts; see /looks for the five voices side by side." />
+          {/*
+            * Which of her sets a customer on this design may choose between.
+            * Nothing ticked means every one their package allows, which is
+            * what every design does today — a design narrows the choice, it
+            * can never widen it past the package.
+            */}
+          <fieldset>
+            <legend className="label">Sets offered on this design</legend>
+            <p className="hint mb-1">Nothing ticked means every set the customer&rsquo;s package allows.</p>
+            <div className="grid max-h-56 grid-cols-1 gap-0.5 overflow-auto rounded border border-[color:var(--color-sand-300)] p-2 sm:grid-cols-2">
+              {sets.map((x) => (
+                <label key={x.key} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" name={`set_${x.key}`} defaultChecked={t?.fontSets?.includes(x.key) ?? false} />
+                  <span className="truncate" style={{ fontFamily: x.fonts.names || x.fonts.display }}>{x.name}</span>
+                </label>
               ))}
             </div>
-            <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept.</p>
-          </div>
+          </fieldset>
+          {/*
+            * Which sections this design offers.
+            *
+            * For a design drawn in the studio this row is retired: the
+            * document says which sections the design declines, and a row of
+            * ticks beside it would be a second opinion that can only ever
+            * drift from the first. The studio is also where the change
+            * belongs, because hiding a section changes every invitation
+            * already on the design and has to pass the publish screen that
+            * says how many that is.
+            *
+            * A design with no document yet keeps the ticks, because for it
+            * there is nothing else to ask.
+            */}
+          {drawn ? (
+            <div>
+              <p className="label">Sections this design offers</p>
+              <p className="mt-1 text-sm">{offers.length ? offers.map((k) => sectionLabel(k as SectionKey, occasion)).join(', ') : 'None yet.'}</p>
+              {hidden.length > 0 && (
+                <p className="mt-1 text-sm text-[color:var(--color-ink-500)]">
+                  Does not do: {hidden.map((k) => sectionLabel(k as SectionKey, occasion)).join(', ')}
+                </p>
+              )}
+              <p className="hint">
+                Read from the design&rsquo;s own pages, so there is nothing to tick here.
+                Change it in <Link href={`/admin/templates/${tid}/design`} className="underline">the Design Studio</Link> &mdash; it publishes with the design, which is how you see how many invitations it would redraw first.
+              </p>
+            </div>
+          ) : (
+            <SectionTicks occasion={occasion} ticked={t && t.sections.length ? t.sections : null} />
+          )}
         </div>
-        <div className="lg:col-span-2"><button className="btn btn-primary" type="submit">{isNew ? 'Create template' : 'Save template'}</button></div>
+        <details className="card p-4 lg:col-span-2">
+          <summary className="cursor-pointer font-semibold">Words on the page</summary>
+          <p className="hint mt-1">Every heading and every line under one, as this design says it — in English and in Tagalog. Blank keeps the look’s own wording, shown greyed. The couple’s own words always win where the builder collects them.</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {wordRows.map((w) => (
+              <div key={w.key} className="rounded-lg border border-[color:var(--color-sand-200)] p-2">
+                <p className="text-xs font-semibold">{w.label}</p>
+                <input name={`words_en_${w.key}`} defaultValue={words.en?.[w.key] ?? ''} placeholder={w.en || 'English'} className="field mt-1 text-sm" aria-label={`${w.label}, English`} />
+                <input name={`words_tl_${w.key}`} defaultValue={words.tl?.[w.key] ?? ''} placeholder={w.tl || 'Tagalog'} className="field mt-1 text-sm" aria-label={`${w.label}, Tagalog`} />
+              </div>
+            ))}
+          </div>
+        </details>
+        <details className="card p-4 lg:col-span-2">
+          <summary className="cursor-pointer font-semibold">Pictures</summary>
+          <p className="hint mt-1">The design’s own pictures, by URL — upload a file and its URL lands in the field, or paste one. Blank keeps the picture shipped with the layout. {t?.layout === 'babyblue' ? 'Baby Blue lays one ground behind each page, named for the page it sits under; the story and the baby photos grounds are drawn with the frames the photographs go into, so a replacement must keep those where they are.' : 'Backgrounds run down the page in this order, 1 to 7 then 5 and 6 over and over, and 8 is set last.'}</p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {t?.layout === 'babyblue' && BABYBLUE_GROUND_KEYS.map((k) => (
+              <UploadField key={`ground-${k}`} name={`art_ground_${k}`} label={`Ground — ${GROUND_LABELS[k] ?? k}`} defaultValue={art.grounds?.[k] ?? ''} placeholder={BABYBLUE_GROUNDS[k].url} templateId={tid} />
+            ))}
+            {t?.layout !== 'babyblue' && Array.from({ length: 8 }, (_, i) => (
+              <UploadField key={`bg${i}`} name={`art_bg_${i + 1}`} label={`Background ${i + 1}${i === 7 ? ' — set last' : ''}`} defaultValue={art.backgrounds?.[i] ?? ''} placeholder={t?.layout === 'capiz' ? `/capiz/bg-${i + 1}.webp` : ''} templateId={tid} />
+            ))}
+            {t?.layout !== 'babyblue' && Array.from({ length: 8 }, (_, i) => (
+              <UploadField key={`night${i}`} name={`art_night_${i + 1}`} label={`Night background ${i + 1}`} defaultValue={art.night?.[i] ?? ''} templateId={tid} hint={i === 0 ? 'Shown in night mode. With none set, night darkens the day backgrounds instead.' : undefined} />
+            ))}
+            {t?.layout !== 'babyblue' && <UploadField name="art_strand" label="Strand under the prenup photograph" defaultValue={art.strand ?? ''} placeholder={t?.layout === 'capiz' ? '/capiz/strand-b.webp' : ''} templateId={tid} hint="A wide picture with a transparent background." />}
+            {MOMENT_PARTS.map((p) => (
+              <UploadField key={`part-${p.key}`} name={`art_part_${p.key.replace('/', '__')}`} label={`Moment — ${p.label}`} defaultValue={art.parts?.[p.key] ?? ''} placeholder={p.url} templateId={tid} hint={p.hint} />
+            ))}
+          </div>
+        </details>
+        <div className="lg:col-span-2 flex flex-wrap items-center gap-3">
+          <button className="btn btn-primary" type="submit">{isNew ? 'Create and open the studio' : 'Save template'}</button>
+          {isNew && <span className="hint">The studio opens as soon as it is created.</span>}
+        </div>
       </form>
+      {/*
+        * Throwing a design away, and why the door is sometimes shut.
+        *
+        * Outside the form above on purpose: a form cannot hold another, and
+        * this one must not be submitted by the Enter key while she is typing
+        * a name into the other. Behind a fold, with the word typed out, for
+        * the same reason the customer erasure is.
+        */}
+      {t && can(user.role, 'templates.delete') && (
+        <details className="card mt-4 p-4">
+          <summary className="cursor-pointer font-semibold">Delete this design</summary>
+          {t._count.invitations > 0 ? (
+            <p className="hint mt-2">
+              {t.name} is what {t._count.invitations} invitation{t._count.invitations === 1 ? ' renders' : 's render'} from, so it cannot be deleted.
+              Untick Published above instead: it leaves the website and nobody new can pick it, while everything already built on it carries on working.
+            </p>
+          ) : (
+            <form action={deleteTemplateAction.bind(null, t.id, `/admin/templates/${t.id}`)} className="mt-2 space-y-2">
+              <p className="hint">Nobody is on this design, so nothing a customer can see changes. Its pages, its words and the pictures uploaded for it go with it. There is no undo.</p>
+              <input name="confirm" className="field" placeholder="Type DELETE to confirm" autoComplete="off" required />
+              <button className="btn btn-danger btn-sm" type="submit">Delete {t.name}</button>
+            </form>
+          )}
+        </details>
+      )}
+      </div>
+      {/*
+        * The picture, beside the knobs.
+        *
+        * Sticky on a wide screen and under the form on a narrow one: the
+        * point is to watch it while typing a hex code, and on a phone-width
+        * admin there is no beside to be had.
+        */}
+      <aside className="mt-4 xl:mt-0 xl:sticky xl:top-4 xl:w-[420px] xl:shrink-0">
+        {seat ? (
+          <PreviewPanel templateId={tid} sitter={seat.title || seat.slug} ownDemo={seat.own} />
+        ) : (
+          <div className="card p-4">
+            <p className="label">As it stands</p>
+            <p className="hint mt-1">There is no published invitation to draw a design on yet, so there is nothing to show here. Publish one — the demo of any design will do — and the picture appears.</p>
+          </div>
+        )}
+      </aside>
+      </div>
     </>
   );
 }

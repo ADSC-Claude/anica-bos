@@ -1,7 +1,8 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { login, signup, destroySession } from '@/lib/auth';
+import { login, signup, destroySession, getSession } from '@/lib/auth';
+import { audit } from '@/lib/audit';
 import { home } from '@/lib/guard';
 
 export type AuthState = { error?: string };
@@ -34,6 +35,17 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
 }
 
 export async function logoutAction() {
+  // Same as the POST route: name them while the session still says who.
+  const user = await getSession();
+  if (user) {
+    await audit(user, {
+      module: 'auth',
+      action: 'logout',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `${user.email} signed out.`,
+    });
+  }
   await destroySession();
   redirect('/');
 }

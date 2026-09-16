@@ -10,19 +10,39 @@ import {
   displayTitle,
   eventInstant,
   fieldsFor,
+  keepStaffFields,
   publishProblems,
+  readForward,
   rsvpDeadline,
   sectionUnlocked,
   coverImage,
   type Content,
+  type SectionData,
   type SectionKey,
   OCCASION_SECTIONS,
+  sectionOnCard,
+  sectionOffered,
 } from './sections';
-import { hasFeature } from './tiers';
+import { templateSuits } from './occasions';
+import { hasFeature, entitled, TIER_LABELS } from './tiers';
+import { saveTheDateOffered } from './pricing';
+import { isStaff, can } from './rbac';
 import { addDays, manilaDateKey } from './datetime';
 import { audit } from './audit';
 import type { Lang } from './copy';
-import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
+import { PALETTE_PRESETS, paletteFrom, fontsFrom, type Palette, type Fonts } from './theme';
+import { type Look } from './looks';
+import { builtInSets, findSet, findFaces, setAllowed, baseSet, type BookSet } from './fonts';
+import { fontBook } from './font-book';
+import { hasPremiumOpening } from './openings';
+import { premiumOpeningAllowed } from './premium-openings';
+import { invitationPath } from './app-url';
+import { changeWindow, withDone, formComplete, doneSections, liveEditable, LIVE_LOCK, windowLock, type Progress } from './progress';
+import { revisionsToDrop } from './revision-keep';
+import { documentOf } from './design';
+import { designForm, askedFields, designMedia } from './asks';
+import { notifyStaff } from './notifications';
+import { formatDate } from './datetime';
 
 /**
  * The invitation's lifecycle: a draft is created at checkout, unlocked when
@@ -31,13 +51,68 @@ import { PALETTE_PRESETS, FONT_PRESETS, paletteFrom, fontsFrom, type Palette, ty
  * is the only writer of it.
  */
 
-export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string };
-export type StoredContent = Content & { theme?: ThemeOverride };
+export type ThemeMode = 'day' | 'night' | 'auto';
+export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; fontsKey?: string; lookKey?: string; mode?: ThemeMode };
+export type StoredContent = Content & { theme?: ThemeOverride; progress?: Progress };
 
-const RESERVED_SLUGS = new Set(['admin', 'account', 'api', 'login', 'signup', 'checkout', 'templates', 'pricing', 'demo', 'i', 'g', 'new', 'edit', 'preview', 'print', 'card']);
+/**
+ * Three weeks before the event the invitation closes to the couple's changes
+ * and passes to our team for the final touches. Staff are never locked out.
+ */
+export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null }) {
+  if (user.role !== 'CUSTOMER') return;
+  const w = changeWindow(invitation.eventAt);
+  if (w?.closed) throw new HttpError(403, windowLock(w));
+}
+
+/**
+ * Revisions happen before we publish. The customer reviews a preview, tells us
+ * what to change, and those rounds are counted on the job; publishing is the
+ * end of that conversation, not the start of a second one. An invitation
+ * guests are already opening is not edited underneath them by the person who
+ * asked for it — a half-finished save would be live on somebody's phone.
+ *
+ * So a published invitation is closed to its customer, and it is a rule rather
+ * than an allowance: there is no number of changes left to spend, and no row
+ * an admin can raise to reopen one by accident. Staff are never gated, because
+ * after publish a change is ours to make — that is what "message us" means.
+ *
+ * The one exception is the switches that run the day (LIVE_SECTIONS in
+ * progress.ts): saveSection lets those through, live or not, because a
+ * guestbook nobody can switch on at the reception is not a guestbook.
+ */
+export function assertNotPublished(user: SessionUser, invitation: { status: string }) {
+  if (user.role !== 'CUSTOMER') return;
+  if (invitation.status === 'PUBLISHED') throw new HttpError(403, LIVE_LOCK);
+}
+
+/**
+ * Slugs live at the site root, so this list is not a nicety: a slug equal to a
+ * top-level route is shadowed by that route and the invitation becomes
+ * unreachable — a couple called "Terms" would lose their page to the terms
+ * page. Every directory in src/app belongs here, plus the files that serve a
+ * path of their own, plus the old /i/ prefix that now only redirects.
+ *
+ * tests/reserved-slugs.test.ts reads src/app and fails if a route is missing
+ * from this list. Adding a page and forgetting this line is the whole failure
+ * mode, and it would show up as one customer's invitation quietly 404ing.
+ */
+export const RESERVED_SLUGS = new Set([
+  // Directories under src/app.
+  'account', 'admin', 'api', 'checkout', 'collections', 'coming-soon', 'demo', 'login', 'logout', 'looks', 'occasions',
+  'privacy', 'refund-policy', 'signup', 'templates', 'terms',
+  // Files under src/app that serve their own path.
+  'robots.txt', 'sitemap.xml', 'favicon.ico',
+  // The old guest prefix, which now redirects to the root.
+  'i',
+  // Never route these, whatever src/app happens to hold today.
+  'pricing', 'g', 'new', 'edit', 'preview', 'print', 'card', '_next', 'static',
+]);
 
 export function contentOf(raw: unknown): StoredContent {
-  return (raw && typeof raw === 'object' ? raw : {}) as StoredContent;
+  // readForward, not a cast alone: a section whose shape changed since this
+  // invitation was saved is read into the shape the spec now names.
+  return readForward((raw && typeof raw === 'object' ? raw : {}) as StoredContent);
 }
 
 export async function slugAvailable(slug: string, exceptId?: string): Promise<boolean> {
@@ -67,7 +142,7 @@ export async function createDraft(args: {
 }) {
   const template = await prisma.template.findUnique({ where: { id: args.templateId } });
   if (!template || !template.published) throw new HttpError(400, 'That template is not available.');
-  if (template.occasion !== args.occasion) throw new HttpError(400, 'That template is for a different occasion.');
+  if (!templateSuits(template, args.occasion)) throw new HttpError(400, 'That template is for a different occasion.');
 
   const language = args.language ?? 'en';
   const content = defaultContent(args.occasion, language);
@@ -88,73 +163,274 @@ export async function createDraft(args: {
   });
 }
 
+/**
+ * The Save the Date for an invitation: a second card, months ahead of the one
+ * it announces.
+ *
+ * It is a row of its own rather than another face on the invitation, because
+ * the two are finished at different times. A Save the Date goes out when the
+ * couple has a date and not much else; the invitation is published when they
+ * have a venue, a programme and a dress code. Sharing a record would mean
+ * publishing in June to announce a December wedding — starting the revision
+ * count and settling the design six months early.
+ *
+ * What it copies is what makes the pair look like one suite: the design, the
+ * palette and fonts, the couple's names and their cover photo. What it does
+ * not copy is everything a Save the Date has no business asking.
+ *
+ * It carries no revision count of its own. Rounds of changes belong to the
+ * build behind an order, and this card has no order — it is the couple's to
+ * edit until they publish it, and ours to change after, like any invitation.
+ */
+export async function createSaveTheDate(parent: {
+  id: string;
+  userId: string;
+  templateId: string;
+  occasion: Occasion;
+  tier: Tier;
+  title: string;
+  slug: string;
+  language: string;
+  eventAt: Date | null;
+  content: unknown;
+}) {
+  if (!saveTheDateOffered(parent.occasion)) throw new HttpError(400, 'A Save the Date is not offered for this occasion.');
+  const existing = await prisma.invitation.findUnique({ where: { saveTheDateOfId: parent.id }, select: { id: true } });
+  if (existing) return prisma.invitation.findUniqueOrThrow({ where: { id: existing.id } });
+
+  const from = contentOf(parent.content);
+  const cover: SectionData = { ...(from.cover ?? {}) };
+  // The wedding cover already knows how to announce itself as a Save the Date;
+  // every other occasion is told by the row it sits in. Either way the couple
+  // can still change the card type in their builder.
+  if (parent.occasion === 'WEDDING') cover.kind = 'saveTheDate';
+  // The opening is the invitation's moment. A Save the Date wants to be read
+  // on the spot, not unwrapped.
+  delete cover.opening;
+  delete cover.envelope;
+
+  const content: Content = { cover, ...(from.countdown ? { countdown: from.countdown } : {}), ...(from.theme ? { theme: from.theme } : {}) };
+
+  return prisma.invitation.create({
+    data: {
+      saveTheDateOfId: parent.id,
+      userId: parent.userId,
+      templateId: parent.templateId,
+      occasion: parent.occasion,
+      tier: parent.tier,
+      title: `${parent.title} — Save the Date`,
+      slug: await uniqueSlug(`${parent.slug}-save-the-date`),
+      content: content as never,
+      language: parent.language,
+      eventAt: parent.eventAt,
+    },
+  });
+}
+
 /** Whether the order behind this invitation has been paid. Drafts are read-only until then. */
 export function unlocked(invitation: { order: { status: string } | null }): boolean {
   return invitation.order?.status === 'ACTIVE' || invitation.order?.status === 'PAID' || invitation.order === null;
 }
 
-export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown) {
-  const invitation = await prisma.invitation.findUnique({ where: { id: invitationId }, include: { order: { select: { status: true } } } });
+/**
+ * The columns that follow from the content: the title the dashboard and the
+ * link preview use, the moment the countdown counts to, when the RSVP form
+ * closes, and the picture the link shows. Read from the content every time
+ * it is written, by a save and by a restore alike, so the columns never
+ * describe an invitation the content no longer is.
+ */
+export function derivedColumns(occasion: Occasion, content: StoredContent) {
+  const eventAt = eventInstant(content);
+  const deadline = rsvpDeadline(content);
+  return { title: displayTitle(occasion, content), eventAt: eventAt ?? undefined, rsvpDeadline: deadline ?? undefined, ogImageUrl: coverImage(content) };
+}
+
+/**
+ * History: the invitation as it was just before a save that changed
+ * something, kept so a wrong keystroke and a wrong week can both be undone.
+ * Pruned as it is written — see revisionsToDrop — so the table never grows
+ * past what anybody would want back.
+ */
+export async function recordRevision(invitation: { id: string; title: string; content: unknown }, section: string) {
+  await prisma.invitationRevision.create({ data: { invitationId: invitation.id, section, title: invitation.title, content: invitation.content as never } });
+  const all = await prisma.invitationRevision.findMany({ where: { invitationId: invitation.id }, select: { id: true, createdAt: true } });
+  const drop = revisionsToDrop(all);
+  if (drop.length) await prisma.invitationRevision.deleteMany({ where: { id: { in: drop } } });
+}
+
+export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown, opts: { done?: boolean } = {}) {
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    include: { order: { select: { status: true } }, template: { select: { design: true, layout: true } } },
+  });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
-  if (!OCCASION_SECTIONS[invitation.occasion].includes(key)) throw new HttpError(400, 'That section does not belong to this occasion.');
-  if (!sectionUnlocked(key, invitation.occasion, invitation.tier)) {
+  // The switches that run the day stay the customer's on a live page and
+  // inside the window; everything else passes to us.
+  if (!liveEditable(key)) {
+    assertNotPublished(user, invitation);
+    assertOpenForChanges(user, invitation);
+  }
+  if (!sectionOnCard(key, invitation.occasion, Boolean(invitation.saveTheDateOfId))) throw new HttpError(400, 'That section does not belong to this card.');
+  if (!sectionUnlocked(key, invitation.occasion, invitation.tier, invitation.addOns)) {
     throw new HttpError(403, 'That section is not included in your package. Upgrade to unlock it.');
   }
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet. The builder unlocks once payment is confirmed.');
 
-  const { data, issues } = cleanSection(fieldsFor(key, invitation.occasion), raw);
+  /*
+   * Fitted to the design before it is cleaned, so the cap the form counted
+   * down from is the cap the save keeps. The form is a courtesy; this is
+   * where a design's twenty letters actually become twenty. A design with no
+   * document of its own changes nothing, which is every design today.
+   */
+  const form = designForm(documentOf(invitation.template), invitation.occasion);
+  const fields = askedFields(
+    // the media field every part carries is only a field where the design
+    // drew a frame for it, here as much as on the form
+    designMedia(fieldsFor(key, invitation.occasion, undefined, Boolean(invitation.saveTheDateOfId)), key, form),
+    key,
+    form,
+  );
+  const { data: cleaned, issues } = cleanSection(fields, raw);
+  // The row as it stands, before anything below touches it: contentOf hands
+  // back the same object when nothing needs migrating, so this is the only
+  // copy that still says what the part was.
+  const before = { id: invitation.id, title: invitation.title, content: JSON.parse(JSON.stringify(invitation.content)) as unknown };
   const content = contentOf(invitation.content);
+  // the fixed writings are ours: a customer's save keeps them as they were
+  const data = isStaff(user.role) && can(user.role, 'invitations.edit') ? cleaned : keepStaffFields(fields, content[key], cleaned);
+  // Only a save that changed the part is history; the same words saved
+  // twice would fill the thirty with nothing to go back to.
+  const changed = JSON.stringify(content[key] ?? null) !== JSON.stringify(data);
   content[key] = data;
-
-  const eventAt = eventInstant(content);
-  const deadline = rsvpDeadline(content);
-  const title = displayTitle(invitation.occasion, content);
-
-  // Edits after publish are counted on the Basic tier.
-  const published = invitation.status === 'PUBLISHED';
-  const editsLeft = invitation.editsAllowed < 0 ? Infinity : invitation.editsAllowed - invitation.editsUsed;
-  if (published && editsLeft <= 0) {
-    throw new HttpError(403, 'You have used all the edits included in your package. Upgrade for unlimited edits.');
+  // Done, section by section; the form is complete once every section the couple has is Done, and the team is told
+  let completed = false;
+  if (opts.done !== undefined) {
+    content.progress = withDone(content.progress, key, opts.done);
+    const mine = OCCASION_SECTIONS[invitation.occasion].filter((k) => sectionOffered(k) && sectionUnlocked(k, invitation.occasion, invitation.tier, invitation.addOns));
+    if (formComplete(content.progress, mine) && !content.progress.completedAt) {
+      content.progress.completedAt = new Date().toISOString();
+      completed = true;
+    }
   }
 
+  const derived = derivedColumns(invitation.occasion, content);
+  const title = derived.title;
+
+  if (changed) await recordRevision(before, key);
   const updated = await prisma.invitation.update({
     where: { id: invitationId },
-    data: {
-      content: content as never,
-      title,
-      eventAt: eventAt ?? undefined,
-      rsvpDeadline: deadline ?? undefined,
-      ogImageUrl: coverImage(content),
-      ...(published ? { editsUsed: { increment: 1 } } : {}),
-    },
+    data: { content: content as never, ...derived },
   });
-  return { invitation: updated, issues };
+  if (completed) {
+    await audit(user, { module: 'invitations', action: 'form.complete', entityType: 'Invitation', entityId: invitationId, summary: `Every section marked Done: ${title}` });
+    await notifyStaff('invitations.view', `Form complete: ${title}`, 'Every section is marked Done. The invitation is ready for our team.', `/admin/invitations/${invitationId}`);
+    // The form is the intake now: a Done-For-You job still waiting for
+    // details has just received them, the same move the old intake form's
+    // Submit made, so the encoder's board says so without a second button.
+    const job = await prisma.dfyJob.findUnique({ where: { invitationId }, select: { id: true, status: true } });
+    if (job?.status === 'NEW') await prisma.dfyJob.update({ where: { id: job.id }, data: { status: 'INTAKE_RECEIVED', intakeSubmittedAt: new Date(), intakeMethod: 'FORM' } });
+  }
+  return { invitation: updated, issues, done: doneSections(content.progress), completedAt: content.progress?.completedAt ?? null };
+}
+
+/** Reopen (or close) one section without touching what it holds. Counts as no edit. */
+export async function setSectionDone(user: SessionUser, invitationId: string, key: SectionKey, done: boolean) {
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertNotPublished(user, invitation);
+  assertOpenForChanges(user, invitation);
+  const content = contentOf(invitation.content);
+  content.progress = withDone(content.progress, key, done);
+  await prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
+  return doneSections(content.progress);
+}
+
+/**
+ * The welcome answered: the tour taken or declined, so it is not offered
+ * again. Remembered on the invitation rather than in a browser, so a welcome
+ * answered on a phone is not asked again on the laptop. Only the owner's
+ * answer counts — staff opening a customer's invitation must not spend it —
+ * and a second answer changes nothing.
+ */
+export async function markWelcomed(user: SessionUser, invitationId: string) {
+  await prisma.invitation.updateMany({ where: { id: invitationId, userId: user.id, welcomedAt: null }, data: { welcomedAt: new Date() } });
 }
 
 export async function updateTheme(user: SessionUser, invitationId: string, theme: ThemeOverride) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertNotPublished(user, invitation);
+  assertOpenForChanges(user, invitation);
   const clean: ThemeOverride = {};
-  if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) {
-    if (!hasFeature(invitation.tier, 'palette.presets')) throw new HttpError(403, 'Palette presets are included from the Standard tier.');
-    clean.paletteKey = theme.paletteKey;
-  }
-  if (theme.palette) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Custom colours are included in the Complete tier.');
-    clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
-  }
-  if (theme.fontsKey && FONT_PRESETS.some((f) => f.key === theme.fontsKey)) {
-    if (!hasFeature(invitation.tier, 'palette.custom')) throw new HttpError(403, 'Font choice is included in the Complete tier.');
+  // Colours are every package's: the presets and the picker alike.
+  if (theme.paletteKey && PALETTE_PRESETS.some((p) => p.key === theme.paletteKey)) clean.paletteKey = theme.paletteKey;
+  if (theme.palette) clean.palette = paletteFrom({ ...PALETTE_PRESETS[0].palette, ...theme.palette });
+  const sets = await fontBook();
+  if (theme.fontsKey && findFaces(theme.fontsKey, sets)) {
+    if (!hasFeature(invitation.tier, 'fonts.custom')) throw new HttpError(403, `Font presets are included in the ${TIER_LABELS.COMPLETE} package.`);
     clean.fontsKey = theme.fontsKey;
   }
+  // A look is the faces and the lines under the headings. Basic keeps the
+  // design's own; Standard chooses among three, Signature among five — and
+  // how many each package sees is now hers to change, a row at a time.
+  if (theme.lookKey !== undefined) {
+    const key = findSet(theme.lookKey, sets)?.key ?? '';
+    if (!setAllowed(invitation.tier, key, sets)) {
+      throw new HttpError(403, hasFeature(invitation.tier, 'fonts.choice')
+        ? `That font style is included in the ${TIER_LABELS.COMPLETE} package.`
+        : `The Basic package is set in one font style. Standard chooses among three, ${TIER_LABELS.COMPLETE} among five.`);
+    }
+    clean.lookKey = key;
+  }
+  // Day, night, or by the guest's clock; the guest can still switch on the page.
+  if (theme.mode !== undefined) clean.mode = theme.mode === 'night' || theme.mode === 'auto' ? theme.mode : 'day';
   const content = contentOf(invitation.content);
   content.theme = { ...(content.theme ?? {}), ...clean };
   return prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
 }
 
-/** The palette and fonts a page renders with: the template's, overridden by the customer's. */
-export function resolveTheme(template: { palette: unknown; fonts: unknown }, content: StoredContent): { palette: Palette; fonts: Fonts } {
+/**
+ * Which of the design's premium openings this invitation plays.
+ *
+ * The add-on buys the premium opening; this only says which one, among the
+ * clips drawn for the design. A key from another theme is refused rather than
+ * stored, so no christening can end up behind a wedding's seal.
+ */
+export async function setPremiumOpening(user: SessionUser, invitationId: string, key: string) {
+  const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId }, include: { template: true } });
+  assertOpenForChanges(user, invitation);
+  if (!hasPremiumOpening(invitation)) throw new HttpError(403, 'The premium opening is an add-on. Add it to your order and this choice opens up.');
+  if (!premiumOpeningAllowed(invitation.template, key)) throw new HttpError(400, 'That opening was not made for this design.');
+  return prisma.invitation.update({ where: { id: invitationId }, data: { premiumOpeningKey: key } });
+}
+
+/**
+ * The palette, the fonts and the wording a page is set in. The design's own
+ * first, then what the customer chose over it.
+ *
+ * A set brings its wording with it — that is what a set's `voice` is — so a
+ * chosen set wins over a chosen pair of faces, and a design with a set
+ * ignores its own `fonts` column. A pair of faces chosen on its own
+ * (`fontsKey`) is the one case where the faces change and the wording does
+ * not: the design keeps its own lines under its own headings.
+ *
+ * The sets are handed in rather than fetched, because this is called from
+ * the renderer and the renderer is synchronous. A caller with no book gets
+ * the book the code itself is, which is what the tables were stocked with —
+ * so the answer is the same either way until she edits a row.
+ */
+export function resolveTheme(
+  template: { palette: unknown; fonts: unknown; look?: string },
+  content: StoredContent,
+  tier?: Tier,
+  sets: BookSet[] = builtInSets(),
+): { palette: Palette; fonts: Fonts; look?: Look } {
   let palette = paletteFrom(template.palette);
   let fonts = fontsFrom(template.fonts);
+  let set = findSet(template.look ?? '', sets);
+  // A design drawn in a set above the package is set in the one every package
+  // has: Basic is Modern, whatever the design ships in.
+  if (tier && set && !setAllowed(tier, set.key, sets)) set = baseSet(sets);
+  // Faces without the voice: the design keeps its own lines.
+  let voiceless = false;
   const t = content.theme;
   if (t?.paletteKey) {
     const preset = PALETTE_PRESETS.find((p) => p.key === t.paletteKey);
@@ -162,10 +438,23 @@ export function resolveTheme(template: { palette: unknown; fonts: unknown }, con
   }
   if (t?.palette) palette = paletteFrom({ ...palette, ...t.palette });
   if (t?.fontsKey) {
-    const preset = FONT_PRESETS.find((f) => f.key === t.fontsKey);
-    if (preset) fonts = preset.fonts;
+    const chosen = findFaces(t.fontsKey, sets);
+    if (chosen) {
+      set = chosen;
+      voiceless = true;
+    }
   }
-  return { palette, fonts };
+  // A set chosen above the package — an invitation downgraded after the fact —
+  // is ignored, so the page shows only what was paid for.
+  if (t?.lookKey && (!tier || setAllowed(tier, t.lookKey, sets))) {
+    const chosen = findSet(t.lookKey, sets);
+    if (chosen) {
+      set = chosen;
+      voiceless = false;
+    }
+  }
+  if (set) fonts = set.fonts;
+  return { palette, fonts, look: set && !voiceless ? set.look : undefined };
 }
 
 export async function updateSettings(
@@ -175,6 +464,8 @@ export async function updateSettings(
 ) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
   const data: Record<string, unknown> = {};
+  // the words and the language are the invitation; the link and who may open it stay the couple's to change
+  if (input.language !== undefined || input.title !== undefined) assertOpenForChanges(user, invitation);
 
   if (input.slug !== undefined) {
     const slug = slugify(input.slug);
@@ -186,8 +477,8 @@ export async function updateSettings(
     }
   }
   if (input.privacy !== undefined) {
-    if (input.privacy === 'PASSWORD' && !hasFeature(invitation.tier, 'privacy.password')) {
-      throw new HttpError(403, 'Password protection is included in the Complete tier.');
+    if (input.privacy === 'PASSWORD' && !entitled(invitation, 'privacy.password')) {
+      throw new HttpError(403, `Password protection is included in the ${TIER_LABELS.COMPLETE} package.`);
     }
     data.privacy = input.privacy;
     if (input.privacy === 'PASSWORD') {
@@ -211,18 +502,35 @@ export async function updateSettings(
 
 export async function changeTemplate(user: SessionUser, invitationId: string, templateId: string) {
   const invitation = await prisma.invitation.findUniqueOrThrow({ where: { id: invitationId } });
+  assertNotPublished(user, invitation);
+  assertOpenForChanges(user, invitation);
   const template = await prisma.template.findUnique({ where: { id: templateId } });
   if (!template || !template.published || template.occasion !== invitation.occasion) throw new HttpError(400, 'That template is not available for this invitation.');
-  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, 'Premium designs are included in the Complete tier.');
+  if (template.premium && !hasFeature(invitation.tier, 'templates.premium')) throw new HttpError(403, `That design is only in the ${TIER_LABELS.COMPLETE} package.`);
   if (!hasFeature(invitation.tier, 'templates.any') && template.minTier !== 'BASIC') throw new HttpError(403, 'The Basic tier includes designs from the Basic set. Upgrade to choose any template.');
   await prisma.invitation.update({ where: { id: invitationId }, data: { templateId } });
   await audit(user, { module: 'invitations', action: 'template.change', entityType: 'Invitation', entityId: invitationId, summary: `Switched to ${template.name}` });
 }
 
-export async function publish(user: SessionUser, invitationId: string) {
+/**
+ * Publishing with blanks is allowed, and recorded.
+ *
+ * A customer who has not written their story, has no program and does not want
+ * an FAQ has a shorter invitation, and waiting for boxes they will never fill
+ * is how an invitation misses its own event. So the required cover fields still
+ * hold a publish (there is no invitation without names and a date), and
+ * everything else may be sent empty — but the customer is shown exactly which
+ * parts are blank and what will not appear, and the sections they agreed to
+ * send that way are written into their own progress record, so the team
+ * working on it afterwards can see what was left on purpose rather than
+ * chasing it.
+ */
+export async function publish(user: SessionUser, invitationId: string, acceptedBlanks?: string[]) {
   const invitation = await prisma.invitation.findUniqueOrThrow({
     where: { id: invitationId },
-    include: { order: { include: { package: true } } },
+    // A Save the Date has no order of its own — it was bought as an add-on on
+    // the invitation it announces, and it borrows that order's package.
+    include: { order: { include: { package: true } }, saveTheDateOf: { include: { order: { include: { package: true } } } } },
   });
   if (!unlocked(invitation)) throw new HttpError(402, 'Your order is not paid yet.');
   const content = contentOf(invitation.content);
@@ -230,8 +538,14 @@ export async function publish(user: SessionUser, invitationId: string) {
   if (problems.length) throw new HttpError(400, problems.join(' '));
 
   const eventAt = eventInstant(content) ?? invitation.eventAt;
-  const validityDays = invitation.order?.package.linkValidityDays ?? 30;
+  // Thirty days is the floor for an invitation with no package behind it. A
+  // Save the Date published a year out would expire long before the wedding it
+  // announces, so it takes the package's validity from the order it came with.
+  const validityDays = (invitation.order ?? invitation.saveTheDateOf?.order)?.package.linkValidityDays ?? 30;
   const expiresAt = eventAt ? addDays(eventAt, validityDays) : addDays(new Date(), validityDays);
+
+  const blanks = (acceptedBlanks ?? []).filter((k) => typeof k === 'string').slice(0, 40);
+  const progress = blanks.length ? { ...(content.progress ?? {}), sentBlank: blanks, sentBlankAt: new Date().toISOString() } : content.progress;
 
   const updated = await prisma.invitation.update({
     where: { id: invitationId },
@@ -241,10 +555,10 @@ export async function publish(user: SessionUser, invitationId: string) {
       eventAt: eventAt ?? undefined,
       expiresAt,
       ogImageUrl: coverImage(content),
-      editsAllowed: invitation.order?.package.editsAfterPublish ?? invitation.editsAllowed,
+      ...(blanks.length ? { content: { ...content, progress } as never } : {}),
     },
   });
-  await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published /i/${updated.slug}` });
+  await audit(user, { module: 'invitations', action: 'publish', entityType: 'Invitation', entityId: invitationId, summary: `Published ${invitationPath(updated.slug)}${blanks.length ? ` — sent with ${blanks.length} section${blanks.length === 1 ? '' : 's'} left blank` : ''}` });
   return updated;
 }
 
@@ -307,7 +621,7 @@ export async function recordView(invitationId: string): Promise<void> {
   }
 }
 
-/** RSVP is open unless the customer closed it, or the Complete-tier deadline has passed. */
+/** RSVP is open unless the customer closed it, or the Signature-package deadline has passed. */
 export function rsvpOpen(invitation: { rsvpClosed: boolean; rsvpDeadline: Date | null; tier: Tier }): boolean {
   if (invitation.rsvpClosed) return false;
   if (hasFeature(invitation.tier, 'rsvp.autoClose') && invitation.rsvpDeadline && invitation.rsvpDeadline.getTime() < Date.now()) return false;

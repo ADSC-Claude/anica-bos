@@ -1,0 +1,13 @@
+-- How many of a party actually walked in.
+--
+-- Check-in was one bit: checkedInAt is set or it is not, and the number the
+-- desk announced was the seats the guest confirmed weeks earlier. A table of
+-- four where one stayed home still counted four — a plated meal and a laid
+-- place, with nothing in the system disagreeing.
+--
+-- Nullable, and left null on every existing row on purpose. Null means the
+-- door gave no number, and headsArrived() in src/lib/seats.ts reads that as the
+-- whole confirmed party — which is exactly what the system believed about
+-- those arrivals when they were recorded. So a list already half checked in
+-- keeps every count it had.
+ALTER TABLE "Guest" ADD COLUMN "arrivedCount" INTEGER;

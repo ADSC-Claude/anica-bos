@@ -269,6 +269,15 @@ export function BookingWizard() {
         setBranchId(data.branches[0]?.id ?? '');
       })
       .catch(() => setError('We could not load the booking form. Please refresh.'));
+
+    // Wake the availability route while she is still choosing.
+    //
+    // Every route is its own function in production, so loading this page warms
+    // the catalogue and leaves availability cold — and it is asked for thirty
+    // seconds later, mid-flow, with the guest watching. Sent alongside rather
+    // than chained, so it costs her nothing, and ignored entirely on failure:
+    // this request has no answer worth having.
+    fetch('/api/public/availability?warm=1').catch(() => {});
   }, []);
 
   const allServices = useMemo(
@@ -1445,6 +1454,17 @@ export function BookingWizard() {
               <p className="mt-1 text-xs leading-relaxed text-cocoa-600">
                 {catalog.cancellationPolicy}
               </p>
+              {/* A new tab, deliberately. Navigating away from a half-filled
+                  booking to read a policy and coming back to an empty form is
+                  a good way to lose the booking and the guest. */}
+              <a
+                href="/refunds"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs underline underline-offset-4 hover:text-gilt-600"
+              >
+                Full refund policy
+              </a>
             </div>
           )}
 

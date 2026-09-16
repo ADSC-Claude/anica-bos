@@ -1,10 +1,12 @@
 import 'server-only';
 import type { Occasion, ServiceMode, Tier } from '@prisma/client';
 import { prisma } from './db';
+import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, type Quote } from './pricing';
-import { createDraft } from './invitations';
+import { quote, serviceModeAvailable, saveTheDateOffered, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
+import { TIER_LABELS, hasFeature } from './tiers';
+import { createDraft, createSaveTheDate } from './invitations';
 import { audit } from './audit';
 import { notify, notifyStaff } from './notifications';
 import { sendEmail, render, baseVars } from './email';
@@ -46,19 +48,32 @@ export async function buildQuote(input: {
   couponCode?: string;
 }): Promise<Quote & { pkg: Awaited<ReturnType<typeof packageFor>>; addOns: { id: string; code: string; name: string; priceCents: number }[]; couponId?: string }> {
   const pkg = await packageFor(input.occasion, input.tier);
+  // quote() already declines to price a mode this tier cannot buy, but silence
+  // is the wrong answer on the way in: a client asking for Priority on Basic is
+  // out of step with the catalogue, and would otherwise be handed a Basic order
+  // it did not ask for.
+  if (!serviceModeAvailable(input.serviceMode, pkg.tier)) {
+    const label = SERVICE_MODES.find((m) => m.key === input.serviceMode)?.label ?? input.serviceMode;
+    throw new HttpError(400, `${label} is not offered on ${TIER_LABELS[pkg.tier]}.`);
+  }
   const codes = Array.from(new Set(input.addOnCodes)).slice(0, 12);
   const addOns = codes.length ? await prisma.addOn.findMany({ where: { code: { in: codes }, active: true, quoted: true } }) : [];
   const coupon = input.couponCode?.trim() ? await prisma.coupon.findUnique({ where: { code: input.couponCode.trim().toUpperCase() } }) : undefined;
-  const q = quote({ pkg, serviceMode: input.serviceMode, addOns, coupon: input.couponCode?.trim() ? coupon : undefined });
+  const q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: input.couponCode?.trim() ? coupon : undefined });
   return { ...q, pkg, addOns, couponId: coupon && !q.couponError ? coupon.id : undefined };
 }
 
+/**
+ * A new order is always the one product we sell: we build it. The mode is not
+ * taken from the browser at all — there is nothing for a customer to choose,
+ * and a withdrawn mode arriving in a payload should never be able to open an
+ * order that skips the queue.
+ */
 export async function createOrder(
   user: SessionUser,
   input: {
     occasion: Occasion;
     tier: Tier;
-    serviceMode: ServiceMode;
     templateId: string;
     addOnCodes: string[];
     couponCode?: string;
@@ -66,7 +81,7 @@ export async function createOrder(
     notes?: string;
   },
 ) {
-  const q = await buildQuote(input);
+  const q = await buildQuote({ ...input, serviceMode: DEFAULT_SERVICE_MODE });
   if (q.couponError) throw new HttpError(400, q.couponError);
 
   const invitation = await createDraft({
@@ -86,7 +101,7 @@ export async function createOrder(
       invitationId: invitation.id,
       occasion: input.occasion,
       tier: input.tier,
-      serviceMode: input.serviceMode,
+      serviceMode: DEFAULT_SERVICE_MODE,
       subtotalCents: q.subtotalCents,
       addOnsCents: q.addOnsCents,
       serviceFeeCents: q.serviceFeeCents,
@@ -133,7 +148,7 @@ export async function createOrder(
 export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' | 'free' | 'admin') {
   const order = await prisma.order.findUniqueOrThrow({
     where: { id: orderId },
-    include: { user: true, package: true, invitation: true, dfyJob: true },
+    include: { user: true, package: true, invitation: true, dfyJob: true, items: true },
   });
   if (order.status === 'ACTIVE') return order;
   if (order.status === 'CANCELLED' || order.status === 'REFUNDED') throw new HttpError(400, 'That order is closed.');
@@ -144,30 +159,69 @@ export async function activateOrder(orderId: string, via: 'paymongo' | 'manual' 
   await prisma.$transaction(async (tx) => {
     await tx.order.update({ where: { id: orderId }, data: { status: 'ACTIVE', paidAt: order.paidAt ?? now, activatedAt: now } });
     if (order.invitationId) {
+      // What was bought beside the package, copied onto the invitation: some of
+      // it decides what the invitation may do (see ADDON_FEATURE in
+      // src/lib/tiers.ts), and a gate should not have to walk back to an order
+      // to answer. Merged rather than replaced, because an upgrade is a second
+      // order against the same invitation and must not drop what the first
+      // one bought.
+      const bought = order.items.filter((it) => it.kind === 'ADDON').map((it) => it.code);
+      const already = order.invitation?.addOns ?? [];
+      const addOns = [...new Set([...already, ...bought])];
       await tx.invitation.update({
         where: { id: order.invitationId },
-        data: { editsAllowed: order.package.editsAfterPublish },
+        data: {
+          addOns,
+          // the premium opening add-on, bought with this order, unlocks the design's clip
+          ...(bought.includes(PREMIUM_OPENING_CODE) ? { premiumOpening: true } : {}),
+        },
       });
     }
     if (order.serviceMode !== 'DIY' && order.invitationId && !order.dfyJob) {
-      const concierge = order.serviceMode === 'CONCIERGE';
-      const days = concierge ? s['concierge.turnaroundDays'] : s['dfy.turnaroundDays'];
+      // Speed is bought as an add-on now, so the promise comes from the order's
+      // line items rather than from how the order was encoded. Priority is two
+      // working days and an extra revision round; rush is hours, so it rounds
+      // to a day rather than pretending the board can hold fractions.
+      const bought = (code: string) => order.items.some((it) => it.kind === 'ADDON' && it.code === code);
+      const priority = bought(PRIORITY_CODE);
+      const rush = bought(RUSH_CODE);
+      // Rush is read first, not priority. Both may now be on one order — they
+      // are offered to every package — and the promise we keep has to be the
+      // tighter of the two, not whichever the code happened to test first.
+      const days = rush
+        ? Math.max(1, Math.ceil(s['rush.turnaroundHours'] / 24))
+        : priority
+          ? s['concierge.turnaroundDaysMax']
+          : s['dfy.turnaroundDaysMax'];
       await tx.dfyJob.create({
         data: {
           orderId,
           invitationId: order.invitationId,
           status: 'NEW',
           dueAt: addDays(now, days),
-          revisionsAllowed: concierge ? s['concierge.revisions'] : s['dfy.revisions'],
+          revisionsAllowed: revisionRounds(order.tier, priority || rush, order.package.revisionRounds),
         },
       });
     }
   });
 
+  // Outside the transaction: it needs a unique slug, which means reading rows
+  // the transaction has not committed yet, and a Save the Date that failed to
+  // be created must not roll back a payment that succeeded.
+  // Bought as an add-on, or included because the package carries it. Luxury
+  // gets the second card without ticking anything, which is the difference
+  // between a package that lists it and a package that gives it.
+  const boughtStd = order.items.some((it) => it.kind === 'ADDON' && it.code === SAVE_THE_DATE_CODE);
+  const includedStd = hasFeature(order.tier, 'saveTheDate.included');
+  if (order.invitationId && saveTheDateOffered(order.occasion) && (boughtStd || includedStd)) {
+    const parent = await prisma.invitation.findUnique({ where: { id: order.invitationId } });
+    if (parent) await createSaveTheDate(parent);
+  }
+
   const dfy = order.serviceMode !== 'DIY';
   const nextStep = dfy
-    ? 'Next: tell us the details. Fill in the intake form from your dashboard, or send everything over Messenger or Viber and we will encode it for you.'
-    : 'Your builder is unlocked — open your dashboard to start filling in your invitation.';
+    ? 'Next: fill in your details. Open your invitation from your dashboard — every part saves as you go and shows on your page as you type — or send everything over Messenger and we will type it in for you.'
+    : 'Your invitation is unlocked — open it from your dashboard to start filling it in.';
 
   await notify(order.userId, 'Payment confirmed', nextStep, order.invitationId ? `/account/invitations/${order.invitationId}` : '/account');
   await sendEmail({
@@ -209,6 +263,9 @@ export async function createUpgradeOrder(user: SessionUser, invitationId: string
       packageId: target.id,
       occasion: invitation.occasion,
       tier,
+      // Not a sold mode any more — here it is the stored value for "no build
+      // attached", which is what an upgrade is: it raises the tier on an
+      // invitation we have already made, so activateOrder opens no new job.
       serviceMode: 'DIY',
       subtotalCents: diff,
       totalCents: diff,
@@ -228,7 +285,7 @@ export async function applyUpgrade(orderId: string) {
   if (!match) return;
   await prisma.$transaction([
     prisma.order.update({ where: { id: orderId }, data: { status: 'ACTIVE', paidAt: order.paidAt ?? new Date(), activatedAt: new Date() } }),
-    prisma.invitation.update({ where: { id: match[1] }, data: { tier: order.tier, editsAllowed: order.package.editsAfterPublish } }),
+    prisma.invitation.update({ where: { id: match[1] }, data: { tier: order.tier } }),
   ]);
   await notify(order.userId, `Upgraded to ${order.package.name}`, 'New sections are unlocked in your builder.', `/account/invitations/${match[1]}`);
 }

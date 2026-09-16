@@ -397,7 +397,7 @@ const WANTS: Record<PlaceholderKind, { look: RegExp[]; show?: FieldRef['show'] }
 };
 
 /** A question this can be wired to: its own key, the part it belongs to, and what it is called. */
-export type Offer = { key: string; section: string; field: string; sub?: string; label: string; list?: boolean };
+export type Offer = { key: string; section: string; field: string; sub?: string; label: string; list?: boolean; type?: string };
 
 /**
  * One of the design's own words: the key it is stored under, what it is

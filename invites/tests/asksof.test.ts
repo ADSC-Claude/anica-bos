@@ -112,7 +112,11 @@ test('the picker offers a customer’s fields, by kind, and never a staff one', 
   const words = askable('CHRISTENING', 'text');
   assert.ok(photos.some((a) => a.section === 'story' && a.field === 'timeline' && a.sub === 'photo' && a.list));
   assert.ok(photos.every((a) => a.type === 'image'));
-  assert.ok(words.every((a) => a.type === 'text' || a.type === 'textarea'));
+  // words are the four a box can say: what she types, and a date or a time
+  // a box says properly through FieldRef.show
+  assert.ok(words.every((a) => ['text', 'textarea', 'date', 'time'].includes(a.type)));
+  assert.ok(words.some((a) => a.type === 'date'));
+  assert.ok(words.some((a) => a.type === 'time'));
   assert.equal(photos.some((a) => a.type === 'textarea'), false);
   // story.line is ours to write, so it is not on offer
   assert.equal(words.some((a) => a.section === 'story' && a.field === 'line'), false);

@@ -187,7 +187,19 @@ export function askCounts(asks: Ask[]): { photos: number; writings: number; orph
 export type Askable = { section: SectionKey; sectionLabel: string; field: string; sub?: string; label: string; type: string; list: boolean; max?: number };
 
 export function askable(occasion: Occasion, kind: 'photo' | 'text'): Askable[] {
-  const wanted = kind === 'photo' ? ['image'] : ['text', 'textarea'];
+  /*
+   * A date and a time are askable as words now, because a box bound to one
+   * can say it properly: a date is stored as `2026-12-18` and a time as
+   * `16:00`, and `FieldRef.show` turns those into the words a design had in
+   * their place — "18 December 2026", "4:00 PM". Before that they were left
+   * out, since a cover reading `2026-12-18` is worse than a cover with no
+   * date on it at all, and the app's own hero drew the date instead.
+   *
+   * It matters for a page brought in from a master designed elsewhere:
+   * every such cover carries the date and the time as words, and a box put
+   * where those words were has to be able to be wired to them.
+   */
+  const wanted = kind === 'photo' ? ['image'] : ['text', 'textarea', 'date', 'time'];
   const out: Askable[] = [];
   for (const key of OCCASION_SECTIONS[occasion]) {
     const label = sectionLabel(key, occasion);

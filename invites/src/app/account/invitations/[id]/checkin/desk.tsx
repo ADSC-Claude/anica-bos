@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { checkInAction, setArrivedAction } from '@/app/account/actions';
+import { Scanner } from './scanner';
 import { headsArrived, arrivalLabel } from '@/lib/seats';
 
 type G = {
@@ -16,6 +17,9 @@ type G = {
   arrived: number | null;
   /** Who they said they were bringing, from their reply. */
   companions: string[];
+  /** What they chose to eat, and anything the kitchen has to know. */
+  meal: string;
+  dietary: string;
   token: string;
 };
 
@@ -70,10 +74,77 @@ function Stepper({ g, set, busy }: { g: G; set: (n: number) => void; busy: boole
   );
 }
 
+/** Initials in a circle, because we hold no photograph of anybody's guests. */
+function Monogram({ name }: { name: string }) {
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  return <span className="desk-monogram" aria-hidden="true">{initials || '?'}</span>;
+}
+
+/**
+ * Who you are about to let in, before you let them in.
+ *
+ * The desk used to check somebody in on the first tap. That is one tap fewer
+ * and it is the wrong trade: the person on the door is looking at a queue, not
+ * at the screen, and the row they meant is one line above the row they hit.
+ * This is the screen that makes the mistake visible while it is still free —
+ * and it is where the kitchen's questions get answered, because the meal and
+ * the allergy are on it.
+ */
+function Review({ g, onCheckIn, onBack, busy }: { g: G; onCheckIn: () => void; onBack: () => void; busy: boolean }) {
+  const state = STATE[g.state];
+  const rows: [string, string][] = [
+    ['Party', `${g.seats} seat${g.seats === 1 ? '' : 's'}${g.companions.length ? ` · with ${g.companions.join(', ')}` : ''}`],
+    ['Table', g.table],
+    ['Group', g.groupName],
+    ['Meal', g.meal],
+    ['Kitchen', g.dietary],
+  ];
+  return (
+    <div className="desk-stage">
+      <button type="button" className="desk-back" onClick={onBack}>← Back</button>
+      <Monogram name={g.name} />
+      <h2 className="desk-name">{g.name}</h2>
+      <span className={`pill ${state ? state.pill : 'pill-ok'}`}>{state ? state.label : 'Confirmed'}</span>
+      <dl className="desk-rows">
+        {rows.filter(([, v]) => v).map(([k, v]) => (
+          <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+        ))}
+        {!g.dietary && <div><dt>Kitchen</dt><dd className="desk-quiet">No special requests</dd></div>}
+      </dl>
+      {g.checkedIn ? (
+        <p className="desk-already">Already checked in.</p>
+      ) : (
+        <button type="button" className="btn desk-go" onClick={onCheckIn} disabled={busy}>
+          {busy ? 'Checking in…' : '✓  Check in'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The screen that says it worked, big enough to read at arm's length. */
+function Done({ text, onAnother, onScan }: { text: string; onAnother: () => void; onScan: () => void }) {
+  return (
+    <div className="desk-stage desk-done">
+      <span className="desk-tick" aria-hidden="true">✓</span>
+      <h2 className="desk-name">Checked in</h2>
+      <p className="desk-said">{text}</p>
+      <button type="button" className="btn btn-primary desk-go" onClick={onScan}>Scan the next guest</button>
+      <button type="button" className="desk-link" onClick={onAnother}>Find someone by name</button>
+    </div>
+  );
+}
+
 export function CheckInDesk({ invitationId, guests }: { invitationId: string; guests: G[] }) {
   const [pending, start] = useTransition();
   const [q, setQ] = useState('');
   const [last, setLast] = useState<{ ok: boolean; text: string } | null>(null);
+  // Three screens rather than one form: who is this, then let them in, then
+  // say so. `review` is the guest under the desk's nose; `done` is the
+  // confirmation it worked, which a queue needs to see from arm's length.
+  const [review, setReview] = useState<G | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
   // What this device has just done, ahead of the page revalidating. Every entry
   // is the number the server sent back rather than a guess, so it is the truth
   // arriving early rather than an optimistic copy that can be wrong. It does
@@ -110,9 +181,32 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
         const id = rows.find((g) => g.id === key || g.token === key || g.token === key.split('/').pop())?.id;
         if (id) setOwn((o) => ({ ...o, [id]: { checkedIn: !undo, arrived: undo ? null : r.data.arrived } }));
       }
-      setLast(r.ok ? { ok: true, text: undo ? `${r.data.name} checked out.` : r.data.alreadyIn ? `${r.data.name} was already checked in.` : greet(r.data) } : { ok: false, text: r.error });
+      const text = r.ok
+        ? undo ? `${r.data.name} checked out.` : r.data.alreadyIn ? `${r.data.name} was already checked in.` : greet(r.data)
+        : r.error;
+      setLast({ ok: r.ok, text });
+      // A successful let-in earns the confirmation screen; an undo and a
+      // failure stay on the list, where the desk can try again.
+      if (r.ok && !undo) { setDone(text); setReview(null); }
       setQ('');
     });
+
+  /** Straight to the review screen, whatever found them. */
+  const open = (g: G) => { setReview(g); setDone(null); setLast(null); setQ(''); setScanning(false); };
+
+  /**
+   * A code came off the camera.
+   *
+   * It resolves against this invitation's own guests, so a pass from another
+   * wedding — or last year's, still in somebody's photos — says so rather than
+   * checking a stranger in.
+   */
+  const scanned = (token: string) => {
+    const g = rows.find((x) => x.token === token);
+    if (g) { open(g); return; }
+    setScanning(false);
+    setLast({ ok: false, text: 'That code is not on this guest list.' });
+  };
 
   const setArrived = (g: G, n: number) =>
     start(async () => {
@@ -135,12 +229,44 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
     </span>
   );
 
+  if (scanning) {
+    return (
+      <div className="space-y-4">
+        <Scanner onFound={scanned} onClose={() => setScanning(false)} />
+      </div>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="space-y-4">
+        <Done text={done} onAnother={() => setDone(null)} onScan={() => { setDone(null); setScanning(true); }} />
+      </div>
+    );
+  }
+  if (review) {
+    const fresh = rows.find((g) => g.id === review.id) ?? review;
+    return (
+      <div className="space-y-4">
+        <Review g={fresh} busy={pending} onBack={() => setReview(null)} onCheckIn={() => run(fresh.id)} />
+        {last && !last.ok && <p className="text-center text-sm text-[color:var(--bad)]" role="alert">{last.text}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="card p-4">
-        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (matches.length === 1) run(matches[0].token); else if (q.includes('/')) run(q); }}>
+        {/* The camera first, because it is the fast path and the one a
+            coordinator uses two hundred times. Typing stays underneath it for
+            the pamangkin with no code and the phone that will not focus. */}
+        <button type="button" className="btn desk-scan" onClick={() => { setScanning(true); setLast(null); }}>
+          <span aria-hidden="true">▣</span> Scan a guest’s QR
+        </button>
+        <p className="desk-or">or find them by name</p>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); if (matches.length === 1) open(matches[0]); }}>
           <input className="field" placeholder="Paste a scanned link, or type a name" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-          <button type="submit" className="btn btn-primary" disabled={pending}>Check in</button>
+          <button type="submit" className="btn btn-primary" disabled={pending || matches.length !== 1}>Find</button>
         </form>
         {last && <p className={`mt-2 text-lg ${last.ok ? 'text-[color:var(--ok)]' : 'text-[color:var(--bad)]'}`} role="status">{last.text}</p>}
         {matches.length > 0 && (
@@ -154,7 +280,7 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => run(g.id, true)} disabled={pending}>Undo</button>
                   </span>
                 ) : (
-                  <button type="button" className="btn btn-primary btn-sm" onClick={() => run(g.id)} disabled={pending}>Check in</button>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => open(g)} disabled={pending}>Open</button>
                 )}
               </li>
             ))}
@@ -187,7 +313,7 @@ export function CheckInDesk({ invitationId, guests }: { invitationId: string; gu
                 <td>
                   {g.checkedIn
                     ? <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(g.id, true)} disabled={pending}>Undo</button>
-                    : <button type="button" className="btn btn-ghost btn-sm" onClick={() => run(g.id)} disabled={pending}>Check in</button>}
+                    : <button type="button" className="btn btn-ghost btn-sm" onClick={() => open(g)} disabled={pending}>Open</button>}
                 </td>
               </tr>
             ))}

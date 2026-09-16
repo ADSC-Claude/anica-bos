@@ -75,18 +75,48 @@ test('the chat version loses the subject and keeps the words', () => {
   assert.doesNotMatch(chat, /\n{3,}/, 'three newlines is three empty bubbles');
 });
 
-test('every chat link carries the whole message, and Messenger is not offered', () => {
+test('every chat link carries the whole message, and Messenger is not one of them', () => {
   const text = asChatText(trimNote(sample));
   const links = chatLinks(text);
   assert.deepEqual(links.map((l) => l.label), ['Viber', 'WhatsApp', 'Messages']);
   for (const l of links) {
     assert.ok(l.href.includes(encodeURIComponent('Tita Baby')), `${l.label} drops the message`);
   }
-  // Messenger's dialog forwards a link and has no body, so a button for it
-  // would look like the others and silently lose the words. The drawer offers
-  // Copy for that case instead.
+  // Messenger's dialog forwards a link and has no body, so a link for it would
+  // look like the others and silently lose the words. The drawer gives it a
+  // button that copies instead, and only then offers the way in.
   assert.doesNotMatch(JSON.stringify(links), /messenger|facebook/i);
-  assert.match(decide, /Copy/, 'the copy button that covers Messenger is gone');
+  assert.match(decide, /Copy/, 'the copy button is gone');
+  assert.match(decide, />\s*Messenger\s*</, 'Messenger is not offered at all');
+  assert.match(decide, /toMessenger && \(/, 'the Messenger link shows before the words are on the clipboard');
+});
+
+test('the couple sends it from their own phone, and ours is the paid one', () => {
+  // Her correction, in one rule: a message we send is a service somebody has
+  // bought. The chat buttons cost us nothing because their phone does the
+  // sending, so those stay free on every package and go first.
+  const chat = code(decide).indexOf('Send it from');
+  const mail = code(decide).indexOf('Send by e-mail');
+  assert.notEqual(chat, -1, 'the chat buttons lost their heading');
+  assert.ok(chat < mail, 'our e-mail is offered before their own apps again');
+  assert.doesNotMatch(code(decide), /btn-primary[^>]*onClick=\{send\}/, 'our e-mail is the loudest button on the drawer again');
+  assert.match(decide, /canEmail \?/, 'the e-mail button is not behind the entitlement');
+  assert.match(decide, /Guest communication add-on/, 'nothing says why the button is off');
+  assert.match(decide, /Nothing is sent from here\./, 'the drawer still implies we might send it');
+});
+
+test('our own sending is refused to an invitation that has not bought it', () => {
+  // The hole this closes: messageGuest checked the address and the invitation
+  // and never checked what they bought, so a Basic invitation could post as
+  // much e-mail through our mail key as it liked.
+  const fn = body(rsvp, 'export async function messageGuest(');
+  assert.match(fn, /entitled\(invitation, 'rsvp\.emailConfirmation'\)/, 'the add-on gate is gone');
+  assert.ok(
+    fn.indexOf('entitled(') < fn.indexOf('sendEmail'),
+    'the check happens after the mail has already gone',
+  );
+  // And it names the free way out rather than just refusing.
+  assert.match(fn, /Viber|Messenger|Messages/, 'the refusal offers no way to send it');
 });
 
 test('no confirmation goes out while the couple has not agreed the number', () => {

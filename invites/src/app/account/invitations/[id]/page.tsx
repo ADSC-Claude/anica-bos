@@ -3,6 +3,7 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { contentOf } from '@/lib/invitations';
+import { invitationPath } from '@/lib/app-url';
 import { builderPropsFor } from '@/lib/builder-props';
 import { Builder } from '@/components/builder/builder';
 import { setsFor } from '@/lib/fonts';
@@ -46,12 +47,26 @@ export default async function InvitationPage({ params, searchParams }: { params:
   // here, and the receipt, the plan and the offer of a tour sit over the
   // Get-started list until they answer.
   const welcome = welcomeDue(inv, user) ? welcomeFor(user, inv) : null;
+  /*
+   * The check-in pass is not on the invitation, so the phone beside the form
+   * would otherwise show a page that none of these fields touch. One guest's
+   * own pass stands in — the owner is looking at their own guest list, and the
+   * pass page is behind the same door as the invitation. No guests yet means
+   * nothing to stand in, and the invitation preview is what is left.
+   *
+   * This lived on the builder page, which is a redirect now; it belongs
+   * wherever the form is, and the form is here.
+   */
+  const sample = props.current === 'checkin'
+    ? await prisma.guest.findFirst({ where: { invitationId: inv.id }, orderBy: { createdAt: 'asc' }, select: { token: true } })
+    : null;
 
   return (
     <Builder
       key={props.current}
       invitationId={inv.id}
       {...props}
+      previewPath={sample ? `${invitationPath(inv.slug, sample.token)}/pass` : undefined}
       looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))}
       allLooks={sets.length}
       checklist={checklist}

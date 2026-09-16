@@ -4,7 +4,8 @@ import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { seatsHeld, headsArrived, replySeats } from './seats';
 import { parseCsv, toCsv } from './csv';
-import { duplicateRows, isTemplateLine, TEMPLATE_EXAMPLES, TEMPLATE_NOTES, type ImportResult } from './guest-dupes';
+import { isNote, seatsFrom, tokenFromLink, guestTemplateCsv, SEAT_SHEET_COLUMNS, SEAT_SHEET_NOTES } from './guest-sheet';
+import { duplicateRows, isTemplateLine, type ImportResult } from './guest-dupes';
 import { entitled, TIER_LABELS, FEATURE_MIN_TIER, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
@@ -86,15 +87,29 @@ export async function importGuests(invitation: Entitled & { id: string }, text: 
  * first sheet of a workbook. Everything that knows which column is which lives
  * here, so a new way in only has to produce rows.
  *
- * A row that repeats somebody — the same name, mobile or e-mail as a guest
- * already on the list, or as an earlier row of the same file — is left out
- * and counted, so the same workbook can be sent again after ten names were
- * added to it without doubling the other two hundred. What counts as the
- * same person is guest-dupes.ts's business.
+ * It both adds and updates, which is what makes the seat sheet a round trip
+ * rather than a one-way door. A row carrying a personal link is the guest that
+ * link belongs to, and it edits them in place; a row without one is somebody
+ * new. Before this, every upload ended in createMany, so a couple who sent
+ * back the list we gave them got a second copy of all eighty-six names, each
+ * with a fresh link and no reply against it.
+ *
+ * And a row with no link that repeats somebody — the same name, mobile or
+ * e-mail as a guest already on the list, or as an earlier row of the same
+ * file — is left out and counted, so the same workbook can be sent again
+ * after ten names were added to it without doubling the other two hundred.
+ * What counts as the same person is guest-dupes.ts's business.
+ *
+ * The two rules meet cleanly, and it is worth saying why: a seat sheet comes
+ * back with every existing guest carrying their own link, so those rows are
+ * edits and never reach the repeat check. Only genuinely new rows are
+ * checked — which is exactly the set where a repeat would be a second copy
+ * of somebody.
  */
 export async function importGuestRows(invitation: Entitled & { id: string }, rows: string[][]): Promise<ImportResult> {
   requireGuestManager(invitation);
-  if (rows.length === 0) return { added: 0, skipped: 0, duplicates: 0, examples: 0 };
+  const nothing: ImportResult = { added: 0, updated: 0, skipped: 0, duplicates: 0, examples: 0, unmatched: 0 };
+  if (rows.length === 0) return nothing;
 
   const header = rows[0].map((h) => h.toLowerCase());
   const hasHeader = header.some((h) => ['name', 'guest', 'group', 'seats', 'pax', 'phone', 'mobile'].includes(h));
@@ -112,64 +127,146 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
   // reminder goes to the guests who have *not* answered.
   const cEmail = col(['email', 'e-mail', 'email address'], -1);
   const cSalutation = col(['salutation', 'greeting', 'address as'], -1);
+  // Header-only, and never positional: a file with no header row is somebody's
+  // paste, and reading a column of it as identity would be a guess with a
+  // guest's record on the other end.
+  const cLink = col(['personal link', 'link', 'invitation link'], -1);
 
-  const body = hasHeader ? rows.slice(1) : rows;
-  // Only what the duplicate check compares on; the size limit reads its count
+  const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() : '');
+  const body = (hasHeader ? rows.slice(1) : rows).filter((r) => !isNote(r));
+
+  // Only what the repeat check compares on; the size limit reads its count
   // off the same query.
   const existing = await prisma.guest.findMany({ where: { invitationId: invitation.id }, select: { name: true, phone: true, email: true } });
-  if (existing.length + body.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
 
+  type Edit = { name: string; groupName?: string; seatsAllotted?: number; phone?: string; email?: string; salutation?: string };
+  const edits: { token: string; data: Edit }[] = [];
+  const at = new Map<string, number>();
+  const parsed = [];
   let skipped = 0;
   let examples = 0;
-  const parsed = [];
+
   for (const r of body) {
-    const name = (cName >= 0 ? r[cName] : '')?.trim();
+    const name = cell(r, cName);
     if (!name) {
       skipped++;
       continue;
     }
-    // The blank's own example guests and notes, sent back unedited.
-    if (isTemplateLine(name, cPhone >= 0 ? r[cPhone] ?? '' : '')) {
+
+    const token = tokenFromLink(cell(r, cLink));
+    if (token) {
+      // Only the columns this file actually carries are written. A sheet
+      // trimmed down to Name, Seats and Personal link — which is a reasonable
+      // thing to make — must not wipe every phone number on the list.
+      const data: Edit = { name: name.slice(0, 120) };
+      if (cGroup >= 0) data.groupName = cell(r, cGroup).slice(0, 60);
+      if (cPhone >= 0) data.phone = cell(r, cPhone).slice(0, 30);
+      if (cEmail >= 0) data.email = cell(r, cEmail).slice(0, 120);
+      if (cSalutation >= 0) data.salutation = cell(r, cSalutation).slice(0, 120);
+      // Seats is the exception: a blank cell has no reading as a number, and
+      // quietly rewriting a family of five down to one is the worst of the
+      // available guesses. Emptied, it is left alone.
+      if (cSeats >= 0 && cell(r, cSeats)) data.seatsAllotted = seatsFrom(cell(r, cSeats));
+
+      // The same guest twice in one file: the row further down wins, which is
+      // what somebody who corrected a line and forgot to delete the first
+      // one means.
+      const seen = at.get(token);
+      if (seen === undefined) {
+        at.set(token, edits.length);
+        edits.push({ token, data });
+      } else edits[seen] = { token, data };
+      continue;
+    }
+
+    // The blank's own example guests and notes, sent back unedited. They are
+    // `#` notes in the file we hand out, so `isNote` above has usually caught
+    // them already; this is the net for a file that comes back with the #
+    // deleted but the row untouched.
+    if (isTemplateLine(name, cell(r, cPhone))) {
       examples++;
       continue;
     }
+
     parsed.push({
       invitationId: invitation.id,
       token: guestToken(),
       name: name.slice(0, 120),
-      groupName: (cGroup >= 0 ? r[cGroup] ?? '' : '').slice(0, 60),
-      seatsAllotted: Math.max(1, Math.min(20, parseInt(cSeats >= 0 ? r[cSeats] ?? '1' : '1', 10) || 1)),
-      phone: (cPhone >= 0 ? r[cPhone] ?? '' : '').slice(0, 30),
-      email: (cEmail >= 0 ? r[cEmail] ?? '' : '').slice(0, 120),
-      salutation: (cSalutation >= 0 ? r[cSalutation] ?? '' : '').slice(0, 120),
+      groupName: cell(r, cGroup).slice(0, 60),
+      seatsAllotted: seatsFrom(cell(r, cSeats) || '1'),
+      phone: cell(r, cPhone).slice(0, 30),
+      email: cell(r, cEmail).slice(0, 120),
+      salutation: cell(r, cSalutation).slice(0, 120),
     });
   }
+
+  // Counted against the new rows only. An edit of a list that is already at the
+  // cap is not a list getting bigger, and refusing it would leave the biggest
+  // weddings — the ones with the most seats to settle — unable to edit at all.
+  if (existing.length + parsed.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
+
+  // New rows only, against the list as it stands and against each other.
   const dupes = duplicateRows(existing, parsed);
-  const data = parsed.filter((_, i) => !dupes.has(i));
-  if (data.length) await prisma.guest.createMany({ data });
-  return { added: data.length, skipped, duplicates: dupes.size, examples };
+  const creates = parsed.filter((_, i) => !dupes.has(i));
+
+  const known = edits.length
+    ? await prisma.guest.findMany({
+        where: { invitationId: invitation.id, token: { in: edits.map((e) => e.token) } },
+        select: { token: true },
+      })
+    : [];
+  const mine = new Set(known.map((g) => g.token));
+  const live = edits.filter((e) => mine.has(e.token));
+
+  if (creates.length) await prisma.guest.createMany({ data: creates });
+  // A hundred at a time: a two-thousand-row sheet should not hold one
+  // transaction open for the whole upload.
+  for (let i = 0; i < live.length; i += 100) {
+    await prisma.$transaction(
+      live.slice(i, i + 100).map((e) =>
+        // Scoped to the invitation as well as the token. The token is unique
+        // across the table, so this is belt and braces — but every other write
+        // here is scoped that way and the one that is not is the one that
+        // eventually writes to somebody else's guest.
+        prisma.guest.updateMany({ where: { invitationId: invitation.id, token: e.token }, data: e.data }),
+      ),
+    );
+  }
+
+  return { added: creates.length, updated: live.length, skipped, duplicates: dupes.size, examples, unmatched: edits.length - live.length };
 }
 
 /**
- * The blank a couple fills in.
+ * The list they already have, sent out so the seats can be settled on paper.
  *
- * It is the importer's own column names in its own order, so a file that comes
- * back is a file that reads: the header row is what `importGuestRows` matches
- * on, and the example row shows the shape of each column rather than describing
- * it. Their own group names go underneath, because "Group" means nothing until
- * you know which words this invitation offers.
+ * This is the half that was missing. Settling a party of six down to two is a
+ * message somebody has to write and mean; settling every party *before* the
+ * links go out is a column in a spreadsheet, and then there is nothing to
+ * write, because no guest was ever offered a number that was not theirs.
  *
- * CSV rather than a workbook, and deliberately: Excel and Google Sheets both
- * open it by double-click, and whichever of the two they save it back as, the
- * upload reads it.
+ * The Personal link column is what makes it a round trip rather than a second
+ * copy of the wedding: `importGuestRows` reads the token out of it and edits
+ * that guest in place. It is the only column that must not be touched, and the
+ * notes at the bottom say so in those words.
  */
-export function guestTemplateCsv(groups: string[]): string {
-  // The same lines the importer knows to leave out, so the two cannot drift.
-  const rows = TEMPLATE_EXAMPLES.map((e, i) => [e.name, groups[i] ?? e.group, e.seats, e.phone, e.email, e.greeting]);
-  const [del, seats, contact, greeting, anyOf, anyWord] = TEMPLATE_NOTES;
-  const notes = [[], [del], [seats], [contact], [greeting], groups.length ? [anyOf, ...groups] : [anyWord]];
-  return toCsv(['Name', 'Group', 'Seats', 'Phone', 'Email', 'Greeting'], [...rows, ...notes]);
+export async function guestSeatSheetCsv(invitation: { id: string; slug: string }): Promise<string> {
+  const guests = await listGuests(invitation.id);
+  const rows: (string | number)[][] = guests.map((g) => [
+    g.name,
+    g.groupName,
+    g.seatsAllotted,
+    g.phone,
+    g.email,
+    g.salutation,
+    invitationUrl(invitation.slug, g.token),
+  ]);
+  return toCsv([...SEAT_SHEET_COLUMNS], [...rows, ...SEAT_SHEET_NOTES]);
 }
+
+// The blank a couple fills in. It lives in guest-sheet.ts beside the column
+// names and the notes it is made of; re-exported here because the route that
+// serves it, and the seat sheet beside it, both come from this module.
+export { guestTemplateCsv };
 
 export async function listGuests(invitationId: string) {
   return prisma.guest.findMany({

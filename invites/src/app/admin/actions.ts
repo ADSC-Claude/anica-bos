@@ -1,6 +1,7 @@
 'use server';
 
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, offeredSections, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
+import { MOMENT_PARTS } from '@/lib/moments';
 import { pageNeeds } from '@/lib/needs';
 import { designFiles } from '@/lib/design-files';
 import { canAddPart, extraSectionsOf } from '@/lib/parts';
@@ -199,6 +200,7 @@ export async function saveTemplateAction(templateId: string | null, back: string
         night: Array.from({ length: 8 }, (_, i) => s(fd, `art_night_${i + 1}`)),
         strand: s(fd, 'art_strand'),
         grounds: Object.fromEntries(BABYBLUE_GROUND_KEYS.map((k) => [k, s(fd, `art_ground_${k}`)])),
+        parts: Object.fromEntries(MOMENT_PARTS.map((p) => [p.key, s(fd, `art_part_${p.key.replace('/', '__')}`)])),
       }) as never,
     };
     if (!data.name) throw new HttpError(400, 'A template needs a name.');

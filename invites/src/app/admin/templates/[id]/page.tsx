@@ -12,6 +12,7 @@ import { colourFamilies } from '@/lib/palette';
 import { findSet } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { wordsOf, artOf, documentOf, offeredSections, wordsFor, lineLabel, titleLabel, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
+import { MOMENT_PARTS } from '@/lib/moments';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
 import { PreviewPanel } from './preview-panel';
@@ -234,6 +235,9 @@ export default async function TemplateEditor({ params, searchParams }: { params:
               <UploadField key={`night${i}`} name={`art_night_${i + 1}`} label={`Night background ${i + 1}`} defaultValue={art.night?.[i] ?? ''} templateId={tid} hint={i === 0 ? 'Shown in night mode. With none set, night darkens the day backgrounds instead.' : undefined} />
             ))}
             {t?.layout !== 'babyblue' && <UploadField name="art_strand" label="Strand under the prenup photograph" defaultValue={art.strand ?? ''} placeholder={t?.layout === 'capiz' ? '/capiz/strand-b.webp' : ''} templateId={tid} hint="A wide picture with a transparent background." />}
+            {MOMENT_PARTS.map((p) => (
+              <UploadField key={`part-${p.key}`} name={`art_part_${p.key.replace('/', '__')}`} label={`Moment — ${p.label}`} defaultValue={art.parts?.[p.key] ?? ''} placeholder={p.url} templateId={tid} hint={p.hint} />
+            ))}
           </div>
         </details>
         <div className="lg:col-span-2 flex flex-wrap items-center gap-3">

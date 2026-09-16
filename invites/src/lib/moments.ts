@@ -123,7 +123,7 @@ export const MOMENTS: MomentDef[] = [
   },
   {
     key: 'doors', name: 'Doors', triggers: ['tap', 'swipe'], swipe: 'apart', holds: { photo: true },
-    photos: { count: 1, shape: 'portrait', label: 'the photograph behind the doors' }, aspect: 1.2, width: 84, duration: 1600, minTier: 'BASIC',
+    photos: { count: 1, shape: 'portrait', label: 'the photograph behind the doors' }, aspect: 1.511, width: 84, duration: 1600, minTier: 'BASIC',
     realism: 'Two leaves hinged at the outer edges with a real pivot in perspective; brass handles in the accent; the leaves swing out at 900ms and the light comes through first.',
     built: true,
     variants: { church: 'Church Doors' },
@@ -143,7 +143,7 @@ export const MOMENTS: MomentDef[] = [
   // ── Tap & Reveal ──
   {
     key: 'instant-camera', name: 'Instant Camera', triggers: ['tap'],
-    photos: { count: 1, shape: 'square', label: 'the photograph in the instant camera' }, words: 'line', aspect: 1.3, width: 60, duration: 2600, minTier: 'STANDARD',
+    photos: { count: 1, shape: 'square', label: 'the photograph in the instant camera' }, words: 'line', aspect: 1.45, width: 60, duration: 2600, minTier: 'STANDARD',
     realism: 'A matte body with one lens ring; a white flash that opens to 140% and is gone in 500ms; the print slides out on a slow ease and develops from grey over two seconds.',
     built: true,
     holds: { photo: true, words: true },
@@ -312,6 +312,62 @@ export const MOMENTS: MomentDef[] = [
 
 /** Every scene's key, for the schema: a document may name no moment the library has not got. */
 export const MOMENT_KEYS = MOMENTS.map((m) => m.key) as [MomentKey, ...MomentKey[]];
+
+/**
+ * The photographed parts the scenes are built from.
+ *
+ * A scene used to be drawn in the stylesheet — gradients for wood, a radial
+ * for a lens — and read as a diagram of the thing. These are photographs of
+ * the things themselves, cut out on their alpha, shipped under /moments and
+ * moved by the same stylesheet: a door leaf still swings on its hinge, a
+ * curtain still gathers, the print still rises out of the slot. Each part
+ * is measured once, here, so the stylesheet can place what goes inside it:
+ * the print's picture window, the arch's doorway.
+ *
+ * A design may bring its own (DesignArt.parts, by this key): a replacement
+ * is drawn in the same box, so it has to keep the same proportions and, for
+ * a part with a window in it, the window where it is. Blank keeps the one
+ * shipped.
+ */
+export type PartKey = 'instant-camera/body' | 'instant-camera/print' | 'curtains/panel' | 'curtains/pelmet' | 'doors/leaf-l' | 'doors/leaf-r' | 'doors/arch' | 'seal/wax' | 'scratch/foil';
+export type PartDef = {
+  key: PartKey;
+  scene: MomentKey;
+  /** how the admin names it */
+  label: string;
+  /** what a replacement has to keep */
+  hint: string;
+  /** the shipped picture */
+  url: string;
+  /** width over height of the shipped picture */
+  aspect: number;
+  /** the see-through opening in it — a picture window, a doorway — as a share of its box, in percent */
+  hole?: { left: number; top: number; width: number; height: number };
+};
+export const MOMENT_PARTS: PartDef[] = [
+  { key: 'instant-camera/body', scene: 'instant-camera', label: 'Instant camera — the body', hint: 'The camera seen from the front, on a transparent background, the film slot along its top edge.', url: '/moments/instant-camera/body.webp', aspect: 1.172 },
+  { key: 'instant-camera/print', scene: 'instant-camera', label: 'Instant print — the blank frame', hint: 'A blank instant print, the picture area see-through, on a transparent background; the photograph is drawn into the window where this one has it.', url: '/moments/instant-camera/print.webp', aspect: 0.739, hole: { left: 5.99, top: 6.91, width: 88.15, height: 70.78 } },
+  { key: 'curtains/panel', scene: 'curtains', label: 'Curtains — one panel', hint: 'One curtain panel hanging straight, tall, on a transparent background; the right-hand panel is its mirror.', url: '/moments/curtains/panel.webp', aspect: 0.403 },
+  { key: 'curtains/pelmet', scene: 'curtains', label: 'Curtains — the pelmet', hint: 'The pelmet across the top, wide, its lower edge on a transparent background.', url: '/moments/curtains/pelmet.webp', aspect: 4.465 },
+  { key: 'doors/leaf-l', scene: 'doors', label: 'Doors — the left leaf', hint: 'The left leaf of the pair, hinged at its left edge, on a transparent background.', url: '/moments/doors/leaf-l.webp', aspect: 0.337 },
+  { key: 'doors/leaf-r', scene: 'doors', label: 'Doors — the right leaf', hint: 'The right leaf of the pair, hinged at its right edge, on a transparent background.', url: '/moments/doors/leaf-r.webp', aspect: 0.324 },
+  { key: 'doors/arch', scene: 'doors', label: 'Church doors — the stone arch', hint: 'The stone surround, the doorway see-through, on a transparent background; the leaves hang in the doorway where this one has it.', url: '/moments/doors/arch.webp', aspect: 0.67, hole: { left: 20.79, top: 15.26, width: 58.55, height: 76.63 } },
+  { key: 'seal/wax', scene: 'seal', label: 'Wax seal — the wax', hint: 'The pressed wax, straight on, its centre plain for the monogram, on a transparent background.', url: '/moments/seal/wax.webp', aspect: 0.969 },
+  { key: 'scratch/foil', scene: 'scratch', label: 'Scratch card — the foil', hint: 'The foil as a texture, square, edge to edge, no transparency.', url: '/moments/scratch/foil.webp', aspect: 1 },
+];
+export const PART_BY_KEY: Record<PartKey, PartDef> = Object.fromEntries(MOMENT_PARTS.map((p) => [p.key, p])) as Record<PartKey, PartDef>;
+/** The picture for one of a scene's parts: the design's own where it brought one, else the one shipped. */
+export function partUrl(key: PartKey, own?: Record<string, string>): string {
+  return own?.[key] || PART_BY_KEY[key].url;
+}
+/** Height over width of the box a scene lands in: the church doors take their stone arch's proportions. */
+export function aspectOf(key: MomentKey, variant?: string): number {
+  if (key === 'doors' && variant === 'church') return 1134 / 760;
+  return MOMENT_BY_KEY[key]?.aspect ?? 1;
+}
+/** The scenes that stand on photographed parts, by variant — the plain doors and the plain panels are drawn. */
+export const PARTED: Partial<Record<MomentKey, boolean>> = { 'instant-camera': true, 'polaroid-stack': true, curtains: true, doors: true, seal: true, scratch: true };
+
 
 export const MOMENT_BY_KEY: Record<MomentKey, MomentDef> = Object.fromEntries(MOMENTS.map((m) => [m.key, m])) as Record<MomentKey, MomentDef>;
 

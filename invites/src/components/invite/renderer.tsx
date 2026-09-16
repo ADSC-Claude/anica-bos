@@ -1657,6 +1657,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const look = lookOverride ?? withWords(theme.look, wordsOf(inv.template.words));
   const fonts = lookOverride ? lookOverride.fonts : theme.fonts;
   const own = artOf(inv.template.art);
+  // the design's own photographed parts for its moments and its opening scene
+  const ownParts = own.parts;
   const art = {
     backgrounds: CAPIZ_DEFAULT_ART.backgrounds.map((url, i) => own.backgrounds?.[i] || url),
     night: own.night?.length ? CAPIZ_DEFAULT_ART.backgrounds.map((_, i) => own.night?.[i] || own.backgrounds?.[i] || CAPIZ_DEFAULT_ART.backgrounds[i]) : undefined,
@@ -1800,6 +1802,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     return {
       style,
       clip,
+      parts: ownParts,
       monogram: plate.monogram,
       // A door, not a title page: this opening says only that an invitation is
       // here, and who it is from waits until it opens.
@@ -2034,7 +2037,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // names none depends on nothing — it is the design's own page, a
         // picture and some words — so it is always drawn.
         const parts = spec.drawn
-          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} />] : [])
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} />] : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;

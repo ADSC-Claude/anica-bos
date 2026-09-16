@@ -6,7 +6,7 @@ import { contentOf, resolveTheme } from '@/lib/invitations';
 import { cssVars, paletteFrom, fontsFrom, allFacesUrl } from '@/lib/theme';
 import { setForFaces } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
-import { studioDoc, documentOf, wordsOf, withWords } from '@/lib/design';
+import { studioDoc, documentOf, wordsOf, withWords, artOf } from '@/lib/design';
 import { designFiles } from '@/lib/design-files';
 import { signDraftLink } from '@/lib/draft-link';
 import { absoluteUrl } from '@/lib/app-url';
@@ -114,6 +114,7 @@ export default async function DesignStudioPage({ params, searchParams }: { param
         demoId={demo?.id ?? ''}
         demoTitle={demo?.title ?? ''}
         content={demo ? (contentOf(demo.content) as Record<string, unknown>) : {}}
+        parts={artOf(t.art).parts}
         against={against ? { id: against.id, slug: against.slug, title: against.title, content: contentOf(against.content) as Record<string, unknown>, tier: against.tier, status: against.status } : null}
         look={look}
         vars={vars}

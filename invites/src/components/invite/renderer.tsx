@@ -16,8 +16,8 @@ import { formatDate, formatTime } from '@/lib/datetime';
 import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey } from '@/lib/design';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1712,6 +1712,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const docGrounds = doc ? Object.fromEntries(groundPairs) : undefined;
   // the pages that sit on the picture of a page before them, where one runs on
   const runs = doc ? runOf(doc) : new Map<string, string>();
+  // the pages that sit on a picture pinned to the screen, by the page whose picture it is (pinOf)
+  const pins = doc ? pinOf(doc) : new Map<string, string>();
+  // the pinned pictures themselves, for the layer fixed behind the column
+  const pinned = doc ? doc.pages.filter((p) => pins.get(p.key) === p.key && p.ground && isPicture(p.ground)).map((p) => ({ key: p.key, url: (p.ground as { url: string }).url, night: (p.ground as { night?: string }).night })) : [];
   /** Where the peek stops: the page the design marks, or the first page. */
   const peekPage = doc ? peekEndPage(doc) : 'story';
   // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
@@ -1939,7 +1943,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean; off?: string[] } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean; off?: string[]; pin?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1961,6 +1965,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           data-outside={o.outside}
           // a picture that reaches the whole website page: PageGround lays it across the stage too, and sizes the column's copy to line up
           data-bleed={o.bleed ? '' : undefined}
+          // sits on a picture pinned to the screen (this page's own, or one before it): the page is see-through, and Pinned shows that picture behind the column
+          data-pin={o.pin}
           // told to be at least so many screens tall: the stylesheet reads --page-min against --inv-screen
           data-min={o.min !== undefined ? '' : undefined}
           data-dress={dress.kind}
@@ -1969,7 +1975,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
             ...(o.head !== undefined ? { ['--page-head' as string]: o.head } : {}),
             ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
-            ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+            ...(o.colour && !o.pin ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
             ...dress.vars,
           } as CSSProperties}
         >
@@ -2018,13 +2024,16 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // its page, dissolved into one another at the joins. PageGround lays them.
     // A design that carries a document names a ground per page, and hands
     // them over keyed by the page: the layout's own machinery below stays as
-    // the fallback for a page that names none, which is every Capiz page.
+    // the fallback for a page that names none, which is every Capiz page; a
+    // document of another layout has no fallback, and a page on a pinned
+    // picture (Pinned) gets no paper at all.
     out.push(
       <div key="ground" className="inv-ground" aria-hidden="true" />,
       babyblue ? (
         <PageGround key="ground-lay" ratio={1} order={[]} last={0} backgrounds={[]} grounds={docGrounds ?? art.grounds} seam={0.55} />
       ) : (
-        <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} grounds={docGrounds} />
+        // a document of another layout has no ground of its own to fall back on: a page that names none is the column's paper
+        <PageGround key="ground-lay" ratio={doc && !capiz ? 0 : CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} grounds={docGrounds} />
       ),
     );
     if (doc) {
@@ -2045,7 +2054,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const head = runs.get(spec.key);
         const own = spec.ground && isPicture(spec.ground);
         const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
-        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
+        const pin = pins.get(spec.key);
+        if (parts.length) out.push(page(spec.key, parts, pin
+          // no colour: a page on a pin is see-through, by night as by day
+          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: spec.minScreens, off: spec.offFlow }
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
     // a section the document does not name gets a page of its own, in its place
@@ -2076,7 +2089,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         ? 'This page carries no part yet, so a guest is shown nothing here. Put a part on it on the right, or give it a picture of its own.'
         : `A guest is shown nothing here: ${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} not written in on the invitation the canvas is drawn against. Fill ${names.length === 1 ? 'it' : 'them'} in under the Invitation tab, or draw against “Anybody” to see the page filled.`;
       return [...ground, (
-        <div key={only} className="inv-page" data-page={only} data-empty="">
+        <div key={only} className="inv-page" data-page={only} data-empty="" data-pin={pins.get(only)}>
           <section className="inv-section text-center text-sm" style={{ color: 'var(--inv-muted)', padding: '3rem 1.5rem' }}>
             <p>{why}</p>
           </section>
@@ -2223,7 +2236,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // than the body, because the colour is the design's and a variable set on
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
-    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
+    {pinned.length > 0 && !print && <Pinned pins={pinned} />}
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-pinned={pinned.length ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
       {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
       {/* a face she uploaded, served from our own bucket rather than by Google */}
       {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}

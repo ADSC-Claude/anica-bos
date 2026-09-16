@@ -1018,6 +1018,80 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
 }
 
 /**
+ * The pictures pinned to the screen (PageSpec.pin), one layer fixed behind
+ * the column, and which of them shows.
+ *
+ * A pinned picture belongs to a run of pages — its own and the ones after
+ * it that sit on it — and every page in a run carries the head's key in
+ * `data-pin`. The picture that shows is the one whose run holds the middle
+ * of the screen; as the pages of the next run reach it, that one fades in
+ * over this. Measured on scroll and on resize, a frame at a time, because
+ * where a run begins and ends is the pages' own business and changes with
+ * every answer typed. Short of the first run the first picture shows, and
+ * past the foot of one the picture just left stays until the next run
+ * arrives: a head shorter than half a screen keeps its picture, and on a
+ * laptop the sides of a page that sits on no pin keep the last one.
+ */
+export function Pinned({ pins }: { pins: { key: string; url: string; night?: string }[] }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const layer = ref.current;
+    const stage = layer?.closest<HTMLElement>('.inv-stage');
+    const inv = stage?.querySelector<HTMLElement>('.inv');
+    if (!layer || !inv) return;
+    let frame = 0;
+    const settle = () => {
+      frame = 0;
+      const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page[data-pin]'));
+      if (!pages.length) return;
+      // the runs: the first and the last page of each, by the head's key
+      const runs = new Map<string, { top: number; bottom: number }>();
+      for (const p of pages) {
+        const head = p.dataset.pin!;
+        const r = p.getBoundingClientRect();
+        const run = runs.get(head);
+        if (run) { run.top = Math.min(run.top, r.top); run.bottom = Math.max(run.bottom, r.bottom); }
+        else runs.set(head, { top: r.top, bottom: r.bottom });
+      }
+      // the middle of the layer's own box: the window, or the part of it the studio's canvas shows
+      const box = layer.getBoundingClientRect();
+      const middle = box.height > 0 ? box.top + box.height / 2 : window.innerHeight / 2;
+      // the run the middle is in; past the foot of one and short of the next, the one just left, so a
+      // head shorter than half the screen keeps its picture and the sides keep the last one on a laptop
+      let active: string | undefined;
+      for (const [head, run] of runs) if (active === undefined || run.top <= middle) active = head;
+      for (const pin of Array.from(layer.querySelectorAll<HTMLElement>('.inv-pin'))) {
+        if (pin.dataset.pin === active) pin.setAttribute('data-active', '');
+        else pin.removeAttribute('data-active');
+      }
+    };
+    const ask = () => { if (!frame) frame = requestAnimationFrame(settle); };
+    settle();
+    window.addEventListener('scroll', ask, { passive: true });
+    window.addEventListener('resize', ask);
+    // a page grows as its words arrive, and the opening's overlay leaves: both move the runs
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(ask) : null;
+    ro?.observe(inv);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', ask);
+      window.removeEventListener('resize', ask);
+      ro?.disconnect();
+    };
+  }, [pins]);
+  return (
+    <div ref={ref} className="inv-pins" aria-hidden="true">
+      {pins.map((pin) => (
+        <div key={pin.key} className="inv-pin" data-pin={pin.key} data-night-art={pin.night ? '' : undefined}>
+          <img src={pin.url} alt="" data-day="" decoding="async" />
+          {pin.night && <img src={pin.night} alt="" data-night="" decoding="async" loading="lazy" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The Capiz ground, laid to the pages: behind each page its background, in
  * order, trimmed to the page's own height — a page longer than one background
  * carries on into the next. Where a background begins it dissolves in over the
@@ -1130,7 +1204,12 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
       const stageW = stage?.clientWidth || width;
       const stageTop = stage ? stage.getBoundingClientRect().top : invTop;
       let k = 0;
+      // a page on a picture pinned to the screen is see-through to that picture (Pinned): no paper under it,
+      // and the papers on either side stop at its edges rather than dissolving into it
+      const onPin = (p: HTMLElement | undefined) => Boolean(p?.hasAttribute('data-pin'));
+      const tailPinned = onPin(pages[pages.length - 1]);
       pages.forEach((p, i) => {
+        if (onPin(p)) return;
         const r = p.getBoundingClientRect();
         const top = r.top - invTop;
         const lastPage = i === pages.length - 1;
@@ -1151,7 +1230,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           return;
         }
         const seam = seamOf(p);
-        const join = joinOf(p, pages[i - 1], seam);
+        const join = onPin(pages[i - 1]) ? { above: 0, below: 0 } : joinOf(p, pages[i - 1], seam);
         // A page with a ground of its own always sits on that one ground,
         // whatever its height. By number: a page up to a tenth taller than one
         // background (with the seam it reaches into) stays on one, drawn a
@@ -1191,7 +1270,8 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const nextHalf = final ? 0 : segs[i + 1].below;
         const out = final ? 0 : segs[i + 1].above + segs[i + 1].below;
         const top = first ? s.top : s.top - half;
-        const bottom = final ? inv.scrollHeight : s.top + s.height + nextHalf;
+        // the last paper runs to the column's foot — unless the pages there sit on a pinned picture
+        const bottom = final ? (tailPinned ? s.top + s.height : inv.scrollHeight) : s.top + s.height + nextHalf;
         const box = bottom - top;
         const z = 2 * (segs.length - i);
         const g = s.own;

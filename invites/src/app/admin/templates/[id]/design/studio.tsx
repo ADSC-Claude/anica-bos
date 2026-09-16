@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, bleeds, runOf, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, bleeds, runOf, pinOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
@@ -711,11 +711,15 @@ export function Studio(p: Props) {
     setDrop({ busy: true, error: '' });
     try {
       const g = found?.ground ?? await groundFromUrl(url);
-      // A flow page can run past its ground, so it needs the three cuts. A
-      // shipped ground already has its own, cut by hand when it shipped; one
-      // she uploaded is cut here, from the file already on the server.
-      const slices = page?.drawn ? undefined : g.slices ?? await cutFromUrl(url, p.templateId);
-      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(slices ? { slices } : {}) });
+      // A picture wider than it is tall on a page laid out by its words is
+      // a screen: it is pinned to the window and the words move over it, so
+      // it is never cut. A tall one flows down the page with the words and
+      // can run past its foot, which is what the three cuts are for. A
+      // shipped ground already has its own, cut by hand when it shipped;
+      // one she uploaded is cut here, from the file already on the server.
+      const pinned = !page?.drawn && g.ratio < 1;
+      const slices = page?.drawn || pinned ? undefined : g.slices ?? await cutFromUrl(url, p.templateId);
+      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(slices ? { slices } : {}) }, pinned);
       setDrop({ busy: false, error: '' });
     } catch (e) {
       setDrop({ busy: false, error: (e as Error).message });
@@ -1064,6 +1068,14 @@ export function Studio(p: Props) {
   /** the pages that sit on a picture running on from a page before them, by the head's key */
   const runs = useMemo(() => runOf(doc), [doc]);
   const joinedTo = page ? runs.get(page.key) : undefined;
+  /** the pages that scroll over a picture pinned to the screen on a page before them, by the head's key */
+  const pins = useMemo(() => pinOf(doc), [doc]);
+  const pinnedOn = useMemo(() => {
+    const head = page ? pins.get(page.key) : undefined;
+    if (!head || head === page?.key) return undefined;
+    const on = doc.pages.find((x) => x.key === head);
+    return on?.label?.en || head;
+  }, [doc, page, pins]);
 
   /** What the page she is on carries, on a page laid out by its words. */
   const pieces = useMemo(
@@ -1114,12 +1126,62 @@ export function Studio(p: Props) {
     try { return sectionLabel(key as SectionKey, p.occasion); } catch { return key; }
   }, [p.occasion]);
 
-  /** The page's background: a picture she uploads, a colour from the palette, or nothing. */
-  function setGround(ground: Ground | undefined) {
+  /**
+   * The page's background: a picture she uploads, a colour from the palette,
+   * or nothing. A picture may come pinned to the screen (`pin`); a colour or
+   * nothing never is, and the pin goes with the picture it was on.
+   */
+  function setGround(ground: Ground | undefined, pin = false) {
     editPage((pg) => {
       const next: PageSpec = { ...pg, ground };
       // a page with a ground of known proportions can be drawn on; one with none cannot
       if (!ground) next.drawn = undefined;
+      if (pin && ground && isPicture(ground) && !next.drawn) next.pin = true; else delete next.pin;
+      return next;
+    });
+  }
+
+  /**
+   * How the page's picture sits. Pinned, it fills the window and stays put
+   * while the words move over it, on down the pages after until one brings
+   * a picture of its own — so it neither runs on under the pages after (it
+   * is already there) nor reaches or stops short of the window's edge (it is
+   * the window). Down the page, it flows with the words and can run past its
+   * foot, which wants the three cuts: a picture pinned when it arrived was
+   * never cut, so it is cut here, from the file already on the server.
+   */
+  async function setPin(pin: boolean) {
+    if (!page || page.drawn || !page.ground || !isPicture(page.ground)) return;
+    if (pin) {
+      editPage((pg) => {
+        const next: PageSpec = { ...pg, pin: true };
+        delete next.bleed;
+        if (next.ground && isPicture(next.ground) && next.ground.runsOn) {
+          const g = { ...next.ground };
+          delete g.runsOn;
+          next.ground = g;
+        }
+        return next;
+      });
+      return;
+    }
+    const g = page.ground;
+    let slices = g.slices;
+    if (!slices) {
+      setDrop({ busy: true, error: '' });
+      try {
+        slices = await cutFromUrl(g.url, p.templateId);
+        setDrop({ busy: false, error: '' });
+      } catch (e) {
+        setDrop({ busy: false, error: (e as Error).message });
+        return;
+      }
+    }
+    const cut = slices;
+    editPage((pg) => {
+      const next: PageSpec = { ...pg };
+      delete next.pin;
+      if (next.ground && isPicture(next.ground) && !next.ground.slices) next.ground = { ...next.ground, slices: cut };
       return next;
     });
   }
@@ -1646,6 +1708,20 @@ export function Studio(p: Props) {
     const top = r.top + win.scrollY;
     setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
     /*
+     * A picture pinned to the screen is a layer fixed to the frame's
+     * window — and the frame's window is the whole page, of which the
+     * canvas shows this page's box. The layer is told the box, so the
+     * picture fills it as it would fill a screen, and the layer's own
+     * measuring is asked to run again over the new box.
+     */
+    const pinsLayer = win.document.querySelector<HTMLElement>('.inv-pins');
+    if (pinsLayer) {
+      pinsLayer.style.top = `${top}px`;
+      pinsLayer.style.height = `${r.height}px`;
+      pinsLayer.style.bottom = 'auto';
+      win.dispatchEvent(new Event('resize'));
+    }
+    /*
      * The page's own writings, where the frame drew them. Each is a handle
      * on the canvas she can drag off the flow into a box of its own. The
      * role is read off the class the renderer set, so the box is set the
@@ -1701,7 +1777,8 @@ export function Studio(p: Props) {
     const pg = win?.document.querySelector<HTMLElement>(`[data-page="${page.key}"]`);
     if (!win || !pg) return;
     const g = page.ground;
-    pg.style.background = g && !isPicture(g) ? colourOf(g.color, vars) : '';
+    // a page on a picture pinned to the screen is see-through: its colour waits (pinOf)
+    pg.style.background = g && !isPicture(g) && !pins.has(page.key) ? colourOf(g.color, vars) : '';
     pg.style.minHeight = page.minScreens ? `calc(var(--inv-screen, 100dvh) * ${page.minScreens})` : '';
     const beside = outsideOf(page);
     const stage = win.document.querySelector<HTMLElement>('.inv-stage');
@@ -1709,7 +1786,7 @@ export function Studio(p: Props) {
       if (beside) stage.style.setProperty('--inv-outside', `linear-gradient(${colourOf(beside, vars)}, ${colourOf(beside, vars)})`);
       else stage.style.removeProperty('--inv-outside');
     }
-  }, [framed, page, vars]);
+  }, [framed, page, vars, pins]);
   /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
   const flowLoaded = useCallback(() => {
     setDrawing(false);
@@ -2382,6 +2459,8 @@ export function Studio(p: Props) {
             onChange={editPage}
             onGround={setGround}
             onRunsOn={setRunsOn}
+            onPin={(pin) => void setPin(pin)}
+            pinnedOn={pinnedOn}
             joinedTo={joinedTo ? (doc.pages.find((x) => x.key === joinedTo)?.label?.en || joinedTo) : undefined}
             templateId={p.templateId}
             vars={vars}
@@ -4606,14 +4685,19 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, vars, sections, pieces, dress }: {
+function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
-  onGround: (g: Ground | undefined) => void;
+  /** the background; a picture may come pinned to the screen */
+  onGround: (g: Ground | undefined, pin?: boolean) => void;
   /** how many pages after this one its picture runs on under */
   onRunsOn: (n: number) => void;
+  /** whether its picture is pinned to the screen or flows down the page with the words */
+  onPin: (pin: boolean) => void;
   /** the page whose picture runs on under this one, by name, when this page sits on one */
   joinedTo?: string;
+  /** the page whose picture is pinned to the screen under this one, by name, when this page scrolls over one */
+  pinnedOn?: string;
   templateId: string;
   vars: Record<string, string>;
   sections: SectionTools;
@@ -4651,7 +4735,8 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
       // page is exactly its ground's height and never needs them, so it is
       // not made to upload three more files.
       const up = await uploadGround(file, templateId, !page?.drawn);
-      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom, ...(up.slices ? { slices: up.slices } : {}) });
+      // wider than tall on a page laid out by its words: a screen, pinned to the window
+      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom, ...(up.slices ? { slices: up.slices } : {}) }, !page?.drawn && up.ratio < 1);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -4921,7 +5006,30 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
           * across was to cut it by hand. The head says how far it runs; the
           * pages under it say so on their own Background, above.
           */}
+        {/*
+          * How the picture sits. Pinned, it is the screen: it fills the
+          * window, a phone showing the middle of it, and stays put while
+          * the words move over it — on down the pages after, until one
+          * brings a picture of its own. Down the page, it flows with the
+          * words, as a tall design meant to be read top to bottom does.
+          */}
         {ground && isPicture(ground) && !page.drawn && (
+          <div className="mt-2" data-testid="pin">
+            <p className="label">How the picture sits</p>
+            <div className="mt-1 flex flex-col gap-1">
+              {([[true, 'Pinned to the screen', 'It fills the window and stays put while the words move over it, on down the pages after until one has a picture of its own. A phone shows the middle of it.'], [false, 'Down the page with the words', 'It flows with the words, top to bottom, the way a tall design is meant to be read, and can run on under the pages after.']] as const).map(([pin, name, hint]) => (
+                <label key={String(pin)} className="flex items-start gap-2">
+                  <input type="radio" name={`pin-${page.key}`} checked={Boolean(page.pin) === pin} onChange={() => onPin(pin)} disabled={busy} className="mt-0.5 h-4 w-4" />
+                  <span>
+                    {name}
+                    <span className="hint block">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        {ground && isPicture(ground) && !page.drawn && !page.pin && (
           <label className="mt-2 block">
             <span className="label">Runs on under</span>
             <select className="input w-full text-xs" value={ground.runsOn ?? 0} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
@@ -4936,6 +5044,11 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
               Where the pages run past the picture&rsquo;s foot, it keeps its head and its foot whole and stretches the band between.
             </span>
           </label>
+        )}
+        {pinnedOn && !page.drawn && (
+          <p className="hint mt-2" data-testid="pinned-on">
+            This page scrolls over the picture pinned to the screen on <strong>{pinnedOn}</strong>, and a colour of its own waits until that ends. A picture of its own ends it here.
+          </p>
         )}
         <p className="label mt-2">or a colour</p>
         <div className="mt-1 flex flex-wrap gap-1">
@@ -4973,7 +5086,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
           * Kept to the column, the colour beside it is the design's own
           * surround (Theme…, Beside it) or one said here.
           */}
-        {ground && (
+        {ground && !page.pin && (
           <label className="mt-2 flex items-start gap-2" data-testid="bleed">
             <input
               type="checkbox"
@@ -4987,7 +5100,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
             </span>
           </label>
         )}
-        {!bleeds(page) && (
+        {!bleeds(page) && !page.pin && (
           <>
             <p className="label mt-2">Beside the page, on a laptop</p>
             <div className="mt-1 flex items-center gap-1" data-testid="outside">
@@ -5480,7 +5593,7 @@ function GuideDrawer() {
         <>
           <div className="mb-2 rounded bg-[color:var(--color-sand-100)] p-2">
             <p className="font-semibold">The website and the phone</p>
-            <p className="mt-0.5 text-[color:var(--color-ink-700)]">The canvas is the website at <span className="font-mono">1280</span> px wide; the invitation column on it is <span className="font-mono">512</span> px; the phone is <span className="font-mono">390</span> px. A picture behind the whole page: <span className="font-mono">1920 &times; 1080</span> px to stretch across the window, or a <span className="font-mono">400 &times; 400</span> px tile to repeat. A tall page background meant to flow down several pages: upload it on the first of them and set <em>Runs on under</em> on that page&rsquo;s Background.</p>
+            <p className="mt-0.5 text-[color:var(--color-ink-700)]">The canvas is the website at <span className="font-mono">1280</span> px wide; the invitation column on it is <span className="font-mono">512</span> px; the phone is <span className="font-mono">390</span> px. A picture pinned to the screen behind a page&rsquo;s words, or behind the whole page: <span className="font-mono">1920 &times; 1080</span> px, the window&rsquo;s own shape &mdash; a phone shows the middle of it &mdash; or a <span className="font-mono">400 &times; 400</span> px tile to repeat behind the whole page. A tall page background meant to flow down several pages: upload it on the first of them and set <em>Runs on under</em> on that page&rsquo;s Background.</p>
           </div>
           <p className="hint">Type the first size into Canva&rsquo;s <strong>Custom size</strong>, in pixels. The second is for artwork with fine detail; nothing needs more.</p>
           <ul className="mt-2 space-y-2">

@@ -680,6 +680,31 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
 /* a picture that reaches the whole website page: a band beside the column, under it (PageGround) */
 .inv-stage > .inv { position: relative; z-index: 1; }
+/* --- a picture pinned to the screen (PageSpec.pin) ---------------------------
+   The picture is not laid in the column at all: it fills the window on a
+   layer fixed behind the column, and stays put while the words move over
+   it. Pinned pictures crossfade as the pages on them come and go (Pinned,
+   in client.tsx, marks the one whose pages hold the middle of the screen).
+   The column goes see-through over the pages that sit on a pin; every
+   other page keeps its own paper, since the column's one colour can no
+   longer be the paper for all of them. */
+.inv-pins { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.inv-pin { position: absolute; inset: 0; opacity: 0; transition: opacity 520ms ease; }
+.inv-pin[data-active] { opacity: 1; }
+.inv-pin img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+.inv-pin img[data-night] { display: none; }
+.inv-stage:has(.inv[data-mode='night']) .inv-pin img[data-night] { display: block; }
+.inv-stage:has(.inv[data-mode='night']) .inv-pin[data-night-art] img[data-day] { display: none; }
+/* by night a day picture is turned down, the way the column's own papers are */
+.inv-stage:has(.inv[data-mode='night']) .inv-pin:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; }
+.inv[data-paged][data-pinned] { background-color: transparent; }
+.inv[data-paged][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--inv-paper, #f2e8dc); }
+.inv[data-paged][data-mode='night'][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--night-paper, #1a1b26); }
+@media (prefers-reduced-motion: reduce) { .inv-pin { transition: none; } }
+@media print {
+  .inv-pins { display: none; }
+  .inv[data-paged][data-pinned] { background-color: var(--inv-paper, #f2e8dc); }
+}
 .inv-stage > .inv-beside { z-index: 0; overflow: hidden; pointer-events: none; }
 .inv-stage > .inv-beside > video, .inv-stage > .inv-beside > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .inv-paper {

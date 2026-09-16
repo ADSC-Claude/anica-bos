@@ -1,7 +1,7 @@
 import type { Occasion, Tier } from '@prisma/client';
 import { PALETTE_PRESETS, FONT_PRESETS } from '../src/lib/theme';
 import type { LookKey } from '../src/lib/looks';
-import type { DesignWords } from '../src/lib/design';
+import { builtinDesign, type DesignDoc, type DesignWords } from '../src/lib/design';
 import { premiumOpeningsFor } from '../src/lib/premium-openings';
 
 /**
@@ -56,6 +56,12 @@ export type TemplateSeed = {
    * offers the peek only where that invitation exists on this design.
    */
   demo?: string;
+  /**
+   * The document the design ships with, where it has one. Capiz carries its
+   * storyline moments this way. The sync writes it only into a row whose
+   * column is still empty: a document the studio has published is hers.
+   */
+  design?: DesignDoc;
   /** Kept for the invitations on it, but not on sale. */
   retired?: boolean;
 };
@@ -97,7 +103,7 @@ export const TEMPLATES: TemplateSeed[] = [
       },
     },
   },
-  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg', demo: 'juan-and-maria' },
+  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg', demo: 'juan-and-maria', design: builtinDesign('capiz')! },
 ];
 
 /** The Prisma payload for one row. `sortOrder` is its position in the list. */
@@ -129,6 +135,8 @@ export function templateData(t: TemplateSeed, sortOrder: number) {
     description: t.description,
     thumbnailUrl: t.thumb,
     demoSlug: t.demo ?? '',
+    // only where the catalogue ships one: a row with no document of its own is left as the studio finds it
+    ...(t.design ? { design: t.design } : {}),
     sortOrder,
     published: !t.retired,
   };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
 
 /**
@@ -428,13 +428,21 @@ function Scratch({ open, state, frost }: { open: () => void; state: MomentState;
         return;
       }
       const accent = cs.getPropertyValue('--inv-accent').trim() || '#a08a5a';
-      // brushed foil: the accent under a diagonal sheen and fine lines
-      const g = ctx.createLinearGradient(0, 0, c.width, c.height);
-      g.addColorStop(0, accent); g.addColorStop(0.45, 'rgba(255,255,255,0.55)'); g.addColorStop(0.55, accent); g.addColorStop(1, 'rgba(0,0,0,0.25)');
+      // brushed foil: the accent as a metal — two bands of light across it at a slant, fine brushing along
+      // the length, a tarnish in the corners and one hairline of light round the edge
       ctx.fillStyle = accent; ctx.fillRect(0, 0, c.width, c.height);
+      const g = ctx.createLinearGradient(0, 0, c.width, c.height * 0.6);
+      g.addColorStop(0, 'rgba(0,0,0,0.28)'); g.addColorStop(0.22, 'rgba(255,255,255,0.5)'); g.addColorStop(0.36, 'rgba(0,0,0,0.05)');
+      g.addColorStop(0.58, 'rgba(255,255,255,0.32)'); g.addColorStop(0.72, 'rgba(0,0,0,0.12)'); g.addColorStop(1, 'rgba(0,0,0,0.34)');
       ctx.fillStyle = g; ctx.fillRect(0, 0, c.width, c.height);
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
-      for (let y = 0; y < c.height; y += 3) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(c.width, y); ctx.stroke(); }
+      for (let y = 0; y < c.height; y += 3) {
+        ctx.strokeStyle = y % 9 === 0 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.045)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(c.width, y + 0.5); ctx.stroke();
+      }
+      const v = ctx.createRadialGradient(c.width / 2, c.height / 2, c.width * 0.3, c.width / 2, c.height / 2, c.width * 0.85);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.22)');
+      ctx.fillStyle = v; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, c.width - 2, c.height - 2);
       ctx.globalCompositeOperation = 'destination-out';
     };
     paint();
@@ -564,6 +572,8 @@ function Tiles({ id, photo, open, state, still }: { id: string; photo?: string; 
  */
 export function Scene({ scene, variant, photos = [], monogram, words }: { scene: MomentKey; variant?: string; photos?: string[]; monogram?: string; words?: ReactNode }) {
   const photo = photos[0];
+  // the gradients a scene's SVG paints with are defined inside it, and two of the same scene on one page must not share an id
+  const uid = useId().replace(/:/g, '');
   switch (scene) {
     case 'envelope':
     case 'seal':
@@ -659,8 +669,14 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           <span className="inv-mo-box-base">
             <span className="inv-mo-cushion" />
             <svg className="inv-mo-ring" viewBox="0 0 60 60">
-              <circle cx="30" cy="34" r="17" />
-              <path className="inv-mo-stone" d="M30 8 L38 16 L30 24 L22 16 Z" />
+              <defs>
+                <linearGradient id={`${uid}-au`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f8ecc2" /><stop offset="0.45" stopColor="#d9b45e" /><stop offset="1" stopColor="#8f6d2a" /></linearGradient>
+              </defs>
+              <circle cx="30" cy="36" r="16" style={{ stroke: `url(#${uid}-au)` }} />
+              <path className="inv-mo-stone" d="M30 6 L40 15 L30 26 L20 15 Z" />
+              <path className="inv-mo-facet" d="M30 6 L20 15 L30 15 Z" />
+              <path className="inv-mo-facet" data-i="1" d="M30 6 L40 15 L30 15 Z" />
+              <path className="inv-mo-glint" d="M30 8 L31.2 13.8 L37 15 L31.2 16.2 L30 22 L28.8 16.2 L23 15 L28.8 13.8 Z" />
             </svg>
           </span>
         </span>
@@ -755,7 +771,7 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           {[0, 1, 2].map((i) => (
             <span key={i} className="inv-mo-print" data-i={i}>
               <span className="inv-mo-print-photo">{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>
-              <span className="inv-mo-print-caption" />
+              <span className="inv-mo-print-caption">{i === 0 ? words : null}</span>
             </span>
           ))}
         </span>
@@ -795,14 +811,28 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
           <span className="inv-mo-cloud" data-side="r" />
         </span>
       );
-    case 'cheers':
+    case 'cheers': {
+      // a flute: the bowl over the champagne, the stem, the foot — glass drawn as a light gradient with a white edge
+      const flute = (side: 'l' | 'r') => (
+        <svg className="inv-mo-flute" data-side={side} viewBox="0 0 60 190">
+          <defs>
+            <linearGradient id={`${uid}-gl-${side}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="rgba(255,255,255,0.6)" /><stop offset="0.35" stopColor="rgba(255,255,255,0.08)" /><stop offset="0.7" stopColor="rgba(255,255,255,0.28)" /><stop offset="1" stopColor="rgba(255,255,255,0.7)" /></linearGradient>
+            <linearGradient id={`${uid}-ch-${side}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f7e6ab" /><stop offset="1" stopColor="#d6a442" /></linearGradient>
+          </defs>
+          <path d="M20 40 Q30 36 40 40 L40.5 78 Q40 98 30 106 Q20 98 19.5 78 Z" fill={`url(#${uid}-ch-${side})`} />
+          {[0, 1, 2, 3, 4, 5].map((i) => <circle key={i} className="inv-mo-bubble" style={{ ['--b' as string]: String(i) }} cx={24 + ((i * 7) % 13)} cy={100 - i * 6} r={i % 3 === 0 ? 1.3 : 0.8} />)}
+          <path className="inv-mo-glass" d="M17 6 Q30 2 43 6 L41 78 Q41 100 32 108 L32 166 L47 174 L47 180 L13 180 L13 174 L28 166 L28 108 Q19 100 19 78 Z" fill={`url(#${uid}-gl-${side})`} />
+          <ellipse className="inv-mo-rim" cx="30" cy="6" rx="13" ry="2" />
+        </svg>
+      );
       return (
         <span className="inv-mo inv-mo-cheers" aria-hidden>
-          <span className="inv-mo-flute" data-side="l"><span className="inv-mo-bowl" /><span className="inv-mo-stem" /><span className="inv-mo-foot" /></span>
-          <span className="inv-mo-flute" data-side="r"><span className="inv-mo-bowl" /><span className="inv-mo-stem" /><span className="inv-mo-foot" /></span>
+          {flute('l')}
+          {flute('r')}
           <span className="inv-mo-clink" />
         </span>
       );
+    }
     // ── Surprise ──
     case 'scratch':
       // the foil is the canvas the box adds; the card under it is the reveal

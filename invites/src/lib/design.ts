@@ -421,6 +421,12 @@ export type PageSpec = {
    * cannot have without a release.
    */
   footPad?: number;
+  /**
+   * The same room at the head. A moment or a flourish hung off the top of a
+   * page laid out by its words needs the words to start below it; this is
+   * how far below, as a multiple of the usual gap. Absent is 1.
+   */
+  headPad?: number;
   /** a drawn page: its height is the ground's ratio times its width, and its elements are placed */
   drawn?: true;
   /**
@@ -1019,7 +1025,8 @@ const zPage = z.object({
   sections: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(30),
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
-  footPad: z.number().min(0).max(5).optional(),
+  footPad: z.number().min(0).max(12).optional(),
+  headPad: z.number().min(0).max(12).optional(),
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
@@ -1266,10 +1273,66 @@ export const CAPIZ_PAGES: PageDef[] = [
   { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
 ];
 
+/**
+ * The storyline Capiz plays, in the owner's words: tap the wax seal (the
+ * opening clip) → the invitation begins → tap the camera in Our Story and a
+ * print develops → swipe the curtains for the prenup → tap the church doors
+ * for the ceremony → scratch a surprise message at the close.
+ *
+ * Each moment reads the customer's own form — the camera the story's photo
+ * and a line for its print, the curtains the first prenup photograph, the
+ * doors the church photo, the scratch card a surprise line at the close — so
+ * the form asks for exactly what they need, and a Capiz whose customer left
+ * them blank shows none of them. Every one hangs off the head of its page
+ * with the words starting below it (`headPad`), except the scratch card,
+ * which is the last thing on the closing page (`footPad`). The room is the
+ * moment's own height plus its gap, in multiples of the usual gap, worked
+ * out for both a phone and the capped laptop column.
+ */
+const CAPIZ_STORYLINE: Record<string, { headPad?: number; footPad?: number; elements: Element[] }> = {
+  story: {
+    headPad: 8,
+    elements: [{
+      id: 'story-camera', kind: 'moment', moment: 'instant-camera', x: 50, y: 4, w: 58, ask: true, ifEmpty: 'leave', plays: 'once',
+      photos: [{ bind: { section: 'story', field: 'photo' } }],
+      lines: [{ role: 'caption', sources: [{ bind: { section: 'story', field: 'caption' } }] }],
+    }],
+  },
+  prenup: {
+    headPad: 11,
+    elements: [{
+      id: 'prenup-curtains', kind: 'moment', moment: 'curtains', x: 50, y: 4, w: 84, ask: true, ifEmpty: 'leave', plays: 'once',
+      photos: [{ bind: { section: 'gallery', field: 'photos', index: 0, sub: 'url' } }],
+    }],
+  },
+  invitation: {
+    headPad: 10,
+    elements: [{
+      id: 'church-doors', kind: 'moment', moment: 'doors', variant: 'church', x: 50, y: 4, w: 84, ask: true, ifEmpty: 'leave', plays: 'once',
+      photos: [{ bind: { section: 'ceremony', field: 'photo' } }],
+    }],
+  },
+  closing: {
+    footPad: 6,
+    elements: [{
+      id: 'closing-scratch', kind: 'moment', moment: 'scratch', x: 50, y: 4, w: 80, from: 'bottom', ask: true, ifEmpty: 'leave', plays: 'once',
+      lines: [{ role: 'body', sources: [{ bind: { section: 'closing', field: 'surprise' } }] }],
+    }],
+  },
+};
+
 function capizDesign(): DesignDoc {
   return {
     v: 1,
-    pages: CAPIZ_PAGES.map((def) => ({ key: def.key, sections: [...def.sections], ...(def.key === 'story' ? { peekEnd: true as const } : {}) })),
+    pages: CAPIZ_PAGES.map((def) => {
+      const story = CAPIZ_STORYLINE[def.key];
+      return {
+        key: def.key,
+        sections: [...def.sections],
+        ...(def.key === 'story' ? { peekEnd: true as const } : {}),
+        ...(story ? { elements: story.elements.map((el) => ({ ...el })), ...(story.headPad ? { headPad: story.headPad } : {}), ...(story.footPad ? { footPad: story.footPad } : {}) } : {}),
+      };
+    }),
     // as above: Capiz's own two, out of the stylesheet and into the design
     paper: '#f0dccb',
     surround: '#e9dfd2',

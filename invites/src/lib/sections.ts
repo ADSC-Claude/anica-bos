@@ -702,6 +702,8 @@ const SECTION_DEFS: SectionDef[] = [
       }
       return [
         line,
+        // the line written on the print an instant camera gives, where a design carries one
+        text('caption', 'A line for the photo', { staff: true, byDesign: true, placeholder: 'e.g. Sagada, before sunrise', hint: 'Written under the photo, on designs that carry a print or a caption.' }),
         textarea('howWeMet', 'How we met', { examples: HOW_WE_MET_EXAMPLES }),
         textarea('proposal', 'The proposal', { examples: PROPOSAL_EXAMPLES }),
         list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
@@ -898,6 +900,8 @@ const SECTION_DEFS: SectionDef[] = [
         ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true })]
         : []),
       textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
+      // a surprise a guest uncovers, where a design hides one: under a scratch card, behind a code
+      textarea('surprise', 'A surprise for your guests', { staff: true, byDesign: true, placeholder: 'e.g. Look under your seat at the reception — there is a little something from us.', hint: 'Hidden on the page until a guest uncovers it.' }),
       text('signature', 'Signed', { placeholder: 'Juan & Maria' }),
       text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line.", staff: true }),
     ],

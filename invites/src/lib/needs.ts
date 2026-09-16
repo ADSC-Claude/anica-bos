@@ -401,7 +401,8 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
         // a photograph slot that reads nothing: the scene opens onto a blank
         const slots = m.photos ?? [];
         const wants = def?.photos.count ?? 0;
-        if (wants > 0 && (!slots.length || slots.some((p) => 'asset' in p.bind && !p.bind.asset)) && m.ifEmpty !== 'leave') {
+        const saysSomething = (m.lines ?? []).some((l) => l.sources.some((s) => 'bind' in s || ('fixed' in s && s.fixed.en)));
+        if (wants > 0 && (!slots.length || slots.some((p) => 'asset' in p.bind && !p.bind.asset)) && m.ifEmpty !== 'leave' && !(def?.words && saysSomething && !slots.length)) {
           say('blocks', 'moment-photo', `${name} opens onto ${def?.photos.label || 'a photograph'}, and no photograph is linked. Point it at a field the customer fills, or at a picture from the library, or mark it to leave out when empty.`, el.id);
         }
         if (m.moment === 'code' && !m.code) say('blocks', 'moment-code', `${name} has no code to unlock it.`, el.id);

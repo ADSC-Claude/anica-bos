@@ -242,6 +242,8 @@ async function main() {
   Object.assign(content.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Maria S.', gcashNumber: '0917 123 4567', gcashQr: pic('gcash-qr', 400, 400), bankDetails: 'BPI · Juan Carlos Dela Cruz · 1234 5678 90', registry: [] });
   Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
   Object.assign(content.story!, {
+    photo: pic('story-snapshot', 900, 900),
+    caption: 'Sagada, before the sunrise crowd',
     howWeMet: 'We met in 2018 at a friend’s despedida in Katipunan — Juan spilled a whole cup of taho on Maria’s shoes and offered to buy her new ones. She said yes to the shoes, and eventually to everything else.',
     proposal: 'On a quiet morning in Sagada, before the sunrise crowd arrived, Juan asked. Maria cried so much the tour guide thought something was wrong.',
     timeline: [{ date: 'June 2018', title: 'The taho incident', text: 'Katipunan, Quezon City.', photo: pic('story-1', 800, 600) }, { date: 'December 2019', title: 'First trip together', text: 'Baguio, in a jeepney, freezing.', photo: pic('story-2', 800, 600) }, { date: 'February 2025', title: 'She said yes', text: 'Kiltepan viewpoint, Sagada.', photo: pic('story-3', 800, 600) }],
@@ -255,7 +257,7 @@ async function main() {
   Object.assign(content.music!, { song: 'Ikaw — Yeng Constantino', start: 65, url: '' });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
   Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });
-  Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900) });
+  Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900), surprise: 'Look under your seat at the reception — there is a little something from us. Open it at the toast.' });
 
   const demo = await prisma.invitation.create({
     data: {

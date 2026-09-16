@@ -164,13 +164,17 @@ test('the ten Baby Blue pages are the ten the renderer has always walked', () =>
 });
 
 /** A design's document is the design's. The catalogue sync must never write one. */
-test('templateData emits no design, no draft and no art', () => {
+test('templateData emits no draft and no art, and a design only where the catalogue ships one', () => {
   for (const [i, t] of TEMPLATES.entries()) {
     const row = templateData(t, i) as Record<string, unknown>;
-    for (const key of ['design', 'designDraft', 'designDraftRev', 'art']) {
+    for (const key of ['designDraft', 'designDraftRev', 'art']) {
       assert.equal(key in row, false, `${t.slug} carries ${key}`);
     }
+    assert.equal('design' in row, Boolean(t.design), `${t.slug} ${t.design ? 'should carry' : 'carries'} a design`);
   }
+  // Capiz ships its storyline; Baby Blue keeps the renderer's own path
+  assert.deepEqual(templateData(TEMPLATES.find((t) => t.slug === 'capiz')!, 0).design, builtinDesign('capiz'));
+  assert.equal('design' in templateData(TEMPLATES.find((t) => t.slug === 'baby-blue')!, 0), false);
 });
 
 /**
@@ -228,13 +232,24 @@ test('designOf: empty means the built-in, and what will not parse is named', () 
 });
 
 /** Capiz has no drawn page: its document is the page map, which is what a copy of it needs. */
-test('Capiz is a document too, and it is the page map the renderer walks', () => {
+test('Capiz is a document too: the page map the renderer walks, carrying the storyline', () => {
   const capiz = builtinDesign('capiz')!;
   assert.deepEqual(capiz.pages.map((p) => p.key), CAPIZ_PAGES.map((d) => d.key));
   assert.deepEqual(capiz.pages.map((p) => p.sections), CAPIZ_PAGES.map((d) => d.sections));
   // no ground of its own: the numbered backgrounds are the layout's machinery
   assert.equal(capiz.pages.every((p) => p.ground === undefined), true);
-  assert.equal(capiz.pages.every((p) => p.elements === undefined), true);
+  // the storyline: four moments on four pages, each reading the customer's form, and nothing drawn anywhere else
+  const withMoments = capiz.pages.filter((p) => (p.elements ?? []).length > 0);
+  assert.deepEqual(withMoments.map((p) => p.key), ['story', 'invitation', 'prenup', 'closing']);
+  assert.deepEqual(withMoments.flatMap((p) => p.elements!.map((el) => el.kind === 'moment' ? `${el.moment}${el.variant ? '/' + el.variant : ''}` : el.kind)), ['instant-camera', 'doors/church', 'curtains', 'scratch']);
+  for (const p of withMoments) for (const el of p.elements!) {
+    assert.equal(el.ask, true, `${el.id} asks`);
+    // every photograph and every line is the customer's, never a fixed asset the demo would show for everyone
+    if (el.kind === 'moment') for (const ph of el.photos ?? []) assert.equal('asset' in ph.bind, false, `${el.id} binds a field`);
+  }
+  // the words start below a moment hung off the head, and the scratch card has the foot to itself
+  assert.equal(capiz.pages.find((p) => p.key === 'story')?.headPad, 8);
+  assert.equal(capiz.pages.find((p) => p.key === 'closing')?.footPad, 6);
   assert.equal(capiz.pages.find((p) => p.peekEnd)?.key, 'story');
   assert.equal(builtinDesign('classic'), null);
 });

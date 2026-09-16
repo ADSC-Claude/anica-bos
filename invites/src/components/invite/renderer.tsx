@@ -1936,7 +1936,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean; off?: string[] } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean; off?: string[] } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1950,6 +1950,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           data-run={o.run}
           data-seam={o.seam}
           data-foot={o.foot !== undefined ? '' : undefined}
+          data-head={o.head !== undefined ? '' : undefined}
           data-drawn={o.drawn ? '' : undefined}
           data-grow={o.grow ? '' : undefined}
           data-ground={o.colour}
@@ -1963,6 +1964,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           style={{
             ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
+            ...(o.head !== undefined ? { ['--page-head' as string]: o.head } : {}),
             ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
             ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
             ...dress.vars,
@@ -2040,7 +2042,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const head = runs.get(spec.key);
         const own = spec.ground && isPicture(spec.ground);
         const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
-        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
+        if (parts.length) out.push(page(spec.key, parts, { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: spec.drawn ? undefined : spec.minScreens, bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
     // a section the document does not name gets a page of its own, in its place

@@ -4693,12 +4693,26 @@ function PageProps({ page, onChange, onGround, onRunsOn, joinedTo, templateId, v
         <label className="block">
           <span className="label">Room at the foot</span>
           <input
-            type="number" step={0.25} min={0} max={5}
+            type="number" step={0.25} min={0} max={12}
             value={page.footPad ?? ''}
             placeholder="1"
             onChange={(e) => {
-              const v = e.target.value === '' ? undefined : Math.min(5, Math.max(0, Number(e.target.value)));
+              const v = e.target.value === '' ? undefined : Math.min(12, Math.max(0, Number(e.target.value)));
               onChange((pg) => { const next = { ...pg, footPad: v }; if (v === undefined) delete next.footPad; return next; });
+            }}
+            className="input w-full"
+          />
+        </label>
+        {/* the same at the head: the words start this far down, so a moment hung off the top has the page to itself above them */}
+        <label className="block">
+          <span className="label">Room at the head</span>
+          <input
+            type="number" step={0.25} min={0} max={12}
+            value={page.headPad ?? ''}
+            placeholder="1"
+            onChange={(e) => {
+              const v = e.target.value === '' ? undefined : Math.min(12, Math.max(0, Number(e.target.value)));
+              onChange((pg) => { const next = { ...pg, headPad: v }; if (v === undefined) delete next.headPad; return next; });
             }}
             className="input w-full"
           />

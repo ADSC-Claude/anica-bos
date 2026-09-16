@@ -29,7 +29,21 @@ export const PAGE_SHAPES: Shape[] = [
   { key: 'screen', label: 'One screen', ratio: ONE_SCREEN, use: 'A cover, or a page that is one picture and a few words.' },
   { key: 'screen-half', label: 'One and a half screens', ratio: round(ONE_SCREEN * 1.5), use: 'A page with a heading and a short list under it.' },
   { key: 'two', label: 'Two screens', ratio: round(ONE_SCREEN * 2), use: 'A page of photographs, or a programme.' },
-  { key: 'three', label: 'Three screens', ratio: 2.989, use: 'A long page, scrolled: Baby Blue’s cover, story and closing are all this shape.' },
+  /*
+   * One and two-thirds, said plainly, because that is what 2.989 is.
+   *
+   * This row was labelled "Three screens", which is 5.331 — so it read as
+   * the tallest shape on the list while being shorter than the two-screen
+   * row above it, and anybody sizing a page from the list was sent to the
+   * wrong number. The ratio itself was never wrong: it is the measured shape
+   * of ten of the shipped grounds. Only the name was.
+   *
+   * No genuine three-screen row was put in its place. Three screens is
+   * 1080 by 5757, which is a page nobody should be exporting and well past
+   * the weight this file's own rules ask for; a shape worth offering is a
+   * decision about the product, not arithmetic to fill a gap.
+   */
+  { key: 'long', label: 'One and two-thirds screens', ratio: 2.989, use: 'A long page, scrolled: Baby Blue’s cover, story and closing are all this shape.' },
 ];
 
 function round(n: number): number {

@@ -1522,7 +1522,47 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* and the same room at the head, for a moment or a flourish hung off the top of a page laid out by its words (PageSpec.headPad) */
 .inv .inv-page[data-head] { padding-top: calc(var(--page-head) * min(11vw, 3.5rem)); }
 /* a page laid out by its words, told to be at least so many screens tall (PageSpec.minScreens) */
-.inv[data-doc] .inv-page[data-min] { min-height: calc(var(--inv-screen, 100dvh) * var(--page-min, 1)); }
+.inv[data-doc] .inv-page[data-min] { min-height: calc(var(--inv-screen, 100dvh) * var(--page-min, 1) / var(--page-drawn, 1)); }
+/*
+ * A page drawn smaller than the design was written at (PageSpec.size), so
+ * that a page too tall for a screen fits one.
+ *
+ * `zoom` and not `transform: scale`, because the two do different things and
+ * only one of them is what she asked for. A transform draws the page smaller
+ * and leaves a page-shaped hole behind it — the words still take the height
+ * they took, so the page is no shorter and the next one still begins two
+ * screens down. `zoom` is laid out: the page's used sizes are the scaled
+ * ones, so the page really is shorter and everything after it comes up.
+ *
+ * Everything comes down together — the type, the air between the lines, the
+ * countdown's tiles, the pieces, the floats — because they are all sizes of
+ * the page and zoom takes them all. That is the whole point: the page keeps
+ * its proportions and simply becomes smaller.
+ *
+ * The one thing that must not be scaled is `min-height` above: a screen is a
+ * screen whatever the size, so the height asked for is divided by the size
+ * first and zoom multiplies it back. A page told to be one screen tall and
+ * drawn at half size is one screen tall, not half of one.
+ */
+/*
+ * On a laptop only, which is where the problem is. A phone shows the page in
+ * a column 390px wide and a guest scrolls it; a page running past a screen
+ * there is what a phone is. The laptop is the one that lays the same column
+ * down the middle of a 1440px window with room either side, so a page of
+ * words becomes a long ribbon nobody can take in — which is what she was
+ * looking at: "its too big for the website".
+ *
+ * Measured rather than assumed: the closing page fitted to a laptop screen
+ * came out at 0.42, and at 0.42 on a phone its body type was 7px. So the
+ * size is the website's size, and a phone keeps the page whole.
+ *
+ * `--page-drawn` is the size the page is actually drawn at, for the
+ * `min-height` above: the size inside this query and 1 outside it, so a page
+ * told to be one screen tall is one screen tall in both.
+ */
+@media (min-width: 640px) {
+  .inv[data-doc] .inv-page[data-size] { zoom: var(--page-size, 1); --page-drawn: var(--page-size, 1); }
+}
 
 /*
  * A picture the words flow around, on a page laid out by its words.
@@ -1542,11 +1582,18 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * above and below — so it is the same picture in a narrower place, not a
  * different one.
  */
-.inv-bb-float { margin: 0 auto 0.7rem; display: grid; place-items: center; }
+/* A float's place (floatAt): how far in from its own side of the words'
+   column it stands, and how far down the words it begins — both shares of
+   that column's width, which is what a per-cent margin resolves against and
+   what a float's place is measured in, since the column is what it stands
+   in. (Down is a share of the width too: a flow page's height is its
+   customer's words.) A phone is too narrow to read beside a picture, so
+   there a float keeps its place down the words and stands on its own. */
+.inv-bb-float { margin: var(--float-y, 0) auto 0.7rem; display: grid; place-items: center; }
 .inv-bb-float > img { display: block; width: var(--float-inner, 100%); height: auto; transform: rotate(var(--float-turn, 0deg)); }
 @media (min-width: 34rem) {
-  .inv-bb-float[data-float='left'] { float: left; margin: 0 1.1rem 0.7rem 0; }
-  .inv-bb-float[data-float='right'] { float: right; margin: 0 0 0.7rem 1.1rem; }
+  .inv-bb-float[data-float='left'] { float: left; margin: var(--float-y, 0) 1.1rem 0.7rem var(--float-x, 0); }
+  .inv-bb-float[data-float='right'] { float: right; margin: var(--float-y, 0) var(--float-x, 0) 0.7rem 1.1rem; }
 }
 /* the same card and the same cuts a placed frame gets, so a floated picture
    and a drawn one are the same picture in two layouts */

@@ -447,8 +447,24 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day', staff: true })],
   },
   {
+    /*
+     * The parents, and the hosts an occasion calls something else.
+     *
+     * This was built with the rest and then switched off with five others
+     * while the two shipped designs were being matched to their references
+     * — neither Capiz nor Baby Blue carries a page for it, so a customer
+     * who filled it in would have typed their parents' names into nothing.
+     * It is on again because a design can carry it now: the studio offers
+     * it as a part a page can hold, it takes a heading and a line of the
+     * design's own like every other part (TITLE_ON, LINE_ON in design.ts),
+     * and a page carrying it can be drawn box by box.
+     *
+     * `optional`, because it is an extra: it is never counted as missing,
+     * it never holds up a publish, and a design that carries no page for
+     * it asks nothing of the customer.
+     */
     key: 'parents',
-    hidden: true,
+    optional: true,
     label: 'Parents',
     tl: 'Mga Magulang',
     description: 'With titles, and a † marker for those who have passed.',

@@ -24,6 +24,7 @@ type Line = { en: string; tl: string };
 export type LineKey =
   | 'cover' // above the names
   | 'story'
+  | 'parents' // under the parents' (or the hosts') heading
   | 'invitation'
   | 'entourage'
   | 'sponsors' // ninong and ninang
@@ -56,7 +57,7 @@ export type LineKey =
   | 'ladiesNote';
 
 /** The headings a look names. A missing one falls back to the fixed phrase. */
-export type TitleKey = 'story' | 'invitation' | 'entourage' | 'sponsors' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
+export type TitleKey = 'story' | 'parents' | 'invitation' | 'entourage' | 'sponsors' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
 
 export type Look = {
   key: LookKey;
@@ -93,6 +94,7 @@ export const LOOKS: Look[] = [
     joiner: 'and',
     titles: {
       story: { en: 'Our Story', tl: 'Ang Aming Kuwento' },
+      parents: { en: 'Our Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Invitation', tl: 'Ang Paanyaya' },
       entourage: { en: 'Entourage', tl: 'Entourage' },
       gallery: { en: 'Prenup Photos', tl: 'Prenup Photos' },
@@ -110,6 +112,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: "You're invited", tl: 'Inaanyayahan ka' },
       story: { en: '', tl: '' },
+      parents: { en: 'With their blessing', tl: 'Nang may kanilang basbas' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -156,6 +159,7 @@ export const LOOKS: Look[] = [
     joiner: '&',
     titles: {
       story: { en: 'How It Began', tl: 'Kung Paano Nagsimula' },
+      parents: { en: 'Our Beloved Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Celebration', tl: 'Ang Pagdiriwang' },
       entourage: { en: 'Our Entourage', tl: 'Ang Aming Entourage' },
       gallery: { en: 'Us, Before the Aisle', tl: 'Kami, Bago ang Kasal' },
@@ -173,6 +177,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'Together with their families', tl: 'Kasama ang kanilang mga pamilya' },
       story: { en: 'Every love story is beautiful, but ours is our favorite.', tl: 'Maganda ang bawat kuwento ng pag-ibig, pero ang amin ang paborito namin.' },
+      parents: { en: 'Who first taught us what love looks like.', tl: 'Na unang nagturo sa amin kung ano ang pag-ibig.' },
       invitation: { en: 'Come celebrate with us', tl: 'Halina at makipagdiwang' },
       entourage: { en: 'The people we love most', tl: 'Ang mga taong pinakamamahal namin' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -220,6 +225,7 @@ export const LOOKS: Look[] = [
     joiner: '&',
     titles: {
       story: { en: 'Where It Began', tl: 'Kung Saan Nagsimula' },
+      parents: { en: 'Parents', tl: 'Mga Magulang' },
       invitation: { en: 'The Details', tl: 'Ang Detalye' },
       entourage: { en: 'Our People', tl: 'Ang Aming mga Tao' },
       gallery: { en: 'Us', tl: 'Kami' },
@@ -237,6 +243,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'The wedding of', tl: 'Ang kasal nina' },
       story: { en: '', tl: '' },
+      parents: { en: 'With their blessing.', tl: 'Nang may basbas.' },
       invitation: { en: "You're invited", tl: 'Inaanyayahan ka' },
       entourage: { en: 'Standing with us', tl: 'Kasama namin' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -283,6 +290,7 @@ export const LOOKS: Look[] = [
     joiner: 'and',
     titles: {
       story: { en: 'A Story in Chapters', tl: 'Kuwento sa mga Kabanata' },
+      parents: { en: 'Our Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Invitation', tl: 'Ang Paanyaya' },
       entourage: { en: 'In Good Company', tl: 'Sa Mabuting Piling' },
       gallery: { en: 'A Portrait of Us', tl: 'Larawan Namin' },
@@ -300,6 +308,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'The honour of your presence is requested at the marriage of', tl: 'Hinihiling ang karangalan ng inyong presensya sa kasal nina' },
       story: { en: 'Every chapter, ours.', tl: 'Bawat kabanata, amin.' },
+      parents: { en: 'The first chapter was theirs.', tl: 'Ang unang kabanata ay kanila.' },
       invitation: { en: 'Requesting the pleasure of your company', tl: 'Hinihiling ang inyong pagdalo' },
       entourage: { en: 'Those who stand beside us', tl: 'Ang mga nasa tabi namin' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -346,6 +355,7 @@ export const LOOKS: Look[] = [
     joiner: '&',
     titles: {
       story: { en: 'Our Story', tl: 'Ang Aming Kuwento' },
+      parents: { en: 'Our Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Wedding', tl: 'Ang Kasal' },
       entourage: { en: 'The Entourage', tl: 'Ang Entourage' },
       gallery: { en: 'Prenup', tl: 'Prenup' },
@@ -363,6 +373,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'Together with their families', tl: 'Kasama ang kanilang mga pamilya' },
       story: { en: 'A love written in the stars', tl: 'Pag-ibig na nakasulat sa mga bituin' },
+      parents: { en: 'With the blessing of our families', tl: 'Nang may basbas ng aming mga pamilya' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },

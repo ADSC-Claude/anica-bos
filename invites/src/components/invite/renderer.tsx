@@ -17,7 +17,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -378,7 +378,22 @@ function Ico({ name, className = '' }: { name: string; className?: string }) {
 // Sections
 // ---------------------------------------------------------------------------
 
-function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionData; lang: Lang }) {
+/**
+ * The parents, or the hosts an occasion calls something else.
+ *
+ * A wedding names the two sides — her father and mother on one, his on the
+ * other, with room for a note under each — and every other occasion is one
+ * list: the parents, then whoever else is doing the inviting, with what they
+ * are to the celebrant beside them. A name with no first name is dropped and
+ * one marked as having passed carries the dagger the copy gives it.
+ *
+ * `title` and `tagline` are the design's own: the heading it gives the part
+ * and the line it writes under it (`TITLE_ON`/`LINE_ON`, both keyed
+ * `parents`). Left alone the part keeps the phrase the app has always used —
+ * the wedding's chosen phrasing, or "Hosted by" — so nothing a design has
+ * not asked for moves.
+ */
+function Parents({ occasion, data, lang, title, tagline }: { occasion: Occasion; data: SectionData; lang: Lang; title?: string; tagline?: string }) {
   const late = t(lang, 'parents.late');
   if (occasion === 'WEDDING') {
     const phrasing = str(data, 'phrasing') === 'blessing' ? t(lang, 'parents.blessing') : t(lang, 'parents.together');
@@ -395,7 +410,13 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
       );
     };
     return (
-      <Section id="parents" eyebrow={phrasing}>
+      <Section
+        id="parents"
+        eyebrow={title ?? phrasing}
+        eyebrowSrc={[{ word: titleWord('parents') }, { copy: str(data, 'phrasing') === 'blessing' ? 'parents.blessing' : 'parents.together' }]}
+        tagline={title ? phrasing : tagline}
+        taglineSrc={title ? undefined : [{ word: 'parents' }, fx(tagline || '')]}
+      >
         <div className="inv-two">
           {side('brideFather', 'brideMother', 'brideNote', t(lang, 'parents.bride'))}
           {side('groomFather', 'groomMother', 'groomNote', t(lang, 'parents.groom'))}
@@ -408,7 +429,13 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
   const note = str(data, 'note');
   if (!persons.length && !hosts.length && !note) return null;
   return (
-    <Section id="parents" eyebrow={t(lang, 'parents.hosts')} eyebrowSrc={[{ copy: 'parents.hosts' }]}>
+    <Section
+      id="parents"
+      eyebrow={title ?? t(lang, 'parents.hosts')}
+      eyebrowSrc={[{ word: titleWord('parents') }, { copy: 'parents.hosts' }]}
+      tagline={tagline}
+      taglineSrc={[{ word: 'parents' }, fx(tagline || '')]}
+    >
       <div className="inv-list text-lg">
         {persons.map((p, i) => (
           <p key={i}>{p}</p>
@@ -1955,7 +1982,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; bleed?: boolean; off?: string[]; pin?: string } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1981,12 +2008,15 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           data-pin={o.pin}
           // told to be at least so many screens tall: the stylesheet reads --page-min against --inv-screen
           data-min={o.min !== undefined ? '' : undefined}
+          // drawn smaller (or larger) than the design was written at, so a page too tall for a screen fits one: PageSpec.size
+          data-size={o.size !== undefined ? '' : undefined}
           data-dress={dress.kind}
           style={{
             ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
             ...(o.head !== undefined ? { ['--page-head' as string]: o.head } : {}),
             ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
+            ...(o.size !== undefined ? { ['--page-size' as string]: o.size } : {}),
             ...(o.colour && !o.pin ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
             ...dress.vars,
           } as CSSProperties}
@@ -2069,8 +2099,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const pin = pins.get(spec.key);
         if (parts.length) out.push(page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
-          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), off: spec.offFlow }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
+          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow }
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
     // a section the document does not name gets a page of its own, in its place
@@ -2137,7 +2167,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           </Section>
         ) : null;
       case 'parents':
-        return <Parents key={key} occasion={occasion} data={data} lang={lang} />;
+        return <Parents key={key} occasion={occasion} data={data} lang={lang} title={lookTitle(look, lang, 'parents', occasion)} tagline={line('parents')} />;
       case 'ceremony': {
         const block = (
           <EventBlock

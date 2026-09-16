@@ -358,6 +358,12 @@ async function main() {
       coverPhoto: pic('lucas-cover', 900, 1200), opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
     });
     Object.assign(c.countdown!, { enabled: true, label: '' });
+    // the parents, so a christening design has a page of them to be drawn against
+    Object.assign(c.parents!, {
+      father: { title: 'Mr.', name: 'Paolo M. Villanueva', deceased: false },
+      mother: { title: 'Mrs.', name: 'Denise A. Villanueva', deceased: false },
+      note: 'Together with Lolo Ernesto and Lola Remedios',
+    });
     Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
     Object.assign(c.reception!, { venue: 'Blue Leaf Cosmopolitan', address: '30th St cor. 8th Ave, Bonifacio Global City, Taguig', time: '12:00', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the venue.', photo: pic('blue-leaf', 1200, 800), note: '' });
     Object.assign(c.sponsors!, {

@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape, floatAt,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, TITLE_ON, LINE_ON, wordsFor, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
-import { sectionOrder, OCCASION_SECTIONS } from '../src/lib/sections';
+import { sectionOrder, OCCASION_SECTIONS, SECTION_BY_KEY, sectionsFor, fieldsFor } from '../src/lib/sections';
 import { pageNeeds } from '../src/lib/needs';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
 import { templateData } from '../prisma/templates';
@@ -1054,6 +1054,41 @@ test('an untilted frame floats as its own box', () => {
   assert.equal(tall.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
 });
 
+/**
+ * A float has a place of its own now: she drags it where she wants it and the
+ * words flow past it there. `floatAt` is the whole of that rule — the side
+ * from which half of the column the middle of the box is in, and the two
+ * margins that put it where she left it.
+ */
+test('a float lands where she put it, on the side of the words its middle is nearer', () => {
+  // a 40-wide box whose middle is a quarter across: on the left, 5 in from it
+  assert.deepEqual(floatAt({ x: 25, y: 8 }, 40), { side: 'left', inset: 5, down: 8 });
+  // the same box dragged across the middle changes sides, and the inset is
+  // measured off the right edge
+  assert.deepEqual(floatAt({ x: 75, y: 8 }, 40), { side: 'right', inset: 5, down: 8 });
+  // hard against its own edge
+  assert.deepEqual(floatAt({ x: 20, y: 0 }, 40), { side: 'left', inset: 0, down: 0 });
+  // and a place that would push it out past the other edge is held inside
+  assert.deepEqual(floatAt({ x: 5, y: 0 }, 40), { side: 'left', inset: 0, down: 0 });
+  assert.deepEqual(floatAt({ x: 49, y: 0 }, 90), { side: 'left', inset: 4, down: 0 });
+  assert.equal(floatAt({ x: 10, y: 0 }, 120).inset, 0, 'a box wider than the page has nowhere to be inset to');
+  // no place at all: the side it names, against that edge, at the top — which
+  // is exactly where every float drawn before this sat
+  assert.deepEqual(floatAt({ float: 'right' }, 40), { side: 'right', inset: 0, down: 0 });
+  assert.deepEqual(floatAt({}, 40), { side: 'left', inset: 0, down: 0 });
+  // a downward place is never negative, whatever a hand-written document says
+  assert.equal(floatAt({ x: 25, y: -10 }, 40).down, 0);
+  // and it survives the parse, on a float as on anything else
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], elements: [
+    { id: 'photo-1', kind: 'photo', x: 25, y: 8, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '/x.webp' } },
+  ] }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const el = read.doc?.pages[0].elements?.[0] as PhotoEl;
+  assert.equal(el.x, 25);
+  assert.equal(el.y, 8);
+  assert.equal(el.float, 'left');
+});
+
 test('a square turned 45° floats a bigger box and its shape is a diamond', () => {
   const d = floatShape(1, 45);
   // the bounding box of a square turned an eighth of a turn is √2 on a side
@@ -1437,4 +1472,55 @@ test('a writing lifted off the page is remembered on the page and on the box tha
   // and it is a decoration of the page, over the words, hung off the head
   assert.equal(flowDecor(read.doc!.pages[0]).length, 1);
   assert.equal(decorOver(flowDecor(read.doc!.pages[0])[0]), true);
+});
+
+test('a page too tall for a screen can be made smaller, and the studio works out by how much', () => {
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown', 'closing'], size: 0.6 }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.pages[0].size, 0.6);
+  // a size of 1 is the size the design was written at, so the page says nothing
+  assert.equal(sizeOf({ key: 'p', sections: [], size: 1 }), undefined);
+  assert.equal(sizeOf({ key: 'p', sections: [], size: 0.6 }), 0.6);
+  // a drawn page has no size of this kind: its size is its proportion
+  assert.equal(sizeOf({ key: 'p', sections: [], drawn: true, size: 0.6 }), undefined);
+  // and it is kept inside its bounds
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], size: 4 }] }, 'classic').doc?.pages.length, 0);
+
+  // "Fit it to one screen": 1910px of page in an 800px screen is 800/1910 of the
+  // size, down to the step the slider counts in — 0.418… becomes 0.41, never 0.42,
+  // so the thumb and the page agree and the page is never left a hair too tall
+  assert.equal(sizeToFit(1910, 800), 0.41);
+  // from whatever size it is already drawn at
+  assert.equal(sizeToFit(955, 800, 0.5), 0.41);
+  // a page told to be two screens tall is fitted to two
+  assert.equal(sizeToFit(1910, 800, 1, 2), 0.83);
+  // a page that already fits is left alone rather than blown up
+  assert.equal(sizeToFit(600, 800), 1);
+  assert.equal(sizeToFit(600, 800, 0.8), 0.8);
+  // and nothing measured is nothing done
+  assert.equal(sizeToFit(0, 800, 0.7), 0.7);
+});
+
+test('the parents are a part a design can carry, with a heading and a line of its own', () => {
+  // it is offered to a customer again, and never counted as missing
+  const def = SECTION_BY_KEY.parents;
+  assert.equal(def.hidden, undefined);
+  assert.equal(def.optional, true);
+  assert.equal(sectionsFor('WEDDING').some((d) => d.key === 'parents'), true);
+  // a wedding is asked for the two sides; every other occasion for its hosts
+  assert.equal(fieldsFor('parents', 'WEDDING').some((f) => f.key === 'brideFather'), true);
+  assert.equal(fieldsFor('parents', 'REUNION').some((f) => f.key === 'hosts'), true);
+  // the design names the heading and writes the line under it
+  assert.equal(TITLE_ON.parents, 'parents');
+  assert.equal(LINE_ON.parents.on, 'parents');
+  const words = wordsFor('WEDDING');
+  assert.equal(words.titles.includes('parents'), true);
+  assert.equal(words.lines.includes('parents'), true);
+  // a memorial carries the family instead, so it is offered neither
+  assert.equal(wordsFor('MEMORIAL').titles.includes('parents'), false);
+  assert.equal(sectionsFor('MEMORIAL').some((d) => d.key === 'parents'), false);
+  // and a page can hold it
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['parents'] }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.pages[0].sections, ['parents']);
 });

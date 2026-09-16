@@ -17,7 +17,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, invitationPages, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1950,8 +1950,26 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     );
   }
 
+  /*
+   * The Save the Date's own page, when the design has drawn one.
+   *
+   * With a page it is a paged design of exactly one page, and goes through
+   * `pages()` like any other — which is the whole point: the ground, the
+   * ratio, the frames, the words, the growth and the room at the foot are
+   * the machinery that already exists, not a second copy of it that drifts.
+   * Without one it is the plain card the renderer has always built, so
+   * every design that has not been given a card is untouched.
+   */
+  const stdOwn = saveTheDate ? stdPage(doc) : undefined;
+  /*
+   * A Save the Date with a page of its own is a paged design one page long,
+   * and wears the column the pages are laid in. Without one it is the plain
+   * card, which has its own styling under `data-card` and is not paged at
+   * all. `format` still decides it for the invitation itself.
+   */
+  const paged = saveTheDate ? Boolean(stdOwn) : format;
   const body = saveTheDate
-    ? saveTheDateCard()
+    ? (stdOwn ? pages(stdOwn) : saveTheDateCard())
     : format
       ? pages()
       : (peek ? order.slice(0, peekEnd(order)) : order).map((key) => section(key));
@@ -1968,7 +1986,21 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       <p className="inv-peek-back"><a href={PEEK_EXIT} {...out}>{lang === 'tl' ? '← Bumalik sa mga disenyo' : '← Back to the designs'}</a></p>
     </section>
   ) : null;
-  function pages() {
+  /**
+   * The pages, as they are laid in the column.
+   *
+   * `card` is the Save the Date's page and nothing else: given it, this lays
+   * that page alone — no other page of the design, and none of the overflow
+   * pages a section without a home would otherwise get, because a card is
+   * one card and a section with nowhere to go on it simply is not on it.
+   *
+   * It is named `card` and not `only` deliberately: `only` is already this
+   * component's prop for the one page the studio wants drawn, and a
+   * parameter of that name would shadow it through this whole function —
+   * every `only` below would quietly stop meaning the studio's page. The
+   * two are different questions and both are asked in here.
+   */
+  function pages(card?: PageSpec) {
     const drawn = new Map<string, ReactNode>();
     for (const key of order) {
       const el = section(key);
@@ -2082,7 +2114,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // The document's own page list. A drawn page is its elements; every
       // other page is the sections it names. The clip that no frame can hold
       // rides on 'gallery-video'.
-      for (const spec of doc.pages) {
+      // The card is the one page it was drawn as. Otherwise: the invitation's
+      // pages — which leave the card out, that being the point of
+      // `invitationPages` — except when the studio has asked for one page by
+      // key, where it may well be the card she is drawing, so the whole list
+      // is searched and the slice below picks hers out.
+      for (const spec of card ? [card] : only ? doc.pages : invitationPages(doc)) {
         // A drawn page that names sections comes and goes with them, the way
         // the photographs page goes when a package has no gallery. One that
         // names none depends on nothing — it is the design's own page, a
@@ -2103,9 +2140,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
-    // a section the document does not name gets a page of its own, in its place
-    for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
-    if (only) {
+    // a section the document does not name gets a page of its own, in its
+    // place — on the invitation. A card is the one page it was drawn as.
+    if (!card) for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    if (only && !card) {
       // the ground, and the one page the studio is drawing
       const ground = out.slice(0, 2);
       const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
@@ -2279,10 +2317,20 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
     {pinned.length > 0 && !print && <Pinned pins={pinned} phoneWindow={PHONE_WINDOW} />}
-    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-pinned={pinned.length ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-pinned={pinned.length ? '' : undefined} data-paged={paged ? '' : undefined} data-card={saveTheDate && !stdOwn ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
       {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
       {/* a face she uploaded, served from our own bucket rather than by Google */}
       {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}
+      {/*
+        * The design's paper settings, on the print view alone.
+        *
+        * Only here because `@page` is not scoped by a media query the way a
+        * normal rule is: a size and a margin written into the document would
+        * be the browser's print defaults for the *screen* page too, and
+        * every guest's Ctrl+P would then take the design's paper whether
+        * they were on /print or not.
+        */}
+      {print && !!sheetRules(doc) && <style precedence="default" href="inv-sheet">{sheetRules(doc)}</style>}
       {peek && !embed && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}

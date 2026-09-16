@@ -233,6 +233,13 @@ export function withWords(look: Look | undefined, words: DesignWords): Look | un
  * as a multiple of its width. Six are tall and narrow, four the shape of a
  * phone; the page machinery trims each to the page it sits behind.
  */
+/**
+ * One background picture as a page holds it: her file, and what the browser
+ * measured off it when it arrived — how tall it is for its width, and the
+ * colours of its top and bottom edges, for the strips beyond it.
+ */
+export type Picture = { url: string; ratio: number; top: string; bottom: string; night?: string };
+
 export type PictureGround = {
   url: string;
   /** height as a multiple of the width */
@@ -250,9 +257,30 @@ export type PictureGround = {
   /** the same picture by night, when the design has one */
   night?: string;
   /**
-   * How many pages after this one sit on this picture where it runs on,
-   * one length of it down all of them, instead of on a ground of their own.
-   * `runOf` says which pages actually do.
+   * The same background drawn for a phone, when she has uploaded one: a
+   * phone-shaped picture for a phone-shaped window, where `url` is the wide
+   * one a laptop gets. Both are her own files, used as she gave them — the
+   * window picks between them (`PHONE_WINDOW`) rather than either being
+   * stretched or cut to fit the other's shape.
+   *
+   * A page with only one picture keeps it here in `url`, whatever its
+   * shape, and `pin` says whether it fills the window or the column.
+   */
+  phone?: Picture;
+  /**
+   * How many pages after this one this background also stands behind — the
+   * pages she picked it to flow over.
+   *
+   * A background pinned behind the words (the phone's, the website's) simply
+   * stays put over that many more pages: the writings move on over it and
+   * the picture never moves or stretches, which is the whole point of the
+   * choice. `pinOf` says which pages it reaches, and a page with a picture
+   * of its own, or one placed by hand, ends it early.
+   *
+   * On the tall grounds the two shipped designs were drawn on, which flow
+   * rather than pin, it means what it always did: one length of the picture
+   * laid down all of them instead of each starting again. `runOf` says
+   * which pages those are.
    */
   runsOn?: number;
 };
@@ -969,6 +997,10 @@ const zPictureGround = z.object({
   slices: z.object({ top: z.string(), foot: z.string(), mid: z.string() }).optional(),
   runsOn: z.number().int().min(1).max(6).optional(),
   night: z.string().max(500).optional(),
+  phone: z.object({
+    url: z.string().min(1).max(500), ratio: z.number().positive().max(40),
+    top: zColour, bottom: zColour, night: z.string().max(500).optional(),
+  }).strict().optional(),
 }).strict();
 const zColourGround = z.object({ color: zColour, ratio: z.number().positive().max(40).optional() }).strict();
 const zGround = z.union([zPictureGround, zColourGround]);
@@ -1811,6 +1843,16 @@ export const WIDEST_COLUMN = 512;
 export const ONE_SCREEN = 1.777;
 
 /**
+ * The widest window that counts as a phone's, for a page carrying both a
+ * phone background and a website one: at this width and under, the window is
+ * about the column itself and the phone's picture is the one that fits it;
+ * wider, and the website's picture has somewhere to go. It is a media query
+ * in the end (`Pinned`), so the browser chooses and nothing has to be
+ * measured or re-rendered.
+ */
+export const PHONE_WINDOW = 639;
+
+/**
  * What the browser keeps for itself, as a share of one screen.
  *
  * A phone does not give a page the whole screen: Safari holds a bar at the
@@ -2027,23 +2069,33 @@ export function runOf(doc: DesignDoc): Map<string, string> {
 }
 
 /**
- * The pages that sit on a pinned picture, each mapped to the page whose
- * picture it is — the head itself included, mapped to itself. A pinned
- * picture runs on down every page after its head, a colour of their own or
- * not, until a page brings a picture of its own or is drawn; either starts
- * afresh. A pin on a page with no picture, or on a drawn page, pins nothing.
+ * The pages a pinned background stands behind, each mapped to the page whose
+ * picture it is — the head itself included, mapped to itself.
+ *
+ * How far it reaches is hers to say: `ground.runsOn` is how many pages after
+ * the head it also stands behind, and saying nothing means this page only.
+ * The writings of every page it reaches move over one still picture, which is
+ * what "flowing over the pages I picked" means; a page with a picture of its
+ * own, or one placed by hand, ends it early whatever the number says.
  *
  * Which pictures pin is `groundKind`'s answer, not the `pin` field's alone:
  * the phone's background and the website's both do, and the only picture
- * that does not is one flowing down the pages.
+ * that does not is one of the tall shipped grounds, which flows (`runOf`).
  */
 export function pinOf(doc: DesignDoc): Map<string, string> {
   const on = new Map<string, string>();
   let head: string | undefined;
+  /** how many more pages the pin still reaches */
+  let left = 0;
   for (const p of doc.pages) {
-    const own = p.ground && isPicture(p.ground);
-    if (p.drawn || own) head = undefined;
-    if (own && !p.drawn && groundKind(p) !== 'flow') head = p.key;
+    const own = p.ground && isPicture(p.ground) ? p.ground : undefined;
+    if (own || p.drawn) {
+      head = own && !p.drawn && groundKind(p) !== 'flow' ? p.key : undefined;
+      left = head && own ? own.runsOn ?? 0 : 0;
+    } else if (head) {
+      if (left > 0) left -= 1;
+      else head = undefined;
+    }
     if (head) on.set(p.key, head);
   }
   return on;

@@ -1285,10 +1285,10 @@ test('a picture pinned behind the words is the pages after it too, until one bri
   const doc = {
     v: 1 as const,
     pages: [
-      { key: 'cover', sections: ['cover'], ground: pic, pin: true as const },
+      { key: 'cover', sections: ['cover'], ground: { ...pic, runsOn: 2 }, pin: true as const },
       { key: 'countdown', sections: ['countdown'] },
       { key: 'parents', sections: ['parents'], ground: { color: 'surface' } },
-      { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, url: '/church.webp' } },
+      { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, url: '/church.webp', runsOn: 1 } },
       { key: 'reception', sections: ['reception'] },
       { key: 'dress-code', sections: ['dress-code'], ground: { ...pic, url: '/dress.webp' }, pin: 'column' as const },
       { key: 'gift', sections: ['gift'] },
@@ -1299,7 +1299,8 @@ test('a picture pinned behind the words is the pages after it too, until one bri
     ],
   } as unknown as Parameters<typeof pinOf>[0];
   const pins = pinOf(doc);
-  // the head is on its own picture, and the pages after ride on it — a colour of their own or not
+  // the head is on its own picture, and reaches as far as it says: two pages
+  // after it here, a colour of their own or not
   assert.equal(pins.get('cover'), 'cover');
   assert.equal(pins.get('countdown'), 'cover');
   assert.equal(pins.get('parents'), 'cover');
@@ -1311,9 +1312,10 @@ test('a picture pinned behind the words is the pages after it too, until one bri
    */
   assert.equal(pins.get('ceremony'), 'ceremony');
   assert.equal(pins.get('reception'), 'ceremony');
-  // the phone's background pins too, to the column rather than the window
+  // the phone's background pins too, to the column rather than the window —
+  // and this one was given no pages after it, so it is this page only
   assert.equal(pins.get('dress-code'), 'dress-code');
-  assert.equal(pins.get('gift'), 'dress-code');
+  assert.equal(pins.has('gift'), false, 'a background reaches only the pages she picked');
   // a page placed by hand ends it and pins nothing
   assert.equal(pins.has('story'), false);
   // a picture drawn to flow down the pages is the one that does not pin
@@ -1372,6 +1374,44 @@ test('a picture behind a page is one of three backgrounds, and a wide one is nev
   assert.equal(screensOf(on(long)), undefined);
   assert.equal(screensOf({ key: 'p', sections: [] }), undefined);
   assert.equal(screensOf(on(long, { drawn: true, minScreens: 2 })), undefined);
+});
+
+/**
+ * The two backgrounds and how far they reach, which is the whole of what she
+ * has to say about a background now: one picture for the phone, one for the
+ * whole website, and the pages either of them stands behind.
+ */
+test('a page can carry a background for the phone and one for the website, and say how far it reaches', () => {
+  const wide = { url: '/wide.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const tall = { url: '/tall.webp', ratio: 1.777, top: '#fff', bottom: '#eee' };
+  // both, the wide one the page's and the phone's riding along beside it
+  const both = { v: 1 as const, pages: [{ key: 'cover', sections: ['cover'] as const, ground: { ...wide, phone: tall }, pin: true as const }] };
+  const read = designOf(both, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const g = read.doc?.pages[0].ground;
+  assert.ok(g && 'phone' in g && g.phone, 'the phone-size picture survives the parse');
+  assert.equal(g && 'phone' in g ? g.phone?.url : '', '/tall.webp');
+  assert.equal(groundKind(read.doc!.pages[0]), 'website', "the wide one is the page's background; the phone's is the alternative");
+  // the phone's picture alone is the page's background, pinned to the column
+  const one = designOf({ v: 1, pages: [{ key: 'cover', sections: ['cover'], ground: tall, pin: 'column' }] }, 'classic');
+  assert.deepEqual(one.dropped, []);
+  assert.equal(groundKind(one.doc!.pages[0]), 'phone');
+  assert.equal(bleeds(one.doc!.pages[0]), false, 'it keeps to the column, with the surround beside it');
+  // a phone picture that is not a picture at all is not a background
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['cover'], ground: { ...wide, phone: { url: '/x.webp' } } }] }, 'classic').doc?.pages.length, 0);
+  // how far it reaches: the pages she picked, and no further
+  const doc = {
+    v: 1 as const,
+    pages: [
+      { key: 'a', sections: ['cover'], ground: { ...wide, runsOn: 1 }, pin: true as const },
+      { key: 'b', sections: ['countdown'] },
+      { key: 'c', sections: ['parents'] },
+    ],
+  } as unknown as Parameters<typeof pinOf>[0];
+  const pins = pinOf(doc);
+  assert.equal(pins.get('a'), 'a');
+  assert.equal(pins.get('b'), 'a');
+  assert.equal(pins.has('c'), false);
 });
 
 test('a page laid out by its words can be told to be at least so many screens tall', () => {

@@ -17,7 +17,7 @@ import { qrSvg } from '@/lib/qr';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1718,8 +1718,15 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const pinned = doc
     ? doc.pages
         .filter((p) => pins.get(p.key) === p.key && p.ground && isPicture(p.ground))
-        // the phone's background keeps to the column; the website's fills the window
-        .map((p) => ({ key: p.key, url: (p.ground as { url: string }).url, night: (p.ground as { night?: string }).night, column: groundKind(p) === 'phone' }))
+        // the phone's background keeps to the column; the website's fills the
+        // window; a page with both hands over both, and the window chooses
+        .map((p) => ({
+          key: p.key,
+          url: (p.ground as PictureGround).url,
+          night: (p.ground as PictureGround).night,
+          phone: (p.ground as PictureGround).phone,
+          column: groundKind(p) === 'phone',
+        }))
     : [];
   /** Where the peek stops: the page the design marks, or the first page. */
   const peekPage = doc ? peekEndPage(doc) : 'story';
@@ -2241,7 +2248,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // than the body, because the colour is the design's and a variable set on
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
-    {pinned.length > 0 && !print && <Pinned pins={pinned} />}
+    {pinned.length > 0 && !print && <Pinned pins={pinned} phoneWindow={PHONE_WINDOW} />}
     <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-pinned={pinned.length ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
       {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
       {/* a face she uploaded, served from our own bucket rather than by Google */}

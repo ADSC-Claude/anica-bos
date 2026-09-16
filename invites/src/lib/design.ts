@@ -460,8 +460,21 @@ export type DesignDoc = {
    *
    * Absent on a design that has not asked for one: the two originals do not
    * have it, and a Save the Date — three lines and a date — never wants one.
+   *
+   * **`true` lists every part; a list names the few worth jumping to.** The
+   * first is a table of contents and the second is a menu, and the
+   * difference matters: a wedding draws seventeen parts, and seventeen rows
+   * a guest has to scroll is the thing this feature exists to save them
+   * from. So a design may instead name its own shortlist — the parts people
+   * actually arrive wanting, which on a Filipino wedding is the church, the
+   * reception, the dress code and the RSVP — in the order it wants them
+   * offered, which need not be the order they are read in.
+   *
+   * A named part that this invitation does not draw is dropped, not shown
+   * broken: the list is still filtered against what `pages()` drew, so a
+   * package without a programme cannot offer one.
    */
-  contents?: boolean;
+  contents?: boolean | string[];
   /**
    * This design's own colours by night.
    *
@@ -1158,6 +1171,13 @@ export const place = (n: number): number => Math.round(n * 1e10) / 1e10;
 const zPlace = (min: number, max: number) => z.number().min(min).max(max).transform(place);
 
 const KEY = /^[a-z][a-z0-9-]{0,30}$/;
+/**
+ * A *section* key, which is not the same shape as a page key above: pages
+ * are named in kebab-case by whoever draws them, sections are named in the
+ * code and several are camelCase — `dressCode` is the one that catches this
+ * out, and it caught this out. Anything holding section keys uses this.
+ */
+const SECTION = /^[a-zA-Z][a-zA-Z0-9-]{0,40}$/;
 const FIELD = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const zColour = z.string().min(1).max(60);
 const zPictureGround = z.object({
@@ -1295,7 +1315,7 @@ const zDoc = z.object({
     accent: zColour.optional(), accent2: zColour.optional(),
     paper: zColour.optional(), surround: zColour.optional(),
   }).strict().optional(),
-  hides: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(40).optional(),
+  hides: z.array(z.string().regex(SECTION)).max(40).optional(),
   sheet: z.object({
     size: z.enum(['a4', 'a5', 'letter', '5x7']).optional(),
     // 40mm is already an inch and a half of white on every edge; past that
@@ -1305,7 +1325,7 @@ const zDoc = z.object({
     // the same shape as a page key, because that is what these are
     hide: z.array(z.string().regex(KEY)).max(60).optional(),
   }).strict().optional(),
-  contents: z.literal(true).optional(),
+  contents: z.union([z.literal(true), z.array(z.string().regex(SECTION)).max(24)]).optional(),
 }).strict();
 
 /**

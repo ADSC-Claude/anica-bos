@@ -1547,10 +1547,32 @@ test('a design that offers a list of parts still says so after a save', () => {
   assert.equal(builtinDesign('capiz')!.contents, undefined);
   assert.equal(builtinDesign('babyblue')!.contents, undefined);
 
-  // it is a switch, not a number of parts or a list of keys: anything else
-  // is a design document somebody hand-edited, and it is refused
+  // anything else is a design document somebody hand-edited, and refused
   assert.equal(designOf({ ...written, contents: false }, 'capiz').doc, null, 'false is not a thing a document may say');
   assert.equal(designOf({ ...written, contents: 3 }, 'capiz').doc, null);
+});
+
+/**
+ * A shortlist, because seventeen rows is not a menu.
+ *
+ * `true` lists every part a guest could reach, which is a table of contents.
+ * A design that knows what people arrive wanting can name those instead, in
+ * the order it wants them offered — which need not be the order the
+ * invitation is read in.
+ */
+test('a design can name the few parts worth jumping to', () => {
+  const base = builtinDesign('capiz')!;
+  const few = ['ceremony', 'reception', 'dressCode', 'rsvp'];
+  const written = JSON.parse(JSON.stringify({ ...base, contents: few }));
+  const read = designOf(written, 'capiz');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.contents, few, 'the shortlist did not survive the schema');
+
+  // the keys have to look like keys, and the list has a ceiling
+  assert.equal(designOf({ ...written, contents: ['not a key!'] }, 'capiz').doc, null);
+  const none = designOf({ ...written, contents: [] }, 'capiz').doc?.contents;
+  assert.deepEqual(none, [], 'an empty list is allowed and simply offers nothing');
+  assert.equal(designOf({ ...written, contents: Array(25).fill('rsvp') }, 'capiz').doc, null, 'a list this long is a table of contents again');
 });
 
 /**

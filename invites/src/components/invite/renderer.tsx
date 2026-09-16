@@ -2074,9 +2074,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * verse out for free — it is a line under the names, not a destination,
      * and it is the one entry in `drawn` that is not a part.
      */
-    reachable = order
+    const wants = Array.isArray(doc?.contents) ? doc.contents : undefined;
+    // A named shortlist is offered in the order it names, which need not be
+    // the order the invitation is read in — a guest looking for the church
+    // should find it first in the list even though the story comes before it
+    // on the page. Either way it is filtered against what was drawn.
+    reachable = (wants ?? order)
       .filter((k) => drawn.has(k))
-      .map((k) => ({ id: anchorIn(k), label: sectionLabel(k, occasion) }));
+      .map((k) => ({ id: anchorIn(k), label: sectionLabel(k as SectionKey, occasion) }));
     const placed = new Set<string>();
     const out: ReactNode[] = [];
     /**

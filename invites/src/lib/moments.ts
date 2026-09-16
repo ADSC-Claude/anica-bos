@@ -98,19 +98,19 @@ export const MOMENTS: MomentDef[] = [
   // ── the seven that open an invitation, and stand on a page as well ──
   {
     key: 'envelope', name: 'Envelope', triggers: ['tap', 'swipe'], swipe: 'up',
-    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.66, width: 78, duration: 1400, minTier: 'BASIC',
+    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.92, width: 78, duration: 1400, minTier: 'BASIC',
     realism: 'Laid paper with a 1px darker edge; the flap swings on its top fold, its shadow lengthening as it lifts; the card rises on a slow ease-out.',
     built: true,
   },
   {
     key: 'seal', name: 'Wax Seal', triggers: ['tap'],
-    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.66, width: 78, duration: 1600, minTier: 'BASIC',
+    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.92, width: 78, duration: 1600, minTier: 'BASIC',
     realism: 'A pressed wax disc with a radial highlight; a crack runs across it before the two halves part; only then does the flap lift.',
     built: true,
   },
   {
     key: 'ribbon', name: 'Ribbon', triggers: ['swipe', 'tap'], swipe: 'down',
-    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.7, width: 74, duration: 1500, minTier: 'BASIC',
+    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 1.05, width: 74, duration: 1500, minTier: 'BASIC',
     realism: 'A satin band and a bow that slackens before the ribbon slides off the card; one 4% settle at the end and nothing else overshoots.',
     built: true,
   },
@@ -136,7 +136,7 @@ export const MOMENTS: MomentDef[] = [
   },
   {
     key: 'letter', name: 'Folded Letter', triggers: ['tap'],
-    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.8, width: 74, duration: 1700, minTier: 'BASIC',
+    photos: { count: 0, shape: 'landscape', label: '' }, aspect: 0.95, width: 74, duration: 1700, minTier: 'BASIC',
     realism: 'A tri-fold with a soft crease shadow at each fold; the lower third opens first, then the upper, each on its own hinge, the paper never bending where it is not folded.',
     built: true,
   },
@@ -150,7 +150,7 @@ export const MOMENTS: MomentDef[] = [
   },
   {
     key: 'ring-box', name: 'Ring Box', triggers: ['tap'],
-    photos: { count: 0, shape: 'square', label: '' }, words: 'names', aspect: 0.9, width: 56, duration: 1400, minTier: 'STANDARD',
+    photos: { count: 0, shape: 'square', label: '' }, words: 'names', aspect: 0.95, width: 56, duration: 1400, minTier: 'STANDARD',
     realism: 'A velvet box on a hinge at the back; the lid opens past vertical and settles; the names come up in the cushion.',
     built: true,
   },
@@ -329,10 +329,49 @@ export const MOMENT_KEYS = MOMENTS.map((m) => m.key) as [MomentKey, ...MomentKey
  * a part with a window in it, the window where it is. Blank keeps the one
  * shipped.
  */
-export type PartKey = 'instant-camera/body' | 'instant-camera/print' | 'curtains/panel' | 'curtains/pelmet' | 'doors/leaf-l' | 'doors/leaf-r' | 'doors/arch' | 'seal/wax' | 'scratch/foil';
+/**
+ * Every photographed piece the catalogue is built from, by scene and part.
+ * A design may bring its own picture for any of them (DesignArt.parts); the
+ * shipped one stands otherwise. `MOMENT_PARTS` is the register, with what
+ * each picture has to be for the scene to work.
+ */
+export type PartKey =
+  | 'backdrop/cream' | 'backdrop/blush'
+  | 'envelope/pocket' | 'envelope/flap' | 'envelope/card'
+  | 'seal/wax'
+  | 'ribbon/bow' | 'ribbon/band'
+  | 'curtains/panel' | 'curtains/pelmet'
+  | 'doors/leaf-l' | 'doors/leaf-r' | 'doors/church-l' | 'doors/church-r' | 'doors/arch'
+  | 'capiz/panel'
+  | 'letter/folded'
+  | 'instant-camera/body' | 'instant-camera/print'
+  | 'ring-box/base' | 'ring-box/lid'
+  | 'bloom/petal' | 'bloom/open'
+  | 'candle/jar' | 'candle/flame'
+  | 'gift/box' | 'gift/lid' | 'gift/holiday-box' | 'gift/holiday-lid' | 'gift/mystery-box' | 'gift/mystery-lid'
+  | 'frame/gold'
+  | 'sticker/face'
+  | 'frost/glass'
+  | 'scroll/roller' | 'scroll/parchment'
+  | 'panels/panel'
+  | 'film-strip/strip'
+  | 'album/cover' | 'album/page'
+  | 'photo-booth/strip' | 'photo-booth/button'
+  | 'projector/body'
+  | 'cake/cake'
+  | 'baby/bear' | 'baby/balloons' | 'baby/box'
+  | 'cheers/flute'
+  | 'scratch/foil' | 'scratch/gold';
 export type PartDef = {
   key: PartKey;
-  scene: MomentKey;
+  /**
+   * The scenes that draw this part. Most parts belong to one scene, and the
+   * key says which; some are shared — the studio backdrop stands under
+   * nearly everything, the card is in the envelope and the ribbon and the
+   * letter alike, the instant print is in the camera and in the stack — so
+   * the part names its scenes rather than the key being read for them.
+   */
+  scenes: MomentKey[];
   /** how the admin names it */
   label: string;
   /** what a replacement has to keep */
@@ -345,15 +384,63 @@ export type PartDef = {
   hole?: { left: number; top: number; width: number; height: number };
 };
 export const MOMENT_PARTS: PartDef[] = [
-  { key: 'instant-camera/body', scene: 'instant-camera', label: 'Instant camera — the body', hint: 'The camera seen from the front, on a transparent background, the film slot along its top edge.', url: '/moments/instant-camera/body.webp', aspect: 1.172 },
-  { key: 'instant-camera/print', scene: 'instant-camera', label: 'Instant print — the blank frame', hint: 'A blank instant print, the picture area see-through, on a transparent background; the photograph is drawn into the window where this one has it.', url: '/moments/instant-camera/print.webp', aspect: 0.739, hole: { left: 5.99, top: 6.91, width: 88.15, height: 70.78 } },
-  { key: 'curtains/panel', scene: 'curtains', label: 'Curtains — one panel', hint: 'One curtain panel hanging straight, tall, on a transparent background; the right-hand panel is its mirror.', url: '/moments/curtains/panel.webp', aspect: 0.403 },
-  { key: 'curtains/pelmet', scene: 'curtains', label: 'Curtains — the pelmet', hint: 'The pelmet across the top, wide, its lower edge on a transparent background.', url: '/moments/curtains/pelmet.webp', aspect: 4.465 },
-  { key: 'doors/leaf-l', scene: 'doors', label: 'Doors — the left leaf', hint: 'The left leaf of the pair, hinged at its left edge, on a transparent background.', url: '/moments/doors/leaf-l.webp', aspect: 0.337 },
-  { key: 'doors/leaf-r', scene: 'doors', label: 'Doors — the right leaf', hint: 'The right leaf of the pair, hinged at its right edge, on a transparent background.', url: '/moments/doors/leaf-r.webp', aspect: 0.324 },
-  { key: 'doors/arch', scene: 'doors', label: 'Church doors — the stone arch', hint: 'The stone surround, the doorway see-through, on a transparent background; the leaves hang in the doorway where this one has it.', url: '/moments/doors/arch.webp', aspect: 0.67, hole: { left: 20.79, top: 15.26, width: 58.55, height: 76.63 } },
-  { key: 'seal/wax', scene: 'seal', label: 'Wax seal — the wax', hint: 'The pressed wax, straight on, its centre plain for the monogram, on a transparent background.', url: '/moments/seal/wax.webp', aspect: 0.969 },
-  { key: 'scratch/foil', scene: 'scratch', label: 'Scratch card — the foil', hint: 'The foil as a texture, square, edge to edge, no transparency.', url: '/moments/scratch/foil.webp', aspect: 1 },
+  // the studio the whole catalogue is photographed in: a cream backdrop, and a blush one for the softer scenes
+  { key: 'backdrop/cream', scenes: ['envelope', 'seal', 'ribbon', 'curtains', 'doors', 'capiz', 'letter', 'instant-camera', 'polaroid-stack', 'candle', 'gift', 'frame', 'pull-card', 'sticker', 'scroll', 'photo-booth', 'projector', 'film-strip', 'album', 'carousel', 'cheers', 'code', 'puzzle', 'flip'], label: 'The studio — cream backdrop', hint: 'An empty studio backdrop, a warm cream wall fading to a pale tabletop, portrait, no transparency; every scene stands on it.', url: '/moments/backdrop/cream.webp', aspect: 0.672 },
+  { key: 'backdrop/blush', scenes: ['ring-box', 'light', 'bloom', 'baby', 'hold'], label: 'The studio — blush backdrop', hint: 'The same empty studio backdrop in a pale blush pink, portrait, no transparency; the softer scenes stand on it.', url: '/moments/backdrop/blush.webp', aspect: 0.672 },
+  // ── the opening ──
+  { key: 'envelope/pocket', scenes: ['envelope', 'seal', 'pull-card'], label: 'Envelope — the pocket', hint: 'The body of the envelope seen from the front with no top flap, on a transparent background.', url: '/moments/envelope/pocket.webp', aspect: 1.669 },
+  { key: 'envelope/flap', scenes: ['envelope', 'seal'], label: 'Envelope — the flap', hint: 'Only the triangular flap, its fold along the top edge and its point at the bottom, on a transparent background.', url: '/moments/envelope/flap.webp', aspect: 1.994 },
+  { key: 'envelope/card', scenes: ['envelope', 'seal', 'ribbon', 'letter', 'pull-card', 'flip'], label: 'The card', hint: 'A blank upright card, on a transparent background; the words are written over it. The envelope, the pull, the ribbon, the letter and the flip card all use it.', url: '/moments/envelope/card.webp', aspect: 0.725 },
+  { key: 'seal/wax', scenes: ['seal'], label: 'Wax seal — the wax', hint: 'The pressed wax, straight on, its centre plain for the monogram, on a transparent background.', url: '/moments/seal/wax.webp', aspect: 0.996 },
+  { key: 'ribbon/bow', scenes: ['ribbon', 'scroll'], label: 'Ribbon — the bow', hint: 'A tied satin bow seen from the front, on a transparent background.', url: '/moments/ribbon/bow.webp', aspect: 1.095 },
+  { key: 'ribbon/band', scenes: ['ribbon'], label: 'Ribbon — the band', hint: 'A straight length of the same ribbon lying flat, wide, on a transparent background.', url: '/moments/ribbon/band.webp', aspect: 8.048 },
+  { key: 'curtains/panel', scenes: ['curtains'], label: 'Curtains — one panel', hint: 'One curtain panel hanging straight, tall, on a transparent background; the right-hand panel is its mirror.', url: '/moments/curtains/panel.webp', aspect: 0.368 },
+  { key: 'curtains/pelmet', scenes: ['curtains'], label: 'Curtains — the pelmet', hint: 'The pelmet across the top, wide, its lower edge on a transparent background.', url: '/moments/curtains/pelmet.webp', aspect: 3.437 },
+  { key: 'doors/leaf-l', scenes: ['doors'], label: 'Doors — the left leaf', hint: 'The left leaf of the pair, hinged at its left edge, on a transparent background.', url: '/moments/doors/leaf-l.webp', aspect: 0.311 },
+  { key: 'doors/leaf-r', scenes: ['doors'], label: 'Doors — the right leaf', hint: 'The right leaf of the pair, hinged at its right edge, on a transparent background.', url: '/moments/doors/leaf-r.webp', aspect: 0.312 },
+  { key: 'doors/church-l', scenes: ['doors'], label: 'Church doors — the left leaf', hint: 'The left leaf of the arched church pair, hinged at its left edge, on a transparent background.', url: '/moments/doors/church-l.webp', aspect: 0.334 },
+  { key: 'doors/church-r', scenes: ['doors'], label: 'Church doors — the right leaf', hint: 'The right leaf of the arched church pair, hinged at its right edge, on a transparent background.', url: '/moments/doors/church-r.webp', aspect: 0.329 },
+  { key: 'doors/arch', scenes: ['doors'], label: 'Church doors — the stone arch', hint: 'The stone surround, the doorway see-through, on a transparent background; the leaves hang in the doorway where this one has it.', url: '/moments/doors/arch.webp', aspect: 0.67, hole: { left: 20.79, top: 15.26, width: 58.55, height: 76.63 } },
+  { key: 'capiz/panel', scenes: ['capiz'], label: 'Capiz — one panel', hint: 'One tall arched capiz-shell panel in its frame, on a transparent background; the other is its mirror.', url: '/moments/capiz/panel.webp', aspect: 0.347 },
+  { key: 'letter/folded', scenes: ['letter'], label: 'Folded letter — closed', hint: 'The letter folded into a square and fastened, seen from the front, on a transparent background; it opens onto the card.', url: '/moments/letter/folded.webp', aspect: 0.994 },
+  // ── tap and reveal ──
+  { key: 'instant-camera/body', scenes: ['instant-camera'], label: 'Instant camera — the body', hint: 'The camera seen straight on from the front, on a transparent background, the film slot along its top plate; the print rises out of the slot.', url: '/moments/instant-camera/body.webp', aspect: 1.451 },
+  { key: 'instant-camera/print', scenes: ['instant-camera', 'polaroid-stack'], label: 'Instant print — the blank frame', hint: 'A blank instant print, the picture area see-through, on a transparent background; the photograph is drawn into the window where this one has it.', url: '/moments/instant-camera/print.webp', aspect: 0.739, hole: { left: 5.99, top: 6.91, width: 88.15, height: 70.78 } },
+  { key: 'ring-box/base', scenes: ['ring-box'], label: 'Ring box — the base and the ring', hint: 'The open lower half of the box with the ring on its cushion, seen from the front and a little above, on a transparent background.', url: '/moments/ring-box/base.webp', aspect: 1.203 },
+  { key: 'ring-box/lid', scenes: ['ring-box'], label: 'Ring box — the lid', hint: 'The lid standing open, its satin lining facing the front, the hinge along its bottom edge, on a transparent background.', url: '/moments/ring-box/lid.webp', aspect: 0.973 },
+  { key: 'bloom/petal', scenes: ['bloom'], label: 'Flower — one petal', hint: 'A single upright petal, its base at the bottom centre, on a transparent background; eight of it make the bud.', url: '/moments/bloom/petal.webp', aspect: 0.526 },
+  { key: 'bloom/open', scenes: ['bloom'], label: 'Flower — open', hint: 'The flower fully open from above, its centre see-through, on a transparent background; the photograph shows through the centre.', url: '/moments/bloom/open.webp', aspect: 0.971, hole: { left: 39.91, top: 41.21, width: 20.29, height: 19.91 } },
+  { key: 'candle/jar', scenes: ['candle'], label: 'Candle — the jar', hint: 'The unlit candle in its glass, seen from the front, the wick at the top centre, on a transparent background.', url: '/moments/candle/jar.webp', aspect: 0.721 },
+  { key: 'candle/flame', scenes: ['candle'], label: 'Candle — the flame', hint: 'A single flame with its glow, on a transparent background; it stands on the wick of the jar and of the cake.', url: '/moments/candle/flame.webp', aspect: 0.643 },
+  { key: 'gift/box', scenes: ['gift'], label: 'Gift — the box', hint: 'The open lower part of the box with its band, seen from the front and a little above, on a transparent background.', url: '/moments/gift/box.webp', aspect: 1.179 },
+  { key: 'gift/lid', scenes: ['gift'], label: 'Gift — the lid', hint: 'The lid with its bow, seen from the front and a little above, on a transparent background.', url: '/moments/gift/lid.webp', aspect: 1.013 },
+  { key: 'gift/holiday-box', scenes: ['gift'], label: 'Holiday gift — the box', hint: 'The holiday box open, on a transparent background.', url: '/moments/gift/holiday-box.webp', aspect: 1.113 },
+  { key: 'gift/holiday-lid', scenes: ['gift'], label: 'Holiday gift — the lid', hint: 'The holiday lid with its bow, on a transparent background.', url: '/moments/gift/holiday-lid.webp', aspect: 1.322 },
+  { key: 'gift/mystery-box', scenes: ['gift'], label: 'Mystery gift — the box', hint: 'The mystery box open, on a transparent background.', url: '/moments/gift/mystery-box.webp', aspect: 1.316 },
+  { key: 'gift/mystery-lid', scenes: ['gift'], label: 'Mystery gift — the lid', hint: 'The mystery lid with its bow, on a transparent background.', url: '/moments/gift/mystery-lid.webp', aspect: 1.219 },
+  { key: 'frame/gold', scenes: ['frame'], label: 'Photo frame — the frame', hint: 'The frame standing upright, the picture area see-through, on a transparent background; the photograph sits in the window where this one has it.', url: '/moments/frame/gold.webp', aspect: 0.742, hole: { left: 10.28, top: 8.1, width: 79.44, height: 83.8 } },
+  // ── swipe and pull ──
+  { key: 'sticker/face', scenes: ['sticker'], label: 'Sticker — the face', hint: 'The round sticker seen flat from above, on a transparent background; it peels off the photograph.', url: '/moments/sticker/face.webp', aspect: 0.98 },
+  { key: 'frost/glass', scenes: ['frost'], label: 'Frosted glass — the frost', hint: 'The frost as a texture, edge to edge, no transparency; the finger clears it.', url: '/moments/frost/glass.webp', aspect: 0.753 },
+  { key: 'scroll/roller', scenes: ['scroll'], label: 'Scroll — the roller', hint: 'One wooden roller lying flat with the parchment wound on it, wide, on a transparent background; both ends of the scroll are it.', url: '/moments/scroll/roller.webp', aspect: 8.119 },
+  { key: 'scroll/parchment', scenes: ['scroll'], label: 'Scroll — the parchment', hint: 'The parchment as a texture, edge to edge, no transparency; the words are written on it.', url: '/moments/scroll/parchment.webp', aspect: 0.753 },
+  { key: 'panels/panel', scenes: ['curtains'], label: 'Sliding panels — one panel', hint: 'One tall decorative panel in its frame, on a transparent background; the other is its mirror.', url: '/moments/panels/panel.webp', aspect: 0.258 },
+  // ── photo moments ──
+  { key: 'film-strip/strip', scenes: ['film-strip'], label: 'Film strip — the strip', hint: 'A length of film lying across the page with three see-through frames, on a transparent background; the photographs slide under it.', url: '/moments/film-strip/strip.webp', aspect: 2.897, hole: { left: 34.2, top: 18.22, width: 30.03, height: 63.55 } },
+  { key: 'album/cover', scenes: ['album'], label: 'Album — the cover', hint: 'The closed album standing upright, its plaque blank, on a transparent background.', url: '/moments/album/cover.webp', aspect: 0.704 },
+  { key: 'album/page', scenes: ['album'], label: 'Album — a page', hint: 'A page as a texture with its photo corners, edge to edge, no transparency.', url: '/moments/album/page.webp', aspect: 0.753 },
+  { key: 'photo-booth/strip', scenes: ['photo-booth'], label: 'Photo booth — the strip', hint: 'The white strip standing upright with three see-through windows, on a transparent background.', url: '/moments/photo-booth/strip.webp', aspect: 0.247, hole: { left: 13.36, top: 6.16, width: 73.29, height: 24.64 } },
+  { key: 'photo-booth/button', scenes: ['photo-booth'], label: 'Photo booth — the shutter', hint: 'The round shutter button on its base, seen from the front and a little above, on a transparent background.', url: '/moments/photo-booth/button.webp', aspect: 1.035 },
+  { key: 'projector/body', scenes: ['projector'], label: 'Projector — the projector', hint: 'The projector seen from the side with its lens to the right, on a transparent background.', url: '/moments/projector/body.webp', aspect: 0.91 },
+  // ── the occasion shelf ──
+  { key: 'cake/cake', scenes: ['candle'], label: 'Birthday cake — the cake', hint: 'The cake on its plate with one unlit candle at the centre, seen from the front, on a transparent background.', url: '/moments/cake/cake.webp', aspect: 1.18 },
+  { key: 'baby/bear', scenes: ['baby'], label: 'Baby reveal — the bear', hint: 'The bear sitting and facing the front, on a transparent background.', url: '/moments/baby/bear.webp', aspect: 0.776 },
+  { key: 'baby/balloons', scenes: ['baby'], label: 'Baby reveal — the balloons', hint: 'A cluster of balloons with their strings, on a transparent background.', url: '/moments/baby/balloons.webp', aspect: 0.584 },
+  { key: 'baby/box', scenes: ['baby'], label: 'Baby reveal — the box', hint: 'The open box, seen from the front and a little above, on a transparent background.', url: '/moments/baby/box.webp', aspect: 1.118 },
+  { key: 'cheers/flute', scenes: ['cheers'], label: 'Champagne — one flute', hint: 'One filled flute standing upright, on a transparent background; the second is its mirror.', url: '/moments/cheers/flute.webp', aspect: 0.213 },
+  // ── the surprise shelf ──
+  { key: 'scratch/foil', scenes: ['scratch'], label: 'Scratch card — the foil', hint: 'The foil as a texture, square, edge to edge, no transparency.', url: '/moments/scratch/foil.webp', aspect: 1 },
+  { key: 'scratch/gold', scenes: ['scratch'], label: 'Scratch card — the card', hint: 'The card under the foil as a texture, edge to edge, no transparency; the message is written over it.', url: '/moments/scratch/gold.webp', aspect: 0.753 },
 ];
 export const PART_BY_KEY: Record<PartKey, PartDef> = Object.fromEntries(MOMENT_PARTS.map((p) => [p.key, p])) as Record<PartKey, PartDef>;
 /** The picture for one of a scene's parts: the design's own where it brought one, else the one shipped. */
@@ -366,7 +453,15 @@ export function aspectOf(key: MomentKey, variant?: string): number {
   return MOMENT_BY_KEY[key]?.aspect ?? 1;
 }
 /** The scenes that stand on photographed parts, by variant — the plain doors and the plain panels are drawn. */
-export const PARTED: Partial<Record<MomentKey, boolean>> = { 'instant-camera': true, 'polaroid-stack': true, curtains: true, doors: true, seal: true, scratch: true };
+/**
+ * The scenes that stand on photographed parts: every scene some part names.
+ * The whole catalogue does now — each scene is a photograph of the real
+ * thing on the studio ground — so this is read where a scene has to know
+ * whether it is drawn or photographed.
+ */
+export const PARTED: Partial<Record<MomentKey, boolean>> = Object.fromEntries(
+  MOMENT_PARTS.flatMap((p) => p.scenes.map((k) => [k, true] as const)),
+) as Partial<Record<MomentKey, boolean>>;
 
 
 export const MOMENT_BY_KEY: Record<MomentKey, MomentDef> = Object.fromEntries(MOMENTS.map((m) => [m.key, m])) as Record<MomentKey, MomentDef>;

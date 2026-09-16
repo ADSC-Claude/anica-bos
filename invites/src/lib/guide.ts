@@ -38,12 +38,22 @@ export const PAGE_SHAPES: Shape[] = [
    * wrong number. The ratio itself was never wrong: it is the measured shape
    * of ten of the shipped grounds. Only the name was.
    *
-   * No genuine three-screen row was put in its place. Three screens is
-   * 1080 by 5757, which is a page nobody should be exporting and well past
-   * the weight this file's own rules ask for; a shape worth offering is a
-   * decision about the product, not arithmetic to fill a gap.
+   * The three-screen row below is the real one, put back on the owner's
+   * word after this correction took the false one away.
    */
   { key: 'long', label: 'One and two-thirds screens', ratio: 2.989, use: 'A long page, scrolled: Baby Blue’s cover, story and closing are all this shape.' },
+  /*
+   * Three screens, and the only shape on this list that comes with a
+   * warning rather than a use.
+   *
+   * 1080 by 5757 is a tall export. The rules further down this file ask for
+   * a ground under about 400 KB, and a page this size will not get there
+   * without care — a plain wash or a soft gradient will, a photograph
+   * across the whole of it will not. It is offered because a story told
+   * down one page is a real thing to want, and saying so is better than
+   * leaving the list to stop at two and letting somebody guess.
+   */
+  { key: 'three', label: 'Three screens', ratio: round(ONE_SCREEN * 3), use: 'The longest worth making — a story told down one page. Watch its weight: keep the artwork plain through the middle, or it will not come under 400 KB.' },
 ];
 
 function round(n: number): number {

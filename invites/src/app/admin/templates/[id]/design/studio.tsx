@@ -2130,7 +2130,7 @@ export function Studio(p: Props) {
           {view === 'page' && page?.drawn && (
             <button
               type="button"
-              title="Where words are safe on the narrowest phone, the band the browser's own bar keeps, and whatever the checklist says about this page"
+              title="Lines only: where words are safe on the narrowest phone, where a phone's edges fall, where the browser's own bar sits, and whatever the checklist says about this page"
               onClick={() => setGuide((x) => !x)}
               className={`rounded px-2 py-1 ${guide ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}
             >
@@ -2318,9 +2318,10 @@ export function Studio(p: Props) {
                   * own photographs sit on top and nothing can be grabbed.
                   */}
                 {/*
-                  * The phone guide. Two bands and a set of rings, all of them
+                  * The phone guide. Hairlines and a set of rings, all of them
                   * over the page and none of them in it: the layer takes no
-                  * pointer, so it cannot get between her and a box.
+                  * pointer, so it cannot get between her and a box, and
+                  * nothing is shaded or striped over what she is drawing.
                   *
                   * The gutter is the same number the checklist measures words
                   * against (`GUTTER`), so the line on the page and the
@@ -2334,78 +2335,37 @@ export function Studio(p: Props) {
                   * The same guide over a page laid out by its words, which
                   * until now showed none: she was editing at website width
                   * with nothing on the canvas to say what a phone would do
-                  * with it, and asked for exactly this. Three marks, the
-                  * same three: the gutter words read as cut inside, the
-                  * band a phone browser's own bar keeps for itself at the
-                  * foot of the first screen, and — at website width, where
-                  * the column is wider than a phone — where a phone's
-                  * edges fall, since the words re-wrap inside that and
-                  * nothing else about the page changes.
+                  * with it, and asked for exactly this.
+                  *
+                  * Lines, and nothing else. A guide that shades or stripes
+                  * the page is a guide she has to look through to judge
+                  * what she is drawing — "it should only be a guide", in
+                  * her words — so each limit is one hairline and the design
+                  * underneath is untouched: the two the words want to stay
+                  * inside, the two where a phone's edges fall at website
+                  * width, and one where a phone browser's own bar cuts off
+                  * the first screen.
                   */}
                 {framed && guide && (
                   <div aria-hidden data-testid="flow-guide" style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none', overflow: 'hidden' }}>
-                    {[0, 100 - GUTTER].map((at) => (
-                      <div
-                        key={at}
-                        style={{
-                          position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: `${GUTTER}%`,
-                          background: 'rgba(47,111,208,0.06)',
-                          [at ? 'borderLeft' : 'borderRight']: '1px dashed rgba(47,111,208,0.55)',
-                        }}
-                      />
+                    {[GUTTER, 100 - GUTTER].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: 0, borderLeft: '1px dashed rgba(47,111,208,0.5)' }} />
                     ))}
-                    {column > PHONE_VIEW && (
-                      <>
-                        {[(column - PHONE_VIEW) / 2, column - (column - PHONE_VIEW) / 2].map((at, i) => (
-                          <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: at, width: 1, background: 'rgba(31,29,26,0.45)', boxShadow: `${i ? '' : '-'}0.5px 0 0 rgba(255,255,255,0.6)` }} />
-                        ))}
-                        <span style={{ position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 3 }}>
-                          a phone is {PHONE_VIEW} wide &mdash; the writings re-wrap inside these
-                        </span>
-                      </>
-                    )}
+                    {column > PHONE_VIEW && [(column - PHONE_VIEW) / 2, column - (column - PHONE_VIEW) / 2].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: at, width: 0, borderLeft: '1px solid rgba(31,29,26,0.35)' }} />
+                    ))}
                     {flowBox.height > screen * 0.5 && (
-                      <div
-                        style={{
-                          position: 'absolute', left: 0, right: 0, top: Math.round(screen * (1 - BROWSER_BAR)), height: Math.round(screen * BROWSER_BAR),
-                          background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
-                          borderTop: '1px dashed rgba(31,29,26,0.5)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                      >
-                        <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
-                          the browser&rsquo;s bar sits about here
-                        </span>
-                      </div>
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: Math.round(screen * (1 - BROWSER_BAR)), height: 0, borderTop: '1px dashed rgba(31,29,26,0.45)' }} />
                     )}
                   </div>
                 )}
                 {page?.drawn && guide && (
                   <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none' }}>
-                    {[0, 100 - GUTTER].map((at) => (
-                      <div
-                        key={at}
-                        style={{
-                          position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: `${GUTTER}%`,
-                          background: 'rgba(47,111,208,0.06)',
-                          [at ? 'borderLeft' : 'borderRight']: '1px dashed rgba(47,111,208,0.55)',
-                        }}
-                      />
+                    {[GUTTER, 100 - GUTTER].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: 0, borderLeft: '1px dashed rgba(47,111,208,0.5)' }} />
                     ))}
                     {ratio <= ONE_SCREEN + 0.02 && (
-                      <div
-                        style={{
-                          position: 'absolute', left: 0, right: 0, bottom: 0,
-                          height: `${(BROWSER_BAR / ratio) * 100}%`,
-                          background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
-                          borderTop: '1px dashed rgba(31,29,26,0.5)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                      >
-                        <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
-                          the browser&rsquo;s bar sits about here
-                        </span>
-                      </div>
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: `${(BROWSER_BAR / ratio) * 100}%`, height: 0, borderTop: '1px dashed rgba(31,29,26,0.45)' }} />
                     )}
                     {/*
                       * And the checklist, on the page. A ring where a line is
@@ -2510,7 +2470,7 @@ export function Studio(p: Props) {
               ? <>This page is the same page at every width: a guest&rsquo;s invitation is never wider than the Laptop 512 above, and everything on the page is a share of that width &mdash; so what you place here lands in the same place on a 360 phone, only smaller. Nothing is cut and nothing moves.{' '}</>
               : <>This page is laid out by its words, so a phone re-wraps them inside a narrower column while the background behind them fills whatever screen it is on. What a phone changes is where the lines break and how much of the background it shows.{' '}</>}
             {guide
-              ? <>The guide shows the three things a phone does change: words inside the shaded gutter read as cut, the striped band is where a phone browser&rsquo;s own bar sits until the guest scrolls, and a ring marks anything the checklist has a line about. On a page laid out by its words, the two upright lines at website width are where a phone&rsquo;s edges fall &mdash; the writings re-wrap inside them. Switch between the widths above to see how big the writing actually gets.</>
+              ? <>The guide is lines only, nothing laid over the page: keep words inside the two dashed uprights and a phone will not read them as cut, and the dashed line across is where a phone browser&rsquo;s own bar sits until the guest scrolls. At website width the two solid uprights are where a phone&rsquo;s edges fall. A ring marks anything the checklist has a line about. Switch between the widths above to see how big the writing actually gets.</>
               : <>Turn on <strong>Phone guide</strong> above to see where words are safe, where a phone browser&rsquo;s bar sits, and whatever the checklist says about this page.</>}
           </p>
         )}

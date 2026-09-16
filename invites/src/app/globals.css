@@ -3384,7 +3384,7 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
    slow heavy ease with one small wobble, and develops. */
 .inv-mo-camera { perspective: none; }
 .inv-mo-cam-body {
-  position: absolute; left: 50%; bottom: 0; width: 84%; aspect-ratio: 805 / 687; z-index: 3;
+  position: absolute; left: 50%; bottom: 0; width: 88%; aspect-ratio: 968 / 667; z-index: 3;
   transform: translateX(-50%);
   filter: drop-shadow(0 2.4cqw 3cqw rgba(var(--mo-dark), 0.3)) drop-shadow(0 0.4cqw 0.6cqw rgba(var(--mo-dark), 0.16));
 }
@@ -3449,76 +3449,58 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 [data-state='opening'] .inv-mo-stack .inv-mo-print { animation: inv-mo-lift calc(1200ms * var(--moment-t)) ease-in-out calc(var(--stack-delay, 0ms) * var(--moment-t)) both; }
 [data-moment='polaroid-stack'] { --moment-reveal-at: 900ms; }
 [data-moment='polaroid-stack'] .inv-moment-reveal { display: none; }
+/* --- the studio every scene is photographed in ---------------------------------
+   The catalogue's look: each scene on a soft studio backdrop (MOMENT_PARTS:
+   backdrop/cream, backdrop/blush), the object itself a photograph cut out
+   and set down on it with a warm shadow under it. The backdrop is the
+   card; a scene that fills its box (the doors, the curtains) draws its own. */
+.inv-mo-ground { z-index: 0; object-fit: cover; object-position: center; border-radius: 2.4cqw; }
+.inv-mo { border-radius: 2.4cqw; }
+/* a part's own shadow on the ground, warm and soft, the way the studio's one light throws it */
+.inv-mo-set { position: absolute; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+
 /* --- the envelope and the wax seal -----------------------------------------
-   Laid paper with a grain. The back is lined in the design's accent, a fine
-   lattice that shows once the flap is up. The wax is a photograph of a red
-   seal (MOMENT_PARTS: seal/wax), shown twice and clipped along the crack so
-   the two halves can part, with the monogram pressed into its plain centre.
-   The tap gives the wax a hair, a crack runs across, the halves fall away,
-   and only then does the flap lift and the card rise. */
-.inv-mo-env { filter: drop-shadow(0 3cqw 4cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.4cqw 0.6cqw rgba(var(--mo-dark), 0.12)); }
-.inv-mo-env .inv-mo-back {
-  position: absolute; inset: 0;
-  border-radius: 1.2cqw;
-  background-color: color-mix(in srgb, var(--mo-paper) 90%, var(--inv-ink));
-  background-image:
-    var(--mo-grain),
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--inv-accent) 24%, transparent) 0 1px, transparent 1px 3.6cqw),
-    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--inv-accent) 24%, transparent) 0 1px, transparent 1px 3.6cqw);
-  box-shadow: inset 0 0 0 1px var(--mo-ink10), inset 0 -3cqw 4cqw rgba(var(--mo-dark), 0.08);
+   The pocket, the flap hinged along its top fold, and the card inside, all
+   photographed (envelope/pocket, envelope/flap, envelope/card). Tapped, or
+   dragged up, the flap lifts and turns back and the card rises out of the
+   pocket, in front of the opened flap; the words are written on the card.
+   The seal (seal/wax) holds the flap's point: it gives once, cracks, falls
+   in two, and only then does the flap lift. */
+.inv-mo-env { perspective: 900cqw; perspective-origin: 50% 60%; }
+.inv-mo-env-pocket { position: absolute; left: 14%; width: 72%; bottom: 10%; height: 47%; z-index: 3; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-env-pocket .inv-mo-part { object-fit: fill; }
+.inv-mo-env-flap {
+  position: absolute; left: 14%; width: 72%; top: 43%; height: 39%; z-index: 4;
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.2));
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-settle), z-index 0s linear calc(450ms * var(--moment-t)), filter calc(900ms * var(--moment-t)) ease;
 }
-.inv-mo-env .inv-mo-card {
-  position: absolute; left: 6%; right: 6%; top: 10%; bottom: 8%;
-  border-radius: 0.6cqw;
-  background-color: color-mix(in srgb, var(--inv-surface) 97%, white);
+.inv-mo-env-flap .inv-mo-part { object-fit: fill; }
+.inv-mo-env-card {
+  position: absolute; left: 26%; width: 48%; top: 47%; height: 72%; z-index: 2;
+  filter: drop-shadow(0 0.6cqw 1cqw rgba(var(--mo-dark), 0.16));
   transform: translateY(0);
   transition: transform calc(1000ms * var(--moment-t)) var(--mo-heavy) calc(500ms * var(--moment-t));
 }
-.inv-mo-env .inv-mo-pocket {
-  position: absolute; inset: 0;
-  border-radius: 1.2cqw;
-  clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%);
-  background-image:
-    linear-gradient(to bottom right, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 16%, transparent) 50%, rgba(255, 255, 255, 0.5) 50.4%, transparent 51%),
-    linear-gradient(to bottom left, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 16%, transparent) 50%, rgba(255, 255, 255, 0.5) 50.4%, transparent 51%),
-    var(--mo-grain),
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 2.5%, transparent) 0 1px, transparent 1px 4px);
-  background-size: 50% 100%, 50% 100%, auto, auto;
-  background-repeat: no-repeat, no-repeat, repeat, repeat;
-  background-position: left top, right top, 0 0, 0 0;
-  box-shadow: inset 0 0 0 1px var(--mo-ink10), inset 0 -1px 0 rgba(255, 255, 255, 0.5);
-}
-.inv-mo-env .inv-mo-flap {
-  position: absolute; left: 0; right: 0; top: 0; height: 54%;
-  border-radius: 1.2cqw 1.2cqw 0 0;
-  clip-path: polygon(0 0, 100% 0, 50% 100%);
-  transform-origin: top center;
-  transform: rotateX(0deg);
-  z-index: 3;
-  transition: transform calc(900ms * var(--moment-t)) var(--mo-settle), z-index 0s linear calc(450ms * var(--moment-t)), filter calc(900ms * var(--moment-t)) ease;
-}
-.inv-mo-env .inv-mo-flap::after {
-  /* the flap's own shadow on the pocket, lengthening as it lifts, and the crease's light along its top */
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.35), transparent 6%, transparent 55%, rgba(var(--mo-dark), 0.14));
-}
-:is([data-state='opening'], [data-state='open']) .inv-mo-env .inv-mo-flap { transform: rotateX(-174deg); z-index: 0; filter: brightness(0.93); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-env .inv-mo-card { transform: translateY(-58%); }
-[data-state='closed'] .inv-mo-env .inv-mo-card { transform: translateY(calc(var(--moment-drag) * -40%)); }
-.inv-mo-env .inv-mo-wax {
-  position: absolute; left: 50%; top: 52%; z-index: 4;
-  width: 19cqw; height: 19.6cqw;
+.inv-mo-env-card .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-env-flap { transform: rotateX(-176deg); z-index: 1; filter: brightness(0.94) drop-shadow(0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.12)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-env-card { transform: translateY(-62%); }
+[data-state='closed'] .inv-mo-env-card { transform: translateY(calc(var(--moment-drag) * -40%)); }
+.inv-mo-wax {
+  position: absolute; left: 50%; top: 80%; z-index: 5;
+  width: 16cqw; height: 16cqw;
   transform: translate(-50%, -50%) rotate(-7deg);
-  filter: drop-shadow(0 1cqw 1.2cqw rgba(var(--mo-dark), 0.38));
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.32));
 }
 .inv-mo-wax-half {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  color: #4a0c10;
+  color: #7a3a3a;
   font-family: var(--inv-display);
-  font-size: 6.2cqw;
+  font-size: 5.6cqw;
   line-height: 1;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22), 0 -1px 0 rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35), 0 -1px 0 rgba(0, 0, 0, 0.25);
   transition: transform calc(520ms * var(--moment-t)) var(--mo-fall) calc(380ms * var(--moment-t)), opacity calc(380ms * var(--moment-t)) ease calc(640ms * var(--moment-t));
 }
 .inv-mo-wax-half b { position: relative; z-index: 1; left: -3%; top: -3%; }
@@ -3527,7 +3509,7 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv-mo-crack {
   position: absolute; inset: 0; width: 100%; height: 100%;
   fill: none;
-  stroke: #3a0a0d;
+  stroke: #6a2a2a;
   stroke-width: 1.3;
   stroke-linecap: round;
   stroke-dasharray: 1;
@@ -3540,38 +3522,30 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='l'] { transform: translate(-18%, 16%) rotate(-14deg); opacity: 0; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='r'] { transform: translate(16%, 20%) rotate(12deg); opacity: 0; }
 /* the seal's flap waits for the wax to fall, and the card for the flap */
-[data-moment='seal'] .inv-mo-flap, .inv-open[data-style='seal'] .inv-mo-flap { transition-delay: calc(760ms * var(--moment-t)), calc(1200ms * var(--moment-t)), calc(760ms * var(--moment-t)); }
-[data-moment='seal'] .inv-mo-card, .inv-open[data-style='seal'] .inv-mo-card { transition-delay: calc(1300ms * var(--moment-t)); }
+[data-moment='seal'] .inv-mo-env-flap, .inv-open[data-style='seal'] .inv-mo-env-flap { transition-delay: calc(760ms * var(--moment-t)), calc(1200ms * var(--moment-t)), calc(760ms * var(--moment-t)); }
+[data-moment='seal'] .inv-mo-env-card, .inv-open[data-style='seal'] .inv-mo-env-card { transition-delay: calc(1300ms * var(--moment-t)); }
 [data-moment='envelope'], [data-moment='seal'] { --moment-reveal-at: 1000ms; }
 [data-moment='seal'] { --moment-reveal-at: 1750ms; }
-/* the words and photograph rise on the card itself */
-[data-moment='envelope'] .inv-moment-reveal, [data-moment='seal'] .inv-moment-reveal {
-  left: 6%; right: 6%; top: -48%; bottom: 50%;
-  padding: 4cqw;
-}
+/* the words rise on the card itself, in the part of it that clears the pocket */
+[data-moment='envelope'] .inv-moment-reveal, [data-moment='seal'] .inv-moment-reveal { left: 29%; right: 29%; top: 5%; bottom: 56%; padding: 3cqw; }
 
-/* --- the curtains, and the plain panels --------------------------------------
-   Velvet, photographed (MOMENT_PARTS: curtains/panel, curtains/pelmet): one
-   panel and its mirror under the pelmet, the stage dark behind them. Swiped
-   or tapped, the panels gather to the sides on a heavy ease, the folds
-   closing up as they go, and relax once, the way cloth does when it stops.
-   The photograph waits behind in a soft light. The plain panels are two
-   flat leaves in the surface colour, drawn. */
-.inv-mo-curtains { overflow: hidden; border-radius: 0.6cqw; background: #170a0d; }
-.inv-mo-behind { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.inv-mo-curtains::after {
-  /* the stage's own light on the photograph: brighter in the middle, dark at the edges */
-  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-  background: radial-gradient(ellipse at 50% 34%, transparent 50%, rgba(0, 0, 0, 0.38) 100%);
-}
+/* --- the curtains, and the sliding panels --------------------------------------
+   Satin, photographed (curtains/panel, curtains/pelmet): one panel and its
+   mirror under the pelmet, on the studio ground, the photograph waiting
+   behind. Swiped or tapped, the panels gather to the sides on a heavy ease,
+   the folds closing up as they go. The sliding panels (panels/panel) are
+   two decorated leaves that slide straight out. */
+.inv-mo-curtains { overflow: hidden; }
+.inv-mo-behind { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 2.4cqw; }
+.inv-mo-curtains .inv-mo-behind { left: 4%; top: 4%; width: 92%; height: 92%; border-radius: 1cqw; box-shadow: var(--mo-contact), var(--mo-ambient); z-index: 1; }
 .inv-mo-pelmet {
-  position: absolute; left: -1%; top: -0.4%; width: 102%; height: 15cqw; z-index: 3;
+  position: absolute; left: -1%; top: -1%; width: 102%; height: 17cqw; z-index: 3;
   object-fit: cover; object-position: center bottom;
-  filter: drop-shadow(0 1.2cqw 1.4cqw rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 1.2cqw 1.4cqw rgba(var(--mo-dark), 0.35));
 }
 .inv-mo-panel {
   position: absolute; top: 0; bottom: 0; width: 51%; z-index: 2; overflow: hidden;
-  box-shadow: 0 0 4cqw rgba(0, 0, 0, 0.42);
+  filter: drop-shadow(0 0 3cqw rgba(var(--mo-dark), 0.28));
   transition: transform calc(1400ms * var(--moment-t)) var(--mo-settle);
 }
 .inv-mo-panel .inv-mo-part { object-fit: cover; object-position: center top; }
@@ -3582,33 +3556,31 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 [data-state='closed'] .inv-mo-panel[data-side='r'] { transform: translateX(calc(var(--moment-drag) * 3%)) scaleX(calc(1 - var(--moment-drag) * 0.74)); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='l'] { transform: translateX(-3%) scaleX(0.26); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='r'] { transform: translateX(3%) scaleX(0.26); }
-/* the plain panels: two flat leaves in the surface colour, no folds, no pelmet */
-.inv-mo-curtains[data-panels] { background: var(--inv-surface); }
-.inv-mo-curtains[data-panels]::after { display: none; }
-.inv-mo-curtains[data-panels] .inv-mo-panel {
-  background-color: var(--inv-surface);
-  background-image: var(--mo-grain);
-  box-shadow: inset 0 0 0 1px var(--mo-ink10), 0 0 3cqw rgba(var(--mo-dark), 0.2);
-}
-.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { border-right: 1px solid color-mix(in srgb, var(--inv-accent) 60%, transparent); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(-102%); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(102%); }
+/* the sliding panels: two decorated leaves that keep their shape and slide straight off */
+.inv-mo-curtains[data-panels] .inv-mo-panel { top: 3%; bottom: 3%; width: 50%; }
+.inv-mo-curtains[data-panels] .inv-mo-panel .inv-mo-part { object-fit: cover; object-position: center center; }
+.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] .inv-mo-part { object-position: right center; }
+.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] .inv-mo-part { object-position: left center; transform: scaleX(-1); }
+[data-state='closed'] .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(calc(var(--moment-drag) * -60%)); }
+[data-state='closed'] .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(calc(var(--moment-drag) * 60%)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(-104%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(104%); }
 [data-moment='curtains'] { --moment-reveal-at: 500ms; }
 [data-moment='curtains'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 8cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+[data-moment='curtains'][data-variant='panels'] .inv-moment-reveal { color: inherit; text-shadow: none; }
 
 /* --- the doors, and the church doors -----------------------------------------
-   Oak, photographed (MOMENT_PARTS: doors/leaf-l, doors/leaf-r): two leaves
-   hinged at the outer edges, hung in a photographed stone arch for the
-   church (doors/arch) and in a drawn jamb for the plain doors. Tapped, the
-   leaves swing in on a heavy ease with one small settle at the stop — the
-   right a beat after the left — turning away from the light as they go,
-   while the light inside comes up and spills over the step. */
+   Photographed leaves hinged at their outer edges (doors/leaf-l, doors/leaf-r;
+   doors/church-l, doors/church-r), the ornate pair standing on the studio
+   ground and the church pair hung in a photographed stone arch (doors/arch).
+   Tapped, the leaves swing in on a heavy ease with one small settle at the
+   stop — the right a beat after the left — while the light inside comes up. */
 .inv-mo-doors { overflow: visible; background: none; }
-.inv-mo-doors:not([data-church]) { overflow: hidden; border-radius: 0.6cqw; }
+.inv-mo-doors:not([data-church]) { overflow: hidden; }
 /* the doorway: the dark inside, the photograph, the light and the leaves. The church's is the arch's own see-through, a little bigger, so the stone covers the join. */
-.inv-mo-way { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #2a1c12, #14100c 40%); perspective: 140cqw; perspective-origin: 50% 40%; }
-.inv-mo-doors[data-church] .inv-mo-way { left: 19.3%; top: 9%; width: 61.6%; height: 82.9%; border-radius: 50% 50% 0 0 / 48% 48% 0 0; }
-.inv-mo-doors .inv-mo-behind { filter: brightness(0.94) sepia(0.1) saturate(1.05); }
+.inv-mo-way { position: absolute; left: 6.5%; top: 4%; width: 87%; height: 92%; overflow: hidden; border-radius: 1cqw 1cqw 0.6cqw 0.6cqw; background: linear-gradient(180deg, #4a3a30, #241c16 40%); perspective: 140cqw; perspective-origin: 50% 40%; z-index: 1; box-shadow: 0 2cqw 3cqw rgba(var(--mo-dark), 0.28); }
+.inv-mo-doors[data-church] .inv-mo-way { left: 19.3%; top: 9%; width: 61.6%; height: 82.9%; border-radius: 50% 50% 0 0 / 48% 48% 0 0; box-shadow: none; }
+.inv-mo-doors .inv-mo-behind { filter: brightness(0.94) sepia(0.1) saturate(1.05); border-radius: 0; }
 .inv-mo-doors .inv-mo-light {
   position: absolute; inset: 0; z-index: 1;
   background: radial-gradient(ellipse at 50% 36%, rgba(255, 240, 205, 0.55), rgba(255, 240, 205, 0.12) 45%, transparent 72%);
@@ -3624,16 +3596,8 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 }
 /* the church's stone arch, over the doorway */
 .inv-mo-arch { z-index: 3; object-fit: fill; filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.32)); }
-/* the plain doors' jamb */
-.inv-mo-jamb {
-  position: absolute; inset: -1.5cqw; z-index: 3; pointer-events: none;
-  border: 1.5cqw solid color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-ink));
-  border-radius: 1.2cqw;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 0.4cqw 0.6cqw rgba(0, 0, 0, 0.3);
-}
 .inv-mo-leaf {
   position: absolute; top: 0; bottom: 0; width: 50%; z-index: 2; overflow: hidden;
-  background: #2a1c12;
   backface-visibility: visible;
   transition: transform calc(1600ms * var(--moment-t)) var(--mo-settle) calc(150ms * var(--moment-t)), filter calc(1600ms * var(--moment-t)) ease calc(150ms * var(--moment-t));
 }
@@ -3648,113 +3612,92 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='r'] { transform: rotateY(104deg); filter: brightness(0.62); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-doors .inv-mo-light { opacity: 1; }
 [data-moment='doors'] { --moment-reveal-at: 600ms; }
-[data-moment='doors'] .inv-moment-reveal { color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+[data-moment='doors'] .inv-moment-reveal { left: 8%; right: 8%; top: 6%; bottom: 6%; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
 /* the church's words and photograph stand in the doorway */
 [data-moment='doors'][data-variant='church'] .inv-moment-reveal { left: 21%; right: 21%; top: 16%; bottom: 9%; }
 
 /* --- the scratch card ---------------------------------------------------------
-   A card in the design's paper with a double rule round it like a ticket;
-   over it the foil, brushed metal in the accent painted on a canvas the
-   finger clears. Past six tenths cleared the rest lifts away. */
-[data-moment='scratch'] {
-  border-radius: 1.2cqw; overflow: hidden;
-  background-color: var(--mo-paper);
-  background-image: var(--mo-grain);
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0 0 1px var(--mo-ink10), inset 0 0 0 1.2cqw var(--inv-surface), inset 0 0 0 1.3cqw color-mix(in srgb, var(--inv-accent) 55%, transparent), inset 0 0 0 1.6cqw var(--inv-surface), inset 0 0 0 1.7cqw color-mix(in srgb, var(--inv-accent) 35%, transparent);
-}
-[data-moment='scratch'] .inv-moment-reveal { padding: 6cqw; }
-[data-moment='scratch'] .inv-moment-reveal img { width: 100%; height: 60%; flex: none; object-fit: cover; box-shadow: var(--mo-contact); }
+   The gold card (scratch/gold) with the message written over it; over that
+   the foil (scratch/foil), photographed and painted on a canvas the finger
+   clears. Past six tenths cleared the rest lifts away. */
+[data-moment='scratch'] { border-radius: 1.6cqw; overflow: hidden; box-shadow: var(--mo-contact), var(--mo-ambient); }
+[data-moment='scratch'] .inv-mo { border-radius: 0; }
+.inv-mo-gold { object-fit: cover; }
+[data-moment='scratch'] .inv-moment-reveal { padding: 6cqw; color: #5a3a10; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+[data-moment='scratch'] .inv-moment-reveal img { width: 100%; height: 60%; flex: none; object-fit: cover; box-shadow: var(--mo-contact); border: 0.6cqw solid #fff; }
 .inv-mo-foil { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; touch-action: none; cursor: crosshair; transition: opacity calc(700ms * var(--moment-t)) ease; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-foil { opacity: 0; pointer-events: none; }
+
 /* --- the ribbon -------------------------------------------------------------
-   A card tied in satin: two bands with the light running along them, a bow
-   with its loops lit from above and its tails hanging darker. Pulled, the
-   bow tightens, the loops draw in, and the bands fall away. */
-.inv-mo-ribbon { filter: drop-shadow(0 2.6cqw 3.6cqw rgba(var(--mo-dark), 0.2)) drop-shadow(0 0.3cqw 0.5cqw rgba(var(--mo-dark), 0.1)); }
-.inv-mo-ribbon .inv-mo-card { position: absolute; inset: 0; border-radius: 0.8cqw; }
-.inv-mo-band {
-  position: absolute; z-index: 2;
-  background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0%, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0.42) 46%, rgba(255, 255, 255, 0) 70%, rgba(0, 0, 0, 0.16) 100%),
-    var(--inv-accent);
-  box-shadow: 0 0.4cqw 1cqw rgba(var(--mo-dark), 0.2), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-  transition: transform calc(1000ms * var(--moment-t)) var(--mo-fall) calc(400ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(1100ms * var(--moment-t));
-}
-.inv-mo-band[data-dir='v'] { left: 50%; top: -2%; bottom: -2%; width: 9cqw; margin-left: -4.5cqw; }
-.inv-mo-band[data-dir='h'] {
-  left: -2%; right: -2%; top: 50%; height: 9cqw; margin-top: -4.5cqw;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.16) 0%, rgba(255, 255, 255, 0) 22%, rgba(255, 255, 255, 0.42) 46%, rgba(255, 255, 255, 0) 70%, rgba(0, 0, 0, 0.16) 100%),
-    var(--inv-accent);
-}
-.inv-mo-bow {
+   The card (envelope/card) tied in satin (ribbon/band) with the bow
+   (ribbon/bow) on top. Pulled, or tapped, the bow loosens and drops away
+   and the band slides off the card; the words are on the card. */
+.inv-mo-ribbon { perspective: none; }
+.inv-mo-rib-card { position: absolute; left: 20%; width: 60%; top: 8%; height: 79%; z-index: 1; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.2)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-rib-card .inv-mo-part { object-fit: fill; }
+.inv-mo-rib-band { position: absolute; z-index: 2; filter: drop-shadow(0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.22)); transition: transform calc(1000ms * var(--moment-t)) var(--mo-fall) calc(400ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(1100ms * var(--moment-t)); }
+.inv-mo-rib-band .inv-mo-part { object-fit: fill; }
+.inv-mo-rib-band[data-dir='h'] { left: 14%; width: 72%; top: 44%; height: 7.5cqw; }
+.inv-mo-rib-band[data-dir='v'] { left: 50%; top: 47.5%; width: 92%; height: 7.5cqw; transform: translate(-50%, -50%) rotate(90deg); }
+.inv-mo-rib-bow {
   position: absolute; z-index: 3;
-  left: 50%; top: 50%;
-  width: 34cqw; height: auto;
-  transform: translate(-50%, -46%);
-  fill: var(--inv-accent);
-  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.3));
+  left: 50%; top: 47%;
+  width: 34%; height: 31%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.28));
   transition: transform calc(500ms * var(--moment-t)) var(--mo-fall) calc(200ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(700ms * var(--moment-t));
 }
-.inv-mo-loop { transform-origin: 60px 40px; transition: transform calc(500ms * var(--moment-t)) ease-in; fill: color-mix(in srgb, var(--inv-accent) 84%, white); stroke: color-mix(in srgb, var(--inv-accent) 70%, black); stroke-width: 0.8; }
-.inv-mo-tail { fill: color-mix(in srgb, var(--inv-accent) 82%, black); transform-origin: 60px 44px; transition: transform calc(500ms * var(--moment-t)) ease-in; }
-.inv-mo-knot { fill: color-mix(in srgb, var(--inv-accent) 65%, black); }
-[data-state='closed'] .inv-mo-band[data-dir='h'] { transform: translateY(calc(var(--moment-drag) * 30%)); }
-[data-state='closed'] .inv-mo-bow { transform: translate(-50%, calc(-46% + var(--moment-drag) * 30%)) scale(calc(1 - var(--moment-drag) * 0.3)); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-loop[data-side='l'] { transform: scale(0.15, 0.5) translate(40%, 0); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-loop[data-side='r'] { transform: scale(0.15, 0.5) translate(-40%, 0); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-tail { transform: scaleY(1.3); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-bow { transform: translate(-50%, 60%) rotate(4deg); opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-band[data-dir='h'] { transform: translateY(140%) rotate(-3deg); opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-band[data-dir='v'] { transform: translateY(130%) rotate(2deg); opacity: 0; }
+[data-state='closed'] .inv-mo-rib-band[data-dir='h'] { transform: translateY(calc(var(--moment-drag) * 30%)); }
+[data-state='closed'] .inv-mo-rib-bow { transform: translate(-50%, calc(-50% + var(--moment-drag) * 30%)) scale(calc(1 - var(--moment-drag) * 0.3)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rib-bow { transform: translate(-50%, 90%) rotate(9deg) scale(0.86); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rib-band[data-dir='h'] { transform: translateY(140%) rotate(-3deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rib-band[data-dir='v'] { transform: translate(-50%, 80%) rotate(88deg); opacity: 0; }
 [data-moment='ribbon'] { --moment-reveal-at: 900ms; }
+[data-moment='ribbon'] .inv-moment-reveal { left: 22%; right: 22%; top: 12%; bottom: 16%; padding: 3cqw; }
 
 /* --- the capiz panels ----------------------------------------------------------
-   Four shell panels in their frames: nacre, which is to say white with a
-   faint iridescence and the light sliding across it, over the mullions.
-   The inner pair swing first, the outer pair a beat after. */
-.inv-mo-capiz { background: color-mix(in srgb, var(--inv-surface) 60%, var(--inv-accent2)); border-radius: 0.6cqw; }
+   Two arched shell panels (capiz/panel, the right its mirror) that fold
+   outward from the centre on a heavy ease, the photograph waiting behind. */
+.inv-mo-capiz { perspective: 160cqw; perspective-origin: 50% 45%; overflow: hidden; }
+.inv-mo-capiz .inv-mo-behind { left: 20%; top: 6%; width: 60%; height: 88%; border-radius: 30% 30% 1cqw 1cqw / 20% 20% 1cqw 1cqw; z-index: 1; }
 .inv-mo-shell {
-  position: absolute; top: 0; bottom: 0; width: 25.2%; z-index: 2;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.12) 42%, rgba(255, 255, 255, 0.5) 66%, rgba(255, 255, 255, 0.08)),
-    conic-gradient(from 200deg at 40% 30%, rgba(255, 214, 224, 0.28), rgba(214, 236, 255, 0.28), rgba(224, 255, 232, 0.24), rgba(255, 244, 214, 0.28), rgba(255, 214, 224, 0.28)),
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-accent) 72%, transparent) 0 1px, transparent 1px 16.6%),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 72%, transparent) 0 1px, transparent 1px 50%),
-    color-mix(in srgb, var(--inv-surface) 84%, var(--inv-accent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-accent) 60%, transparent), 0 0 2cqw rgba(var(--mo-dark), 0.18);
-  backface-visibility: hidden;
+  position: absolute; top: 4%; height: 92%; width: 32%; z-index: 2;
+  filter: drop-shadow(0 1cqw 1.6cqw rgba(var(--mo-dark), 0.24));
+  backface-visibility: visible;
   transition: transform calc(1100ms * var(--moment-t)) var(--mo-settle);
 }
-.inv-mo-shell[data-i='0'] { left: 0; transform-origin: left center; transition-delay: calc(450ms * var(--moment-t)); }
-.inv-mo-shell[data-i='1'] { left: 25%; transform-origin: left center; }
-.inv-mo-shell[data-i='2'] { right: 25%; transform-origin: right center; }
-.inv-mo-shell[data-i='3'] { right: 0; transform-origin: right center; transition-delay: calc(450ms * var(--moment-t)); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='0'],
-:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='1'] { transform: rotateY(-100deg); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='2'],
-:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-i='3'] { transform: rotateY(100deg); }
+.inv-mo-shell .inv-mo-part { object-fit: fill; }
+.inv-mo-shell[data-side='l'] { left: 18%; transform-origin: left center; }
+.inv-mo-shell[data-side='r'] { right: 18%; transform-origin: right center; transition-delay: calc(90ms * var(--moment-t)); }
+.inv-mo-shell[data-side='r'] .inv-mo-part { transform: scaleX(-1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-side='l'] { transform: rotateY(-108deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-side='r'] { transform: rotateY(108deg); }
 [data-moment='capiz'] { --moment-reveal-at: 700ms; }
+[data-moment='capiz'] .inv-moment-reveal { left: 22%; right: 22%; top: 10%; bottom: 10%; }
 
-/* --- the folded letter --------------------------------------------------------- */
-.inv-mo-letter { perspective-origin: 50% 50%; filter: drop-shadow(0 2.6cqw 3.6cqw rgba(var(--mo-dark), 0.2)); }
-.inv-mo-sheet { position: absolute; left: 8%; right: 8%; top: 33.3%; height: 33.4%; }
-.inv-mo-fold {
-  position: absolute; left: 8%; right: 8%; height: 33.4%; z-index: 2;
-  backface-visibility: visible;
-  transition: transform calc(1000ms * var(--moment-t)) var(--mo-settle);
+/* --- the folded letter ---------------------------------------------------------
+   The fastened square (letter/folded) on the ground. Tapped, it lifts its
+   face away on its top fold and the card behind it (envelope/card) opens
+   in two stages, the top half then the bottom; the words are on the card. */
+.inv-mo-letter { perspective: 900cqw; perspective-origin: 50% 50%; }
+.inv-mo-let-folded {
+  position: absolute; left: 22%; width: 56%; top: 21%; height: 59%; z-index: 3;
+  transform-origin: top center;
+  filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22));
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-heavy), opacity calc(300ms * var(--moment-t)) ease calc(600ms * var(--moment-t));
 }
-.inv-mo-fold::after {
-  /* the crease's shadow on the fold's back */
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(var(--mo-dark), 0.1), transparent 30%);
+.inv-mo-let-folded .inv-mo-part { object-fit: fill; }
+.inv-mo-let-sheet {
+  position: absolute; left: 24%; width: 52%; top: 8%; height: 84%; z-index: 2;
+  filter: drop-shadow(0 1.2cqw 1.6cqw rgba(var(--mo-dark), 0.18));
+  clip-path: inset(34% 0 34% 0);
+  transition: clip-path calc(1100ms * var(--moment-t)) var(--mo-settle) calc(500ms * var(--moment-t));
 }
-.inv-mo-fold[data-i='2'] { top: 66.6%; transform-origin: top center; transform: rotateX(180deg); }
-.inv-mo-fold[data-i='0'] { top: 0; transform-origin: bottom center; transform: rotateX(-180deg); z-index: 3; transition-delay: calc(650ms * var(--moment-t)); }
-.inv-mo-fold[data-i='0']::after { background: linear-gradient(0deg, rgba(var(--mo-dark), 0.1), transparent 30%); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-fold { transform: rotateX(0deg); }
+.inv-mo-let-sheet .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-let-folded { transform: rotateX(-110deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-let-sheet { clip-path: inset(0 0 0 0); }
 [data-moment='letter'] { --moment-reveal-at: 1300ms; }
-[data-moment='letter'] .inv-moment-reveal { left: 8%; right: 8%; padding: 4cqw; }
+[data-moment='letter'] .inv-moment-reveal { left: 27%; right: 27%; top: 12%; bottom: 12%; padding: 3cqw; }
 
 /* --- the same scenes filling the screen as the invitation's opening ------- */
 .inv-open .inv-mo {
@@ -3762,9 +3705,9 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   width: min(20rem, 80vw);
   perspective: 1400px;
 }
-.inv-open .inv-mo-env { aspect-ratio: 8 / 5; }
-.inv-open .inv-mo-ribbon { aspect-ratio: 8 / 5.6; }
-.inv-open .inv-mo-letter { aspect-ratio: 8 / 6.4; }
+.inv-open .inv-mo-env { aspect-ratio: 1 / 0.92; }
+.inv-open .inv-mo-ribbon { aspect-ratio: 1 / 1.05; }
+.inv-open .inv-mo-letter { aspect-ratio: 1 / 0.95; }
 .inv-open .inv-mo-curtains, .inv-open .inv-mo-capiz { aspect-ratio: 8 / 9.6; width: min(17rem, 72vw); }
 .inv-open .inv-mo-doors { aspect-ratio: 753 / 1138; width: min(15rem, 64vw); }
 .inv-open .inv-mo { --moment-drag: var(--open-drag, 0); }
@@ -3777,141 +3720,103 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 
 /* --- Tap & Reveal and the Surprise shelf ---------------------------------- */
 
-/* the ring box: velvet outside, satin inside, a hinge at the back; the lid
-   lifts with a settle, the ring rises on its cushion and the stone catches
-   the light once */
-.inv-mo-ringbox { perspective: 900cqw; perspective-origin: 50% 20%; }
-.inv-mo-box-base {
-  position: absolute; left: 14%; right: 14%; bottom: 8%; height: 46%;
-  border-radius: 2.2cqw;
-  background-color: color-mix(in srgb, var(--inv-accent) 62%, black);
-  background-image: var(--mo-grain-soft), linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.28) 100%), linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.22));
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0.6cqw 0 rgba(255, 255, 255, 0.1);
+/* the ring box: the base with the ring on its cushion (ring-box/base) and the
+   lid (ring-box/lid) hinged along the base's far edge, velvet on its back;
+   tapped, the lid swings up and back with a settle and the ring catches the
+   light once; the names come up above */
+.inv-mo-ringbox { perspective: 500cqw; perspective-origin: 50% 30%; }
+.inv-mo-rb-base { position: absolute; left: 18%; width: 64%; bottom: 8%; height: 56%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.24)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-rb-base .inv-mo-part { object-fit: fill; }
+.inv-mo-rb-lid {
+  position: absolute; left: 19%; width: 62%; bottom: 46%; height: 65%; z-index: 2;
+  transform-origin: bottom center; transform-style: preserve-3d;
+  transform: rotateX(-84deg);
+  filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.24));
+  transition: transform calc(1300ms * var(--moment-t)) var(--mo-settle) calc(120ms * var(--moment-t));
 }
-.inv-mo-cushion {
-  position: absolute; left: 6%; right: 6%; top: 10%; bottom: 10%; border-radius: 1.6cqw;
-  background:
-    radial-gradient(ellipse at 50% 30%, #fbf6ec, #e6dccb 70%, #cfc2ad 100%);
-  box-shadow: inset 0 -1cqw 2cqw rgba(var(--mo-dark), 0.3), inset 0 0.4cqw 0.6cqw rgba(255, 255, 255, 0.8);
+.inv-mo-rb-lid .inv-mo-part { object-fit: fill; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.inv-mo-rb-velvet {
+  /* the lid's back, seen while it lies shut: the velvet outside of the box */
+  position: absolute; inset: 4% 3%; border-radius: 12% / 10%;
+  background: var(--mo-grain-soft), radial-gradient(ellipse at 40% 30%, #f0c7cc, #dca4ac 60%, #c48c95);
+  transform: rotateX(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden;
 }
-.inv-mo-cushion::after { content: ''; position: absolute; left: 50%; top: 8%; bottom: 8%; width: 1cqw; margin-left: -0.5cqw; background: linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.12)); border-radius: 999px; }
-.inv-mo-ring {
-  position: absolute; left: 50%; top: -40%; width: 40%; height: auto;
-  transform: translateX(-50%) scale(0.6); opacity: 0;
-  fill: none; stroke: #e2c672; stroke-width: 4;
-  filter: drop-shadow(0 0.6cqw 0.8cqw rgba(var(--mo-dark), 0.35));
-  transition: transform calc(1000ms * var(--moment-t)) var(--mo-spring) calc(700ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(700ms * var(--moment-t));
-}
-.inv-mo-ring .inv-mo-stone { fill: #f4f9ff; stroke: #b8d3ea; stroke-width: 1; }
-.inv-mo-ring .inv-mo-facet { fill: rgba(255, 255, 255, 0.9); stroke: none; }
-.inv-mo-ring .inv-mo-facet[data-i='1'] { fill: rgba(196, 222, 244, 0.9); }
-.inv-mo-ring .inv-mo-glint { fill: #fff; stroke: none; opacity: 0; transform-box: fill-box; transform-origin: center; }
-:is([data-state='opening']) .inv-mo-ring .inv-mo-glint { animation: inv-mo-glint calc(900ms * var(--moment-t)) ease-out calc(1500ms * var(--moment-t)); }
-@keyframes inv-mo-glint { 0% { opacity: 0; transform: scale(0.2) rotate(0deg); } 40% { opacity: 1; } 100% { opacity: 0; transform: scale(2.4) rotate(40deg); } }
-.inv-mo-box-lid {
-  position: absolute; left: 14%; right: 14%; bottom: 54%; height: 30%; z-index: 2;
-  border-radius: 2.2cqw 2.2cqw 0.6cqw 0.6cqw;
-  background-color: color-mix(in srgb, var(--inv-accent) 62%, black);
-  background-image: var(--mo-grain-soft), linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.12) 100%), linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent 14%, transparent 86%, rgba(0, 0, 0, 0.22));
-  box-shadow: inset 0 0.6cqw 0 rgba(255, 255, 255, 0.1), 0 1cqw 2cqw rgba(var(--mo-dark), 0.3);
-  transform-origin: 50% 0%;
-  transition: transform calc(1200ms * var(--moment-t)) var(--mo-settle);
-}
-.inv-mo-box-lid-inner { position: absolute; inset: 8%; border-radius: 1cqw; background: radial-gradient(ellipse at 50% 40%, #fbf6ec, #dfd3bf); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), inset 0 0.4cqw 0.8cqw rgba(255, 255, 255, 0.7); opacity: 0; transition: opacity calc(300ms * var(--moment-t)) ease calc(500ms * var(--moment-t)); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-box-lid { transform: rotateX(-118deg); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-box-lid-inner { opacity: 1; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-ring { transform: translateX(-50%) scale(1); opacity: 1; }
-[data-moment='ring-box'] { --moment-reveal-at: 1300ms; }
-[data-moment='ring-box'] .inv-moment-reveal { top: auto; bottom: -22cqw; padding: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rb-lid { transform: rotateX(-6deg); }
+.inv-mo-rb-glint { position: absolute; left: 50%; top: 58%; width: 5cqw; height: 5cqw; margin: -2.5cqw 0 0 -2.5cqw; z-index: 4; border-radius: 999px; background: radial-gradient(circle, #fff, rgba(255, 255, 255, 0) 70%); opacity: 0; }
+:is([data-state='opening']) .inv-mo-rb-glint { animation: inv-mo-flash-pop calc(700ms * var(--moment-t)) ease calc(900ms * var(--moment-t)); }
+[data-moment='ring-box'] { --moment-reveal-at: 1000ms; }
+[data-moment='ring-box'] .inv-moment-reveal { top: 3%; bottom: 62%; padding: 2cqw 6cqw; justify-content: flex-end; }
 
-/* the magic light: a dark veil over the reveal, one soft flash from the tap, and it is gone */
-[data-moment='light'] .inv-mo, [data-moment='hold'] .inv-mo { z-index: 2; pointer-events: none; }
-[data-moment='light'] .inv-moment-reveal, [data-moment='hold'] .inv-moment-reveal, [data-moment='scratch'] .inv-moment-reveal, [data-moment='code'] .inv-moment-reveal { opacity: 1; translate: 0 0; transition: none; }
-.inv-mo-veil { position: absolute; inset: 0; background: color-mix(in srgb, var(--inv-ink) 94%, var(--inv-accent)); transition: opacity calc(900ms * var(--moment-t)) ease calc(200ms * var(--moment-t)); }
-.inv-mo-veil[data-frost] { background: color-mix(in srgb, var(--inv-surface) 55%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); transition: opacity calc(700ms * var(--moment-t)) ease, backdrop-filter calc(700ms * var(--moment-t)) ease; }
-.inv-mo-glow { position: absolute; left: 50%; top: 50%; width: 40%; aspect-ratio: 1; border-radius: 999px; transform: translate(-50%, -50%) scale(0.2); background: radial-gradient(circle, #fff8e8 0%, rgba(255, 248, 232, 0.6) 35%, transparent 70%); opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-light .inv-mo-glow { animation: inv-mo-flash calc(1100ms * var(--moment-t)) ease-out forwards; }
-.inv-mo-light[data-flash] .inv-mo-glow { background: radial-gradient(circle, #fff 0%, rgba(255, 255, 255, 0.9) 45%, transparent 70%); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-light[data-flash] .inv-mo-glow { animation-duration: calc(500ms * var(--moment-t)); }
-@keyframes inv-mo-flash {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
-  25% { opacity: 1; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(3.4); }
+/* the magic light and the magic flash: a soft light that spreads from the
+   centre of the blush ground and leaves what it lit behind */
+.inv-mo-light .inv-mo-veil { position: absolute; inset: 0; z-index: 1; background: color-mix(in srgb, var(--inv-surface) 40%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: opacity calc(900ms * var(--moment-t)) ease calc(300ms * var(--moment-t)); border-radius: 2.4cqw; }
+.inv-mo-light .inv-mo-glow {
+  position: absolute; left: 50%; top: 50%; width: 46%; aspect-ratio: 1; z-index: 2; border-radius: 999px;
+  transform: translate(-50%, -50%) scale(1);
+  background: radial-gradient(circle, rgba(255, 252, 240, 1) 0%, rgba(255, 240, 210, 0.9) 30%, rgba(255, 228, 190, 0.35) 60%, rgba(255, 228, 190, 0) 72%);
+  filter: blur(0.4cqw);
+  animation: inv-mo-breathe 3.2s ease-in-out infinite;
+  transition: transform calc(1200ms * var(--moment-t)) var(--mo-light), opacity calc(900ms * var(--moment-t)) ease calc(500ms * var(--moment-t));
 }
-:is([data-state='opening'], [data-state='open']) .inv-mo-veil { opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-veil[data-frost] { backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
-[data-still] .inv-mo-veil { display: none; }
-[data-moment='light'] .inv-moment-reveal img, [data-moment='hold'] .inv-moment-reveal img { position: absolute; inset: 0; width: 100%; height: 100%; }
-[data-moment='light'] .inv-moment-reveal > :not(img), [data-moment='hold'] .inv-moment-reveal > :not(img) { position: relative; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+@keyframes inv-mo-breathe { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light .inv-mo-veil { opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light .inv-mo-glow { transform: translate(-50%, -50%) scale(4); opacity: 0; animation: none; }
+.inv-mo-light[data-flash] .inv-mo-glow { width: 30%; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light[data-flash] .inv-mo-glow { transition-duration: calc(450ms * var(--moment-t)), calc(400ms * var(--moment-t)); transition-delay: 0s, calc(200ms * var(--moment-t)); }
+[data-moment='light'] { --moment-reveal-at: 500ms; }
+[data-moment='light'][data-variant='flash'] { --moment-reveal-at: 250ms; }
+[data-moment='light'] .inv-moment-reveal { padding: 6cqw; }
 
-/* the flower: eight petals in the accent closed over the photograph, each with
-   its own shadow on the one under it, opening from the centre one after another
-   with a small settle */
-.inv-mo-bloom { perspective: none; }
-.inv-mo-bloom-centre { position: absolute; left: 30%; top: 30%; width: 40%; aspect-ratio: 1; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--inv-accent) 30%, var(--inv-surface)); box-shadow: inset 0 0 2cqw rgba(var(--mo-dark), 0.25), 0 0 0 0.6cqw color-mix(in srgb, var(--inv-accent) 40%, white); }
+/* the flower: eight photographed petals (bloom/petal) stand up together as
+   the bud; tapped, they fold down and out onto the open flower (bloom/open)
+   and the photograph is at its heart */
+.inv-mo-bloom { perspective: 300cqw; perspective-origin: 50% 30%; }
+.inv-mo-bloom-open { position: absolute; left: -8%; top: -8%; width: 116%; height: 116%; z-index: 1; opacity: 0; transform: scale(0.7); filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.2)); transition: opacity calc(900ms * var(--moment-t)) ease calc(500ms * var(--moment-t)), transform calc(1400ms * var(--moment-t)) var(--mo-settle) calc(300ms * var(--moment-t)); }
+.inv-mo-bloom-open .inv-mo-part { object-fit: contain; }
+.inv-mo-bloom-centre {
+  position: absolute; left: 50%; top: 50%; width: 30%; aspect-ratio: 1; z-index: 2; border-radius: 999px; overflow: hidden;
+  transform: translate(-50%, -50%) scale(0.4); opacity: 0;
+  background: radial-gradient(circle, #fff6ea, #f3d9c2);
+  box-shadow: 0 0 0 0.8cqw rgba(255, 255, 255, 0.8), 0 1cqw 2cqw rgba(var(--mo-dark), 0.2);
+  transition: transform calc(1000ms * var(--moment-t)) var(--mo-settle) calc(900ms * var(--moment-t)), opacity calc(600ms * var(--moment-t)) ease calc(900ms * var(--moment-t));
+}
 .inv-mo-bloom-centre img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.inv-mo-petals { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .inv-mo-petal {
-  fill: color-mix(in srgb, var(--inv-accent) 82%, white);
-  stroke: color-mix(in srgb, var(--inv-accent) 60%, black);
-  stroke-width: 0.5;
-  filter: drop-shadow(0 2px 2px rgba(var(--mo-dark), 0.22));
-  transform-box: view-box;
-  transform-origin: 100px 100px;
-  transform: rotate(calc(var(--petal) * 45deg)) scale(0.62);
-  transition: transform calc(1300ms * var(--moment-t)) var(--mo-settle) calc(var(--petal) * 70ms * var(--moment-t)), fill calc(1300ms * var(--moment-t)) ease;
+  position: absolute; left: 50%; top: 50%; width: 24%; height: 46%; z-index: 3;
+  transform-origin: 50% 100%;
+  /* each petal stands on the centre and leans in over it, turned round the bud by its share of the circle */
+  transform: translate(-50%, -100%) rotate(calc(var(--petal) * 45deg)) rotateX(38deg);
+  filter: drop-shadow(0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.14));
+  transition: transform calc(1300ms * var(--moment-t)) var(--mo-settle) calc(var(--petal) * 45ms), opacity calc(500ms * var(--moment-t)) ease calc(900ms * var(--moment-t));
 }
-.inv-mo-petal:nth-child(even) { fill: color-mix(in srgb, var(--inv-accent) 70%, white); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-petal { transform: rotate(calc(var(--petal) * 45deg)) scale(1); }
-[data-moment='bloom'] { --moment-reveal-at: 1100ms; }
-[data-moment='bloom'] .inv-moment-reveal { top: auto; bottom: -18cqw; padding: 0; }
+.inv-mo-petal .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-petal { transform: translate(-50%, -100%) rotate(calc(var(--petal) * 45deg)) rotateX(-84deg) translateY(-30%); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bloom-open { opacity: 1; transform: scale(1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bloom-centre { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+[data-moment='bloom'] { --moment-reveal-at: 1300ms; }
+[data-moment='bloom'] .inv-moment-reveal { top: auto; bottom: 0; height: 22%; padding: 0 6cqw 3cqw; justify-content: flex-end; }
+[data-moment='bloom'] .inv-moment-reveal img { display: none; }
 
-/* the candle, and the birthday cake: a taper of real wax with a run down one
-   side, on a small brass dish; the cake in two tiers with icing that drips,
-   on a plate, its one candle lit until the tap blows it out */
+/* the candle, and the birthday cake: the jar (candle/jar) or the cake
+   (cake/cake) on the ground, the one photographed flame (candle/flame) on the
+   wick. The candle lights on the tap and the glow comes up; the cake starts
+   lit and the tap blows it out, the smoke rising */
 .inv-mo-candle { perspective: none; }
-.inv-mo-taper {
-  position: absolute; left: 50%; bottom: 20%; width: 9cqw; height: 46%; transform: translateX(-50%);
-  border-radius: 1cqw 1cqw 0.4cqw 0.4cqw;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0) 92%, rgba(0, 0, 0, 0.12) 100%),
-    linear-gradient(90deg, #e9dfc9, #fbf6ea 42%, #f1e9d6 70%, #cdbfa4);
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0.6cqw 0.4cqw rgba(0, 0, 0, 0.06);
-}
-.inv-mo-taper::before {
-  /* a run of wax down one side */
-  content: ''; position: absolute; left: 62%; top: -1%; width: 16%; height: 34%;
-  border-radius: 40% 40% 60% 60% / 20% 20% 80% 80%;
-  background: linear-gradient(180deg, #fbf6ea, #ece2cc);
-  box-shadow: 0 0.2cqw 0.3cqw rgba(0, 0, 0, 0.12);
-}
-.inv-mo-candle:not([data-cake]) .inv-mo-taper::after {
-  /* the brass dish under it */
-  content: ''; position: absolute; left: -60%; right: -60%; bottom: -3cqw; height: 5cqw;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--inv-accent) 60%, white), var(--inv-accent) 60%, color-mix(in srgb, var(--inv-accent) 55%, black));
-  box-shadow: var(--mo-contact), var(--mo-ambient);
-  z-index: -1;
-}
-.inv-mo-candle[data-cake] .inv-mo-taper { width: 3.2cqw; height: 22%; bottom: 46%; background: linear-gradient(90deg, #d9b6c9, #f2dbe8 45%, #c9a0ba); box-shadow: 0 0.3cqw 0.6cqw rgba(var(--mo-dark), 0.2); }
-.inv-mo-candle[data-cake] .inv-mo-taper::before { display: none; }
-.inv-mo-wick { position: absolute; left: 50%; top: -3cqw; width: 0.7cqw; height: 3.4cqw; margin-left: -0.35cqw; background: #2a2622; border-radius: 999px; }
+.inv-mo-jar { position: absolute; left: 27%; width: 46%; bottom: 8%; height: 58%; z-index: 2; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-cake { position: absolute; left: 12%; width: 76%; bottom: 8%; height: 58%; z-index: 2; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-jar .inv-mo-part, .inv-mo-cake .inv-mo-part { object-fit: fill; }
 .inv-mo-flame {
-  position: absolute; left: 50%; top: -12cqw; width: 5.5cqw; height: 10cqw; margin-left: -2.75cqw;
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: radial-gradient(ellipse at 50% 70%, #fff6c9 0%, #ffcf5a 35%, #ff8f2a 70%, rgba(255, 90, 20, 0) 100%);
-  filter: blur(0.3cqw);
+  position: absolute; left: 50%; width: 11%; height: 17%; z-index: 3;
+  bottom: 60%; margin-left: -5.5%;
   transform-origin: 50% 100%;
   transform: scale(0);
+  filter: drop-shadow(0 0 1.6cqw rgba(255, 190, 90, 0.7));
   transition: transform calc(500ms * var(--moment-t)) var(--mo-light) calc(200ms * var(--moment-t));
 }
-.inv-mo-flame::after {
-  /* the blue at the base of a flame */
-  content: ''; position: absolute; left: 30%; right: 30%; bottom: -4%; height: 30%; border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 60%, rgba(120, 170, 255, 0.7), rgba(120, 170, 255, 0) 70%);
-}
-.inv-mo-candle .inv-mo-glow { position: absolute; left: 50%; top: 20%; width: 90%; aspect-ratio: 1; transform: translate(-50%, -30%); border-radius: 999px; background: radial-gradient(circle, rgba(255, 200, 100, 0.45), transparent 60%); opacity: 0; transition: opacity calc(900ms * var(--moment-t)) ease calc(400ms * var(--moment-t)); }
-.inv-mo-smoke { position: absolute; left: 50%; top: -12cqw; width: 2cqw; height: 8cqw; margin-left: -1cqw; border-radius: 999px; background: linear-gradient(180deg, rgba(120, 120, 120, 0), rgba(120, 120, 120, 0.45)); filter: blur(0.6cqw); opacity: 0; }
+.inv-mo-flame .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-candle[data-cake] .inv-mo-flame { bottom: 61%; width: 9%; height: 14%; margin-left: -4.5%; }
+.inv-mo-candle .inv-mo-glow { position: absolute; left: 50%; top: 24%; width: 90%; aspect-ratio: 1; z-index: 1; transform: translate(-50%, -30%); border-radius: 999px; background: radial-gradient(circle, rgba(255, 200, 100, 0.42), transparent 60%); opacity: 0; transition: opacity calc(900ms * var(--moment-t)) ease calc(400ms * var(--moment-t)); }
+.inv-mo-smoke { position: absolute; left: 50%; bottom: 62%; width: 2cqw; height: 8cqw; margin-left: -1cqw; z-index: 3; border-radius: 999px; background: linear-gradient(180deg, rgba(120, 120, 120, 0), rgba(120, 120, 120, 0.45)); filter: blur(0.6cqw); opacity: 0; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-candle:not([data-cake]) .inv-mo-flame { transform: scale(1); animation: inv-mo-flicker 1.6s ease-in-out calc(700ms * var(--moment-t)) infinite; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-candle:not([data-cake]) .inv-mo-glow { opacity: 1; }
 [data-state='closed'] .inv-mo-candle[data-cake] .inv-mo-flame { transform: scale(1); animation: inv-mo-flicker 1.6s ease-in-out infinite; }
@@ -3921,215 +3826,146 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-glow { opacity: 0; transition-delay: 0s; }
 @keyframes inv-mo-flicker { 0%, 100% { transform: scale(1) rotate(-1.5deg); } 30% { transform: scale(1.06, 0.96) rotate(1.5deg); } 60% { transform: scale(0.97, 1.05) rotate(-1deg); } }
 @keyframes inv-mo-smoke { 0% { opacity: 0; transform: translateY(0) scaleX(1); } 20% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-16cqw) scaleX(2.2); } }
-.inv-mo-cake { position: absolute; left: 18%; right: 18%; bottom: 14%; height: 34%; }
-.inv-mo-cake-side {
-  position: absolute; left: 0; right: 0; top: 18%; bottom: 0;
-  border-radius: 0 0 8cqw 8cqw / 0 0 4cqw 4cqw;
-  background:
-    /* the icing's drips down the side */
-    radial-gradient(ellipse 3.6cqw 5cqw at 14% 0%, #fff 60%, transparent 62%),
-    radial-gradient(ellipse 3cqw 8cqw at 38% 0%, #fff 60%, transparent 62%),
-    radial-gradient(ellipse 3.4cqw 4cqw at 62% 0%, #fff 60%, transparent 62%),
-    radial-gradient(ellipse 3cqw 6.5cqw at 86% 0%, #fff 60%, transparent 62%),
-    linear-gradient(180deg, #fff 8%, transparent 8%),
-    linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 50%, white), color-mix(in srgb, var(--inv-accent) 74%, white) 40%, color-mix(in srgb, var(--inv-accent) 52%, black));
-  box-shadow: var(--mo-contact), var(--mo-ambient);
-}
-.inv-mo-cake-top {
-  position: absolute; left: 0; right: 0; top: 0; height: 36%; border-radius: 50%;
-  background: radial-gradient(ellipse at 40% 40%, #fff, #f6f1ea 70%, #e8e0d4);
-  box-shadow: inset 0 -0.6cqw 1cqw rgba(var(--mo-dark), 0.12);
-}
-.inv-mo-cake::after {
-  /* the plate */
-  content: ''; position: absolute; left: -12%; right: -12%; bottom: -3cqw; height: 6cqw; border-radius: 50%; z-index: -1;
-  background: radial-gradient(ellipse at 50% 30%, #fff, #e6e1d8 70%, #cfc8bc);
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-}
 [data-moment='candle'] { --moment-reveal-at: 900ms; }
-[data-moment='candle'] .inv-moment-reveal { justify-content: flex-start; padding-top: 3cqw; }
-[data-moment='candle'][data-variant='cake'] .inv-moment-reveal { padding-top: 6cqw; }
+[data-moment='candle'] .inv-moment-reveal { top: 0; bottom: 70%; padding: 3cqw 6cqw 0; justify-content: flex-end; }
+[data-moment='candle'] .inv-moment-reveal img { display: none; }
 
-/* the gift: a lidded box in the accent with a satin band and a bow; the lid
-   lifts and tilts away with a settle, and what is inside rises */
+/* the gift: the open box (gift/box) with its lid (gift/lid) set on it;
+   tapped, the lid lifts and tilts away with a settle and what is inside
+   rises out. The mystery box shakes first; the holiday lid goes a beat later */
 .inv-mo-gift { perspective: none; }
-.inv-mo-gift-box {
-  position: absolute; left: 18%; right: 18%; bottom: 10%; height: 40%; z-index: 3; border-radius: 1cqw;
-  background-color: color-mix(in srgb, var(--inv-accent) 70%, white);
-  background-image: var(--mo-grain-soft), linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.08) 45%, rgba(0, 0, 0, 0.32)), linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 20%);
-  box-shadow: var(--mo-contact), var(--mo-ambient);
-}
-.inv-mo-gift-band { position: absolute; left: 50%; top: 0; bottom: 0; width: 12%; margin-left: -6%; background: linear-gradient(90deg, rgba(0, 0, 0, 0.12), rgba(255, 255, 255, 0.55) 40%, rgba(0, 0, 0, 0.12)), color-mix(in srgb, var(--inv-surface) 85%, var(--inv-accent)); box-shadow: 0 0 0.6cqw rgba(var(--mo-dark), 0.1); transition: opacity calc(400ms * var(--moment-t)) ease; }
+.inv-mo-gift-box { position: absolute; left: 19%; width: 62%; bottom: 8%; height: 48%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.24)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-gift-box .inv-mo-part { object-fit: fill; }
 .inv-mo-gift-lid {
-  position: absolute; left: 14%; right: 14%; bottom: 48%; height: 14%; z-index: 2; border-radius: 1cqw;
-  background-color: color-mix(in srgb, var(--inv-accent) 70%, white);
-  background-image: var(--mo-grain-soft), linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.1) 45%, rgba(0, 0, 0, 0.32)), linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 50%);
-  box-shadow: 0 1.5cqw 2cqw rgba(var(--mo-dark), 0.3);
+  position: absolute; left: 21%; width: 58%; top: 2%; height: 54%; z-index: 4;
   transform-origin: 20% 100%;
-  transition: transform calc(1200ms * var(--moment-t)) var(--mo-settle) calc(150ms * var(--moment-t));
+  filter: drop-shadow(0 1.5cqw 2cqw rgba(var(--mo-dark), 0.26));
+  transition: transform calc(1200ms * var(--moment-t)) var(--mo-settle) calc(150ms * var(--moment-t)), opacity calc(500ms * var(--moment-t)) ease calc(900ms * var(--moment-t));
 }
-.inv-mo-gift-bow { position: absolute; left: 50%; top: -9cqw; width: 18cqw; height: 10cqw; margin-left: -9cqw; transition: transform calc(400ms * var(--moment-t)) ease, opacity calc(300ms * var(--moment-t)) ease; }
-.inv-mo-gift-bow::before, .inv-mo-gift-bow::after { content: ''; position: absolute; top: 15%; width: 46%; height: 70%; border-radius: 60% 60% 60% 60% / 100% 100% 40% 40%; background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.06)), color-mix(in srgb, var(--inv-surface) 85%, var(--inv-accent)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08), 0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.22); }
-.inv-mo-gift-bow::before { left: 4%; transform: rotate(-20deg); }
-.inv-mo-gift-bow::after { right: 4%; transform: rotate(20deg); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-gift-lid { transform: translateY(-58%) rotate(-14deg); }
-/* the mystery box shakes first; the holiday box lets its ribbon go first */
+.inv-mo-gift-lid .inv-mo-part { object-fit: fill; }
+.inv-mo-gift-mark { position: absolute; left: 50%; top: 52%; z-index: 5; transform: translate(-50%, -50%); font-family: var(--inv-display); font-size: 14cqw; line-height: 1; color: #b98a90; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); transition: opacity calc(300ms * var(--moment-t)) ease calc(600ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift-lid { transform: translateY(-64%) rotate(-16deg); opacity: 0.001; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift-mark { opacity: 0; }
+/* the mystery box shakes first; the holiday box lets its lid go a beat later */
 :is([data-state='opening']) .inv-mo-gift[data-kind='mystery'] { animation: inv-mo-shake calc(600ms * var(--moment-t)) ease-in-out; }
-.inv-mo-gift[data-kind='mystery'] .inv-mo-gift-lid { transition-delay: calc(750ms * var(--moment-t)); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-gift[data-kind='holiday'] .inv-mo-gift-band, :is([data-state='opening'], [data-state='open']) .inv-mo-gift[data-kind='holiday'] .inv-mo-gift-bow { opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-gift[data-kind='holiday'] .inv-mo-gift-bow { transform: translateY(2cqw) scale(0.6); }
-.inv-mo-gift[data-kind='holiday'] .inv-mo-gift-lid { transition-delay: calc(550ms * var(--moment-t)); }
+.inv-mo-gift[data-kind='mystery'] .inv-mo-gift-lid { transition-delay: calc(750ms * var(--moment-t)), calc(1500ms * var(--moment-t)); }
+.inv-mo-gift[data-kind='holiday'] .inv-mo-gift-lid { transition-delay: calc(550ms * var(--moment-t)), calc(1300ms * var(--moment-t)); }
 @keyframes inv-mo-shake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-2deg) translateX(-1%); } 40% { transform: rotate(2deg) translateX(1%); } 60% { transform: rotate(-1.5deg); } 80% { transform: rotate(1.5deg); } }
 [data-moment='gift'] { --moment-reveal-at: 900ms; }
 [data-moment='gift'][data-variant='mystery'] { --moment-reveal-at: 1500ms; }
 [data-moment='gift'][data-variant='holiday'] { --moment-reveal-at: 1300ms; }
-[data-moment='gift'] .inv-moment-reveal { top: 0; bottom: 34%; z-index: 1; padding: 4cqw 24% 0; translate: 0 24%; transition: opacity calc(600ms * var(--moment-t)) ease calc(var(--moment-reveal-at) * var(--moment-t)), translate calc(1200ms * var(--moment-t)) var(--mo-heavy) calc(var(--moment-reveal-at) * var(--moment-t)); }
-[data-moment='gift'] .inv-moment-reveal img { flex: none; height: 60%; border: 0.8cqw solid #fff; box-shadow: var(--mo-contact), var(--mo-ambient); }
+[data-moment='gift'] .inv-moment-reveal { top: 0; bottom: 40%; z-index: 2; padding: 4cqw 24% 0; translate: 0 24%; transition: opacity calc(600ms * var(--moment-t)) ease calc(var(--moment-reveal-at) * var(--moment-t)), translate calc(1200ms * var(--moment-t)) var(--mo-heavy) calc(var(--moment-reveal-at) * var(--moment-t)); }
+[data-moment='gift'] .inv-moment-reveal img { flex: none; height: 62%; border: 0.8cqw solid #fff; box-shadow: var(--mo-contact), var(--mo-ambient); }
 [data-moment='gift']:is([data-state='opening'], [data-state='open']) .inv-moment-reveal { translate: 0 0; }
 
-/* the photo frame: a gilt moulding in the accent, the photograph under glass,
-   and a velvet cloth drawn up off it */
-.inv-mo-frame {
-  perspective: none; padding: 3cqw;
-  background: var(--inv-surface);
-  box-shadow:
-    inset 0 0 0 0.4cqw color-mix(in srgb, var(--inv-accent) 70%, white),
-    inset 0 0 0 0.7cqw color-mix(in srgb, var(--inv-accent) 55%, black),
-    inset 0 0 0 1.5cqw var(--inv-accent),
-    inset 0 0 0 1.8cqw color-mix(in srgb, var(--inv-accent) 70%, white),
-    inset 0 0 0 2cqw color-mix(in srgb, var(--inv-accent) 45%, black),
-    var(--mo-contact), var(--mo-ambient);
-}
-.inv-mo-frame-photo { position: absolute; inset: 3cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 10%, var(--inv-surface)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), inset 0 0.6cqw 1cqw rgba(0, 0, 0, 0.2); }
+/* the photo frame: the gilt frame (frame/gold) on the ground, the photograph
+   in its window under a satin cloth drawn up off it */
+.inv-mo-frame { perspective: none; }
+.inv-mo-frame-gilt { position: absolute; left: 13%; top: 10%; width: 74%; height: 80%; z-index: 3; object-fit: fill; filter: drop-shadow(0 2cqw 2.4cqw rgba(var(--mo-dark), 0.26)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.12)); }
+/* the window: the frame's own see-through, measured on the shipped part (frame/gold hole) */
+.inv-mo-frame-photo { position: absolute; left: calc(13% + 74% * 0.1028); top: calc(10% + 80% * 0.081); width: calc(74% * 0.7944); height: calc(80% * 0.838); z-index: 2; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 10%, var(--inv-surface)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), inset 0 0.6cqw 1cqw rgba(0, 0, 0, 0.2); }
 .inv-mo-frame-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.inv-mo-frame-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, rgba(255, 255, 255, 0) 45%, rgba(255, 255, 255, 0.16) 52%, rgba(255, 255, 255, 0) 58%); pointer-events: none; }
 .inv-mo-cloth {
-  position: absolute; inset: 3cqw;
-  --c1: color-mix(in srgb, var(--inv-accent) 55%, black);
-  --c2: color-mix(in srgb, var(--inv-accent) 82%, black);
-  --c3: color-mix(in srgb, var(--inv-accent) 88%, white);
-  background: var(--mo-grain-soft), linear-gradient(180deg, rgba(0, 0, 0, 0.1), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.3)), repeating-linear-gradient(90deg, var(--c1) 0%, var(--c2) 4%, var(--c3) 7%, var(--c2) 10%, var(--c1) 14%);
+  position: absolute; inset: 0; z-index: 2;
+  background: var(--mo-grain-soft), linear-gradient(180deg, rgba(0, 0, 0, 0.06), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.14)), repeating-linear-gradient(90deg, #e6d3bf 0%, #f6ebdc 4%, #fbf4ea 7%, #f0e2d0 10%, #e6d3bf 14%);
   clip-path: inset(0 0 0 0);
   transition: clip-path calc(1100ms * var(--moment-t)) var(--mo-heavy);
 }
 :is([data-state='opening'], [data-state='open']) .inv-mo-cloth { clip-path: inset(0 0 100% 0); }
 [data-moment='frame'] { --moment-reveal-at: 800ms; }
-[data-moment='frame'] .inv-moment-reveal { top: auto; bottom: -14cqw; padding: 0; }
+[data-moment='frame'] .inv-moment-reveal { display: none; }
 
-/* the secret code: a brushed steel plate over the reveal, its dials and keypad on it */
-[data-moment='code'] { border-radius: 1.2cqw; overflow: hidden; background: var(--inv-surface); box-shadow: var(--mo-contact), var(--mo-ambient); }
+/* the secret code: a cream keypad card on the ground; the right code opens the latch */
+[data-moment='code'] { border-radius: 2.4cqw; overflow: hidden; }
 [data-moment='code'] .inv-mo { z-index: 2; pointer-events: none; }
+/* the plate the keypad sits on: its own card, so the scene holds together on a page that gives it no ground */
 .inv-mo-latch {
-  position: absolute; inset: 0;
-  background-color: color-mix(in srgb, var(--inv-ink) 84%, var(--inv-accent));
-  background-image: var(--mo-fibre), linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 40%, rgba(0, 0, 0, 0.2) 100%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 0 0 1.2cqw rgba(0, 0, 0, 0.18), inset 0 0 0 1.35cqw rgba(255, 255, 255, 0.08);
+  position: absolute; inset: 0; z-index: 1; border-radius: 2.4cqw;
+  background-color: var(--mo-paper);
+  background-image: var(--mo-grain), linear-gradient(160deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.05));
+  box-shadow: inset 0 0 0 1px var(--mo-ink10);
   transition: transform calc(900ms * var(--moment-t)) var(--mo-heavy), opacity calc(500ms * var(--moment-t)) ease calc(500ms * var(--moment-t));
 }
-.inv-mo-latch::before, .inv-mo-latch::after {
-  /* the screws in the corners */
-  content: ''; position: absolute; width: 2cqw; height: 2cqw; border-radius: 999px;
-  background: radial-gradient(circle at 40% 35%, #9a9a9a, #3a3a3a 70%);
-  box-shadow: 0 0.2cqw 0.3cqw rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-.inv-mo-latch::before { left: 2.4cqw; top: 2.4cqw; }
-.inv-mo-latch::after { right: 2.4cqw; bottom: 2.4cqw; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-latch { transform: translateY(100%); opacity: 0; }
+[data-moment='code'] .inv-mo-ground { transition: transform calc(900ms * var(--moment-t)) var(--mo-heavy), opacity calc(500ms * var(--moment-t)) ease calc(500ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-latch, :is([data-state='opening'], [data-state='open']) [data-moment='code'] .inv-mo-ground { transform: translateY(100%); opacity: 0; }
 .inv-mo-keys { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 5cqw; transition: opacity calc(300ms * var(--moment-t)) ease; }
+.inv-mo-keys::before { content: 'Enter Code'; font-family: var(--inv-body); font-size: 3.4cqw; letter-spacing: 0.2em; text-transform: uppercase; color: #6d5a4a; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-keys { opacity: 0; pointer-events: none; }
 .inv-mo-dial { display: flex; gap: 2.4cqw; margin: 0 0 1cqw; }
-.inv-mo-dial span { width: 4cqw; height: 4cqw; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.6); background: rgba(0, 0, 0, 0.25); box-shadow: inset 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.4); transition: background 150ms ease; }
-.inv-mo-dial span[data-on] { background: #fff; box-shadow: 0 0 0.8cqw rgba(255, 255, 255, 0.5); }
+.inv-mo-dial span { width: 3.6cqw; height: 3.6cqw; border-radius: 999px; border: 1px solid rgba(90, 70, 50, 0.4); background: rgba(255, 255, 255, 0.5); box-shadow: inset 0 0.3cqw 0.4cqw rgba(90, 70, 50, 0.12); transition: background 150ms ease; }
+.inv-mo-dial span[data-on] { background: #6d5a4a; border-color: #6d5a4a; }
 .inv-mo-keys[data-wrong] .inv-mo-dial { animation: inv-mo-wrong 500ms ease-in-out; }
-.inv-mo-keys[data-wrong] .inv-mo-dial span[data-on] { background: #e06a6a; border-color: #e06a6a; }
+.inv-mo-keys[data-wrong] .inv-mo-dial span[data-on] { background: #d07070; border-color: #d07070; }
 @keyframes inv-mo-wrong { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2cqw); } 75% { transform: translateX(2cqw); } }
 .inv-mo-keygrid { display: grid; grid-template-columns: repeat(3, 11cqw); gap: 1.6cqw; }
-.inv-mo-keygrid button { height: 9cqw; border-radius: 1.2cqw; border: 1px solid rgba(255, 255, 255, 0.18); background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)); box-shadow: 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15); color: #fff; font-family: var(--inv-body); font-size: 4cqw; cursor: pointer; }
-.inv-mo-keygrid button:active { background: rgba(255, 255, 255, 0.24); box-shadow: inset 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.3); }
+.inv-mo-keygrid button { height: 9cqw; border-radius: 999px; border: 1px solid rgba(90, 70, 50, 0.18); background: linear-gradient(180deg, #fffdf9, #f3ebe0); box-shadow: 0 0.3cqw 0.6cqw rgba(var(--mo-dark), 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9); color: #4a3a2a; font-family: var(--inv-body); font-size: 4cqw; cursor: pointer; }
+.inv-mo-keygrid button:active { background: #eadfd0; box-shadow: inset 0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.18); }
 
-/* the puzzle: nine tiles of the photograph, each a little raised, swapped two taps at a time */
-[data-moment='puzzle'] { background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); box-shadow: inset 0 0 0 1px var(--mo-ink10), inset 0 0.6cqw 1.2cqw rgba(var(--mo-dark), 0.12); }
-.inv-mo-tiles { position: absolute; inset: 0; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0.6cqw; padding: 0.6cqw; transition: gap calc(700ms * var(--moment-t)) ease, padding calc(700ms * var(--moment-t)) ease; }
-.inv-mo-tile { display: block; padding: 0; border: 0; border-radius: 0.4cqw; background-size: 300% 300%; background-color: color-mix(in srgb, var(--inv-ink) 15%, var(--inv-surface)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 0.3cqw 0.5cqw rgba(var(--mo-dark), 0.2); cursor: pointer; transition: transform 200ms ease, box-shadow 200ms ease, border-radius calc(700ms * var(--moment-t)) ease; }
+/* the puzzle: nine tiles of the photograph on the ground, each a little raised, swapped two taps at a time */
+[data-moment='puzzle'] .inv-mo-ground { border-radius: 2.4cqw; }
+.inv-mo-tiles { position: absolute; inset: 5%; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 1cqw; padding: 0; transition: gap calc(700ms * var(--moment-t)) ease, inset calc(700ms * var(--moment-t)) ease; }
+.inv-mo-tile { display: block; padding: 0; border: 0; border-radius: 0.6cqw; background-size: 300% 300%; background-color: #eadfd0; box-shadow: 0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.3); cursor: pointer; transition: transform 200ms ease, box-shadow 200ms ease, border-radius calc(700ms * var(--moment-t)) ease; }
 .inv-mo-tile[data-picked] { transform: scale(0.92); box-shadow: 0 0 0 0.8cqw var(--inv-accent), 0 1cqw 2cqw rgba(var(--mo-dark), 0.3); z-index: 1; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-tiles { gap: 0; padding: 0; pointer-events: none; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-tile { border-radius: 0; box-shadow: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tiles { gap: 0; inset: 5%; pointer-events: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tile { border-radius: 0; box-shadow: 0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.2); }
 
-/* the flip card: a card of the design's paper that turns on its vertical axis with a settle, the words on its back */
+/* the flip card: the card (envelope/card) standing on the ground turns on its vertical axis with a settle, the words on its back */
 .inv-mo-flip { perspective: 1000cqw; }
-.inv-mo-flip-card { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform calc(1000ms * var(--moment-t)) var(--mo-settle); }
-.inv-mo-face {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 5cqw; text-align: center;
-  border-radius: 1.6cqw; overflow: hidden;
-  backface-visibility: hidden; -webkit-backface-visibility: hidden;
-  background-color: var(--mo-paper);
-  background-image: var(--mo-grain);
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0 0 1px var(--mo-ink10);
-}
-.inv-mo-face[data-side='front'] { padding: 0; }
-.inv-mo-face[data-side='front'] img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.inv-mo-face[data-side='back'] { transform: rotateY(180deg); background-color: color-mix(in srgb, var(--mo-paper) 92%, var(--inv-accent)); box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0 0 1px var(--mo-ink10), inset 0 0 0 1.6cqw var(--mo-paper), inset 0 0 0 1.7cqw color-mix(in srgb, var(--inv-accent) 45%, transparent); }
-.inv-mo-face[data-side='back'] > * { margin: 0; }
+.inv-mo-flip-card { position: absolute; left: 22%; width: 56%; top: 6%; height: 88%; transform-style: preserve-3d; transition: transform calc(1000ms * var(--moment-t)) var(--mo-settle); filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)); }
+.inv-mo-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 7% 9%; text-align: center; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.inv-mo-face .inv-mo-part { object-fit: fill; z-index: 0; }
+.inv-mo-face-photo { position: absolute; inset: 9% 8%; width: 84%; height: 82%; object-fit: cover; z-index: 1; box-shadow: var(--mo-contact); }
+.inv-mo-face-words { position: relative; z-index: 1; }
+.inv-mo-face-words > * { margin: 0; }
+.inv-mo-face[data-side='back'] { transform: rotateY(180deg); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-flip-card { transform: rotateY(180deg); }
+[data-moment='flip'] .inv-moment-reveal { display: none; }
+
+/* hold to reveal: the blush ground under a frost that clears as the ring fills */
+.inv-mo-hold .inv-mo-veil { position: absolute; inset: 0; z-index: 1; border-radius: 2.4cqw; background: rgba(250, 240, 236, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 1; transition: opacity calc(700ms * var(--moment-t)) ease; }
+.inv-mo-hold .inv-mo-veil::after { content: '♥'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -54%); font-size: 14cqw; line-height: 1; color: #4a3a3a; opacity: 0.85; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-hold .inv-mo-veil { opacity: 0; }
+[data-moment='hold'] { --moment-reveal-at: 300ms; }
+[data-moment='hold'] .inv-moment-reveal { padding: 6cqw; }
+[data-moment='hold'] .inv-moment-reveal img { border-radius: 1.2cqw; box-shadow: var(--mo-contact), var(--mo-ambient); }
+
 /* --- Swipe & Pull ------------------------------------------------------------ */
 
-/* pull the invitation: a card of the design's paper in a lined pocket; it
-   follows the finger up and out, its shadow deepening as more of it is out,
+/* pull the invitation: the card (envelope/card) in the pocket (envelope/pocket);
+   it follows the finger up and out, its shadow deepening as more of it is out,
    and settles once it is free */
 .inv-mo-pull { perspective: none; }
 .inv-mo-pull-card {
-  position: absolute; left: 10%; right: 10%; top: 30%; bottom: 8%; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 4cqw;
-  border-radius: 0.8cqw; text-align: center;
-  background-color: color-mix(in srgb, var(--inv-surface) 97%, white);
-  background-image: var(--mo-grain), repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 2.5%, transparent) 0 1px, transparent 1px 4px);
-  box-shadow: inset 0 0 0 1px var(--mo-ink10), 0 calc(0.6cqw + var(--moment-drag) * 3cqw) calc(1.6cqw + var(--moment-drag) * 4cqw) calc(-0.4cqw - var(--moment-drag) * 0.6cqw) rgba(var(--mo-dark), calc(0.14 + var(--moment-drag) * 0.18));
+  position: absolute; left: 25%; width: 50%; top: 51%; height: 77%; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2cqw; padding: 9% 9%;
+  text-align: center;
+  filter: drop-shadow(0 calc(0.6cqw + var(--moment-drag) * 2cqw) calc(1.2cqw + var(--moment-drag) * 2.4cqw) rgba(var(--mo-dark), calc(0.14 + var(--moment-drag) * 0.14)));
   transform: translateY(calc(var(--moment-drag) * -64%));
-  transition: transform calc(900ms * var(--moment-t)) var(--mo-spring), box-shadow calc(900ms * var(--moment-t)) ease;
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-spring), filter calc(900ms * var(--moment-t)) ease;
 }
-.inv-mo-pull-photo { display: block; width: 100%; max-height: 55%; overflow: hidden; border-radius: 0.4cqw; box-shadow: var(--mo-contact); }
+.inv-mo-pull-card .inv-mo-part { object-fit: fill; z-index: 0; }
+.inv-mo-pull-photo { position: relative; z-index: 1; display: block; width: 100%; max-height: 40%; overflow: hidden; border-radius: 0.4cqw; box-shadow: var(--mo-contact); }
 .inv-mo-pull-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-pull-words { position: relative; z-index: 1; }
 .inv-mo-pull-words > * { margin: 0; }
-.inv-mo-pull-pocket {
-  position: absolute; left: 4%; right: 4%; bottom: 0; height: 52%; z-index: 2;
-  border-radius: 1.2cqw;
-  background-color: color-mix(in srgb, var(--mo-paper) 90%, var(--inv-ink));
-  background-image:
-    linear-gradient(to bottom right, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 16%, transparent) 50%, rgba(255, 255, 255, 0.5) 50.4%, transparent 51%),
-    linear-gradient(to bottom left, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 16%, transparent) 50%, rgba(255, 255, 255, 0.5) 50.4%, transparent 51%),
-    var(--mo-grain),
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 2.5%, transparent) 0 1px, transparent 1px 4px);
-  background-size: 50% 100%, 50% 100%, auto, auto; background-repeat: no-repeat, no-repeat, repeat, repeat; background-position: left top, right top, 0 0, 0 0;
-  clip-path: polygon(0 0, 50% 45%, 100% 0, 100% 100%, 0 100%);
-  box-shadow: 0 -0.6cqw 1.6cqw rgba(var(--mo-dark), 0.14);
-}
-.inv-mo-pull-lip {
-  position: absolute; left: 4%; right: 4%; bottom: 0; height: 52%; z-index: 0; border-radius: 1.2cqw;
-  background-color: color-mix(in srgb, var(--mo-paper) 80%, var(--inv-ink));
-  background-image: repeating-linear-gradient(45deg, color-mix(in srgb, var(--inv-accent) 22%, transparent) 0 1px, transparent 1px 3cqw), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--inv-accent) 22%, transparent) 0 1px, transparent 1px 3cqw);
-}
+.inv-mo-pull-pocket { position: absolute; left: 12%; width: 76%; bottom: 4%; height: 50.6%; z-index: 2; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-pull-pocket .inv-mo-part { object-fit: fill; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-pull-card { transform: translateY(-64%); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-pull-pocket, :is([data-state='opening'], [data-state='open']) .inv-mo-pull-lip { opacity: 0.55; transition: opacity calc(800ms * var(--moment-t)) ease calc(300ms * var(--moment-t)); }
 [data-moment='pull-card'] .inv-moment-reveal { display: none; }
 
-/* peel the sticker: glossy vinyl in the accent over the photograph; the edge
-   curls with a lighter back and a shadow under the curl, and the peel follows
-   the finger across */
-.inv-mo-sticker, .inv-mo-frost { perspective: none; border-radius: 1.2cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); box-shadow: var(--mo-contact), var(--mo-ambient); }
-.inv-mo-under { position: absolute; inset: 0; }
+/* peel the sticker: the round sticker (sticker/face) over the photograph on the
+   ground; the edge curls with a lighter back and a shadow under it, and the
+   peel follows the finger across */
+.inv-mo-sticker, .inv-mo-frost { perspective: none; }
+.inv-mo-frost { border-radius: 1.6cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); box-shadow: var(--mo-contact), var(--mo-ambient); }
+.inv-mo-under { position: absolute; inset: 0; z-index: 1; }
 .inv-mo-under img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.inv-mo-peel { position: absolute; inset: 0; z-index: 2; clip-path: inset(0 calc(var(--moment-drag) * 100%) 0 0); transition: clip-path calc(900ms * var(--moment-t)) var(--mo-heavy); }
-.inv-mo-peel-face {
-  position: absolute; inset: 0;
-  background:
-    linear-gradient(118deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.1) 30%, rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.08)),
-    var(--inv-accent);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08), inset 0 0 3cqw rgba(0, 0, 0, 0.1);
-}
-.inv-mo-peel-face::after { content: ''; position: absolute; inset: 6%; border-radius: 999px; border: 0.5cqw dotted rgba(255, 255, 255, 0.55); }
+.inv-mo-sticker .inv-mo-under { inset: 6%; border-radius: 999px; overflow: hidden; box-shadow: var(--mo-contact), var(--mo-ambient); background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); }
+.inv-mo-peel { position: absolute; inset: 4%; z-index: 2; clip-path: inset(0 calc(var(--moment-drag) * 100%) 0 0); filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.22)); transition: clip-path calc(900ms * var(--moment-t)) var(--mo-heavy); }
+.inv-mo-peel .inv-mo-part { object-fit: fill; }
 .inv-mo-peel-curl {
   position: absolute; top: 0; bottom: 0; width: 9cqw; right: calc(var(--moment-drag) * 100% - 4.5cqw); z-index: 3;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.26), rgba(255, 255, 255, 0.9) 45%, color-mix(in srgb, var(--inv-accent) 40%, white) 60%, rgba(0, 0, 0, 0.2));
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.95) 45%, #f7e3e2 60%, rgba(0, 0, 0, 0.18));
   border-radius: 999px;
   box-shadow: -1cqw 0 2cqw rgba(var(--mo-dark), 0.25);
   opacity: calc(min(1, var(--moment-drag) * 8));
@@ -4138,296 +3974,201 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-peel { clip-path: inset(0 100% 0 0); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-peel-curl { right: calc(100% - 4.5cqw); opacity: 0; }
 [data-moment='sticker'] { --moment-reveal-at: 500ms; }
-[data-moment='sticker'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+[data-moment='sticker'] .inv-moment-reveal { inset: 6%; border-radius: 999px; overflow: hidden; justify-content: flex-end; padding-bottom: 10cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
 
-/* frosted glass: the photograph is there, out of focus, and comes clear wherever the finger passes */
+/* frosted glass: the photograph is there, out of focus under the frost (frost/glass), and comes clear wherever the finger passes */
 [data-moment='frost'] .inv-mo-foil { cursor: default; }
 [data-moment='frost'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
 [data-moment='frost'] { --moment-reveal-at: 300ms; }
 
-/* the scroll: parchment on a turned rod with finials, unfurling downward with
-   the finger, the roll shrinking as it goes and its shadow moving with it; the
-   diploma is tied in a ribbon that lets go first */
+/* the scroll: parchment (scroll/parchment) between two rollers (scroll/roller);
+   the lower roller runs down with the finger and the parchment unrolls behind
+   it; the diploma is tied in a bow (ribbon/bow) that lets go first */
 .inv-mo-scroll { perspective: none; }
-.inv-mo-scroll .inv-mo-rod {
-  position: absolute; left: -3%; right: -3%; top: 2cqw; height: 3cqw; z-index: 3; border-radius: 999px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent2) 70%, white), var(--inv-accent2) 55%, color-mix(in srgb, var(--inv-accent2) 55%, black));
-  box-shadow: 0 0.6cqw 1.2cqw rgba(var(--mo-dark), 0.3);
-  -webkit-mask: none; mask: none; filter: none;
-}
-.inv-mo-scroll .inv-mo-rod::before, .inv-mo-scroll .inv-mo-rod::after {
-  content: ''; position: absolute; top: -0.9cqw; width: 4.8cqw; height: 4.8cqw; border-radius: 999px;
-  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--inv-accent) 60%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 55%, black));
-  box-shadow: 0 0.3cqw 0.6cqw rgba(var(--mo-dark), 0.35);
-}
-.inv-mo-scroll .inv-mo-rod::before { left: -1cqw; }
-.inv-mo-scroll .inv-mo-rod::after { right: -1cqw; }
+.inv-mo-scroll .inv-mo-rod { position: absolute; left: 4%; width: 92%; top: 4%; height: 9.5%; z-index: 3; filter: drop-shadow(0 0.8cqw 1.2cqw rgba(var(--mo-dark), 0.3)); }
+.inv-mo-scroll .inv-mo-rod .inv-mo-part { object-fit: fill; }
 .inv-mo-paper {
-  position: absolute; left: 6%; right: 6%; top: 3.5cqw; bottom: 4%; z-index: 1;
-  display: flex; align-items: center; justify-content: center; padding: 6cqw 5cqw; text-align: center;
-  background-color: color-mix(in srgb, var(--mo-paper) 92%, var(--inv-accent2));
-  background-image:
-    var(--mo-grain),
-    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(var(--mo-dark), 0.1) 100%),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.08), transparent 8%, transparent 92%, rgba(0, 0, 0, 0.08)),
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 2.5%, transparent) 0 1px, transparent 1px 4px);
-  box-shadow: inset 0 0 0 1px var(--mo-ink10);
+  position: absolute; left: 10%; width: 80%; top: 8%; bottom: 6%; z-index: 1;
+  display: flex; align-items: center; justify-content: center; padding: 12cqw 6cqw; text-align: center; overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(var(--mo-dark), 0.12), 0 1cqw 2cqw rgba(var(--mo-dark), 0.14);
   clip-path: inset(0 0 calc((1 - var(--moment-drag)) * 100%) 0);
   transition: clip-path calc(1500ms * var(--moment-t)) var(--mo-heavy);
 }
+.inv-mo-paper .inv-mo-part { object-fit: cover; z-index: 0; }
+.inv-mo-paper-words { position: relative; z-index: 1; color: #4a3a2a; }
 .inv-mo-paper-words > * { margin: 0; }
 .inv-mo-roll {
-  position: absolute; left: 4%; right: 4%; top: calc(3.5cqw + var(--moment-drag) * (100% - 12cqw)); height: 8cqw; z-index: 2;
-  border-radius: 999px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--mo-paper) 80%, var(--inv-accent2)), color-mix(in srgb, var(--mo-paper) 96%, white) 40%, color-mix(in srgb, var(--mo-paper) 70%, var(--inv-ink)));
-  box-shadow: 0 1cqw 1.6cqw rgba(var(--mo-dark), 0.3), inset 0 -0.3cqw 0.4cqw rgba(0, 0, 0, 0.08);
-  transform: scaleY(calc(1 - var(--moment-drag) * 0.55));
-  transition: top calc(1500ms * var(--moment-t)) var(--mo-heavy), transform calc(1500ms * var(--moment-t)) var(--mo-heavy);
+  position: absolute; left: 4%; width: 92%; top: calc(6% + var(--moment-drag) * 84%); height: 9.5%; z-index: 2;
+  filter: drop-shadow(0 1cqw 1.6cqw rgba(var(--mo-dark), 0.3));
+  transition: top calc(1500ms * var(--moment-t)) var(--mo-heavy);
 }
-.inv-mo-roll-tie { display: none; position: absolute; left: 44%; top: -1cqw; bottom: -1cqw; width: 12%; border-radius: 0.6cqw; background: linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 70%, black), var(--inv-accent) 40%, color-mix(in srgb, var(--inv-accent) 70%, black)); box-shadow: 0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.3); transition: opacity calc(300ms * var(--moment-t)) ease, transform calc(400ms * var(--moment-t)) var(--mo-fall); }
-.inv-mo-scroll[data-diploma] .inv-mo-roll-tie { display: block; }
+.inv-mo-roll .inv-mo-part { object-fit: fill; }
+.inv-mo-roll-tie { position: absolute; left: 38%; width: 24%; top: -110%; height: 300%; z-index: 1; filter: drop-shadow(0 0.6cqw 0.8cqw rgba(var(--mo-dark), 0.24)); transition: opacity calc(300ms * var(--moment-t)) ease, transform calc(400ms * var(--moment-t)) var(--mo-fall); }
+.inv-mo-roll-tie .inv-mo-part { object-fit: contain; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-paper { clip-path: inset(0 0 0 0); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-roll { top: calc(3.5cqw + (100% - 12cqw)); transform: scaleY(0.45); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-roll-tie { opacity: 0; transform: translateY(3cqw) scaleX(0.6); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll { top: 90%; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll-tie { opacity: 0; transform: translateY(3cqw) scale(0.6); }
 .inv-mo-scroll[data-diploma] .inv-mo-paper, .inv-mo-scroll[data-diploma] .inv-mo-roll { transition-delay: calc(350ms * var(--moment-t)); }
 [data-moment='scroll'] .inv-moment-reveal { display: none; }
 
 /* --- Photo Moments and the Occasion shelf --------------------------------------- */
 
-/* the photo booth: a cabinet in the design's dark with a lit marquee, a small
-   screen for the count, the lens and the slot; three, two, one with a flash
-   each, then the strip slides out of the slot on glossy paper and swings once */
+/* the photo booth: the count on the wall, a flash each, then the strip
+   (photo-booth/strip) drops in from above with the three photographs in its
+   windows, and the shutter (photo-booth/button) stands below */
 .inv-mo-booth { perspective: none; }
-.inv-mo-booth-front {
-  position: absolute; left: 16%; right: 16%; top: 0; height: 44%; z-index: 3;
-  border-radius: 3cqw 3cqw 1cqw 1cqw;
-  background-color: color-mix(in srgb, var(--inv-ink) 84%, var(--inv-accent));
-  background-image: var(--mo-grain-soft), linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 30%, rgba(0, 0, 0, 0.25) 100%), linear-gradient(90deg, rgba(0, 0, 0, 0.2), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.2));
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px rgba(0, 0, 0, 0.3);
-}
-.inv-mo-booth-front::before {
-  /* the marquee */
-  content: 'PHOTO BOOTH'; position: absolute; left: 10%; right: 10%; top: 5%; height: 14%;
-  display: grid; place-items: center;
-  border-radius: 999px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent) 70%, white), var(--inv-accent) 60%, color-mix(in srgb, var(--inv-accent) 60%, black));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.4), 0 0 1.6cqw color-mix(in srgb, var(--inv-accent) 60%, transparent);
-  font-family: var(--inv-body); font-size: 2.2cqw; letter-spacing: 0.34em; text-indent: 0.34em; line-height: 1;
-  color: #fffaf0; text-shadow: 0 0 0.6cqw rgba(255, 250, 240, 0.9);
-}
-.inv-mo-booth-screen { position: absolute; left: 10%; top: 26%; width: 34%; height: 34%; border-radius: 1cqw; background: radial-gradient(ellipse at 50% 40%, #1b1e24, #08090b 80%); box-shadow: inset 0 0 0 0.4cqw rgba(255, 255, 255, 0.12), inset 0 0.6cqw 1cqw rgba(0, 0, 0, 0.6); overflow: hidden; }
-.inv-mo-booth-screen::after { content: ''; position: absolute; inset: 0; background: linear-gradient(160deg, rgba(255, 255, 255, 0.14), transparent 45%); pointer-events: none; }
-.inv-mo-booth-screen b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--inv-display); font-size: 9cqw; color: #fff; opacity: 0; text-shadow: 0 0 1cqw rgba(255, 255, 255, 0.6); }
-.inv-mo-booth .inv-mo-cam-lens { left: 68%; top: 44%; width: 15cqw; height: 15cqw; transform: translate(-50%, -50%); }
-.inv-mo-booth-slot { position: absolute; left: 20%; right: 20%; bottom: 10%; height: 2.2cqw; border-radius: 999px; background: #000; box-shadow: inset 0 0.5cqw 0.6cqw rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.14); }
-.inv-mo-strip {
-  position: absolute; left: 34%; right: 34%; top: 38%; z-index: 2;
-  display: flex; flex-direction: column; gap: 1.2cqw; padding: 1.6cqw 1.6cqw 3.2cqw;
-  background-color: #f7f4ee;
-  background-image: var(--mo-grain), linear-gradient(112deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, 0.3) 48%, rgba(255, 255, 255, 0) 56%);
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-  transform-origin: 50% 0; transform: translateY(-100%); opacity: 0;
+.inv-mo-booth-count { position: absolute; left: 0; right: 0; top: 30%; height: 30%; z-index: 4; pointer-events: none; }
+.inv-mo-booth-count b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--inv-display); font-size: 22cqw; color: #4a3a2a; opacity: 0; text-shadow: 0 0 1cqw rgba(255, 255, 255, 0.8); }
+.inv-mo-shutter { position: absolute; left: 36%; width: 28%; bottom: 5%; height: 20%; z-index: 3; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.26)); transition: transform 160ms ease; }
+.inv-mo-shutter .inv-mo-part { object-fit: contain; object-position: center bottom; }
+[data-state='opening'] .inv-mo-shutter { animation: inv-mo-press calc(300ms * var(--moment-t)) ease; }
+.inv-mo-booth-strip {
+  position: absolute; left: 35%; width: 30%; top: 4%; height: 121%; z-index: 2;
+  filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.26));
+  transform-origin: 50% 0; transform: translateY(-110%); opacity: 0;
   transition: transform calc(1400ms * var(--moment-t)) var(--mo-heavy) calc(2700ms * var(--moment-t)), opacity 0s linear calc(2700ms * var(--moment-t));
 }
-.inv-mo-strip::after {
-  /* the print's own small line at the foot */
-  content: ''; position: absolute; left: 30%; right: 30%; bottom: 1.3cqw; height: 0.5cqw; border-radius: 999px;
-  background: color-mix(in srgb, var(--inv-accent) 50%, transparent);
-}
-.inv-mo-strip-shot { display: block; aspect-ratio: 1; overflow: hidden; background: #2a2f2d; box-shadow: inset 0 0 0 1px rgba(40, 30, 20, 0.35); }
-.inv-mo-strip-shot img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.92) contrast(0.98) sepia(0.05); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-booth-screen b[data-n='3'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease both; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-booth-screen b[data-n='2'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(700ms * var(--moment-t)) both; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-booth-screen b[data-n='1'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(1400ms * var(--moment-t)) both; }
-.inv-mo-booth .inv-mo-flashlight { background: radial-gradient(circle at 66% 20%, #fff 0%, rgba(255, 255, 255, 0.92) 16%, rgba(255, 255, 255, 0) 58%); }
+.inv-mo-booth-strip .inv-mo-part { object-fit: fill; z-index: 1; }
+/* the windows: the strip's own see-throughs, measured on the shipped part (photo-booth/strip holes) */
+.inv-mo-booth-shot { position: absolute; left: 13.36%; width: 73.29%; height: 24.64%; display: block; overflow: hidden; background: #2a2f2d; }
+.inv-mo-booth-shot[data-i='0'] { top: 6.16%; }
+.inv-mo-booth-shot[data-i='1'] { top: 34.82%; }
+.inv-mo-booth-shot[data-i='2'] { top: 63.57%; }
+.inv-mo-booth-shot img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.92) contrast(0.98) sepia(0.05); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count b[data-n='3'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease both; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count b[data-n='2'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(700ms * var(--moment-t)) both; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count b[data-n='1'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(1400ms * var(--moment-t)) both; }
+.inv-mo-booth .inv-mo-flashlight { background: radial-gradient(circle at 50% 30%, #fff 0%, rgba(255, 255, 255, 0.92) 16%, rgba(255, 255, 255, 0) 58%); border-radius: 2.4cqw; }
 :is([data-state='opening']) .inv-mo-booth .inv-mo-flashlight { animation: inv-mo-boothflash calc(2400ms * var(--moment-t)) linear; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-strip { transform: translateY(6%); opacity: 1; }
-:is([data-state='opening']) .inv-mo-strip { animation: inv-mo-swing calc(1600ms * var(--moment-t)) ease-out calc(4000ms * var(--moment-t)); }
-[data-still] .inv-mo-strip { transition: none; animation: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-strip { transform: translateY(0); opacity: 1; }
+:is([data-state='opening']) .inv-mo-booth-strip { animation: inv-mo-swing calc(1600ms * var(--moment-t)) ease-out calc(4000ms * var(--moment-t)); }
+[data-still] .inv-mo-booth-strip { transition: none; animation: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count { opacity: 0; transition: opacity 200ms ease calc(2200ms * var(--moment-t)); }
 @keyframes inv-mo-count { 0% { opacity: 0; transform: scale(0.7); } 20%, 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
 @keyframes inv-mo-boothflash { 0%, 26%, 40%, 55%, 70%, 85% { opacity: 0; } 30%, 60%, 90% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes inv-mo-swing { 0% { rotate: 0deg; } 30% { rotate: 3deg; } 60% { rotate: -2deg; } 100% { rotate: 0deg; } }
 
-/* the projector: a pull-down screen hung from its case on a dark wall, and a
-   reel projector on a table; the lamp comes on, the beam widens in a haze of
-   dust, the reels turn and the picture resolves on the screen */
-.inv-mo-projector { perspective: none; background: radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--inv-ink) 82%, var(--inv-accent2)), color-mix(in srgb, var(--inv-ink) 94%, black)); border-radius: 1.2cqw; overflow: hidden; }
-.inv-mo-projector::before {
-  /* the screen's case, and the sheet's own weighted bar under it */
-  content: ''; position: absolute; left: 32%; right: 4%; top: 9%; height: 3cqw; border-radius: 999px;
-  background: linear-gradient(180deg, #4a4d54, #1e2025);
-  box-shadow: 0 0.5cqw 1cqw rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  z-index: 2;
-}
-.inv-mo-projector::after {
-  content: ''; position: absolute; left: 34%; right: 6%; top: 70%; height: 1.4cqw; border-radius: 999px;
-  background: linear-gradient(180deg, #3a3d44, #15171b);
-  box-shadow: 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.6);
-  z-index: 2;
-}
+/* the projector: the projector (projector/body) on the ground, its beam to
+   the right; the lamp comes on, the beam widens in a haze and the picture
+   resolves on a cream screen */
+.inv-mo-projector { perspective: none; }
 .inv-mo-screen {
-  position: absolute; left: 34%; right: 6%; top: 11%; bottom: 30%; overflow: hidden;
-  background: linear-gradient(180deg, #f2efe8, #e6e2d9);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), 0 1cqw 2cqw rgba(0, 0, 0, 0.5);
+  position: absolute; left: 40%; right: 6%; top: 10%; bottom: 34%; z-index: 2; overflow: hidden;
+  background: linear-gradient(180deg, #fbf8f1, #efe9dd);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 1cqw 2cqw rgba(var(--mo-dark), 0.24);
 }
+.inv-mo-screen::before { content: ''; position: absolute; left: -3%; right: -3%; top: -4cqw; height: 3cqw; border-radius: 999px; background: linear-gradient(180deg, #5a4a3a, #2e2620); box-shadow: 0 0.5cqw 1cqw rgba(var(--mo-dark), 0.4); }
 .inv-mo-screen img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; filter: blur(8px) brightness(1.5) sepia(0.3); transition: opacity calc(1200ms * var(--moment-t)) ease calc(500ms * var(--moment-t)), filter calc(1600ms * var(--moment-t)) ease calc(700ms * var(--moment-t)); }
-.inv-mo-screen::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.28) 100%); pointer-events: none; }
+.inv-mo-screen::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.18) 100%); pointer-events: none; }
 .inv-mo-beam {
-  position: absolute; left: 22%; right: 6%; top: 11%; bottom: 30%;
-  clip-path: polygon(0 60%, 0 66%, 100% 100%, 100% 0);
-  background: var(--mo-grain-soft), linear-gradient(90deg, rgba(255, 244, 214, 0.7), rgba(255, 244, 214, 0.08));
+  position: absolute; left: 30%; right: 6%; top: 10%; bottom: 34%; z-index: 1;
+  clip-path: polygon(0 58%, 0 66%, 100% 100%, 100% 0);
+  background: var(--mo-grain-soft), linear-gradient(90deg, rgba(255, 244, 214, 0.75), rgba(255, 244, 214, 0.06));
   opacity: 0;
-  transform-origin: 0 63%; transform: scaleX(0.2);
+  transform-origin: 0 62%; transform: scaleX(0.2);
   transition: opacity calc(600ms * var(--moment-t)) ease calc(200ms * var(--moment-t)), transform calc(1200ms * var(--moment-t)) var(--mo-heavy) calc(200ms * var(--moment-t));
 }
-.inv-mo-proj-body {
-  position: absolute; left: 6%; bottom: 10%; width: 26%; height: 30%; border-radius: 1cqw;
-  background: var(--mo-grain-soft), linear-gradient(180deg, #5a5f68, #2a2e35 70%, #1b1e24);
-  box-shadow: var(--mo-contact), 0 2cqw 3cqw -1cqw rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.16);
-}
-.inv-mo-proj-body::after {
-  /* the table it stands on */
-  content: ''; position: absolute; left: -20%; right: -30%; bottom: -3cqw; height: 3cqw; border-radius: 0.3cqw;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent2) 60%, black), color-mix(in srgb, var(--inv-accent2) 40%, black));
-  box-shadow: 0 1cqw 2cqw rgba(0, 0, 0, 0.5);
-  z-index: -1;
-}
-.inv-mo-reel {
-  position: absolute; top: -34%; width: 40%; aspect-ratio: 1; border-radius: 999px;
-  background:
-    radial-gradient(circle, #2a2e35 22%, #7a7f88 24%, #7a7f88 28%, transparent 29%),
-    repeating-conic-gradient(from 0deg, #6a6f78 0 12deg, transparent 12deg 60deg),
-    radial-gradient(circle, transparent 60%, #6a6f78 62%, #3a3e45 70%, #6a6f78 72%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15), 0 0.3cqw 0.6cqw rgba(0, 0, 0, 0.5);
-}
-.inv-mo-reel[data-i='0'] { left: 6%; }
-.inv-mo-reel[data-i='1'] { left: 52%; }
-.inv-mo-proj-lens {
-  position: absolute; right: -10%; top: 38%; width: 24%; aspect-ratio: 1; border-radius: 999px;
-  background: radial-gradient(circle at 40% 35%, #cfd3da, #3a3e45 70%);
-  box-shadow: 0 0 0 0.6cqw #23262c, 0 0 0 1cqw #3a3e45, 0 0 0 1.2cqw rgba(0, 0, 0, 0.5);
-  transition: box-shadow calc(400ms * var(--moment-t)) ease;
-}
+.inv-mo-proj-body { position: absolute; left: 4%; width: 34%; bottom: 6%; height: 48%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.28)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.12)); }
+.inv-mo-proj-body .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-proj-body::after { content: ''; position: absolute; right: 2%; top: 46%; width: 6cqw; height: 6cqw; border-radius: 999px; background: radial-gradient(circle, rgba(255, 244, 214, 0.9), rgba(255, 244, 214, 0) 70%); opacity: 0; transition: opacity calc(400ms * var(--moment-t)) ease calc(200ms * var(--moment-t)); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-beam { opacity: 1; transform: scaleX(1); }
 :is([data-state='opening'], [data-state='open']) .inv-mo-screen img { opacity: 1; filter: blur(0) brightness(1) sepia(0.08); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-proj-lens { box-shadow: 0 0 0 0.6cqw #23262c, 0 0 0 1cqw #3a3e45, 0 0 0 1.2cqw rgba(0, 0, 0, 0.5), 0 0 3cqw 1cqw rgba(255, 244, 214, 0.7); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-reel { animation: inv-mo-spin 4s linear infinite; }
-@keyframes inv-mo-spin { to { rotate: 360deg; } }
-[data-moment='projector'] .inv-moment-reveal { top: auto; bottom: -14cqw; padding: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-proj-body::after { opacity: 1; }
+[data-moment='projector'] .inv-moment-reveal { display: none; }
 
-/* browsed, not opened: the strip, the carousel and the album */
+/* browsed, not opened: the strip, the carousel and the album, on the ground */
+.inv-mo-browse-ground { z-index: 0; }
 .inv-mo-browse { position: absolute; inset: 0; z-index: 3; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
 .inv-mo-browse:active { cursor: grabbing; }
 .inv-mo-track { position: absolute; left: 0; top: 0; bottom: 0; display: flex; }
 .inv-mo-shot { position: relative; display: block; flex: none; overflow: hidden; }
 .inv-mo-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.inv-mo-caption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1.5cqw 3cqw 3cqw; text-align: center; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6); background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.35)); pointer-events: none; }
+.inv-mo-caption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1.5cqw 3cqw 3cqw; text-align: center; color: #4a3a2a; pointer-events: none; }
 .inv-mo-caption > * { margin: 0; }
 .inv-mo-dots { position: absolute; left: 0; right: 0; bottom: 1.4cqw; z-index: 3; display: flex; justify-content: center; gap: 1.2cqw; pointer-events: none; }
-.inv-mo-dots i { width: 1.6cqw; height: 1.6cqw; border-radius: 999px; background: rgba(255, 255, 255, 0.45); }
-.inv-mo-dots i[data-on] { background: #fff; }
+.inv-mo-dots i { width: 1.6cqw; height: 1.6cqw; border-radius: 999px; background: rgba(90, 70, 50, 0.3); }
+.inv-mo-dots i[data-on] { background: #4a3a2a; }
 [data-moment='film-strip'] .inv-moment-hint, [data-moment='carousel'] .inv-moment-hint, [data-moment='album'] .inv-moment-hint { bottom: 4.5cqw; }
-/* the film strip: black film with rounded sprockets top and bottom, one frame at a time under the finger, settling on a spring */
-[data-moment='film-strip'] { background: #111214; border-radius: 0.6cqw; overflow: hidden; box-shadow: var(--mo-contact), var(--mo-ambient); }
+/* the film strip: the photographed film (film-strip/strip) lies across the ground and the photographs slide under its three frames; the middle frame is the one in hand */
 .inv-mo-browse.inv-mo-strip { top: 0; }
-.inv-mo-browse.inv-mo-strip .inv-mo-track { top: 13%; bottom: 13%; gap: 2cqw; padding: 0 2cqw; transform: translateX(calc(var(--browse-at) * -100% + var(--browse-drag) * 50%)); transition: transform calc(550ms * var(--moment-t)) var(--mo-spring); }
+.inv-mo-film { position: absolute; left: 0; width: 100%; top: 18.5%; height: 63%; z-index: 2; object-fit: fill; filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.28)); pointer-events: none; }
+/* each photograph is a frame's size, and the track stands where the middle frame is: 34.2% across, 30.03% wide; the frames are 32.3% apart */
+.inv-mo-browse.inv-mo-strip .inv-mo-track { top: calc(18.5% + 63% * 0.1822); height: calc(63% * 0.6355); gap: 2.3cqw; left: 34.2cqw; transform: translateX(calc(var(--browse-at) * -32.3cqw + var(--browse-drag) * 16cqw)); transition: transform calc(550ms * var(--moment-t)) var(--mo-spring); }
 .inv-mo-browse.inv-mo-strip[data-dragging] .inv-mo-track { transition: none; }
-.inv-mo-browse.inv-mo-strip .inv-mo-shot { width: calc(100cqw - 4cqw); border-radius: 0.4cqw; background: #333; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.inv-mo-browse.inv-mo-strip .inv-mo-shot { width: 30cqw; background: #333; }
 .inv-mo-browse.inv-mo-strip .inv-mo-shot::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%), radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.22) 100%); pointer-events: none; }
-.inv-mo-sprockets { position: absolute; left: 0; right: 0; height: 7%; background: radial-gradient(ellipse 1.9cqw 1.2cqw at 50% 50%, #2e3036 96%, transparent 100%) 0 0 / 6.6cqw 100% repeat-x; }
-.inv-mo-sprockets[data-edge='top'] { top: 3%; }
-.inv-mo-sprockets[data-edge='bottom'] { bottom: 3%; }
+[data-moment='film-strip'] .inv-mo-caption { bottom: 1cqw; }
 /* the carousel: the one in front larger and lit, the neighbours peeking, sliding under the finger and settling on a spring */
-[data-moment='carousel'] { background: color-mix(in srgb, var(--inv-ink) 6%, var(--inv-surface)); border-radius: 1.2cqw; overflow: hidden; box-shadow: inset 0 0 0 1px var(--mo-ink10); }
-.inv-mo-browse.inv-mo-carousel .inv-mo-track { left: 50%; top: 6%; bottom: 6%; gap: 4cqw; transform: translateX(calc(-36cqw - var(--browse-at) * 76cqw + var(--browse-drag) * 38cqw)); transition: transform calc(650ms * var(--moment-t)) var(--mo-spring); }
+.inv-mo-browse.inv-mo-carousel .inv-mo-track { left: 50%; top: 8%; bottom: 12%; gap: 4cqw; transform: translateX(calc(-36cqw - var(--browse-at) * 76cqw + var(--browse-drag) * 38cqw)); transition: transform calc(650ms * var(--moment-t)) var(--mo-spring); }
 .inv-mo-browse.inv-mo-carousel[data-dragging] .inv-mo-track { transition: none; }
-.inv-mo-browse.inv-mo-carousel .inv-mo-shot { width: 72cqw; border-radius: 1cqw; box-shadow: var(--mo-contact), var(--mo-ambient); transform: scale(0.92); opacity: 0.72; filter: saturate(0.85); transition: transform calc(650ms * var(--moment-t)) var(--mo-spring), opacity calc(650ms * var(--moment-t)) ease, filter calc(650ms * var(--moment-t)) ease; }
+.inv-mo-browse.inv-mo-carousel .inv-mo-shot { width: 72cqw; border: 1.2cqw solid #fff; box-shadow: var(--mo-contact), var(--mo-ambient); transform: scale(0.92); opacity: 0.72; filter: saturate(0.85); transition: transform calc(650ms * var(--moment-t)) var(--mo-spring), opacity calc(650ms * var(--moment-t)) ease, filter calc(650ms * var(--moment-t)) ease; }
 .inv-mo-browse.inv-mo-carousel .inv-mo-shot[data-at] { transform: scale(1); opacity: 1; filter: none; }
-/* the album: a leather cover with a grain, cream pages with photo corners, a leaf that turns in perspective with a fold shadow */
+/* the album: linen covers, pages of the photographed album leaf (album/page), a leaf that turns in perspective with a fold shadow */
 [data-moment='album'] { perspective: 1200cqw; }
+/* the album: its own photographed cover (album/cover), stretched to the board the pages are bound into */
 .inv-mo-album {
-  background-color: color-mix(in srgb, var(--inv-accent2) 55%, var(--inv-ink));
-  background-image: var(--mo-grain), linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 40%, rgba(0, 0, 0, 0.2) 100%);
-  border-radius: 1.4cqw; padding: 3cqw;
-  box-shadow: var(--mo-contact), var(--mo-ambient), inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 0 0 0.8cqw rgba(0, 0, 0, 0.12);
+  inset: 4%;
+  border-radius: 1.4cqw; padding: 2.4cqw;
+  filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.24));
   transform-style: preserve-3d;
 }
-.inv-mo-album-page { position: absolute; top: 3cqw; bottom: 3cqw; width: calc(50% - 3cqw); overflow: hidden; background-color: #f7f4ee; background-image: var(--mo-grain); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
-.inv-mo-album-page[data-side='l'] { left: 3cqw; border-radius: 0.8cqw 0 0 0.8cqw; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), inset -1.6cqw 0 2cqw -1cqw rgba(var(--mo-dark), 0.14); }
-.inv-mo-album-page[data-side='r'] { right: 3cqw; border-radius: 0 0.8cqw 0.8cqw 0; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), inset 1.6cqw 0 2cqw -1cqw rgba(var(--mo-dark), 0.14); }
-.inv-mo-album-page img, .inv-mo-album-face img { width: 88%; height: 88%; margin: 6%; object-fit: cover; display: block; box-shadow: 0 0.6cqw 1.2cqw rgba(var(--mo-dark), 0.2); }
-/* the photo corners, two to a picture */
-.inv-mo-album-page::before, .inv-mo-album-page::after, .inv-mo-album-face::before, .inv-mo-album-face::after {
-  content: ''; position: absolute; width: 4cqw; height: 4cqw; z-index: 1;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--inv-accent2) 60%, var(--inv-ink)) 50%, transparent 50%);
-}
-.inv-mo-album-page::before, .inv-mo-album-face::before { left: 6%; top: 6%; }
-.inv-mo-album-page::after, .inv-mo-album-face::after { right: 6%; bottom: 6%; transform: rotate(180deg); }
-.inv-mo-album-spine { position: absolute; left: 50%; top: 3cqw; bottom: 3cqw; width: 1.2cqw; margin-left: -0.6cqw; background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0.02) 50%, rgba(0, 0, 0, 0.22)); z-index: 2; }
-.inv-mo-album-leaf { position: absolute; top: 3cqw; bottom: 3cqw; width: calc(50% - 3cqw); z-index: 4; transform-style: preserve-3d; animation: inv-mo-turn calc(900ms * var(--moment-t)) var(--mo-heavy) forwards; }
-.inv-mo-album-leaf[data-dir='next'] { right: 3cqw; transform-origin: left center; }
-.inv-mo-album-leaf[data-dir='prev'] { left: 3cqw; transform-origin: right center; animation-name: inv-mo-turn-back; }
-.inv-mo-album-face { position: absolute; inset: 0; overflow: hidden; background-color: #f7f4ee; background-image: var(--mo-grain); backface-visibility: hidden; -webkit-backface-visibility: hidden; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
+.inv-mo-album-cover { z-index: 0; object-fit: fill; border-radius: 1.4cqw; }
+.inv-mo-album-page { position: absolute; top: 2.4cqw; bottom: 2.4cqw; width: calc(50% - 2.4cqw); overflow: hidden; background: #f7f1e6; }
+.inv-mo-album-page .inv-mo-part, .inv-mo-album-face .inv-mo-part { object-fit: cover; z-index: 0; }
+.inv-mo-album-page[data-side='l'] { left: 2.4cqw; border-radius: 0.8cqw 0 0 0.8cqw; box-shadow: inset -1.6cqw 0 2cqw -1cqw rgba(var(--mo-dark), 0.14); }
+.inv-mo-album-page[data-side='r'] { right: 2.4cqw; border-radius: 0 0.8cqw 0.8cqw 0; box-shadow: inset 1.6cqw 0 2cqw -1cqw rgba(var(--mo-dark), 0.14); }
+.inv-mo-album-page img:not(.inv-mo-part), .inv-mo-album-face img:not(.inv-mo-part) { position: relative; z-index: 1; width: 78%; height: 78%; margin: 11%; object-fit: cover; display: block; box-shadow: 0 0.6cqw 1.2cqw rgba(var(--mo-dark), 0.2); }
+.inv-mo-album-spine { position: absolute; left: 50%; top: 2.4cqw; bottom: 2.4cqw; width: 1.2cqw; margin-left: -0.6cqw; background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.02) 50%, rgba(0, 0, 0, 0.18)); z-index: 2; }
+.inv-mo-album-leaf { position: absolute; top: 2.4cqw; bottom: 2.4cqw; width: calc(50% - 2.4cqw); z-index: 4; transform-style: preserve-3d; animation: inv-mo-turn calc(900ms * var(--moment-t)) var(--mo-heavy) forwards; }
+.inv-mo-album-leaf[data-dir='next'] { right: 2.4cqw; transform-origin: left center; }
+.inv-mo-album-leaf[data-dir='prev'] { left: 2.4cqw; transform-origin: right center; animation-name: inv-mo-turn-back; }
+.inv-mo-album-face { position: absolute; inset: 0; overflow: hidden; background: #f7f1e6; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .inv-mo-album-face[data-face='back'] { transform: rotateY(180deg); }
 .inv-mo-album-leaf::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, 0.2), transparent 30%); opacity: 0; animation: inv-mo-fold calc(900ms * var(--moment-t)) ease; pointer-events: none; }
 @keyframes inv-mo-turn { to { transform: rotateY(-180deg); } }
 @keyframes inv-mo-turn-back { to { transform: rotateY(180deg); } }
 @keyframes inv-mo-fold { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-.inv-mo-album .inv-mo-caption { bottom: 3cqw; left: 3cqw; right: 3cqw; color: var(--inv-ink); text-shadow: none; background: linear-gradient(180deg, transparent, rgba(247, 244, 238, 0.9)); }
+.inv-mo-album .inv-mo-caption { bottom: 2.4cqw; left: 2.4cqw; right: 2.4cqw; color: var(--inv-ink); text-shadow: none; background: linear-gradient(180deg, transparent, rgba(247, 241, 230, 0.9)); }
 
-/* the baby reveal: two soft clouds lit from above that drift apart, and the words come up in the light between them */
+/* the baby reveal: the box (baby/box) on the blush ground; tapped, the bear
+   (baby/bear) comes up out of it and the balloons (baby/balloons) rise
+   behind; the words come up above */
 .inv-mo-baby { perspective: none; }
-.inv-mo-baby::before {
-  /* the light behind the clouds */
-  content: ''; position: absolute; left: 50%; top: 50%; width: 80%; aspect-ratio: 1; transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 244, 214, 0.7), rgba(255, 244, 214, 0) 65%);
-  opacity: 0;
-  transition: opacity calc(1200ms * var(--moment-t)) ease calc(300ms * var(--moment-t));
-}
-.inv-mo-cloud {
-  position: absolute; top: 18%; bottom: 18%; width: 62%; z-index: 2; border-radius: 999px;
-  background: radial-gradient(ellipse at 40% 30%, #fff, #f1f4f9 55%, #dbe2ee);
-  box-shadow: 0 2cqw 4cqw rgba(var(--mo-dark), 0.12), inset 0 -2.4cqw 4cqw rgba(120, 140, 170, 0.18), inset 0 1cqw 1.6cqw rgba(255, 255, 255, 0.9);
-  filter: blur(0.25cqw);
-  transition: transform calc(1600ms * var(--moment-t)) var(--mo-heavy), opacity calc(900ms * var(--moment-t)) ease calc(800ms * var(--moment-t));
-}
-.inv-mo-cloud::before, .inv-mo-cloud::after { content: ''; position: absolute; border-radius: 999px; background: inherit; box-shadow: inherit; }
-.inv-mo-cloud::before { left: 12%; top: -28%; width: 46%; height: 70%; }
-.inv-mo-cloud::after { right: 10%; top: -18%; width: 40%; height: 60%; }
-.inv-mo-cloud[data-side='l'] { left: -6%; }
-.inv-mo-cloud[data-side='r'] { right: -6%; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-cloud[data-side='l'] { transform: translateX(-70%); opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-cloud[data-side='r'] { transform: translateX(70%); opacity: 0; }
-:is([data-state='opening'], [data-state='open']) .inv-mo-baby::before { opacity: 1; }
-[data-moment='baby'] { --moment-reveal-at: 300ms; }
-[data-moment='baby'] .inv-moment-reveal img { flex: none; width: auto; height: 62%; aspect-ratio: 1; border-radius: 999px; box-shadow: 0 0 0 0.8cqw #fff, var(--mo-contact), var(--mo-ambient); }
+.inv-mo-baby-box { position: absolute; left: 20%; width: 60%; bottom: 6%; height: 54%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.24)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-baby-box .inv-mo-part { object-fit: fill; }
+.inv-mo-bear { position: absolute; left: 31%; width: 38%; bottom: 30%; height: 49%; z-index: 2; transform-origin: 50% 100%; transform: translateY(30%) scale(0.7); opacity: 0; filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.2)); transition: transform calc(1200ms * var(--moment-t)) var(--mo-settle) calc(200ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(200ms * var(--moment-t)); }
+.inv-mo-bear .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-balloons { position: absolute; left: 56%; width: 30%; bottom: 40%; height: 52%; z-index: 1; transform: translateY(40%); opacity: 0; filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.16)); transition: transform calc(1800ms * var(--moment-t)) var(--mo-heavy) calc(400ms * var(--moment-t)), opacity calc(600ms * var(--moment-t)) ease calc(400ms * var(--moment-t)); }
+.inv-mo-balloons .inv-mo-part { object-fit: contain; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bear { transform: translateY(0) scale(1); opacity: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-balloons { transform: translateY(0); opacity: 1; animation: inv-mo-sway 5s ease-in-out calc(2200ms * var(--moment-t)) infinite; }
+[data-moment='baby'] { --moment-reveal-at: 700ms; }
+[data-moment='baby'] .inv-moment-reveal { top: 3%; bottom: 74%; padding: 2cqw 8cqw; justify-content: flex-end; }
+[data-moment='baby'] .inv-moment-reveal img { display: none; }
 
-/* champagne cheers: two real flutes, glass over champagne with its bubbles
-   rising, that tilt in and meet with one ring of light at the touch; the
+/* champagne cheers: two photographed flutes (cheers/flute), one the other's
+   mirror, that tilt in and meet with one ring of light at the touch; the
    words come up beneath them */
 .inv-mo-cheers { perspective: none; }
 .inv-mo-cheers::after {
   /* the table's shadow under the glasses */
-  content: ''; position: absolute; left: 22%; right: 22%; bottom: 20%; height: 4cqw; border-radius: 50%;
+  content: ''; position: absolute; left: 22%; right: 22%; bottom: 20%; height: 4cqw; border-radius: 50%; z-index: 1;
   background: radial-gradient(ellipse at 50% 50%, rgba(var(--mo-dark), 0.22), rgba(var(--mo-dark), 0) 70%);
 }
 .inv-mo-flute {
-  position: absolute; bottom: 22%; width: 20%; height: 66%; overflow: visible;
+  position: absolute; bottom: 22%; width: 18%; height: 72%; z-index: 2;
   transform-origin: 50% 100%;
   filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.22));
   transition: transform calc(900ms * var(--moment-t)) var(--mo-settle);
 }
-.inv-mo-flute[data-side='l'] { left: 22%; transform: rotate(-15deg); }
-.inv-mo-flute[data-side='r'] { right: 22%; transform: rotate(15deg); transition-delay: calc(60ms * var(--moment-t)); }
-.inv-mo-glass { stroke: rgba(120, 118, 110, 0.55); stroke-width: 1.1; }
-.inv-mo-rim { fill: none; stroke: rgba(255, 255, 255, 0.9); stroke-width: 0.9; }
-.inv-mo-bubble { fill: rgba(255, 255, 255, 0.85); transform-box: fill-box; transform-origin: center; animation: inv-mo-bubble 2.8s linear infinite; animation-delay: calc(var(--b) * -0.47s); }
-@keyframes inv-mo-bubble { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 0.9; } 100% { transform: translateY(-52px); opacity: 0; } }
-.inv-mo-clink { position: absolute; left: 50%; top: 24%; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; border-radius: 999px; border: 0.5cqw solid rgba(255, 250, 230, 0.95); opacity: 0; box-shadow: 0 0 2cqw rgba(255, 244, 214, 0.9); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='l'] { transform: rotate(-5deg); }
-:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='r'] { transform: rotate(5deg); }
+.inv-mo-flute .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-flute[data-side='l'] { left: 28%; transform: rotate(-15deg); }
+.inv-mo-flute[data-side='r'] { right: 28%; transform: rotate(15deg); transition-delay: calc(60ms * var(--moment-t)); }
+.inv-mo-flute[data-side='r'] .inv-mo-part { transform: scaleX(-1); }
+.inv-mo-clink { position: absolute; left: 50%; top: 28%; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; z-index: 3; border-radius: 999px; border: 0.5cqw solid rgba(255, 250, 230, 0.95); opacity: 0; box-shadow: 0 0 2cqw rgba(255, 244, 214, 0.9); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='l'] { transform: rotate(-6deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='r'] { transform: rotate(6deg); }
 :is([data-state='opening']) .inv-mo-clink { animation: inv-mo-clink calc(900ms * var(--moment-t)) ease-out calc(800ms * var(--moment-t)); }
 @keyframes inv-mo-clink { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(3); } }
 [data-moment='cheers'] { --moment-reveal-at: 1400ms; }
-[data-moment='cheers'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 2cqw; }
+[data-moment='cheers'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 3cqw; }

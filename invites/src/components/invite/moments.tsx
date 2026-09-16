@@ -197,7 +197,7 @@ export function useMomentGesture({ trigger, speed = 'normal', duration, swipe, d
  * canvas the finger clears, the secret code is a keypad, the puzzle is
  * nine tiles swapped by two taps.
  */
-export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, photos = [], words, code, monogram, parts, className, style, attrs }: {
+export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, photos = [], words, code, monogram, parts, ground, className, style, attrs }: {
   id: string;
   scene: MomentKey;
   variant?: string;
@@ -213,6 +213,8 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
   monogram?: string;
   /** the design's own photographed parts, by PartKey; the shipped set otherwise */
   parts?: Record<string, string>;
+  /** whether the scene stands on the studio ground it was photographed on: off where the page is already a picture */
+  ground?: boolean;
   className?: string;
   style?: CSSProperties;
   attrs?: Record<string, string | undefined>;
@@ -287,12 +289,12 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
       {...(gestured ? g.handlers : {})}
       {...attrs}
     >
-      <Scene scene={scene} variant={variant} photos={holds.photo ? photos : []} monogram={monogram} words={holds.words ? words : undefined} parts={parts} />
+      <Scene scene={scene} variant={variant} photos={holds.photo ? photos : []} monogram={monogram} words={holds.words ? words : undefined} parts={parts} ground={ground} />
       {reveal !== undefined && <div className="inv-moment-reveal">{reveal}</div>}
-      {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} frost={scene === 'frost' ? photos[0] : undefined} foil={scene === 'scratch' ? partUrl('scratch/foil', parts) : undefined} />}
+      {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} frost={scene === 'frost' ? photos[0] : undefined} glass={scene === 'frost' ? partUrl('frost/glass', parts) : undefined} foil={scene === 'scratch' ? partUrl('scratch/foil', parts) : undefined} />}
       {def?.mechanic === 'keys' && !still && code && <Keypad code={code} open={g.open} state={g.state} />}
       {def?.mechanic === 'drag' && <Tiles id={id} photo={photos[0]} open={g.open} state={state} still={still} />}
-      {browses && <Browse scene={scene} photos={photos} words={words} edit={Boolean(edit)} speed={speed} />}
+      {browses && <Browse scene={scene} photos={photos} words={words} edit={Boolean(edit)} speed={speed} parts={parts} />}
       {trigger === 'hold' && !still && (
         <svg className="inv-moment-ring" viewBox="0 0 40 40" aria-hidden>
           <circle cx="20" cy="20" r="18" pathLength={1} />
@@ -310,7 +312,7 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
  * settle on the nearest; the album turns a leaf. Words, where the moment
  * has them, are the caption under whichever is showing.
  */
-function Browse({ scene, photos, words, edit, speed = 'normal' }: { scene: MomentKey; photos: string[]; words?: ReactNode; edit: boolean; speed?: Speed }) {
+function Browse({ scene, photos, words, edit, speed = 'normal', parts }: { scene: MomentKey; photos: string[]; words?: ReactNode; edit: boolean; speed?: Speed; /** the design's own photographed parts, by PartKey */ parts?: Record<string, string> }) {
   const [at, setAt] = useState(0);
   const [drag, setDrag] = useState(0);
   const [turning, setTurning] = useState<'next' | 'prev' | null>(null);
@@ -346,6 +348,9 @@ function Browse({ scene, photos, words, edit, speed = 'normal' }: { scene: Momen
   };
   const vars = { ['--browse-at' as string]: String(at), ['--browse-drag' as string]: drag.toFixed(3), ['--moment-t' as string]: String(t) } as CSSProperties;
   const caption = words ? <div className="inv-mo-caption">{words}</div> : null;
+  // the photographed page the album's leaves are, and the cover it is bound in
+  const page = partUrl('album/page', parts);
+  const cover = partUrl('album/cover', parts);
   if (scene === 'album') {
     const spread = (i: number) => [photos[i * 2], photos[i * 2 + 1]];
     const [l, r] = spread(at);
@@ -353,12 +358,13 @@ function Browse({ scene, photos, words, edit, speed = 'normal' }: { scene: Momen
     const [pl, pr] = spread(at - 1);
     return (
       <div className="inv-mo-browse inv-mo-album" style={vars} data-turning={turning ?? undefined} data-first={at === 0 ? '' : undefined} data-last={at >= pages - 1 ? '' : undefined} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-        <span className="inv-mo-album-page" data-side="l">{turning === 'prev' ? (pl && <img src={pl} alt="" />) : (l && <img src={l} alt="" />)}</span>
-        <span className="inv-mo-album-page" data-side="r">{turning === 'next' ? (nr && <img src={nr} alt="" />) : (r && <img src={r} alt="" />)}</span>
+        <img className="inv-mo-part inv-mo-album-cover" src={cover} alt="" />
+        <span className="inv-mo-album-page" data-side="l"><img className="inv-mo-part" src={page} alt="" />{turning === 'prev' ? (pl && <img src={pl} alt="" />) : (l && <img src={l} alt="" />)}</span>
+        <span className="inv-mo-album-page" data-side="r"><img className="inv-mo-part" src={page} alt="" />{turning === 'next' ? (nr && <img src={nr} alt="" />) : (r && <img src={r} alt="" />)}</span>
         {turning && (
           <span className="inv-mo-album-leaf" data-dir={turning}>
-            <span className="inv-mo-album-face" data-face="front">{turning === 'next' ? (r && <img src={r} alt="" />) : (l && <img src={l} alt="" />)}</span>
-            <span className="inv-mo-album-face" data-face="back">{turning === 'next' ? (nl && <img src={nl} alt="" />) : (pr && <img src={pr} alt="" />)}</span>
+            <span className="inv-mo-album-face" data-face="front"><img className="inv-mo-part" src={page} alt="" />{turning === 'next' ? (r && <img src={r} alt="" />) : (l && <img src={l} alt="" />)}</span>
+            <span className="inv-mo-album-face" data-face="back"><img className="inv-mo-part" src={page} alt="" />{turning === 'next' ? (nl && <img src={nl} alt="" />) : (pr && <img src={pr} alt="" />)}</span>
           </span>
         )}
         <span className="inv-mo-album-spine" />
@@ -373,7 +379,7 @@ function Browse({ scene, photos, words, edit, speed = 'normal' }: { scene: Momen
           <span key={i} className="inv-mo-shot" data-at={i === at ? '' : undefined} style={{ ['--i' as string]: String(i) }}><img src={u} alt="" loading="lazy" /></span>
         ))}
       </span>
-      {scene === 'film-strip' && <><span className="inv-mo-sprockets" data-edge="top" /><span className="inv-mo-sprockets" data-edge="bottom" /></>}
+      {scene === 'film-strip' && <img className="inv-mo-part inv-mo-film" src={partUrl('film-strip/strip', parts)} alt="" />}
       {caption}
       {photos.length > 1 && (
         <span className="inv-mo-dots">{photos.map((_, i) => <i key={i} data-on={i === at ? '' : undefined} />)}</span>
@@ -391,7 +397,7 @@ const SCRATCH_DONE = 0.55;
  * circle out of it; every few strokes the cleared share is read off a
  * coarse sample of the pixels, and past six tenths the whole card opens.
  */
-function Scratch({ open, state, frost, foil }: { open: () => void; state: MomentState; /** the photograph, for a frosted glass: a blurred, whitened copy is what the finger clears */ frost?: string; /** the foil as photographed, painted edge to edge under the finger */ foil?: string }) {
+function Scratch({ open, state, frost, glass, foil }: { open: () => void; state: MomentState; /** the photograph, for a frosted glass: a blurred, whitened copy is what the finger clears */ frost?: string; /** the frost as photographed, breathed over the blurred photograph */ glass?: string; /** the foil as photographed, painted edge to edge under the finger */ foil?: string }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const down = useRef(false);
   const strokes = useRef(0);
@@ -422,8 +428,21 @@ function Scratch({ open, state, frost, foil }: { open: () => void; state: Moment
           const dw = img.width * s, dh = img.height * s;
           ctx2.drawImage(img, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
           ctx2.restore();
-          ctx2.fillStyle = 'rgba(255,255,255,0.42)'; ctx2.fillRect(0, 0, c.width, c.height);
-          ctx2.globalCompositeOperation = 'destination-out';
+          ctx2.fillStyle = 'rgba(255,255,255,0.3)'; ctx2.fillRect(0, 0, c.width, c.height);
+          const done = () => { ctx2.globalCompositeOperation = 'destination-out'; };
+          if (!glass) { done(); return; }
+          // the photographed frost, laid over the breath at half strength: the droplets and the cold light
+          const fr = new Image();
+          fr.onload = () => {
+            const s2 = Math.max(c.width / fr.width, c.height / fr.height);
+            const fw = fr.width * s2, fh = fr.height * s2;
+            ctx2.globalAlpha = 0.62;
+            ctx2.drawImage(fr, (c.width - fw) / 2, (c.height - fh) / 2, fw, fh);
+            ctx2.globalAlpha = 1;
+            done();
+          };
+          fr.onerror = done;
+          fr.src = glass;
         };
         img.src = frost;
         ctx.globalCompositeOperation = 'destination-out';
@@ -590,21 +609,27 @@ function Tiles({ id, photo, open, state, still }: { id: string; photo?: string; 
  * `aria-hidden`: the moment's box carries the label, and what it reveals is
  * ordinary content.
  */
-export function Scene({ scene, variant, photos = [], monogram, words, parts }: { scene: MomentKey; variant?: string; photos?: string[]; monogram?: string; words?: ReactNode; parts?: Record<string, string> }) {
+export function Scene({ scene, variant, photos = [], monogram, words, parts, ground: onGround = true }: { scene: MomentKey; variant?: string; photos?: string[]; monogram?: string; words?: ReactNode; parts?: Record<string, string>; /** whether the studio ground is laid under the scene (see Moment) */ ground?: boolean }) {
   const photo = photos[0];
   // a photographed part: the design's own where it brought one, else the one shipped
   const part = (k: PartKey) => partUrl(k, parts);
-  // the gradients a scene's SVG paints with are defined inside it, and two of the same scene on one page must not share an id
-  const uid = useId().replace(/:/g, '');
+  // the studio every scene is photographed in: the cream backdrop, or the blush one where the scene is softer
+  const ground = (which: 'cream' | 'blush' = 'cream') => (onGround ? <img className="inv-mo-part inv-mo-ground" src={part(`backdrop/${which}`)} alt="" /> : null);
+  // one part, in a box the stylesheet places
+  const piece = (cls: string, key: PartKey, extra?: Record<string, string | undefined>) => (
+    <span className={cls} {...extra}><img className="inv-mo-part" src={part(key)} alt="" /></span>
+  );
   switch (scene) {
+    // ── the opening ──
     case 'envelope':
     case 'seal':
+      // the pocket, the flap hinged along its top fold, and the card inside; the seal holds the flap's point shut
       return (
         <span className="inv-mo inv-mo-env" aria-hidden>
-          <span className="inv-mo-back" />
-          <span className="inv-mo-card" />
-          <span className="inv-mo-pocket" />
-          <span className="inv-mo-flap" />
+          {ground()}
+          {piece('inv-mo-env-card', 'envelope/card')}
+          {piece('inv-mo-env-pocket', 'envelope/pocket')}
+          {piece('inv-mo-env-flap', 'envelope/flap')}
           {scene === 'seal' && (
             <span className="inv-mo-wax">
               <span className="inv-mo-wax-half" data-side="l"><img className="inv-mo-part" src={part('seal/wax')} alt="" /><b>{monogram || '♥'}</b></span>
@@ -617,68 +642,69 @@ export function Scene({ scene, variant, photos = [], monogram, words, parts }: {
         </span>
       );
     case 'ribbon':
+      // the card tied in a band of satin, the bow at the top; the pull loosens the bow and the band falls away
       return (
         <span className="inv-mo inv-mo-ribbon" aria-hidden>
-          <span className="inv-mo-card" />
-          <span className="inv-mo-band" data-dir="v" />
-          <span className="inv-mo-band" data-dir="h" />
-          <svg className="inv-mo-bow" viewBox="0 0 120 80">
-            <path className="inv-mo-loop" data-side="l" d="M60 40 C 30 10, 6 18, 14 40 C 6 62, 30 70, 60 40 Z" />
-            <path className="inv-mo-loop" data-side="r" d="M60 40 C 90 10, 114 18, 106 40 C 114 62, 90 70, 60 40 Z" />
-            <path className="inv-mo-tail" data-side="l" d="M58 44 L40 78 L52 76 L60 52 Z" />
-            <path className="inv-mo-tail" data-side="r" d="M62 44 L80 78 L68 76 L60 52 Z" />
-            <circle className="inv-mo-knot" cx="60" cy="40" r="7" />
-          </svg>
+          {ground()}
+          {piece('inv-mo-rib-card', 'envelope/card')}
+          {piece('inv-mo-rib-band', 'ribbon/band', { 'data-dir': 'v' })}
+          {piece('inv-mo-rib-band', 'ribbon/band', { 'data-dir': 'h' })}
+          {piece('inv-mo-rib-bow', 'ribbon/bow')}
         </span>
       );
     case 'curtains': {
-      // velvet is photographed; the plain panels are drawn
+      // satin, photographed: one panel and its mirror under the pelmet; the plain panels are two decorated leaves
       const panels = variant === 'panels';
       return (
         <span className="inv-mo inv-mo-curtains" data-panels={panels ? '' : undefined} aria-hidden>
+          {ground()}
           {photo && <img className="inv-mo-behind" src={photo} alt="" loading="lazy" />}
+          <span className="inv-mo-panel" data-side="l"><img className="inv-mo-part" src={part(panels ? 'panels/panel' : 'curtains/panel')} alt="" /></span>
+          <span className="inv-mo-panel" data-side="r"><img className="inv-mo-part" src={part(panels ? 'panels/panel' : 'curtains/panel')} alt="" /></span>
           {!panels && <img className="inv-mo-part inv-mo-pelmet" src={part('curtains/pelmet')} alt="" />}
-          <span className="inv-mo-panel" data-side="l">{!panels && <img className="inv-mo-part" src={part('curtains/panel')} alt="" />}</span>
-          <span className="inv-mo-panel" data-side="r">{!panels && <img className="inv-mo-part" src={part('curtains/panel')} alt="" />}</span>
         </span>
       );
     }
     case 'doors': {
-      // the leaves are photographed oak either way; the church sets them in a photographed stone arch, the plain doors in a drawn jamb
+      // the ornate pair on the studio ground; the church pair in its photographed stone arch
       const church = variant === 'church';
       return (
         <span className="inv-mo inv-mo-doors" data-church={church ? '' : undefined} aria-hidden>
+          {!church && ground()}
           <span className="inv-mo-way">
             {photo && <img className="inv-mo-behind" src={photo} alt="" loading="lazy" />}
             <span className="inv-mo-light" />
-            <span className="inv-mo-leaf" data-side="l"><img className="inv-mo-part" src={part('doors/leaf-l')} alt="" /></span>
-            <span className="inv-mo-leaf" data-side="r"><img className="inv-mo-part" src={part('doors/leaf-r')} alt="" /></span>
+            <span className="inv-mo-leaf" data-side="l"><img className="inv-mo-part" src={part(church ? 'doors/church-l' : 'doors/leaf-l')} alt="" /></span>
+            <span className="inv-mo-leaf" data-side="r"><img className="inv-mo-part" src={part(church ? 'doors/church-r' : 'doors/leaf-r')} alt="" /></span>
           </span>
-          {church ? <img className="inv-mo-part inv-mo-arch" src={part('doors/arch')} alt="" /> : <span className="inv-mo-jamb" />}
+          {church && <img className="inv-mo-part inv-mo-arch" src={part('doors/arch')} alt="" />}
         </span>
       );
     }
     case 'capiz':
+      // two arched shell panels that fold outward from the centre
       return (
         <span className="inv-mo inv-mo-capiz" aria-hidden>
-          <span className="inv-mo-shell" data-i="0" />
-          <span className="inv-mo-shell" data-i="1" />
-          <span className="inv-mo-shell" data-i="2" />
-          <span className="inv-mo-shell" data-i="3" />
+          {ground()}
+          {photo && <img className="inv-mo-behind" src={photo} alt="" loading="lazy" />}
+          {piece('inv-mo-shell', 'capiz/panel', { 'data-side': 'l' })}
+          {piece('inv-mo-shell', 'capiz/panel', { 'data-side': 'r' })}
         </span>
       );
     case 'letter':
+      // the folded square lifts its fastened flap and opens onto the card, top half then bottom
       return (
         <span className="inv-mo inv-mo-letter" aria-hidden>
-          <span className="inv-mo-sheet" />
-          <span className="inv-mo-fold" data-i="2" />
-          <span className="inv-mo-fold" data-i="0" />
+          {ground()}
+          {piece('inv-mo-let-sheet', 'envelope/card')}
+          {piece('inv-mo-let-folded', 'letter/folded')}
         </span>
       );
     // ── Tap & Reveal ──
     case 'instant-camera':
       return (
         <span className="inv-mo inv-mo-camera" aria-hidden>
+          {ground()}
           <span className="inv-mo-print">
             <span className="inv-mo-print-photo">{photo && <img src={photo} alt="" loading="lazy" />}</span>
             <img className="inv-mo-part inv-mo-print-frame" src={part('instant-camera/print')} alt="" />
@@ -689,90 +715,87 @@ export function Scene({ scene, variant, photos = [], monogram, words, parts }: {
         </span>
       );
     case 'ring-box':
+      // the base with the ring on its cushion; the lid, velvet on its back, hinged along the base's far edge
       return (
         <span className="inv-mo inv-mo-ringbox" aria-hidden>
-          <span className="inv-mo-box-lid"><span className="inv-mo-box-lid-inner" /></span>
-          <span className="inv-mo-box-base">
-            <span className="inv-mo-cushion" />
-            <svg className="inv-mo-ring" viewBox="0 0 60 60">
-              <defs>
-                <linearGradient id={`${uid}-au`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#f8ecc2" /><stop offset="0.45" stopColor="#d9b45e" /><stop offset="1" stopColor="#8f6d2a" /></linearGradient>
-              </defs>
-              <circle cx="30" cy="36" r="16" style={{ stroke: `url(#${uid}-au)` }} />
-              <path className="inv-mo-stone" d="M30 6 L40 15 L30 26 L20 15 Z" />
-              <path className="inv-mo-facet" d="M30 6 L20 15 L30 15 Z" />
-              <path className="inv-mo-facet" data-i="1" d="M30 6 L40 15 L30 15 Z" />
-              <path className="inv-mo-glint" d="M30 8 L31.2 13.8 L37 15 L31.2 16.2 L30 22 L28.8 16.2 L23 15 L28.8 13.8 Z" />
-            </svg>
-          </span>
+          {ground('blush')}
+          <span className="inv-mo-rb-lid"><img className="inv-mo-part" src={part('ring-box/lid')} alt="" /><span className="inv-mo-rb-velvet" /></span>
+          {piece('inv-mo-rb-base', 'ring-box/base')}
+          <span className="inv-mo-rb-glint" />
         </span>
       );
     case 'light':
       return (
         <span className="inv-mo inv-mo-light" data-flash={variant === 'flash' ? '' : undefined} aria-hidden>
+          {ground('blush')}
           <span className="inv-mo-veil" />
           <span className="inv-mo-glow" />
         </span>
       );
     case 'bloom':
+      // eight photographed petals make the bud; they fold down onto the open flower and the photograph is at its heart
       return (
         <span className="inv-mo inv-mo-bloom" aria-hidden>
+          {ground('blush')}
+          {piece('inv-mo-bloom-open', 'bloom/open')}
           <span className="inv-mo-bloom-centre">{photo && <img src={photo} alt="" loading="lazy" />}</span>
-          <svg className="inv-mo-petals" viewBox="0 0 200 200">
-            {Array.from({ length: 8 }, (_, i) => (
-              <path key={i} className="inv-mo-petal" style={{ ['--petal' as string]: String(i) }} d="M100 100 C 66 62, 70 18, 100 6 C 130 18, 134 62, 100 100 Z" />
-            ))}
-          </svg>
+          {Array.from({ length: 8 }, (_, i) => (
+            <span key={i} className="inv-mo-petal" style={{ ['--petal' as string]: String(i) }}><img className="inv-mo-part" src={part('bloom/petal')} alt="" /></span>
+          ))}
         </span>
       );
     case 'candle':
+      // the jar, or the cake with its one candle; the flame is the same photograph on either wick
       return (
         <span className="inv-mo inv-mo-candle" data-cake={variant === 'cake' ? '' : undefined} aria-hidden>
-          {variant === 'cake' && (
-            <span className="inv-mo-cake">
-              <span className="inv-mo-cake-side" />
-              <span className="inv-mo-cake-top" />
-            </span>
-          )}
-          <span className="inv-mo-taper">
-            <span className="inv-mo-wick" />
-            <span className="inv-mo-flame" />
-            <span className="inv-mo-smoke" />
-          </span>
+          {ground()}
+          {piece(variant === 'cake' ? 'inv-mo-cake' : 'inv-mo-jar', variant === 'cake' ? 'cake/cake' : 'candle/jar')}
           <span className="inv-mo-glow" />
+          {piece('inv-mo-flame', 'candle/flame')}
+          <span className="inv-mo-smoke" />
         </span>
       );
-    case 'gift':
+    case 'gift': {
+      const box: PartKey = variant === 'holiday' ? 'gift/holiday-box' : variant === 'mystery' ? 'gift/mystery-box' : 'gift/box';
+      const lid: PartKey = variant === 'holiday' ? 'gift/holiday-lid' : variant === 'mystery' ? 'gift/mystery-lid' : 'gift/lid';
       return (
         <span className="inv-mo inv-mo-gift" data-kind={variant || undefined} aria-hidden>
-          <span className="inv-mo-gift-box"><span className="inv-mo-gift-band" /></span>
-          <span className="inv-mo-gift-lid"><span className="inv-mo-gift-band" /><span className="inv-mo-gift-bow" /></span>
+          {ground()}
+          {piece('inv-mo-gift-box', box)}
+          {piece('inv-mo-gift-lid', lid)}
+          {variant === 'mystery' && <b className="inv-mo-gift-mark">?</b>}
         </span>
       );
+    }
     case 'frame':
+      // the gilt frame, the photograph in its window under a satin cloth drawn up off it
       return (
         <span className="inv-mo inv-mo-frame" aria-hidden>
-          <span className="inv-mo-frame-photo">{photo && <img src={photo} alt="" loading="lazy" />}</span>
-          <span className="inv-mo-cloth" />
+          {ground()}
+          <span className="inv-mo-frame-photo">{photo && <img src={photo} alt="" loading="lazy" />}<span className="inv-mo-cloth" /></span>
+          <img className="inv-mo-part inv-mo-frame-gilt" src={part('frame/gold')} alt="" />
         </span>
       );
     // ── Swipe & Pull ──
     case 'pull-card':
       return (
         <span className="inv-mo inv-mo-pull" aria-hidden>
+          {ground()}
           <span className="inv-mo-pull-card">
+            <img className="inv-mo-part" src={part('envelope/card')} alt="" />
             {photo && <span className="inv-mo-pull-photo"><img src={photo} alt="" loading="lazy" /></span>}
             <span className="inv-mo-pull-words">{words}</span>
           </span>
-          <span className="inv-mo-pull-pocket" />
-          <span className="inv-mo-pull-lip" />
+          {piece('inv-mo-pull-pocket', 'envelope/pocket')}
         </span>
       );
     case 'sticker':
+      // the round sticker over the photograph on the studio ground; the peel follows the finger
       return (
         <span className="inv-mo inv-mo-sticker" aria-hidden>
+          {ground()}
           <span className="inv-mo-under">{photo && <img src={photo} alt="" loading="lazy" />}</span>
-          <span className="inv-mo-peel"><span className="inv-mo-peel-face" /><span className="inv-mo-peel-curl" /></span>
+          <span className="inv-mo-peel"><img className="inv-mo-part" src={part('sticker/face')} alt="" /><span className="inv-mo-peel-curl" /></span>
         </span>
       );
     case 'frost':
@@ -783,17 +806,20 @@ export function Scene({ scene, variant, photos = [], monogram, words, parts }: {
         </span>
       );
     case 'scroll':
+      // parchment between two rollers; the lower roller runs down with the finger and the parchment unrolls behind it
       return (
         <span className="inv-mo inv-mo-scroll" data-diploma={variant === 'diploma' ? '' : undefined} aria-hidden>
-          <span className="inv-mo-rod" data-end="top" />
-          <span className="inv-mo-paper"><span className="inv-mo-paper-words">{words}</span></span>
-          <span className="inv-mo-roll"><span className="inv-mo-roll-tie" /></span>
+          {ground()}
+          <span className="inv-mo-paper"><img className="inv-mo-part" src={part('scroll/parchment')} alt="" /><span className="inv-mo-paper-words">{words}</span></span>
+          {piece('inv-mo-rod', 'scroll/roller', { 'data-end': 'top' })}
+          <span className="inv-mo-roll"><img className="inv-mo-part" src={part('scroll/roller')} alt="" />{variant === 'diploma' && <span className="inv-mo-roll-tie"><img className="inv-mo-part" src={part('ribbon/bow')} alt="" /></span>}</span>
         </span>
       );
     // ── Photo Moments ──
     case 'polaroid-stack':
       return (
         <span className="inv-mo inv-mo-stack" aria-hidden>
+          {ground()}
           {[0, 1, 2].map((i) => (
             <span key={i} className="inv-mo-print" data-i={i}>
               <span className="inv-mo-print-photo">{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>
@@ -804,87 +830,82 @@ export function Scene({ scene, variant, photos = [], monogram, words, parts }: {
         </span>
       );
     case 'photo-booth':
+      // the count on the studio wall, the flash, then the strip drops in from above and the shutter stands below
       return (
         <span className="inv-mo inv-mo-booth" aria-hidden>
-          <span className="inv-mo-booth-front">
-            <span className="inv-mo-booth-screen"><b data-n="3">3</b><b data-n="2">2</b><b data-n="1">1</b></span>
-            <span className="inv-mo-cam-lens"><span /></span>
-            <span className="inv-mo-booth-slot" />
-          </span>
+          {ground()}
+          <span className="inv-mo-booth-count"><b data-n="3">3</b><b data-n="2">2</b><b data-n="1">1</b></span>
           <span className="inv-mo-flashlight" />
-          <span className="inv-mo-strip">
-            {[0, 1, 2].map((i) => <span key={i} className="inv-mo-strip-shot">{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>)}
+          <span className="inv-mo-booth-strip">
+            {[0, 1, 2].map((i) => <span key={i} className="inv-mo-booth-shot" data-i={i}>{photos[i] && <img src={photos[i]} alt="" loading="lazy" />}</span>)}
+            <img className="inv-mo-part" src={part('photo-booth/strip')} alt="" />
           </span>
+          {piece('inv-mo-shutter', 'photo-booth/button')}
         </span>
       );
     case 'projector':
       return (
         <span className="inv-mo inv-mo-projector" aria-hidden>
+          {ground()}
           <span className="inv-mo-screen">{photo && <img src={photo} alt="" loading="lazy" />}</span>
           <span className="inv-mo-beam" />
-          <span className="inv-mo-proj-body"><span className="inv-mo-reel" data-i="0" /><span className="inv-mo-reel" data-i="1" /><span className="inv-mo-proj-lens" /></span>
+          {piece('inv-mo-proj-body', 'projector/body')}
         </span>
       );
     case 'film-strip':
     case 'album':
     case 'carousel':
-      // browsed, not opened: the box adds the strip, the leaves or the cards
-      return null;
+      // browsed, not opened: the box adds the strip, the leaves or the cards; the ground is theirs too
+      return <span className="inv-mo inv-mo-browse-ground" aria-hidden>{ground()}</span>;
     // ── Occasion ──
     case 'baby':
+      // the box; the bear comes up out of it and the balloons rise behind
       return (
         <span className="inv-mo inv-mo-baby" aria-hidden>
-          <span className="inv-mo-cloud" data-side="l" />
-          <span className="inv-mo-cloud" data-side="r" />
+          {ground('blush')}
+          {piece('inv-mo-balloons', 'baby/balloons')}
+          {piece('inv-mo-bear', 'baby/bear')}
+          {piece('inv-mo-baby-box', 'baby/box')}
         </span>
       );
-    case 'cheers': {
-      // a flute: the bowl over the champagne, the stem, the foot — glass drawn as a light gradient with a white edge
-      const flute = (side: 'l' | 'r') => (
-        <svg className="inv-mo-flute" data-side={side} viewBox="0 0 60 190">
-          <defs>
-            <linearGradient id={`${uid}-gl-${side}`} x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="rgba(255,255,255,0.6)" /><stop offset="0.35" stopColor="rgba(255,255,255,0.08)" /><stop offset="0.7" stopColor="rgba(255,255,255,0.28)" /><stop offset="1" stopColor="rgba(255,255,255,0.7)" /></linearGradient>
-            <linearGradient id={`${uid}-ch-${side}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f7e6ab" /><stop offset="1" stopColor="#d6a442" /></linearGradient>
-          </defs>
-          <path d="M20 40 Q30 36 40 40 L40.5 78 Q40 98 30 106 Q20 98 19.5 78 Z" fill={`url(#${uid}-ch-${side})`} />
-          {[0, 1, 2, 3, 4, 5].map((i) => <circle key={i} className="inv-mo-bubble" style={{ ['--b' as string]: String(i) }} cx={24 + ((i * 7) % 13)} cy={100 - i * 6} r={i % 3 === 0 ? 1.3 : 0.8} />)}
-          <path className="inv-mo-glass" d="M17 6 Q30 2 43 6 L41 78 Q41 100 32 108 L32 166 L47 174 L47 180 L13 180 L13 174 L28 166 L28 108 Q19 100 19 78 Z" fill={`url(#${uid}-gl-${side})`} />
-          <ellipse className="inv-mo-rim" cx="30" cy="6" rx="13" ry="2" />
-        </svg>
-      );
+    case 'cheers':
+      // two flutes, one the other's mirror, that tilt in and meet with a ring of light
       return (
         <span className="inv-mo inv-mo-cheers" aria-hidden>
-          {flute('l')}
-          {flute('r')}
+          {ground()}
+          {piece('inv-mo-flute', 'cheers/flute', { 'data-side': 'l' })}
+          {piece('inv-mo-flute', 'cheers/flute', { 'data-side': 'r' })}
           <span className="inv-mo-clink" />
         </span>
       );
-    }
     // ── Surprise ──
     case 'scratch':
-      // the foil is the canvas the box adds; the card under it is the reveal
-      return <span className="inv-mo inv-mo-scratch" aria-hidden />;
+      // the gold card under the foil; the foil is the canvas the box adds, the message is the reveal
+      return <span className="inv-mo inv-mo-scratch" aria-hidden><img className="inv-mo-part inv-mo-gold" src={part('scratch/gold')} alt="" /></span>;
     case 'hold':
       return (
         <span className="inv-mo inv-mo-hold" aria-hidden>
+          {ground('blush')}
           <span className="inv-mo-veil" data-frost="" />
         </span>
       );
     case 'code':
       return (
         <span className="inv-mo inv-mo-code" aria-hidden>
+          {ground()}
           <span className="inv-mo-latch" />
         </span>
       );
     case 'puzzle':
       // the tiles are the box's own, since they are tapped
-      return <span className="inv-mo inv-mo-puzzle" aria-hidden />;
+      return <span className="inv-mo inv-mo-puzzle" aria-hidden>{ground()}</span>;
     case 'flip':
       return (
         <span className="inv-mo inv-mo-flip" aria-hidden>
+          {ground()}
           <span className="inv-mo-flip-card">
-            <span className="inv-mo-face" data-side="front">{photo && <img src={photo} alt="" loading="lazy" />}</span>
-            <span className="inv-mo-face" data-side="back">{words}</span>
+            <span className="inv-mo-face" data-side="front"><img className="inv-mo-part" src={part('envelope/card')} alt="" />{photo && <img className="inv-mo-face-photo" src={photo} alt="" loading="lazy" />}</span>
+            <span className="inv-mo-face" data-side="back"><img className="inv-mo-part" src={part('envelope/card')} alt="" /><span className="inv-mo-face-words">{words}</span></span>
           </span>
         </span>
       );

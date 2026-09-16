@@ -5,7 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  decorStyle, decorOver, flowFloats, flowDecor, motionOf,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
@@ -61,19 +61,21 @@ export type EditView = {
  * holding `{word: 'invitation'}` on a christening must not read "Join us as
  * we say I do!". Without one, a look answers as written.
  */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>): Read {
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean): Read {
   return {
     content,
     lang,
     edit,
     parts,
+    onArt,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey, occasion) : lookLine(look, lang, key as LineKey, occasion)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
 }
 
 export function DrawnPage({ page, content, look, lang, occasion, edit, parts }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string> }) {
-  const read = reader(content, look, lang, occasion, edit, parts);
+  // a page whose own background is a picture: a moment on it stands on the page, not on a studio card
+  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)));
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -84,7 +86,20 @@ export function DrawnPage({ page, content, look, lang, occasion, edit, parts }: 
   );
 }
 
-type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView; /** the design's own photographed parts for its moments, by PartKey */ parts?: Record<string, string> };
+type Read = Parameters<typeof lineText>[1] & {
+  content: Record<string, unknown>;
+  edit?: EditView;
+  /** the design's own photographed parts for its moments, by PartKey */
+  parts?: Record<string, string>;
+  /**
+   * Whether the page under these elements already carries a picture of its
+   * own. A moment stands on the studio ground it was photographed on where
+   * the page gives it nothing; on a page that is already a photograph the
+   * ground would be a card laid over the design's art, so it stands on the
+   * page itself instead — the cut-out object and its shadow are the scene.
+   */
+  onArt?: boolean;
+};
 
 /**
  * The pictures a flow page's words flow around.
@@ -169,7 +184,7 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
 }) {
   const decor = flowDecor(page).filter((el) => decorOver(el) === (layer === 'over'));
   if (!decor.length) return null;
-  const read = reader(content, look, lang, occasion, edit);
+  const read = reader(content, look, lang, occasion, edit, undefined, Boolean(page.ground && isPicture(page.ground)));
   return (
     <div className="inv-bb-art inv-deco" data-layer={layer}>
       {decor.map((el) => <Fragment key={el.id}>{draw(el, read, undefined, true)}</Fragment>)}
@@ -226,6 +241,7 @@ function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: 
       words={words}
       code={el.code}
       parts={read.parts}
+      ground={!read.onArt}
       style={style}
       attrs={{
         ...(motionOf(el).attrs as Record<string, string | undefined>),

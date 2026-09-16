@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation';
+import { closedForNow } from '@/lib/storefront';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
+import { onlinePaymentsOffered } from '@/lib/paymongo';
 import { prisma } from '@/lib/db';
 import { catalogue } from '@/lib/orders';
 import { paletteFrom } from '@/lib/theme';
@@ -15,6 +17,8 @@ export const dynamic = 'force-dynamic';
 type Search = { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string; addon?: string };
 
 export default async function CheckoutPage({ searchParams }: { searchParams: Promise<Search> }) {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const sp = await searchParams;
   const session = await getSession();
   if (!session) {
@@ -27,6 +31,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
     getSettings(),
   ]);
 
+  const online = onlinePaymentsOffered();
   return (
     <main className="mx-auto max-w-6xl px-5 py-8">
       <div className="mb-4"><BackArrow href="/templates" label="Back to the designs" /></div>
@@ -35,7 +40,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         <p className="text-sm text-[color:var(--color-ink-500)]">Signed in as {session.name} · <Link href="/account" className="underline">My invitations</Link></p>
       </div>
       <h1 className="display mb-1 text-3xl">Create your invitation</h1>
-      <p className="mb-8 text-[color:var(--color-ink-700)]">A few quick choices, then pay with GCash, Maya, a card, or a bank transfer. You send us the details afterwards.</p>
+      <p className="mb-8 text-[color:var(--color-ink-700)]">{online ? 'A few quick choices, then pay with GCash, Maya, a card, or a bank transfer. You send us the details afterwards.' : 'A few quick choices, then pay by GCash, Maya or bank transfer and upload your receipt. You send us the details afterwards.'}</p>
       <CheckoutWizard
         packages={packages.map((p) => ({ code: p.code, name: p.name, tagline: p.tagline, occasion: p.occasion, tier: p.tier, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds }))}
         addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))}
@@ -45,6 +50,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         })}
         initial={sp}
         demoSlug={s['site.demoSlug']}
+        online={online}
       />
     </main>
   );

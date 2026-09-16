@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs';
 import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
-  starterDesign, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape, floatAt,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, TITLE_ON, LINE_ON, wordsFor, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
-import { sectionOrder, OCCASION_SECTIONS } from '../src/lib/sections';
+import { sectionOrder, OCCASION_SECTIONS, SECTION_BY_KEY, sectionsFor, fieldsFor } from '../src/lib/sections';
 import { pageNeeds } from '../src/lib/needs';
 import { STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, slotStyle, labelStyle, captionStyle } from '../src/lib/babyblue';
 import { templateData } from '../prisma/templates';
@@ -164,13 +164,17 @@ test('the ten Baby Blue pages are the ten the renderer has always walked', () =>
 });
 
 /** A design's document is the design's. The catalogue sync must never write one. */
-test('templateData emits no design, no draft and no art', () => {
+test('templateData emits no draft and no art, and a design only where the catalogue ships one', () => {
   for (const [i, t] of TEMPLATES.entries()) {
     const row = templateData(t, i) as Record<string, unknown>;
-    for (const key of ['design', 'designDraft', 'designDraftRev', 'art']) {
+    for (const key of ['designDraft', 'designDraftRev', 'art']) {
       assert.equal(key in row, false, `${t.slug} carries ${key}`);
     }
+    assert.equal('design' in row, Boolean(t.design), `${t.slug} ${t.design ? 'should carry' : 'carries'} a design`);
   }
+  // Capiz ships its storyline; Baby Blue keeps the renderer's own path
+  assert.deepEqual(templateData(TEMPLATES.find((t) => t.slug === 'capiz')!, 0).design, builtinDesign('capiz'));
+  assert.equal('design' in templateData(TEMPLATES.find((t) => t.slug === 'baby-blue')!, 0), false);
 });
 
 /**
@@ -228,13 +232,24 @@ test('designOf: empty means the built-in, and what will not parse is named', () 
 });
 
 /** Capiz has no drawn page: its document is the page map, which is what a copy of it needs. */
-test('Capiz is a document too, and it is the page map the renderer walks', () => {
+test('Capiz is a document too: the page map the renderer walks, carrying the storyline', () => {
   const capiz = builtinDesign('capiz')!;
   assert.deepEqual(capiz.pages.map((p) => p.key), CAPIZ_PAGES.map((d) => d.key));
   assert.deepEqual(capiz.pages.map((p) => p.sections), CAPIZ_PAGES.map((d) => d.sections));
   // no ground of its own: the numbered backgrounds are the layout's machinery
   assert.equal(capiz.pages.every((p) => p.ground === undefined), true);
-  assert.equal(capiz.pages.every((p) => p.elements === undefined), true);
+  // the storyline: four moments on four pages, each reading the customer's form, and nothing drawn anywhere else
+  const withMoments = capiz.pages.filter((p) => (p.elements ?? []).length > 0);
+  assert.deepEqual(withMoments.map((p) => p.key), ['story', 'invitation', 'prenup', 'closing']);
+  assert.deepEqual(withMoments.flatMap((p) => p.elements!.map((el) => el.kind === 'moment' ? `${el.moment}${el.variant ? '/' + el.variant : ''}` : el.kind)), ['instant-camera', 'doors/church', 'curtains', 'scratch']);
+  for (const p of withMoments) for (const el of p.elements!) {
+    assert.equal(el.ask, true, `${el.id} asks`);
+    // every photograph and every line is the customer's, never a fixed asset the demo would show for everyone
+    if (el.kind === 'moment') for (const ph of el.photos ?? []) assert.equal('asset' in ph.bind, false, `${el.id} binds a field`);
+  }
+  // the words start below a moment hung off the head, and the scratch card has the foot to itself
+  assert.equal(capiz.pages.find((p) => p.key === 'story')?.headPad, 8);
+  assert.equal(capiz.pages.find((p) => p.key === 'closing')?.footPad, 6);
   assert.equal(capiz.pages.find((p) => p.peekEnd)?.key, 'story');
   assert.equal(builtinDesign('classic'), null);
 });
@@ -899,7 +914,8 @@ test('the two shipped designs carry the four colours the stylesheet used to', ()
    */
   assert.ok(css.includes('background: var(--inv-paper, var(--inv-bg))'), 'the column reads the design’s paper');
   assert.ok(css.includes('background-color: var(--inv-paper, #f2e8dc)'), 'and so does the paged rule, which reaches further');
-  assert.ok(css.includes('background: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
+  // the surround is a colour and, since the picture behind the whole page, an image over it: the colour keeps its own property
+  assert.ok(css.includes('background-color: var(--inv-surround, var(--inv-bg))'), 'what is beside the column is the design’s too');
 });
 
 /**
@@ -1038,6 +1054,41 @@ test('an untilted frame floats as its own box', () => {
   assert.equal(tall.polygon, 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)');
 });
 
+/**
+ * A float has a place of its own now: she drags it where she wants it and the
+ * words flow past it there. `floatAt` is the whole of that rule — the side
+ * from which half of the column the middle of the box is in, and the two
+ * margins that put it where she left it.
+ */
+test('a float lands where she put it, on the side of the words its middle is nearer', () => {
+  // a 40-wide box whose middle is a quarter across: on the left, 5 in from it
+  assert.deepEqual(floatAt({ x: 25, y: 8 }, 40), { side: 'left', inset: 5, down: 8 });
+  // the same box dragged across the middle changes sides, and the inset is
+  // measured off the right edge
+  assert.deepEqual(floatAt({ x: 75, y: 8 }, 40), { side: 'right', inset: 5, down: 8 });
+  // hard against its own edge
+  assert.deepEqual(floatAt({ x: 20, y: 0 }, 40), { side: 'left', inset: 0, down: 0 });
+  // and a place that would push it out past the other edge is held inside
+  assert.deepEqual(floatAt({ x: 5, y: 0 }, 40), { side: 'left', inset: 0, down: 0 });
+  assert.deepEqual(floatAt({ x: 49, y: 0 }, 90), { side: 'left', inset: 4, down: 0 });
+  assert.equal(floatAt({ x: 10, y: 0 }, 120).inset, 0, 'a box wider than the page has nowhere to be inset to');
+  // no place at all: the side it names, against that edge, at the top — which
+  // is exactly where every float drawn before this sat
+  assert.deepEqual(floatAt({ float: 'right' }, 40), { side: 'right', inset: 0, down: 0 });
+  assert.deepEqual(floatAt({}, 40), { side: 'left', inset: 0, down: 0 });
+  // a downward place is never negative, whatever a hand-written document says
+  assert.equal(floatAt({ x: 25, y: -10 }, 40).down, 0);
+  // and it survives the parse, on a float as on anything else
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], elements: [
+    { id: 'photo-1', kind: 'photo', x: 25, y: 8, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '/x.webp' } },
+  ] }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const el = read.doc?.pages[0].elements?.[0] as PhotoEl;
+  assert.equal(el.x, 25);
+  assert.equal(el.y, 8);
+  assert.equal(el.float, 'left');
+});
+
 test('a square turned 45° floats a bigger box and its shape is a diamond', () => {
   const d = floatShape(1, 45);
   // the bounding box of a square turned an eighth of a turn is √2 on a side
@@ -1089,8 +1140,8 @@ test('a flow page sorts what it carries into floats, decorations and words', () 
     { id: 'e', kind: 'video', y: 0, url: '/e.mp4', poster: '/e.jpg', bg: true, z: -2 },
   ]);
   assert.deepEqual(flowFloats(page).map((e) => e.id), ['a'], 'only the one that names a side floats');
-  assert.deepEqual(flowDecor(page).map((e) => e.id), ['b', 'c', 'e'], 'the picture, the rule and the clip are decorations');
-  assert.ok(!flowDecor(page).some((e) => e.kind === 'text'), 'a flow page’s words are its sections’');
+  // words too: a box of words hung off the head is a caption or a title over the section's own words, which keep flowing under it
+  assert.deepEqual(flowDecor(page).map((e) => e.id), ['b', 'c', 'd', 'e'], 'the picture, the rule, the words and the clip are decorations');
 });
 
 test('a decoration hangs off an edge by a share of the page’s width', () => {
@@ -1131,4 +1182,345 @@ test('a decoration keeps its turn and its opacity, and its middle is its x', () 
   assert.equal(st.transform, 'translateX(-50%) rotate(-6deg)');
   assert.equal(st.opacity, '0.5');
   assert.equal(st.left, '20%');
+});
+
+/**
+ * What the studio opens on, for every design rather than the two built as
+ * pages. A flat design used to have no document and no base to make one
+ * from, so the studio refused it and a design made from the Templates list
+ * led to a form and stopped there.
+ */
+test('a design with pages of its own opens on them, and the draft wins', () => {
+  const drawn = starterDesign(['cover', 'story']);
+  const draft = starterDesign(['cover', 'rsvp']);
+  assert.deepEqual(studioDoc({ design: drawn, designDraft: draft, layout: 'classic' }), draft);
+  assert.deepEqual(studioDoc({ design: drawn, designDraft: {}, layout: 'classic' }), drawn);
+});
+
+test('the two built as pages still open on their own built-ins, not a starter', () => {
+  for (const layout of ['capiz', 'babyblue']) {
+    assert.deepEqual(
+      studioDoc({ design: {}, designDraft: {}, layout, occasion: 'WEDDING' }),
+      builtinDesign(layout),
+      `${layout} must keep its built-in`,
+    );
+  }
+});
+
+test('a flat design opens on a starter made from its occasion', () => {
+  const doc = studioDoc({ design: {}, designDraft: {}, layout: 'classic', occasion: 'CHRISTENING' });
+  assert.ok(doc, 'the studio has something to open');
+  assert.equal(doc!.pages[0].key, 'cover', 'the cover comes first');
+  assert.ok(doc!.pages.length > 3, `one page per section, not ${doc!.pages.length}`);
+  // Every page carries exactly the one section it stands for, which is what
+  // makes the starter a place to draw rather than a design already drawn.
+  for (const page of doc!.pages.slice(1)) assert.equal(page.sections.length, 1, page.key);
+  // A christening's sections, not a wedding's: no entourage on this one.
+  const sections = doc!.pages.flatMap((p) => p.sections);
+  assert.ok(sections.includes('sponsors'), 'ninong and ninang');
+  assert.ok(!sections.includes('entourage'), 'no wedding entourage');
+});
+
+test('without an occasion there is nothing to make a starter from', () => {
+  assert.equal(studioDoc({ design: {}, designDraft: {}, layout: 'classic' }), null);
+});
+
+test('the colour beside a page follows the page, unless the page says otherwise', () => {
+  const blue: PageSpec = { key: 'p', sections: ['countdown'], ground: { color: '#a9c6e8' } };
+  // a page on a plain colour carries it out to the window's edges
+  assert.equal(outsideOf(blue), '#a9c6e8');
+  // by role too, so night can turn it down with the palette
+  assert.equal(outsideOf({ key: 'p', sections: [], ground: { color: 'surface' } }), 'surface');
+  // a page on a picture keeps the design's own surround
+  assert.equal(outsideOf({ key: 'p', sections: [], ground: { url: '/x.webp', ratio: 2, top: '#fff', bottom: '#eee' } }), undefined);
+  // and so does a page with no ground at all
+  assert.equal(outsideOf({ key: 'p', sections: [] }), undefined);
+  // kept to the column: the design's surround, or a colour said beside it
+  assert.equal(outsideOf({ ...blue, bleed: false }), undefined);
+  assert.equal(outsideOf({ ...blue, bleed: false, outside: 'accent' }), 'accent');
+  assert.equal(outsideOf({ ...blue, bleed: false, outside: '#123456' }), '#123456');
+  // a colour said beside a page that reaches the edges is not read: the page's own colour is beside it
+  assert.equal(outsideOf({ ...blue, outside: 'accent' }), '#a9c6e8');
+  // a plain colour reaches unless told not to; a picture stays in the column unless told to reach; nothing reaches with nothing
+  assert.equal(bleeds(blue), true);
+  assert.equal(bleeds({ ...blue, bleed: false }), false);
+  const pic: PageSpec = { key: 'p', sections: [], ground: { url: '/x.webp', ratio: 2, top: '#fff', bottom: '#eee' } };
+  assert.equal(bleeds(pic), false);
+  assert.equal(bleeds({ ...pic, bleed: true }), true);
+  assert.equal(outsideOf({ ...pic, bleed: true }), undefined, 'a picture that reaches is laid by the ground, not as a colour');
+  assert.equal(bleeds({ key: 'p', sections: [] }), false);
+  assert.equal(designOf({ v: 1, pages: [{ ...pic, bleed: true }] }, 'classic').doc?.pages[0].bleed, true);
+  // it is in the document and survives the parse
+  const read = designOf({ v: 1, pages: [{ ...blue, outside: 'accent' }] }, 'classic');
+  assert.equal(read.doc?.pages[0].outside, 'accent');
+  assert.deepEqual(read.dropped, []);
+});
+
+test('words are decorations on a page laid out by its words, and floats are not', () => {
+  const page = {
+    key: 'p', sections: ['countdown'],
+    elements: [
+      { id: 'photo-1', kind: 'photo', y: 0, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } },
+      { id: 'photo-2', kind: 'photo', x: 50, y: 4, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } },
+      { id: 'words-1', kind: 'text', block: 'free', x: 50, y: 4, w: 70, z: 1, lines: [{ role: 'body', sources: [{ fixed: { en: 'A line beside the numbers' } }] }] },
+      { id: 'shape-1', kind: 'shape', shape: 'rect', x: 50, y: 0, w: 70, h: 30, z: -1, fill: 'surface' },
+    ],
+  } as unknown as Parameters<typeof flowDecor>[0];
+  assert.deepEqual(flowFloats(page).map((e) => e.id), ['photo-1']);
+  assert.deepEqual(flowDecor(page).map((e) => e.id), ['photo-2', 'words-1', 'shape-1']);
+  // the words go over the section's own, which is what the studio sets them to
+  assert.equal(decorOver(flowDecor(page)[1]), true);
+  assert.equal(decorOver(flowDecor(page)[2]), false);
+  // and hang off the head like any other decoration
+  assert.equal(decorStyle(flowDecor(page)[1]).top, '4cqw');
+});
+
+test('a picture that runs on is laid down the pages after it, until one has a ground of its own', () => {
+  const pic = { url: '/tall.webp', ratio: 5, top: '#fff', bottom: '#eee' };
+  const doc = {
+    v: 1 as const,
+    pages: [
+      { key: 'cover', sections: ['cover'], ground: { ...pic, runsOn: 2 } },
+      { key: 'countdown', sections: ['countdown'] },
+      { key: 'parents', sections: ['parents'] },
+      { key: 'sponsors', sections: ['sponsors'] },
+      { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, runsOn: 3 } },
+      { key: 'reception', sections: ['reception'] },
+      { key: 'dress-code', sections: ['dress-code'], ground: { color: 'bg' } },
+      { key: 'gift', sections: ['gift'] },
+      { key: 'rsvp', sections: ['rsvp'], ground: { ...pic, runsOn: 4 } },
+      { key: 'story', sections: ['story'], drawn: true as const, ground: { color: 'bg', ratio: 1.777 } },
+      { key: 'closing', sections: ['closing'] },
+    ],
+  } as unknown as Parameters<typeof runOf>[0];
+  const runs = runOf(doc);
+  // the two after the cover, and not the third
+  assert.equal(runs.get('countdown'), 'cover');
+  assert.equal(runs.get('parents'), 'cover');
+  assert.equal(runs.has('sponsors'), false);
+  // a page with a ground of its own ends the run early, whatever the number says
+  assert.equal(runs.get('reception'), 'ceremony');
+  assert.equal(runs.has('dress-code'), false);
+  assert.equal(runs.has('gift'), false);
+  // so does a page placed by hand
+  assert.equal(runs.has('story'), false);
+  assert.equal(runs.has('closing'), false);
+  // a head sits on its own picture and is not in the map
+  assert.equal(runs.has('cover'), false);
+  // the number is the document's and survives the parse
+  const read = designOf(doc, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const head = read.doc?.pages[0].ground;
+  assert.equal(head && 'url' in head ? head.runsOn : undefined, 2);
+});
+
+test('a picture pinned behind the words is the pages after it too, until one brings a picture of its own', () => {
+  const pic = { url: '/screen.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const tall = { url: '/long.webp', ratio: 2.989, top: '#fff', bottom: '#eee' };
+  const doc = {
+    v: 1 as const,
+    pages: [
+      { key: 'cover', sections: ['cover'], ground: { ...pic, runsOn: 2 }, pin: true as const },
+      { key: 'countdown', sections: ['countdown'] },
+      { key: 'parents', sections: ['parents'], ground: { color: 'surface' } },
+      { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, url: '/church.webp', runsOn: 1 } },
+      { key: 'reception', sections: ['reception'] },
+      { key: 'dress-code', sections: ['dress-code'], ground: { ...pic, url: '/dress.webp' }, pin: 'column' as const },
+      { key: 'gift', sections: ['gift'] },
+      { key: 'story', sections: ['story'], drawn: true as const, ground: { color: 'bg', ratio: 1.777 } },
+      { key: 'closing', sections: ['closing'], ground: tall },
+      { key: 'thanks', sections: ['thanks'], ground: { color: 'bg' }, pin: true as const },
+      { key: 'map', sections: ['map'] },
+    ],
+  } as unknown as Parameters<typeof pinOf>[0];
+  const pins = pinOf(doc);
+  // the head is on its own picture, and reaches as far as it says: two pages
+  // after it here, a colour of their own or not
+  assert.equal(pins.get('cover'), 'cover');
+  assert.equal(pins.get('countdown'), 'cover');
+  assert.equal(pins.get('parents'), 'cover');
+  /*
+   * A page with a picture of its own starts afresh — and a picture wider
+   * than it is tall pins whether or not the page was ever told to. It is
+   * the website's background: there is no length of it to flow down a page,
+   * and the page after it rides on it like any other pin.
+   */
+  assert.equal(pins.get('ceremony'), 'ceremony');
+  assert.equal(pins.get('reception'), 'ceremony');
+  // the phone's background pins too, to the column rather than the window —
+  // and this one was given no pages after it, so it is this page only
+  assert.equal(pins.get('dress-code'), 'dress-code');
+  assert.equal(pins.has('gift'), false, 'a background reaches only the pages she picked');
+  // a page placed by hand ends it and pins nothing
+  assert.equal(pins.has('story'), false);
+  // a picture drawn to flow down the pages is the one that does not pin
+  assert.equal(pins.has('closing'), false);
+  // a pin on a colour pins nothing
+  assert.equal(pins.has('thanks'), false);
+  assert.equal(pins.has('map'), false);
+  // the pin is the document's and survives the parse; a false one is not a pin
+  const read = designOf(doc, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.pages[0].pin, true);
+  assert.equal(read.doc?.pages[1].pin, undefined);
+  assert.equal(read.doc?.pages[5].pin, 'column');
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], ground: pic, pin: false }] }, 'classic').doc?.pages.length, 0);
+});
+
+/**
+ * The three backgrounds, which is the whole of what a picture behind a page
+ * can be. The rule that matters most is the last one: a picture wider than it
+ * is tall is never cut in three and stretched down a page, whatever an older
+ * draft says, because that is what turned a 1920-by-1080 upload into a long
+ * band of pulled middle.
+ */
+test('a picture behind a page is one of three backgrounds, and a wide one is never stretched', () => {
+  const wide = { url: '/w.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const phone = { url: '/p.webp', ratio: 1.777, top: '#fff', bottom: '#eee' };
+  const long = { url: '/l.webp', ratio: 2.989, top: '#fff', bottom: '#eee' };
+  const on = (ground: unknown, rest: Partial<PageSpec> = {}): PageSpec => ({ key: 'p', sections: [], ground, ...rest } as PageSpec);
+  // what the page says
+  assert.equal(groundKind(on(phone, { pin: 'column' })), 'phone');
+  assert.equal(groundKind(on(long, { pin: true })), 'website');
+  assert.equal(groundKind(on(long)), 'flow');
+  assert.equal(groundKind(on(phone)), 'flow');
+  // a picture wider than it is tall is the website's background, told or not
+  assert.equal(groundKind(on(wide)), 'website');
+  assert.equal(groundKind(on(wide, { pin: 'column' })), 'phone');
+  // a colour is no kind of picture, and neither is a page drawn by hand
+  assert.equal(groundKind(on({ color: 'bg' })), undefined);
+  assert.equal(groundKind({ key: 'p', sections: [] }), undefined);
+  assert.equal(groundKind(on(long, { drawn: true })), undefined);
+  // what a picture of each shape arrives as, so that uploading one is the whole job
+  assert.equal(kindOfShape(0.5625), 'website');
+  assert.equal(kindOfShape(1), 'phone');
+  assert.equal(kindOfShape(1.777), 'phone');
+  assert.equal(kindOfShape(2.989), 'flow');
+  // the website's background is the whole page by definition; the phone's is the column
+  assert.equal(bleeds(on(wide)), true);
+  assert.equal(bleeds(on(phone, { pin: 'column' })), false);
+  assert.equal(bleeds(on(phone, { pin: 'column', bleed: true })), false, 'the choice answers it, not a leftover tick');
+  assert.equal(outsideOf(on(wide, { outside: 'accent' })), undefined, 'the picture is what is beside the column');
+  assert.equal(outsideOf(on(phone, { pin: 'column', outside: 'accent' })), 'accent');
+  // and a page with a background pinned behind it is a screen tall unless it says otherwise
+  assert.equal(screensOf(on(wide)), 1);
+  assert.equal(screensOf(on(phone, { pin: 'column' })), 1);
+  assert.equal(screensOf(on(wide, { minScreens: 2.5 })), 2.5);
+  assert.equal(screensOf(on(long)), undefined);
+  assert.equal(screensOf({ key: 'p', sections: [] }), undefined);
+  assert.equal(screensOf(on(long, { drawn: true, minScreens: 2 })), undefined);
+});
+
+/**
+ * The two backgrounds and how far they reach, which is the whole of what she
+ * has to say about a background now: one picture for the phone, one for the
+ * whole website, and the pages either of them stands behind.
+ */
+test('a page can carry a background for the phone and one for the website, and say how far it reaches', () => {
+  const wide = { url: '/wide.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const tall = { url: '/tall.webp', ratio: 1.777, top: '#fff', bottom: '#eee' };
+  // both, the wide one the page's and the phone's riding along beside it
+  const both = { v: 1 as const, pages: [{ key: 'cover', sections: ['cover'] as const, ground: { ...wide, phone: tall }, pin: true as const }] };
+  const read = designOf(both, 'classic');
+  assert.deepEqual(read.dropped, []);
+  const g = read.doc?.pages[0].ground;
+  assert.ok(g && 'phone' in g && g.phone, 'the phone-size picture survives the parse');
+  assert.equal(g && 'phone' in g ? g.phone?.url : '', '/tall.webp');
+  assert.equal(groundKind(read.doc!.pages[0]), 'website', "the wide one is the page's background; the phone's is the alternative");
+  // the phone's picture alone is the page's background, pinned to the column
+  const one = designOf({ v: 1, pages: [{ key: 'cover', sections: ['cover'], ground: tall, pin: 'column' }] }, 'classic');
+  assert.deepEqual(one.dropped, []);
+  assert.equal(groundKind(one.doc!.pages[0]), 'phone');
+  assert.equal(bleeds(one.doc!.pages[0]), false, 'it keeps to the column, with the surround beside it');
+  // a phone picture that is not a picture at all is not a background
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['cover'], ground: { ...wide, phone: { url: '/x.webp' } } }] }, 'classic').doc?.pages.length, 0);
+  // how far it reaches: the pages she picked, and no further
+  const doc = {
+    v: 1 as const,
+    pages: [
+      { key: 'a', sections: ['cover'], ground: { ...wide, runsOn: 1 }, pin: true as const },
+      { key: 'b', sections: ['countdown'] },
+      { key: 'c', sections: ['parents'] },
+    ],
+  } as unknown as Parameters<typeof pinOf>[0];
+  const pins = pinOf(doc);
+  assert.equal(pins.get('a'), 'a');
+  assert.equal(pins.get('b'), 'a');
+  assert.equal(pins.has('c'), false);
+});
+
+test('a page laid out by its words can be told to be at least so many screens tall', () => {
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], minScreens: 1.5 }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.pages[0].minScreens, 1.5);
+  // and not to be smaller than a third of one, or taller than six
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], minScreens: 9 }] }, 'classic').doc?.pages.length, 0);
+});
+
+test('a writing lifted off the page is remembered on the page and on the box that took its place', () => {
+  const read = designOf({
+    v: 1,
+    pages: [{
+      key: 'p', sections: ['ceremony'], offFlow: ['ceremony.title'],
+      elements: [{ id: 'words-1', kind: 'text', block: 'head', x: 50, y: 6, w: 80, anchor: 'top', z: 1, lifted: 'ceremony.title', lines: [{ role: 'title', align: 'center', sources: [{ word: 'ceremonyTitle' }, { fixed: { en: 'Ceremony' } }], size: 5.6 }] }],
+    }],
+  }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.pages[0].offFlow, ['ceremony.title']);
+  const el = read.doc?.pages[0].elements?.[0];
+  assert.equal(el && el.kind === 'text' ? el.lifted : undefined, 'ceremony.title');
+  // and it is a decoration of the page, over the words, hung off the head
+  assert.equal(flowDecor(read.doc!.pages[0]).length, 1);
+  assert.equal(decorOver(flowDecor(read.doc!.pages[0])[0]), true);
+});
+
+test('a page too tall for a screen can be made smaller, and the studio works out by how much', () => {
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown', 'closing'], size: 0.6 }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.pages[0].size, 0.6);
+  // a size of 1 is the size the design was written at, so the page says nothing
+  assert.equal(sizeOf({ key: 'p', sections: [], size: 1 }), undefined);
+  assert.equal(sizeOf({ key: 'p', sections: [], size: 0.6 }), 0.6);
+  // a drawn page has no size of this kind: its size is its proportion
+  assert.equal(sizeOf({ key: 'p', sections: [], drawn: true, size: 0.6 }), undefined);
+  // and it is kept inside its bounds
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], size: 4 }] }, 'classic').doc?.pages.length, 0);
+
+  // "Fit it to one screen": 1910px of page in an 800px screen is 800/1910 of the
+  // size, down to the step the slider counts in — 0.418… becomes 0.41, never 0.42,
+  // so the thumb and the page agree and the page is never left a hair too tall
+  assert.equal(sizeToFit(1910, 800), 0.41);
+  // from whatever size it is already drawn at
+  assert.equal(sizeToFit(955, 800, 0.5), 0.41);
+  // a page told to be two screens tall is fitted to two
+  assert.equal(sizeToFit(1910, 800, 1, 2), 0.83);
+  // a page that already fits is left alone rather than blown up
+  assert.equal(sizeToFit(600, 800), 1);
+  assert.equal(sizeToFit(600, 800, 0.8), 0.8);
+  // and nothing measured is nothing done
+  assert.equal(sizeToFit(0, 800, 0.7), 0.7);
+});
+
+test('the parents are a part a design can carry, with a heading and a line of its own', () => {
+  // it is offered to a customer again, and never counted as missing
+  const def = SECTION_BY_KEY.parents;
+  assert.equal(def.hidden, undefined);
+  assert.equal(def.optional, true);
+  assert.equal(sectionsFor('WEDDING').some((d) => d.key === 'parents'), true);
+  // a wedding is asked for the two sides; every other occasion for its hosts
+  assert.equal(fieldsFor('parents', 'WEDDING').some((f) => f.key === 'brideFather'), true);
+  assert.equal(fieldsFor('parents', 'REUNION').some((f) => f.key === 'hosts'), true);
+  // the design names the heading and writes the line under it
+  assert.equal(TITLE_ON.parents, 'parents');
+  assert.equal(LINE_ON.parents.on, 'parents');
+  const words = wordsFor('WEDDING');
+  assert.equal(words.titles.includes('parents'), true);
+  assert.equal(words.lines.includes('parents'), true);
+  // a memorial carries the family instead, so it is offered neither
+  assert.equal(wordsFor('MEMORIAL').titles.includes('parents'), false);
+  assert.equal(sectionsFor('MEMORIAL').some((d) => d.key === 'parents'), false);
+  // and a page can hold it
+  const read = designOf({ v: 1, pages: [{ key: 'p', sections: ['parents'] }] }, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.pages[0].sections, ['parents']);
 });

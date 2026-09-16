@@ -8,6 +8,7 @@ import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
   type Lang, type Preset } from './copy';
+import { suggestionsFor } from './suggestions';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
 import { parseStart } from './song';
@@ -315,6 +316,8 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
           OPENINGS.filter((o) => !o.staffOnly).map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
           { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
         ),
+        select('openingSpeed', 'How fast it opens', [{ value: '', label: 'Normal' }, { value: 'slow', label: 'Slow — ceremonial' }, { value: 'fast', label: 'Fast — a flick' }], { hint: 'The same opening at its own pace.' }),
+        select('openingTrigger', 'How a guest opens it', [{ value: '', label: 'As the opening is made to be' }, { value: 'tap', label: 'Tap' }, { value: 'swipe', label: 'Swipe' }, { value: 'hold', label: 'Press and hold' }], { hint: 'Where the opening takes it: the ribbon can be pulled or tapped, the curtains swiped apart or tapped.' }),
         text('openingLine', 'Words on the opening', { placeholder: "You're invited", hint: 'The line on the closed screen. Leave blank and each opening uses its own.' }),
         text('openingLine2', 'Words as it opens', { placeholder: 'Good things begin together', hint: 'Shown while the opening plays. Leave blank to show nothing.' }),
       ]),
@@ -454,8 +457,24 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day', staff: true })],
   },
   {
+    /*
+     * The parents, and the hosts an occasion calls something else.
+     *
+     * This was built with the rest and then switched off with five others
+     * while the two shipped designs were being matched to their references
+     * — neither Capiz nor Baby Blue carries a page for it, so a customer
+     * who filled it in would have typed their parents' names into nothing.
+     * It is on again because a design can carry it now: the studio offers
+     * it as a part a page can hold, it takes a heading and a line of the
+     * design's own like every other part (TITLE_ON, LINE_ON in design.ts),
+     * and a page carrying it can be drawn box by box.
+     *
+     * `optional`, because it is an extra: it is never counted as missing,
+     * it never holds up a publish, and a design that carries no page for
+     * it asks nothing of the customer.
+     */
     key: 'parents',
-    hidden: true,
+    optional: true,
     label: 'Parents',
     tl: 'Mga Magulang',
     description: 'With titles, and a † marker for those who have passed.',
@@ -741,6 +760,8 @@ const SECTION_DEFS: SectionDef[] = [
       }
       return [
         line,
+        // the line written on the print an instant camera gives, where a design carries one
+        text('caption', 'A line for the photo', { staff: true, byDesign: true, placeholder: 'e.g. Sagada, before sunrise', hint: 'Written under the photo, on designs that carry a print or a caption.' }),
         textarea('howWeMet', 'How we met', { examples: HOW_WE_MET_EXAMPLES }),
         textarea('proposal', 'The proposal', { examples: PROPOSAL_EXAMPLES }),
         list('timeline', 'Timeline', [text('date', 'When', { placeholder: 'June 2019' }), text('title', 'Title', { required: true }), textarea('text', 'Story'), image('photo', 'Photo (shown beside the timeline)')], { addLabel: 'Add a moment', max: 12 }),
@@ -937,6 +958,8 @@ const SECTION_DEFS: SectionDef[] = [
         ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true })]
         : []),
       textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
+      // a surprise a guest uncovers, where a design hides one: under a scratch card, behind a code
+      textarea('surprise', 'A surprise for your guests', { staff: true, byDesign: true, placeholder: 'e.g. Look under your seat at the reception — there is a little something from us.', hint: 'Hidden on the page until a guest uncovers it.' }),
       text('signature', 'Signed', { placeholder: 'Juan & Maria' }),
       text('line', 'Line above the names', { placeholder: 'e.g. See you there!', hint: "Blank keeps the design's own line.", staff: true }),
     ],
@@ -1096,8 +1119,22 @@ function withLimits(section: SectionKey, fields: Field[]): Field[] {
   });
 }
 
+/**
+ * Every writing box a customer fills offers a starting point in the
+ * occasion's own words. A box that already carries examples, or a preset
+ * menu, keeps what it has; a staff box gets none — the look's line backs it.
+ */
+function withSuggestions(section: SectionKey, occasion: Occasion, fields: Field[]): Field[] {
+  const add = (f: Field, path: string): Field => {
+    if ((f.type !== 'text' && f.type !== 'textarea') || f.staff || f.examples?.length || f.presets?.length) return f;
+    const examples = suggestionsFor(path, occasion);
+    return examples ? { ...f, examples } : f;
+  };
+  return fields.map((f) => (f.type === 'list' ? { ...f, item: (f.item ?? []).map((i) => add(i, `${section}.${f.key}.${i.key}`)) } : add(f, `${section}.${f.key}`)));
+}
+
 export const SECTION_BY_KEY: Record<SectionKey, SectionDef> = Object.fromEntries(
-  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, withMedia(s, s.fields(occasion))) }]),
+  SECTION_DEFS.map((s) => [s.key, { ...s, fields: (occasion: Occasion) => withLimits(s.key, withSuggestions(s.key, occasion, withMedia(s, s.fields(occasion)))) }]),
 ) as Record<SectionKey, SectionDef>;
 
 /** Which sections each occasion carries, in page order. */
@@ -1175,7 +1212,7 @@ export function sectionOrder(occasion: Occasion, layout: string): SectionKey[] {
 export const SAVE_THE_DATE_SECTIONS: readonly SectionKey[] = ['cover', 'countdown'];
 
 /** The cover's opening controls, which a Save the Date has no use for. */
-const OPENING_FIELDS = new Set(['opening', 'openingLine', 'openingLine2', 'envelope']);
+const OPENING_FIELDS = new Set(['opening', 'openingLine', 'openingLine2', 'openingSpeed', 'openingTrigger', 'envelope']);
 
 export function sectionsFor(occasion: Occasion, saveTheDate = false): SectionDef[] {
   const keys = saveTheDate ? OCCASION_SECTIONS[occasion].filter((k) => SAVE_THE_DATE_SECTIONS.includes(k)) : OCCASION_SECTIONS[occasion];

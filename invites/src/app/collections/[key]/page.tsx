@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { closedForNow } from '@/lib/storefront';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getSettings } from '@/lib/settings';
@@ -35,6 +36,8 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
 }
 
 export default async function CollectionPage({ params }: { params: Promise<{ key: string }> }) {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const { key } = await params;
   const [s, session, found, premium] = await Promise.all([getSettings(), getSession(), load(key), prisma.addOn.findFirst({ where: { code: PREMIUM_OPENING_CODE, active: true } })]);
   if (!found) notFound();

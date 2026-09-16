@@ -2,29 +2,33 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type PointerEvent as RPointerEvent } from 'react';
 import Link from 'next/link';
-import type { Look } from '@/lib/looks';
-import {
-  isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, APP_NIGHT,
-  LINE_KEYS, LINE_LABELS, TITLE_KEYS, TITLE_LABELS, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
+import type { Look, LineKey, TitleKey } from '@/lib/looks';
+import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
+  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, APP_NIGHT,
+  wordsFor, lineLabel, titleLabel, titleSaid, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
+  type MomentEl, type Picture, type ColourGround,
 } from '@/lib/design';
-import { sectionsFor, sectionLabel, type SectionKey } from '@/lib/sections';
+import { MOMENTS, MOMENT_BY_KEY, SHELVES, SHELF_KEYS, SHELF_NAMES, SPEEDS, SPEED_NAMES, momentName, momentOf, shelvesOf, type MomentKey, type Shelf, type ShelfEntry, type Trigger as MomentTrigger } from '@/lib/moments';
+import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey, type SectionData } from '@/lib/sections';
 import { DrawnPage, FlowDecor, bindingOf } from '@/components/invite/drawn';
-import { asksOf, askable, askCounts, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
-import { pageNeeds, needCount, HEAVY_GROUND, type Need } from '@/lib/needs';
+import { asksOf, askable, askCounts, fieldOf, SHAPE_GUIDANCE, shapeOf, type Askable } from '@/lib/asks';
+import { pageNeeds, needCount, GUTTER, HEAVY_GROUND, type Need } from '@/lib/needs';
 import { sampleContent, SAMPLES, type Sample } from '@/lib/samples';
+import { withDraft, type StudioDraft } from '@/lib/studio-draft';
 import type { Occasion } from '@prisma/client';
-import { framesFromDifference, photoFromRect, type Rect } from '@/lib/importing';
+import { framesFromDifference, photoFromRect, guessOffer, type Rect, type Offer, type Word } from '@/lib/importing';
+import { phraseFor } from '@/lib/copy';
 import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import { cssVars, fontsFrom, PALETTE_PRESETS, type Fonts, type Palette } from '@/lib/theme';
 import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
-import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { readClip, sendClip, type SentClip } from './clip';
 import { readAnim, sendAnim, type SentAnim } from './anim';
+import { InvitationDrawer } from './invitation-drawer';
 import { VIDEO_MAX_LABEL, VIDEO_MAX_MS } from '@/lib/clips';
 import { builtinPieces, shownPieces, groupOf, PIECE_GROUPS, type Piece, type PieceGroup } from '@/lib/library';
 import { PAGE_SHAPES, KINDS, RULES, pixelsFor, shippedExamples } from '@/lib/guide';
@@ -42,15 +46,32 @@ import { listPiecesAction, keepPieceAction, namePieceAction, dropPieceAction, pa
  */
 
 /** The widths a guest actually reads on. "Laptop" is the widest column we ever draw. */
-const WIDTHS = [
-  { key: 360, label: 'Small phone', hint: '360' },
-  { key: 390, label: 'Phone', hint: '390' },
-  { key: 430, label: 'Large phone', hint: '430' },
-  { key: 512, label: 'Laptop', hint: '512' },
-];
+/**
+ * The two ways the page is looked at. The website is the page as a laptop
+ * shows it — the column on its surround, a background edge to edge — and
+ * the phone is the cut of it a guest holds. Each carries the width of the
+ * window and the height of the screen it stands for, for the page under the
+ * canvas (see --inv-screen). Four phone widths used to sit here; what an
+ * owner judges is the website, and the one cut that matters is the phone.
+ */
+const VIEWS = [
+  { key: 'website', label: 'Website', hint: '1280', width: 1280, screen: 800 },
+  { key: 'phone', label: 'Phone', hint: '390', width: 390, screen: 844 },
+] as const;
+type ViewKey = (typeof VIEWS)[number]['key'];
+/** The invitation column is never wider than this, whatever the window: see `.inv[data-paged]`. */
+const COLUMN = 512;
+/** How wide a phone is, for the marks the guide draws at website width. */
+const PHONE_VIEW = VIEWS.find((v) => v.key === 'phone')!.width;
 
 /** How far a drag has to come to snap: a fifth of a percent of the page's width. */
 const SNAP = 0.8;
+
+/** How the sample menu names a customer's invitation: their title, the package, and whether it is live. */
+const invitationName = (t: { title: string; tier: string; status: string }) => `${t.title} · ${t.tier.toLowerCase()}${t.status === 'PUBLISHED' ? ' · live' : ''}`;
+
+/** A customer's invitation on the canvas: what the menu names it by, where the whole of it is served, and their answers. */
+type Real = { id: string; slug: string; title: string; tier: string; status: string; content: Record<string, unknown> };
 
 type Props = {
   templateId: string;
@@ -62,7 +83,25 @@ type Props = {
   hasDraft: boolean;
   published: boolean;
   demoSlug: string;
+  /** the demo invitation's row, for the form the studio carries; blank when the design has none */
+  demoId: string;
+  demoTitle: string;
   content: Record<string, unknown>;
+  /** the design's own photographed parts, for the moments on the canvas */
+  parts?: Record<string, string>;
+  /**
+   * The invitation she came from, when the Invitation tab sent her here:
+   * the studio opens drawn against it, with its form open beside the
+   * canvas, rather than on the demo.
+   */
+  against?: Real | null;
+  /**
+   * The way back out, in the studio's own top bar: where she came from and
+   * what to call it. The page has a back link of its own above the tabs,
+   * but the studio is a screen of its own that scrolls and it goes out of
+   * reach — so the way out is beside Save draft, where it stays.
+   */
+  back?: { href: string; label: string };
   look?: Look;
   vars: Record<string, string>;
   /** what each of this design's own uploads weighs, by address, for the checklist */
@@ -99,13 +138,23 @@ type Props = {
   shareLink: string;
 };
 
+/**
+ * A writing of the page's own, as the frame under the canvas drew it: where
+ * it sits on the page (shares of the page's box), what it reads (the sources
+ * the box that takes its place is given, from `data-src`), the role its
+ * class says, its size as a share of the width, and its words for the label.
+ */
+type Writing = { id: string; src: TextEl['lines'][number]['sources']; role: LineRole; text: string; x: number; y: number; w: number; h: number; sizeCqw: number };
+
 type Drag =
   /** every id that is travelling, where each started, and which one the pointer holds */
   | { kind: 'move'; ids: string[]; from: Record<string, { x: number; y: number }>; lead: string; px: number; py: number }
   | { kind: 'size'; id: string; w: number; px: number }
   | { kind: 'turn'; id: string; cx: number; cy: number; from: number; rotate: number }
   /** fitting a picture inside a frame that does not move: the window pans */
-  | { kind: 'crop'; id: string; px: number; py: number; cx: number; cy: number };
+  | { kind: 'crop'; id: string; px: number; py: number; cx: number; cy: number }
+  /** a writing of the page's own being dragged off the flow: nothing moves until the hand lets go */
+  | { kind: 'lift'; w: Writing; px: number; py: number };
 
 /**
  * A picture being fitted: which frame, how big the file actually is, and
@@ -125,29 +174,86 @@ export function Studio(p: Props) {
   const [doc, setDoc] = useState<DesignDoc>(p.doc);
   const [pageKey, setPageKey] = useState(p.doc.pages[0]?.key ?? '');
   const [sel, setSel] = useState<string[]>([]);
-  const [width, setWidth] = useState(390);
+  const [size, setSize] = useState<ViewKey>('website');
+  const width = VIEWS.find((v) => v.key === size)!.width;
+  /** the column on the canvas: the window, or the phone column when the window is wider */
+  const column = Math.min(width, COLUMN);
+  /*
+   * Zoom. The website is wider than the studio's middle column, so it is
+   * shown to fit unless she asks for more or less; the canvas is scaled as
+   * a whole (CSS zoom, which the browser lays out and measures in), so a
+   * drag reads the same at every zoom and the handles sit where the boxes
+   * are.
+   */
+  const [zoom, setZoom] = useState<number | 'fit'>('fit');
+  const canvasRef = useRef<HTMLElement | null>(null);
+  const [room, setRoom] = useState(0);
+  useLayoutEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    setRoom(el.clientWidth);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setRoom(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+    // the observer sees the column beside it open and close, which is when the room changes
+  }, []);
+  // the card's own padding and the canvas's, which the website has to fit inside
+  const scale = zoom === 'fit' ? (room ? Math.max(0.25, Math.min(1, (room - 56) / width)) : 1) : zoom;
+  const scaleRef = useRef(1);
+  scaleRef.current = scale;
   /** the page under her hand, or the whole invitation as a guest scrolls it */
   const [view, setView] = useState<'page' | 'whole' | 'import'>('page');
   const [shown, setShown] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const [night, setNight] = useState(false);
-  /** who the canvas is drawn against: the demo, nobody, anybody, or the longest */
-  const [sample, setSample] = useState<Sample | 'real'>('demo');
   /*
-   * A real customer's invitation on the canvas. Their answers, drawn and
-   * nothing else: everything the studio saves is the design document, which
-   * holds no customer's words at all, so there is no path from here back to
-   * their invitation. The list is fetched the first time she opens the menu
-   * rather than on every studio load, because most of the time she is
-   * drawing against the demo and never asks.
+   * The page as a guest is served it, under the canvas.
+   *
+   * A page laid out by its words has no height of its own — its words
+   * decide — so the studio cannot draw it, and for a long time it did not:
+   * the canvas was a blank sheet with the decorations on it, and the words
+   * were only to be seen under The whole invitation, after a save. That is
+   * the canvas somebody opens and asks where the invitation is. Now the
+   * guest page draws it, one page at a time, from the draft as last saved,
+   * and it sits under the decorations here at its real height. `top` is
+   * where that page starts inside its frame and `height` how tall it came
+   * out, so the canvas is exactly the page and nothing around it.
    */
-  const [real, setReal] = useState<{ id: string; title: string; content: Record<string, unknown> } | null>(null);
+  const flowFrame = useRef<HTMLIFrameElement | null>(null);
+  const [flowBox, setFlowBox] = useState({ top: 0, height: 0 });
+  const flowWatch = useRef<ResizeObserver | null>(null);
+  /** the page chooser under +: a new page is asked what it carries */
+  const [adding, setAdding] = useState(false);
+  /** who the canvas is drawn against: the demo, nobody, anybody, the longest — or a customer, when she came from their tab */
+  const [sample, setSample] = useState<Sample | 'real'>(p.against ? 'real' : 'demo');
+  /*
+   * A real customer's invitation on the canvas. Their answers, drawn; and
+   * since the Invitation drawer, edited too — through the tab's own form
+   * and the tab's own save, never through the design, which holds no
+   * customer's words at all. The list is fetched the first time she opens
+   * the menu rather than on every studio load, because most of the time
+   * she is drawing against the demo and never asks.
+   */
+  const [real, setReal] = useState<Real | null>(p.against ?? null);
   const [theirs, setTheirs] = useState<{ id: string; title: string; tier: string; status: string }[] | null>(null);
   const [against, setAgainst] = useState({ busy: false, error: '' });
+  /*
+   * The demo's own words, kept here because the drawer can change them: a
+   * save that lands is folded in, so the canvas and the checklist read the
+   * demo as it now is rather than as the page found it.
+   */
+  const [demoContent, setDemoContent] = useState(p.content);
+  /** the part being typed in the drawer, drawn before it is saved: see withDraft */
+  const [draft, setDraft] = useState<StudioDraft | null>(null);
+  /** the part the drawer is on — kept here, so looking at the Pages list and coming back finds her where she was */
+  const [asked, setAsked] = useState<SectionKey | undefined>(undefined);
+  /** the library of moments, open under the toolbar */
+  const [momentSheet, setMomentSheet] = useState(false);
   /** pages arriving as pictures, dropped on the strip */
   const [drop, setDrop] = useState({ busy: false, error: '' });
-  /** the left column: the pages, or the pieces any design can be built from */
-  const [drawer, setDrawer] = useState<'pages' | 'library' | 'guide'>('pages');
+  /** the left column: the pages, the invitation's form, or the pieces any design can be built from */
+  const [drawer, setDrawer] = useState<'pages' | 'invitation' | 'library' | 'guide'>(p.against ? 'invitation' : 'pages');
   /** what just happened, when it is worth saying and is not a fault */
   const [said, setSaid] = useState('');
   /*
@@ -181,11 +287,52 @@ export function Studio(p: Props) {
    * Who the canvas is drawn against. The checklist above is not switched
    * with it: it is a list about the design, and "the demo has no photo for
    * frame 4" is about the demo, not about whoever the canvas is showing.
+   *
+   * `shownId` is the invitation on the canvas — the demo's, a customer's,
+   * or nobody's for a made-up sample — and the part being typed in the
+   * drawer is laid over it only when it is that invitation's. `editing` is
+   * the one the drawer holds: the customer when the canvas shows a
+   * customer, else the demo.
    */
-  const shownContent = useMemo(
-    () => (sample === 'real' ? real?.content ?? {} : sampleContent(sample, { doc, occasion: p.occasion, demo: p.content })),
-    [sample, real, doc, p.occasion, p.content],
-  );
+  const shownId = sample === 'real' ? real?.id ?? '' : sample === 'demo' ? p.demoId : '';
+  // a customer she has loaded stays the drawer's while she tries a made-up
+  // sample on the canvas; only choosing the demo hands the drawer the demo
+  const editing = real && sample !== 'demo' ? real.id : p.demoId;
+  const shownContent = useMemo(() => {
+    const base = sample === 'real' ? real?.content ?? {} : sampleContent(sample, { doc, occasion: p.occasion, demo: demoContent });
+    return withDraft(base, draft, shownId);
+  }, [sample, real, doc, p.occasion, demoContent, draft, shownId]);
+  // a draft belongs to the invitation it was typed on; the form for another
+  // starts from that one's own words
+  useEffect(() => { setDraft(null); }, [editing]);
+  /**
+   * A save from the drawer, folded into what the canvas reads, so the page
+   * does not fall back to the words the studio opened with once the draft
+   * is gone. Told which invitation it was, rather than reading the one on
+   * the canvas: the form's save on the way out of a part lands after she
+   * may have moved the canvas to somebody else. And the whole invitation,
+   * when it is showing, is drawn again with the saved words.
+   */
+  const folded = useCallback((id: string, section: SectionKey, data: SectionData) => {
+    if (id === p.demoId) setDemoContent((c) => ({ ...c, [section]: data }));
+    setReal((r) => (r && r.id === id ? { ...r, content: { ...r.content, [section]: data } } : r));
+    // a save that landed outranks whatever the last one said went wrong
+    setAgainst((a) => (a.error ? { ...a, error: '' } : a));
+    setShown((n) => n + 1);
+  }, [p.demoId]);
+  /**
+   * The canvas follows the part under her hand: the page that carries the
+   * section, or the first drawn page with an element bound to it. Without
+   * this she would type into Story while the cover stayed on the canvas and
+   * see nothing land — which is the moving-out the drawer exists to end.
+   */
+  const follow = useCallback((key: SectionKey) => {
+    const pg = doc.pages.find((x) => x.sections.includes(key) || (x.elements ?? []).some((el) => bindingOf(el)?.section === key));
+    if (pg && pg.key !== pageKey) {
+      setPageKey(pg.key);
+      setSel([]);
+    }
+  }, [doc, pageKey]);
   /** the invitations on this design, asked for once and kept */
   const loadTheirs = useCallback(async () => {
     if (theirs !== null || against.busy) return;
@@ -201,12 +348,24 @@ export function Studio(p: Props) {
     setAgainst({ busy: true, error: '' });
     const r = await invitationContentAction(p.templateId, id).catch(() => ({ ok: false as const, error: 'Their words could not be read.' }));
     if (!r.ok) { setAgainst({ busy: false, error: r.error }); return; }
-    setReal({ id, title: r.title, content: r.content });
+    setReal({ id, slug: r.slug, title: r.title, tier: r.tier, status: r.status, content: r.content });
     setSample('real');
     setAgainst({ busy: false, error: '' });
   }, [p.templateId]);
-  /** the band a phone's browser keeps: shown on a page drawn to a screen or less */
-  const [bar, setBar] = useState(true);
+  /**
+   * The phone guide: what is true of this page on the narrowest phone, drawn
+   * on the page itself rather than listed in a drawer.
+   *
+   * It answers the question somebody asks the first time they work at laptop
+   * width: where can I put things so a phone does not cut them? The answer
+   * is that a drawn page is capped at a phone column at every width and
+   * everything on it is a share of that width, so nothing is ever re-cut —
+   * what moves is the size of it. So the guide draws the three things that
+   * do differ: the gutter words want from the side, the band a phone's own
+   * browser bar keeps for itself, and a ring on anything the checklist has
+   * something to say about here.
+   */
+  const [guide, setGuide] = useState(true);
   const [rev, setRev] = useState(p.rev);
   const [state, setState] = useState<'clean' | 'dirty' | 'saving' | 'saved' | 'error'>('clean');
   const [error, setError] = useState('');
@@ -229,7 +388,26 @@ export function Studio(p: Props) {
    * its words and the two headings carry no box of their own at all: the
    * stylesheet gives them one. A handle has to sit on what a guest sees.
    */
-  const [boxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  const [ownBoxes, setBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  /**
+   * Where the frame laid the floats.
+   *
+   * Everything else on the canvas is drawn by the studio itself, so its box
+   * is measured from the studio's own page. A float is not: it is in among
+   * the words, inside the frame, and only the frame knows where the words
+   * let it land. Same-origin, so it is read rather than guessed (`sizeFlow`).
+   */
+  const [flowBoxes, setFlowBoxes] = useState<Record<string, { x: number; y: number; w: number; h: number }>>({});
+  /**
+   * The column the words are in, as a share of the page: where it starts and
+   * how wide it is. A float's place is a share of *that* — it stands in the
+   * column, and a margin on it is a share of the column — while every other
+   * number on the canvas is a share of the page. So the hand's travel is
+   * turned into the column's numbers before it is written, and the column is
+   * measured rather than assumed (`sizeFlow`).
+   */
+  const [flowCol, setFlowCol] = useState({ left: 0, width: 100 });
+  const boxes = useMemo(() => ({ ...ownBoxes, ...flowBoxes }), [ownBoxes, flowBoxes]);
   /** how far down the lowest thing reaches, in pixels: what a page that grows grows to */
   const [grown, setGrown] = useState(0);
   useLayoutEffect(() => {
@@ -247,8 +425,8 @@ export function Studio(p: Props) {
         w: (r.width / b.width) * 100,
         h: (r.height / b.height) * 100,
       };
-      // what holds the foot follows the page down and never pushes it
-      if (!node.hasAttribute('data-foot') && r.height) low = Math.max(low, r.bottom - b.top);
+      // what holds the foot follows the page down and never pushes it (in the page's own pixels, not the zoomed ones)
+      if (!node.hasAttribute('data-foot') && r.height) low = Math.max(low, (r.bottom - b.top) / scaleRef.current);
     }
     setBoxes(next);
     setGrown((was) => (Math.abs(was - low) < 0.5 ? was : low));
@@ -288,6 +466,13 @@ export function Studio(p: Props) {
     requestAnimationFrame(() => node.setAttribute('data-in', ''));
   }, []);
 
+  /** Play a moment on the canvas: it closes and opens again, wherever the canvas drew it — in the studio's own page or in the guest frame. */
+  const playMoment = useCallback((id: string) => {
+    const sel = `[data-el="${CSS.escape(id)}"]`;
+    const node = stage.current?.querySelector<HTMLElement>(sel) ?? flowFrame.current?.contentDocument?.querySelector<HTMLElement>(sel);
+    node?.dispatchEvent(new CustomEvent('inv-moment-play'));
+  }, []);
+
   // --- changing the document ------------------------------------------------
 
   /** Every change goes through here, so undo and the save flag are never missed. */
@@ -319,6 +504,7 @@ export function Studio(p: Props) {
 
   const editEl = useCallback((id: string, fn: (e: Element) => Element, mark = true) => editEls([id], fn, mark), [editEls]);
 
+
   const undo = useCallback(() => {
     const prev = past.current.pop();
     if (!prev) return;
@@ -344,11 +530,12 @@ export function Studio(p: Props) {
     setState('error');
   }, [p.templateId, rev]);
 
-  // Two seconds after her hand stops, the draft is saved. Nothing a guest sees
-  // changes until she publishes.
+  // Six tenths of a second after her hand stops, the draft is saved — the
+  // page under the canvas is drawn from it, so a long wait is a page that
+  // lags behind her hand. Nothing a guest sees changes until she publishes.
   useEffect(() => {
     if (state !== 'dirty') return;
-    const id = setTimeout(() => { void save(doc); }, 2000);
+    const id = setTimeout(() => { void save(doc); }, 600);
     return () => clearTimeout(id);
   }, [state, doc, save]);
 
@@ -490,7 +677,7 @@ export function Studio(p: Props) {
       for (const t of b.texts) {
         const id = freeIdIn(ids, 'words');
         ids.add(id);
-        elements.push(wordsFromPdf(id, t));
+        elements.push(wordsFromPdf(id, t.text, t.from));
       }
       const page: PageSpec = {
         key, label: { en: b.name }, sections: [], drawn: true, importedFrom: b.from,
@@ -530,7 +717,7 @@ export function Studio(p: Props) {
       // on a page laid out by its words a piece hangs off the head: there is
       // no canvas to place it on, and flush with the head is where she can
       // see it (addElement says the same thing about a blank frame)
-      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 40, anchor: 'centre',
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 4, w: 40, anchor: 'centre',
       aspect: place(shape), frame: 'none', bind: { asset: url },
       // a moving picture is served as it is: the flag is what keeps it out of
       // the transform endpoint, which would send back one frame of it
@@ -553,11 +740,16 @@ export function Studio(p: Props) {
     setDrop({ busy: true, error: '' });
     try {
       const g = found?.ground ?? await groundFromUrl(url);
-      // A flow page can run past its ground, so it needs the three cuts. A
-      // shipped ground already has its own, cut by hand when it shipped; one
-      // she uploaded is cut here, from the file already on the server.
-      const slices = page?.drawn ? undefined : g.slices ?? await cutFromUrl(url, p.templateId);
-      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(slices ? { slices } : {}) });
+      /*
+       * Which slot it lands in comes from its shape (`kindOfShape`): a
+       * picture about the shape of a phone screen is the phone's background,
+       * anything wider is the whole website's. She can move it by uploading
+       * it into the other slot; nothing about it is cut or stretched either
+       * way.
+       */
+      const pic = { url, ratio: g.ratio, top: g.top, bottom: g.bottom };
+      if (page?.drawn) setGround(pic);
+      else setBackground(kindOfShape(g.ratio) === 'phone' ? 'phone' : 'website', pic);
       setDrop({ busy: false, error: '' });
     } catch (e) {
       setDrop({ busy: false, error: (e as Error).message });
@@ -608,12 +800,18 @@ export function Studio(p: Props) {
       : '');
   }
 
-  /** A new page goes in after the one she is on, so it lands where she is looking. */
-  function addPage(from?: PageSpec) {
-    const key = freePageKey(from ? `${from.key}-copy` : 'page');
+  /**
+   * A new page goes in after the one she is on, so it lands where she is
+   * looking. It is made carrying the part she chose for it, under its own
+   * name: a page with nothing on it is not drawn at all, and until the
+   * chooser a new page was always that, which is how a page named
+   * "countdown" came to carry no countdown.
+   */
+  function addPage(from?: PageSpec, section?: PageSectionKey) {
+    const key = freePageKey(from ? `${from.key}-copy` : section ? pageKeyOf(section) : 'page');
     const made: PageSpec = from
       ? { ...JSON.parse(JSON.stringify(from)) as PageSpec, key, peekEnd: undefined }
-      : { key, sections: [] };
+      : { key, sections: section ? [section] : [] };
     const at = doc.pages.findIndex((x) => x.key === pageKey);
     const pages = [...doc.pages];
     pages.splice(at < 0 ? pages.length : at + 1, 0, made);
@@ -641,23 +839,47 @@ export function Studio(p: Props) {
   }
 
   /** Something new on the page, in the middle of it, selected and ready to drag. */
-  function addElement(kind: 'text' | 'photo' | 'shape') {
+  function addElement(kind: 'text' | 'photo' | 'shape' | 'frame' | 'moment', pick?: ShelfEntry) {
     if (!page) return;
-    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : 'words');
+    const id = freeId(doc, kind === 'photo' ? 'photo' : kind === 'shape' ? 'shape' : kind === 'frame' ? 'frame' : kind === 'moment' ? (pick?.key ?? 'moment') : 'words');
+    if (kind === 'moment') {
+      /*
+       * A moment from the library: it lands at the width and shape the scene
+       * wants, with a slot for each photograph it opens onto — asked of the
+       * customer to begin with, since the surprise is theirs.
+       */
+      if (!pick) return;
+      const def = MOMENT_BY_KEY[pick.key];
+      if (!def?.built) return;
+      const slots = Array.from({ length: def.photos.count }, () => ({ bind: { asset: '' } }));
+      const moment: Element = {
+        id, kind: 'moment', moment: pick.key, ...(pick.variant ? { variant: pick.variant } : {}),
+        x: 50, y: page.drawn ? 40 : 4, w: def.width, anchor: page.drawn ? 'centre' : 'top',
+        ...(slots.length ? { photos: slots, ask: true } : {}),
+        ...(page.drawn ? {} : { z: 1 }),
+      };
+      editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), moment] }));
+      setSel([id]);
+      return;
+    }
     /*
      * Where a new piece lands. On a drawn page, four tenths down it, which is
      * in view and clear of both edges. On a page laid out by its words there
      * is no such place — the piece hangs off the head or the foot — so it
-     * lands flush with the head, where she can see it and push it down by as
-     * much as she likes.
+     * lands just under the head, where she can see it whole and push it down
+     * by as much as she likes.
      */
-    const y = page.drawn ? 40 : 0;
+    const y = page.drawn ? 40 : 4;
     const made: Element = kind === 'photo'
       ? { id, kind: 'photo', x: 50, y, w: 40, anchor: 'centre', aspect: 1, frame: 'none', bind: { asset: '' } }
       : kind === 'shape'
         // behind the words, not over them: a card is what a shape is usually for
         ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 70, h: 30, anchor: 'centre', z: -1, fill: 'surface', radius: 1.6 }
-        : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }] };
+        // a plain frame: an outline and nothing inside it, around whatever it is put around
+        : kind === 'frame'
+          ? { id, kind: 'shape', shape: 'rect', x: 50, y, w: 84, h: 60, anchor: 'centre', z: -1, stroke: 'ink', strokeWidth: 0.4, radius: 0 }
+        // over the section's own words on a page laid out by them: a box of words behind words cannot be read
+        : { id, kind: 'text', block: 'free', x: 50, y, w: 70, anchor: 'top', lines: [{ role: 'body', sources: [{ fixed: { en: 'New words' } }] }], ...(page.drawn ? {} : { z: 1 }) };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -676,7 +898,7 @@ export function Studio(p: Props) {
     if (!page) return;
     const id = freeId(doc, 'moving');
     const made: Element = {
-      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 0, w: 32, anchor: 'centre',
+      id, kind: 'photo', x: 50, y: page.drawn ? 40 : 4, w: 32, anchor: 'centre',
       aspect: place(up.ratio), frame: 'none', bind: { asset: up.url }, animated: true,
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
@@ -696,7 +918,7 @@ export function Studio(p: Props) {
     if (!page) return;
     const id = freeId(doc, 'anim');
     const made: Element = {
-      id, kind: 'anim', x: 50, y: page.drawn ? 40 : 0, w: 34, anchor: 'centre',
+      id, kind: 'anim', x: 50, y: page.drawn ? 40 : 4, w: 34, anchor: 'centre',
       url: up.url, poster: up.poster, aspect: place(up.aspect), loop: true,
     };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
@@ -715,7 +937,7 @@ export function Studio(p: Props) {
   function addClip(up: SentClip) {
     if (!page) return;
     const id = freeId(doc, 'clip');
-    const made: Element = { id, kind: 'video', x: 50, y: page.drawn ? 40 : 0, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
+    const made: Element = { id, kind: 'video', x: 50, y: page.drawn ? 40 : 4, w: 44, anchor: 'centre', url: up.url, poster: up.poster, aspect: up.aspect, loop: true, glare: up.glare };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -775,6 +997,13 @@ export function Studio(p: Props) {
     change(next);
   }
 
+  /** A picture behind the whole website page, or none: the design's own, so it is in the draft. */
+  function setSurroundArt(art: SurroundArt | undefined) {
+    const next: DesignDoc = { ...doc, surroundArt: art };
+    if (!art) delete next.surroundArt;
+    change(next);
+  }
+
   function setNightColour(role: keyof NightPalette, colour: string | undefined) {
     const night = { ...(doc.nightColours ?? {}) };
     if (colour) night[role] = colour;
@@ -805,9 +1034,10 @@ export function Studio(p: Props) {
   function addFloat() {
     if (!page) return;
     const id = freeId(doc, 'photo');
-    // y is required of every element and means nothing on a flow page, where
-    // the words decide where a float lands; 0 is the honest value for it
-    const made: Element = { id, kind: 'photo', y: 0, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } };
+    // A place of its own from the start, so she can drag it the moment it is
+    // there: a fifth of the way in on the left, a little down the words
+    // (both shares of the width — see `floatAt`).
+    const made: Element = { id, kind: 'photo', x: 24, y: 4, w: 40, aspect: 1, float: 'left', frame: 'none', bind: { asset: '' } };
     editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made] }));
     setSel([id]);
   }
@@ -843,6 +1073,48 @@ export function Studio(p: Props) {
     });
   }
 
+  /**
+   * How far this page's background reaches: the pages after it that it also
+   * stands behind — the ones she picked it to flow over.
+   *
+   * A background pinned behind the words simply stays put over them, so the
+   * pages keep whatever they have: a page with a colour of its own shows it
+   * again the moment the picture stops, and one with a picture of its own
+   * ends the reach there. A tall shipped ground is the other case — one
+   * length of it is laid down all of them, so the pages it covers lose a
+   * ground of their own, which is what they had before this.
+   */
+  function setRunsOn(n: number) {
+    if (!page || !page.ground || !isPicture(page.ground)) return;
+    const flows = groundKind(page) === 'flow';
+    const at = doc.pages.findIndex((x) => x.key === page.key);
+    const pages = doc.pages.map((x, i) => {
+      if (i === at) {
+        const g = { ...(x.ground as Extract<Ground, { url: string }>) };
+        if (n > 0) g.runsOn = n; else delete g.runsOn;
+        return { ...x, ground: g };
+      }
+      if (flows && n > 0 && i > at && i <= at + n && !x.drawn && x.ground) {
+        const next = { ...x };
+        delete next.ground;
+        return next;
+      }
+      return x;
+    });
+    change({ ...doc, pages });
+  }
+  /** the pages that sit on a picture running on from a page before them, by the head's key */
+  const runs = useMemo(() => runOf(doc), [doc]);
+  const joinedTo = page ? runs.get(page.key) : undefined;
+  /** the pages that scroll over a picture pinned to the screen on a page before them, by the head's key */
+  const pins = useMemo(() => pinOf(doc), [doc]);
+  const pinnedOn = useMemo(() => {
+    const head = page ? pins.get(page.key) : undefined;
+    if (!head || head === page?.key) return undefined;
+    const on = doc.pages.find((x) => x.key === head);
+    return on?.label?.en || head;
+  }, [doc, page, pins]);
+
   /** What the page she is on carries, on a page laid out by its words. */
   const pieces = useMemo(
     () => (page && !page.drawn ? { floats: flowFloats(page), decor: flowDecor(page) } : { floats: [], decor: [] }),
@@ -874,6 +1146,17 @@ export function Studio(p: Props) {
     return keys.filter((k) => !here.has(k.key)).map((k) => ({ ...k, on: where.get(k.key) }));
   }, [doc, page, p.occasion]);
 
+  /** The parts not yet on any page, for a new page to carry. */
+  const unplaced = useMemo(() => {
+    const carried = new Set<string>(doc.pages.flatMap((x) => x.sections));
+    const keys: { key: PageSectionKey; label: string }[] = [
+      ...sectionsFor(p.occasion).map((d) => ({ key: d.key as PageSectionKey, label: sectionLabel(d.key, p.occasion) })),
+      { key: 'verse', label: 'The verse' },
+      { key: 'gallery-video', label: 'The film, and the photographs no frame holds' },
+    ];
+    return keys.filter((k) => !carried.has(k.key));
+  }, [doc, p.occasion]);
+
   /** A section already on the page, named the way the form names it. */
   const nameOf = useCallback((key: string) => {
     if (key === 'verse') return 'The verse';
@@ -881,12 +1164,60 @@ export function Studio(p: Props) {
     try { return sectionLabel(key as SectionKey, p.occasion); } catch { return key; }
   }, [p.occasion]);
 
-  /** The page's background: a picture she uploads, a colour from the palette, or nothing. */
-  function setGround(ground: Ground | undefined) {
+  /**
+   * The page's background: a picture she uploads, a colour from the palette,
+   * or nothing. A picture may come pinned to the screen (`pin`); a colour or
+   * nothing never is, and the pin goes with the picture it was on.
+   */
+  function setGround(ground: Ground | undefined, pin?: PageSpec['pin']) {
     editPage((pg) => {
       const next: PageSpec = { ...pg, ground };
       // a page with a ground of known proportions can be drawn on; one with none cannot
       if (!ground) next.drawn = undefined;
+      if (pin && ground && isPicture(ground) && !next.drawn) next.pin = pin; else delete next.pin;
+      // what the background reaches is the choice's to say, not a leftover tick's
+      if (pin) delete next.bleed;
+      return next;
+    });
+  }
+
+  /**
+   * The page's two backgrounds: one for the phone, one for the whole
+   * website, either or both.
+   *
+   * Both are her own files and neither is ever cut or stretched: the window
+   * picks between them (`PHONE_WINDOW`), and each fills what it was made
+   * for — the phone's the phone screen, the website's the whole window.
+   * Where she gives only one, that one is the page's background and the pin
+   * says which it is: `'column'` for the phone's, which keeps to the column
+   * on a laptop with the surround beside it, and `true` for the website's,
+   * which is the window. Where she gives both, the wide one is the page's
+   * and the phone's rides along in `ground.phone`.
+   *
+   * What the page already had is read back into the two slots the same way,
+   * so replacing one leaves the other alone. The three cuts an older draft
+   * carried are dropped: nothing pinned is ever cut.
+   */
+  function setBackground(which: 'phone' | 'website', pic: Picture | undefined) {
+    editPage((pg) => {
+      const g = pg.ground && isPicture(pg.ground) ? pg.ground : undefined;
+      const own = g ? { url: g.url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(g.night ? { night: g.night } : {}) } : undefined;
+      const had = { phone: pg.pin === 'column' ? own : g?.phone, website: pg.pin === 'column' ? undefined : own };
+      const want = { ...had, [which]: pic };
+      const next: PageSpec = { ...pg };
+      delete next.pin;
+      if (want.website) {
+        next.ground = { ...want.website, ...(want.phone ? { phone: want.phone } : {}), ...(g?.runsOn ? { runsOn: g.runsOn } : {}) };
+        next.pin = true;
+      } else if (want.phone) {
+        next.ground = { ...want.phone, ...(g?.runsOn ? { runsOn: g.runsOn } : {}) };
+        next.pin = 'column';
+      } else {
+        delete next.ground;
+        next.drawn = undefined;
+      }
+      // what the background reaches is the choice's to say, not a leftover tick's
+      delete next.bleed;
       return next;
     });
   }
@@ -916,14 +1247,64 @@ export function Studio(p: Props) {
   /** Deleting what something followed leaves it free, not pointing at a ghost. */
   function remove() {
     if (!sel.length) return;
-    editPage((pg) => ({
-      ...pg,
-      elements: (pg.elements ?? [])
-        .filter((e) => !chosen.has(e.id))
-        .map((e) => (e.attachTo && chosen.has(e.attachTo) ? { ...e, attachTo: undefined } : e)),
-    }));
+    editPage((pg) => {
+      // a box that took a writing off the flow gives it back as it goes
+      const back = new Set((pg.elements ?? []).filter((e) => chosen.has(e.id) && e.kind === 'text' && e.lifted).map((e) => (e as TextEl).lifted as string));
+      const offFlow = (pg.offFlow ?? []).filter((id) => !back.has(id));
+      const next: PageSpec = {
+        ...pg,
+        elements: (pg.elements ?? [])
+          .filter((e) => !chosen.has(e.id))
+          .map((e) => (e.attachTo && chosen.has(e.attachTo) ? { ...e, attachTo: undefined } : e)),
+        offFlow: offFlow.length ? offFlow : undefined,
+      };
+      if (!next.offFlow) delete next.offFlow;
+      // the page's own copy comes back at once, not after the save that redraws the frame
+      const fdoc = flowFrame.current?.contentDocument;
+      for (const id of back) {
+        const el = fdoc?.querySelector<HTMLElement>(`[data-page="${pg.key}"] [data-w="${id}"]`);
+        if (el) el.style.setProperty('display', 'revert', 'important');
+      }
+      return next;
+    });
     setSel([]);
   }
+
+  /**
+   * One writing back into the flow of the words: the box that took it off
+   * goes, and the page stops saying the writing is off its flow. `remove`
+   * does the same for whatever is selected; this is the button beside its
+   * name in the list, which should not have to select it first.
+   */
+  function putBack(id: string) {
+    editPage((pg) => {
+      const el = (pg.elements ?? []).find((e) => e.id === id);
+      const back = el && el.kind === 'text' ? el.lifted : undefined;
+      const offFlow = (pg.offFlow ?? []).filter((w) => w !== back);
+      const next: PageSpec = {
+        ...pg,
+        elements: (pg.elements ?? []).filter((e) => e.id !== id).map((e) => (e.attachTo === id ? { ...e, attachTo: undefined } : e)),
+        offFlow: offFlow.length ? offFlow : undefined,
+      };
+      if (!next.offFlow) delete next.offFlow;
+      // the page's own copy comes back at once, not after the save
+      const at = back ? flowFrame.current?.contentDocument?.querySelector<HTMLElement>(`[data-page="${pg.key}"] [data-w="${back}"]`) : null;
+      if (at) at.style.setProperty('display', 'revert', 'important');
+      return next;
+    });
+    setSel((was) => was.filter((x) => x !== id));
+  }
+
+  /** What to call a writing in a list: the words it reads, or where it reads them from. */
+  const nameOfWords = (el: TextEl): string => {
+    const src = el.lines?.[0]?.sources?.[0];
+    if (!src) return 'a writing';
+    if ('fixed' in src) return src.fixed.en;
+    if ('bind' in src) return `${src.bind.section} · ${src.bind.field}`;
+    if ('word' in src) return src.word;
+    if ('copy' in src) return src.copy;
+    return 'a writing';
+  };
 
   function layer(by: number) {
     if (!sel.length || !page) return;
@@ -997,12 +1378,44 @@ export function Studio(p: Props) {
    * numbers become the design's: taken from where the stylesheet had put it,
    * so the box does not jump on the first pixel of the drag.
    */
+  /**
+   * Where a float would be, for one the frame drew nothing for.
+   *
+   * An empty frame draws nothing on a page laid out by its words — a
+   * customer who gave no picture gets their words and no gap — and a
+   * template's floats are mostly frames asked of the customer, so most of
+   * them are empty while she is drawing. The handle is put where the place
+   * says it will land, worked out the same way the stylesheet does it, so an
+   * empty frame is as draggable as a full one.
+   */
+  const wouldFloat = useCallback((el: Element) => {
+    if (el.kind !== 'photo' || !el.float || !column || !flowBox.height) return undefined;
+    const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
+    const wide = (el.w ?? 40) * shape.width;
+    const at = floatAt(el, wide);
+    // the column's numbers, as a share of the page, and then as the box the
+    // handle is drawn in: the page's own percentages like every other box
+    const colPx = (flowCol.width / 100) * column;
+    const wpx = (wide / 100) * colPx;
+    const leftPx = (flowCol.left / 100) * column + (at.side === 'left' ? (at.inset / 100) * colPx : colPx - (at.inset / 100) * colPx - wpx);
+    return {
+      x: place((leftPx / column) * 100),
+      y: place((((at.down / 100) * colPx) / flowBox.height) * 100),
+      w: place((wpx / column) * 100),
+      h: place(((wpx * (shape.height / shape.width)) / flowBox.height) * 100),
+    };
+  }, [column, flowBox.height, flowCol]);
+
   const settled = useCallback((el: Element) => {
     const at = boxes[el.id];
-    const x = el.x ?? (at ? place(at.x + at.w / 2) : 50);
-    const w = el.w ?? (at ? place(at.w) : 20);
+    // a float's place is a share of the words' column, so a box measured off
+    // the page is read back in the column's numbers (`floatAt`)
+    const floated = el.kind === 'photo' && Boolean(el.float);
+    const mid = at ? at.x + at.w / 2 : 50;
+    const x = el.x ?? (at && floated && flowCol.width ? place(((mid - flowCol.left) / flowCol.width) * 100) : place(mid));
+    const w = el.w ?? (at ? place(floated && flowCol.width ? (at.w / flowCol.width) * 100 : at.w) : 20);
     return { x, w };
-  }, [boxes]);
+  }, [boxes, flowCol]);
 
   /**
    * Shift adds to the selection, and takes away again — the same gesture every
@@ -1053,8 +1466,10 @@ export function Studio(p: Props) {
     const b = box();
     if (!b || !page) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const cx = b.left + ((el.x ?? 50) / 100) * b.width;
-    const cy = b.top + (el.y / 100) * b.height;
+    // where the box actually landed, which on a page laid out by its words is not a share of its height
+    const at = boxes[el.id];
+    const cx = at ? b.left + ((at.x + at.w / 2) / 100) * b.width : b.left + ((el.x ?? 50) / 100) * b.width;
+    const cy = at ? b.top + ((at.y + at.h / 2) / 100) * b.height : b.top + (el.y / 100) * b.height;
     past.current = [...past.current.slice(-49), doc];
     future.current = [];
     drag.current = { kind: 'turn', id: el.id, cx, cy, from: Math.atan2(e.clientY - cy, e.clientX - cx), rotate: el.rotate ?? 0 };
@@ -1069,17 +1484,38 @@ export function Studio(p: Props) {
       // moves by the same, so a group keeps its shape and snaps as one
       const lead = d.from[d.lead];
       if (!lead) return;
-      let x = lead.x + ((e.clientX - d.px) / b.width) * 100;
-      let y = lead.y + ((e.clientY - d.py) / b.height) * 100;
+      /*
+       * On a page laid out by its words, y is not a share of the height —
+       * the page has none of its own — but the gap from the edge the piece
+       * hangs off, as a share of the width (decorStyle). So the hand's
+       * travel is read against the width, and the other way up for a
+       * piece hung from the foot, which comes up the page as y grows.
+       */
+      const flow = !page.drawn;
+      const leadEl = elements.find((el) => el.id === d.lead);
+      const dir = flow && leadEl?.from === 'bottom' ? -1 : 1;
+      /*
+       * A float's place is a share of the words' column, not of the page, so
+       * the hand's travel is turned into the column's numbers: drag it a
+       * tenth of the page and it moves a tenth of the page, which is a
+       * little more than a tenth of the narrower column.
+       */
+      const per = flow && leadEl?.kind === 'photo' && leadEl.float && flowCol.width ? 100 / flowCol.width : 1;
+      let x = lead.x + ((e.clientX - d.px) / b.width) * 100 * per;
+      let y = flow ? Math.max(0, lead.y + ((e.clientY - d.py) / b.width) * 100 * per * dir) : lead.y + ((e.clientY - d.py) / b.height) * 100;
       if (e.shiftKey) { if (Math.abs(e.clientX - d.px) > Math.abs(e.clientY - d.py)) y = lead.y; else x = lead.x; }
       const still = elements.filter((el) => !d.from[el.id]);
       x = snap(x, [50, ...still.map((el) => el.x ?? 50)]);
-      y = snap(y, still.map((el) => el.y));
+      if (!flow) y = snap(y, still.map((el) => el.y));
       const dx = x - lead.x;
       const dy = y - lead.y;
       editEls(d.ids, (el) => {
         const was = d.from[el.id];
-        return was ? { ...el, x: place(was.x + dx), y: place(was.y + dy) } : el;
+        if (!was) return el;
+        const at = { ...el, x: place(was.x + dx), y: place(was.y + dy) };
+        // a float dragged across the middle of the column changes sides: the
+        // side is `floatAt`'s answer, written back so the document reads plainly
+        return at.kind === 'photo' && at.float ? { ...at, float: (at.x ?? 50) < 50 ? 'left' as const : 'right' as const } : at;
       }, false);
     } else if (d.kind === 'size') {
       // the box is centred on x, so the corner moves half of what the width does
@@ -1089,7 +1525,7 @@ export function Studio(p: Props) {
       let deg = d.rotate + ((Math.atan2(e.clientY - d.cy, e.clientX - d.cx) - d.from) * 180) / Math.PI;
       if (e.shiftKey) deg = Math.round(deg / 15) * 15;
       editEl(d.id, (el) => ({ ...el, rotate: place(((deg + 180) % 360) - 180) }), false);
-    } else {
+    } else if (d.kind === 'crop') {
       // panning a picture inside a frame that does not move. The frame may be
       // turned — Baby Blue's polaroids all are — so the hand's travel is
       // turned back the other way before it is read as across and down.
@@ -1107,7 +1543,48 @@ export function Studio(p: Props) {
       putFit({ ...f, cx: d.cx - (across / fw) * win.w, cy: d.cy - (down / fh) * win.h });
     }
   }
-  const endDrag = () => { drag.current = null; };
+  const endDrag = (e?: RPointerEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    // a writing dragged far enough comes off the flow where the hand let go; a mere press leaves it be
+    if (d && d.kind === 'lift' && e && Math.hypot(e.clientX - d.px, e.clientY - d.py) >= 4) liftWriting(d.w, e.clientX - d.px, e.clientY - d.py);
+  };
+
+  /**
+   * A writing of the page's own, off the flow and into a box of its own.
+   *
+   * "The writings that sync from the form: movable and editable on the
+   * page." The box reads what the writing read — the same answer on the
+   * form, the same word of the design's — so it stays in step; it is placed
+   * where the writing was plus the drag, set in the role and at the size the
+   * writing had; and the page says the writing is off its flow, so the app
+   * draws it nowhere. Taking the box off puts the writing back (see remove).
+   */
+  function liftWriting(wr: Writing, dx: number, dy: number) {
+    if (!page || page.drawn) return;
+    const b = box();
+    if (!b || !b.width) return;
+    const id = freeId(doc, 'words');
+    // x is the box's middle as a share of the width; y is the gap from the head as a share of the width (decorStyle)
+    const x = place(Math.max(0, Math.min(100, wr.x + wr.w / 2 + (dx / b.width) * 100)));
+    const y = place(Math.max(0, ((wr.y / 100) * b.height) / b.width * 100 + (dy / b.width) * 100));
+    const made: Element = {
+      id, kind: 'text', block: wr.role === 'title' ? 'head' : 'free', x, y, w: place(Math.max(12, Math.min(100, wr.w + 2))), anchor: 'top', z: 1, lifted: wr.id,
+      lines: [{ role: wr.role, align: 'center', sources: wr.src.length ? wr.src : [{ fixed: { en: wr.text, tl: wr.text } }], size: place(Math.max(1, wr.sizeCqw)) }],
+    };
+    editPage((pg) => ({ ...pg, elements: [...(pg.elements ?? []), made], offFlow: [...new Set([...(pg.offFlow ?? []), wr.id])] }));
+    setSel([id]);
+    // the page's own copy goes at once, not after the save that redraws the frame
+    const el = flowFrame.current?.contentDocument?.querySelector<HTMLElement>(`[data-page="${page.key}"] [data-w="${wr.id}"]`);
+    if (el) el.style.display = 'none';
+  }
+
+  /** Double-click on a writing: the part it belongs to opens in the Invitation drawer, at the words themselves. */
+  function editWriting(wr: Writing) {
+    const part = wr.id.split('.')[0];
+    if (part in SECTION_BY_KEY) setAsked(part as SectionKey);
+    openDrawer('invitation');
+  }
 
   // --- fitting a picture inside its frame -----------------------------------
 
@@ -1177,10 +1654,41 @@ export function Studio(p: Props) {
       el.kind === 'photo' ? ('asset' in el.bind ? undefined : el.bind)
         : el.kind === 'text' ? el.lines.flatMap((l) => l.sources).flatMap((s) => ('bind' in s ? [s.bind] : []))[0]
           : undefined;
-    if (!ref) return el.kind === 'photo' ? 'A picture of yours' : el.kind === 'video' ? 'The design’s own clip' : 'Empty';
-    const where = ref.index === undefined ? '' : ` ${ref.index + 1}`;
-    return `${ref.sub ?? ref.field}${where} · ${ref.section}`;
-  }, []);
+    if (ref) {
+      /*
+       * In the customer's own words where the occasion has the field, since
+       * this is what an empty box says on the canvas and what the layers
+       * list calls every box. `childFull · cover` was the shape of the
+       * document; "Child's full name" is the shape of the question.
+       */
+      const where = ref.index === undefined ? '' : ` ${ref.index + 1}`;
+      const field = fieldOf(ref, p.occasion);
+      const named = field?.label ?? ref.sub ?? ref.field;
+      const section = ref.section in SECTION_BY_KEY ? sectionLabel(ref.section as SectionKey, p.occasion) : ref.section;
+      return `${named}${where} · ${section}`;
+    }
+    if (el.kind === 'photo') return 'A picture of yours';
+    if (el.kind === 'video') return 'The design’s own clip';
+    if (el.kind === 'moment') return `${momentName(el.moment, el.variant)} — ${MOMENT_BY_KEY[el.moment]?.photos.count ? 'a picture of yours opens it' : 'tap to open'}`;
+    /*
+     * A box of words with no question behind it is not empty: it holds the
+     * design's own word for a section, or words typed straight into it. The
+     * seeded headings made calling those "Empty" plainly wrong, and the
+     * layers list is the one place a box is named before it is clicked.
+     */
+    if (el.kind === 'text') {
+      const first = el.lines.flatMap((l) => l.sources)[0];
+      if (first && 'fixed' in first && first.fixed.en) return `“${first.fixed.en}”`;
+      if (first && 'word' in first) {
+        const w = first.word;
+        return w.startsWith('title:')
+          ? titleLabel(w.slice(6) as TitleKey, p.occasion)
+          : lineLabel(w as LineKey, p.occasion);
+      }
+      if (first && 'copy' in first) return first.copy;
+    }
+    return 'Empty';
+  }, [p.occasion]);
 
   // --- the page's own numbers ------------------------------------------------
 
@@ -1193,8 +1701,8 @@ export function Studio(p: Props) {
    * a checklist that lags is worse than none.
    */
   const needs = useMemo(
-    () => pageNeeds({ doc, occasion: p.occasion, content: p.content, weights: p.weights, lengths: p.lengths, shop: p.shop }),
-    [doc, p.occasion, p.content, p.weights, p.lengths, p.shop],
+    () => pageNeeds({ doc, occasion: p.occasion, content: demoContent, weights: p.weights, lengths: p.lengths, shop: p.shop }),
+    [doc, p.occasion, demoContent, p.weights, p.lengths, p.shop],
   );
   const here = useMemo(() => needs.filter((n) => n.page === pageKey), [needs, pageKey]);
   /** lines about the design rather than about any one page */
@@ -1222,31 +1730,358 @@ export function Studio(p: Props) {
     const advance = ctx.measureText(sample).width / sample.length + (parseFloat(cs.letterSpacing) || 0);
     if (!(advance > 0)) return undefined;
     const box = inner.getBoundingClientRect();
-    const width = box.width || node.getBoundingClientRect().width;
+    // the rectangle is measured zoomed and the faces are not, so it is read back in the page's own pixels
+    const width = (box.width || node.getBoundingClientRect().width) / scaleRef.current;
     const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
-    const lines = Math.max(1, Math.round(box.height / line));
+    const lines = Math.max(1, Math.round(box.height / scaleRef.current / line));
     if (!(width > 0)) return undefined;
     return Math.max(1, Math.floor((width / advance) * lines));
   }, []);
 
   const ratio = page ? pageRatio(page) : 1;
   const ground = page?.ground;
+  const flowKey = page && !page.drawn ? page.key : '';
+  /** a page laid out by its words, with the guest page under it: the stage is clear glass over the frame */
+  // every design has a frame to draw on now — its demo, a customer, or the form's stand-in
+  const framed = Boolean(flowKey);
   const stageStyle: CSSProperties = {
-    width,
+    width: column,
     // a page that grows is at least its ground and taller when its words are,
     // so the canvas gives it a floor where a fixed page gets a proportion
     ...(page?.drawn
-      ? (page.grow ? { minHeight: Math.max(width * ratio, grown + width * 0.04) } : { aspectRatio: `1 / ${ratio}` })
-      : { minHeight: width * 1.2 }),
-    ...(ground && isPicture(ground)
-      ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
-      : ground ? { background: colourOf(ground.color, vars) } : {}),
+      ? (page.grow ? { minHeight: Math.max(column * ratio, grown + column * 0.04) } : { aspectRatio: `1 / ${ratio}` })
+      // exactly the page box in the frame under it, whatever the stylesheet gives a page of this name
+      : { height: flowBox.height || column * 1.2, minHeight: 0, padding: 0, boxSizing: 'border-box' as const }),
+    // its own stacking context, so what is drawn under the words stays in the page
+    isolation: 'isolate',
+    ...(framed
+      ? { background: 'transparent' }
+      : ground && isPicture(ground)
+        ? { backgroundImage: `url(${ground.url})`, backgroundSize: '100% 100%' }
+        : ground ? { background: colourOf(ground.color, vars) } : {}),
+  };
+  /** the design's own surround — the colour beside the column, and a picture behind the whole page — for the canvas around a drawn page */
+  const ownVars = designVars(doc);
+  /*
+   * The colour beside a page placed by hand, on the canvas around it. A page
+   * laid out by its words has it from the frame under the canvas, which is
+   * the guest page and lays its own band (PageGround); the canvas over it is
+   * clear glass, so it is drawn here only where there is no frame.
+   */
+  const beside = page && !framed ? outsideOf(page) : undefined;
+  const besideVars = beside ? { ['--inv-outside' as string]: `linear-gradient(${colourOf(beside, vars)}, ${colourOf(beside, vars)})` } : {};
+
+  /*
+   * The columns. Bringing a page in is one screen: the properties column
+   * steps aside rather than describing a page she is not looking at. And
+   * the form wants more room than a list of pages does — its fields are the
+   * tab's, drawn at the tab's width — so the left column widens with it.
+   */
+  const wholeSlug = sample === 'real' && real ? real.slug : p.demoSlug;
+  /*
+   * Both frames are the real guest page, drawn from the draft, against
+   * whoever the canvas is drawn against and by day or by night as the
+   * canvas is: a made-up sample is asked for by name and the server makes
+   * the same one. `shown` is bumped when the draft saves, and the address
+   * changes with it, so the frame is re-pointed rather than remade — the
+   * last page stays up until the new one paints, where a new element
+   * would be a white box in between.
+   */
+  /*
+   * A design with no demo of its own — every design made a minute ago — is
+   * drawn on the form's stand-in instead: the preview route puts this
+   * design over an invitation of the same occasion. Before this the canvas
+   * of a new design was simply empty, which is not a canvas.
+   */
+  const frameBase = wholeSlug ? `/${wholeSlug}?bare=1&design=draft` : `/preview/template/${p.templateId}?design=draft`;
+  const wholeSrc = useMemo(() => {
+    const q = new URLSearchParams();
+    if (sample !== 'demo' && sample !== 'real') q.set('sample', sample);
+    if (night) q.set('mode', 'night');
+    const qs = q.toString();
+    return qs ? `${frameBase}&${qs}` : frameBase;
+  }, [frameBase, sample, night]);
+  const screen = VIEWS.find((v) => v.key === size)?.screen ?? 844;
+  /** the frame is being drawn again: from the address changing until it has loaded */
+  const [drawing, setDrawing] = useState(false);
+  /** the page's own writings, as the frame drew them, for the handles that lift one off the flow */
+  const [writings, setWritings] = useState<Writing[]>([]);
+  const flowSrc = useMemo(() => {
+    if (!flowKey) return '';
+    const q = new URLSearchParams({ page: flowKey, screen: String(screen), v: String(shown) });
+    if (sample !== 'demo' && sample !== 'real') q.set('sample', sample);
+    if (night) q.set('mode', 'night');
+    return `${frameBase}&${q}`;
+  }, [frameBase, flowKey, screen, sample, night, shown]);
+  /** Where the page sits in its frame and how tall it is: the frame is same-origin, so it is simply read. */
+  const sizeFlow = useCallback(() => {
+    const win = flowFrame.current?.contentWindow;
+    // the page asked for, not the first: a page on a picture that runs on from above is drawn with those pages over it
+    const pg = win?.document.querySelector<HTMLElement>(`[data-page="${flowKey}"]`) ?? win?.document.querySelector<HTMLElement>('[data-page]');
+    if (!win || !pg) return;
+    const r = pg.getBoundingClientRect();
+    const top = r.top + win.scrollY;
+    setFlowBox((was) => (Math.abs(was.top - top) < 0.5 && Math.abs(was.height - r.height) < 0.5 ? was : { top, height: r.height }));
+    /*
+     * The floats, where the words let them land. A float is the one thing on
+     * the canvas the studio does not draw — it is in among the words inside
+     * the frame — so its handle is put over the box the frame gave it,
+     * measured here in the page's own percentages like every other box.
+     */
+    if (r.width > 0 && r.height > 0) {
+      const col = pg.querySelector<HTMLElement>('.inv-flow') ?? pg;
+      const cr = col.getBoundingClientRect();
+      if (cr.width > 0) {
+        const next = { left: place(((cr.left - r.left) / r.width) * 100), width: place((cr.width / r.width) * 100) };
+        setFlowCol((was) => (Math.abs(was.left - next.left) < 0.1 && Math.abs(was.width - next.width) < 0.1 ? was : next));
+      }
+      const found: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      for (const node of Array.from(pg.querySelectorAll<HTMLElement>('.inv-bb-float[data-el]'))) {
+        const fr = node.getBoundingClientRect();
+        found[node.dataset.el!] = {
+          x: ((fr.left - r.left) / r.width) * 100,
+          y: ((fr.top - r.top) / r.height) * 100,
+          w: (fr.width / r.width) * 100,
+          h: (fr.height / r.height) * 100,
+        };
+      }
+      setFlowBoxes((was) => {
+        const keys = Object.keys(found);
+        const same = keys.length === Object.keys(was).length
+          && keys.every((k) => was[k] && Math.abs(was[k].x - found[k].x) < 0.1 && Math.abs(was[k].y - found[k].y) < 0.1 && Math.abs(was[k].w - found[k].w) < 0.1);
+        return same ? was : found;
+      });
+    }
+    /*
+     * A picture pinned to the screen is a layer fixed to the frame's
+     * window — and the frame's window is the whole page, of which the
+     * canvas shows this page's box. The layer is told the box, so the
+     * picture fills it as it would fill a screen, and the layer's own
+     * measuring is asked to run again over the new box.
+     */
+    const pinsLayer = win.document.querySelector<HTMLElement>('.inv-pins');
+    if (pinsLayer) {
+      pinsLayer.style.top = `${top}px`;
+      pinsLayer.style.height = `${r.height}px`;
+      pinsLayer.style.bottom = 'auto';
+      win.dispatchEvent(new Event('resize'));
+    }
+    /*
+     * The page's own writings, where the frame drew them. Each is a handle
+     * on the canvas she can drag off the flow into a box of its own. The
+     * role is read off the class the renderer set, so the box is set the
+     * way the writing was; the size off the computed font, as a share of
+     * the width, for the same reason.
+     */
+    if (r.width > 0) {
+      const roleOf = (el: HTMLElement): LineRole => {
+        const c = el.className;
+        if (c.includes('inv-title') || c.includes('inv-names')) return 'title';
+        if (c.includes('inv-display')) return 'script';
+        if (c.includes('inv-eyebrow')) return 'eyebrow';
+        if (c.includes('inv-tagline')) return 'sub';
+        if (c.includes('inv-venue-name')) return 'label-title';
+        if (c.includes('inv-hero-date')) return 'label-text';
+        return 'body';
+      };
+      const found: Writing[] = [];
+      for (const el of Array.from(pg.querySelectorAll<HTMLElement>('[data-w]'))) {
+        /*
+         * One off the flow is drawn nowhere, so it has no box to measure:
+         * it is shown for the measure and hidden again, so that its handle
+         * is ready the moment the box that took its place goes.
+         */
+        const hidden = getComputedStyle(el).display === 'none';
+        const was = [el.style.getPropertyValue('display'), el.style.getPropertyPriority('display')] as const;
+        if (hidden) el.style.setProperty('display', 'revert', 'important');
+        const er = el.getBoundingClientRect();
+        if (hidden) el.style.setProperty('display', was[0], was[1]);
+        if (!er.width || !er.height) continue;
+        let src: Writing['src'] = [];
+        try { src = JSON.parse(el.dataset.src || '[]') as Writing['src']; } catch { src = []; }
+        found.push({
+          id: el.dataset.w || '', src, role: roleOf(el), text: (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+          x: ((er.left - r.left) / r.width) * 100, y: ((er.top - r.top) / r.height) * 100, w: (er.width / r.width) * 100, h: (er.height / r.height) * 100,
+          sizeCqw: (parseFloat(getComputedStyle(el).fontSize) / r.width) * 100,
+        });
+      }
+      setWritings(found);
+    }
+  }, [flowKey]);
+  useEffect(() => { if (flowSrc) setDrawing(true); }, [flowSrc]);
+  /**
+   * The theme, on the frame, the moment she picks it.
+   *
+   * The frame is the guest page — its own document, drawn by the server in
+   * the theme the row holds — so the faces and colours she is *trying* in
+   * the Theme popover reached the canvas around it and nothing inside it.
+   * On a page laid out by its words, which is every page the frame draws,
+   * that is the whole page: she changed the faces and saw no change, which
+   * is what she said. So the variables are written onto the frame's own
+   * invitation, and the stylesheet that carries every face we offer is put
+   * in its head — the frame's page loads only the faces the saved theme
+   * asks for, and a face she has not saved yet is not among them.
+   *
+   * Same-origin, so this is a write rather than a message. It runs again on
+   * every reload of the frame, because a reload is the server's answer and
+   * carries the saved theme, not the one she is trying.
+   */
+  const paintFrame = useCallback(() => {
+    const doc = flowFrame.current?.contentDocument;
+    if (!doc) return;
+    if (!doc.getElementById('studio-faces')) {
+      const link = doc.createElement('link');
+      link.id = 'studio-faces';
+      link.rel = 'stylesheet';
+      link.href = p.theme.facesUrl;
+      doc.head?.appendChild(link);
+    }
+    for (const el of [doc.querySelector<HTMLElement>('.inv-stage'), doc.querySelector<HTMLElement>('.inv')]) {
+      if (!el) continue;
+      for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+    }
+  }, [vars, p.theme.facesUrl]);
+  useEffect(() => { if (framed) paintFrame(); }, [framed, paintFrame, flowKey, drawing]);
+  /*
+   * At once, not after the save. The frame is the guest page and it is
+   * same-origin, so a colour, the colour beside the page and a height are
+   * put on it the moment they are picked; the save that follows redraws the
+   * page from the draft and lands on the same thing. Without this a colour
+   * took two seconds to show, and two seconds reads as "nothing happened".
+   */
+  useEffect(() => {
+    if (!framed || !page) return;
+    const win = flowFrame.current?.contentWindow;
+    const pg = win?.document.querySelector<HTMLElement>(`[data-page="${page.key}"]`);
+    if (!win || !pg) return;
+    /*
+     * The floats, as she drags them. They live in the frame, so without this
+     * the handle moved and the picture stayed where the last save left it —
+     * two seconds of the page disagreeing with her hand. The place is the
+     * same one `FlowFloats` writes, so what she sees while dragging is what
+     * the save lands on.
+     */
+    for (const el of flowFloats(page)) {
+      const node = win.document.querySelector<HTMLElement>(`.inv-bb-float[data-el="${CSS.escape(el.id)}"]`);
+      if (!node) continue;
+      const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
+      const at = floatAt(el, (el.w ?? 40) * shape.width);
+      node.dataset.float = at.side;
+      node.style.setProperty('--float-x', `${at.inset}%`);
+      node.style.setProperty('--float-y', `${at.down}%`);
+    }
+    const g = page.ground;
+    // a page on a picture pinned to the screen is see-through: its colour waits (pinOf)
+    pg.style.background = g && !isPicture(g) && !pins.has(page.key) ? colourOf(g.color, vars) : '';
+    /*
+     * The page's height and its size, written as the attribute and the
+     * variable the frame's own stylesheet reads rather than as a zoom and a
+     * height of our own. That matters for the size: it is the website's
+     * size, and the stylesheet only applies it above the phone's window
+     * (`[data-size]`), so handing it over this way is what makes the phone
+     * view show the page whole and the website view show it at the size she
+     * set — with no width test written twice.
+     */
+    const screens = screensOf(page);
+    const size = sizeOf(page);
+    if (size === undefined) { delete pg.dataset.size; pg.style.removeProperty('--page-size'); }
+    else { pg.dataset.size = ''; pg.style.setProperty('--page-size', String(size)); }
+    if (screens) { pg.dataset.min = ''; pg.style.setProperty('--page-min', String(screens)); }
+    else { delete pg.dataset.min; pg.style.removeProperty('--page-min'); }
+    pg.style.zoom = '';
+    pg.style.minHeight = '';
+    const beside = outsideOf(page);
+    const stage = win.document.querySelector<HTMLElement>('.inv-stage');
+    if (stage) {
+      if (beside) stage.style.setProperty('--inv-outside', `linear-gradient(${colourOf(beside, vars)}, ${colourOf(beside, vars)})`);
+      else stage.style.removeProperty('--inv-outside');
+    }
+  }, [framed, page, vars, pins]);
+  /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
+  const flowLoaded = useCallback(() => {
+    setDrawing(false);
+    paintFrame();
+    sizeFlow();
+    flowWatch.current?.disconnect();
+    const doc = flowFrame.current?.contentDocument;
+    if (!doc || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(sizeFlow);
+    ro.observe(doc.documentElement);
+    for (const pg of Array.from(doc.querySelectorAll('[data-page]'))) ro.observe(pg);
+    flowWatch.current = ro;
+  }, [sizeFlow, paintFrame]);
+  useEffect(() => () => flowWatch.current?.disconnect(), []);
+  /**
+   * How tall this page came out, in screens of the view she is looking at.
+   *
+   * Measured, not worked out: the height of a page laid out by its words is
+   * whatever the words make it, and no number in the document can say it in
+   * advance. The frame is the guest's own markup at the view's width, so
+   * this is the number a guest gets.
+   */
+  const pageScreens = useMemo(
+    () => (page && !page.drawn && flowBox.height > 0 && screen > 0 ? place(flowBox.height / screen) : undefined),
+    [page, flowBox.height, screen],
+  );
+  /**
+   * "Fit it to one screen": the size that brings this page inside the height
+   * it asked for.
+   *
+   * Tried against the page rather than worked out in one go, because a page
+   * of words does not shrink in a straight line: a narrower column wraps its
+   * lines differently, so the height at half the size is not half the height.
+   * One sum on this page undershot by 2% — 815px into an 800px screen, close
+   * but still scrolling, and "Fit it to one screen" that leaves the page a
+   * hair too tall is not the promise.
+   *
+   * So the size is written into the frame, the height read back — reading a
+   * rect makes the browser lay the page out, so the number is the truth and
+   * not a guess — and the sum done again on it. Three passes is plenty; the
+   * frame is put back as it was either way, and the document is what moves
+   * the canvas in the end (`paintFrame`).
+   */
+  const fitPage = useCallback(() => {
+    if (!page || page.drawn || size === 'phone') return;
+    const win = flowFrame.current?.contentWindow;
+    const pg = win?.document.querySelector<HTMLElement>(`[data-page="${page.key}"]`) ?? win?.document.querySelector<HTMLElement>('[data-page]');
+    if (!pg) return;
+    const had = pg.dataset.size !== undefined ? pg.style.getPropertyValue('--page-size') : undefined;
+    const asked = screensOf(page) ?? 1;
+    let to = sizeOf(page) ?? 1;
+    for (let pass = 0; pass < 3; pass += 1) {
+      // the attribute and the variable, not a zoom of our own, so the trial reads the page the way a guest's laptop will
+      if (to === 1) { delete pg.dataset.size; pg.style.removeProperty('--page-size'); }
+      else { pg.dataset.size = ''; pg.style.setProperty('--page-size', String(to)); }
+      const next = sizeToFit(pg.getBoundingClientRect().height, screen, to, asked);
+      if (next === to) break;
+      to = next;
+    }
+    if (had === undefined) { delete pg.dataset.size; pg.style.removeProperty('--page-size'); }
+    else { pg.dataset.size = ''; pg.style.setProperty('--page-size', had); }
+    editPage((pgSpec) => { const next: PageSpec = { ...pgSpec, size: to }; if (to === 1) delete next.size; return next; });
+  }, [page, screen, size, editPage]);
+  // another page is another height; until it is measured the canvas guesses, as it always did
+  useEffect(() => { setFlowBox({ top: 0, height: 0 }); }, [flowKey]);
+  const columns = view === 'import'
+    ? (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr]' : 'lg:grid-cols-[15rem_1fr]')
+    : (drawer === 'invitation' ? 'lg:grid-cols-[26rem_1fr] 2xl:grid-cols-[26rem_1fr_19rem]' : 'lg:grid-cols-[15rem_1fr_19rem]');
+  // With the form open a laptop has no room for three columns and a page
+  // wide enough to read: the properties column waits until she is back on
+  // the Pages list, or the screen is wide enough for all three.
+  const propsAside = view === 'import' ? 'hidden' : drawer === 'invitation' ? 'hidden 2xl:block' : '';
+
+  /**
+   * What she edits is what she sees. The drawer edits an invitation, and a
+   * made-up sample is nobody's, so opening it over one puts the demo back
+   * on the canvas; a customer already there stays.
+   */
+  const openDrawer = (k: typeof drawer) => {
+    setDrawer(k);
+    if (k === 'invitation' && sample !== 'demo' && sample !== 'real') setSample(real ? 'real' : 'demo');
   };
 
   return (
-    // Bringing a page in is one screen: the properties column steps aside
-    // rather than describing a page she is not looking at.
-    <div className={`grid gap-3 ${view === 'import' ? 'lg:grid-cols-[15rem_1fr]' : 'lg:grid-cols-[15rem_1fr_19rem]'}`}>
+    <div className={`grid gap-3 ${columns}`}>
       {/*
         * Every face of every set, in one request, so the font menu can be
         * drawn in the faces it offers and a set she tries takes effect on
@@ -1266,16 +2101,18 @@ export function Studio(p: Props) {
       {/* the pages */}
       <aside
         className="card h-fit p-2"
-        onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
-        onDrop={(e) => { if (e.dataTransfer.files.length) { e.preventDefault(); void addSheets([...e.dataTransfer.files]); } }}
+        // not while the form is open: a photograph dropped on one of its
+        // fields is the customer's, not a page of the design
+        onDragOver={(e) => { if (drawer !== 'invitation' && e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } }}
+        onDrop={(e) => { if (drawer !== 'invitation' && e.dataTransfer.files.length) { e.preventDefault(); void addSheets([...e.dataTransfer.files]); } }}
       >
-        {/* the pages, or the pieces any design can be built from */}
+        {/* the pages, the invitation's own form, or the pieces any design can be built from */}
         <div className="mb-1 flex gap-1 text-xs">
-          {([['pages', 'Pages'], ['library', 'Library'], ['guide', 'Guide']] as const).map(([k, lbl]) => (
+          {([['pages', 'Pages'], ['invitation', 'Invitation'], ['library', 'Library'], ['guide', 'Guide']] as const).map(([k, lbl]) => (
             <button
               key={k}
               type="button"
-              onClick={() => setDrawer(k)}
+              onClick={() => openDrawer(k)}
               className={`rounded px-2 py-1 ${drawer === k ? 'bg-[color:var(--color-sand-200)] font-semibold' : 'text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]'}`}
             >
               {lbl}
@@ -1285,6 +2122,26 @@ export function Studio(p: Props) {
 
         {drawer === 'guide' ? (
           <GuideDrawer />
+        ) : drawer === 'invitation' ? (
+          /*
+           * The Invitation tab's form, beside the canvas. It edits the
+           * invitation on the canvas and saves to it as the tab does; the
+           * design's own draft is saved separately, by the bar above.
+           */
+          editing ? (
+            <InvitationDrawer
+              invitationId={editing}
+              title={real && editing === real.id ? `${real.title} · ${real.tier.toLowerCase()}` : `The demo — ${p.demoTitle}`}
+              asked={asked}
+              onStep={setAsked}
+              onShown={follow}
+              onDraft={(id, section, data) => setDraft({ id, section, data })}
+              onSaved={folded}
+              onError={(message) => setAgainst((a) => ({ ...a, error: message }))}
+            />
+          ) : (
+            <p className="hint px-1 py-2">This design has no demo invitation, so there is nothing to fill in. Give it one on the template&rsquo;s own page.</p>
+          )
         ) : drawer === 'library' ? (
           <LibraryDrawer
             selected={selected}
@@ -1299,10 +2156,26 @@ export function Studio(p: Props) {
         <div className="flex items-center justify-between px-1">
           <p className="label">Pages</p>
           <span className="flex gap-1">
-            <button type="button" title="A new blank page after this one" onClick={() => addPage()} className="rounded bg-[color:var(--color-sand-200)] px-2 text-sm leading-6">+</button>
+            <button type="button" title="A new page after this one, carrying a part not yet on a page" aria-expanded={adding} onClick={() => setAdding((v) => !v)} className={`rounded px-2 text-sm leading-6 ${adding ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>+</button>
             <button type="button" title="A copy of this page after it" onClick={() => page && addPage(page)} className="rounded bg-[color:var(--color-sand-200)] px-2 text-xs leading-6">copy</button>
           </span>
         </div>
+        {adding && (
+          <div className="mx-1 mt-1 rounded-lg border border-[color:var(--color-sand-300)] bg-[color:var(--color-sand-100)] p-2 text-xs" data-testid="add-page">
+            <p className="mb-1 font-semibold">What will the new page carry?</p>
+            {unplaced.length ? (
+              <ul className="space-y-0.5">
+                {unplaced.map((k) => (
+                  <li key={k.key}><button type="button" onClick={() => { addPage(undefined, k.key); setAdding(false); }} className="w-full rounded px-2 py-1 text-left hover:bg-white">{k.label}</button></li>
+                ))}
+              </ul>
+            ) : (
+              <p className="hint">Every part is on a page already.</p>
+            )}
+            <button type="button" onClick={() => { addPage(); setAdding(false); }} className="mt-1 w-full rounded px-2 py-1 text-left text-[color:var(--color-ink-700)] hover:bg-white">A page with no part &mdash; artwork or a picture on its own</button>
+            <button type="button" onClick={() => setAdding(false)} className="mt-1 w-full rounded px-2 py-1 text-left text-[color:var(--color-ink-500)] hover:bg-white">Cancel</button>
+          </div>
+        )}
         <CopyFrom templateId={p.templateId} onCopy={addBrought} />
         <ol className="mt-1 space-y-1">
           {doc.pages.map((pg, i) => (
@@ -1319,7 +2192,7 @@ export function Studio(p: Props) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{pg.label?.en ?? pg.key}</span>
                   <span className="block text-[11px] text-[color:var(--color-ink-500)]">
-                    {i + 1}. {pg.drawn ? 'drawn' : 'flows'}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}
+                    {i + 1}. {pg.drawn ? 'drawn' : 'flows'}{runs.has(pg.key) ? ' · on the picture above' : ''}{pg.elements?.length ? ` · ${pg.elements.length}` : ''}
                     {(() => {
                       const c = needCount(needs, pg.key);
                       if (c.blocks) return <span className="font-semibold text-red-700"> · {c.blocks} to fix</span>;
@@ -1354,7 +2227,7 @@ export function Studio(p: Props) {
         {drop.error && <p className="hint mt-1 text-[color:var(--bad)]">{drop.error}</p>}
         {said && <p className="hint mt-1">{said}</p>}
         <HidesPanel occasion={p.occasion} hides={doc.hides ?? []} onToggle={toggleHide} />
-        <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} />
+        <ColoursPanel doc={doc} onColumn={setColumnColour} onNight={setNightColour} onSurroundArt={setSurroundArt} />
         {/*
           * The same page, but with its frames found rather than placed by
           * hand. Two exports instead of one is the whole price of it.
@@ -1425,33 +2298,59 @@ export function Studio(p: Props) {
       </aside>
 
       {/* the page */}
-      <section className="card p-3">
+      <section ref={canvasRef} className="card min-w-0 p-3">
         <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-          {WIDTHS.map((w) => (
-            <button key={w.key} type="button" onClick={() => setWidth(w.key)} className={`rounded px-2 py-1 ${width === w.key ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{w.label}<span className="ml-1 opacity-60">{w.hint}</span></button>
+          {VIEWS.map((v) => (
+            <button key={v.key} type="button" onClick={() => setSize(v.key)} className={`rounded px-2 py-1 ${size === v.key ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>{v.label}<span className="ml-1 opacity-60">{v.hint}</span></button>
           ))}
+          <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
+          <button type="button" title="Zoom out" onClick={() => setZoom(Math.max(0.25, Math.round((scale - 0.1) * 10) / 10))} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">&minus;</button>
+          <span className="w-10 text-center tabular-nums" data-testid="zoom">{Math.round(scale * 100)}%</span>
+          <button type="button" title="Zoom in" onClick={() => setZoom(Math.min(2, Math.round((scale + 0.1) * 10) / 10))} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+</button>
+          <button type="button" title="Fit the whole width" onClick={() => setZoom('fit')} className={`rounded px-2 py-1 ${zoom === 'fit' ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Fit</button>
           <span className="mx-1 h-4 w-px bg-[color:var(--color-sand-300)]" />
           {view === 'page' ? (
             <>
-              {/* a flow page's words are its sections': see flowDecor */}
-              {page?.drawn && <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>}
+              {/* on a page laid out by its words a box of words hangs off its head or foot, over the section's own: see flowDecor */}
+              <button type="button" onClick={() => addElement('text')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Words</button>
               <button type="button" onClick={() => addElement('photo')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Photo frame</button>
               <button type="button" onClick={() => addElement('shape')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Shape</button>
+              <button type="button" onClick={() => addElement('frame')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">+ Frame</button>
+              <button type="button" data-testid="add-moment" title="A thing a guest taps, swipes or holds: the envelope, the doors, the instant camera" onClick={() => setMomentSheet((o) => !o)} className={`rounded px-2 py-1 ${momentSheet ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>+ Moment</button>
               <AddMoving templateId={p.templateId} onAdd={addMoving} />
               <AddAnim templateId={p.templateId} onAdd={addAnim} />
               <AddClip templateId={p.templateId} onAdd={addClip} />
+              {momentSheet && <MomentSheet occasion={p.occasion} onPick={(e) => { addElement('moment', e); setMomentSheet(false); }} onClose={() => setMomentSheet(false)} />}
             </>
           ) : (
             <button type="button" onClick={() => setShown((n) => n + 1)} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Draw it again</button>
           )}
           <span className="ml-auto" />
-          {view === 'page' && page?.drawn && ratio <= ONE_SCREEN + 0.02 && (
-            <button type="button" title="The band a phone's browser keeps for itself until the guest scrolls" onClick={() => setBar((x) => !x)} className={`rounded px-2 py-1 ${bar ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}>Browser bar</button>
+          {/*
+            * What the canvas is doing, said where she is looking. A page laid
+            * out by its words is drawn from the saved draft, so a change is
+            * seen a moment after her hand stops — and until this said so,
+            * that moment read as nothing having happened.
+            */}
+          {view === 'page' && framed && (
+            <span data-testid="redraw" aria-live="polite" className={`rounded-full px-2 py-0.5 text-[11px] ${state === 'error' ? 'bg-red-50 text-red-800' : state === 'dirty' || state === 'saving' || drawing ? 'bg-amber-50 text-amber-900' : 'bg-[color:var(--color-sand-100)] text-[color:var(--color-ink-500)]'}`}>
+              {state === 'error' ? 'Not saved' : state === 'dirty' ? 'Changed · saving in a moment' : state === 'saving' ? 'Saving…' : drawing ? 'Redrawing the page…' : 'The page as saved'}
+            </span>
+          )}
+          {view === 'page' && page?.drawn && (
+            <button
+              type="button"
+              title="Lines only: where words are safe on the narrowest phone, where a phone's edges fall, where the browser's own bar sits, and whatever the checklist says about this page"
+              onClick={() => setGuide((x) => !x)}
+              className={`rounded px-2 py-1 ${guide ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}
+            >
+              Phone guide
+            </button>
           )}
           {view === 'page' && (
             <>
               <select
-                title="Who the page is drawn against. None of it is saved: it is what the canvas draws, not what anybody has."
+                title="Who the page is drawn against. A sample is what the canvas draws and nothing more; the Invitation drawer saves to the invitation itself."
                 value={sample === 'real' && real ? `inv:${real.id}` : sample}
                 onFocus={() => void loadTheirs()}
                 onChange={(e) => {
@@ -1463,16 +2362,18 @@ export function Studio(p: Props) {
               >
                 {SAMPLES.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
                 <optgroup label="An invitation on this design">
+                  {/* the one on the canvas, before the list has been asked for and when the list does not reach it */}
+                  {real && !theirs?.some((t) => t.id === real.id) && <option value={`inv:${real.id}`}>{invitationName(real)}</option>}
                   {theirs === null
                     ? <option value="" disabled>{against.busy ? 'finding them…' : 'open again to list them'}</option>
                     : theirs.length === 0
                       ? <option value="" disabled>none built on this design yet</option>
-                      : theirs.map((t) => <option key={t.id} value={`inv:${t.id}`}>{t.title} · {t.tier.toLowerCase()}{t.status === 'PUBLISHED' ? ' · live' : ''}</option>)}
+                      : theirs.map((t) => <option key={t.id} value={`inv:${t.id}`}>{invitationName(t)}</option>)}
                 </optgroup>
               </select>
               {against.error && <span className="text-[11px] text-[color:var(--bad)]">{against.error}</span>}
-              {sample === 'real' && real && !against.error && (
-                <span className="text-[11px] text-[color:var(--color-ink-500)]">their words, read only</span>
+              {sample === 'real' && real && (
+                <button type="button" onClick={() => openDrawer('invitation')} className="rounded bg-[color:var(--color-sand-200)] px-2 py-1">Edit their details</button>
               )}
             </>
           )}
@@ -1542,25 +2443,45 @@ export function Studio(p: Props) {
         )}
 
         {view === 'whole' && (
-          <div className="flex justify-center bg-[color:var(--color-sand-100)] p-4">
-            {p.demoSlug ? (
+          <div className="flex justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4">
+            {/* the invitation on the canvas — a customer's when she is drawing against one — as the draft design serves it, at the view's width */}
+            <div style={{ zoom: scale } as CSSProperties}>
               <iframe
                 key={shown}
                 ref={frame}
                 title="The whole invitation"
-                src={`/${p.demoSlug}?bare=1&design=draft`}
+                src={wholeSrc}
                 onLoad={showPage}
                 className="shadow-lg"
-                style={{ width, height: 780, border: 0, background: '#fff' }}
+                style={{ width, height: size === 'website' ? 800 : 780, border: 0, background: '#fff' }}
               />
-            ) : (
-              <p className="hint py-12">This design has no demo invitation, so there is nothing to draw it against. Give it one on the template&rsquo;s own page.</p>
-            )}
+            </div>
           </div>
         )}
 
         <div className={`justify-center overflow-auto bg-[color:var(--color-sand-100)] p-4 ${view === 'page' ? 'flex' : 'hidden'}`}>
-          <div className="relative shadow-lg" style={{ width }}>
+          {/*
+            * The browser. The whole website page at the width of the view,
+            * zoomed to fit or as she asks. It is the guest page's own stage —
+            * the same class, the same variables — so the column sits on the
+            * design's surround exactly where a laptop puts it, and a picture
+            * behind the whole page runs edge to edge under it. Under a page
+            * laid out by its words the frame *is* the page, the whole window
+            * of it, and everything of ours over it is clear glass.
+            */}
+          <div className="inv-stage relative shadow-lg" data-canvas="" style={{ ...vars, ...ownVars, ...besideVars, width, zoom: scale, isolation: 'isolate', ...(framed ? { background: 'transparent' } : {}) } as CSSProperties}>
+            {framed && flowSrc && (
+              <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: -5, pointerEvents: 'none' }}>
+                <iframe
+                  ref={flowFrame}
+                  title="This page, as a guest sees it"
+                  src={flowSrc}
+                  onLoad={flowLoaded}
+                  tabIndex={-1}
+                  style={{ position: 'absolute', left: 0, top: -flowBox.top, width: '100%', height: flowBox.top + (flowBox.height || column * 1.2), border: 0, background: 'transparent' }}
+                />
+              </div>
+            )}
             {/*
               * `data-motion` here and not from the island: the canvas is not
               * a guest's page and she is drawing, so what she needs is to see
@@ -1568,7 +2489,7 @@ export function Studio(p: Props) {
               * element is marked arrived a frame after it is drawn (below), so
               * nothing she places is invisible while she places it.
               */}
-            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-motion="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0 } as CSSProperties} lang="en">
+            <div className="inv" data-layout={p.layout} data-doc="" data-paged="" data-motion="" data-mode={night ? 'night' : 'day'} style={{ ...vars, minHeight: 0, ...(framed ? { background: 'transparent' } : {}) } as CSSProperties} lang="en">
               <div
                 ref={stage}
                 className="inv-page relative"
@@ -1583,18 +2504,22 @@ export function Studio(p: Props) {
               >
                 {/*
                   * A drawn page is its elements. A page laid out by its words
-                  * is its decorations and nothing else here: its words are its
-                  * customer's and their height is not known until the browser
-                  * has laid them out, which is what the whole-invitation tab
-                  * is for. The band is the page's width, and every decoration
-                  * on it hangs off an edge by a share of that width — so what
-                  * she sees here is exactly where it will be, on a page whose
+                  * is its decorations here, over the page itself: its words
+                  * are its customer's and their height is not known until the
+                  * browser has laid them out, so the guest page lays them out
+                  * in the frame under the browser box above and this canvas
+                  * takes its height from it. (One frame, not two: a second
+                  * copy of the same frame used to sit inside the page as
+                  * well, loading the page twice and hiding the colour beside
+                  * it.) The band is the page's width, and every decoration on
+                  * it hangs off an edge by a share of that width — so what she
+                  * sees here is exactly where it will be, on a page whose
                   * height is the only part this canvas has to guess.
                   */}
                 {page && (page.drawn
-                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" edit={{ label, cropping: fit?.id }} />
+                  ? <DrawnPage page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} parts={p.parts} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
                   : (['under', 'over'] as const).map((layer) => (
-                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" layer={layer} edit={{ label, cropping: fit?.id }} />
+                    <FlowDecor key={layer} page={page} content={shownContent} look={p.look} lang="en" occasion={p.occasion} layer={layer} edit={{ label, cropping: fit?.id, playing: sel.length === 1 ? sel[0] : undefined }} />
                   )))}
                 {/*
                   * The handles, over the real page. The layer itself lets the
@@ -1603,35 +2528,88 @@ export function Studio(p: Props) {
                   * own photographs sit on top and nothing can be grabbed.
                   */}
                 {/*
-                  * A page drawn to a screen or less loses its foot to the
-                  * browser's own bar on the first look. The band is drawn at
-                  * a tenth of a screen — the browser's number, not the
-                  * page's — so nothing on the page can be measured from it.
+                  * The phone guide. Hairlines and a set of rings, all of them
+                  * over the page and none of them in it: the layer takes no
+                  * pointer, so it cannot get between her and a box, and
+                  * nothing is shaded or striped over what she is drawing.
+                  *
+                  * The gutter is the same number the checklist measures words
+                  * against (`GUTTER`), so the line on the page and the
+                  * sentence in the drawer can never disagree. The bar is a
+                  * tenth of a screen — the browser's number, not the
+                  * page's — so nothing on the page is measured from it, and
+                  * it is only drawn on a page of a screen or less, which is
+                  * the only page a bar can cover.
                   */}
-                {page?.drawn && bar && ratio <= ONE_SCREEN + 0.02 && (
-                  <div
-                    aria-hidden
-                    style={{
-                      position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6, pointerEvents: 'none',
-                      height: `${(BROWSER_BAR / ratio) * 100}%`,
-                      background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
-                      borderTop: '1px dashed rgba(31,29,26,0.5)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
-                      the browser&rsquo;s bar sits about here
-                    </span>
+                {/*
+                  * The same guide over a page laid out by its words, which
+                  * until now showed none: she was editing at website width
+                  * with nothing on the canvas to say what a phone would do
+                  * with it, and asked for exactly this.
+                  *
+                  * Lines, and nothing else. A guide that shades or stripes
+                  * the page is a guide she has to look through to judge
+                  * what she is drawing — "it should only be a guide", in
+                  * her words — so each limit is one hairline and the design
+                  * underneath is untouched: the two the words want to stay
+                  * inside, the two where a phone's edges fall at website
+                  * width, and one where a phone browser's own bar cuts off
+                  * the first screen.
+                  */}
+                {framed && guide && (
+                  <div aria-hidden data-testid="flow-guide" style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none', overflow: 'hidden' }}>
+                    {[GUTTER, 100 - GUTTER].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: 0, borderLeft: '1px dashed rgba(47,111,208,0.5)' }} />
+                    ))}
+                    {column > PHONE_VIEW && [(column - PHONE_VIEW) / 2, column - (column - PHONE_VIEW) / 2].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: at, width: 0, borderLeft: '1px solid rgba(31,29,26,0.35)' }} />
+                    ))}
+                    {flowBox.height > screen * 0.5 && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: Math.round(screen * (1 - BROWSER_BAR)), height: 0, borderTop: '1px dashed rgba(31,29,26,0.45)' }} />
+                    )}
                   </div>
                 )}
-                {page?.drawn && (
+                {page?.drawn && guide && (
+                  <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none' }}>
+                    {[GUTTER, 100 - GUTTER].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: 0, borderLeft: '1px dashed rgba(47,111,208,0.5)' }} />
+                    ))}
+                    {ratio <= ONE_SCREEN + 0.02 && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: `${(BROWSER_BAR / ratio) * 100}%`, height: 0, borderTop: '1px dashed rgba(31,29,26,0.45)' }} />
+                    )}
+                    {/*
+                      * And the checklist, on the page. A ring where a line is
+                      * about a box, red where it blocks and amber where it is
+                      * hers to ignore, so "Milestone 2 is too small to read on
+                      * a phone" has somewhere to point.
+                      */}
+                    {here.map((n) => {
+                      const at = n.id ? boxes[n.id] : undefined;
+                      if (!at) return null;
+                      const bad = n.level === 'blocks';
+                      return (
+                        <div
+                          key={`${n.rule}-${n.id}`}
+                          title={n.text}
+                          style={{
+                            position: 'absolute', left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%`, height: `${at.h}%`,
+                            outline: `2px dashed ${bad ? 'rgba(185,28,28,0.85)' : 'rgba(180,83,9,0.75)'}`,
+                            outlineOffset: 2, borderRadius: 2,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+                {page && (page.drawn || pieces.decor.length > 0 || writings.length > 0) && (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 5, pointerEvents: 'none' }}>
                     <Ties elements={elements} boxes={boxes} on={chosen} />
-                    {elements.map((el) => (
+                    {/* on a page laid out by its words the floats are among the words, in the frame, and only the decorations have handles here */}
+                    {(page.drawn ? elements : [...pieces.floats, ...pieces.decor]).map((el) => (
                       <Handle
                         key={el.id}
                         el={el}
-                        at={boxes[el.id]}
+                        at={boxes[el.id] ?? wouldFloat(el)}
                         on={chosen.has(el.id)}
                         solo={sel.length === 1}
                         fitting={fit ? (fit.id === el.id ? 'this' : 'other') : undefined}
@@ -1641,6 +2619,23 @@ export function Studio(p: Props) {
                         onFit={() => startFit(el.id)}
                       />
                     ))}
+                    {/*
+                      * The page's own writings, each a handle she can drag
+                      * off the flow into a box of its own. Faint, and green
+                      * rather than the pieces' blue, so what is the app's
+                      * and what is hers read apart; one already lifted has
+                      * no handle, since the box that took its place has one.
+                      */}
+                    {!page.drawn && writings.filter((wr) => !(page.offFlow ?? []).includes(wr.id)).map((wr) => (
+                      <div
+                        key={`w:${wr.id}`}
+                        data-writing={wr.id}
+                        title={`${wr.text} — drag to take it off the page into a box of its own, still reading the same answer; double-click to edit its words`}
+                        onPointerDown={(e) => { e.stopPropagation(); drag.current = { kind: 'lift', w: wr, px: e.clientX, py: e.clientY }; }}
+                        onDoubleClick={() => editWriting(wr)}
+                        style={{ position: 'absolute', left: `${wr.x}%`, top: `${wr.y}%`, width: `${wr.w}%`, height: `${wr.h}%`, outline: '1px dashed rgba(16, 122, 84, 0.5)', cursor: 'grab', pointerEvents: 'auto' }}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
@@ -1648,12 +2643,51 @@ export function Studio(p: Props) {
           </div>
         </div>
         {view === 'whole'
-          ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; two seconds after your hand stops &mdash; and scrolled to the page you are on.</p>
-          : view === 'page' && !page?.drawn && <p className="hint mt-2">This page is laid out by its words, not by hand, so there is nothing to drag on it. Its background, the sections it carries and the pictures and pieces on it are on the right; the decorations among them are drawn here, against the page&rsquo;s width, on a page as tall as this canvas guesses rather than as tall as a customer&rsquo;s words. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.</p>}
+          ? <p className="hint mt-2">The design as a guest is served it, from the draft. It is redrawn when the draft saves &mdash; a moment after your hand stops &mdash; and scrolled to the page you are on.{!wholeSlug && ' This design has no demo invitation of its own, so it is drawn on a stand-in of the same occasion; give it a demo under Details to draw it on the real thing.'}</p>
+          : view === 'page' && !page?.drawn && (
+            <div className="mt-2">
+              {/*
+                * The sentence somebody reads when they have pressed a button
+                * and are asking what happened. It used to offer a way out of
+                * the page — drawing it by hand — which left a countdown page
+                * as two empty boxes; now it says how to put things on the
+                * page as it is.
+                */}
+              <p className="hint">
+                This page is laid out by its words and drawn here as a guest is served it &mdash; the parts it carries, with the words of whoever the canvas is drawn against.
+                <strong> + Photo frame</strong>, <strong>+ Words</strong>, <strong>+ Shape</strong>, <strong>+ Frame</strong> and the rest above put a piece on it: it lands just under the head, selected, and you drag it where it goes, from the head or from the foot.
+                An empty frame is drawn as a dashed box until a picture is in it, and a piece sits behind the words unless it is set to go over them. A picture the words flow past can be dragged where you want it: the words flow on whichever side of the middle you leave it.
+                The page&rsquo;s own writings show a faint green outline: drag one to take it off the flow into a box of its own that still reads the same answer, and it moves and sets like any other box; double-click one to edit its words in the Invitation drawer. Taking the box off (&#x2715;) puts the writing back.
+                The parts the app draws &mdash; a countdown, an RSVP form, a map, a film &mdash; stay as they are under the pieces, and a clip you have picked plays where it is.
+                A page taller than its words is set on the right, under Background: at least so many screens.
+                The page is redrawn from the draft a moment after your hand stops; the label above says when. Its background, the colour beside it, the parts it carries and the pieces on it are on the right. <button type="button" onClick={() => { setView('whole'); if (state === 'dirty') void save(doc); }} className="underline">See it in the whole invitation</button>.
+              </p>
+            </div>
+          )}
+        {/*
+          * The answer to "if I work at laptop width, will a phone cut it?".
+          *
+          * It is no, and the reason is worth saying rather than leaving her
+          * to find out: the stylesheet caps a drawn invitation at a phone
+          * column (32rem) at every window width, and every number in the
+          * document is a share of that width — so the page is never laid out
+          * twice and nothing is ever re-cut. What changes on a smaller screen
+          * is the size of it, which is what the guide's three marks are about.
+          */}
+        {view === 'page' && page && (
+          <p className="hint mt-2">
+            {page.drawn
+              ? <>This page is the same page at every width: a guest&rsquo;s invitation is never wider than the Laptop 512 above, and everything on the page is a share of that width &mdash; so what you place here lands in the same place on a 360 phone, only smaller. Nothing is cut and nothing moves.{' '}</>
+              : <>This page is laid out by its words, so a phone re-wraps them inside a narrower column while the background behind them fills whatever screen it is on. What a phone changes is where the lines break and how much of the background it shows.{' '}</>}
+            {guide
+              ? <>The guide is lines only, nothing laid over the page: keep words inside the two dashed uprights and a phone will not read them as cut, and the dashed line across is where a phone browser&rsquo;s own bar sits until the guest scrolls. At website width the two solid uprights are where a phone&rsquo;s edges fall. A ring marks anything the checklist has a line about. Switch between the widths above to see how big the writing actually gets.</>
+              : <>Turn on <strong>Phone guide</strong> above to see where words are safe, where a phone browser&rsquo;s bar sits, and whatever the checklist says about this page.</>}
+          </p>
+        )}
       </section>
 
       {/* what is selected */}
-      <aside className={`card h-fit space-y-3 p-3 text-sm ${view === 'import' ? 'hidden' : ''}`}>
+      <aside className={`card h-fit space-y-3 p-3 text-sm ${propsAside}`}>
         {group.length > 1 ? (
           <GroupProps
             group={group}
@@ -1679,6 +2713,7 @@ export function Studio(p: Props) {
             onDuplicate={duplicate}
             onRemove={remove}
             onReplay={() => replay(selected.id)}
+            onPlayMoment={() => playMoment(selected.id)}
             label={label(selected)}
             templateId={p.templateId}
             flow={!page?.drawn}
@@ -1695,11 +2730,23 @@ export function Studio(p: Props) {
             page={page}
             onChange={editPage}
             onGround={setGround}
+            onBackground={setBackground}
+            onRunsOn={setRunsOn}
+            words={{
+              flowing: writings.map((w) => ({ id: w.id, text: w.text })),
+              steady: (page?.elements ?? []).filter((e): e is TextEl => e.kind === 'text' && Boolean(e.lifted)).map((e) => ({ id: e.id, text: nameOfWords(e) })),
+              lift: (id) => { const w = writings.find((x) => x.id === id); if (w) liftWriting(w, 0, 0); },
+              back: (id) => putBack(id),
+              pick: (id) => setSel([id]),
+            }}
+            pinnedOn={pinnedOn}
+            joinedTo={joinedTo ? (doc.pages.find((x) => x.key === joinedTo)?.label?.en || joinedTo) : undefined}
             templateId={p.templateId}
             vars={vars}
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
             pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
             dress={{ value: page?.sectionStyle, set: setDress }}
+            tall={{ screens: pageScreens, fit: fitPage, onPhone: size === 'phone' }}
           />
         )}
       </aside>
@@ -1709,10 +2756,12 @@ export function Studio(p: Props) {
 
 // ---------------------------------------------------------------------------
 
-function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
-  const said: Record<string, string> = { clean: 'No unsaved changes', dirty: 'Not saved yet', saving: 'Saving…', saved: 'Draft saved', error: 'Not saved' };
+function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, back, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
+  // named, because the Invitation drawer has a saving line of its own on the same screen
+  const said: Record<string, string> = { clean: 'Design: no unsaved changes', dirty: 'Design: not saved yet', saving: 'Design: saving…', saved: 'Design draft saved', error: 'Design: not saved' };
   return (
     <div className="card col-span-full flex flex-wrap items-center gap-2 p-3">
+      {back && <Link href={back.href} className="btn btn-ghost btn-sm" data-testid="back">&larr; Back to {back.label}</Link>}
       <p className="font-semibold">{name}</p>
       <span className={`rounded-full px-2 py-0.5 text-xs ${published ? 'bg-[color:var(--color-sand-200)]' : 'bg-amber-100 text-amber-900'}`}>{published ? 'Published' : 'Never published'}</span>
       <span className={`text-xs ${state === 'error' ? 'text-red-700' : 'text-[color:var(--color-ink-500)]'}`}>{said[state]}</span>
@@ -1911,14 +2960,15 @@ function ThemePopover({ templateId, theme, saved, value, onChange, onSaved, onCl
  * were the same kind of literal: two per layout, in the stylesheet, which is
  * why a design drawn here wore its layout's and could not say otherwise.
  */
-function ColoursPanel({ doc, onColumn, onNight }: {
+function ColoursPanel({ doc, onColumn, onNight, onSurroundArt }: {
   doc: DesignDoc;
   onColumn: (key: 'paper' | 'surround', colour: string | undefined) => void;
   onNight: (role: keyof NightPalette, colour: string | undefined) => void;
+  onSurroundArt: (art: SurroundArt | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
   const night = doc.nightColours ?? {};
-  const set = (doc.paper ? 1 : 0) + (doc.surround ? 1 : 0) + Object.keys(night).length;
+  const set = (doc.paper ? 1 : 0) + (doc.surround ? 1 : 0) + (doc.surroundArt ? 1 : 0) + Object.keys(night).length;
   return (
     <div className="mt-2 border-t border-[color:var(--color-sand-300)] pt-2">
       <button type="button" onClick={() => setOpen((x) => !x)} className="flex w-full items-center justify-between text-left">
@@ -1931,6 +2981,7 @@ function ColoursPanel({ doc, onColumn, onNight }: {
             <p className="hint">The column itself, and what is beside it on a laptop.</p>
             <OwnColour label="The column" colour={doc.paper} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('paper', c)} />
             <OwnColour label="Beside it" colour={doc.surround} fallback={PALETTE_FALLBACK} onPick={(c) => onColumn('surround', c)} />
+            <SurroundPicture art={doc.surroundArt} onChange={onSurroundArt} />
           </div>
           <div className="space-y-1">
             <p className="hint">By night. Anything you leave alone stays ours.</p>
@@ -1949,6 +3000,62 @@ function ColoursPanel({ doc, onColumn, onNight }: {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * A picture behind the whole website page, edge to edge.
+ *
+ * The one thing an owner exports from Canva as "the background" and wants
+ * to judge on the whole page rather than on a phone strip: it goes here
+ * once, the column sits on it, and a phone covers it with the column. It
+ * goes up through the library, so it is also a piece she can place.
+ */
+function SurroundPicture({ art, onChange }: { art?: SurroundArt; onChange: (a: SurroundArt | undefined) => void }) {
+  const [busy, setBusy] = useState('');
+  const [error, setError] = useState('');
+  async function pick(file: File) {
+    setError('');
+    setBusy('Sending…');
+    try {
+      const read = await readPicture(file);
+      const fd = new FormData();
+      fd.set('file', new File([read.blob], `${file.name.replace(/\.[^.]+$/, '')}.webp`, { type: 'image/webp' }));
+      fd.set('library', '1');
+      fd.set('name', `Behind the page — ${file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ')}`);
+      fd.set('width', String(read.width));
+      fd.set('height', String(read.height));
+      const res = await fetch('/api/admin/design-upload', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'The upload failed.');
+      onChange({ url: json.url as string, fit: art?.fit ?? 'cover' });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy('');
+  }
+  return (
+    <div className="rounded bg-[color:var(--color-sand-100)] p-2" data-testid="surround-picture">
+      <p className="text-xs font-semibold">Behind the whole page, on a laptop</p>
+      <p className="hint">A picture edge to edge under the column &mdash; the background you export from Canva, 1920 &times; 1080 px. A phone covers it with the column.</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {art?.url && <span className="h-8 w-12 shrink-0 rounded-sm border border-black/10 bg-cover bg-center" style={{ backgroundImage: `url(${art.url})` }} />}
+        <label className="btn btn-secondary btn-sm cursor-pointer">
+          {busy || (art?.url ? 'Change the picture' : 'Upload a picture')}
+          <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f); e.target.value = ''; }} />
+        </label>
+        {art?.url && (
+          <>
+            <select className="input w-auto text-xs" value={art.fit} onChange={(e) => onChange({ ...art, fit: e.target.value as SurroundArt['fit'] })} aria-label="How the picture fills the page">
+              <option value="cover">one picture across the window, still as the page scrolls</option>
+              <option value="tile">a small picture, repeated</option>
+            </select>
+            <button type="button" onClick={() => onChange(undefined)} className="text-xs text-red-700 underline">Remove</button>
+          </>
+        )}
+      </div>
+      {error && <p role="alert" className="mt-1 text-xs text-[color:var(--bad)]">{error}</p>}
     </div>
   );
 }
@@ -2044,6 +3151,11 @@ function Handle({ el, at, on, solo, fitting, onDown, onSize, onTurn, onFit }: {
       onDoubleClick={el.kind === 'photo' && !fitting ? onFit : undefined}
       style={{
         position: 'absolute', left: `${at.x}%`, top: `${at.y}%`, width: `${at.w}%`, height: `${at.h}%`,
+        // above the page's own writings, which are handles too and are drawn
+        // after these: a picture the words flow past stands among them, so
+        // without this its handle is under one of theirs and never gets the
+        // pointer at all
+        zIndex: 1,
         cursor: fitting === 'this' ? 'grab' : 'move', background: 'transparent',
         // everything but the picture being fitted waits: a stray click while
         // she is panning must not pick something else up
@@ -2085,7 +3197,7 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, onPlayMoment, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
   /** the page is laid out by its words, so a picture on it floats rather than being placed */
   flow: boolean;
@@ -2095,6 +3207,8 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   onLayer: (by: number) => void; onDuplicate: () => void; onRemove: () => void;
   /** take the arrival off this element and put it back, so she can watch it again */
   onReplay: () => void;
+  /** close a moment on the canvas and open it again */
+  onPlayMoment: () => void;
   measureRoom: () => number | undefined;
   attachable: Named[];
   grows: boolean;
@@ -2111,7 +3225,7 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind === 'video' ? 'Clip' : el.kind}</p>
+        <p className="label">{el.kind === 'photo' ? 'Photo frame' : el.kind === 'text' ? 'Words' : el.kind === 'shape' ? 'Shape' : el.kind === 'video' ? 'Clip' : el.kind === 'moment' ? 'Moment' : el.kind}</p>
         <p className="text-[11px] text-[color:var(--color-ink-500)]">{el.id}</p>
       </div>
       <p className="text-xs text-[color:var(--color-ink-500)]">{label}</p>
@@ -2126,19 +3240,17 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         * the edge it is measured from. A drawn page is as it always was.
         */}
       <div className="grid grid-cols-2 gap-2">
-        {!floated && <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>}
-        {!floated && (
-          <label className="block">
-            <span className="label">{deco ? (el.from === 'bottom' ? 'Up from the foot' : 'Down from the head') : 'Down'}</span>
-            {num(el.y, (n) => onMoveTo({ y: n }))}
-          </label>
-        )}
+        <label className="block"><span className="label">Across</span>{num(el.x, (n) => onMoveTo({ x: n }))}</label>
+        <label className="block">
+          <span className="label">{floated ? 'Down the words' : deco ? (el.from === 'bottom' ? 'Up from the foot' : 'Down from the head') : 'Down'}</span>
+          {num(el.y, (n) => onMoveTo({ y: n }))}
+        </label>
         <label className="block"><span className="label">Width</span>{num(el.w, (n) => onChange((e) => ({ ...e, w: n })))}</label>
         <label className="block"><span className="label">Turn</span>{num(el.rotate, (n) => onChange((e) => ({ ...e, rotate: n })), 0.5)}</label>
       </div>
       <p className="hint">
         {floated
-          ? `Width is a share of the page's width. This page is laid out by its words, so there is nowhere to put it: it goes where the words make room for it.`
+          ? `Drag it where you want it, or set it here: across is the middle of the box and down is how far down the words it begins, both a share of the page's width — the width for down as well, because this page's height is its customer's words. The words flow past it on whichever side of the middle you leave it, and two floats on the same side stack rather than overlap. A phone is too narrow to read four words a line beside a picture, so there it stands on its own at that point in the words.`
           : deco
             ? `Across, width and the gap from the edge are all a share of the page's width — this page's height is its words', so a share of it would move as a customer typed.`
             : `Across and width are a share of the page's width; down is a share of its height. This page is ${ratio.toFixed(2)} screens tall.`}
@@ -2160,7 +3272,8 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
       {el.kind === 'shape' && <ShapeBlock el={el as ShapeEl} onChange={onChange} vars={vars} num={num} />}
       {el.kind === 'video' && <ClipBlock el={el as VideoEl} onChange={onChange} templateId={templateId} onFillPage={onFillPage} />}
       {el.kind === 'anim' && <AnimBlock el={el as AnimEl} onChange={onChange} num={num} />}
-      {el.kind === 'text' && <TypeBlock el={el as TextEl} onChange={onChange} />}
+      {el.kind === 'moment' && <MomentBlock el={el as MomentEl} occasion={occasion} onChange={onChange} onPlay={onPlayMoment} />}
+      {el.kind === 'text' && <TypeBlock el={el as TextEl} occasion={occasion} onChange={onChange} vars={vars} />}
       <label className="block">
         <span className="label">Opacity</span>
         <input type="range" min={0} max={1} step={0.05} value={el.opacity ?? 1} onChange={(e) => onChange((x) => ({ ...x, opacity: Number(e.target.value) }))} className="w-full" />
@@ -2837,7 +3950,7 @@ const offerable = (el: TextEl): boolean => {
   return sources.some((x) => 'bind' in x) && sources.some((x) => 'fixed' in x && x.fixed.en.trim());
 };
 
-function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) => Element) => void }) {
+function TypeBlock({ el, occasion, onChange, vars }: { el: TextEl; occasion: Occasion; onChange: (fn: (e: Element) => Element) => void; vars: Record<string, string> }) {
   const edit = (fn: (t: TextEl) => TextEl) => onChange((x) => fn(x as TextEl));
   const small = el.size !== undefined && el.size < LEGIBLE_CQW;
   return (
@@ -2949,8 +4062,24 @@ function TypeBlock({ el, onChange }: { el: TextEl; onChange: (fn: (e: Element) =
               ))}
               {l.sources.length > 1 && <span className="ml-auto text-[11px] text-[color:var(--color-ink-500)]">falls back {l.sources.length - 1}×</span>}
             </div>
+            {/* the line's colour, one of the palette's ink roles so it follows the palette into night; none is the role's own */}
+            <div className="mt-1 flex items-center gap-1" data-testid="line-colour">
+              <span className="text-[11px] text-[color:var(--color-ink-500)]">Colour</span>
+              {ROLES.filter((r) => ['ink', 'muted', 'accent', 'accent2'].includes(r.key)).map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  title={r.label}
+                  onClick={() => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, color: x.color === r.key ? undefined : (r.key as TextEl['lines'][number]['color']) } : x)) }))}
+                  className={`h-5 w-5 rounded border ${l.color === r.key ? 'border-[color:var(--color-ink-700)] ring-2 ring-[color:var(--color-ink-700)]' : 'border-black/15'}`}
+                  style={{ background: colourOf(r.key, vars) }}
+                />
+              ))}
+              {l.color && <button type="button" onClick={() => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, color: undefined } : x)) }))} className="text-[11px] underline">its own</button>}
+            </div>
             <Words
               sources={l.sources}
+              occasion={occasion}
               onChange={(next) => edit((t) => ({ ...t, lines: t.lines.map((x, j) => (j === i ? { ...x, sources: next } : x)) }))}
             />
           </li>
@@ -2971,11 +4100,20 @@ function moveLine(t: TextEl, i: number, by: number): TextEl {
   return { ...t, lines };
 }
 
-/** Every word the design can carry of its own: the look's lines, then its headings. */
-const WORDS: { key: WordKey; label: string }[] = [
-  ...LINE_KEYS.map((k) => ({ key: k as WordKey, label: LINE_LABELS[k] })),
-  ...TITLE_KEYS.map((k) => ({ key: titleWord(k), label: `Heading — ${TITLE_LABELS[k]}` })),
-];
+/**
+ * Every word the design can carry of its own, for this occasion: its lines,
+ * then its headings, each named the way the occasion names that part. A
+ * christening is not offered the Entourage's line or The Moment's three,
+ * because a christening has no entourage and no Moment — a word it cannot
+ * read is a word not worth offering.
+ */
+function wordsOffered(occasion: Occasion): { key: WordKey; label: string }[] {
+  const offered = wordsFor(occasion);
+  return [
+    ...offered.lines.map((k) => ({ key: k as WordKey, label: lineLabel(k, occasion) })),
+    ...offered.titles.map((k) => ({ key: titleWord(k), label: `Heading — ${titleLabel(k, occasion)}` })),
+  ];
+}
 
 /**
  * What a line says.
@@ -2992,7 +4130,8 @@ const WORDS: { key: WordKey; label: string }[] = [
  * own words are a key into the copy file, and a key typed by hand would be a
  * blank line nobody could explain. Both can still be taken out.
  */
-function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Source[]) => void }) {
+function Words({ sources, occasion, onChange }: { sources: Source[]; occasion: Occasion; onChange: (next: Source[]) => void }) {
+  const offered = wordsOffered(occasion);
   const set = (i: number, next: Source) => onChange(sources.map((x, j) => (j === i ? next : x)));
   const drop = (i: number) => onChange(sources.filter((_, j) => j !== i));
   const move = (i: number, by: number) => {
@@ -3022,7 +4161,7 @@ function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Sour
             </div>
           ) : 'word' in src ? (
             <select className="input mt-1 w-full text-xs" value={src.word} onChange={(e) => set(i, { word: e.target.value as WordKey })}>
-              {WORDS.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
+              {offered.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
             </select>
           ) : 'bind' in src ? (
             <p className="mt-0.5 text-[11px] text-[color:var(--color-ink-500)]">{src.bind.sub ?? src.bind.field}{src.bind.index === undefined ? '' : ` ${src.bind.index + 1}`} &middot; {src.bind.section} &mdash; set by <strong>Ask the customer</strong>.</p>
@@ -3033,7 +4172,7 @@ function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Sour
       ))}
       <div className="flex gap-1">
         <button type="button" onClick={() => onChange([...sources, { fixed: { en: '' } }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ words you type</button>
-        <button type="button" onClick={() => onChange([...sources, { word: WORDS[0].key }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ a word from the design</button>
+        <button type="button" onClick={() => onChange([...sources, { word: offered[0].key }])} className="rounded bg-white px-2 py-0.5 text-[11px]">+ a word from the design</button>
       </div>
       {sources.length === 0 && <p className="hint">Nothing yet, so this line draws nothing.</p>}
     </div>
@@ -3051,6 +4190,176 @@ function Words({ sources, onChange }: { sources: Source[]; onChange: (next: Sour
  * from. A frame she has asked for also says what it shows when nobody
  * answers, so a half-filled page still looks designed.
  */
+/**
+ * The library of moments, under the toolbar: six shelves, seven to a shelf,
+ * as she listed them. A row on two shelves says so; one not built yet says
+ * it is coming and cannot be placed; one made for other occasions says
+ * which, and can still be placed.
+ */
+function MomentSheet({ occasion, onPick, onClose }: { occasion: Occasion; onPick: (entry: ShelfEntry) => void; onClose: () => void }) {
+  const [shelf, setShelf] = useState<Shelf>('opening');
+  return (
+    <div className="basis-full rounded border border-[color:var(--color-sand-300)] bg-white p-2" data-testid="moment-sheet">
+      <div className="mb-2 flex flex-wrap items-center gap-1">
+        {SHELF_KEYS.map((s) => (
+          <button key={s} type="button" onClick={() => setShelf(s)} className={`rounded px-2 py-1 ${shelf === s ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-100)]'}`}>{SHELF_NAMES[s]}</button>
+        ))}
+        <span className="ml-auto" />
+        <span className="hint">{MOMENTS.filter((m) => m.built).length} of {MOMENTS.length} scenes built</span>
+        <button type="button" onClick={onClose} className="rounded bg-[color:var(--color-sand-100)] px-2 py-1">✕</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
+        {SHELVES[shelf].map((e) => {
+          const def = momentOf(e);
+          const also = shelvesOf(e.key).filter((x) => x !== shelf);
+          const forThis = !e.occasions || e.occasions.includes(occasion);
+          return (
+            <button
+              key={`${e.key}:${e.variant ?? ''}`}
+              type="button"
+              disabled={!def.built}
+              data-testid={`moment-${e.key}${e.variant ? `-${e.variant}` : ''}`}
+              onClick={() => onPick(e)}
+              className="rounded border border-[color:var(--color-sand-300)] p-2 text-left hover:bg-[color:var(--color-sand-100)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="block font-semibold">{e.name}{!def.built && <span className="ml-1 font-normal text-[color:var(--color-ink-500)]">· coming</span>}</span>
+              <span className="block text-[11px] text-[color:var(--color-ink-500)]">{e.action} — {e.happens}</span>
+              {also.length > 0 && <span className="mt-1 block text-[11px] text-[color:var(--color-ink-500)]">also under {also.map((x) => SHELF_NAMES[x]).join(', ')}</span>}
+              {!forThis && e.occasions && <span className="mt-1 block text-[11px] text-[color:var(--color-plum-600)]">made for {e.occasions.map((o) => o.toLowerCase().replace('_', ' ')).join(', ')}</span>}
+              {def.photos.count > 0 && <span className="mt-1 block text-[11px]">{def.photos.count === 1 ? 'one photograph' : `${def.photos.count} photographs`}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A placed moment's own settings: how it is opened and how fast, whether it
+ * plays once or every time, the photographs it opens onto and the words it
+ * reveals — each read the way a frame's and a text box's are, so the form
+ * asks for them in the one list — and a button to watch it.
+ */
+function MomentBlock({ el, occasion, onChange, onPlay }: { el: MomentEl; occasion: Occasion; onChange: (fn: (e: Element) => Element) => void; onPlay: () => void }) {
+  const def = MOMENT_BY_KEY[el.moment];
+  const edit = (fn: (m: MomentEl) => MomentEl) => onChange((x) => fn(x as MomentEl));
+  const photoOffers = useMemo(() => askable(occasion, 'photo'), [occasion]);
+  const textOffers = useMemo(() => askable(occasion, 'text'), [occasion]);
+  const slots = el.photos ?? [];
+  const row = SHELF_KEYS.flatMap((s) => SHELVES[s]).find((e) => e.key === el.moment && (e.variant ?? '') === (el.variant ?? ''));
+  const setSlot = (i: number, bind: FieldRef | { asset: string }) => edit((m) => {
+    const next = [...(m.photos ?? [])];
+    while (next.length <= i) next.push({ bind: { asset: '' } });
+    next[i] = { ...next[i], bind };
+    return { ...m, photos: next };
+  });
+  const line = el.lines?.[0];
+  const lineBind = line?.sources.find((x) => 'bind' in x) as { bind: FieldRef } | undefined;
+  const lineFixed = line?.sources.find((x) => 'fixed' in x) as { fixed: { en: string; tl?: string } } | undefined;
+  const setLine = (bind: FieldRef | undefined, fixed: { en: string; tl?: string } | undefined) => edit((m) => {
+    const sources = [...(bind ? [{ bind }] : []), ...(fixed && fixed.en ? [{ fixed }] : [])];
+    if (!sources.length) { const { lines: _gone, ...rest } = m; void _gone; return rest as MomentEl; }
+    return { ...m, lines: [{ ...(m.lines?.[0] ?? { role: 'body' as const, align: 'center' as const }), sources }] };
+  });
+  if (!def) return null;
+  return (
+    <div className="space-y-2 border-t border-[color:var(--color-sand-300)] pt-3">
+      <div className="flex items-center justify-between">
+        <p className="label">{momentName(el.moment, el.variant)}</p>
+        <button type="button" onClick={onPlay} data-testid="play-moment" className="btn btn-ghost btn-sm">Play it</button>
+      </div>
+      {row && <p className="hint">{row.action} — {row.happens}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        {def.triggers.length > 1 ? (
+          <label className="block">
+            <span className="label">Opened by</span>
+            <select className="input w-full" value={el.trigger ?? def.triggers[0]} onChange={(e) => edit((m) => ({ ...m, trigger: e.target.value as MomentTrigger }))}>
+              {def.triggers.map((t) => <option key={t} value={t}>{t === 'tap' ? 'a tap' : t === 'swipe' ? `a swipe${def.swipe === 'apart' ? ' apart' : def.swipe === 'down' ? ' down' : def.swipe === 'up' ? ' up' : ''}` : 'a press and hold'}</option>)}
+            </select>
+          </label>
+        ) : (
+          <p className="hint self-end">Opened by {def.mechanic === 'rub' ? 'rubbing' : def.mechanic === 'drag' ? 'dragging the pieces' : def.mechanic === 'keys' ? 'the code' : def.triggers[0] === 'hold' ? 'a press and hold' : def.triggers[0] === 'swipe' ? 'a swipe' : 'a tap'}.</p>
+        )}
+        <label className="block">
+          <span className="label">Speed</span>
+          <select className="input w-full" value={el.speed ?? 'normal'} onChange={(e) => edit((m) => { const v = e.target.value as MomentEl['speed']; const n: MomentEl = { ...m, speed: v }; if (v === 'normal') delete n.speed; return n; })}>
+            {SPEEDS.map((sp) => <option key={sp} value={sp}>{SPEED_NAMES[sp]}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="label">Plays</span>
+          <select className="input w-full" value={el.plays ?? 'once'} onChange={(e) => edit((m) => { const v = e.target.value as MomentEl['plays']; const n: MomentEl = { ...m, plays: v }; if (v === 'once') delete n.plays; return n; })}>
+            <option value="once">once, then stays open</option>
+            <option value="always">every time it comes into view</option>
+          </select>
+        </label>
+        {def.variants && (
+          <label className="block">
+            <span className="label">Version</span>
+            <select className="input w-full" value={el.variant ?? ''} onChange={(e) => edit((m) => { const n: MomentEl = { ...m, variant: e.target.value || undefined }; if (!n.variant) delete n.variant; return n; })}>
+              <option value="">{def.name}</option>
+              {Object.entries(def.variants).map(([k, name]) => <option key={k} value={k}>{name}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+      {def.photos.count > 0 && (
+        <div className="space-y-2">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={Boolean(el.ask)} onChange={(e) => onChange((x) => ({ ...x, ask: e.target.checked ? true : undefined }))} className="h-4 w-4" />
+            <span className="font-semibold">Ask the customer for {def.photos.count === 1 ? 'the photograph' : 'the photographs'}</span>
+          </label>
+          {Array.from({ length: def.photos.count }, (_, i) => {
+            const b = slots[i]?.bind;
+            const ref = b && !('asset' in b) ? b : undefined;
+            const at = ref ? photoOffers.find((o) => o.section === ref.section && o.field === ref.field && (o.sub ?? undefined) === (ref.sub ?? undefined)) : undefined;
+            return (
+              <div key={i} className="rounded border border-[color:var(--color-sand-300)] p-2">
+                <p className="label">{def.photos.count === 1 ? def.photos.label : `${def.photos.label} ${i + 1}`} · a {def.photos.shape}</p>
+                <select className="input w-full" value={at ? key(at) : ''} onChange={(e) => { const o = photoOffers.find((x) => key(x) === e.target.value); setSlot(i, o ? { section: o.section, field: o.field, ...(o.sub ? { sub: o.sub } : {}), ...(o.list ? { index: ref?.index ?? i } : {}) } : { asset: '' }); }}>
+                  <option value="">— the design's own picture —</option>
+                  {Object.entries(groupBy(photoOffers)).map(([section, list]) => (
+                    <optgroup key={section} label={section}>{list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}</optgroup>
+                  ))}
+                </select>
+                {at?.list && <input type="number" min={1} max={40} className="input mt-1 w-full" value={(ref?.index ?? 0) + 1} onChange={(e) => setSlot(i, { ...ref!, index: Math.max(0, Math.round(Number(e.target.value)) - 1) })} />}
+                {!ref && (
+                  <input className="input mt-1 w-full font-mono text-xs" placeholder="/babyblue/cover.webp — or pick one in the Library" value={b && 'asset' in b ? b.asset : ''} onChange={(e) => setSlot(i, { asset: e.target.value })} />
+                )}
+              </div>
+            );
+          })}
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={el.ifEmpty === 'leave'} onChange={(e) => onChange((x) => { const n: Element = { ...x, ifEmpty: e.target.checked ? ('leave' as const) : undefined }; if (!n.ifEmpty) delete n.ifEmpty; return n; })} className="h-4 w-4" />
+            <span>Leave it out when the customer gives no photograph</span>
+          </label>
+        </div>
+      )}
+      {def.words && def.words !== 'code' && (
+        <div className="space-y-1">
+          <p className="label">Words it reveals</p>
+          <select className="input w-full" value={lineBind ? key({ section: lineBind.bind.section, field: lineBind.bind.field, sub: lineBind.bind.sub } as Askable) : ''} onChange={(e) => { const o = textOffers.find((x) => key(x) === e.target.value); setLine(o ? { section: o.section, field: o.field, ...(o.sub ? { sub: o.sub } : {}) } : undefined, lineFixed?.fixed); }}>
+            <option value="">— none of the customer's —</option>
+            {Object.entries(groupBy(textOffers)).map(([section, list]) => (
+              <optgroup key={section} label={section}>{list.map((o) => <option key={key(o)} value={key(o)}>{o.label}</option>)}</optgroup>
+            ))}
+          </select>
+          <input className="input w-full" placeholder="Or the design's own words, in English" value={lineFixed?.fixed.en ?? ''} onChange={(e) => setLine(lineBind?.bind, { en: e.target.value, ...(lineFixed?.fixed.tl !== undefined ? { tl: lineFixed.fixed.tl } : {}) })} />
+          <input className="input w-full" placeholder="sa Tagalog" value={lineFixed?.fixed.tl ?? ''} onChange={(e) => setLine(lineBind?.bind, { en: lineFixed?.fixed.en ?? '', ...(e.target.value ? { tl: e.target.value } : {}) })} />
+        </div>
+      )}
+      {el.moment === 'code' && (
+        <label className="block">
+          <span className="label">The code (3 to 8 digits)</span>
+          <input className="input w-full font-mono" inputMode="numeric" value={el.code ?? ''} onChange={(e) => edit((m) => { const v = e.target.value.replace(/\D/g, '').slice(0, 8); const n: MomentEl = { ...m, code: v }; if (!v) delete n.code; return n; })} />
+        </label>
+      )}
+      <p className="hint">{def.realism}</p>
+    </div>
+  );
+}
+
 function AskBlock({ el, occasion, onChange, measureRoom }: {
   el: PhotoEl | TextEl;
   occasion: Occasion;
@@ -3261,7 +4570,36 @@ function GroupProps({ group, others, attached, onLineUp, onSameWidth, onSpaceDow
  * better of leaves nothing behind.
  */
 type Proposal = { rect: Rect; keep: boolean; pick: string; index: number };
-type Wording = { text: PdfText; keep: boolean };
+/**
+ * A writing read off an imported page, and what fills it.
+ *
+ * `pick` is the same idea as a frame's, and for the same reason: a
+ * placeholder brought in as the words it was standing in for is a design
+ * that says Amelia and Matthew are getting married whoever the customer is.
+ * It is one of four things — a question, the design's own heading, the
+ * app's own words, or the words kept as typed — so it carries which kind
+ * it is as well as which one (`ASK`/`WORD`/`APP`, below).
+ *
+ * `why` is what the reading made of it, shown beside the answer so she can
+ * see at a glance whether the guess was sound rather than having to check
+ * it against the page.
+ */
+type Wording = { text: PdfText; keep: boolean; pick: string; index: number; show?: FieldRef['show']; why?: string };
+
+/** What a writing's pick is wired to. The prefix is what tells the three apart. */
+const ASK = 'ask:';
+const WORD = 'word:';
+const APP = 'app:';
+
+/** A writing's pick as the one source the box will carry, or nothing where the words are kept as typed. */
+function sourceOfPick(pick: string, show: FieldRef['show']): Source | undefined {
+  if (pick.startsWith(WORD)) return { word: pick.slice(WORD.length) as WordKey };
+  if (pick.startsWith(APP)) return { copy: pick.slice(APP.length) };
+  if (!pick.startsWith(ASK)) return undefined;
+  const [section, field, sub] = pick.slice(ASK.length).split('|');
+  if (!section || !field) return undefined;
+  return { bind: { section, field, ...(sub ? { sub } : {}), ...(show ? { show } : {}) } };
+}
 
 /** One page waiting to be brought in, whichever way it was read. */
 type Sheet = {
@@ -3289,15 +4627,46 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
   const [error, setError] = useState('');
   const [sheets, setSheets] = useState<Sheet[] | null>(null);
   const offers = useMemo(() => askable(occasion, 'photo'), [occasion]);
+  /** The questions a writing can be wired to, in the shape the reading wants them. */
+  const sayings = useMemo<Offer[]>(() => askable(occasion, 'text').map((a) => ({
+    key: key(a), section: a.section, field: a.field, sub: a.sub, label: a.label, list: a.list, type: a.type,
+  })), [occasion]);
+  /** The design's own headings, each with every wording it might have been printed as. */
+  const headings = useMemo<Word[]>(() => {
+    const offered = wordsFor(occasion);
+    return [
+      ...offered.titles.map((k) => ({ key: titleWord(k) as string, label: titleLabel(k, occasion), said: titleSaid(k, occasion) })),
+      ...offered.lines.map((k) => ({ key: k as string, label: lineLabel(k, occasion) })),
+    ];
+  }, [occasion]);
 
   // the pages are shown from the blobs in hand, so they are on screen before
   // anything has been sent anywhere
   useEffect(() => () => { for (const s of sheets ?? []) if (s.url) URL.revokeObjectURL(s.url); }, [sheets]);
 
-  const carry = (rects: Rect[], texts: PdfText[] = []): Pick<Sheet, 'frames' | 'texts'> => ({
-    frames: rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })),
-    texts: texts.map((text) => ({ text, keep: true })),
-  });
+  /*
+   * Every frame and every writing as it arrives, with each writing already
+   * read: a guess to confirm rather than a hundred questions to hunt
+   * through, and the reason beside it so a bad guess is obvious at a glance.
+   *
+   * The questions taken are carried down the page, so a master naming the
+   * bride on three of them does not wire all three to the same box.
+   */
+  const carry = (rects: Rect[], texts: PdfText[] = []): Pick<Sheet, 'frames' | 'texts'> => {
+    const taken = new Set<string>();
+    return {
+      frames: rects.map((rect) => ({ rect, keep: true, pick: '', index: 0 })),
+      texts: texts.map((text) => {
+        const read = guessOffer(text.lines, sayings, headings, taken, phraseFor);
+        if (read?.offer) taken.add(read.offer.key);
+        const pick = read?.offer ? `${ASK}${read.offer.key}`
+          : read?.word ? `${WORD}${read.word}`
+          : read?.copy ? `${APP}${read.copy}`
+          : '';
+        return { text, keep: true, pick, index: 0, show: read?.show, why: read?.why };
+      }),
+    };
+  };
 
   async function readPair() {
     if (!designed || !emptied) return;
@@ -3369,6 +4738,23 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
     }));
   }
 
+  /**
+   * What fills a writing, picked or re-picked.
+   *
+   * A date or a time comes with a way of saying it already chosen, because
+   * a box wired to one and told nothing would print `2026-12-18` on a cover
+   * — and the whole reason a master carries the date as words is that a
+   * guest reads words. Anything else clears it.
+   */
+  function wire(s: number, at: number, value: string) {
+    const chosen = sayings.find((o) => `${ASK}${o.key}` === value);
+    const show: Wording['show'] = chosen?.type === 'date' ? 'date' : chosen?.type === 'time' ? 'time' : undefined;
+    edit(s, (sheet) => ({
+      ...sheet,
+      texts: sheet.texts.map((t, i) => (i === at ? { ...t, pick: value, show, index: 0 } : t)),
+    }));
+  }
+
   async function add() {
     const usable = (sheets ?? []).filter((s) => s.read && !s.trouble);
     if (!usable.length) return;
@@ -3381,7 +4767,7 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
         pages.push({
           name: s.name, up, from: s.from,
           frames: s.frames.filter((r) => r.keep).map((r) => ({ rect: r.rect, bind: refOf(r) })),
-          texts: s.texts.filter((t) => t.keep).map((t) => t.text),
+          texts: s.texts.filter((t) => t.keep).map((t) => ({ text: t.text, from: sourceOfPick(t.pick, t.show) })),
         });
       }
       onAdd(pages);
@@ -3537,19 +4923,79 @@ function ImportPair({ templateId, occasion, fonts, onClose, onAdd }: {
                       </li>
                     );
                   })}
-                  {sheet.texts.map((t, i) => (
-                    <li key={`t${i}`} className={`flex flex-wrap items-center gap-2 rounded bg-white p-2 ${t.keep ? '' : 'opacity-50'}`}>
-                      <span className="rounded bg-[color:var(--color-ink-700)] px-1.5 py-0.5 text-[11px] font-semibold text-white">&ldquo;&rdquo;</span>
-                      <span className="min-w-[12rem] flex-1 truncate text-sm">{t.text.lines.join(' / ')}</span>
-                      <span className="text-[11px] text-[color:var(--color-ink-500)]">{t.text.size.toFixed(1)}cqw{t.text.face ? ` · the ${t.text.face} face` : ''}</span>
-                      <button
-                        type="button" className="btn btn-ghost btn-sm"
-                        onClick={() => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, keep: !y.keep } : y)) }))}
-                      >
-                        {t.keep ? 'Discard' : 'Keep'}
-                      </button>
-                    </li>
-                  ))}
+                  {sheet.texts.map((t, i) => {
+                    const chosen = sayings.find((o) => `${ASK}${o.key}` === t.pick);
+                    return (
+                      <li key={`t${i}`} className={`rounded bg-white p-2 ${t.keep ? '' : 'opacity-50'}`} data-testid="writing">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-[color:var(--color-ink-700)] px-1.5 py-0.5 text-[11px] font-semibold text-white">&ldquo;&rdquo;</span>
+                          <span className="min-w-[10rem] flex-1 truncate text-sm">{t.text.lines.join(' / ')}</span>
+                          <span className="text-[11px] text-[color:var(--color-ink-500)]">{t.text.size.toFixed(1)}cqw{t.text.face ? ` · the ${t.text.face} face` : ''}</span>
+                          <button
+                            type="button" className="btn btn-ghost btn-sm"
+                            onClick={() => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, keep: !y.keep } : y)) }))}
+                          >
+                            {t.keep ? 'Discard' : 'Keep'}
+                          </button>
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-end gap-2">
+                          <label className="min-w-[14rem] flex-1">
+                            <select
+                              className="input w-full text-xs" value={t.pick} disabled={!t.keep} data-testid="fills"
+                              onChange={(e) => wire(s, i, e.target.value)}
+                            >
+                              <option value="">Keep these words as they are</option>
+                              <optgroup label="The customer answers this">
+                                {Object.entries(groupBy(askable(occasion, 'text'))).map(([section, list]) => (
+                                  <optgroup key={section} label={`— ${section}`}>
+                                    {list.map((o) => <option key={key(o)} value={`${ASK}${key(o)}`}>{o.label}</option>)}
+                                  </optgroup>
+                                ))}
+                              </optgroup>
+                              <optgroup label="The design&rsquo;s own words">
+                                {headings.map((w) => <option key={w.key} value={`${WORD}${w.key}`}>{w.label}</option>)}
+                              </optgroup>
+                              {t.pick.startsWith(APP) && (
+                                <optgroup label="The app&rsquo;s own words">
+                                  <option value={t.pick}>{t.text.lines.join(' ')} — in the guest&rsquo;s language</option>
+                                </optgroup>
+                              )}
+                            </select>
+                          </label>
+                          {chosen?.list && (
+                            <label className="w-20">
+                              <span className="label">Which</span>
+                              <input
+                                type="number" min={1} max={40} className="input w-full" disabled={!t.keep}
+                                value={t.index + 1}
+                                onChange={(e) => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, index: Math.max(0, Math.round(Number(e.target.value)) - 1) } : y)) }))}
+                              />
+                            </label>
+                          )}
+                          {(chosen?.type === 'date' || chosen?.type === 'time') && (
+                            <label className="min-w-[8rem]">
+                              <span className="label">Said as</span>
+                              <select
+                                className="input w-full text-xs" disabled={!t.keep} value={t.show ?? ''}
+                                onChange={(e) => edit(s, (x) => ({ ...x, texts: x.texts.map((y, j) => (j === i ? { ...y, show: (e.target.value || undefined) as Wording['show'] } : y)) }))}
+                              >
+                                <option value="">As it is stored</option>
+                                <option value="date">18 December 2026</option>
+                                <option value="dateShort">Dec 18, 2026</option>
+                                <option value="weekday">Friday</option>
+                                <option value="time">4:00 PM</option>
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                        {t.why && (
+                          <p className="hint mt-1" data-testid="why">
+                            {t.pick ? 'Read as' : 'Left to you —'} {t.why}.
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
               </>
             )}
@@ -3660,10 +5106,51 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, templateId, vars, sections, pieces, dress }: {
+/**
+ * The two backgrounds a page can carry, in the words she asked for them in.
+ * She can give one or both: where both are there the window picks between
+ * them, so a guest on a phone gets the phone's picture and a guest on a
+ * laptop the wide one, and neither is ever stretched into the other's shape.
+ * How far either reaches down the invitation is the one other question, and
+ * it is asked once, below them both.
+ */
+const BACKGROUND_SLOTS: { key: 'phone' | 'website'; name: string; size: string; hint: string }[] = [
+  {
+    key: 'phone', name: 'Background for the phone', size: '1080 × 1920',
+    hint: 'The shape of a phone screen. It fills the screen and stays put while the writings move over it; on a laptop, with no website background beside it, it keeps to the column with the surround at either side.',
+  },
+  {
+    key: 'website', name: 'Background for the whole website', size: '1920 × 1080',
+    hint: 'One picture across the whole window, edge to edge on a laptop, and the writings move over it. A phone shows the middle of it, unless you give a phone background above — then the phone gets that one instead.',
+  },
+];
+
+function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress, tall }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
-  onGround: (g: Ground | undefined) => void;
+  /** the whole background at once: a colour, a drawn page's picture, or none */
+  onGround: (g: Ground | undefined, pin?: PageSpec['pin']) => void;
+  /** one of the two background pictures, or taking one away */
+  onBackground: (which: 'phone' | 'website', pic: Picture | undefined) => void;
+  /** how many pages after this one its background also stands behind */
+  onRunsOn: (n: number) => void;
+  /**
+   * The page's own writings: the ones still flowing with the words, the ones
+   * she has made steady, and the two ways between them. A writing flows
+   * unless she says otherwise, and saying otherwise used to be a drag and
+   * nothing else — which is a gesture nobody finds. It is a button now.
+   */
+  words: {
+    flowing: { id: string; text: string }[];
+    steady: { id: string; text: string }[];
+    lift: (id: string) => void;
+    back: (id: string) => void;
+    pick: (id: string) => void;
+  };
+  /** the page whose picture runs on under this one, by name, when this page sits on one */
+  joinedTo?: string;
+  /** the page whose picture is pinned to the screen under this one, by name, when this page scrolls over one */
+  pinnedOn?: string;
   templateId: string;
   vars: Record<string, string>;
   sections: SectionTools;
@@ -3674,15 +5161,41 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
   };
   /** how that page dresses the sections it carries */
   dress: { value?: SectionStyle; set: (change: (d: SectionStyle) => SectionStyle) => void };
+  /**
+   * How tall the page came out, and the way to bring it inside a screen.
+   *
+   * The height is measured on the canvas rather than worked out, because
+   * the height of a page laid out by its words is whatever the words make
+   * it — nobody, the studio included, can say it in advance. `screens` is
+   * that measurement in screens of the view she is looking at, so the
+   * number she reads is the number a guest gets.
+   */
+  tall: { screens?: number; fit: () => void; onPhone: boolean };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [heavy, setHeavy] = useState('');
   const [kept, setKept] = useState(false);
+  /** a picture put in the slot it does not suit, said rather than refused */
+  const [shape, setShape] = useState('');
   if (!page) return <p className="hint">This design has no pages yet.</p>;
   const ground = page.ground;
+  const picture = ground && isPicture(ground) ? ground : undefined;
+  /*
+   * The page's two backgrounds, read back out of what it holds the same way
+   * `setBackground` puts them in: the page's own picture is the phone's when
+   * the pin says the column, and the website's otherwise, with the phone's
+   * riding along beside it.
+   */
+  const slots: Record<'phone' | 'website', Picture | undefined> = {
+    phone: page.pin === 'column' ? picture : picture?.phone,
+    website: page.pin === 'column' ? undefined : picture,
+  };
+  const flows = groundKind(page) === 'flow';
+  /** both sizes given: the window is what picks between them (`PHONE_WINDOW`) */
+  const both = Boolean(slots.phone && slots.website);
 
-  async function pick(file: File) {
+  async function pick(file: File, which: 'phone' | 'website') {
     setBusy(true);
     setError('');
     /*
@@ -3696,12 +5209,24 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
       ? `That file is ${Math.round(file.size / 1024)} kB. Under ${Math.round(HEAVY_GROUND / 1024)} kB is what a guest on mobile data can carry for every page — a WebP export rather than a PNG usually gets there.`
       : '');
     try {
-      // A flow page's height comes from its words, so it can run past the
-      // picture behind it — which is what the three cuts are for. A drawn
-      // page is exactly its ground's height and never needs them, so it is
-      // not made to upload three more files.
-      const up = await uploadGround(file, templateId, !page?.drawn);
-      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom, ...(up.slices ? { slices: up.slices } : {}) });
+      /*
+       * Her picture, as she gave it, in the slot she put it in. Nothing is
+       * cut in three and nothing is stretched: each of the two backgrounds
+       * fills what it was made for and the window picks between them. A
+       * picture whose shape does not suit its slot is still hers to use —
+       * it is cropped to fit, and the line below says so rather than the
+       * upload refusing it.
+       */
+      const up = await uploadGround(file, templateId);
+      const pic: Picture = { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom };
+      const suits = kindOfShape(up.ratio);
+      setShape(page?.drawn || suits === which || (which === 'website' && suits === 'flow')
+        ? ''
+        : which === 'phone'
+          ? 'That picture is wider than a phone screen, so a phone will show the middle of it. A picture about 1080 × 1920 fills a phone exactly.'
+          : 'That picture is taller than a window, so a laptop will show the middle of it. A picture about 1920 × 1080 fills a window exactly.');
+      if (page?.drawn) onGround(pic);
+      else onBackground(which, pic);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -3745,12 +5270,26 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
         <label className="block">
           <span className="label">Room at the foot</span>
           <input
-            type="number" step={0.25} min={0} max={5}
+            type="number" step={0.25} min={0} max={12}
             value={page.footPad ?? ''}
             placeholder="1"
             onChange={(e) => {
-              const v = e.target.value === '' ? undefined : Math.min(5, Math.max(0, Number(e.target.value)));
+              const v = e.target.value === '' ? undefined : Math.min(12, Math.max(0, Number(e.target.value)));
               onChange((pg) => { const next = { ...pg, footPad: v }; if (v === undefined) delete next.footPad; return next; });
+            }}
+            className="input w-full"
+          />
+        </label>
+        {/* the same at the head: the words start this far down, so a moment hung off the top has the page to itself above them */}
+        <label className="block">
+          <span className="label">Room at the head</span>
+          <input
+            type="number" step={0.25} min={0} max={12}
+            value={page.headPad ?? ''}
+            placeholder="1"
+            onChange={(e) => {
+              const v = e.target.value === '' ? undefined : Math.min(12, Math.max(0, Number(e.target.value)));
+              onChange((pg) => { const next = { ...pg, headPad: v }; if (v === undefined) delete next.headPad; return next; });
             }}
             className="input w-full"
           />
@@ -3812,7 +5351,7 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
             {pieces.floats.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
                 <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
-                  The words flow past it, {el.float === 'right' ? 'on the right' : 'on the left'} · {el.w ?? 40}% wide{el.rotate ? ` · turned ${el.rotate}°` : ''}
+                  The words flow past it, {el.float === 'right' ? 'on the right' : 'on the left'} · {el.w ?? 40}% wide{el.x !== undefined ? ` · ${Math.round(el.x)} across, ${Math.round(el.y)} down` : ''}{el.rotate ? ` · turned ${el.rotate}°` : ''}
                 </button>
                 <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>
@@ -3820,12 +5359,44 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
             {pieces.decor.map((el) => (
               <li key={el.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
                 <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => pieces.pick(el.id)}>
-                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
+                  {el.from === 'bottom' ? 'At the foot' : 'At the head'} · {el.kind === 'photo' ? 'a picture' : el.kind === 'shape' ? 'a shape' : el.kind === 'text' ? (el.lifted ? 'a writing of the page\u2019s own, lifted' : 'words') : el.kind === 'anim' ? 'an animation' : el.kind === 'moment' ? `a moment: ${momentName(el.moment, el.variant).toLowerCase()}` : 'a clip'} · {(el.z ?? 0) > 0 ? 'over the words' : 'behind the words'}
                 </button>
                 <button type="button" title="Take it off this page" onClick={() => pieces.drop(el.id)} className="rounded bg-white px-1.5 text-red-700">✕</button>
               </li>
             ))}
           </ol>
+          {/*
+            * The page's own writings, and the one thing to say about each:
+            * does it flow with the words or stay where she puts it. Making
+            * one steady was a drag on a faint outline and nothing else, so
+            * it is a button here too — and the way back is a button beside
+            * it rather than deleting a box and hoping.
+            */}
+          {(words.flowing.length > 0 || words.steady.length > 0) && (
+            <div className="mt-2">
+              <p className="label">The words on this page</p>
+              <ol className="mt-1 space-y-1">
+                {words.steady.map((w) => (
+                  <li key={w.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                    <button type="button" className="min-w-0 flex-1 truncate text-left underline" onClick={() => words.pick(w.id)}>
+                      {w.text || 'a writing'} &middot; steady where you put it
+                    </button>
+                    <button type="button" onClick={() => words.back(w.id)} className="shrink-0 rounded bg-white px-1.5">Let it flow</button>
+                  </li>
+                ))}
+                {words.flowing.map((w) => (
+                  <li key={w.id} className="flex items-center gap-1 rounded bg-[color:var(--color-sand-100)] px-2 py-1 text-xs">
+                    <span className="min-w-0 flex-1 truncate">{w.text || 'a writing'} &middot; flows with the words</span>
+                    <button type="button" onClick={() => words.lift(w.id)} className="shrink-0 rounded bg-white px-1.5">Make it steady</button>
+                  </li>
+                ))}
+              </ol>
+              <p className="hint">
+                A writing flows with the words above and below it, which is how a page laid out by its words reads.
+                <strong> Make it steady</strong> takes it out of that flow into a box of its own, where you place it, size it and turn it like any other piece &mdash; and it still reads the same answer from the form. Dragging its faint outline on the page does the same thing.
+              </p>
+            </div>
+          )}
           <div className="mt-1 flex gap-1">
             <button type="button" onClick={pieces.addFloat} className="flex-1 rounded bg-[color:var(--color-sand-200)] px-2 py-1 text-xs">
               + one the words flow past
@@ -3908,42 +5479,171 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
       )}
       <div className="border-t border-[color:var(--color-sand-300)] pt-3">
         <p className="label">Background</p>
-        <div className="mt-1 flex items-start gap-2">
-          <span
-            className="h-16 w-11 shrink-0 rounded border border-black/10 bg-cover bg-top"
-            style={ground && isPicture(ground) ? { backgroundImage: `url(${ground.url})` } : { background: ground ? colourOf(ground.color, vars) : 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <label className={`btn btn-secondary btn-sm w-full ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
-              {busy ? 'Reading the picture…' : ground && isPicture(ground) ? 'Replace the picture' : 'Upload a picture'}
-              <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
-            </label>
-            {ground && <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm w-full">No background</button>}
-            {/*
-              * A background she liked once is a background she will want
-              * again. Keeping it costs one tap and no second upload: the
-              * library points at the same file.
-              */}
-            {ground && isPicture(ground) && ground.url.startsWith('/uploads/') && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  const res = await keepPieceAction(ground.url, page.label?.en ?? page.key, 'background');
-                  setBusy(false);
-                  setError(res.ok ? '' : res.error ?? 'It would not save.');
-                  if (res.ok) setKept(true);
-                }}
-                className="btn btn-ghost btn-sm w-full"
-              >
-                {kept ? 'In the library' : 'Keep it in the library'}
-              </button>
-            )}
+        {!ground && joinedTo && (
+          <p className="hint mb-1" data-testid="joined">
+            On the picture that runs on from <strong>{joinedTo}</strong> &mdash; one length of it down both pages, drawn here where it reaches.
+            A picture or a colour picked below gives this page a ground of its own and ends the run here.
+          </p>
+        )}
+        {/*
+          * Two backgrounds, and one question about them.
+          *
+          * She asked for it in these words: one background for the phone,
+          * one for the whole website, and the choice of how far either
+          * flows over the pages she picks. So the picture is not asked what
+          * it is — the slot it goes in says that — and the four ways a
+          * background used to be able to be set, which between them could
+          * cut a picture in three and stretch its middle down a page, are
+          * gone. Neither of these is ever cut, and neither ever stretches:
+          * each fills what it was made for and the window picks between
+          * them.
+          *
+          * A page drawn by hand is the one exception: its picture *is* the
+          * page, at the page's own proportions, so it takes one picture and
+          * no choices.
+          */}
+        {page.drawn ? (
+          <div className="mt-1 flex items-start gap-2">
+            <span
+              className="h-16 w-11 shrink-0 rounded border border-black/10 bg-cover bg-top"
+              style={picture ? { backgroundImage: `url(${picture.url})` } : { background: ground ? colourOf((ground as ColourGround).color, vars) : 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <label className={`btn btn-secondary btn-sm w-full ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+                {busy ? 'Reading the picture…' : picture ? 'Replace the picture' : 'Upload a picture'}
+                <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0], 'website')} />
+              </label>
+              {ground && <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm w-full">No background</button>}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mt-1 space-y-2" data-testid="slots">
+            {BACKGROUND_SLOTS.map(({ key, name, size, hint }) => {
+              const pic = slots[key];
+              return (
+                <div key={key} className="flex items-start gap-2" data-testid={`slot-${key}`}>
+                  <span
+                    className={`h-16 shrink-0 rounded border bg-cover bg-center ${key === 'phone' ? 'w-9' : 'w-[104px]'} ${pic ? 'border-black/10' : 'border-dashed border-black/25'}`}
+                    style={pic ? { backgroundImage: `url(${pic.url})` } : { background: 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="label">{name}</p>
+                    <p className="hint">{hint}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <label className={`btn btn-secondary btn-sm ${busy ? 'opacity-60' : 'cursor-pointer'}`} data-testid={`upload-${key}`}>
+                        {busy ? 'Reading the picture…' : pic ? 'Replace it' : `Upload one (${size})`}
+                        <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0], key)} />
+                      </label>
+                      {pic && <button type="button" disabled={busy} onClick={() => onBackground(key, undefined)} className="btn btn-ghost btn-sm">Take it off</button>}
+                      {/*
+                        * A background she liked once is a background she will
+                        * want again. Keeping it costs one tap and no second
+                        * upload: the library points at the same file.
+                        */}
+                      {pic && pic.url.startsWith('/uploads/') && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={async () => {
+                            setBusy(true);
+                            const res = await keepPieceAction(pic.url, `${page.label?.en ?? page.key} — ${key === 'phone' ? 'phone' : 'website'}`, 'background');
+                            setBusy(false);
+                            setError(res.ok ? '' : res.error ?? 'It would not save.');
+                            if (res.ok) setKept(true);
+                          }}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          {kept ? 'In the library' : 'Keep it in the library'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
         {heavy && <p className="hint text-amber-800">{heavy}</p>}
+        {shape && <p className="hint text-amber-800" data-testid="shape">{shape}</p>}
+        {/*
+          * The four backgrounds, in the four lines she asked for them in:
+          * one for the phone and one for the whole website, each of them
+          * either this page's alone or flowing over the pages she picks.
+          *
+          * Which size it is comes from the slot the picture is in, so the
+          * size half of each line is checked from that and a line whose
+          * size she has not uploaded says so rather than pretending. How
+          * far it reaches is `runsOn`, and it is the same answer for both
+          * sizes, because the pages a background stands behind are the
+          * page's own business and not the picture's: where she has given
+          * both, the line under them says the window is what picks.
+          */}
+        {picture && !page.drawn && (
+          <div className="mt-2" data-testid="reach">
+            <p className="label">What is this background?</p>
+            <div className="mt-1 flex flex-col gap-1">
+              {([
+                ['phone', 0, 'Background for the phone — this page only'],
+                ['phone', 1, 'Background for the phone — flowing over the pages I pick'],
+                ['website', 0, 'Background for the whole website — this page only'],
+                ['website', 1, 'Background for the whole website — flowing over the pages I pick'],
+              ] as const).map(([which, reaches, name]) => {
+                const has = Boolean(slots[which]);
+                const isSize = both || (which === 'phone' ? page.pin === 'column' : page.pin !== 'column');
+                const flowing = (picture.runsOn ?? 0) > 0;
+                return (
+                  <label key={`${which}-${reaches}`} className={`flex items-start gap-2 ${has ? '' : 'opacity-60'}`}>
+                    <input
+                      type="radio"
+                      name={`reach-${page.key}`}
+                      checked={has && isSize && flowing === Boolean(reaches)}
+                      disabled={busy || !has}
+                      onChange={() => onRunsOn(reaches ? Math.max(1, picture.runsOn ?? 1) : 0)}
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <span>
+                      {name}
+                      {!has && <span className="hint block">Upload one in the {which === 'phone' ? 'phone' : 'website'} slot above to use this.</span>}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            {both && (
+              <p className="hint mt-1" data-testid="both">
+                You have given both sizes, so the window picks between them: a phone gets the phone background and a laptop the wide one. How far they reach is the same for both.
+              </p>
+            )}
+            {(picture.runsOn ?? 0) > 0 && (
+              <label className="mt-2 block">
+                <span className="label">Flowing over</span>
+                <select className="input w-full text-xs" value={picture.runsOn ?? 1} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
+                  <option value={1}>this page and the next</option>
+                  <option value={2}>this page and the next 2</option>
+                  <option value={3}>this page and the next 3</option>
+                  <option value={4}>this page and the next 4</option>
+                </select>
+              </label>
+            )}
+            <p className="hint mt-1">
+              {flows
+                ? <>This design&rsquo;s own background is laid as one length down the pages it covers, and where they run past its foot it keeps its head and its foot whole and stretches the band between &mdash; which is why an uploaded background is never laid that way.</>
+                : <>A background that flows over pages is one still picture standing behind them all: the writings move over it and it never moves or stretches. A page with a background of its own ends it there, and so does a page drawn by hand.</>}
+            </p>
+          </div>
+        )}
+        {flows && (
+          <p className="hint mt-2" data-testid="flows">
+            This page&rsquo;s picture is one of the tall backgrounds this design was drawn on, and is used as it was drawn.
+            Uploading a background above puts a still picture behind the page instead, which never stretches.
+          </p>
+        )}
+        {pinnedOn && !page.drawn && (
+          <p className="hint mt-2" data-testid="pinned-on">
+            This page scrolls over the picture pinned to the screen on <strong>{pinnedOn}</strong>, and a colour of its own waits until that ends. A picture of its own ends it here.
+          </p>
+        )}
         <p className="label mt-2">or a colour</p>
         <div className="mt-1 flex flex-wrap gap-1">
           {ROLES.map((r) => (
@@ -3970,19 +5670,147 @@ function PageProps({ page, onChange, onGround, templateId, vars, sections, piece
           value={ground && !isPicture(ground) ? ground.color : undefined}
           onPick={(c) => onGround({ color: c, ratio: ground && !isPicture(ground) ? ground.ratio : undefined })}
         />
+        {ground && !isPicture(ground) && !page.drawn && (
+          <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm mt-1 w-full">No background at all</button>
+        )}
         <p className="hint">A role colour follows the palette, so it turns itself down at night. A colour of your own does not.</p>
-
-        {ground && (
-          <label className="mt-2 flex items-center gap-2">
+        {/*
+          * Whether the background reaches the whole website page. On a
+          * laptop the column stops short of the window's edge; a background
+          * that reaches runs edge to edge behind it — a colour out to the
+          * edges, or one picture across the whole page with the column
+          * showing the middle of it — and a phone shows the middle of it.
+          * Kept to the column, the colour beside it is the design's own
+          * surround (Theme…, Beside it) or one said here.
+          */}
+        {ground && !isPicture(ground) && (
+          <label className="mt-2 flex items-start gap-2" data-testid="bleed">
             <input
               type="checkbox"
-              checked={Boolean(page.drawn)}
-              onChange={(e) => onChange((p) => ({ ...p, drawn: e.target.checked ? true : undefined }))}
-              className="h-4 w-4"
+              checked={bleeds(page)}
+              onChange={(e) => onChange((p) => { const next: PageSpec = { ...p, bleed: e.target.checked }; if (next.bleed === (p.ground ? !isPicture(p.ground) : false)) delete next.bleed; return next; })}
+              className="mt-0.5 h-4 w-4"
             />
-            <span>Drawn page &mdash; things are placed on it by hand</span>
+            <span>
+              Reaches the whole website page
+              <span className="hint block">On a laptop the colour runs edge to edge behind the column, out to the window&rsquo;s edges. A clip behind the page reaches with it. Off, it stays in the column.</span>
+            </span>
           </label>
         )}
+        {!bleeds(page) && (
+          <>
+            <p className="label mt-2">Beside the page, on a laptop</p>
+            <div className="mt-1 flex items-center gap-1" data-testid="outside">
+              <select
+                className="input min-w-0 flex-1 text-xs"
+                value={page.outside === undefined || page.outside === 'design' ? '' : ROLES.some((r) => r.key === page.outside) ? page.outside : 'own'}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  onChange((p) => {
+                    const next = { ...p, outside: v === '' ? undefined : v === 'own' ? (p.outside?.startsWith('#') ? p.outside : '#ffffff') : v };
+                    if (next.outside === undefined) delete next.outside;
+                    return next;
+                  });
+                }}
+              >
+                <option value="">The design&rsquo;s surround (Theme…, Beside it)</option>
+                {ROLES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                <option value="own">A colour of its own</option>
+              </select>
+              {page.outside?.startsWith('#') && (
+                <input type="color" value={page.outside} onChange={(e) => onChange((p) => ({ ...p, outside: e.target.value }))} className="h-7 w-7 shrink-0 cursor-pointer rounded border border-black/15 p-0" />
+              )}
+            </div>
+          </>
+        )}
+        {/*
+          * "Make it longer." A page laid out by its words is as tall as they
+          * are, and a background or a piece wanting more room had nowhere to
+          * get it from. Screens rather than pixels, because a screen is what
+          * a guest sees at a time and the same number holds on a phone and a
+          * laptop.
+          */}
+        {!page.drawn && (
+          <label className="mt-2 block">
+            <span className="label">At least this tall, in screens</span>
+            <input
+              type="number" min={0.3} max={6} step={0.1}
+              value={page.minScreens ?? ''}
+              placeholder={groundKind(page) === 'phone' || groundKind(page) === 'website' ? 'one screen' : 'as tall as its words'}
+              data-testid="min-screens"
+              onChange={(e) => {
+                const v = e.target.value === '' ? undefined : place(Math.min(6, Math.max(0.3, Number(e.target.value) || 0.3)));
+                onChange((pg) => { const next = { ...pg, minScreens: v }; if (v === undefined) delete next.minScreens; return next; });
+              }}
+              className="input w-full"
+            />
+            <span className="hint">1 is one screen, 2 is two; the words sit in the middle of it with the pieces around them. {groundKind(page) === 'phone' || groundKind(page) === 'website' ? 'Blank is one screen, so the background is seen whole.' : 'Blank is as tall as its words.'}</span>
+          </label>
+        )}
+
+        {/*
+          * "It is too big for the website." A page laid out by its words is
+          * as tall as its words make it, and the invitation is a column no
+          * wider than 32rem whatever the window — so a page carrying a form
+          * and a countdown and a closing runs past two screens on a laptop,
+          * and until now there was nothing to do about it: `minScreens`
+          * only ever made a page taller.
+          *
+          * So: a size, and the studio works it out for her. The line says
+          * how tall this page came out on the canvas, in screens, and the
+          * button writes the size that brings it inside one.
+          */}
+        {!page.drawn && (
+          <div className="mt-2" data-testid="page-size">
+            <p className="label">How big this page is on the website</p>
+            <div className="mt-1 flex items-center gap-1">
+              <input
+                type="range"
+                min={SIZE_RANGE.min} max={SIZE_RANGE.max} step={SIZE_RANGE.step}
+                value={page.size ?? 1}
+                data-testid="size"
+                onChange={(e) => {
+                  const v = place(Math.min(SIZE_RANGE.max, Math.max(SIZE_RANGE.min, Number(e.target.value) || 1)));
+                  onChange((pg) => { const next: PageSpec = { ...pg, size: v }; if (v === 1) delete next.size; return next; });
+                }}
+                className="min-w-0 flex-1"
+              />
+              <span className="w-12 shrink-0 text-right text-xs tabular-nums">{Math.round((page.size ?? 1) * 100)}%</span>
+            </div>
+            <div className="mt-1 flex items-center gap-1">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm flex-1"
+                data-testid="fit"
+                disabled={tall.onPhone || !tall.screens || tall.screens <= 1.01}
+                title={tall.onPhone ? 'The size is the website\u2019s \u2014 look at the page in Website to fit it' : undefined}
+                onClick={tall.fit}
+              >
+                Fit it to one screen
+              </button>
+              {page.size !== undefined && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  data-testid="size-off"
+                  onClick={() => onChange((pg) => { const next: PageSpec = { ...pg }; delete next.size; return next; })}
+                >
+                  As designed
+                </button>
+              )}
+            </div>
+            <p className="hint" data-testid="page-screens">
+              {tall.screens
+                ? `On the canvas this page is ${tall.screens.toFixed(2)} ${tall.screens === 1 ? 'screen' : 'screens'} tall.${tall.screens > 1.01 ? ' A guest scrolls to see the rest of it.' : ' It fits a screen.'}`
+                : 'Everything on the page comes down together \u2014 the words, the air between them, the countdown\u2019s tiles, the pieces \u2014 so the page keeps its shape and simply becomes smaller.'}
+              {' '}
+              {tall.onPhone
+                ? 'This is the phone, which shows the page whole whatever the size \u2014 a phone is a column and a guest scrolls it. Look at the page in Website to set the size.'
+                : 'A phone shows the page whole whatever this says: the size is the website\u2019s, where the same column has room either side of it and a long page has nowhere to go.'}
+            </p>
+          </div>
+        )}
+
         {page.drawn && (
           <label className="mt-2 flex items-center gap-2">
             <input
@@ -4071,7 +5899,7 @@ type Brought = {
   up: Uploaded;
   from: 'diff' | 'pdf';
   frames: { rect: Rect; bind?: FieldRef }[];
-  texts: PdfText[];
+  texts: { text: PdfText; from?: Source }[];
 };
 
 /**
@@ -4083,7 +5911,7 @@ type Brought = {
  * unwritten, so the checklist asks for it — English with no Tagalog beside
  * it is a line half the country cannot read.
  */
-function wordsFromPdf(id: string, t: PdfText): TextEl {
+function wordsFromPdf(id: string, t: PdfText, from?: Source): TextEl {
   return {
     id, kind: 'text', block: 'free', anchor: 'top',
     x: place(t.left + t.width / 2),
@@ -4091,11 +5919,31 @@ function wordsFromPdf(id: string, t: PdfText): TextEl {
     w: place(t.width),
     size: t.size,
     ...(t.face ? { face: t.face } : {}),
-    lines: t.lines.map((words) => ({
-      role: 'body' as const,
-      align: t.align,
-      sources: [{ fixed: { en: words } }],
-    })),
+    /*
+     * Wired, it is one line and nothing else.
+     *
+     * One line because a placeholder set over three lines \u2014 AMELIA, &,
+     * MATTHEW \u2014 is still one answer, and three lines each carrying the
+     * same binding would print the name three times. The box keeps the
+     * width and the size the placeholder had, so the answer wraps inside it
+     * the way the words it replaced did.
+     *
+     * And nothing else: no fixed words behind it as a fallback. A guest
+     * whose answer is empty must see nothing, not the name of whoever the
+     * master was designed for \u2014 the canvas draws an empty box labelled
+     * with what fills it, which is how she can still see and move one.
+     *
+     * Unwired, the words stay exactly as they were read, line for line,
+     * which is right for a heading nobody can rename and for anything the
+     * reading could not place.
+     */
+    lines: from
+      ? [{ role: 'body' as const, align: t.align, sources: [from] }]
+      : t.lines.map((words) => ({
+        role: 'body' as const,
+        align: t.align,
+        sources: [{ fixed: { en: words } }],
+      })),
   };
 }
 
@@ -4423,6 +6271,10 @@ function GuideDrawer() {
 
       {open === 'sizes' && (
         <>
+          <div className="mb-2 rounded bg-[color:var(--color-sand-100)] p-2">
+            <p className="font-semibold">The website and the phone</p>
+            <p className="mt-0.5 text-[color:var(--color-ink-700)]">The canvas is the website at <span className="font-mono">1280</span> px wide; the invitation column on it is <span className="font-mono">512</span> px; the phone is <span className="font-mono">390</span> px. A picture pinned to the screen behind a page&rsquo;s words, or behind the whole page: <span className="font-mono">1920 &times; 1080</span> px, the window&rsquo;s own shape &mdash; a phone shows the middle of it &mdash; or a <span className="font-mono">400 &times; 400</span> px tile to repeat behind the whole page. A tall page background meant to flow down several pages: upload it on the first of them and set <em>Runs on under</em> on that page&rsquo;s Background.</p>
+          </div>
           <p className="hint">Type the first size into Canva&rsquo;s <strong>Custom size</strong>, in pixels. The second is for artwork with fine detail; nothing needs more.</p>
           <ul className="mt-2 space-y-2">
             {PAGE_SHAPES.map((sh) => {

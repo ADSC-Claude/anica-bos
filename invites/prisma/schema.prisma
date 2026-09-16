@@ -581,6 +581,14 @@ model Invitation {
   /// e-mailing a guest a reply meant for staff.
   guestMessages Json @default("{}")
 
+  /// When the customer answered the welcome on the Invitation tab — took the
+  /// tour or said they would find their own way. Null until then, and the
+  /// welcome stays on the tab at every open until it is answered, because a
+  /// first open is not a moment to lose to a closed browser. Set once, by the
+  /// owner alone: staff opening a customer's invitation are not welcomed and
+  /// must not spend the customer's welcome for them.
+  welcomedAt DateTime?
+
   user          User        @relation(fields: [userId], references: [id])
   template      Template    @relation(fields: [templateId], references: [id])
   order         Order?
@@ -597,6 +605,7 @@ model Invitation {
   messages  SupportMessage[]
   texts     SmsMessage[]
   emails    EmailMessage[]
+  revisions InvitationRevision[]
 
   @@index([userId, createdAt])
   @@index([status, expiresAt])
@@ -643,6 +652,8 @@ model SeatingTable {
   invitationId String
   name         String
   capacity     Int    @default(10)
+  /// round | rectangle | long — how the seating chart draws it
+  shape        String @default("round")
   sortOrder    Int    @default(0)
 
   invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
@@ -992,4 +1003,21 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([createdAt])
+}
+
+/// One auto-save that changed something: the invitation as it was just
+/// before that save. The last thirty are kept whole and then one a day for
+/// sixty days, so a wrong keystroke and a wrong week are both undone with
+/// Restore. Gone with the invitation, as everything of the customer's is.
+model InvitationRevision {
+  id           String     @id @default(cuid())
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  /// the part whose save made this snapshot, or "restore" for the state a restore left
+  section      String
+  title        String
+  content      Json
+  createdAt    DateTime   @default(now())
+
+  @@index([invitationId, createdAt])
 }

@@ -39,7 +39,6 @@ export default async function SettingsPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
       <PageHeader title="Link, privacy, language & design" subtitle={`${TIER_LABELS[inv.tier]} package`} />
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card p-5">

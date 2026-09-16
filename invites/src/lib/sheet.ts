@@ -107,3 +107,56 @@ export function sheetFilename(label: string): string {
     .replace(/^-+|-+$/g, '');
   return `${part || 'list'}.csv`;
 }
+
+/**
+ * A pasted list as a grid: what somebody copies out of Excel, a Messenger
+ * chat, a Notes app or an old invitation and drops into one box.
+ *
+ * One entry per line. Numbering and bullets are stripped ("1. Jose Santos",
+ * "• Jose Santos"), blank lines are dropped, and every cell is trimmed. For a
+ * list with more than one column — a ninong beside a ninang — each line is
+ * split on the first separator it carries: a tab (which is what a spreadsheet
+ * puts between two cells on the clipboard), then a pipe, a slash, a dash or an
+ * ampersand with spaces round it. A comma is deliberately not one of them:
+ * "Juan dela Cruz, Jr." is one name. Nor is "and": "Mr. and Mrs. Jose Santos"
+ * is one line about two people, and where it is meant as a pair the form's
+ * two boxes are the place to say so. A line with no separator fills the first
+ * column and leaves the rest blank; a line with more parts than columns keeps
+ * the extra in the last.
+ *
+ * A single-column list is never split at all, so a slash or a dash inside a
+ * name stays in it. The grid then goes through gridToList like a file would,
+ * which drops a heading line that names the columns.
+ */
+export function pastedToGrid(text: string, columns: number): string[][] {
+  const seps = ['\t', ' | ', ' / ', ' – ', ' — ', ' - ', ' & '];
+  const rows: string[][] = [];
+  for (const raw of (text ?? '').split(/\r?\n/)) {
+    const line = raw.replace(/^\s*(?:\d{1,3}[.)]|[-•*–—·])\s+/, '').trim();
+    if (!line) continue;
+    if (columns <= 1) {
+      rows.push([line]);
+      continue;
+    }
+    const sep = seps.find((x) => line.includes(x));
+    if (!sep) {
+      rows.push([line]);
+      continue;
+    }
+    const parts = line.split(sep).map((c) => c.trim()).filter((c, i, all) => c || i < all.length - 1);
+    const cells = parts.slice(0, columns - 1);
+    cells.push(parts.slice(columns - 1).join(sep === '\t' ? ' ' : sep));
+    rows.push(cells.map((c) => c.trim()));
+  }
+  return rows;
+}
+
+/** How many of a list's leading fields are plain text: the columns a pasted line can fill. */
+export function pasteColumns(item: Field[]): number {
+  let n = 0;
+  for (const f of item) {
+    if (f.type !== 'text') break;
+    n++;
+  }
+  return n;
+}

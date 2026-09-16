@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
 import { formatPeso } from '@/lib/money';
-import { isSimulated, MIN_CHARGE_CENTS } from '@/lib/paymongo';
+import { isSimulated, onlinePaymentsOffered, MIN_CHARGE_CENTS } from '@/lib/paymongo';
 import { OrderPill, PaymentPill, Notice } from '@/components/ui';
 import { PayOnlineButton, ProofForm } from './forms';
 
@@ -26,6 +26,9 @@ export default async function PayPage({ params, searchParams }: { params: Promis
   const pendingProof = order.payments.find((p) => p.provider === 'MANUAL' && p.status === 'PENDING');
   const rejected = order.payments.find((p) => p.provider === 'MANUAL' && p.status === 'REJECTED');
   const onlineOk = order.totalCents >= MIN_CHARGE_CENTS;
+  // Until the gateway is live there is one way to pay, and the page says so
+  // rather than numbering two options and sending one of them nowhere.
+  const online = onlinePaymentsOffered();
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
@@ -34,7 +37,7 @@ export default async function PayPage({ params, searchParams }: { params: Promis
       <p className="mt-1 text-sm text-[color:var(--color-ink-500)]"><OrderPill status={order.status} /> · {order.package.name}</p>
 
       {cancelled && <div className="mt-4"><Notice tone="warn">Payment was cancelled. Nothing was charged — you can try again below.</Notice></div>}
-      {rejected && !pendingProof && <div className="mt-4"><Notice tone="bad">We could not verify your last screenshot{rejected.rejectReason ? `: ${rejected.rejectReason}` : ''}. Please upload a clearer one, or pay online.</Notice></div>}
+      {rejected && !pendingProof && <div className="mt-4"><Notice tone="bad">We could not verify your last screenshot{rejected.rejectReason ? `: ${rejected.rejectReason}` : ''}. Please upload a clearer one{online ? ', or pay online' : ''}.</Notice></div>}
 
       <div className="card mt-6 p-5">
         <ul className="space-y-1 text-sm">
@@ -54,18 +57,20 @@ export default async function PayPage({ params, searchParams }: { params: Promis
           <p className="mt-3 text-sm">You will get an email and a notification the moment it is verified. <Link href={`/checkout/confirm/${reference}`} className="underline">Check status</Link></p>
         </div>
       ) : (
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
-          <section className="card p-5">
-            <p className="eyebrow mb-1">Option 1</p>
-            <h2 className="font-semibold">Pay online — GCash, Maya, card, online banking</h2>
-            <p className="mt-1 text-sm text-[color:var(--color-ink-700)]">Instant. Your invitation unlocks the moment the payment goes through.</p>
-            {onlineOk ? <PayOnlineButton reference={reference} simulated={isSimulated()} /> : <p className="mt-3 text-sm text-[color:var(--color-ink-500)]">Online payments start at {formatPeso(MIN_CHARGE_CENTS)}. Use a transfer for this amount.</p>}
-          </section>
-          {s['payments.manualEnabled'] && (
+        <div className={`mt-6 grid gap-5 ${online ? 'md:grid-cols-2' : 'max-w-xl'}`}>
+          {online && (
             <section className="card p-5">
-              <p className="eyebrow mb-1">Option 2</p>
-              <h2 className="font-semibold">Transfer, then upload your screenshot</h2>
-              <p className="mt-1 text-sm text-[color:var(--color-ink-700)]">Send the exact amount to any of these, then upload the receipt. Verified by a person during business hours.</p>
+              <p className="eyebrow mb-1">Option 1</p>
+              <h2 className="font-semibold">Pay online — GCash, Maya, card, online banking</h2>
+              <p className="mt-1 text-sm text-[color:var(--color-ink-700)]">Instant. Your invitation unlocks the moment the payment goes through.</p>
+              {onlineOk ? <PayOnlineButton reference={reference} simulated={isSimulated()} /> : <p className="mt-3 text-sm text-[color:var(--color-ink-500)]">Online payments start at {formatPeso(MIN_CHARGE_CENTS)}. Use a transfer for this amount.</p>}
+            </section>
+          )}
+          {s['payments.manualEnabled'] ? (
+            <section className="card p-5">
+              <p className="eyebrow mb-1">{online ? 'Option 2' : 'How to pay'}</p>
+              <h2 className="font-semibold">{online ? 'Transfer, then upload your screenshot' : 'Send the amount by GCash, Maya or bank transfer, then upload your screenshot'}</h2>
+              <p className="mt-1 text-sm text-[color:var(--color-ink-700)]">Send the exact amount to any of these, then upload the receipt. Verified by a person during business hours{online ? '' : ', and your invitation unlocks the moment it is'}.</p>
               <dl className="mt-3 space-y-2 text-sm">
                 {s['payments.gcashNumber'] && (
                   <div className="rounded-xl bg-[color:var(--color-sand-100)] p-3">
@@ -89,7 +94,12 @@ export default async function PayPage({ params, searchParams }: { params: Promis
               </dl>
               <ProofForm reference={reference} channels={['GCash', 'Maya', ...s['payments.bankAccounts'].map((b) => b.bank)]} />
             </section>
-          )}
+          ) : !online ? (
+            <section className="card p-5">
+              <h2 className="font-semibold">Message us to pay</h2>
+              <p className="mt-1 text-sm text-[color:var(--color-ink-700)]">Send us your order number on Messenger and we will tell you where to send the amount.</p>
+            </section>
+          ) : null}
         </div>
       )}
 

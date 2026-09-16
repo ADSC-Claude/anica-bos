@@ -32,6 +32,7 @@
   "dependencies": {
     "@prisma/client": "6.19.3",
     "bcryptjs": "3.0.2",
+    "docx": "^9.7.1",
     "jose": "6.2.5",
     "jsqr": "^1.4.0",
     "lottie-web": "^5.13.0",

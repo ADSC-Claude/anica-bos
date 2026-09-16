@@ -10,7 +10,7 @@ import { pageNeeds, needCount } from '@/lib/needs';
 import { designFilesFor } from '@/lib/design-files';
 import { PageHeader, Pill } from '@/components/ui';
 import { Flash, type FlashParams } from '../flash';
-import { duplicateTemplateAction } from '../actions';
+import { duplicateTemplateAction, templateShownAction } from '../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,14 +44,23 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
               <Link href={`/admin/templates/${t.id}`} className="block hover:bg-[color:var(--color-sand-100)]">
                 <div className="aspect-[9/16]" style={{ background: t.thumbnailUrl ? `top/cover url(${t.thumbnailUrl})` : `linear-gradient(160deg, ${pal.bg}, ${pal.accent2})` }} />
                 <div className="p-3">
-                  <p className="font-semibold">{t.name} {t.featured && <Pill tone="info">Featured</Pill>} {!t.published && <Pill tone="warn">Unpublished</Pill>} {drawn && <Pill tone="info">Drawn</Pill>} {todo?.blocks ? <Pill tone="warn">{todo.blocks} to fix</Pill> : null}</p>
+                  <p className="font-semibold">{t.name} {t.featured && <Pill tone="info">Featured</Pill>} {!t.published && <Pill tone="warn">Hidden</Pill>} {drawn && <Pill tone="info">Drawn</Pill>} {todo?.blocks ? <Pill tone="warn">{todo.blocks} to fix</Pill> : null}</p>
                   <p className="text-xs text-[color:var(--color-ink-500)]">{templateOccasions(t).map(occasionLabel).join(', ')} · {t.premium ? `${TIER_LABELS.COMPLETE} and up` : TIER_LABELS[t.minTier]} · {t.layout} · used {t._count.invitations}×</p>
                 </div>
               </Link>
-              {can(user.role, 'templates.edit') && copyable && (
-                <form action={duplicateTemplateAction.bind(null, t.id, '/admin/templates')} className="border-t border-[color:var(--color-sand-300)] px-3 py-2">
-                  <button className="btn btn-ghost btn-sm" type="submit">Duplicate {t.name}</button>
-                </form>
+              {can(user.role, 'templates.edit') && (
+                <div className="flex flex-wrap gap-2 border-t border-[color:var(--color-sand-300)] px-3 py-2">
+                  {/* the one question asked oftenest, without opening the form: a design saved half-drawn is parked here and let out here */}
+                  <form action={templateShownAction.bind(null, t.id, '/admin/templates')}>
+                    <input type="hidden" name="published" value={t.published ? 'false' : 'true'} />
+                    <button className="btn btn-ghost btn-sm" type="submit" aria-label={`${t.published ? 'Hide' : 'Put on the website'}: ${t.name}`}>{t.published ? 'Hide' : 'Put on the website'}</button>
+                  </form>
+                  {copyable && (
+                    <form action={duplicateTemplateAction.bind(null, t.id, '/admin/templates')}>
+                      <button className="btn btn-ghost btn-sm" type="submit" aria-label={`Duplicate ${t.name}`}>Duplicate</button>
+                    </form>
+                  )}
+                </div>
               )}
             </div>
           );

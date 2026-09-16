@@ -46,7 +46,7 @@ import { TIERS, TIER_LABELS } from '../src/lib/tiers';
  * there is one product — we build it — and the base price carries it:
  * 2,500 / 4,000 / 6,000, which is what a Done-For-You order came to before,
  * give or take the 200 knocked off Standard to round it. Luxury came later, at
- * 7,500.
+ * 7,500, and was raised to 8,000 with the twenty-photo gallery in #132.
  *
  * The columns stay so orders sold under either mode still reconcile.
  */

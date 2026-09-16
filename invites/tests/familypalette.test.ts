@@ -48,14 +48,25 @@ test('a family that is not in the book is refused rather than guessed at', () =>
 
 
 /**
- * The book as it stands, key by key and hex by hex.
+ * The book as it stands, key by key and hex by hex — in two lists, because
+ * the book has two provenances and only one of them is ours.
  *
  * Not a test of taste — a test that a saved motif keeps its name. What an
  * invitation stores is the hex, and the page reads the name back out of the
  * book; change a hex and somebody's "Dusty Rose" quietly becomes an unnamed
- * colour, change a key and the seed stops building. The plan's next step
- * for the book is to take every family to ten shades or more from a sheet
- * the owner approves, and this is what that expansion must not disturb.
+ * colour, change a key and the seed stops building.
+ *
+ * `BOOK` is the owner's own sheet, 102 colours, and was written here before
+ * the expansion so that the expansion could not disturb it. `OURS` is the
+ * 33 added to take every family to ten, and they are pinned now because the
+ * owner has reviewed the sheet of all 135 and kept every one — so they are
+ * as much the book as hers are, and as able to rename somebody's motif if
+ * they move. Until she had said so they were deliberately unpinned: pinning
+ * a colour that might yet be struck would have meant a failing test as the
+ * normal way to remove one.
+ *
+ * The two lists together must be every swatch in the book, in order, which
+ * is what stops a shade being quietly added to neither.
  */
 const shadesOf = (key: string) => PALETTE.find((g) => g.key === key)!.swatches.map((s) => s.hex);
 
@@ -270,12 +281,60 @@ test('no two swatches are the same colour, and no new one crowds an old one', ()
   }
 });
 
-test('a shade added to the book is marked as added, so the sheet can show it', () => {
+
+/** The 33 that took every family to ten, reviewed and kept. */
+const OURS = [
+  'poppy #e8493f',
+  'brick #9e3b32',
+  'garnet #6e1423',
+  'melon #fbb491',
+  'tangerine #f08a3c',
+  'pumpkin #d4711f',
+  'sienna #96523a',
+  'straw #f2e3a3',
+  'honey #edc75a',
+  'amber #e8a72c',
+  'marigold #d98f21',
+  'ochre #b8842b',
+  'honeydew #e6f2d9',
+  'seafoam #cfe8dc',
+  'tea-green #c7d9b0',
+  'celadon #bcd3bd',
+  'fern #93a87e',
+  'laurel #869b76',
+  'jade #3f8f6f',
+  'basil #4f7a3f',
+  'pine #2f5d4a',
+  'heather #b8a2c8',
+  'walnut #5c4033',
+  'fog #ececeb',
+  'ash-gray #9c9d9e',
+  'onyx #0b0b0b',
+  'ink #14181f',
+  'ebony #201f1f',
+  'raven #2a2a2e',
+  'platinum #dcdee0',
+  'brass #c5a24a',
+  'antique-gold #b8912f',
+  'pewter #96999c',
+];
+
+test('a shade added to the book is marked as added, and is one of the reviewed 33', () => {
   const added = SWATCHES.filter((s) => s.added);
-  assert.equal(added.length, SWATCHES.length - BOOK.length, 'the marked ones are exactly the ones the snapshot does not hold');
+  assert.equal(added.length, OURS.length, 'the marked ones are exactly the ones OURS holds');
+  assert.deepEqual(added.map((s) => `${s.key} ${s.hex}`), OURS, 'a shade of ours moved, went or arrived');
   // and nothing from her original sheet is marked
   for (const line of BOOK) {
     const key = line.split(' ')[0];
     assert.equal(SWATCHES.find((s) => s.key === key)?.added, undefined, `${key} is hers, not ours`);
   }
+});
+
+test('the two lists are the whole book, so a shade cannot land in neither', () => {
+  const pinned = new Set([...BOOK, ...OURS]);
+  assert.equal(pinned.size, BOOK.length + OURS.length, 'a line is in both lists');
+  const actual = SWATCHES.map((s) => `${s.key} ${s.hex}`);
+  assert.equal(actual.length, 135, `the book is ${actual.length} swatches`);
+  for (const line of actual) assert.ok(pinned.has(line), `${line} is pinned by neither list`);
+  for (const line of pinned) assert.ok(actual.includes(line), `gone from the book: ${line}`);
 });

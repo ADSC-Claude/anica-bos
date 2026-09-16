@@ -51,7 +51,7 @@ export function SignupForm({ next }: { next?: string }) {
         <input id="email" name="email" type="email" autoComplete="email" required className="field" placeholder="you@email.com" />
       </div>
       <div>
-        <label className="label" htmlFor="phone">Mobile number <span className="font-normal text-[color:var(--color-ink-500)]">(optional, for Viber)</span></label>
+        <label className="label" htmlFor="phone">Mobile number <span className="font-normal text-[color:var(--color-ink-500)]">(optional)</span></label>
         <input id="phone" name="phone" inputMode="tel" autoComplete="tel" className="field" placeholder="0917 000 0000" />
       </div>
       <div>

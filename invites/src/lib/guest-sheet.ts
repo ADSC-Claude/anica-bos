@@ -1,4 +1,6 @@
 import { toCsv } from './csv';
+import { TEMPLATE_EXAMPLES } from './guest-dupes';
+export type { ImportResult } from './guest-dupes';
 
 /**
  * The two spreadsheets a couple works their guest list in, and the rules for
@@ -92,8 +94,11 @@ export function guestTemplateCsv(groups: string[]): string {
     note(''),
     note('The two rows underneath are examples of the shape. They are notes too, so they never become guests —'),
     note('delete the # at the front of one to turn it into a real name, or just type your own rows above.'),
-    shape('Mr. & Mrs. Dela Cruz', groups[0] ?? "Bride's family", '2', '0917 123 4567', 'delacruz@email.com', 'Tito Ben & Tita Let'),
-    shape('Ninong Fred', groups[1] ?? 'Principal sponsors', '1', '0918 765 4321', 'fred@email.com', 'Ninong Fred'),
+    // Taken from the same constant the importer recognises them by, so the
+    // blank and the sight-check cannot drift apart. They are `#` notes here,
+    // which is what keeps them from ever becoming guests; isTemplateLine is
+    // the second net, for a file that comes back with the # deleted.
+    ...TEMPLATE_EXAMPLES.map((e, i) => shape(e.name, groups[i] ?? e.group, e.seats, e.phone, e.email, e.greeting)),
   ]);
 }
 
@@ -124,14 +129,3 @@ export const SEAT_SHEET_NOTES: string[][] = [
   note('Then save the file and upload it on the same page you got it from.'),
 ];
 
-/** What an import did, in the four ways a row can land. */
-export type ImportResult = {
-  /** Rows with no link: somebody new. */
-  added: number;
-  /** Rows whose link found a guest on this list. */
-  updated: number;
-  /** Rows with no name at all. */
-  skipped: number;
-  /** Rows carrying a link that belongs to no guest here. */
-  unmatched: number;
-};

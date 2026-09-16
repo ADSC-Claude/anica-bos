@@ -4,8 +4,9 @@ import { HttpError } from './errors';
 import { guestToken } from './codes';
 import { seatsHeld, headsArrived, replySeats } from './seats';
 import { parseCsv, toCsv } from './csv';
-import { isNote, seatsFrom, tokenFromLink, guestTemplateCsv, SEAT_SHEET_COLUMNS, SEAT_SHEET_NOTES, type ImportResult } from './guest-sheet';
-import { entitled, TIER_LABELS, type Entitled } from './tiers';
+import { isNote, seatsFrom, tokenFromLink, guestTemplateCsv, SEAT_SHEET_COLUMNS, SEAT_SHEET_NOTES } from './guest-sheet';
+import { duplicateRows, isTemplateLine, type ImportResult } from './guest-dupes';
+import { entitled, TIER_LABELS, FEATURE_MIN_TIER, type Entitled } from './tiers';
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
@@ -92,10 +93,22 @@ export async function importGuests(invitation: Entitled & { id: string }, text: 
  * new. Before this, every upload ended in createMany, so a couple who sent
  * back the list we gave them got a second copy of all eighty-six names, each
  * with a fresh link and no reply against it.
+ *
+ * And a row with no link that repeats somebody — the same name, mobile or
+ * e-mail as a guest already on the list, or as an earlier row of the same
+ * file — is left out and counted, so the same workbook can be sent again
+ * after ten names were added to it without doubling the other two hundred.
+ * What counts as the same person is guest-dupes.ts's business.
+ *
+ * The two rules meet cleanly, and it is worth saying why: a seat sheet comes
+ * back with every existing guest carrying their own link, so those rows are
+ * edits and never reach the repeat check. Only genuinely new rows are
+ * checked — which is exactly the set where a repeat would be a second copy
+ * of somebody.
  */
 export async function importGuestRows(invitation: Entitled & { id: string }, rows: string[][]): Promise<ImportResult> {
   requireGuestManager(invitation);
-  const nothing: ImportResult = { added: 0, updated: 0, skipped: 0, unmatched: 0 };
+  const nothing: ImportResult = { added: 0, updated: 0, skipped: 0, duplicates: 0, examples: 0, unmatched: 0 };
   if (rows.length === 0) return nothing;
 
   const header = rows[0].map((h) => h.toLowerCase());
@@ -122,11 +135,16 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
   const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() : '');
   const body = (hasHeader ? rows.slice(1) : rows).filter((r) => !isNote(r));
 
+  // Only what the repeat check compares on; the size limit reads its count
+  // off the same query.
+  const existing = await prisma.guest.findMany({ where: { invitationId: invitation.id }, select: { name: true, phone: true, email: true } });
+
   type Edit = { name: string; groupName?: string; seatsAllotted?: number; phone?: string; email?: string; salutation?: string };
   const edits: { token: string; data: Edit }[] = [];
   const at = new Map<string, number>();
-  const creates = [];
+  const parsed = [];
   let skipped = 0;
+  let examples = 0;
 
   for (const r of body) {
     const name = cell(r, cName);
@@ -161,7 +179,16 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
       continue;
     }
 
-    creates.push({
+    // The blank's own example guests and notes, sent back unedited. They are
+    // `#` notes in the file we hand out, so `isNote` above has usually caught
+    // them already; this is the net for a file that comes back with the #
+    // deleted but the row untouched.
+    if (isTemplateLine(name, cell(r, cPhone))) {
+      examples++;
+      continue;
+    }
+
+    parsed.push({
       invitationId: invitation.id,
       token: guestToken(),
       name: name.slice(0, 120),
@@ -173,11 +200,14 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
     });
   }
 
-  const existing = await prisma.guest.count({ where: { invitationId: invitation.id } });
   // Counted against the new rows only. An edit of a list that is already at the
   // cap is not a list getting bigger, and refusing it would leave the biggest
   // weddings — the ones with the most seats to settle — unable to edit at all.
-  if (existing + creates.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
+  if (existing.length + parsed.length > 2000) throw new HttpError(400, 'A guest list is limited to 2,000 rows.');
+
+  // New rows only, against the list as it stands and against each other.
+  const dupes = duplicateRows(existing, parsed);
+  const creates = parsed.filter((_, i) => !dupes.has(i));
 
   const known = edits.length
     ? await prisma.guest.findMany({
@@ -203,7 +233,7 @@ export async function importGuestRows(invitation: Entitled & { id: string }, row
     );
   }
 
-  return { added: creates.length, updated: live.length, skipped, unmatched: edits.length - live.length };
+  return { added: creates.length, updated: live.length, skipped, duplicates: dupes.size, examples, unmatched: edits.length - live.length };
 }
 
 /**
@@ -233,6 +263,9 @@ export async function guestSeatSheetCsv(invitation: { id: string; slug: string }
   return toCsv([...SEAT_SHEET_COLUMNS], [...rows, ...SEAT_SHEET_NOTES]);
 }
 
+// The blank a couple fills in. It lives in guest-sheet.ts beside the column
+// names and the notes it is made of; re-exported here because the route that
+// serves it, and the seat sheet beside it, both come from this module.
 export { guestTemplateCsv };
 
 export async function listGuests(invitationId: string) {
@@ -310,26 +343,43 @@ export async function rsvpsCsv(invitationId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 /**
- * What a customer who cannot do this is told. Both features are Signature's
- * and both are sold on their own, so the sentence names the add-on: telling a
+ * What a customer who cannot do this is told. Both features are sold on their
+ * own as well as in a package, so the sentence names the add-on: telling a
  * Basic customer to buy the top package to scan a door is losing a sale they
- * were ready to make.
+ * were ready to make. The package is read off FEATURE_MIN_TIER rather than
+ * written in, because these two sentences went on saying Signature after both
+ * features moved up to Luxury.
  */
-const seatingLocked = `Seating charts are included in the ${TIER_LABELS.COMPLETE} package, or can be added to yours.`;
-const checkinLocked = `QR check-in is included in the ${TIER_LABELS.COMPLETE} package, or can be added to yours.`;
+const seatingLocked = `Seating charts are included in the ${TIER_LABELS[FEATURE_MIN_TIER.seating]} package, or can be added to yours.`;
+const checkinLocked = `QR check-in is included in the ${TIER_LABELS[FEATURE_MIN_TIER.checkin]} package, or can be added to yours.`;
 
-export async function saveTable(invitation: Entitled & { id: string }, input: { id?: string; name: string; capacity: number }) {
+/**
+ * How the seating chart draws a table. Stored as a word on the row; a word
+ * that is not one of these — a row from before shapes existed, or anything
+ * hand-typed — is drawn round, which is what every table was until now.
+ */
+export const TABLE_SHAPES = ['round', 'rectangle', 'long'] as const;
+export type TableShape = (typeof TABLE_SHAPES)[number];
+export const TABLE_SHAPE_LABELS: Record<TableShape, string> = { round: 'Round', rectangle: 'Rectangle', long: 'Long' };
+
+export function tableShape(value: unknown): TableShape {
+  return (TABLE_SHAPES as readonly unknown[]).includes(value) ? (value as TableShape) : 'round';
+}
+
+export async function saveTable(invitation: Entitled & { id: string }, input: { id?: string; name: string; capacity: number; shape?: string }) {
   if (!entitled(invitation, 'seating')) throw new HttpError(403, seatingLocked);
   const name = input.name.trim().slice(0, 60);
   if (!name) throw new HttpError(400, 'A table needs a name.');
   const capacity = Math.max(1, Math.min(50, Math.round(input.capacity) || 10));
+  // A form that never asked about the shape leaves the stored one alone.
+  const shape = input.shape === undefined ? undefined : tableShape(input.shape);
   if (input.id) {
     const t = await prisma.seatingTable.findFirst({ where: { id: input.id, invitationId: invitation.id } });
     if (!t) throw new HttpError(404, 'That table does not exist.');
-    return prisma.seatingTable.update({ where: { id: input.id }, data: { name, capacity } });
+    return prisma.seatingTable.update({ where: { id: input.id }, data: { name, capacity, ...(shape ? { shape } : {}) } });
   }
   const count = await prisma.seatingTable.count({ where: { invitationId: invitation.id } });
-  return prisma.seatingTable.create({ data: { invitationId: invitation.id, name, capacity, sortOrder: count } });
+  return prisma.seatingTable.create({ data: { invitationId: invitation.id, name, capacity, shape: shape ?? 'round', sortOrder: count } });
 }
 
 export async function deleteTable(invitation: { id: string }, tableId: string) {

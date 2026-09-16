@@ -131,20 +131,56 @@ test('the notes in an uploaded file never become guests', () => {
   assert.match(fn, /\.filter\(\(r\) => !isNote\(r\)\)/, 'the instructions we wrote would import as people');
 });
 
+/**
+ * The seat sheet's round trip and the repeat check have to share one importer,
+ * and the order they run in is the whole of their correctness.
+ *
+ * A seat sheet comes back with every existing guest carrying their own
+ * personal link. If the repeat check saw those rows it would find each one
+ * already on the list and skip it — and the edits the couple made, the whole
+ * reason they were sent the sheet, would be silently dropped. So a linked row
+ * leaves the loop before anything else looks at it, and only the rows with no
+ * link — the ones that would make the list longer — are checked for repeats.
+ */
+test('a row with a personal link is an edit, and never a repeat', () => {
+  const fn = body(guests, 'export async function importGuestRows(');
+  const edit = fn.indexOf('const token = tokenFromLink(');
+  const example = fn.indexOf('isTemplateLine(');
+  const repeat = fn.indexOf('duplicateRows(');
+  assert.ok(edit > 0 && example > 0 && repeat > 0, 'one of the three paths is gone');
+  assert.ok(edit < example, 'a linked row is sized up as an example row first');
+  assert.ok(example < repeat, 'the example rows are checked for repeats instead of being dropped');
+  // What duplicateRows is handed: the rows with no link, never the edits.
+  assert.match(fn, /duplicateRows\(existing, parsed\)/);
+  assert.doesNotMatch(fn, /duplicateRows\([^)]*edits/, 'the edits are run through the repeat check');
+  // And the edit path returns before reaching either, so `parsed` cannot hold
+  // a linked row at all.
+  const editBlock = fn.slice(edit, example);
+  assert.match(editBlock, /continue;/, 'a linked row falls through into the creates');
+});
+
 test('the row cap counts what is being added, not what is being edited', () => {
   // Counting edits would leave the biggest weddings — the ones with the most
-  // seats to settle — unable to edit their list at all.
+  // seats to settle — unable to edit their list at all. `parsed` is the rows
+  // with no personal link, which is exactly the set that makes a list longer.
   const fn = body(guests, 'export async function importGuestRows(');
-  assert.match(fn, /existing \+ creates\.length > 2000/, 'editing a full list is refused as if it were growing');
+  assert.match(fn, /existing\.length \+ parsed\.length > 2000/, 'editing a full list is refused as if it were growing');
+  assert.doesNotMatch(fn, /edits\.length [+*] .{0,20}> 2000/, 'the cap counts the edits');
 });
 
 test('the couple is told whether their list just doubled', () => {
   // "86 rows processed" is the sentence that hides the only thing worth
-  // knowing. Updated is said first, because on a seat sheet that is every row.
-  assert.match(manager, /function importedLine\(/, 'the result is summarised somewhere else again');
-  assert.match(manager, /Updated \$\{r\.updated\}/);
-  assert.match(manager, /personal link that is not on this list/, 'an unmatched row is silently dropped');
-  assert.equal((manager.match(/importedLine\(d as Imported\)/g) ?? []).length, 2, 'the two upload paths word it differently');
+  // knowing. The wording lives in guest-dupes beside the counts it reads, so
+  // the upload, the paste and anything after them all say the same thing.
+  const dupes = readFileSync(new URL('../src/lib/guest-dupes.ts', import.meta.url), 'utf8');
+  assert.match(dupes, /export function importNotice\(/, 'the result is summarised somewhere else again');
+  assert.match(dupes, /\$\{updated\} \$\{updated === 1 \? 'guest was' : 'guests were'\} updated/, 'an edited guest goes uncounted');
+  assert.match(dupes, /already on the list/, 'a repeat is silently dropped');
+  assert.match(dupes, /personal link we do not recognise/, 'an unmatched row is silently dropped');
+  // One helper, both upload paths, so the two cannot word it differently.
+  assert.equal((manager.match(/importNotice\(/g) ?? []).length, 1, 'the notice is built in more than one place');
+  assert.equal((manager.match(/, imported\)/g) ?? []).length, 1);
+  assert.match(manager, /imported\(d\); form\.reset\(\)/, 'the paste path does not use the shared wording');
 });
 
 test('both sheets are offered, and each says which one it is for', () => {
@@ -152,4 +188,7 @@ test('both sheets are offered, and each says which one it is for', () => {
   assert.match(manager, /guest-template\.csv/, 'the blank list is gone');
   assert.match(manager, /it updates them — it does not add them again/, 'nothing says the seat sheet is safe to send back');
   assert.match(manager, /The instructions are inside the file/, 'the page does not say to read the file');
+  // Both in the one card that is always open. A second import card is worse
+  // than either: the customer has to work out which upload is which.
+  assert.equal((manager.match(/run\(\(\) => importGuestFileAction/g) ?? []).length, 1, 'the page offers two separate uploads');
 });

@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { packageFor } from '@/lib/orders';
@@ -19,7 +18,6 @@ export default async function UpgradePage({ params }: { params: Promise<{ id: st
   const options = packages.filter((p) => !tierAtLeast(inv.tier, p.tier));
   return (
     <>
-      <Link href={`/account/invitations/${inv.id}`} className="text-sm text-[color:var(--color-plum-600)] hover:underline">← {inv.title}</Link>
       <PageHeader title="Upgrade your package" subtitle={`You are on ${TIER_LABELS[inv.tier]}. Pay only the difference; everything you have built stays.`} />
       {options.length === 0 ? <p className="card p-5">You already have everything — {TIER_LABELS[TIERS[TIERS.length - 1]]} is the top package.</p> : (
         <div className="grid gap-4 sm:grid-cols-2">

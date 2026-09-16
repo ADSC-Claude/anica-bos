@@ -18,8 +18,8 @@ export function PhoneOpening({ src, poster, name }: { src: string; poster: strin
         ) : (
           <button type="button" onClick={() => setPlaying(true)} className="relative block h-full w-full" aria-label={`Watch the premium opening of ${name}`}>
             <img src={poster} alt="" className="h-full w-full object-cover" />
-            <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/15 text-white">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-t from-black/55 via-black/20 to-black/10 text-[color:var(--color-sand-50)]">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[color:var(--color-sand-50)]/90 text-[color:var(--color-ink-900)] shadow-lg">
                 <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg>
               </span>
               <span className="text-[10px] uppercase tracking-[0.3em] drop-shadow">Tap to watch the premium opening</span>

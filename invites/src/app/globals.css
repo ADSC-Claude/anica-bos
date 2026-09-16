@@ -23,6 +23,14 @@
   --color-plum-500: #a05266; /* lighter — icons, links on cream */
   --color-plum-600: #8a3b4e; /* brand: buttons, prices — 7.4:1 on sand-50 */
   --color-plum-700: #6f2e3e; /* pressed and hovered */
+  /* The logo's own oxblood, sampled from the file, and two steps around it.
+     plum-600 is the UI brand — buttons, prices, links — and stays. These are
+     the editorial register: the hero's call to action, the dark band, the
+     mark. Kept apart so restyling the landing page cannot quietly restain
+     every button in the dashboard. */
+  --color-wine-700: #6b1220; /* the hero button, hovered states on wine-900 */
+  --color-wine-800: #520108; /* the logo, exactly */
+  --color-wine-900: #3a0a10; /* the dark band */
 
   --color-gold-400: #d8bf8c;
   --color-gold-500: #c9a86a;
@@ -40,7 +48,7 @@
   --warn: #b26a00;
   --bad: #b3261e;
   --info: #2a5d8f;
-  --card-bg: #fffdf9;
+  --card-bg: #fdfaf3;
 }
 
 html {
@@ -248,13 +256,24 @@ table.data tr:hover td {
   overflow: hidden;
   position: relative;
 }
+/* The builder's phone: a real handset's width, so line breaks and name sizes
+   are judged on the shape a guest will hold — and no taller than the screen
+   it is on, so the whole page stays in reach beside the form. */
+.builder-phone .phone {
+  width: min(410px, calc((100dvh - 3.5rem) * 9 / 19), 100%);
+}
+.builder-phone .phone iframe {
+  position: absolute;
+  inset: 22px 0 0 0;
+  height: calc(100% - 22px);
+}
 .phone iframe,
 .phone > .screen {
   width: 100%;
   height: 100%;
   border: 0;
   border-radius: 1.6rem;
-  background: #fff;
+  background: var(--color-sand-100);
   display: block;
 }
 
@@ -342,13 +361,30 @@ table.data tr:hover td {
  * it always was — the two shipped designs name the same four colours the two
  * layout rules used to carry, so neither moves by a shade.
  */
-.inv-stage { background: var(--inv-surround, var(--inv-bg)); }
-.inv-stage:has(.inv[data-paged][data-mode='night']) { background: var(--night-surround, #12131c); }
+.inv-stage {
+  position: relative;
+  background-color: var(--inv-surround, var(--inv-bg));
+  /* the colour beside each page that names one, as bands PageGround lays (--inv-outside);
+     under them a picture behind the whole page, edge to edge, when the design gives one (designVars) */
+  background-image: var(--inv-outside, none), var(--inv-surround-art, none);
+  background-position: center top, center top;
+  background-size: 100% 100%, var(--inv-surround-size, cover);
+  background-repeat: no-repeat, var(--inv-surround-repeat, no-repeat);
+  background-attachment: scroll, var(--inv-surround-attach, scroll);
+}
+.inv-stage:has(.inv[data-paged][data-mode='night']) { background-color: var(--night-surround, #12131c); }
+/*
+ * --inv-screen: the height of a screen, where a rule wants one. A guest's page
+ * reads the real one, so the variable is never set there. The studio draws
+ * one page in a frame exactly as tall as the page, and a rule measured
+ * against that frame's height would measure the page against itself and
+ * grow without end; so the studio hands in a phone's height instead.
+ */
 .inv {
   background: var(--inv-paper, var(--inv-bg));
   color: var(--inv-ink);
   font-family: var(--inv-body);
-  min-height: 100dvh;
+  min-height: var(--inv-screen, 100dvh);
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -930,7 +966,7 @@ table.data tr:hover td {
 /* Hero variants by template layout. */
 .inv-hero {
   position: relative;
-  min-height: 92dvh;
+  min-height: calc(var(--inv-screen, 100dvh) * 0.92);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1073,6 +1109,40 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    its upper part and the verse at its foot. */
 .inv[data-paged] { --capiz-bg: min(264.5vw, 84.6rem); }
 .inv-ground { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+/* a picture that reaches the whole website page: a band beside the column, under it (PageGround) */
+.inv-stage > .inv { position: relative; z-index: 1; }
+/* --- a picture pinned to the screen (PageSpec.pin) ---------------------------
+   The picture is not laid in the column at all: it fills the window on a
+   layer fixed behind the column, and stays put while the words move over
+   it. Pinned pictures crossfade as the pages on them come and go (Pinned,
+   in client.tsx, marks the one whose pages hold the middle of the screen).
+   The column goes see-through over the pages that sit on a pin; every
+   other page keeps its own paper, since the column's one colour can no
+   longer be the paper for all of them. */
+.inv-pins { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.inv-pin { position: absolute; inset: 0; opacity: 0; transition: opacity 520ms ease; }
+.inv-pin[data-active] { opacity: 1; }
+.inv-pin img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+/* The phone's background keeps to the column: the picture is the shape of a
+   phone screen, so on a laptop it fills the column and the design's surround
+   stands beside it. The website's background has no such rule — it is the
+   window. */
+.inv-pin[data-column] { left: 50%; right: auto; width: min(100%, 32rem); transform: translateX(-50%); }
+.inv-pin img[data-night] { display: none; }
+.inv-stage:has(.inv[data-mode='night']) .inv-pin img[data-night] { display: block; }
+.inv-stage:has(.inv[data-mode='night']) .inv-pin[data-night-art] img[data-day] { display: none; }
+/* by night a day picture is turned down, the way the column's own papers are */
+.inv-stage:has(.inv[data-mode='night']) .inv-pin:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; }
+.inv[data-paged][data-pinned] { background-color: transparent; }
+.inv[data-paged][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--inv-paper, #f2e8dc); }
+.inv[data-paged][data-mode='night'][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--night-paper, #1a1b26); }
+@media (prefers-reduced-motion: reduce) { .inv-pin { transition: none; } }
+@media print {
+  .inv-pins { display: none; }
+  .inv[data-paged][data-pinned] { background-color: var(--inv-paper, #f2e8dc); }
+}
+.inv-stage > .inv-beside { z-index: 0; overflow: hidden; pointer-events: none; }
+.inv-stage > .inv-beside > video, .inv-stage > .inv-beside > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .inv-paper {
   position: absolute; left: 0; right: 0;
   background-repeat: no-repeat; background-size: 100% auto; background-position: center top;
@@ -1787,7 +1857,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    rather than sharing the screen with the name. */
 .inv[data-layout='babyblue'] .inv-page[data-page='cover'] { min-height: 0; justify-content: flex-start; padding-top: 0; padding-bottom: min(14vw, 4.5rem); }
 /* the names centred in the sky above the verse; a short screen grows the page rather than laying one over the other */
-.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; min-height: 100vh; min-height: 100dvh; justify-content: center; padding: min(10vw, 3.2rem) 0 min(12vw, 3.6rem); box-sizing: border-box; }
+.inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-hero { flex: 0 0 auto; min-height: 100vh; min-height: var(--inv-screen, 100dvh); justify-content: center; padding: min(10vw, 3.2rem) 0 min(12vw, 3.6rem); box-sizing: border-box; }
 .inv[data-layout='babyblue'] .inv-page[data-page='cover'] > .inv-verse { margin-top: 0; padding-top: 0.5rem; }
 .inv[data-layout='babyblue'] .inv-page[data-page='closing'] { padding-bottom: min(22vw, 7rem); }
 /* the drawn pages: the ground's own shape, nothing else on them but what is placed */
@@ -1847,14 +1917,14 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * while she is drawing: it shows where it is and says what fills it. Nothing
  * carries `data-empty` on a guest's page, so a guest sees none of this.
  */
-.inv [data-empty] { outline: 1px dashed rgba(47, 111, 208, 0.55); background: rgba(47, 111, 208, 0.06); }
+.inv [data-empty] { outline: 2px dashed rgba(47, 111, 208, 0.85); outline-offset: -1px; background: rgba(47, 111, 208, 0.12); }
 .inv figure[data-empty] { display: flex; align-items: center; justify-content: center; }
 /* A text box the studio placed that is not one of the design's own kinds. */
 .inv[data-paged] .inv-bb-art > .inv-bb-text { position: absolute; text-align: center; }
 .inv-bb-text .inv-bb-body { font-family: var(--inv-body); font-size: 2.6cqw; line-height: 1.5; color: var(--inv-ink); }
 /* The paper role is the one colour the night block sets on .inv rather than on the variable. */
 .inv[data-paged][data-mode='night'] .inv-page[data-ground='bg'] { background: var(--night-paper, #1a1b26); }
-.inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 2.3cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
+.inv-bb-ask { margin: 0; padding: 0.3em; font-family: var(--inv-body); font-size: 3.2cqw; line-height: 1.25; color: #2f6fd0; text-align: center; word-break: break-word; }
 .inv[data-layout='babyblue'] .inv-page[data-page='story'] { aspect-ratio: 725 / 2167; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page[data-page='baby-photos'] { aspect-ratio: 941 / 1672; padding: 0; display: block; container-type: inline-size; }
 .inv[data-layout='babyblue'] .inv-page > .inv-bb-art { position: absolute; inset: 0; padding: 0; max-width: none; }
@@ -1880,6 +1950,50 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * page has no padding at all, by design, so foot room means nothing there.
  */
 .inv .inv-page[data-foot] { padding-bottom: calc(var(--page-foot) * min(11vw, 3.5rem)); }
+/* and the same room at the head, for a moment or a flourish hung off the top of a page laid out by its words (PageSpec.headPad) */
+.inv .inv-page[data-head] { padding-top: calc(var(--page-head) * min(11vw, 3.5rem)); }
+/* a page laid out by its words, told to be at least so many screens tall (PageSpec.minScreens) */
+.inv[data-doc] .inv-page[data-min] { min-height: calc(var(--inv-screen, 100dvh) * var(--page-min, 1) / var(--page-drawn, 1)); }
+/*
+ * A page drawn smaller than the design was written at (PageSpec.size), so
+ * that a page too tall for a screen fits one.
+ *
+ * `zoom` and not `transform: scale`, because the two do different things and
+ * only one of them is what she asked for. A transform draws the page smaller
+ * and leaves a page-shaped hole behind it — the words still take the height
+ * they took, so the page is no shorter and the next one still begins two
+ * screens down. `zoom` is laid out: the page's used sizes are the scaled
+ * ones, so the page really is shorter and everything after it comes up.
+ *
+ * Everything comes down together — the type, the air between the lines, the
+ * countdown's tiles, the pieces, the floats — because they are all sizes of
+ * the page and zoom takes them all. That is the whole point: the page keeps
+ * its proportions and simply becomes smaller.
+ *
+ * The one thing that must not be scaled is `min-height` above: a screen is a
+ * screen whatever the size, so the height asked for is divided by the size
+ * first and zoom multiplies it back. A page told to be one screen tall and
+ * drawn at half size is one screen tall, not half of one.
+ */
+/*
+ * On a laptop only, which is where the problem is. A phone shows the page in
+ * a column 390px wide and a guest scrolls it; a page running past a screen
+ * there is what a phone is. The laptop is the one that lays the same column
+ * down the middle of a 1440px window with room either side, so a page of
+ * words becomes a long ribbon nobody can take in — which is what she was
+ * looking at: "its too big for the website".
+ *
+ * Measured rather than assumed: the closing page fitted to a laptop screen
+ * came out at 0.42, and at 0.42 on a phone its body type was 7px. So the
+ * size is the website's size, and a phone keeps the page whole.
+ *
+ * `--page-drawn` is the size the page is actually drawn at, for the
+ * `min-height` above: the size inside this query and 1 outside it, so a page
+ * told to be one screen tall is one screen tall in both.
+ */
+@media (min-width: 640px) {
+  .inv[data-doc] .inv-page[data-size] { zoom: var(--page-size, 1); --page-drawn: var(--page-size, 1); }
+}
 
 /*
  * A picture the words flow around, on a page laid out by its words.
@@ -1899,11 +2013,18 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * above and below — so it is the same picture in a narrower place, not a
  * different one.
  */
-.inv-bb-float { margin: 0 auto 0.7rem; display: grid; place-items: center; }
+/* A float's place (floatAt): how far in from its own side of the words'
+   column it stands, and how far down the words it begins — both shares of
+   that column's width, which is what a per-cent margin resolves against and
+   what a float's place is measured in, since the column is what it stands
+   in. (Down is a share of the width too: a flow page's height is its
+   customer's words.) A phone is too narrow to read beside a picture, so
+   there a float keeps its place down the words and stands on its own. */
+.inv-bb-float { margin: var(--float-y, 0) auto 0.7rem; display: grid; place-items: center; }
 .inv-bb-float > img { display: block; width: var(--float-inner, 100%); height: auto; transform: rotate(var(--float-turn, 0deg)); }
 @media (min-width: 34rem) {
-  .inv-bb-float[data-float='left'] { float: left; margin: 0 1.1rem 0.7rem 0; }
-  .inv-bb-float[data-float='right'] { float: right; margin: 0 0 0.7rem 1.1rem; }
+  .inv-bb-float[data-float='left'] { float: left; margin: var(--float-y, 0) 1.1rem 0.7rem var(--float-x, 0); }
+  .inv-bb-float[data-float='right'] { float: right; margin: var(--float-y, 0) var(--float-x, 0) 0.7rem 1.1rem; }
 }
 /* the same card and the same cuts a placed frame gets, so a floated picture
    and a drawn one are the same picture in two layouts */
@@ -2032,7 +2153,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   background: var(--inv-bg);
   color: var(--inv-ink);
   cursor: pointer;
-  transition: opacity 500ms ease 550ms, visibility 0s linear 1050ms;
+  transition: opacity calc(500ms * var(--moment-t, 1)) ease calc(550ms * var(--moment-t, 1)), visibility 0s linear calc(1050ms * var(--moment-t, 1));
 }
 .inv-open[data-open='true'] {
   opacity: 0;
@@ -2103,89 +2224,8 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 
 /* The Envelope and The Seal share a stage: a card inside a folded face with a
    wax seal. The seal lifts the card further and cracks the wax. */
-.inv-open-env {
-  position: relative;
-  width: min(17rem, 76vw);
-  aspect-ratio: 8 / 5;
-  perspective: 900px;
-}
-.inv-open-card {
-  position: absolute;
-  left: 7%;
-  right: 7%;
-  top: 8%;
-  bottom: 8%;
-  border-radius: 0.2rem;
-  background: var(--inv-surface);
-  border: 1px solid color-mix(in srgb, var(--inv-accent2) 55%, transparent);
-  transition: transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 200ms, opacity 500ms ease 550ms;
-}
-.inv-open-flap {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 0.5rem;
-  background: var(--inv-surface);
-  border: 1px solid var(--inv-accent2);
-  box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.35);
-  transform-origin: top center;
-  transition: transform 750ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms ease 500ms;
-}
-.inv-open-flap::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.6;
-  background:
-    linear-gradient(to bottom right, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%),
-    linear-gradient(to bottom left, transparent 49.5%, var(--inv-accent2) 50%, transparent 50.5%);
-  background-size: 50% 100%;
-  background-repeat: no-repeat;
-  background-position: left top, right top;
-}
-.inv-open-wax {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 999px;
-  background: var(--inv-accent);
-  color: #fff;
-  font-family: var(--inv-display);
-  font-size: 1rem;
-  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, 0.55);
-  transform: translate(-50%, -50%);
-  transition: transform 450ms ease, opacity 350ms ease 150ms;
-}
-.inv-open[data-style='seal'] .inv-open-wax::before {
-  content: '';
-  position: absolute;
-  inset: -0.5rem;
-  border-radius: 999px;
-  border: 1px dashed color-mix(in srgb, var(--inv-accent) 45%, transparent);
-}
-.inv-open[data-open='true'] .inv-open-flap {
-  transform: rotateX(-160deg);
-  opacity: 0;
-}
-.inv-open[data-open='true'] .inv-open-wax {
-  transform: translate(-50%, -50%) scale(1.4) rotate(12deg);
-  opacity: 0;
-}
-.inv-open[data-open='true'] .inv-open-card {
-  transform: translateY(-1rem);
-  opacity: 0;
-}
-.inv-open[data-open='true'][data-style='seal'] .inv-open-card {
-  transform: translateY(-3rem);
-}
-.inv-open[data-style='envelope'] .inv-open-env,
-.inv-open[data-style='seal'] .inv-open-env {
+.inv-open[data-style='envelope'] .inv-mo,
+.inv-open[data-style='seal'] .inv-mo {
   translate: 0 min(-6rem, -16vh);
 }
 .inv-open[data-style='envelope'] .inv-open-copy,
@@ -2676,9 +2716,7 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   .inv-open-drape,
   .inv-open-panel,
   .inv-open-shot,
-  .inv-open-flap,
-  .inv-open-card,
-  .inv-open-wax,
+  .inv-open .inv-mo *,
   .inv-open-curve {
     transition: opacity 300ms ease;
     transform: none !important;
@@ -2943,6 +2981,9 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv[data-mode='night'] .inv-paper:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
 .inv[data-mode='night'] .inv-ground:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
+/* the band beside the column for a picture that reaches the whole page sits outside the invitation, so night reaches it from the stage: turned down the same way as the paper it copies */
+.inv-stage:has(.inv[data-mode='night']) > .inv-beside:not([data-night-art]) { filter: brightness(0.46) saturate(0.7) contrast(1.05); }
+.inv-stage:has(.inv[data-mode='night']) > .inv-beside:not([data-night-art])::after { content: ''; position: absolute; inset: 0; background: rgba(24, 30, 62, 0.55); mix-blend-mode: multiply; pointer-events: none; }
 .inv[data-paged][data-mode='night'] .inv-card,
 .inv[data-paged][data-mode='night'] .inv-field { background: rgba(30, 29, 41, 0.74); border-color: rgba(255, 255, 255, 0.12); color: var(--inv-ink); }
 .inv[data-paged][data-mode='night'] .inv-field::placeholder { color: var(--inv-muted); }
@@ -3107,3 +3148,1510 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   .inv-std { min-height: 0; padding: 2rem 1rem; }
   .inv-std-count { display: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   The landing page's editorial register.
+
+   Everything here is for the public site's storefront — the hero, the bands,
+   the occasion strip. It is deliberately separate from the .btn/.card system
+   above, which the dashboard and the builder use: a customer signed in to
+   manage their guest list wants a dense, obvious interface, and a stranger
+   deciding whether to spend eight thousand pesos wants room to breathe. One
+   set of styles asked to do both ends up doing neither.
+
+   The tracking is wide and the type is large on purpose. Small letterspaced
+   caps read as considered where a bold sans reads as urgent, and what is
+   being sold here is not urgency.
+--------------------------------------------------------------------------- */
+
+/* Caps with the rule under them the mockup hangs every section on. */
+/* No `display` here on purpose. This file is loaded after Tailwind's
+   utilities, so a `display: block` on a plain class quietly outranks
+   `hidden` — and the first thing that wanted hiding, the hero's vertical
+   rail, turned up on every phone despite saying `hidden xl:block`. Call
+   sites that need a block box ask for one with the utility. */
+.ed-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-ink-500);
+}
+.ed-eyebrow-ruled::after {
+  content: '';
+  display: block;
+  width: 2.5rem;
+  height: 1px;
+  margin-top: 0.75rem;
+  background: var(--color-wine-800);
+  opacity: 0.45;
+}
+.ed-eyebrow-ruled.is-centred::after { margin-inline: auto; }
+
+/* Section rhythm. The mockup's whole feel is the space around things, so the
+   vertical padding is a token rather than a number sprinkled per section. */
+.ed-section { padding-block: clamp(3.5rem, 9vw, 7rem); }
+.ed-section-tight { padding-block: clamp(2.5rem, 6vw, 4.5rem); }
+
+/* Display sizes that hold their shape from a phone to a wide desktop. */
+.ed-display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.02em; line-height: 1.04; }
+.ed-display-xl { font-size: clamp(2.5rem, 7vw, 4.25rem); }
+.ed-display-lg { font-size: clamp(2rem, 4.6vw, 3.25rem); }
+
+/* The solid call to action: wine, letterspaced caps, an arrow that leans in
+   on hover. Its own class rather than a .btn variant because the .btn sizing
+   is tuned for forms. */
+.ed-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  border-radius: 999px;
+  background: var(--color-wine-800);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+.ed-cta:hover { background: var(--color-wine-700); }
+.ed-cta .ed-arrow { transition: transform 160ms ease; }
+.ed-cta:hover .ed-arrow { transform: translateX(3px); }
+
+/* The outlined twin, for the header and anywhere the solid one would shout. */
+.ed-cta-outline {
+  background: transparent;
+  color: var(--color-wine-800);
+  border: 1px solid color-mix(in srgb, var(--color-wine-800) 35%, transparent);
+  padding: 0.7rem 1.4rem;
+}
+.ed-cta-outline:hover { background: color-mix(in srgb, var(--color-wine-800) 6%, transparent); }
+
+/* An underlined caps link — "EXPLORE TEMPLATES →". The rule is the element's
+   own border so it spans the text and the arrow together. */
+.ed-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  color: var(--color-wine-800);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: border-color 160ms ease;
+}
+.ed-link:hover { border-bottom-color: currentColor; }
+.ed-link .ed-arrow { transition: transform 160ms ease; }
+.ed-link:hover .ed-arrow { transform: translateX(3px); }
+
+/* Caps navigation. */
+.ed-nav a {
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ink-700);
+  text-decoration: none;
+  padding-block: 0.25rem;
+  border-bottom: 1px solid transparent;
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.ed-nav a:hover { color: var(--color-wine-800); border-bottom-color: var(--color-wine-800); }
+
+/* An image slot that looks composed while it is empty.
+
+   The photographs are the owner's to supply and they are not here yet. A slot
+   that renders as a grey box says "broken"; this renders as a warm panel with
+   the mark held quietly in it, which reads as a design decision until the day
+   a real photograph replaces it — at which point nothing but the src changes. */
+.ed-figure {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--color-sand-100), var(--color-sand-200));
+  border-radius: 1.25rem;
+}
+/* Out of flow, always.
+
+   In flow, a portrait cover in a 763px column takes its own aspect ratio and
+   becomes 1300px tall, which then drives the whole band's height and leaves
+   the words floating in a screenful of nothing beside it — the picture, not
+   the layout, deciding how tall the hero is. Absolute means the band is as
+   tall as its words and its min-height say, and the picture covers whatever
+   that turns out to be. */
+.ed-figure img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.ed-figure-empty { display: grid; place-items: center; }
+.ed-figure-empty img { position: static; width: auto; height: 26%; opacity: 0.26; object-fit: contain; }
+/* The hero's arch, echoing the shape behind the phone in the mockup. */
+.ed-figure-arch { border-radius: 14rem 14rem 1.25rem 1.25rem; }
+
+/* The dark band. A wine ground the photograph sits into on the right, with a
+   gradient over it so the headline stays readable whatever the photo is. */
+.ed-band { position: relative; background: var(--color-wine-900); color: var(--color-sand-50); overflow: hidden; }
+/* Full width, not the right 40%.
+
+   The photograph this slot is for is composed for it: a deep maroon field on
+   the left with nothing in it, and the flower on the right running off the
+   edge. Cropping that to the right-hand 40% throws away the empty half that
+   the headline is supposed to sit in, and butts the photograph's own left
+   edge against our wine as a visible vertical line. Full-bleed, anchored
+   right, and the photograph's dark half IS the ground behind the words. */
+.ed-band .ed-band-media { position: absolute; inset: 0; }
+.ed-band .ed-band-media img { width: 100%; height: 100%; object-fit: cover; object-position: right center; }
+/* The scrim only exists to keep type readable, so it only exists when there is
+   a photograph under the type. Heavy at the left margin, gone by two-thirds,
+   so the flower is never veiled. On the supplied photograph it changes almost
+   nothing — the wine and the photograph's own ground are the same colour —
+   and on a photograph composed the wrong way round it is what saves the
+   headline. */
+.ed-band .ed-band-media[data-photo]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-wine-900) 92%, transparent) 0%,
+    color-mix(in srgb, var(--color-wine-900) 74%, transparent) 34%,
+    color-mix(in srgb, var(--color-wine-900) 22%, transparent) 64%,
+    transparent 100%
+  );
+}
+/* On a phone the band is tall and narrow, so the words sit over the middle of
+   the picture rather than beside it and a left-to-right scrim protects
+   nothing. It goes top-down there instead. */
+@media (max-width: 1023px) {
+  .ed-band .ed-band-media[data-photo]::after {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-wine-900) 90%, transparent) 0%,
+      color-mix(in srgb, var(--color-wine-900) 82%, transparent) 55%,
+      color-mix(in srgb, var(--color-wine-900) 72%, transparent) 100%
+    );
+  }
+}
+.ed-band .ed-band-inner { position: relative; }
+/* Buttons on the dark band. btn-secondary is a cream fill, which is right on
+   a cream page and two bright blobs on a maroon one — the eye goes to them
+   before it goes to the headline. Outlined here, so the contact channels stay
+   available without competing with the thing they are under. */
+.ed-band .btn-secondary {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-sand-50) 40%, transparent);
+  color: var(--color-sand-50);
+}
+.ed-band .btn-secondary:hover {
+  background: color-mix(in srgb, var(--color-sand-50) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-sand-50) 72%, transparent);
+}
+.ed-band .ed-eyebrow { color: rgba(255, 255, 255, 0.72); }
+.ed-band .ed-link { color: var(--color-sand-50); }
+
+/* The numbered occasion strip. */
+.ed-numbered { font-size: 0.8125rem; letter-spacing: 0.14em; color: var(--color-ink-500); }
+.ed-numbered-rule { width: 1.75rem; height: 1px; background: var(--color-wine-800); opacity: 0.4; }
+
+/* Hairline dividers between the four promises — vertical on a wide screen,
+   gone on a narrow one where the cards simply stack. */
+.ed-divided > * + * { border-top: 1px solid var(--color-sand-200); padding-top: 1.75rem; margin-top: 1.75rem; }
+@media (min-width: 768px) {
+  .ed-divided > * + * { border-top: 0; border-left: 1px solid var(--color-sand-200); padding-top: 0; margin-top: 0; padding-left: 2rem; }
+}
+
+/* A figure that holds something in front of its picture — the hero's phone
+   standing in the arch. Both occupy one grid cell; the scrim between them is
+   what keeps a phone readable against a photograph that was never composed
+   to have a phone on it. Warm rather than neutral, so the cream page and the
+   picture stay one temperature. */
+.ed-figure-behind { display: grid; }
+.ed-figure-behind > * { grid-area: 1 / 1; }
+.ed-figure-behind > img { filter: saturate(0.9); }
+.ed-figure-behind::after {
+  content: '';
+  grid-area: 1 / 1;
+  background: linear-gradient(170deg, color-mix(in srgb, var(--color-sand-50) 55%, transparent), color-mix(in srgb, var(--color-wine-900) 22%, transparent));
+}
+.ed-figure-front { position: relative; display: grid; place-items: center; padding: 2rem; }
+
+/* Full-bleed picture blocks, and the gutter that keeps the words beside them
+   lined up with every other section.
+
+   The design's contrast comes from a photograph that runs to the edge of the
+   page, so these blocks lose the radius and fill their grid cell. The half
+   beside one still has to start where the centred container starts, or the
+   hero's headline sits at a different left edge from the section under it —
+   hence the gutter: the container's own margin, computed, applied as padding
+   on the outer side only. Below the breakpoint the halves stack and the plain
+   px-5 takes over. */
+.ed-figure-bleed { border-radius: 0; }
+@media (min-width: 1024px) {
+  .ed-gutter-l { padding-left: max(1.25rem, calc((100vw - 72rem) / 2)); }
+  .ed-gutter-r { padding-right: max(1.25rem, calc((100vw - 72rem) / 2)); }
+}
+
+/* The alcove, drawn ON the picture rather than cut out of the block. The
+   mockup's arch is a shape inside the photograph; making it the block's own
+   border-radius is what turned a full-bleed panel back into a rounded card. */
+.ed-figure-arched-inside::before {
+  content: '';
+  position: absolute;
+  inset: 8% 12% 0;
+  border-radius: 50% 50% 0 0 / 32% 32% 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--color-sand-50) 42%, transparent), transparent 62%);
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   The hero's set.
+
+   The mockup is not a cropped photograph filling half the page — it is a
+   composed scene: an alcove behind, a marble ledge, and a SMALL phone standing
+   on it with its shadow falling across the stone. The size of the phone is
+   most of the difference. Filling the half with a huge one reads as a product
+   shot; a modest one on a plinth reads as a room somebody arranged, which is
+   what makes it feel considered.
+
+   Built rather than photographed, because there is no photograph. Every part
+   is a real thing in the scene: the alcove is a shape, the ledge has a lip and
+   a top highlight because stone catches light on its edge, and the phone casts
+   a shadow and leaves a reflection. Take any of those away and it goes back to
+   looking like a sticker on a background.
+--------------------------------------------------------------------------- */
+
+.ed-scene {
+  position: relative;
+  overflow: hidden;
+  /* Two layers. The radial is the light in the alcove, warm cream at its
+     brightest rather than white. The linear over its left edge starts at the
+     page's own ground so the scene and the words beside it are one sheet —
+     without it there is a vertical seam down the middle of the hero, which is
+     exactly the cream-against-white join the design is trying not to have. */
+  background:
+    linear-gradient(90deg, var(--color-sand-50) 0%, transparent 24%),
+    radial-gradient(120% 90% at 64% 12%, #faf6ee 0%, #f5eee2 46%, #ece1d0 100%);
+  display: grid;
+  place-items: end center;
+  isolation: isolate;
+}
+
+/* The owner's photograph, when there is one.
+
+   Its left edge is a shade warmer than the page ground, and the two halves of
+   the hero meet down the middle of the screen, so butted together they show a
+   vertical line exactly where the design wants none. The mask dissolves the
+   photograph's first sixth into the cream underneath it — which is why the
+   scene keeps its own background even when a picture covers it.
+
+   Anchored to the bottom right: that is where the owner's set is — the
+   marble, the plinths, the stems — and it is the corner the phone stands in,
+   so it must survive every crop. */
+.ed-scene-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 17%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 17%);
+}
+/* Below the breakpoint the halves stack, so there is no seam to hide and the
+   mask would only shave the left of the picture off. */
+@media (max-width: 1023px) {
+  .ed-scene-photo { -webkit-mask-image: none; mask-image: none; object-position: 62% 100%; }
+}
+
+/* The alcove. Tall, arched, a shade deeper than the wall, with the light
+   falling from the upper left the way it does in the mockup. */
+.ed-scene-arch {
+  position: absolute;
+  left: 50%;
+  top: -6%;
+  width: min(62%, 27rem);
+  height: 86%;
+  transform: translateX(-50%);
+  border-radius: 999rem 999rem 0 0;
+  background: linear-gradient(155deg, #faf5ec 0%, #efe3d2 38%, #e2d2bb 100%);
+  box-shadow: inset 0 2px 0 rgba(253, 250, 243, 0.8), 0 24px 60px -34px rgba(82, 1, 8, 0.28);
+}
+
+/* A second, smaller arch inset in the first — the depth the mockup gets from
+   the wall behind the alcove being further away than its mouth. */
+.ed-scene-arch::after {
+  content: '';
+  position: absolute;
+  inset: 7% 11% 0;
+  border-radius: 999rem 999rem 0 0;
+  background: linear-gradient(165deg, rgba(250, 246, 238, 0.9), rgba(233, 220, 201, 0.55));
+}
+
+/* The ledge the phone stands on: a slab with a lit top edge and a shadowed
+   front face, sitting proud of the wall. */
+.ed-scene-ledge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20%;
+  background: linear-gradient(180deg, #f6efe4 0%, #ede2d1 14%, #e3d5c0 100%);
+  box-shadow: inset 0 1px 0 rgba(253, 250, 243, 0.95), 0 -18px 40px -26px rgba(82, 1, 8, 0.22);
+}
+.ed-scene-ledge::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(253, 250, 243, 0.95) 22%, rgba(253, 250, 243, 0.95) 78%, transparent);
+}
+
+/* The phone, standing. Small on purpose — see the note at the top. */
+.ed-scene-phone {
+  position: relative;
+  z-index: 2;
+  /* A quarter of the panel. In the mockup the phone is about that against the
+     alcove, and the restraint is the point: bigger and it stops being a room
+     with a phone in it and becomes a phone with a room behind it. */
+  width: min(26%, 10.5rem);
+  /* Exactly the ledge's height, so its base meets the stone. A smaller number
+     sinks it through the slab, which is what it was doing. */
+  margin-bottom: 20%;
+}
+.ed-scene-phone .phone {
+  width: 100%;
+  border-width: 7px;
+  border-radius: 1.6rem;
+  padding-top: 14px;
+  box-shadow: 0 26px 34px -18px rgba(60, 30, 16, 0.5), 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+.ed-scene-phone .phone > .screen { border-radius: 1.15rem; }
+
+/* What the phone leaves on the stone: a contact shadow tight under it and a
+   faint reflection falling away. Without these it floats. */
+.ed-scene-phone::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5%;
+  width: 150%;
+  height: 9%;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(82, 30, 16, 0.34), transparent 72%);
+  filter: blur(5px);
+}
+
+/* The maroon band in the middle of the page.
+
+   A cream page needs somewhere to stop, and this is it. Deeper than the brand
+   plum and darker than the closing band, so the two dark moments are not the
+   same note twice. The eyebrow and the link both invert here; they read as
+   ink on cream everywhere else and would vanish otherwise. */
+.ed-maroon { background: linear-gradient(150deg, #4a0a12 0%, #3a0a10 55%, #2b070c 100%); }
+.ed-maroon .ed-eyebrow { color: rgba(255, 255, 255, 0.62); }
+.ed-maroon .ed-eyebrow-ruled::after { background: var(--color-gold-400); opacity: 0.7; }
+.ed-maroon .ed-link { color: var(--color-sand-50); }
+
+/* The cover sits ON the maroon rather than butted against it: inset a little,
+   with the ground showing round it and a shadow underneath, so it reads as an
+   object on a surface. Flush to the edge it looked like two flat panels meeting. */
+.ed-maroon-plate { padding: 2.5rem 1.25rem; }
+@media (min-width: 1024px) {
+  .ed-maroon-plate { padding: 3.5rem 0 3.5rem 3.5rem; }
+}
+.ed-maroon-plate .ed-figure {
+  border-radius: 0.25rem;
+  box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.72);
+}
+
+/* The peek in the maroon band: the design's demo running where its cover used
+   to sit still. It takes the plate's shape from .ed-figure above, so a slot
+   holding a live invitation and one holding a photograph are the same object
+   on the same surface — only one of them moves. */
+.ed-peek {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.25rem;
+  background: var(--color-sand-100);
+  box-shadow: 0 34px 60px -28px rgba(0, 0, 0, 0.72);
+}
+.ed-peek-still,
+.ed-peek-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+}
+/* Top, not centre: the still and the frame under it both begin at the cover,
+   so the swap between them does not jump. */
+.ed-peek-still {
+  object-fit: cover;
+  object-position: top center;
+}
+.ed-peek-frame {
+  opacity: 0;
+  transition: opacity 700ms ease;
+}
+.ed-peek[data-open] .ed-peek-frame { opacity: 1; }
+/* The still stays underneath rather than being removed: it is what the frame
+   composites over while it paints, and what remains if the frame never loads. */
+.ed-peek[data-open] .ed-peek-still { opacity: 0; transition: opacity 700ms ease; }
+/* The way in, before the frame is there. The whole picture is the button, so
+   the gesture is "open the invitation" rather than "find the small control". */
+.ed-peek-wake {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 1.25rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.ed-peek-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-sand-50);
+  background: rgba(31, 29, 26, 0.62);
+  backdrop-filter: blur(3px);
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  transition: background 200ms ease;
+}
+.ed-peek-wake:hover .ed-peek-label,
+.ed-peek-wake:focus-visible .ed-peek-label { background: rgba(31, 29, 26, 0.86); }
+.ed-peek-wake:focus-visible { outline: 2px solid var(--color-gold-400); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-peek-frame,
+  .ed-peek-still { transition: none; }
+}
+
+/* ==========================================================================
+   Interactive moments — src/components/invite/moments.tsx
+   --------------------------------------------------------------------------
+   One stylesheet serves a moment on a page (.inv-moment) and the invitation's
+   opening (.inv-open): both set data-state (closed → opening → open),
+   --moment-t (the speed, as a multiplier of every duration here) and
+   --moment-drag (how far a swipe or a hold has got, 0 to 1).
+
+   Every scene is drawn from the design's own colours out of a small set of
+   materials declared once below — paper, wood, velvet, glass, metal — under
+   one light that falls from the top left, so every shadow goes down and to
+   the right and every highlight sits on the upper left of a form. Nothing
+   moves in one plain curve: a thing that is lifted lifts first (its shadow
+   deepens and it grows a hair), travels on a heavy ease, and settles with
+   one small overshoot, the way a card or a door does in a hand. Nothing
+   bounces more than that. Motion is in transforms and opacity only.
+   ========================================================================== */
+.inv-moment {
+  position: absolute;
+  aspect-ratio: 1 / var(--moment-aspect, 1);
+  container-type: inline-size;
+  /* the box itself is nothing: a scene sits on the page's own paper, and draws whatever ground it has (the retired framed-view page painted one here) */
+  background: transparent;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  --moment-t: 1;
+  --moment-drag: 0;
+}
+.inv-moment[data-trigger='swipe'] { touch-action: none; }
+/* a picture in a moment is never what the finger holds: the box or the strip is, and the browser must not start dragging the image itself */
+.inv-moment img { pointer-events: none; -webkit-user-drag: none; user-select: none; -webkit-user-select: none; }
+/* the decoration layer lets the words under it be selected; a moment is the one piece that takes the finger */
+.inv-deco .inv-moment { pointer-events: auto; }
+.inv-moment[data-still] { cursor: default; }
+.inv-moment:not([data-still]) { cursor: pointer; }
+.inv-moment:focus-visible { outline: 2px solid var(--inv-accent); outline-offset: 4px; }
+
+/* --- the materials and the motion, declared once ------------------------- */
+.inv-moment, .inv-open {
+  /* a fine grain: paper, matte plastic, velvet nap. A warm grey noise at a
+     third of its strength, laid over a colour rather than replacing it. */
+  --mo-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.35  0 0 0 0 0.27  0 0 0 0.24 0'/></filter><rect width='100%25' height='100%25' filter='url(%23g)'/></svg>");
+  --mo-grain-soft: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.4  0 0 0 0.13 0'/></filter><rect width='100%25' height='100%25' filter='url(%23s)'/></svg>");
+  /* the same noise stretched along one axis: wood fibre, brushed metal */
+  --mo-fibre: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.012 0.55' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.1  0 0 0 0 0.04  0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23f)'/></svg>");
+  /* every shadow is this warm dark, never a grey */
+  --mo-dark: 34, 24, 12;
+  --mo-contact: 0 0.3cqw 0.6cqw rgba(var(--mo-dark), 0.16);
+  --mo-ambient: 0 2.4cqw 4cqw -1.2cqw rgba(var(--mo-dark), 0.3);
+  --mo-lifted: 0 0.8cqw 1cqw rgba(var(--mo-dark), 0.1), 0 6cqw 9cqw -2cqw rgba(var(--mo-dark), 0.36);
+  --mo-paper: color-mix(in srgb, var(--inv-surface) 94%, #d9c9b0);
+  --mo-ink10: color-mix(in srgb, var(--inv-ink) 10%, transparent);
+  /* heavy: a door, a lid, a curtain. light: a flame, a crack, a flash. */
+  --mo-heavy: cubic-bezier(0.22, 0.9, 0.24, 1);
+  --mo-light: cubic-bezier(0.3, 0, 0.1, 1);
+  /* settle: heavy, with the one small overshoot of a thing meeting its stop */
+  --mo-settle: cubic-bezier(0.2, 0.9, 0.3, 1.05);
+  /* spring: a card slid across a table, a print fanned out — settles in two */
+  --mo-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
+  /* falling: a broken seal, a dropped ribbon — accelerates */
+  --mo-fall: cubic-bezier(0.5, 0, 0.9, 0.6);
+}
+/* where the browser can take a real spring, the two settles are one */
+@supports (transition-timing-function: linear(0, 1)) {
+  .inv-moment, .inv-open {
+    --mo-spring: linear(0, 0.007, 0.028 2.9%, 0.111 6.3%, 0.41 14.4%, 0.633 20.3%, 0.804 26.3%, 0.926 32.6%, 0.985 37.4%, 1.019 42.6%, 1.033 47.9%, 1.034 53.1%, 1.024 60.8%, 1.009 69.9%, 1.001 78.9%, 1);
+    --mo-settle: linear(0, 0.012 3.4%, 0.058 7.6%, 0.221 16.4%, 0.53 27.6%, 0.784 38.5%, 0.923 48.1%, 0.993 56.8%, 1.016 64%, 1.015 71.5%, 1.005 82%, 1);
+  }
+}
+/* the three small motions every scene shares: a lift before a travel, a
+   press under a finger, a sway as a hung thing comes to rest. They live in
+   `scale` and `rotate`, the properties of their own, so they compose with
+   the `transform` each piece is placed and moved by. */
+@keyframes inv-mo-lift { 0% { scale: 1; } 38% { scale: 1.035; } 100% { scale: 1; } }
+@keyframes inv-mo-press { 0% { scale: 1; } 30% { scale: 0.985; } 100% { scale: 1; } }
+@keyframes inv-mo-sway { 0% { rotate: 0deg; } 30% { rotate: 1.2deg; } 62% { rotate: -0.7deg; } 85% { rotate: 0.3deg; } 100% { rotate: 0deg; } }
+@keyframes inv-mo-flash-pop { 0% { opacity: 0; } 6% { opacity: 1; } 22% { opacity: 0.9; } 100% { opacity: 0; } }
+
+.inv-mo {
+  position: absolute;
+  inset: 0;
+  display: block;
+  perspective: 1200cqw;
+  perspective-origin: 50% 40%;
+  contain: paint;
+}
+/* what it opens onto: under the scene, and up once the scene has moved aside — rising a little as it comes */
+.inv-moment-reveal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2cqw;
+  padding: 6cqw;
+  text-align: center;
+  opacity: 0;
+  translate: 0 1.5cqw;
+  transition: opacity calc(700ms * var(--moment-t)) ease calc(var(--moment-reveal-at, 700ms) * var(--moment-t)), translate calc(900ms * var(--moment-t)) var(--mo-heavy) calc(var(--moment-reveal-at, 700ms) * var(--moment-t));
+}
+/* a photograph it reveals fills the room the words leave, cropped, never a strip of its own proportions */
+.inv-moment-reveal img { display: block; width: 100%; flex: 1 1 auto; min-height: 0; max-height: 100%; object-fit: cover; }
+.inv-moment:is([data-state='opening'], [data-state='open']) .inv-moment-reveal { opacity: 1; translate: 0 0; }
+.inv-moment[data-still] .inv-moment-reveal { transition: none; }
+/* the hint: small capitals under the scene, quiet, gone once the guest has begun */
+.inv-moment-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 3cqw;
+  z-index: 5;
+  width: max-content;
+  max-width: 90%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--inv-body);
+  font-size: 2.6cqw;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--inv-ink);
+  opacity: 0.7;
+  text-shadow: 0 0 0.5cqw var(--inv-surface), 0 0 1.2cqw var(--inv-surface), 0 0 2cqw var(--inv-surface);
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: opacity 300ms ease;
+}
+[data-moment='curtains']:not([data-variant='panels']) .inv-moment-hint, [data-moment='doors'] .inv-moment-hint { color: #fff; text-shadow: 0 0 0.5cqw rgba(0, 0, 0, 0.7), 0 0 1.4cqw rgba(0, 0, 0, 0.6); }
+.inv-moment:not([data-state='closed']) .inv-moment-hint { opacity: 0; }
+/* the hold's ring, over the middle, filling with --moment-drag */
+.inv-moment-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14cqw;
+  height: 14cqw;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  fill: none;
+  stroke-width: 1.6;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.inv-moment-ring circle { stroke: color-mix(in srgb, var(--inv-ink) 18%, transparent); }
+.inv-moment-ring .inv-moment-ring-fill {
+  stroke: var(--inv-accent);
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--moment-drag));
+  stroke-linecap: round;
+}
+.inv-moment:not([data-state='closed']) .inv-moment-ring { opacity: 0; transition: opacity 300ms ease; }
+/* while the finger has it, the pieces follow it and nothing eases */
+[data-dragging] .inv-mo * { transition-duration: 0s !important; transition-delay: 0s !important; }
+/* the still: no motion is wanted, or the page is printed */
+@media (prefers-reduced-motion: reduce) {
+  .inv-mo *, .inv-moment-reveal { transition: none !important; animation: none !important; }
+}
+@media print {
+  .inv-moment-hint, .inv-moment-ring { display: none; }
+  .inv-moment-reveal { opacity: 1; }
+}
+
+/* --- paper: the surface colour with a grain, a laid texture and a darker edge --- */
+.inv-mo-card, .inv-mo-back, .inv-mo-pocket, .inv-mo-flap, .inv-mo-sheet, .inv-mo-fold {
+  background-color: var(--mo-paper);
+  background-image: var(--mo-grain), repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 2.5%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px var(--mo-ink10), inset 0 0 2cqw rgba(var(--mo-dark), 0.04);
+}
+
+/* --- the print: a real instant photograph ---------------------------------
+   The frame is a photograph of a blank print, its picture window cut out
+   (MOMENT_PARTS: instant-camera/print). The guest's photograph sits in the
+   window, a hair recessed, and comes up through the blue-black of fresh
+   chemistry as the contrast rises; the caption is written on the chin in
+   the design's script, in ink, a little askew the way a hand writes. A
+   design's own frame keeps the window where this one has it. */
+.inv-mo-part { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.inv-mo-print {
+  position: absolute; left: 24%; right: 24%; bottom: 40%; z-index: 2;
+  aspect-ratio: 802 / 1085;
+  filter: drop-shadow(0 1.4cqw 1.8cqw rgba(var(--mo-dark), 0.28)) drop-shadow(0 0.3cqw 0.5cqw rgba(var(--mo-dark), 0.14));
+  transform: translateY(96%);
+  transition: transform calc(1600ms * var(--moment-t)) var(--mo-heavy) calc(500ms * var(--moment-t));
+}
+.inv-mo-print-frame { z-index: 2; object-fit: fill; }
+.inv-mo-print-photo {
+  position: absolute; left: 5.99%; top: 6.91%; width: 88.15%; height: 70.78%; z-index: 1; overflow: hidden;
+  background: #2a2f2d;
+}
+.inv-mo-print-photo img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  filter: contrast(0.35) brightness(1.5) saturate(0.15);
+  transition: filter calc(2400ms * var(--moment-t)) var(--mo-light) calc(1300ms * var(--moment-t));
+}
+/* the chemistry the picture comes up through, and the vignette that stays */
+.inv-mo-print-photo::before {
+  content: ''; position: absolute; inset: 0; z-index: 1; background: #2b3331;
+  transition: opacity calc(2000ms * var(--moment-t)) var(--mo-light) calc(1300ms * var(--moment-t));
+}
+.inv-mo-print-photo::after {
+  content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, transparent 54%, rgba(30, 20, 10, 0.28) 100%), linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%);
+  box-shadow: inset 0 0 0 1px rgba(40, 30, 20, 0.35), inset 0 0.5cqw 1.2cqw rgba(0, 0, 0, 0.28);
+}
+/* the caption: on the chin, in the design's script, in ink, a little askew */
+.inv-mo-print-caption {
+  position: absolute; left: 8%; right: 8%; top: 79%; bottom: 3.5%; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0; padding: 0 2%; overflow: hidden;
+  font-family: var(--inv-script, var(--inv-display));
+  font-style: var(--inv-script-style, normal);
+  font-size: 4.2cqw; line-height: 1.15; text-align: center;
+  color: color-mix(in srgb, var(--inv-ink) 82%, #2a2f6b);
+  rotate: -1.6deg;
+  opacity: 0;
+  transition: opacity calc(600ms * var(--moment-t)) ease calc(2900ms * var(--moment-t));
+}
+.inv-mo-print-caption > *, .inv-mo-print-caption :is(h2, p) { margin: 0; font: inherit; color: inherit; letter-spacing: 0; text-transform: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print { transform: translateY(-16%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print-photo img { filter: saturate(0.92) contrast(0.98) sepia(0.05); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print-photo::before { opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-print-caption { opacity: 1; }
+[data-still] .inv-mo-print, [data-still] .inv-mo-print-photo img, [data-still] .inv-mo-print-photo::before, [data-still] .inv-mo-print-caption { transition: none; }
+
+/* --- the instant camera ------------------------------------------------------
+   The camera is a photograph of one (MOMENT_PARTS: instant-camera/body),
+   the film slot along its top. The tap presses the body a hair; the flash
+   pops from its window and is gone; the print rises out of the slot on a
+   slow heavy ease with one small wobble, and develops. */
+.inv-mo-camera { perspective: none; }
+.inv-mo-cam-body {
+  position: absolute; left: 50%; bottom: 0; width: 88%; aspect-ratio: 968 / 667; z-index: 3;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 2.4cqw 3cqw rgba(var(--mo-dark), 0.3)) drop-shadow(0 0.4cqw 0.6cqw rgba(var(--mo-dark), 0.16));
+}
+/* a lens drawn for the booth's front: a stepped barrel, and a glass that holds the light */
+.inv-mo-cam-lens {
+  position: absolute; left: 50%; top: 58%; width: 24cqw; height: 24cqw; transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 38% 32%, #3a4a62 0%, #131a26 38%, #05070b 62%, #0a0c10 100%);
+  box-shadow:
+    0 0 0 1.4cqw #1d1f24, 0 0 0 1.8cqw rgba(255, 255, 255, 0.08),
+    0 0 0 3.2cqw #26282e, 0 0 0 3.6cqw rgba(0, 0, 0, 0.5),
+    0 0 0 4.6cqw #1a1b1f,
+    0 1.4cqw 2.4cqw 3.6cqw rgba(0, 0, 0, 0.35),
+    inset 0 0 2.4cqw rgba(0, 0, 0, 0.8), inset 0 -0.6cqw 1.4cqw rgba(120, 150, 190, 0.16);
+}
+.inv-mo-cam-lens::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 42%; height: 42%; transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 45% 40%, #22324a, #0b1220 62%, rgba(0, 0, 0, 0) 64%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.inv-mo-cam-lens span {
+  position: absolute; left: 22%; top: 15%; width: 30%; height: 20%; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05));
+  transform: rotate(-28deg);
+  filter: blur(0.2cqw);
+}
+/* the flash itself: white from the window, over everything, and gone */
+.inv-mo-flashlight {
+  position: absolute; inset: -10%; z-index: 4; pointer-events: none;
+  background: radial-gradient(circle at 20% 60%, #fff 0%, rgba(255, 255, 255, 0.92) 14%, rgba(255, 255, 255, 0) 56%);
+  opacity: 0;
+}
+[data-state='opening'] .inv-mo-camera .inv-mo-flashlight { animation: inv-mo-flash-pop calc(650ms * var(--moment-t)) ease-out both; }
+[data-state='opening'] .inv-mo-cam-body { animation: inv-mo-press calc(260ms * var(--moment-t)) ease-out; }
+[data-state='opening'] .inv-mo-camera .inv-mo-print { animation: inv-mo-eject calc(1600ms * var(--moment-t)) var(--mo-heavy) calc(500ms * var(--moment-t)) both; }
+@keyframes inv-mo-eject { 0% { rotate: 0deg; } 55% { rotate: 0.8deg; } 80% { rotate: -0.4deg; } 100% { rotate: 0deg; } }
+
+/* --- the polaroid stack ----------------------------------------------------
+   Three prints in a pile, none quite square to the next, so the pile reads
+   as three. Tapped, each lifts — its shadow deepens and it grows a hair —
+   slides out on a spring and settles a few degrees off, the top one first.
+   The words are written on the top print's chin. */
+.inv-mo-stack { perspective: none; }
+.inv-mo-stack .inv-mo-print {
+  left: 24%; right: 24%; bottom: auto; top: 5%;
+  transition:
+    transform calc(1200ms * var(--moment-t)) var(--mo-spring) calc(var(--stack-delay, 0ms) * var(--moment-t)),
+    filter calc(1200ms * var(--moment-t)) ease calc(var(--stack-delay, 0ms) * var(--moment-t));
+}
+.inv-mo-stack .inv-mo-print[data-i='0'] { z-index: 3; transform: rotate(-2.4deg); }
+.inv-mo-stack .inv-mo-print[data-i='1'] { z-index: 2; --stack-delay: 90ms; transform: translate(2%, -1.6%) rotate(1.8deg); }
+.inv-mo-stack .inv-mo-print[data-i='2'] { z-index: 1; --stack-delay: 180ms; transform: translate(-1.6%, 1.4%) rotate(-0.6deg); }
+/* these are developed prints */
+.inv-mo-stack .inv-mo-print-photo::before { display: none; }
+.inv-mo-stack .inv-mo-print-photo img { filter: saturate(0.92) contrast(0.98) sepia(0.05); transition: none; }
+.inv-mo-stack .inv-mo-print-caption { opacity: 1; transition: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print[data-i='0'] { transform: translate(-40%, 12%) rotate(-11deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print[data-i='1'] { transform: translate(0, -3%) rotate(2.5deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print[data-i='2'] { transform: translate(40%, 9%) rotate(10deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-stack .inv-mo-print { filter: drop-shadow(0 3cqw 3.6cqw rgba(var(--mo-dark), 0.3)) drop-shadow(0 0.4cqw 0.6cqw rgba(var(--mo-dark), 0.14)); }
+[data-state='opening'] .inv-mo-stack .inv-mo-print { animation: inv-mo-lift calc(1200ms * var(--moment-t)) ease-in-out calc(var(--stack-delay, 0ms) * var(--moment-t)) both; }
+[data-moment='polaroid-stack'] { --moment-reveal-at: 900ms; }
+[data-moment='polaroid-stack'] .inv-moment-reveal { display: none; }
+/* --- the studio every scene is photographed in ---------------------------------
+   The catalogue's look: each scene on a soft studio backdrop (MOMENT_PARTS:
+   backdrop/cream, backdrop/blush), the object itself a photograph cut out
+   and set down on it with a warm shadow under it. The backdrop is the
+   card; a scene that fills its box (the doors, the curtains) draws its own. */
+.inv-mo-ground { z-index: 0; object-fit: cover; object-position: center; border-radius: 2.4cqw; }
+.inv-mo { border-radius: 2.4cqw; }
+/* a part's own shadow on the ground, warm and soft, the way the studio's one light throws it */
+.inv-mo-set { position: absolute; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+
+/* --- the envelope and the wax seal -----------------------------------------
+   The pocket, the flap hinged along its top fold, and the card inside, all
+   photographed (envelope/pocket, envelope/flap, envelope/card). Tapped, or
+   dragged up, the flap lifts and turns back and the card rises out of the
+   pocket, in front of the opened flap; the words are written on the card.
+   The seal (seal/wax) holds the flap's point: it gives once, cracks, falls
+   in two, and only then does the flap lift. */
+.inv-mo-env { perspective: 900cqw; perspective-origin: 50% 60%; }
+.inv-mo-env-pocket { position: absolute; left: 14%; width: 72%; bottom: 10%; height: 47%; z-index: 3; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-env-pocket .inv-mo-part { object-fit: fill; }
+.inv-mo-env-flap {
+  position: absolute; left: 14%; width: 72%; top: 43%; height: 39%; z-index: 4;
+  transform-origin: top center;
+  transform: rotateX(0deg);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.2));
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-settle), z-index 0s linear calc(450ms * var(--moment-t)), filter calc(900ms * var(--moment-t)) ease;
+}
+.inv-mo-env-flap .inv-mo-part { object-fit: fill; }
+.inv-mo-env-card {
+  position: absolute; left: 26%; width: 48%; top: 47%; height: 72%; z-index: 2;
+  filter: drop-shadow(0 0.6cqw 1cqw rgba(var(--mo-dark), 0.16));
+  transform: translateY(0);
+  transition: transform calc(1000ms * var(--moment-t)) var(--mo-heavy) calc(500ms * var(--moment-t));
+}
+.inv-mo-env-card .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-env-flap { transform: rotateX(-176deg); z-index: 1; filter: brightness(0.94) drop-shadow(0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.12)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-env-card { transform: translateY(-62%); }
+[data-state='closed'] .inv-mo-env-card { transform: translateY(calc(var(--moment-drag) * -40%)); }
+.inv-mo-wax {
+  position: absolute; left: 50%; top: 80%; z-index: 5;
+  width: 16cqw; height: 16cqw;
+  transform: translate(-50%, -50%) rotate(-7deg);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.32));
+}
+.inv-mo-wax-half {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #7a3a3a;
+  font-family: var(--inv-display);
+  font-size: 5.6cqw;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35), 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transition: transform calc(520ms * var(--moment-t)) var(--mo-fall) calc(380ms * var(--moment-t)), opacity calc(380ms * var(--moment-t)) ease calc(640ms * var(--moment-t));
+}
+.inv-mo-wax-half b { position: relative; z-index: 1; left: -3%; top: -3%; }
+.inv-mo-wax-half[data-side='l'] { clip-path: polygon(0 0, 52% 0, 40% 42%, 56% 58%, 46% 100%, 0 100%); }
+.inv-mo-wax-half[data-side='r'] { clip-path: polygon(52% 0, 100% 0, 100% 100%, 46% 100%, 56% 58%, 40% 42%); }
+.inv-mo-crack {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  fill: none;
+  stroke: #6a2a2a;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset calc(300ms * var(--moment-t)) ease-in calc(120ms * var(--moment-t));
+}
+@keyframes inv-mo-wax-give { 0% { scale: 1; } 50% { scale: 1.045; } 100% { scale: 1; } }
+[data-state='opening'] .inv-mo-env .inv-mo-wax { animation: inv-mo-wax-give calc(340ms * var(--moment-t)) ease-in-out; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-crack { stroke-dashoffset: 0; opacity: 0; transition: stroke-dashoffset calc(300ms * var(--moment-t)) ease-in calc(120ms * var(--moment-t)), opacity calc(200ms * var(--moment-t)) ease calc(700ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='l'] { transform: translate(-18%, 16%) rotate(-14deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-wax-half[data-side='r'] { transform: translate(16%, 20%) rotate(12deg); opacity: 0; }
+/* the seal's flap waits for the wax to fall, and the card for the flap */
+[data-moment='seal'] .inv-mo-env-flap, .inv-open[data-style='seal'] .inv-mo-env-flap { transition-delay: calc(760ms * var(--moment-t)), calc(1200ms * var(--moment-t)), calc(760ms * var(--moment-t)); }
+[data-moment='seal'] .inv-mo-env-card, .inv-open[data-style='seal'] .inv-mo-env-card { transition-delay: calc(1300ms * var(--moment-t)); }
+[data-moment='envelope'], [data-moment='seal'] { --moment-reveal-at: 1000ms; }
+[data-moment='seal'] { --moment-reveal-at: 1750ms; }
+/* the words rise on the card itself, in the part of it that clears the pocket */
+[data-moment='envelope'] .inv-moment-reveal, [data-moment='seal'] .inv-moment-reveal { left: 29%; right: 29%; top: 5%; bottom: 56%; padding: 3cqw; }
+
+/* --- the curtains, and the sliding panels --------------------------------------
+   Satin, photographed (curtains/panel, curtains/pelmet): one panel and its
+   mirror under the pelmet, on the studio ground, the photograph waiting
+   behind. Swiped or tapped, the panels gather to the sides on a heavy ease,
+   the folds closing up as they go. The sliding panels (panels/panel) are
+   two decorated leaves that slide straight out. */
+.inv-mo-curtains { overflow: hidden; }
+.inv-mo-behind { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 2.4cqw; }
+.inv-mo-curtains .inv-mo-behind { left: 4%; top: 4%; width: 92%; height: 92%; border-radius: 1cqw; box-shadow: var(--mo-contact), var(--mo-ambient); z-index: 1; }
+.inv-mo-pelmet {
+  position: absolute; left: -1%; top: -1%; width: 102%; height: 17cqw; z-index: 3;
+  object-fit: cover; object-position: center bottom;
+  filter: drop-shadow(0 1.2cqw 1.4cqw rgba(var(--mo-dark), 0.35));
+}
+.inv-mo-panel {
+  position: absolute; top: 0; bottom: 0; width: 51%; z-index: 2; overflow: hidden;
+  filter: drop-shadow(0 0 3cqw rgba(var(--mo-dark), 0.28));
+  transition: transform calc(1400ms * var(--moment-t)) var(--mo-settle);
+}
+.inv-mo-panel .inv-mo-part { object-fit: cover; object-position: center top; }
+.inv-mo-panel[data-side='r'] .inv-mo-part { transform: scaleX(-1); }
+.inv-mo-panel[data-side='l'] { left: 0; transform-origin: left center; }
+.inv-mo-panel[data-side='r'] { right: 0; transform-origin: right center; transition-delay: calc(80ms * var(--moment-t)); }
+[data-state='closed'] .inv-mo-panel[data-side='l'] { transform: translateX(calc(var(--moment-drag) * -3%)) scaleX(calc(1 - var(--moment-drag) * 0.74)); }
+[data-state='closed'] .inv-mo-panel[data-side='r'] { transform: translateX(calc(var(--moment-drag) * 3%)) scaleX(calc(1 - var(--moment-drag) * 0.74)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='l'] { transform: translateX(-3%) scaleX(0.26); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-panel[data-side='r'] { transform: translateX(3%) scaleX(0.26); }
+/* the sliding panels: two decorated leaves that keep their shape and slide straight off */
+.inv-mo-curtains[data-panels] .inv-mo-panel { top: 3%; bottom: 3%; width: 50%; }
+.inv-mo-curtains[data-panels] .inv-mo-panel .inv-mo-part { object-fit: cover; object-position: center center; }
+.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] .inv-mo-part { object-position: right center; }
+.inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] .inv-mo-part { object-position: left center; transform: scaleX(-1); }
+[data-state='closed'] .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(calc(var(--moment-drag) * -60%)); }
+[data-state='closed'] .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(calc(var(--moment-drag) * 60%)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='l'] { transform: translateX(-104%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-curtains[data-panels] .inv-mo-panel[data-side='r'] { transform: translateX(104%); }
+[data-moment='curtains'] { --moment-reveal-at: 500ms; }
+[data-moment='curtains'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 8cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+[data-moment='curtains'][data-variant='panels'] .inv-moment-reveal { color: inherit; text-shadow: none; }
+
+/* --- the doors, and the church doors -----------------------------------------
+   Photographed leaves hinged at their outer edges (doors/leaf-l, doors/leaf-r;
+   doors/church-l, doors/church-r), the ornate pair standing on the studio
+   ground and the church pair hung in a photographed stone arch (doors/arch).
+   Tapped, the leaves swing in on a heavy ease with one small settle at the
+   stop — the right a beat after the left — while the light inside comes up. */
+.inv-mo-doors { overflow: visible; background: none; }
+.inv-mo-doors:not([data-church]) { overflow: hidden; }
+/* the doorway: the dark inside, the photograph, the light and the leaves. The church's is the arch's own see-through, a little bigger, so the stone covers the join. */
+.inv-mo-way { position: absolute; left: 6.5%; top: 4%; width: 87%; height: 92%; overflow: hidden; border-radius: 1cqw 1cqw 0.6cqw 0.6cqw; background: linear-gradient(180deg, #4a3a30, #241c16 40%); perspective: 140cqw; perspective-origin: 50% 40%; z-index: 1; box-shadow: 0 2cqw 3cqw rgba(var(--mo-dark), 0.28); }
+.inv-mo-doors[data-church] .inv-mo-way { left: 19.3%; top: 9%; width: 61.6%; height: 82.9%; border-radius: 50% 50% 0 0 / 48% 48% 0 0; box-shadow: none; }
+.inv-mo-doors .inv-mo-behind { filter: brightness(0.94) sepia(0.1) saturate(1.05); border-radius: 0; }
+.inv-mo-doors .inv-mo-light {
+  position: absolute; inset: 0; z-index: 1;
+  background: radial-gradient(ellipse at 50% 36%, rgba(255, 240, 205, 0.55), rgba(255, 240, 205, 0.12) 45%, transparent 72%);
+  opacity: 0;
+  transition: opacity calc(1100ms * var(--moment-t)) ease calc(250ms * var(--moment-t));
+}
+.inv-mo-doors .inv-mo-light::after {
+  /* the light over the step */
+  content: ''; position: absolute; left: 18%; right: 18%; bottom: -2%; height: 24%;
+  background: linear-gradient(180deg, rgba(255, 236, 190, 0.32), rgba(255, 236, 190, 0));
+  clip-path: polygon(30% 0, 70% 0, 100% 100%, 0 100%);
+  filter: blur(1.4cqw);
+}
+/* the church's stone arch, over the doorway */
+.inv-mo-arch { z-index: 3; object-fit: fill; filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.32)); }
+.inv-mo-leaf {
+  position: absolute; top: 0; bottom: 0; width: 50%; z-index: 2; overflow: hidden;
+  backface-visibility: visible;
+  transition: transform calc(1600ms * var(--moment-t)) var(--mo-settle) calc(150ms * var(--moment-t)), filter calc(1600ms * var(--moment-t)) ease calc(150ms * var(--moment-t));
+}
+.inv-mo-leaf .inv-mo-part { object-fit: cover; }
+.inv-mo-leaf[data-side='l'] { left: 0; transform-origin: left center; }
+.inv-mo-leaf[data-side='l'] .inv-mo-part { object-position: right bottom; }
+.inv-mo-leaf[data-side='r'] { right: 0; transform-origin: right center; transition-delay: calc(280ms * var(--moment-t)), calc(280ms * var(--moment-t)); }
+.inv-mo-leaf[data-side='r'] .inv-mo-part { object-position: left bottom; }
+[data-state='closed'] .inv-mo-leaf[data-side='l'] { transform: rotateY(calc(var(--moment-drag) * -70deg)); }
+[data-state='closed'] .inv-mo-leaf[data-side='r'] { transform: rotateY(calc(var(--moment-drag) * 70deg)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='l'] { transform: rotateY(-104deg); filter: brightness(0.62); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-leaf[data-side='r'] { transform: rotateY(104deg); filter: brightness(0.62); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-doors .inv-mo-light { opacity: 1; }
+[data-moment='doors'] { --moment-reveal-at: 600ms; }
+[data-moment='doors'] .inv-moment-reveal { left: 8%; right: 8%; top: 6%; bottom: 6%; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+/* the church's words and photograph stand in the doorway */
+[data-moment='doors'][data-variant='church'] .inv-moment-reveal { left: 21%; right: 21%; top: 16%; bottom: 9%; }
+
+/* --- the scratch card ---------------------------------------------------------
+   The gold card (scratch/gold) with the message written over it; over that
+   the foil (scratch/foil), photographed and painted on a canvas the finger
+   clears. Past six tenths cleared the rest lifts away. */
+[data-moment='scratch'] { border-radius: 1.6cqw; overflow: hidden; box-shadow: var(--mo-contact), var(--mo-ambient); }
+[data-moment='scratch'] .inv-mo { border-radius: 0; }
+.inv-mo-gold { object-fit: cover; }
+[data-moment='scratch'] .inv-moment-reveal { padding: 6cqw; color: #5a3a10; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+[data-moment='scratch'] .inv-moment-reveal img { width: 100%; height: 60%; flex: none; object-fit: cover; box-shadow: var(--mo-contact); border: 0.6cqw solid #fff; }
+.inv-mo-foil { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; touch-action: none; cursor: crosshair; transition: opacity calc(700ms * var(--moment-t)) ease; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-foil { opacity: 0; pointer-events: none; }
+
+/* --- the ribbon -------------------------------------------------------------
+   The card (envelope/card) tied in satin (ribbon/band) with the bow
+   (ribbon/bow) on top. Pulled, or tapped, the bow loosens and drops away
+   and the band slides off the card; the words are on the card. */
+.inv-mo-ribbon { perspective: none; }
+.inv-mo-rib-card { position: absolute; left: 20%; width: 60%; top: 8%; height: 79%; z-index: 1; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.2)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-rib-card .inv-mo-part { object-fit: fill; }
+.inv-mo-rib-band { position: absolute; z-index: 2; filter: drop-shadow(0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.22)); transition: transform calc(1000ms * var(--moment-t)) var(--mo-fall) calc(400ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(1100ms * var(--moment-t)); }
+.inv-mo-rib-band .inv-mo-part { object-fit: fill; }
+.inv-mo-rib-band[data-dir='h'] { left: 14%; width: 72%; top: 44%; height: 7.5cqw; }
+.inv-mo-rib-band[data-dir='v'] { left: 50%; top: 47.5%; width: 92%; height: 7.5cqw; transform: translate(-50%, -50%) rotate(90deg); }
+.inv-mo-rib-bow {
+  position: absolute; z-index: 3;
+  left: 50%; top: 47%;
+  width: 34%; height: 31%;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0.8cqw 1cqw rgba(var(--mo-dark), 0.28));
+  transition: transform calc(500ms * var(--moment-t)) var(--mo-fall) calc(200ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(700ms * var(--moment-t));
+}
+[data-state='closed'] .inv-mo-rib-band[data-dir='h'] { transform: translateY(calc(var(--moment-drag) * 30%)); }
+[data-state='closed'] .inv-mo-rib-bow { transform: translate(-50%, calc(-50% + var(--moment-drag) * 30%)) scale(calc(1 - var(--moment-drag) * 0.3)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rib-bow { transform: translate(-50%, 90%) rotate(9deg) scale(0.86); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rib-band[data-dir='h'] { transform: translateY(140%) rotate(-3deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-rib-band[data-dir='v'] { transform: translate(-50%, 80%) rotate(88deg); opacity: 0; }
+[data-moment='ribbon'] { --moment-reveal-at: 900ms; }
+[data-moment='ribbon'] .inv-moment-reveal { left: 22%; right: 22%; top: 12%; bottom: 16%; padding: 3cqw; }
+
+/* --- the capiz panels ----------------------------------------------------------
+   Two arched shell panels (capiz/panel, the right its mirror) that fold
+   outward from the centre on a heavy ease, the photograph waiting behind. */
+.inv-mo-capiz { perspective: 160cqw; perspective-origin: 50% 45%; overflow: hidden; }
+.inv-mo-capiz .inv-mo-behind { left: 20%; top: 6%; width: 60%; height: 88%; border-radius: 30% 30% 1cqw 1cqw / 20% 20% 1cqw 1cqw; z-index: 1; }
+.inv-mo-shell {
+  position: absolute; top: 4%; height: 92%; width: 32%; z-index: 2;
+  filter: drop-shadow(0 1cqw 1.6cqw rgba(var(--mo-dark), 0.24));
+  backface-visibility: visible;
+  transition: transform calc(1100ms * var(--moment-t)) var(--mo-settle);
+}
+.inv-mo-shell .inv-mo-part { object-fit: fill; }
+.inv-mo-shell[data-side='l'] { left: 18%; transform-origin: left center; }
+.inv-mo-shell[data-side='r'] { right: 18%; transform-origin: right center; transition-delay: calc(90ms * var(--moment-t)); }
+.inv-mo-shell[data-side='r'] .inv-mo-part { transform: scaleX(-1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-side='l'] { transform: rotateY(-108deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-shell[data-side='r'] { transform: rotateY(108deg); }
+[data-moment='capiz'] { --moment-reveal-at: 700ms; }
+[data-moment='capiz'] .inv-moment-reveal { left: 22%; right: 22%; top: 10%; bottom: 10%; }
+
+/* --- the folded letter ---------------------------------------------------------
+   The fastened square (letter/folded) on the ground. Tapped, it lifts its
+   face away on its top fold and the card behind it (envelope/card) opens
+   in two stages, the top half then the bottom; the words are on the card. */
+.inv-mo-letter { perspective: 900cqw; perspective-origin: 50% 50%; }
+.inv-mo-let-folded {
+  position: absolute; left: 22%; width: 56%; top: 21%; height: 59%; z-index: 3;
+  transform-origin: top center;
+  filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22));
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-heavy), opacity calc(300ms * var(--moment-t)) ease calc(600ms * var(--moment-t));
+}
+.inv-mo-let-folded .inv-mo-part { object-fit: fill; }
+.inv-mo-let-sheet {
+  position: absolute; left: 24%; width: 52%; top: 8%; height: 84%; z-index: 2;
+  filter: drop-shadow(0 1.2cqw 1.6cqw rgba(var(--mo-dark), 0.18));
+  clip-path: inset(34% 0 34% 0);
+  transition: clip-path calc(1100ms * var(--moment-t)) var(--mo-settle) calc(500ms * var(--moment-t));
+}
+.inv-mo-let-sheet .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-let-folded { transform: rotateX(-110deg); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-let-sheet { clip-path: inset(0 0 0 0); }
+[data-moment='letter'] { --moment-reveal-at: 1300ms; }
+[data-moment='letter'] .inv-moment-reveal { left: 27%; right: 27%; top: 12%; bottom: 12%; padding: 3cqw; }
+
+/* --- the same scenes filling the screen as the invitation's opening ------- */
+.inv-open .inv-mo {
+  position: relative;
+  width: min(20rem, 80vw);
+  perspective: 1400px;
+}
+.inv-open .inv-mo-env { aspect-ratio: 1 / 0.92; }
+.inv-open .inv-mo-ribbon { aspect-ratio: 1 / 1.05; }
+.inv-open .inv-mo-letter { aspect-ratio: 1 / 0.95; }
+.inv-open .inv-mo-curtains, .inv-open .inv-mo-capiz { aspect-ratio: 8 / 9.6; width: min(17rem, 72vw); }
+.inv-open .inv-mo-doors { aspect-ratio: 753 / 1138; width: min(15rem, 64vw); }
+.inv-open .inv-mo { --moment-drag: var(--open-drag, 0); }
+/* the words sit under the scene, not over it: the scene goes up, the words down, as the envelope's do */
+.inv-open[data-style='ribbon'] .inv-mo, .inv-open[data-style='letter'] .inv-mo { translate: 0 min(-6rem, -16vh); }
+.inv-open[data-style='ribbon'] .inv-open-copy, .inv-open[data-style='letter'] .inv-open-copy { translate: 0 min(6.5rem, 18vh); }
+.inv-open[data-style='doors'] .inv-mo, .inv-open[data-style='capiz'] .inv-mo { translate: 0 min(-7rem, -18vh); }
+.inv-open[data-style='doors'] .inv-open-copy, .inv-open[data-style='capiz'] .inv-open-copy { translate: 0 min(12rem, 30vh); }
+.inv-open[data-trigger='swipe'] { touch-action: none; }
+
+/* --- Tap & Reveal and the Surprise shelf ---------------------------------- */
+
+/* the ring box: the base with the ring on its cushion (ring-box/base) and the
+   lid (ring-box/lid) hinged along the base's far edge, velvet on its back;
+   tapped, the lid swings up and back with a settle and the ring catches the
+   light once; the names come up above */
+.inv-mo-ringbox { perspective: 500cqw; perspective-origin: 50% 30%; }
+.inv-mo-rb-base { position: absolute; left: 18%; width: 64%; bottom: 8%; height: 56%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.24)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-rb-base .inv-mo-part { object-fit: fill; }
+.inv-mo-rb-lid {
+  position: absolute; left: 19%; width: 62%; bottom: 46%; height: 65%; z-index: 2;
+  transform-origin: bottom center; transform-style: preserve-3d;
+  transform: rotateX(-84deg);
+  filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.24));
+  transition: transform calc(1300ms * var(--moment-t)) var(--mo-settle) calc(120ms * var(--moment-t));
+}
+.inv-mo-rb-lid .inv-mo-part { object-fit: fill; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.inv-mo-rb-velvet {
+  /* the lid's back, seen while it lies shut: the velvet outside of the box */
+  position: absolute; inset: 4% 3%; border-radius: 12% / 10%;
+  background: var(--mo-grain-soft), radial-gradient(ellipse at 40% 30%, #f0c7cc, #dca4ac 60%, #c48c95);
+  transform: rotateX(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-rb-lid { transform: rotateX(-6deg); }
+.inv-mo-rb-glint { position: absolute; left: 50%; top: 58%; width: 5cqw; height: 5cqw; margin: -2.5cqw 0 0 -2.5cqw; z-index: 4; border-radius: 999px; background: radial-gradient(circle, #fff, rgba(255, 255, 255, 0) 70%); opacity: 0; }
+:is([data-state='opening']) .inv-mo-rb-glint { animation: inv-mo-flash-pop calc(700ms * var(--moment-t)) ease calc(900ms * var(--moment-t)); }
+[data-moment='ring-box'] { --moment-reveal-at: 1000ms; }
+[data-moment='ring-box'] .inv-moment-reveal { top: 3%; bottom: 62%; padding: 2cqw 6cqw; justify-content: flex-end; }
+
+/* the magic light and the magic flash: a soft light that spreads from the
+   centre of the blush ground and leaves what it lit behind */
+.inv-mo-light .inv-mo-veil { position: absolute; inset: 0; z-index: 1; background: color-mix(in srgb, var(--inv-surface) 40%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: opacity calc(900ms * var(--moment-t)) ease calc(300ms * var(--moment-t)); border-radius: 2.4cqw; }
+.inv-mo-light .inv-mo-glow {
+  position: absolute; left: 50%; top: 50%; width: 46%; aspect-ratio: 1; z-index: 2; border-radius: 999px;
+  transform: translate(-50%, -50%) scale(1);
+  background: radial-gradient(circle, rgba(255, 252, 240, 1) 0%, rgba(255, 240, 210, 0.9) 30%, rgba(255, 228, 190, 0.35) 60%, rgba(255, 228, 190, 0) 72%);
+  filter: blur(0.4cqw);
+  animation: inv-mo-breathe 3.2s ease-in-out infinite;
+  transition: transform calc(1200ms * var(--moment-t)) var(--mo-light), opacity calc(900ms * var(--moment-t)) ease calc(500ms * var(--moment-t));
+}
+@keyframes inv-mo-breathe { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light .inv-mo-veil { opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light .inv-mo-glow { transform: translate(-50%, -50%) scale(4); opacity: 0; animation: none; }
+.inv-mo-light[data-flash] .inv-mo-glow { width: 30%; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-light[data-flash] .inv-mo-glow { transition-duration: calc(450ms * var(--moment-t)), calc(400ms * var(--moment-t)); transition-delay: 0s, calc(200ms * var(--moment-t)); }
+[data-moment='light'] { --moment-reveal-at: 500ms; }
+[data-moment='light'][data-variant='flash'] { --moment-reveal-at: 250ms; }
+[data-moment='light'] .inv-moment-reveal { padding: 6cqw; }
+
+/* the flower: eight photographed petals (bloom/petal) stand up together as
+   the bud; tapped, they fold down and out onto the open flower (bloom/open)
+   and the photograph is at its heart */
+.inv-mo-bloom { perspective: 300cqw; perspective-origin: 50% 30%; }
+.inv-mo-bloom-open { position: absolute; left: -8%; top: -8%; width: 116%; height: 116%; z-index: 1; opacity: 0; transform: scale(0.7); filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.2)); transition: opacity calc(900ms * var(--moment-t)) ease calc(500ms * var(--moment-t)), transform calc(1400ms * var(--moment-t)) var(--mo-settle) calc(300ms * var(--moment-t)); }
+.inv-mo-bloom-open .inv-mo-part { object-fit: contain; }
+.inv-mo-bloom-centre {
+  position: absolute; left: 50%; top: 50%; width: 30%; aspect-ratio: 1; z-index: 2; border-radius: 999px; overflow: hidden;
+  transform: translate(-50%, -50%) scale(0.4); opacity: 0;
+  background: radial-gradient(circle, #fff6ea, #f3d9c2);
+  box-shadow: 0 0 0 0.8cqw rgba(255, 255, 255, 0.8), 0 1cqw 2cqw rgba(var(--mo-dark), 0.2);
+  transition: transform calc(1000ms * var(--moment-t)) var(--mo-settle) calc(900ms * var(--moment-t)), opacity calc(600ms * var(--moment-t)) ease calc(900ms * var(--moment-t));
+}
+.inv-mo-bloom-centre img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-petal {
+  position: absolute; left: 50%; top: 50%; width: 24%; height: 46%; z-index: 3;
+  transform-origin: 50% 100%;
+  /* each petal stands on the centre and leans in over it, turned round the bud by its share of the circle */
+  transform: translate(-50%, -100%) rotate(calc(var(--petal) * 45deg)) rotateX(38deg);
+  filter: drop-shadow(0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.14));
+  transition: transform calc(1300ms * var(--moment-t)) var(--mo-settle) calc(var(--petal) * 45ms), opacity calc(500ms * var(--moment-t)) ease calc(900ms * var(--moment-t));
+}
+.inv-mo-petal .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-petal { transform: translate(-50%, -100%) rotate(calc(var(--petal) * 45deg)) rotateX(-84deg) translateY(-30%); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bloom-open { opacity: 1; transform: scale(1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bloom-centre { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+[data-moment='bloom'] { --moment-reveal-at: 1300ms; }
+[data-moment='bloom'] .inv-moment-reveal { top: auto; bottom: 0; height: 22%; padding: 0 6cqw 3cqw; justify-content: flex-end; }
+[data-moment='bloom'] .inv-moment-reveal img { display: none; }
+
+/* the candle, and the birthday cake: the jar (candle/jar) or the cake
+   (cake/cake) on the ground, the one photographed flame (candle/flame) on the
+   wick. The candle lights on the tap and the glow comes up; the cake starts
+   lit and the tap blows it out, the smoke rising */
+.inv-mo-candle { perspective: none; }
+.inv-mo-jar { position: absolute; left: 27%; width: 46%; bottom: 8%; height: 58%; z-index: 2; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-cake { position: absolute; left: 12%; width: 76%; bottom: 8%; height: 58%; z-index: 2; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-jar .inv-mo-part, .inv-mo-cake .inv-mo-part { object-fit: fill; }
+.inv-mo-flame {
+  position: absolute; left: 50%; width: 11%; height: 17%; z-index: 3;
+  bottom: 60%; margin-left: -5.5%;
+  transform-origin: 50% 100%;
+  transform: scale(0);
+  filter: drop-shadow(0 0 1.6cqw rgba(255, 190, 90, 0.7));
+  transition: transform calc(500ms * var(--moment-t)) var(--mo-light) calc(200ms * var(--moment-t));
+}
+.inv-mo-flame .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-candle[data-cake] .inv-mo-flame { bottom: 61%; width: 9%; height: 14%; margin-left: -4.5%; }
+.inv-mo-candle .inv-mo-glow { position: absolute; left: 50%; top: 24%; width: 90%; aspect-ratio: 1; z-index: 1; transform: translate(-50%, -30%); border-radius: 999px; background: radial-gradient(circle, rgba(255, 200, 100, 0.42), transparent 60%); opacity: 0; transition: opacity calc(900ms * var(--moment-t)) ease calc(400ms * var(--moment-t)); }
+.inv-mo-smoke { position: absolute; left: 50%; bottom: 62%; width: 2cqw; height: 8cqw; margin-left: -1cqw; z-index: 3; border-radius: 999px; background: linear-gradient(180deg, rgba(120, 120, 120, 0), rgba(120, 120, 120, 0.45)); filter: blur(0.6cqw); opacity: 0; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle:not([data-cake]) .inv-mo-flame { transform: scale(1); animation: inv-mo-flicker 1.6s ease-in-out calc(700ms * var(--moment-t)) infinite; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle:not([data-cake]) .inv-mo-glow { opacity: 1; }
+[data-state='closed'] .inv-mo-candle[data-cake] .inv-mo-flame { transform: scale(1); animation: inv-mo-flicker 1.6s ease-in-out infinite; }
+[data-state='closed'] .inv-mo-candle[data-cake] .inv-mo-glow { opacity: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-flame { transform: scale(0); transition-delay: 0s; transition-duration: calc(250ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-smoke { animation: inv-mo-smoke calc(1800ms * var(--moment-t)) ease-out calc(200ms * var(--moment-t)) forwards; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-candle[data-cake] .inv-mo-glow { opacity: 0; transition-delay: 0s; }
+@keyframes inv-mo-flicker { 0%, 100% { transform: scale(1) rotate(-1.5deg); } 30% { transform: scale(1.06, 0.96) rotate(1.5deg); } 60% { transform: scale(0.97, 1.05) rotate(-1deg); } }
+@keyframes inv-mo-smoke { 0% { opacity: 0; transform: translateY(0) scaleX(1); } 20% { opacity: 0.8; } 100% { opacity: 0; transform: translateY(-16cqw) scaleX(2.2); } }
+[data-moment='candle'] { --moment-reveal-at: 900ms; }
+[data-moment='candle'] .inv-moment-reveal { top: 0; bottom: 70%; padding: 3cqw 6cqw 0; justify-content: flex-end; }
+[data-moment='candle'] .inv-moment-reveal img { display: none; }
+
+/* the gift: the open box (gift/box) with its lid (gift/lid) set on it;
+   tapped, the lid lifts and tilts away with a settle and what is inside
+   rises out. The mystery box shakes first; the holiday lid goes a beat later */
+.inv-mo-gift { perspective: none; }
+.inv-mo-gift-box { position: absolute; left: 19%; width: 62%; bottom: 8%; height: 48%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.24)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-gift-box .inv-mo-part { object-fit: fill; }
+.inv-mo-gift-lid {
+  position: absolute; left: 21%; width: 58%; top: 2%; height: 54%; z-index: 4;
+  transform-origin: 20% 100%;
+  filter: drop-shadow(0 1.5cqw 2cqw rgba(var(--mo-dark), 0.26));
+  transition: transform calc(1200ms * var(--moment-t)) var(--mo-settle) calc(150ms * var(--moment-t)), opacity calc(500ms * var(--moment-t)) ease calc(900ms * var(--moment-t));
+}
+.inv-mo-gift-lid .inv-mo-part { object-fit: fill; }
+.inv-mo-gift-mark { position: absolute; left: 50%; top: 52%; z-index: 5; transform: translate(-50%, -50%); font-family: var(--inv-display); font-size: 14cqw; line-height: 1; color: #b98a90; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); transition: opacity calc(300ms * var(--moment-t)) ease calc(600ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift-lid { transform: translateY(-64%) rotate(-16deg); opacity: 0.001; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-gift-mark { opacity: 0; }
+/* the mystery box shakes first; the holiday box lets its lid go a beat later */
+:is([data-state='opening']) .inv-mo-gift[data-kind='mystery'] { animation: inv-mo-shake calc(600ms * var(--moment-t)) ease-in-out; }
+.inv-mo-gift[data-kind='mystery'] .inv-mo-gift-lid { transition-delay: calc(750ms * var(--moment-t)), calc(1500ms * var(--moment-t)); }
+.inv-mo-gift[data-kind='holiday'] .inv-mo-gift-lid { transition-delay: calc(550ms * var(--moment-t)), calc(1300ms * var(--moment-t)); }
+@keyframes inv-mo-shake { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-2deg) translateX(-1%); } 40% { transform: rotate(2deg) translateX(1%); } 60% { transform: rotate(-1.5deg); } 80% { transform: rotate(1.5deg); } }
+[data-moment='gift'] { --moment-reveal-at: 900ms; }
+[data-moment='gift'][data-variant='mystery'] { --moment-reveal-at: 1500ms; }
+[data-moment='gift'][data-variant='holiday'] { --moment-reveal-at: 1300ms; }
+[data-moment='gift'] .inv-moment-reveal { top: 0; bottom: 40%; z-index: 2; padding: 4cqw 24% 0; translate: 0 24%; transition: opacity calc(600ms * var(--moment-t)) ease calc(var(--moment-reveal-at) * var(--moment-t)), translate calc(1200ms * var(--moment-t)) var(--mo-heavy) calc(var(--moment-reveal-at) * var(--moment-t)); }
+[data-moment='gift'] .inv-moment-reveal img { flex: none; height: 62%; border: 0.8cqw solid #fff; box-shadow: var(--mo-contact), var(--mo-ambient); }
+[data-moment='gift']:is([data-state='opening'], [data-state='open']) .inv-moment-reveal { translate: 0 0; }
+
+/* the photo frame: the gilt frame (frame/gold) on the ground, the photograph
+   in its window under a satin cloth drawn up off it */
+.inv-mo-frame { perspective: none; }
+.inv-mo-frame-gilt { position: absolute; left: 13%; top: 10%; width: 74%; height: 80%; z-index: 3; object-fit: fill; filter: drop-shadow(0 2cqw 2.4cqw rgba(var(--mo-dark), 0.26)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.12)); }
+/* the window: the frame's own see-through, measured on the shipped part (frame/gold hole) */
+.inv-mo-frame-photo { position: absolute; left: calc(13% + 74% * 0.1028); top: calc(10% + 80% * 0.081); width: calc(74% * 0.7944); height: calc(80% * 0.838); z-index: 2; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 10%, var(--inv-surface)); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25), inset 0 0.6cqw 1cqw rgba(0, 0, 0, 0.2); }
+.inv-mo-frame-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-cloth {
+  position: absolute; inset: 0; z-index: 2;
+  background: var(--mo-grain-soft), linear-gradient(180deg, rgba(0, 0, 0, 0.06), transparent 12%, transparent 88%, rgba(0, 0, 0, 0.14)), repeating-linear-gradient(90deg, #e6d3bf 0%, #f6ebdc 4%, #fbf4ea 7%, #f0e2d0 10%, #e6d3bf 14%);
+  clip-path: inset(0 0 0 0);
+  transition: clip-path calc(1100ms * var(--moment-t)) var(--mo-heavy);
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-cloth { clip-path: inset(0 0 100% 0); }
+[data-moment='frame'] { --moment-reveal-at: 800ms; }
+[data-moment='frame'] .inv-moment-reveal { display: none; }
+
+/* the secret code: a cream keypad card on the ground; the right code opens the latch */
+[data-moment='code'] { border-radius: 2.4cqw; overflow: hidden; }
+[data-moment='code'] .inv-mo { z-index: 2; pointer-events: none; }
+/* the plate the keypad sits on: its own card, so the scene holds together on a page that gives it no ground */
+.inv-mo-latch {
+  position: absolute; inset: 0; z-index: 1; border-radius: 2.4cqw;
+  background-color: var(--mo-paper);
+  background-image: var(--mo-grain), linear-gradient(160deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.05));
+  box-shadow: inset 0 0 0 1px var(--mo-ink10);
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-heavy), opacity calc(500ms * var(--moment-t)) ease calc(500ms * var(--moment-t));
+}
+[data-moment='code'] .inv-mo-ground { transition: transform calc(900ms * var(--moment-t)) var(--mo-heavy), opacity calc(500ms * var(--moment-t)) ease calc(500ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-latch, :is([data-state='opening'], [data-state='open']) [data-moment='code'] .inv-mo-ground { transform: translateY(100%); opacity: 0; }
+.inv-mo-keys { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 5cqw; transition: opacity calc(300ms * var(--moment-t)) ease; }
+.inv-mo-keys::before { content: 'Enter Code'; font-family: var(--inv-body); font-size: 3.4cqw; letter-spacing: 0.2em; text-transform: uppercase; color: #6d5a4a; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-keys { opacity: 0; pointer-events: none; }
+.inv-mo-dial { display: flex; gap: 2.4cqw; margin: 0 0 1cqw; }
+.inv-mo-dial span { width: 3.6cqw; height: 3.6cqw; border-radius: 999px; border: 1px solid rgba(90, 70, 50, 0.4); background: rgba(255, 255, 255, 0.5); box-shadow: inset 0 0.3cqw 0.4cqw rgba(90, 70, 50, 0.12); transition: background 150ms ease; }
+.inv-mo-dial span[data-on] { background: #6d5a4a; border-color: #6d5a4a; }
+.inv-mo-keys[data-wrong] .inv-mo-dial { animation: inv-mo-wrong 500ms ease-in-out; }
+.inv-mo-keys[data-wrong] .inv-mo-dial span[data-on] { background: #d07070; border-color: #d07070; }
+@keyframes inv-mo-wrong { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2cqw); } 75% { transform: translateX(2cqw); } }
+.inv-mo-keygrid { display: grid; grid-template-columns: repeat(3, 11cqw); gap: 1.6cqw; }
+.inv-mo-keygrid button { height: 9cqw; border-radius: 999px; border: 1px solid rgba(90, 70, 50, 0.18); background: linear-gradient(180deg, #fffdf9, #f3ebe0); box-shadow: 0 0.3cqw 0.6cqw rgba(var(--mo-dark), 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9); color: #4a3a2a; font-family: var(--inv-body); font-size: 4cqw; cursor: pointer; }
+.inv-mo-keygrid button:active { background: #eadfd0; box-shadow: inset 0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.18); }
+
+/* the puzzle: nine tiles of the photograph on the ground, each a little raised, swapped two taps at a time */
+[data-moment='puzzle'] .inv-mo-ground { border-radius: 2.4cqw; }
+.inv-mo-tiles { position: absolute; inset: 5%; z-index: 3; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 1cqw; padding: 0; transition: gap calc(700ms * var(--moment-t)) ease, inset calc(700ms * var(--moment-t)) ease; }
+.inv-mo-tile { display: block; padding: 0; border: 0; border-radius: 0.6cqw; background-size: 300% 300%; background-color: #eadfd0; box-shadow: 0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.3); cursor: pointer; transition: transform 200ms ease, box-shadow 200ms ease, border-radius calc(700ms * var(--moment-t)) ease; }
+.inv-mo-tile[data-picked] { transform: scale(0.92); box-shadow: 0 0 0 0.8cqw var(--inv-accent), 0 1cqw 2cqw rgba(var(--mo-dark), 0.3); z-index: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tiles { gap: 0; inset: 5%; pointer-events: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-tile { border-radius: 0; box-shadow: 0 0.4cqw 0.8cqw rgba(var(--mo-dark), 0.2); }
+
+/* the flip card: the card (envelope/card) standing on the ground turns on its vertical axis with a settle, the words on its back */
+.inv-mo-flip { perspective: 1000cqw; }
+.inv-mo-flip-card { position: absolute; left: 22%; width: 56%; top: 6%; height: 88%; transform-style: preserve-3d; transition: transform calc(1000ms * var(--moment-t)) var(--mo-settle); filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)); }
+.inv-mo-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 7% 9%; text-align: center; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.inv-mo-face .inv-mo-part { object-fit: fill; z-index: 0; }
+.inv-mo-face-photo { position: absolute; inset: 9% 8%; width: 84%; height: 82%; object-fit: cover; z-index: 1; box-shadow: var(--mo-contact); }
+.inv-mo-face-words { position: relative; z-index: 1; }
+.inv-mo-face-words > * { margin: 0; }
+.inv-mo-face[data-side='back'] { transform: rotateY(180deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flip-card { transform: rotateY(180deg); }
+[data-moment='flip'] .inv-moment-reveal { display: none; }
+
+/* hold to reveal: the blush ground under a frost that clears as the ring fills */
+.inv-mo-hold .inv-mo-veil { position: absolute; inset: 0; z-index: 1; border-radius: 2.4cqw; background: rgba(250, 240, 236, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); opacity: 1; transition: opacity calc(700ms * var(--moment-t)) ease; }
+.inv-mo-hold .inv-mo-veil::after { content: '♥'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -54%); font-size: 14cqw; line-height: 1; color: #4a3a3a; opacity: 0.85; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-hold .inv-mo-veil { opacity: 0; }
+[data-moment='hold'] { --moment-reveal-at: 300ms; }
+[data-moment='hold'] .inv-moment-reveal { padding: 6cqw; }
+[data-moment='hold'] .inv-moment-reveal img { border-radius: 1.2cqw; box-shadow: var(--mo-contact), var(--mo-ambient); }
+
+/* --- Swipe & Pull ------------------------------------------------------------ */
+
+/* pull the invitation: the card (envelope/card) in the pocket (envelope/pocket);
+   it follows the finger up and out, its shadow deepening as more of it is out,
+   and settles once it is free */
+.inv-mo-pull { perspective: none; }
+.inv-mo-pull-card {
+  position: absolute; left: 25%; width: 50%; top: 51%; height: 77%; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2cqw; padding: 9% 9%;
+  text-align: center;
+  filter: drop-shadow(0 calc(0.6cqw + var(--moment-drag) * 2cqw) calc(1.2cqw + var(--moment-drag) * 2.4cqw) rgba(var(--mo-dark), calc(0.14 + var(--moment-drag) * 0.14)));
+  transform: translateY(calc(var(--moment-drag) * -64%));
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-spring), filter calc(900ms * var(--moment-t)) ease;
+}
+.inv-mo-pull-card .inv-mo-part { object-fit: fill; z-index: 0; }
+.inv-mo-pull-photo { position: relative; z-index: 1; display: block; width: 100%; max-height: 40%; overflow: hidden; border-radius: 0.4cqw; box-shadow: var(--mo-contact); }
+.inv-mo-pull-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-pull-words { position: relative; z-index: 1; }
+.inv-mo-pull-words > * { margin: 0; }
+.inv-mo-pull-pocket { position: absolute; left: 12%; width: 76%; bottom: 4%; height: 50.6%; z-index: 2; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.22)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-pull-pocket .inv-mo-part { object-fit: fill; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-pull-card { transform: translateY(-64%); }
+[data-moment='pull-card'] .inv-moment-reveal { display: none; }
+
+/* peel the sticker: the round sticker (sticker/face) over the photograph on the
+   ground; the edge curls with a lighter back and a shadow under it, and the
+   peel follows the finger across */
+.inv-mo-sticker, .inv-mo-frost { perspective: none; }
+.inv-mo-frost { border-radius: 1.6cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); box-shadow: var(--mo-contact), var(--mo-ambient); }
+.inv-mo-under { position: absolute; inset: 0; z-index: 1; }
+.inv-mo-under img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-sticker .inv-mo-under { inset: 6%; border-radius: 999px; overflow: hidden; box-shadow: var(--mo-contact), var(--mo-ambient); background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); }
+.inv-mo-peel { position: absolute; inset: 4%; z-index: 2; clip-path: inset(0 calc(var(--moment-drag) * 100%) 0 0); filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.22)); transition: clip-path calc(900ms * var(--moment-t)) var(--mo-heavy); }
+.inv-mo-peel .inv-mo-part { object-fit: fill; }
+.inv-mo-peel-curl {
+  position: absolute; top: 0; bottom: 0; width: 9cqw; right: calc(var(--moment-drag) * 100% - 4.5cqw); z-index: 3;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.95) 45%, #f7e3e2 60%, rgba(0, 0, 0, 0.18));
+  border-radius: 999px;
+  box-shadow: -1cqw 0 2cqw rgba(var(--mo-dark), 0.25);
+  opacity: calc(min(1, var(--moment-drag) * 8));
+  transition: right calc(900ms * var(--moment-t)) var(--mo-heavy), opacity 200ms ease;
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-peel { clip-path: inset(0 100% 0 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-peel-curl { right: calc(100% - 4.5cqw); opacity: 0; }
+[data-moment='sticker'] { --moment-reveal-at: 500ms; }
+[data-moment='sticker'] .inv-moment-reveal { inset: 6%; border-radius: 999px; overflow: hidden; justify-content: flex-end; padding-bottom: 10cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+
+/* frosted glass: the photograph is there, out of focus under the frost (frost/glass), and comes clear wherever the finger passes */
+[data-moment='frost'] .inv-mo-foil { cursor: default; }
+[data-moment='frost'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+[data-moment='frost'] { --moment-reveal-at: 300ms; }
+
+/* the scroll: parchment (scroll/parchment) between two rollers (scroll/roller);
+   the lower roller runs down with the finger and the parchment unrolls behind
+   it; the diploma is tied in a bow (ribbon/bow) that lets go first */
+.inv-mo-scroll { perspective: none; }
+.inv-mo-scroll .inv-mo-rod { position: absolute; left: 4%; width: 92%; top: 4%; height: 9.5%; z-index: 3; filter: drop-shadow(0 0.8cqw 1.2cqw rgba(var(--mo-dark), 0.3)); }
+.inv-mo-scroll .inv-mo-rod .inv-mo-part { object-fit: fill; }
+.inv-mo-paper {
+  position: absolute; left: 10%; width: 80%; top: 8%; bottom: 6%; z-index: 1;
+  display: flex; align-items: center; justify-content: center; padding: 12cqw 6cqw; text-align: center; overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(var(--mo-dark), 0.12), 0 1cqw 2cqw rgba(var(--mo-dark), 0.14);
+  clip-path: inset(0 0 calc((1 - var(--moment-drag)) * 100%) 0);
+  transition: clip-path calc(1500ms * var(--moment-t)) var(--mo-heavy);
+}
+.inv-mo-paper .inv-mo-part { object-fit: cover; z-index: 0; }
+.inv-mo-paper-words { position: relative; z-index: 1; color: #4a3a2a; }
+.inv-mo-paper-words > * { margin: 0; }
+.inv-mo-roll {
+  position: absolute; left: 4%; width: 92%; top: calc(6% + var(--moment-drag) * 84%); height: 9.5%; z-index: 2;
+  filter: drop-shadow(0 1cqw 1.6cqw rgba(var(--mo-dark), 0.3));
+  transition: top calc(1500ms * var(--moment-t)) var(--mo-heavy);
+}
+.inv-mo-roll .inv-mo-part { object-fit: fill; }
+.inv-mo-roll-tie { position: absolute; left: 38%; width: 24%; top: -110%; height: 300%; z-index: 1; filter: drop-shadow(0 0.6cqw 0.8cqw rgba(var(--mo-dark), 0.24)); transition: opacity calc(300ms * var(--moment-t)) ease, transform calc(400ms * var(--moment-t)) var(--mo-fall); }
+.inv-mo-roll-tie .inv-mo-part { object-fit: contain; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-paper { clip-path: inset(0 0 0 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll { top: 90%; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll-tie { opacity: 0; transform: translateY(3cqw) scale(0.6); }
+.inv-mo-scroll[data-diploma] .inv-mo-paper, .inv-mo-scroll[data-diploma] .inv-mo-roll { transition-delay: calc(350ms * var(--moment-t)); }
+[data-moment='scroll'] .inv-moment-reveal { display: none; }
+
+/* --- Photo Moments and the Occasion shelf --------------------------------------- */
+
+/* the photo booth: the count on the wall, a flash each, then the strip
+   (photo-booth/strip) drops in from above with the three photographs in its
+   windows, and the shutter (photo-booth/button) stands below */
+.inv-mo-booth { perspective: none; }
+.inv-mo-booth-count { position: absolute; left: 0; right: 0; top: 30%; height: 30%; z-index: 4; pointer-events: none; }
+.inv-mo-booth-count b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--inv-display); font-size: 22cqw; color: #4a3a2a; opacity: 0; text-shadow: 0 0 1cqw rgba(255, 255, 255, 0.8); }
+.inv-mo-shutter { position: absolute; left: 36%; width: 28%; bottom: 5%; height: 20%; z-index: 3; filter: drop-shadow(0 1.6cqw 1.8cqw rgba(var(--mo-dark), 0.26)); transition: transform 160ms ease; }
+.inv-mo-shutter .inv-mo-part { object-fit: contain; object-position: center bottom; }
+[data-state='opening'] .inv-mo-shutter { animation: inv-mo-press calc(300ms * var(--moment-t)) ease; }
+.inv-mo-booth-strip {
+  position: absolute; left: 35%; width: 30%; top: 4%; height: 121%; z-index: 2;
+  filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.26));
+  transform-origin: 50% 0; transform: translateY(-110%); opacity: 0;
+  transition: transform calc(1400ms * var(--moment-t)) var(--mo-heavy) calc(2700ms * var(--moment-t)), opacity 0s linear calc(2700ms * var(--moment-t));
+}
+.inv-mo-booth-strip .inv-mo-part { object-fit: fill; z-index: 1; }
+/* the windows: the strip's own see-throughs, measured on the shipped part (photo-booth/strip holes) */
+.inv-mo-booth-shot { position: absolute; left: 13.36%; width: 73.29%; height: 24.64%; display: block; overflow: hidden; background: #2a2f2d; }
+.inv-mo-booth-shot[data-i='0'] { top: 6.16%; }
+.inv-mo-booth-shot[data-i='1'] { top: 34.82%; }
+.inv-mo-booth-shot[data-i='2'] { top: 63.57%; }
+.inv-mo-booth-shot img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.92) contrast(0.98) sepia(0.05); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count b[data-n='3'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease both; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count b[data-n='2'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(700ms * var(--moment-t)) both; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count b[data-n='1'] { animation: inv-mo-count calc(700ms * var(--moment-t)) ease calc(1400ms * var(--moment-t)) both; }
+.inv-mo-booth .inv-mo-flashlight { background: radial-gradient(circle at 50% 30%, #fff 0%, rgba(255, 255, 255, 0.92) 16%, rgba(255, 255, 255, 0) 58%); border-radius: 2.4cqw; }
+:is([data-state='opening']) .inv-mo-booth .inv-mo-flashlight { animation: inv-mo-boothflash calc(2400ms * var(--moment-t)) linear; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-strip { transform: translateY(0); opacity: 1; }
+:is([data-state='opening']) .inv-mo-booth-strip { animation: inv-mo-swing calc(1600ms * var(--moment-t)) ease-out calc(4000ms * var(--moment-t)); }
+[data-still] .inv-mo-booth-strip { transition: none; animation: none; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-booth-count { opacity: 0; transition: opacity 200ms ease calc(2200ms * var(--moment-t)); }
+@keyframes inv-mo-count { 0% { opacity: 0; transform: scale(0.7); } 20%, 80% { opacity: 1; transform: scale(1); } 100% { opacity: 0; } }
+@keyframes inv-mo-boothflash { 0%, 26%, 40%, 55%, 70%, 85% { opacity: 0; } 30%, 60%, 90% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes inv-mo-swing { 0% { rotate: 0deg; } 30% { rotate: 3deg; } 60% { rotate: -2deg; } 100% { rotate: 0deg; } }
+
+/* the projector: the projector (projector/body) on the ground, its beam to
+   the right; the lamp comes on, the beam widens in a haze and the picture
+   resolves on a cream screen */
+.inv-mo-projector { perspective: none; }
+.inv-mo-screen {
+  position: absolute; left: 40%; right: 6%; top: 10%; bottom: 34%; z-index: 2; overflow: hidden;
+  background: linear-gradient(180deg, #fbf8f1, #efe9dd);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 1cqw 2cqw rgba(var(--mo-dark), 0.24);
+}
+.inv-mo-screen::before { content: ''; position: absolute; left: -3%; right: -3%; top: -4cqw; height: 3cqw; border-radius: 999px; background: linear-gradient(180deg, #5a4a3a, #2e2620); box-shadow: 0 0.5cqw 1cqw rgba(var(--mo-dark), 0.4); }
+.inv-mo-screen img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; filter: blur(8px) brightness(1.5) sepia(0.3); transition: opacity calc(1200ms * var(--moment-t)) ease calc(500ms * var(--moment-t)), filter calc(1600ms * var(--moment-t)) ease calc(700ms * var(--moment-t)); }
+.inv-mo-screen::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.18) 100%); pointer-events: none; }
+.inv-mo-beam {
+  position: absolute; left: 30%; right: 6%; top: 10%; bottom: 34%; z-index: 1;
+  clip-path: polygon(0 58%, 0 66%, 100% 100%, 100% 0);
+  background: var(--mo-grain-soft), linear-gradient(90deg, rgba(255, 244, 214, 0.75), rgba(255, 244, 214, 0.06));
+  opacity: 0;
+  transform-origin: 0 62%; transform: scaleX(0.2);
+  transition: opacity calc(600ms * var(--moment-t)) ease calc(200ms * var(--moment-t)), transform calc(1200ms * var(--moment-t)) var(--mo-heavy) calc(200ms * var(--moment-t));
+}
+.inv-mo-proj-body { position: absolute; left: 4%; width: 34%; bottom: 6%; height: 48%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.28)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.12)); }
+.inv-mo-proj-body .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-proj-body::after { content: ''; position: absolute; right: 2%; top: 46%; width: 6cqw; height: 6cqw; border-radius: 999px; background: radial-gradient(circle, rgba(255, 244, 214, 0.9), rgba(255, 244, 214, 0) 70%); opacity: 0; transition: opacity calc(400ms * var(--moment-t)) ease calc(200ms * var(--moment-t)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-beam { opacity: 1; transform: scaleX(1); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-screen img { opacity: 1; filter: blur(0) brightness(1) sepia(0.08); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-proj-body::after { opacity: 1; }
+[data-moment='projector'] .inv-moment-reveal { display: none; }
+
+/* browsed, not opened: the strip, the carousel and the album, on the ground */
+.inv-mo-browse-ground { z-index: 0; }
+.inv-mo-browse { position: absolute; inset: 0; z-index: 3; touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab; }
+.inv-mo-browse:active { cursor: grabbing; }
+.inv-mo-track { position: absolute; left: 0; top: 0; bottom: 0; display: flex; }
+.inv-mo-shot { position: relative; display: block; flex: none; overflow: hidden; }
+.inv-mo-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-caption { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1.5cqw 3cqw 3cqw; text-align: center; color: #4a3a2a; pointer-events: none; }
+.inv-mo-caption > * { margin: 0; }
+.inv-mo-dots { position: absolute; left: 0; right: 0; bottom: 1.4cqw; z-index: 3; display: flex; justify-content: center; gap: 1.2cqw; pointer-events: none; }
+.inv-mo-dots i { width: 1.6cqw; height: 1.6cqw; border-radius: 999px; background: rgba(90, 70, 50, 0.3); }
+.inv-mo-dots i[data-on] { background: #4a3a2a; }
+[data-moment='film-strip'] .inv-moment-hint, [data-moment='carousel'] .inv-moment-hint, [data-moment='album'] .inv-moment-hint { bottom: 4.5cqw; }
+/* the film strip: the photographed film (film-strip/strip) lies across the ground and the photographs slide under its three frames; the middle frame is the one in hand */
+.inv-mo-browse.inv-mo-strip { top: 0; }
+.inv-mo-film { position: absolute; left: 0; width: 100%; top: 18.5%; height: 63%; z-index: 2; object-fit: fill; filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.28)); pointer-events: none; }
+/* each photograph is a frame's size, and the track stands where the middle frame is: 34.2% across, 30.03% wide; the frames are 32.3% apart */
+.inv-mo-browse.inv-mo-strip .inv-mo-track { top: calc(18.5% + 63% * 0.1822); height: calc(63% * 0.6355); gap: 2.3cqw; left: 34.2cqw; transform: translateX(calc(var(--browse-at) * -32.3cqw + var(--browse-drag) * 16cqw)); transition: transform calc(550ms * var(--moment-t)) var(--mo-spring); }
+.inv-mo-browse.inv-mo-strip[data-dragging] .inv-mo-track { transition: none; }
+.inv-mo-browse.inv-mo-strip .inv-mo-shot { width: 30cqw; background: #333; }
+.inv-mo-browse.inv-mo-strip .inv-mo-shot::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%), radial-gradient(ellipse at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.22) 100%); pointer-events: none; }
+[data-moment='film-strip'] .inv-mo-caption { bottom: 1cqw; }
+/* the carousel: the one in front larger and lit, the neighbours peeking, sliding under the finger and settling on a spring */
+.inv-mo-browse.inv-mo-carousel .inv-mo-track { left: 50%; top: 8%; bottom: 12%; gap: 4cqw; transform: translateX(calc(-36cqw - var(--browse-at) * 76cqw + var(--browse-drag) * 38cqw)); transition: transform calc(650ms * var(--moment-t)) var(--mo-spring); }
+.inv-mo-browse.inv-mo-carousel[data-dragging] .inv-mo-track { transition: none; }
+.inv-mo-browse.inv-mo-carousel .inv-mo-shot { width: 72cqw; border: 1.2cqw solid #fff; box-shadow: var(--mo-contact), var(--mo-ambient); transform: scale(0.92); opacity: 0.72; filter: saturate(0.85); transition: transform calc(650ms * var(--moment-t)) var(--mo-spring), opacity calc(650ms * var(--moment-t)) ease, filter calc(650ms * var(--moment-t)) ease; }
+.inv-mo-browse.inv-mo-carousel .inv-mo-shot[data-at] { transform: scale(1); opacity: 1; filter: none; }
+/* the album: linen covers, pages of the photographed album leaf (album/page), a leaf that turns in perspective with a fold shadow */
+[data-moment='album'] { perspective: 1200cqw; }
+/* the album: its own photographed cover (album/cover), stretched to the board the pages are bound into */
+.inv-mo-album {
+  inset: 4%;
+  border-radius: 1.4cqw; padding: 2.4cqw;
+  filter: drop-shadow(0 1.6cqw 2cqw rgba(var(--mo-dark), 0.24));
+  transform-style: preserve-3d;
+}
+.inv-mo-album-cover { z-index: 0; object-fit: fill; border-radius: 1.4cqw; }
+.inv-mo-album-page { position: absolute; top: 2.4cqw; bottom: 2.4cqw; width: calc(50% - 2.4cqw); overflow: hidden; background: #f7f1e6; }
+.inv-mo-album-page .inv-mo-part, .inv-mo-album-face .inv-mo-part { object-fit: cover; z-index: 0; }
+.inv-mo-album-page[data-side='l'] { left: 2.4cqw; border-radius: 0.8cqw 0 0 0.8cqw; box-shadow: inset -1.6cqw 0 2cqw -1cqw rgba(var(--mo-dark), 0.14); }
+.inv-mo-album-page[data-side='r'] { right: 2.4cqw; border-radius: 0 0.8cqw 0.8cqw 0; box-shadow: inset 1.6cqw 0 2cqw -1cqw rgba(var(--mo-dark), 0.14); }
+.inv-mo-album-page img:not(.inv-mo-part), .inv-mo-album-face img:not(.inv-mo-part) { position: relative; z-index: 1; width: 78%; height: 78%; margin: 11%; object-fit: cover; display: block; box-shadow: 0 0.6cqw 1.2cqw rgba(var(--mo-dark), 0.2); }
+.inv-mo-album-spine { position: absolute; left: 50%; top: 2.4cqw; bottom: 2.4cqw; width: 1.2cqw; margin-left: -0.6cqw; background: linear-gradient(90deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.02) 50%, rgba(0, 0, 0, 0.18)); z-index: 2; }
+.inv-mo-album-leaf { position: absolute; top: 2.4cqw; bottom: 2.4cqw; width: calc(50% - 2.4cqw); z-index: 4; transform-style: preserve-3d; animation: inv-mo-turn calc(900ms * var(--moment-t)) var(--mo-heavy) forwards; }
+.inv-mo-album-leaf[data-dir='next'] { right: 2.4cqw; transform-origin: left center; }
+.inv-mo-album-leaf[data-dir='prev'] { left: 2.4cqw; transform-origin: right center; animation-name: inv-mo-turn-back; }
+.inv-mo-album-face { position: absolute; inset: 0; overflow: hidden; background: #f7f1e6; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.inv-mo-album-face[data-face='back'] { transform: rotateY(180deg); }
+.inv-mo-album-leaf::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0, 0, 0, 0.2), transparent 30%); opacity: 0; animation: inv-mo-fold calc(900ms * var(--moment-t)) ease; pointer-events: none; }
+@keyframes inv-mo-turn { to { transform: rotateY(-180deg); } }
+@keyframes inv-mo-turn-back { to { transform: rotateY(180deg); } }
+@keyframes inv-mo-fold { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+.inv-mo-album .inv-mo-caption { bottom: 2.4cqw; left: 2.4cqw; right: 2.4cqw; color: var(--inv-ink); text-shadow: none; background: linear-gradient(180deg, transparent, rgba(247, 241, 230, 0.9)); }
+
+/* the baby reveal: the box (baby/box) on the blush ground; tapped, the bear
+   (baby/bear) comes up out of it and the balloons (baby/balloons) rise
+   behind; the words come up above */
+.inv-mo-baby { perspective: none; }
+.inv-mo-baby-box { position: absolute; left: 20%; width: 60%; bottom: 6%; height: 54%; z-index: 3; filter: drop-shadow(0 2cqw 2.2cqw rgba(var(--mo-dark), 0.24)) drop-shadow(0 0.3cqw 0.4cqw rgba(var(--mo-dark), 0.1)); }
+.inv-mo-baby-box .inv-mo-part { object-fit: fill; }
+.inv-mo-bear { position: absolute; left: 31%; width: 38%; bottom: 30%; height: 49%; z-index: 2; transform-origin: 50% 100%; transform: translateY(30%) scale(0.7); opacity: 0; filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.2)); transition: transform calc(1200ms * var(--moment-t)) var(--mo-settle) calc(200ms * var(--moment-t)), opacity calc(400ms * var(--moment-t)) ease calc(200ms * var(--moment-t)); }
+.inv-mo-bear .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-balloons { position: absolute; left: 56%; width: 30%; bottom: 40%; height: 52%; z-index: 1; transform: translateY(40%); opacity: 0; filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.16)); transition: transform calc(1800ms * var(--moment-t)) var(--mo-heavy) calc(400ms * var(--moment-t)), opacity calc(600ms * var(--moment-t)) ease calc(400ms * var(--moment-t)); }
+.inv-mo-balloons .inv-mo-part { object-fit: contain; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-bear { transform: translateY(0) scale(1); opacity: 1; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-balloons { transform: translateY(0); opacity: 1; animation: inv-mo-sway 5s ease-in-out calc(2200ms * var(--moment-t)) infinite; }
+[data-moment='baby'] { --moment-reveal-at: 700ms; }
+[data-moment='baby'] .inv-moment-reveal { top: 3%; bottom: 74%; padding: 2cqw 8cqw; justify-content: flex-end; }
+[data-moment='baby'] .inv-moment-reveal img { display: none; }
+
+/* champagne cheers: two photographed flutes (cheers/flute), one the other's
+   mirror, that tilt in and meet with one ring of light at the touch; the
+   words come up beneath them */
+.inv-mo-cheers { perspective: none; }
+.inv-mo-cheers::after {
+  /* the table's shadow under the glasses */
+  content: ''; position: absolute; left: 22%; right: 22%; bottom: 20%; height: 4cqw; border-radius: 50%; z-index: 1;
+  background: radial-gradient(ellipse at 50% 50%, rgba(var(--mo-dark), 0.22), rgba(var(--mo-dark), 0) 70%);
+}
+.inv-mo-flute {
+  position: absolute; bottom: 22%; width: 18%; height: 72%; z-index: 2;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 1cqw 1.4cqw rgba(var(--mo-dark), 0.22));
+  transition: transform calc(900ms * var(--moment-t)) var(--mo-settle);
+}
+.inv-mo-flute .inv-mo-part { object-fit: contain; object-position: center bottom; }
+.inv-mo-flute[data-side='l'] { left: 28%; transform: rotate(-15deg); }
+.inv-mo-flute[data-side='r'] { right: 28%; transform: rotate(15deg); transition-delay: calc(60ms * var(--moment-t)); }
+.inv-mo-flute[data-side='r'] .inv-mo-part { transform: scaleX(-1); }
+.inv-mo-clink { position: absolute; left: 50%; top: 28%; width: 6cqw; height: 6cqw; margin: -3cqw 0 0 -3cqw; z-index: 3; border-radius: 999px; border: 0.5cqw solid rgba(255, 250, 230, 0.95); opacity: 0; box-shadow: 0 0 2cqw rgba(255, 244, 214, 0.9); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='l'] { transform: rotate(-6deg); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-flute[data-side='r'] { transform: rotate(6deg); }
+:is([data-state='opening']) .inv-mo-clink { animation: inv-mo-clink calc(900ms * var(--moment-t)) ease-out calc(800ms * var(--moment-t)); }
+@keyframes inv-mo-clink { 0% { opacity: 0; transform: scale(0.3); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(3); } }
+[data-moment='cheers'] { --moment-reveal-at: 1400ms; }
+[data-moment='cheers'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 3cqw; }

@@ -9,7 +9,7 @@ import { invitationUrl } from '@/lib/app-url';
 import { formatDate } from '@/lib/datetime';
 import { displayTitle } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
-import { PageHeader, BackLink, Card, Notice, Pill } from '@/components/ui';
+import { PageHeader, Card, Notice, Pill } from '@/components/ui';
 import { setMessageToneAction, saveMessageAction, resetMessageAction, setPickedMessagesAction } from '@/app/account/actions';
 import { campaignFor, pickedKinds, CAMPAIGN_KINDS, dueDateKey } from '@/lib/campaigns';
 import { formatDate as fmtDate } from '@/lib/datetime';
@@ -55,7 +55,6 @@ export default async function MessagesPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
-      <BackLink href={`/account/invitations/${inv.id}`}>{inv.title}</BackLink>
       <PageHeader
         title="Messages to your guests"
         eyebrow={occasionLabel(inv.occasion)}

@@ -1,4 +1,4 @@
-import type { Tier } from '@prisma/client';
+import type { Occasion, Tier } from '@prisma/client';
 import type { Lang } from './copy';
 import type { Fonts } from './theme';
 import { tierAtLeast, RANK } from './tiers';
@@ -24,6 +24,7 @@ type Line = { en: string; tl: string };
 export type LineKey =
   | 'cover' // above the names
   | 'story'
+  | 'parents' // under the parents' (or the hosts') heading
   | 'invitation'
   | 'entourage'
   | 'sponsors' // ninong and ninang
@@ -56,7 +57,7 @@ export type LineKey =
   | 'ladiesNote';
 
 /** The headings a look names. A missing one falls back to the fixed phrase. */
-export type TitleKey = 'story' | 'invitation' | 'entourage' | 'sponsors' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
+export type TitleKey = 'story' | 'parents' | 'invitation' | 'entourage' | 'sponsors' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
 
 export type Look = {
   key: LookKey;
@@ -68,6 +69,17 @@ export type Look = {
   joiner: 'and' | '&';
   titles: Partial<Record<TitleKey, Line>>;
   lines: Record<LineKey, Line>;
+  /**
+   * Which of the above a *design* wrote for itself, by language, rather than
+   * inheriting from the look — filled by `withWords`.
+   *
+   * It matters because the occasion rules below are about a look's stock
+   * wording, never about words somebody typed for this design. A christening
+   * design whose own cover line says "The christening of" must keep it; only
+   * the look's inherited "The wedding of" is withheld. Without this the two
+   * are indistinguishable by the time they are read.
+   */
+  own?: { lines?: Partial<Record<Lang, LineKey[]>>; titles?: Partial<Record<Lang, TitleKey[]>> };
 };
 
 const CORMORANT = "'Cormorant Garamond', 'Hoefler Text', Georgia, serif";
@@ -82,6 +94,7 @@ export const LOOKS: Look[] = [
     joiner: 'and',
     titles: {
       story: { en: 'Our Story', tl: 'Ang Aming Kuwento' },
+      parents: { en: 'Our Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Invitation', tl: 'Ang Paanyaya' },
       entourage: { en: 'Entourage', tl: 'Entourage' },
       gallery: { en: 'Prenup Photos', tl: 'Prenup Photos' },
@@ -99,6 +112,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: "You're invited", tl: 'Inaanyayahan ka' },
       story: { en: '', tl: '' },
+      parents: { en: 'With their blessing', tl: 'Nang may kanilang basbas' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -145,6 +159,7 @@ export const LOOKS: Look[] = [
     joiner: '&',
     titles: {
       story: { en: 'How It Began', tl: 'Kung Paano Nagsimula' },
+      parents: { en: 'Our Beloved Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Celebration', tl: 'Ang Pagdiriwang' },
       entourage: { en: 'Our Entourage', tl: 'Ang Aming Entourage' },
       gallery: { en: 'Us, Before the Aisle', tl: 'Kami, Bago ang Kasal' },
@@ -162,6 +177,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'Together with their families', tl: 'Kasama ang kanilang mga pamilya' },
       story: { en: 'Every love story is beautiful, but ours is our favorite.', tl: 'Maganda ang bawat kuwento ng pag-ibig, pero ang amin ang paborito namin.' },
+      parents: { en: 'Who first taught us what love looks like.', tl: 'Na unang nagturo sa amin kung ano ang pag-ibig.' },
       invitation: { en: 'Come celebrate with us', tl: 'Halina at makipagdiwang' },
       entourage: { en: 'The people we love most', tl: 'Ang mga taong pinakamamahal namin' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -209,6 +225,7 @@ export const LOOKS: Look[] = [
     joiner: '&',
     titles: {
       story: { en: 'Where It Began', tl: 'Kung Saan Nagsimula' },
+      parents: { en: 'Parents', tl: 'Mga Magulang' },
       invitation: { en: 'The Details', tl: 'Ang Detalye' },
       entourage: { en: 'Our People', tl: 'Ang Aming mga Tao' },
       gallery: { en: 'Us', tl: 'Kami' },
@@ -226,6 +243,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'The wedding of', tl: 'Ang kasal nina' },
       story: { en: '', tl: '' },
+      parents: { en: 'With their blessing.', tl: 'Nang may basbas.' },
       invitation: { en: "You're invited", tl: 'Inaanyayahan ka' },
       entourage: { en: 'Standing with us', tl: 'Kasama namin' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -272,6 +290,7 @@ export const LOOKS: Look[] = [
     joiner: 'and',
     titles: {
       story: { en: 'A Story in Chapters', tl: 'Kuwento sa mga Kabanata' },
+      parents: { en: 'Our Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Invitation', tl: 'Ang Paanyaya' },
       entourage: { en: 'In Good Company', tl: 'Sa Mabuting Piling' },
       gallery: { en: 'A Portrait of Us', tl: 'Larawan Namin' },
@@ -289,6 +308,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'The honour of your presence is requested at the marriage of', tl: 'Hinihiling ang karangalan ng inyong presensya sa kasal nina' },
       story: { en: 'Every chapter, ours.', tl: 'Bawat kabanata, amin.' },
+      parents: { en: 'The first chapter was theirs.', tl: 'Ang unang kabanata ay kanila.' },
       invitation: { en: 'Requesting the pleasure of your company', tl: 'Hinihiling ang inyong pagdalo' },
       entourage: { en: 'Those who stand beside us', tl: 'Ang mga nasa tabi namin' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -335,6 +355,7 @@ export const LOOKS: Look[] = [
     joiner: '&',
     titles: {
       story: { en: 'Our Story', tl: 'Ang Aming Kuwento' },
+      parents: { en: 'Our Parents', tl: 'Ang Aming Mga Magulang' },
       invitation: { en: 'The Wedding', tl: 'Ang Kasal' },
       entourage: { en: 'The Entourage', tl: 'Ang Entourage' },
       gallery: { en: 'Prenup', tl: 'Prenup' },
@@ -352,6 +373,7 @@ export const LOOKS: Look[] = [
     lines: {
       cover: { en: 'Together with their families', tl: 'Kasama ang kanilang mga pamilya' },
       story: { en: 'A love written in the stars', tl: 'Pag-ibig na nakasulat sa mga bituin' },
+      parents: { en: 'With the blessing of our families', tl: 'Nang may basbas ng aming mga pamilya' },
       invitation: { en: 'Join us as we say I do!', tl: 'Samahan kami sa aming pag-iisang dibdib' },
       entourage: { en: 'With great love', tl: 'Nang may pagmamahal' },
       sponsors: { en: 'With love and guidance', tl: 'Nang may pagmamahal at gabay' },
@@ -442,14 +464,114 @@ export function lookCount(tier: Tier): number {
 }
 
 /** The line a look writes at `key`, or nothing when it writes none there. */
-export function lookLine(look: Look | undefined, lang: Lang, key: LineKey): string | undefined {
+/*
+ * A look's words are written for a wedding, and some of them cannot be lent
+ * to another occasion.
+ *
+ * Every look holds one set of lines, and they were written for the thing
+ * this business sells most of: two people marrying. On a christening that
+ * came out as "Join us as we say I do!" under the Church & Mass heading and
+ * "Some love stories deserve to be seen" under a baby's photographs — and,
+ * worst of all, as the eyebrow over the child's name, because a look's
+ * `cover` line replaces the one the app words per occasion. The modern
+ * look's is literally "The wedding of".
+ *
+ * So each of those lines names the occasions it may speak for. Asked about
+ * any other, it says nothing at all, and the heading stands alone or the
+ * app's own occasion-aware wording takes over — `heroCopy` has said "The
+ * Christening of" correctly all along. Silence is right rather than timid
+ * here: a line that says the wrong thing is worse than no line.
+ *
+ * `LINES_FOR` and `TITLES_FOR` are where an occasion's own words go, and
+ * they are asked first, so an occasion that has been written for keeps its
+ * sentences whichever look is set.
+ */
+const A_MARRIAGE: Occasion[] = ['WEDDING', 'ANNIVERSARY'];
+const A_COUPLE: Occasion[] = ['WEDDING', 'ANNIVERSARY', 'ENGAGEMENT'];
+
+const ONLY_FOR: Partial<Record<LineKey, Occasion[]>> = {
+  cover: A_MARRIAGE,
+  invitation: A_MARRIAGE,
+  story: A_COUPLE,
+  entourage: A_COUPLE,
+  galleryNote: A_COUPLE,
+  galleryVideo: A_COUPLE,
+  galleryClose: A_COUPLE,
+};
+
+const TITLES_ONLY_FOR: Partial<Record<TitleKey, Occasion[]>> = {
+  gallery: A_COUPLE,
+  entourage: A_COUPLE,
+};
+
+/**
+ * An occasion's own words, ahead of every look's.
+ *
+ * A christening is what is written here because it is what is being sold
+ * beside the wedding. The others fall silent on the lines above until their
+ * words are written, which is a thing to do rather than a thing to invent:
+ * these are sentences that go on a stranger's invitation, and they should
+ * be in the owner's voice, not in mine.
+ *
+ * `cover` is deliberately absent: withheld, it falls through to the app's
+ * own "The Christening of", which is already right for all fourteen.
+ */
+const LINES_FOR: Partial<Record<Occasion, Partial<Record<LineKey, Line>>>> = {
+  CHRISTENING: {
+    story: { en: 'A little prayer, a big answer.', tl: 'Isang munting dasal, isang malaking sagot.' },
+    invitation: {
+      en: 'Join us as we welcome our little one into God\u2019s family.',
+      tl: 'Samahan kami sa pagtanggap sa aming munting anghel sa pamilya ng Diyos.',
+    },
+    galleryNote: {
+      en: 'The little moments we never want to forget.',
+      tl: 'Ang mga munting sandaling hindi namin malilimutan.',
+    },
+    galleryVideo: { en: 'Our little one, in motion', tl: 'Ang aming munting anghel, gumagalaw' },
+    galleryClose: {
+      en: 'Small hands, and a whole world ahead of them.',
+      tl: 'Maliliit na kamay, at isang buong mundong naghihintay.',
+    },
+    verse: {
+      en: 'Let the little children come to me, and do not hinder them, for the kingdom of heaven belongs to such as these.',
+      tl: 'Hayaan ninyong lumapit sa akin ang maliliit na bata, at huwag ninyo silang pagbawalan, sapagkat ang kaharian ng langit ay nauukol sa mga katulad nila.',
+    },
+    verseRef: { en: 'Matthew 19:14', tl: 'Mateo 19:14' },
+  },
+};
+
+const TITLES_FOR: Partial<Record<Occasion, Partial<Record<TitleKey, Line>>>> = {
+  CHRISTENING: {
+    gallery: { en: 'Baby Photos', tl: 'Mga Larawan ng Sanggol' },
+  },
+};
+
+/**
+ * A line of a look, in this occasion's voice.
+ *
+ * The occasion is optional so that a caller which genuinely has none — a
+ * showcase of the looks themselves — reads them as written. Every caller
+ * that is rendering somebody's invitation has one and must pass it.
+ */
+export function lookLine(look: Look | undefined, lang: Lang, key: LineKey, occasion?: Occasion): string | undefined {
+  // What this design wrote for itself, in this language, wins over everything.
+  if (look?.own?.lines?.[lang]?.includes(key)) return look.lines[key]?.[lang] || undefined;
+  const own = occasion ? LINES_FOR[occasion]?.[key] : undefined;
+  if (own) return own[lang] || own.en || undefined;
+  const only = ONLY_FOR[key];
+  if (occasion && only && !only.includes(occasion)) return undefined;
   const line = look?.lines[key];
   const text = line ? line[lang] || line.en : '';
   return text || undefined;
 }
 
-/** The heading a look gives a section, when it names one. */
-export function lookTitle(look: Look | undefined, lang: Lang, key: TitleKey): string | undefined {
+/** The heading a look gives a section, when it names one, in this occasion's voice. */
+export function lookTitle(look: Look | undefined, lang: Lang, key: TitleKey, occasion?: Occasion): string | undefined {
+  if (look?.own?.titles?.[lang]?.includes(key)) return look.titles[key]?.[lang] || undefined;
+  const own = occasion ? TITLES_FOR[occasion]?.[key] : undefined;
+  if (own) return own[lang] || own.en || undefined;
+  const only = TITLES_ONLY_FOR[key];
+  if (occasion && only && !only.includes(occasion)) return undefined;
   const title = look?.titles[key];
   return title ? title[lang] || title.en : undefined;
 }

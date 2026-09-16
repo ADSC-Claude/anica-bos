@@ -18,7 +18,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           <Link href="/account" className="display text-xl">{s['business.name']}</Link>
           <nav className="flex flex-wrap items-center gap-1 text-sm">
             <Link href="/account" className="rounded-lg px-3 py-2 hover:bg-[color:var(--color-sand-100)]">My invitations</Link>
-            {/* No Help tab. Messenger and Viber are at the foot of every page
+            {/* No Help tab. Messenger is at the foot of every page
                 and answer faster; a support inbox in the navigation invited a
                 written thread about invitations that were already finished,
                 and answering those costs more than the tab ever saved. The
@@ -39,7 +39,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <footer className="no-print mx-auto max-w-6xl px-5 pb-10 text-xs text-[color:var(--color-ink-500)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[color:var(--color-sand-200)] pt-4">
           <span>Need a hand? {s['contact.hoursNote']}</span>
-          <ContactButtons messenger={s['contact.messenger']} viber={s['contact.viber']} size="sm" />
+          <ContactButtons messenger={s['contact.messenger']} size="sm" />
         </div>
       </footer>
     </div>

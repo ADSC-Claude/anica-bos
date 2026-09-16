@@ -16,6 +16,7 @@ import { DfyPill } from '@/components/ui';
 import { Flash, type FlashParams } from '../../../flash';
 import { dfyMoveAction } from '../../../actions';
 import { Workspace } from './workspace';
+import { intakeMethodLabel } from '@/lib/intake-method';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,7 @@ export default async function EncodePage({ params, searchParams }: { params: Pro
           <h1 className="display text-2xl">{inv.title} <DfyPill status={job.status} /></h1>
           <p className="text-sm text-[color:var(--color-ink-500)]">
             {job.order.package.name} · {inv.template.name} · {job.order.user.name}
-            {intake.method && ` · details via ${intake.method.toLowerCase()}`}{job.intakeSubmittedAt && `, submitted ${formatDateTime(job.intakeSubmittedAt)}`}
+            {intake.method && ` · details via ${intakeMethodLabel(intake.method)}`}{job.intakeSubmittedAt && `, submitted ${formatDateTime(job.intakeSubmittedAt)}`}
             {job.assignee && ` · encoder ${job.assignee.name}`}
           </p>
         </div>

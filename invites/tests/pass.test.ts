@@ -190,13 +190,20 @@ test('an empty check-in section is never said to remove anything', () => {
 });
 
 test('the phone beside the check-in form shows the pass, not the invitation', () => {
-  const builderPage = readFileSync(new URL('../src/app/account/invitations/[id]/builder/page.tsx', import.meta.url), 'utf8');
-  assert.match(builderPage, /current === 'checkin'/, 'the builder never asks for a sample guest');
-  assert.match(builderPage, /invitationPath\(inv\.slug, sample\.token\)\}\/pass/, 'the preview does not point at a pass');
-  assert.match(builderPage, /previewPath=\{previewPath\}/, 'the preview path is never handed to the builder');
+  // The form lives in the Invitation tab; /builder is a redirect to it. So
+  // this asks the tab, which is where the sample guest has to be looked up —
+  // the check is on wherever the form is, not on a path that no longer holds
+  // one.
+  const tab = readFileSync(new URL('../src/app/account/invitations/[id]/page.tsx', import.meta.url), 'utf8');
+  assert.match(tab, /props\.current === 'checkin'/, 'the form never asks for a sample guest');
+  assert.match(tab, /invitationPath\(inv\.slug, sample\.token\)\}\/pass/, 'the preview does not point at a pass');
+  assert.match(tab, /previewPath=\{sample \?/, 'the preview path is never handed to the builder');
+  const old = readFileSync(new URL('../src/app/account/invitations/[id]/builder/page.tsx', import.meta.url), 'utf8');
+  assert.match(old, /redirect\(/, 'the old builder page is a second form again');
   const builder = readFileSync(new URL('../src/components/builder/builder.tsx', import.meta.url), 'utf8');
-  // One source for the src, or the two devices and the new-tab link drift.
-  assert.equal((builder.match(/previewSrc/g) ?? []).length, 4);
+  // One source for the src: where it is declared, and the phone that shows it.
+  assert.equal((builder.match(/previewSrc/g) ?? []).length, 2);
+  assert.match(builder, /previewSrc = previewPath \?\?/, 'a pass preview would be overridden by the invitation');
 });
 
 

@@ -2,9 +2,10 @@ import type { Occasion, Tier } from '@prisma/client';
 import { Fragment, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import { t, type Lang, INTRO_PRESETS, preset } from '@/lib/copy';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
+import { MOMENT_BY_KEY, triggerOf, type MomentKey, type Trigger } from '@/lib/moments';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
-import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -16,8 +17,8 @@ import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, sectionDress, designVars, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle } from '@/lib/design';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -59,6 +60,23 @@ export type RenderProps = {
   bare?: boolean;
   /** A visitor's look at a design: the opening, the cover and Our Story, then the way in. Nothing after. */
   peek?: boolean;
+  /**
+   * The studio's canvas: this one page of the document and nothing else. Its
+   * decorations are left off, because the studio draws them over the page
+   * itself, live, with handles; the ground is still laid, so the page keeps
+   * its own background. Bare pages only.
+   */
+  only?: string;
+  /** With `only`: the height of the screen the page is drawn for, in pixels, for the rules that want one (see --inv-screen). */
+  screen?: number;
+  /**
+   * The peek, framed inside one of our own pages rather than opened as a page
+   * of its own — the landing band's card. What changes is navigation: the
+   * corner controls go, because a card on the landing page has no "back" to
+   * offer, and the two links at the end break out to the whole window instead
+   * of loading a page into a picture frame.
+   */
+  embed?: boolean;
   /** "phone": lay the page out as a phone would whatever the screen, for a showcase column. */
   shape?: 'phone';
   /** A look to set the page in, over the design's and the customer's. For the showcase. */
@@ -98,12 +116,50 @@ function videoEmbed(url: string): { src: string; poster?: string } | null {
   return null;
 }
 
-function Section({ id, eyebrow, title, tagline, children, className = '' }: { id: string; eyebrow?: string; title?: string; tagline?: string; children: ReactNode; className?: string }) {
+/**
+ * A writing of the page's own that the studio can lift off the flow into a
+ * box of its own: `data-w` names it, so a page can say it is off the flow
+ * (PageSpec.offFlow) and so the studio can find it in the frame; `data-src`
+ * says what the box that takes its place reads — the same answer, the same
+ * word of the design's — so the box stays in step with the form. A guest
+ * never reads either.
+ */
+function w(id: string, sources: Source[]): Record<string, string> {
+  return { 'data-w': id, 'data-src': JSON.stringify(sources) };
+}
+/** A writing that is the same in both languages — a name, a date, an answer of the customer's — as the page drew it. */
+const fx = (en: string): Source => ({ fixed: { en, tl: en } });
+/**
+ * Where a part's tagline is drawn from: the customer's own line where the
+ * part reads one, then the look's line under this key — so a tagline lifted
+ * off the flow follows the look in either language, as the part does.
+ */
+/** The parts whose heading is the look's word under another key than their own id. */
+const TITLE_KEY_OF: Record<string, TitleKey> = { ceremony: 'invitation', reception: 'venue', 'dress-code': 'dressCode', 'guest-photos': 'photos' };
+const TAGLINE_OF: Record<string, { key: LineKey; own?: string }> = {
+  ceremony: { key: 'invitation' }, reception: { key: 'venue' }, entourage: { key: 'entourage' }, sponsors: { key: 'sponsors' },
+  'dress-code': { key: 'dressCode' }, story: { key: 'story', own: 'line' }, gallery: { key: 'gallery', own: 'line' }, program: { key: 'program' },
+  social: { key: 'social' }, guestbook: { key: 'guestbook' }, 'guest-photos': { key: 'photos' }, closing: { key: 'closing', own: 'line' }, contact: { key: 'contact' },
+};
+
+/** The cover's names, field by field per occasion, so a lifted name still reads the form: the first that is filled wins. */
+const NAME_KEYS: Partial<Record<Occasion, string[][]>> = {
+  WEDDING: [['brideFirst'], ['groomFirst']], DEBUT: [['celebrantFirst']], CHRISTENING: [['childNick', 'childFull']], COMMUNION: [['childNick', 'childFull']],
+  KIDS_BIRTHDAY: [['celebrantFirst']], MILESTONE_BIRTHDAY: [['celebrantFirst']], BABY_SHOWER: [['momName'], ['dadName']], ANNIVERSARY: [['partnerA'], ['partnerB']],
+  ENGAGEMENT: [['partnerA'], ['partnerB']], GRADUATION: [['honoree']], CORPORATE: [['eventName']], HOUSEWARMING: [['familyName']], REUNION: [['groupName']], MEMORIAL: [['name']],
+};
+
+function Section({ id, eyebrow, title, tagline, eyebrowSrc, taglineSrc, children, className = '' }: { id: string; eyebrow?: string; title?: string; tagline?: string; /** what a lifted eyebrow or tagline reads, where the part knows better than TAGLINE_OF */ eyebrowSrc?: Source[]; taglineSrc?: Source[]; children: ReactNode; className?: string }) {
+  // the heading reads the design's own word for this part where it has one, so a lifted heading follows a change to that word
+  const titleKey = TITLE_KEY_OF[id] ?? (TITLE_KEYS.includes(id as TitleKey) ? (id as TitleKey) : undefined);
+  const titleSrc: Source[] = titleKey ? [{ word: titleWord(titleKey) }, fx(title ?? '')] : [fx(title ?? '')];
+  const tag = TAGLINE_OF[id];
+  const tagSrc: Source[] = taglineSrc ?? [...(tag?.own ? [{ bind: { section: id, field: tag.own } }] : []), ...(tag ? [{ word: tag.key }] : []), fx(tagline ?? '')];
   return (
     <section id={id} className={`inv-section ${className}`}>
-      {eyebrow && <p className="inv-eyebrow">{eyebrow}</p>}
-      {title && <h2 className="inv-title">{title}</h2>}
-      {tagline && <p className="inv-tagline">{tagline}</p>}
+      {eyebrow && <p className="inv-eyebrow" {...w(`${id}.eyebrow`, eyebrowSrc ?? [fx(eyebrow)])}>{eyebrow}</p>}
+      {title && <h2 className="inv-title" {...w(`${id}.title`, titleSrc)}>{title}</h2>}
+      {tagline && <p className="inv-tagline" {...w(`${id}.tagline`, tagSrc)}>{tagline}</p>}
       {children}
     </section>
   );
@@ -178,7 +234,7 @@ export function plateWords(occasion: Occasion, content: Content, lang: Lang, loo
     // The line over the names: the couple's own, else the design's cover line
     // ("The christening of") where the clip's face has already said the guest
     // is invited, else the opening's own.
-    line: str(cover, 'openingLine') || (premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || OPENING_BY_KEY.cinematic.line[lang],
+    line: str(cover, 'openingLine') || (premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover', occasion) : '') || OPENING_BY_KEY.cinematic.line[lang],
     names: names.length ? names : [displayTitle(occasion, content)],
     and: look?.joiner === 'and' ? (lang === 'tl' ? 'at' : 'and') : '&',
     date: openingDate(str(cover, 'date')),
@@ -209,9 +265,12 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
   // The format's cover carries the place and the moment's three lines; the
   // sentence that does the inviting waits for the invitation block.
   const place = content.ceremony && str(content.ceremony, 'venue') ? content.ceremony : content.reception;
-  const placeLines = format ? [str(place, 'venue'), str(place, 'address')].filter(Boolean) : [];
+  const placeLines = format ? (['venue', 'address'] as const).map((field) => ({ field, text: str(place, field) })).filter((l) => l.text) : [];
   // the three lines under the place: the look's, or the couple's own where staff wrote them
-  const momentLines = format && layout === 'capiz' ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || lookLine(look, lang, `moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
+  const momentLines = format && layout === 'capiz' ? [1, 2, 3].map((n) => ({ n, text: str(content.moment, `line${n}`) || lookLine(look, lang, `moment${n}` as LineKey, occasion) || '' })).filter((l) => l.text) : [];
+  // what a lifted eyebrow reads: the app's own words by their key, the look's line by its, so it follows the language
+  const eyebrowSrc: Source[] = saveTheDate ? [{ copy: 'cover.saveTheDate' }] : lookEyebrow ? [{ word: 'cover' }, fx(eyebrow)] : layout === 'capiz' && occasion === 'WEDDING' ? [{ copy: 'cover.invited' }] : [fx(eyebrow)];
+  const placeKey = place === content.ceremony ? 'ceremony' : 'reception';
   // A paged design's ground is its artwork, so the photograph cannot fill the
   // cover the way the other layouts do it. Capiz carries it one of five ways
   // (PHOTO_STYLES): behind the names under a veil of the paper by default, or
@@ -247,10 +306,10 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
             Capiz holds them between the two strands of its plate. */}
         <div className="inv-hero-names">
           {monogram && <p className="inv-display mb-3 text-3xl opacity-90">{monogram}</p>}
-          {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }}>{eyebrow}</p>}
+          {eyebrow && <p className="inv-eyebrow" style={{ color: 'inherit', opacity: 0.85 }} {...w('cover.eyebrow', eyebrowSrc)}>{eyebrow}</p>}
           <h1 className="inv-names">
             {copy.names.map((n, i) => (
-              <span key={i}>
+              <span key={i} {...w(`cover.name.${i}`, [...(NAME_KEYS[occasion]?.[i] ?? []).map((field) => ({ bind: { section: 'cover', field } })), fx(n)])}>
                 {i > 0 && (joiner === 'and' ? <span className="inv-amp" data-word="">{lang === 'tl' ? 'at' : 'and'}</span> : <span className="inv-amp">&amp;</span>)}
                 {n}
               </span>
@@ -260,11 +319,11 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
         <div className="inv-hero-details">
           {format ? (
             <>
-              {date && <p className="inv-hero-date">{dottedDate(date)}</p>}
-              {placeLines.map((l, i) => <p key={i} className="inv-eyebrow inv-hero-place">{l}</p>)}
+              {date && <p className="inv-hero-date" {...w('cover.date', [fx(dottedDate(date))])}>{dottedDate(date)}</p>}
+              {placeLines.map((l, i) => <p key={i} className="inv-eyebrow inv-hero-place" {...w(`cover.place.${i}`, [{ bind: { section: placeKey, field: l.field } }, fx(l.text)])}>{l.text}</p>)}
               {momentLines.length > 0 && (
                 <div className="inv-hero-lines">
-                  {momentLines.map((l, i) => <p key={i}>{l}</p>)}
+                  {momentLines.map((l, i) => <p key={i} {...w(`cover.line.${i}`, [{ bind: { section: 'moment', field: `line${l.n}` } }, { word: `moment${l.n}` as WordKey }, fx(l.text)])}>{l.text}</p>)}
                 </div>
               )}
               <p className="inv-scroll" aria-hidden>{t(lang, 'cover.scroll')}</p>
@@ -288,21 +347,21 @@ function Hero({ occasion, content, lang, layout, format, look, saveTheDate, eyeb
 }
 
 /** The couple's verse or quotation, set in capitals after the cover. */
-function Verse({ text, source }: { text: string; source: string }) {
+function Verse({ text, source, own }: { text: string; source: string; /** the couple's own verse, so its reference is theirs too and never the look's */ own?: boolean }) {
   return (
     <section id="verse" className="inv-section inv-verse">
-      <p className="inv-verse-text">{text}</p>
-      {source && <p className="inv-eyebrow inv-verse-ref">{source}</p>}
+      <p className="inv-verse-text" {...w('verse.text', [{ bind: { section: 'cover', field: 'verse' } }, { word: 'verse' }, fx(text)])}>{text}</p>
+      {source && <p className="inv-eyebrow inv-verse-ref" {...w('verse.ref', own ? [{ bind: { section: 'cover', field: 'verseRef' } }] : [{ word: 'verseRef' }, fx(source)])}>{source}</p>}
       <span className="inv-rule" aria-hidden />
     </section>
   );
 }
 
 /** A line or two in script between chapters — the look's, or the couple's own. */
-function Interlude({ id, text }: { id: string; text: string }) {
+function Interlude({ id, text, src }: { id: string; text: string; /** what a lifted line reads; the line as drawn when the caller says nothing */ src?: Source[] }) {
   return (
     <section id={id} className="inv-section inv-interlude">
-      <p className="inv-tagline">{text}</p>
+      <p className="inv-tagline" {...w(`${id}.text`, src ?? [fx(text)])}>{text}</p>
     </section>
   );
 }
@@ -320,7 +379,22 @@ function Ico({ name, className = '' }: { name: string; className?: string }) {
 // Sections
 // ---------------------------------------------------------------------------
 
-function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionData; lang: Lang }) {
+/**
+ * The parents, or the hosts an occasion calls something else.
+ *
+ * A wedding names the two sides — her father and mother on one, his on the
+ * other, with room for a note under each — and every other occasion is one
+ * list: the parents, then whoever else is doing the inviting, with what they
+ * are to the celebrant beside them. A name with no first name is dropped and
+ * one marked as having passed carries the dagger the copy gives it.
+ *
+ * `title` and `tagline` are the design's own: the heading it gives the part
+ * and the line it writes under it (`TITLE_ON`/`LINE_ON`, both keyed
+ * `parents`). Left alone the part keeps the phrase the app has always used —
+ * the wedding's chosen phrasing, or "Hosted by" — so nothing a design has
+ * not asked for moves.
+ */
+function Parents({ occasion, data, lang, title, tagline }: { occasion: Occasion; data: SectionData; lang: Lang; title?: string; tagline?: string }) {
   const late = t(lang, 'parents.late');
   if (occasion === 'WEDDING') {
     const phrasing = str(data, 'phrasing') === 'blessing' ? t(lang, 'parents.blessing') : t(lang, 'parents.together');
@@ -337,7 +411,13 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
       );
     };
     return (
-      <Section id="parents" eyebrow={phrasing}>
+      <Section
+        id="parents"
+        eyebrow={title ?? phrasing}
+        eyebrowSrc={[{ word: titleWord('parents') }, { copy: str(data, 'phrasing') === 'blessing' ? 'parents.blessing' : 'parents.together' }]}
+        tagline={title ? phrasing : tagline}
+        taglineSrc={title ? undefined : [{ word: 'parents' }, fx(tagline || '')]}
+      >
         <div className="inv-two">
           {side('brideFather', 'brideMother', 'brideNote', t(lang, 'parents.bride'))}
           {side('groomFather', 'groomMother', 'groomNote', t(lang, 'parents.groom'))}
@@ -350,18 +430,24 @@ function Parents({ occasion, data, lang }: { occasion: Occasion; data: SectionDa
   const note = str(data, 'note');
   if (!persons.length && !hosts.length && !note) return null;
   return (
-    <Section id="parents" eyebrow={t(lang, 'parents.hosts')}>
+    <Section
+      id="parents"
+      eyebrow={title ?? t(lang, 'parents.hosts')}
+      eyebrowSrc={[{ word: titleWord('parents') }, { copy: 'parents.hosts' }]}
+      tagline={tagline}
+      taglineSrc={[{ word: 'parents' }, fx(tagline || '')]}
+    >
       <div className="inv-list text-lg">
         {persons.map((p, i) => (
           <p key={i}>{p}</p>
         ))}
         {hosts.map((h, i) => (
-          <p key={i}>
+          <p key={i} {...w(`parents.host.${i}`, [fx(h.relation ? `${h.name} · ${h.relation}` : h.name)])}>
             {h.name}
             {h.relation && <span className="inv-muted text-sm"> · {h.relation}</span>}
           </p>
         ))}
-        {note && <p className="inv-muted text-base">{note}</p>}
+        {note && <p className="inv-muted text-base" {...w('parents.note', [{ bind: { section: 'parents', field: 'note' } }, fx(note)])}>{note}</p>}
       </div>
     </Section>
   );
@@ -396,16 +482,16 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     const weekday = date ? formatDate(date, 'weekday').split(',')[0] : '';
     return (
       <Section id={id} title={title} tagline={tagline}>
-        {format.sub && <p className="inv-eyebrow inv-invite-sub">{format.sub}</p>}
-        {format.intro && <p className="inv-invite-intro">{format.intro}</p>}
+        {format.sub && <p className="inv-eyebrow inv-invite-sub" {...w(`${id}.sub`, [fx(format.sub)])}>{format.sub}</p>}
+        {format.intro && <p className="inv-invite-intro" {...w(`${id}.intro`, [{ bind: { section: 'cover', field: 'intro' } }, fx(format.intro)])}>{format.intro}</p>}
         <ul className="inv-rows">
-          {date && <li><Ico name="calendar" /><div><b>{weekday}</b><span>{formatDate(date)}</span></div></li>}
-          {time && <li><Ico name="clock" /><div><b>{formatTime(time)}</b><span>{t(lang, 'invitation.ceremony')}</span></div></li>}
-          <li><Ico name="pin" /><div><b>{venue}</b>{address && <span>{address}</span>}</div></li>
-          {format.attire && <li><Ico name="dress" /><div><b>{format.attire}</b></div></li>}
+          {date && <li><Ico name="calendar" /><div><b {...w(`${id}.weekday`, [fx(weekday)])}>{weekday}</b><span {...w(`${id}.date`, [fx(formatDate(date))])}>{formatDate(date)}</span></div></li>}
+          {time && <li><Ico name="clock" /><div><b {...w(`${id}.time`, [fx(formatTime(time))])}>{formatTime(time)}</b><span>{t(lang, 'invitation.ceremony')}</span></div></li>}
+          <li><Ico name="pin" /><div><b {...w(`${id}.venue`, [{ bind: { section: id, field: 'venue' } }, fx(venue)])}>{venue}</b>{address && <span {...w(`${id}.address`, [{ bind: { section: id, field: 'address' } }, fx(address)])}>{address}</span>}</div></li>
+          {format.attire && <li><Ico name="dress" /><div><b {...w(`${id}.attire`, [fx(format.attire)])}>{format.attire}</b></div></li>}
         </ul>
-        {str(data, 'seatedBy') && <p className="inv-muted mt-4 text-center text-sm">{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
-        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
+        {str(data, 'seatedBy') && <p className="inv-muted mt-4 text-center text-sm" {...w(`${id}.seatedBy`, [fx(`${t(lang, 'ceremony.seatedBy')} ${str(data, 'seatedBy')}`)])}>{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm" {...w(`${id}.note`, [{ bind: { section: id, field: 'note' } }])}>{str(data, 'note')}</p>}
         {(format.mapHere || calendarHref) && (
           <div className="no-print mt-5 flex flex-wrap justify-center gap-2">
             {format.mapHere && maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
@@ -423,10 +509,10 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     const cer = format.ceremony;
     const cerVenue = cer ? str(cer, 'venue') : '';
     const places = format.sameVenue || !cerVenue
-      ? [{ label: format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception'), data, time: format.sameVenue ? '' : time }]
+      ? [{ label: format.sameVenue ? t(lang, 'venue.both') : t(lang, 'venue.reception'), key: format.sameVenue ? 'venue.both' : 'venue.reception', data, section: id, time: format.sameVenue ? '' : time }]
       : [
-          { label: t(lang, 'invitation.ceremony'), data: cer as SectionData, time: str(cer, 'time') },
-          { label: t(lang, 'venue.reception'), data, time },
+          { label: t(lang, 'invitation.ceremony'), key: 'invitation.ceremony', data: cer as SectionData, section: 'ceremony', time: str(cer, 'time') },
+          { label: t(lang, 'venue.reception'), key: 'venue.reception', data, section: id, time },
         ];
     const photoUrl = photo || (cer ? str(cer, 'photo') : '');
     return (
@@ -435,15 +521,15 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
         <div className="inv-venues">
           {places.map((p, i) => (
             <div key={i}>
-              <p className="inv-eyebrow">{p.label}</p>
-              <p className="inv-venue-name">{str(p.data, 'venue')}</p>
-              {str(p.data, 'address') && <p className="inv-venue-addr">{str(p.data, 'address')}</p>}
-              {p.time && <p className="mt-1 text-center">{formatTime(p.time)}</p>}
+              <p className="inv-eyebrow" {...w(`${id}.place.${i}.label`, [{ copy: p.key }])}>{p.label}</p>
+              <p className="inv-venue-name" {...w(`${id}.place.${i}.venue`, [{ bind: { section: p.section, field: 'venue' } }])}>{str(p.data, 'venue')}</p>
+              {str(p.data, 'address') && <p className="inv-venue-addr" {...w(`${id}.place.${i}.address`, [{ bind: { section: p.section, field: 'address' } }])}>{str(p.data, 'address')}</p>}
+              {p.time && <p className="mt-1 text-center" {...w(`${id}.place.${i}.time`, [fx(formatTime(p.time))])}>{formatTime(p.time)}</p>}
             </div>
           ))}
         </div>
-        {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm">{str(data, 'parkingNote')}</p>}
-        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm">{str(data, 'note')}</p>}
+        {str(data, 'parkingNote') && <p className="mt-3 text-center text-sm" {...w(`${id}.parking`, [{ bind: { section: id, field: 'parkingNote' } }])}>{str(data, 'parkingNote')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-center text-sm" {...w(`${id}.note`, [{ bind: { section: id, field: 'note' } }])}>{str(data, 'note')}</p>}
       </Section>
     );
   }
@@ -451,17 +537,17 @@ function EventBlock({ id, title, tagline, data, lang, fallbackDate, calendarHref
     <Section id={id} title={title} tagline={tagline}>
       <div className="inv-card text-center">
         {photo && <img src={imageUrl(photo, IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[3/2]" loading="lazy" />}
-        <p className="inv-display text-2xl">{venue}</p>
-        {str(data, 'address') && <p className="inv-muted mt-1">{str(data, 'address')}</p>}
+        <p className="inv-display text-2xl" {...w(`${id}.venue`, [{ bind: { section: id, field: 'venue' } }, fx(venue)])}>{venue}</p>
+        {str(data, 'address') && <p className="inv-muted mt-1" {...w(`${id}.address`, [{ bind: { section: id, field: 'address' } }])}>{str(data, 'address')}</p>}
         {(date || time) && (
           <p className="mt-3 text-lg">
-            {date && formatDate(date, 'weekday')}
-            {time && <span className="block">{formatTime(time)}</span>}
+            {date && <span {...w(`${id}.date`, [fx(formatDate(date, 'weekday'))])}>{formatDate(date, 'weekday')}</span>}
+            {time && <span className="block" {...w(`${id}.time`, [fx(formatTime(time))])}>{formatTime(time)}</span>}
           </p>
         )}
-        {str(data, 'seatedBy') && <p className="inv-muted mt-2 text-sm">{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
-        {str(data, 'parkingNote') && <p className="mt-2 text-sm">{str(data, 'parkingNote')}</p>}
-        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-sm">{str(data, 'note')}</p>}
+        {str(data, 'seatedBy') && <p className="inv-muted mt-2 text-sm" {...w(`${id}.seatedBy`, [fx(`${t(lang, 'ceremony.seatedBy')} ${str(data, 'seatedBy')}`)])}>{t(lang, 'ceremony.seatedBy')} {str(data, 'seatedBy')}</p>}
+        {str(data, 'parkingNote') && <p className="mt-2 text-sm" {...w(`${id}.parking`, [{ bind: { section: id, field: 'parkingNote' } }])}>{str(data, 'parkingNote')}</p>}
+        {str(data, 'note') && <p className="mt-2 whitespace-pre-line text-sm" {...w(`${id}.note`, [{ bind: { section: id, field: 'note' } }])}>{str(data, 'note')}</p>}
         <div className="no-print mt-4 flex flex-wrap justify-center gap-2">
           {maps && <a href={maps} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.google')}</a>}
           {waze && <a href={waze} target="_blank" rel="noopener" className="inv-btn inv-btn-outline">{t(lang, 'map.waze')}</a>}
@@ -835,10 +921,10 @@ function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionDat
   return (
     <Section id="gift" title={title} tagline={tagline}>
       {format && <Ico name="gift" className="inv-ico-lg" />}
-      {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center">{str(data, 'text')}</p>}
+      {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center" {...w('gift.text', [{ bind: { section: 'gift', field: 'text' } }])}>{str(data, 'text')}</p>}
       {(qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
-          <p className="inv-eyebrow">{t(lang, 'gift.gcash')}</p>
+          <p className="inv-eyebrow" {...w('gift.gcashLabel', [{ copy: 'gift.gcash' }])}>{t(lang, 'gift.gcash')}</p>
           {/*
             Deliberately not resized. Everything else on this page goes through
             imageUrl(), but a QR code re-encoded as lossy WebP is a QR code that
@@ -846,14 +932,14 @@ function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionDat
             single small image; the bytes are not worth the risk.
           */}
           {qr && <img src={qr} alt="GCash QR" className="mx-auto mb-3 w-48 rounded-lg" loading="lazy" />}
-          {str(data, 'gcashName') && <p className="font-semibold">{str(data, 'gcashName')}</p>}
-          {str(data, 'gcashNumber') && <p className="tabular-nums">{str(data, 'gcashNumber')}</p>}
+          {str(data, 'gcashName') && <p className="font-semibold" {...w('gift.gcashName', [{ bind: { section: 'gift', field: 'gcashName' } }])}>{str(data, 'gcashName')}</p>}
+          {str(data, 'gcashNumber') && <p className="tabular-nums" {...w('gift.gcashNumber', [{ bind: { section: 'gift', field: 'gcashNumber' } }])}>{str(data, 'gcashNumber')}</p>}
         </div>
       )}
       {str(data, 'bankDetails') && (
         <div className="inv-card mt-3 text-center">
-          <p className="inv-eyebrow">{t(lang, 'gift.bank')}</p>
-          <p className="whitespace-pre-line text-sm">{str(data, 'bankDetails')}</p>
+          <p className="inv-eyebrow" {...w('gift.bankLabel', [{ copy: 'gift.bank' }])}>{t(lang, 'gift.bank')}</p>
+          <p className="whitespace-pre-line text-sm" {...w('gift.bankDetails', [{ bind: { section: 'gift', field: 'bankDetails' } }])}>{str(data, 'bankDetails')}</p>
         </div>
       )}
       {registry.length > 0 && (
@@ -1099,7 +1185,7 @@ function Story({ data, lang, title, tagline, layout, signoff }: { data: SectionD
 type PrenupFormat = { note: string; video: string; close: string; watch: string; sides: string[]; strand: string };
 
 
-function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat }) {
+function Gallery({ data, lang, tier, tagline, title, format, taglineSrc }: { data: SectionData; lang: Lang; tier: Tier; tagline?: string; title?: string; format?: PrenupFormat; /** what a lifted tagline reads, where this is not the gallery's own line */ taglineSrc?: Source[] }) {
   const limit = galleryLimit(tier);
   const photos = rows<{ url: string; caption: string }>(data, 'photos').filter((p) => p.url).slice(0, limit === Infinity ? undefined : limit);
   const video = hasFeature(tier, 'video') ? str(data, 'videoUrl') : '';
@@ -1107,7 +1193,7 @@ function Gallery({ data, lang, tier, tagline, title, format }: { data: SectionDa
   const embed = video ? videoEmbed(video) : null;
   if (format) return <Prenup photos={photos} video={video} embed={embed} lang={lang} title={title ?? t(lang, 'gallery.title')} tagline={tagline} format={format} />;
   return (
-    <Section id="gallery" title={title ?? t(lang, 'gallery.title')} tagline={tagline}>
+    <Section id="gallery" title={title ?? t(lang, 'gallery.title')} tagline={tagline} taglineSrc={taglineSrc}>
       {photos.length > 0 && (
         <div className="inv-gallery">
           {photos.map((p, i) => (
@@ -1439,11 +1525,11 @@ function Closing({ data, lang, hashtag, tagline, names, date, message }: { data:
   return (
     <Section id="closing" title={tagline ? undefined : t(lang, 'closing.title')} tagline={tagline}>
       {str(data, 'photo') && <img src={imageUrl(str(data, 'photo'), IMAGE.feature)} alt="" className="inv-photo mb-4 aspect-[4/3]" loading="lazy" />}
-      {thanks && <p className="mx-auto max-w-md whitespace-pre-line text-center">{thanks}</p>}
-      {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }}>{str(data, 'signature')}</p>}
-      {hashtag && <p className="inv-muted mt-2 text-center text-sm">{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
-      {names && <p className="inv-eyebrow mt-6">{names}</p>}
-      {date && <p className="inv-eyebrow" style={{ letterSpacing: '0.42em', textIndent: '0.42em' }}>{date}</p>}
+      {thanks && <p className="mx-auto max-w-md whitespace-pre-line text-center" {...w('closing.thanks', [{ bind: { section: 'closing', field: 'message' } }, { word: 'closingMessage' }, fx(thanks)])}>{thanks}</p>}
+      {str(data, 'signature') && <p className="inv-display mt-4 text-center text-3xl" style={{ color: 'var(--inv-accent)' }} {...w('closing.signature', [{ bind: { section: 'closing', field: 'signature' } }])}>{str(data, 'signature')}</p>}
+      {hashtag && <p className="inv-muted mt-2 text-center text-sm" {...w('closing.hashtag', [{ bind: { section: 'social', field: 'hashtag' } }])}>{hashtag.startsWith('#') ? hashtag : `#${hashtag}`}</p>}
+      {names && <p className="inv-eyebrow mt-6" {...w('closing.names', [fx(names)])}>{names}</p>}
+      {date && <p className="inv-eyebrow" style={{ letterSpacing: '0.42em', textIndent: '0.42em' }} {...w('closing.date', [fx(date)])}>{date}</p>}
     </Section>
   );
 }
@@ -1639,7 +1725,7 @@ const HOSTS: Partial<Record<Occasion, { en: string; tl: string }>> = {
   ANNIVERSARY: { en: 'the couple', tl: 'sa mag-asawa' },
 };
 
-export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, shape, look: lookOverride, sets, businessName }: RenderProps) {
+export function Invitation({ invitation: inv, guest, preview = false, print = false, bare = false, peek = false, embed = false, only, screen, shape, look: lookOverride, sets, businessName }: RenderProps) {
   const content = contentOf(inv.content);
   const lang: Lang = inv.language === 'tl' ? 'tl' : 'en';
   const occasion = inv.occasion;
@@ -1650,6 +1736,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const look = lookOverride ?? withWords(theme.look, wordsOf(inv.template.words));
   const fonts = lookOverride ? lookOverride.fonts : theme.fonts;
   const own = artOf(inv.template.art);
+  // the design's own photographed parts for its moments and its opening scene
+  const ownParts = own.parts;
   const art = {
     backgrounds: CAPIZ_DEFAULT_ART.backgrounds.map((url, i) => own.backgrounds?.[i] || url),
     night: own.night?.length ? CAPIZ_DEFAULT_ART.backgrounds.map((_, i) => own.night?.[i] || own.backgrounds?.[i] || CAPIZ_DEFAULT_ART.backgrounds[i]) : undefined,
@@ -1659,10 +1747,6 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const mode = content.theme?.mode ?? 'day';
   const layout = isLayout(inv.template.layout) ? inv.template.layout : 'classic';
   const style = cssVars(palette, fonts) as CSSProperties;
-  // The format: the page structure the reference sets — the cover with its
-  // place and lines, the verse, the invitation rows, the venue and the way
-  // there, the interludes. Capiz is built to it; the look supplies the words.
-  const format = isPaged(layout);
   const capiz = layout === 'capiz';
   const babyblue = layout === 'babyblue';
   /**
@@ -1680,6 +1764,21 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    * measurement, rather than the first time somebody presses Publish.
    */
   const doc = documentOf(inv.template) ?? builtinDesign(layout);
+  /*
+   * The format: the page structure the reference sets — the cover with its
+   * place and lines, the verse, the invitation rows, the venue and the way
+   * there, the interludes. Capiz is built to it; the look supplies the words.
+   *
+   * Read off the document rather than off the layout's name, and that is the
+   * whole of what lets a design on any layout be drawn in the studio. It
+   * changes nothing for the designs there are: Capiz and Baby Blue have
+   * built-ins, so they are in the format exactly as they were, and a flat
+   * design nobody has drawn has no document and stays the plain stack of
+   * sections it always was. The new case is the third one — a flat design
+   * whose pages have been drawn and published — and that one renders as
+   * pages, because pages are what she drew.
+   */
+  const format = Boolean(doc);
   // A page with a ground of its own hands it to PageGround under the page's
   // key; the ground for a page the map does not name goes under a key no
   // page can have (page keys carry no underscore).
@@ -1690,6 +1789,24 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     if (doc.overflowGround && isPicture(doc.overflowGround)) groundPairs.push([OVERFLOW_BG, doc.overflowGround]);
   }
   const docGrounds = doc ? Object.fromEntries(groundPairs) : undefined;
+  // the pages that sit on the picture of a page before them, where one runs on
+  const runs = doc ? runOf(doc) : new Map<string, string>();
+  // the pages that sit on a picture pinned to the screen, by the page whose picture it is (pinOf)
+  const pins = doc ? pinOf(doc) : new Map<string, string>();
+  // the pinned pictures themselves, for the layer fixed behind the column
+  const pinned = doc
+    ? doc.pages
+        .filter((p) => pins.get(p.key) === p.key && p.ground && isPicture(p.ground))
+        // the phone's background keeps to the column; the website's fills the
+        // window; a page with both hands over both, and the window chooses
+        .map((p) => ({
+          key: p.key,
+          url: (p.ground as PictureGround).url,
+          night: (p.ground as PictureGround).night,
+          phone: (p.ground as PictureGround).phone,
+          column: groundKind(p) === 'phone',
+        }))
+    : [];
   /** Where the peek stops: the page the design marks, or the first page. */
   const peekPage = doc ? peekEndPage(doc) : 'story';
   // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
@@ -1757,6 +1874,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           cinematic: Boolean(assets.video) && hasPremiumOpening(inv),
         });
     const def = OPENING_BY_KEY[key];
+    // how it is opened: the couple's choice where the scene takes it, else the scene's own way
+    const chosenTrigger = str(content.cover, 'openingTrigger') as Trigger | '';
+    const trigger = triggerOf(key as MomentKey, chosenTrigger || undefined);
     // The Letter is a clip like the premium opening, only shared: the same
     // stage plays it, from the universal file rather than the design's.
     const universal = key === 'universal';
@@ -1777,6 +1897,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     return {
       style,
       clip,
+      parts: ownParts,
       monogram: plate.monogram,
       // A door, not a title page: this opening says only that an invitation is
       // here, and who it is from waits until it opens.
@@ -1788,7 +1909,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // The line over the names: the couple's own, the design's cover line on
       // a premium card whose face has already said "you are invited", else
       // this opening's own line.
-      line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover') : '') || def.line[lang],
+      line: str(content.cover, 'openingLine') || (wordsOnCard && premium?.eyebrow === 'cover' ? lookLine(look, lang, 'cover', occasion) : '') || def.line[lang],
       line2: plate.line2,
       and: plate.and,
       words: wordsOnCard,
@@ -1796,22 +1917,38 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       photos,
       video: universal ? UNIVERSAL_OPENING.video : style === 'cinematic' ? assets.video : '',
       poster: universal ? UNIVERSAL_OPENING.poster : style === 'cinematic' ? assets.poster : '',
-      hint: t(lang, 'envelope.open'),
+      hint: openingHint(),
+      speed: (['slow', 'fast'].includes(str(content.cover, 'openingSpeed')) ? str(content.cover, 'openingSpeed') : undefined) as 'slow' | 'fast' | undefined,
+      trigger,
     };
+    // the hint under the opening says what the guest does: a scene that is swiped or held says so
+    function openingHint(): string {
+      const scene = MOMENT_BY_KEY[key as MomentKey];
+      if (trigger === 'hold') return t(lang, 'envelope.hold');
+      if (trigger === 'swipe') return scene?.swipe === 'apart' ? t(lang, 'envelope.swipeApart') : scene?.swipe === 'down' ? t(lang, 'envelope.swipeDown') : t(lang, 'envelope.swipe');
+      return t(lang, 'envelope.open');
+    }
   }
   const opening = openingProps();
 
   const order = sectionOrder(occasion, layout);
   // The look's words: the line under each heading, and the headings it names.
-  const line = (key: LineKey) => lookLine(look, lang, key);
-  const named = (key: TitleKey, fallback: string) => lookTitle(look, lang, key) ?? fallback;
+  /*
+   * The look's words: the line under each heading, and the headings it names
+   * — asked in this invitation's occasion, so a look written for a wedding
+   * does not put "Join us as we say I do!" under a christening's Church &
+   * Mass heading. Where it has nothing to say for the occasion the heading
+   * stands alone, or the fallback below takes over.
+   */
+  const line = (key: LineKey) => lookLine(look, lang, key, occasion);
+  const named = (key: TitleKey, fallback: string) => lookTitle(look, lang, key, occasion) ?? fallback;
   const sameVenue = Boolean(str(content.ceremony, 'venue')) && str(content.ceremony, 'venue').trim().toLowerCase() === str(content.reception, 'venue').trim().toLowerCase();
   const hasReception = visible('reception') && Boolean(str(content.reception, 'venue'));
   const names = displayTitle(occasion, content);
   // the couple's own verse with its own source; else the look's, a fixed writing
   const ownVerse = str(content.cover, 'verse');
   const verseText = ownVerse || line('verse') || '';
-  const verse = format && verseText ? <Verse key="verse" text={verseText} source={ownVerse ? str(content.cover, 'verseRef') : line('verseRef') || ''} /> : null;
+  const verse = format && verseText ? <Verse key="verse" text={verseText} source={ownVerse ? str(content.cover, 'verseRef') : line('verseRef') || ''} own={Boolean(ownVerse)} /> : null;
   // The peek ends with Our Story, or with the cover where the design has no
   // story: the pages up to that one, then the way in.
   const peekEnd = (keys: string[]) => { const i = keys.indexOf('story'); return i < 0 ? 1 : i + 1; };
@@ -1873,11 +2010,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   // A peek is a snippet of a design, not a page that explains itself: the
   // design's name, the way in, and the way back out. What the pages under it
   // hold is the catalogue's to say, not this page's.
+  // Framed, both links leave the frame: a checkout squeezed into a picture on
+  // the landing page is not a way in, it is a dead end with a scrollbar.
+  const out = embed ? { target: '_top' as const } : {};
   const peekEndBlock = peek ? (
     <section key="peek-end" className="inv-section inv-peek">
       <p className="inv-eyebrow">{lang === 'tl' ? `Ang disenyong ${inv.template.name}` : `The ${inv.template.name} design`}</p>
-      <a href={`/checkout?occasion=${inv.occasion}&template=${inv.template.id}${inv.template.premium ? '&tier=COMPLETE' : ''}`} className="inv-btn">{lang === 'tl' ? 'Kunin ang disenyong ito' : 'Get this design'}</a>
-      <p className="inv-peek-back"><a href={PEEK_EXIT}>{lang === 'tl' ? '← Bumalik sa mga disenyo' : '← Back to the designs'}</a></p>
+      <a href={`/checkout?occasion=${inv.occasion}&template=${inv.template.id}${inv.template.premium ? '&tier=COMPLETE' : ''}`} className="inv-btn" {...out}>{lang === 'tl' ? 'Kunin ang disenyong ito' : 'Get this design'}</a>
+      <p className="inv-peek-back"><a href={PEEK_EXIT} {...out}>{lang === 'tl' ? '← Bumalik sa mga disenyo' : '← Back to the designs'}</a></p>
     </section>
   ) : null;
   function pages() {
@@ -1894,7 +2034,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -1904,19 +2044,37 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           className="inv-page"
           data-page={key}
           data-bg={o.bg}
+          // the head of the run this page's picture belongs to, on the head and on every page that sits on it: PageGround lays one paper down them all
+          data-run={o.run}
           data-seam={o.seam}
           data-foot={o.foot !== undefined ? '' : undefined}
+          data-head={o.head !== undefined ? '' : undefined}
           data-drawn={o.drawn ? '' : undefined}
           data-grow={o.grow ? '' : undefined}
           data-ground={o.colour}
+          // the colour beside the page on a laptop, a role or a colour: PageGround lays the band on the stage
+          data-outside={o.outside}
+          // a picture that reaches the whole website page: PageGround lays it across the stage too, and sizes the column's copy to line up
+          data-bleed={o.bleed ? '' : undefined}
+          // sits on a picture pinned to the screen (this page's own, or one before it): the page is see-through, and Pinned shows that picture behind the column
+          data-pin={o.pin}
+          // told to be at least so many screens tall: the stylesheet reads --page-min against --inv-screen
+          data-min={o.min !== undefined ? '' : undefined}
+          // drawn smaller (or larger) than the design was written at, so a page too tall for a screen fits one: PageSpec.size
+          data-size={o.size !== undefined ? '' : undefined}
           data-dress={dress.kind}
           style={{
             ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
-            ...(o.colour ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+            ...(o.head !== undefined ? { ['--page-head' as string]: o.head } : {}),
+            ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
+            ...(o.size !== undefined ? { ['--page-size' as string]: o.size } : {}),
+            ...(o.colour && !o.pin ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
             ...dress.vars,
           } as CSSProperties}
         >
+          {/* the page's own writings a box of words has taken off the flow: drawn nowhere, for a guest or the studio (PageSpec.offFlow) */}
+          {o.off?.length ? <style>{o.off.map((id) => `.inv-page[data-page="${key}"] [data-w="${id.replace(/[^a-zA-Z0-9.:_-]/g, '')}"]{display:none!important}`).join('')}</style> : null}
           {parts}
         </div>
       );
@@ -1945,13 +2103,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           </div>
         )]
         : parts;
-      if (!flowDecor(spec).length) return body;
+      // the studio draws a page's decorations itself, over this very page
+      if (!flowDecor(spec).length || only) return body;
       // behind the words, then the words, then what the design asked to have
       // over them: see FlowDecor for why they cannot be one layer
       return [
-        <FlowDecor key="deco-under" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="under" />,
+        <FlowDecor key="deco-under" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} layer="under" />,
         ...body,
-        <FlowDecor key="deco-over" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} layer="over" />,
+        <FlowDecor key="deco-over" page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} layer="over" />,
       ];
     };
 
@@ -1959,13 +2118,16 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // its page, dissolved into one another at the joins. PageGround lays them.
     // A design that carries a document names a ground per page, and hands
     // them over keyed by the page: the layout's own machinery below stays as
-    // the fallback for a page that names none, which is every Capiz page.
+    // the fallback for a page that names none, which is every Capiz page; a
+    // document of another layout has no fallback, and a page on a pinned
+    // picture (Pinned) gets no paper at all.
     out.push(
       <div key="ground" className="inv-ground" aria-hidden="true" />,
       babyblue ? (
         <PageGround key="ground-lay" ratio={1} order={[]} last={0} backgrounds={[]} grounds={docGrounds ?? art.grounds} seam={0.55} />
       ) : (
-        <PageGround key="ground-lay" ratio={CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} grounds={docGrounds} />
+        // a document of another layout has no ground of its own to fall back on: a page that names none is the column's paper
+        <PageGround key="ground-lay" ratio={doc && !capiz ? 0 : CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} grounds={docGrounds} />
       ),
     );
     if (doc) {
@@ -1978,15 +2140,56 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // names none depends on nothing — it is the design's own page, a
         // picture and some words — so it is always drawn.
         const parts = spec.drawn
-          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} />] : [])
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} />] : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
-        if (parts.length) out.push(page(spec.key, parts, { bg: spec.ground && isPicture(spec.ground) ? spec.key : undefined, colour, seam: spec.seam, foot: spec.footPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle }));
+        // its own picture, or the one that runs on from a page before it
+        const head = runs.get(spec.key);
+        const own = spec.ground && isPicture(spec.ground);
+        const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
+        const pin = pins.get(spec.key);
+        if (parts.length) out.push(page(spec.key, parts, pin
+          // no colour: a page on a pin is see-through, by night as by day
+          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow }
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
       }
     }
     // a section the document does not name gets a page of its own, in its place
     for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    if (only) {
+      // the ground, and the one page the studio is drawing
+      const ground = out.slice(0, 2);
+      const rest = out.slice(2) as ReactElement<{ 'data-page'?: string }>[];
+      // A page that sits on a picture running on from a page before it is
+      // drawn with those pages above it, so the picture is where it will be;
+      // the studio scrolls its frame to the page it asked for.
+      const head = runs.get(only);
+      const from = head ? rest.findIndex((el) => el.props['data-page'] === head) : -1;
+      const to = rest.findIndex((el) => el.props['data-page'] === only);
+      const found = to < 0 ? [] : from >= 0 && from < to ? rest.slice(from, to + 1) : [rest[to]];
+      if (found.length) return [...ground, ...found];
+      /*
+       * A page with nothing on it is not drawn for a guest, and the studio
+       * would be left measuring an empty frame — which reads as the canvas
+       * being broken rather than as the page being empty. So the page is
+       * drawn here anyway, carrying the reason, and only here: a guest is
+       * still shown nothing.
+       */
+      const spec = doc?.pages.find((p) => p.key === only);
+      const carried = spec ? spec.sections : OCCASION_SECTIONS[occasion].includes(only as SectionKey) ? [only] : [];
+      const names = carried.map((k) => (k === 'verse' ? 'the verse' : k === 'gallery-video' ? 'the film' : (() => { try { return sectionLabel(k as SectionKey, occasion); } catch { return k; } })()));
+      const why = !carried.length
+        ? 'This page carries no part yet, so a guest is shown nothing here. Put a part on it on the right, or give it a picture of its own.'
+        : `A guest is shown nothing here: ${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} not written in on the invitation the canvas is drawn against. Fill ${names.length === 1 ? 'it' : 'them'} in under the Invitation tab, or draw against “Anybody” to see the page filled.`;
+      return [...ground, (
+        <div key={only} className="inv-page" data-page={only} data-empty="" data-pin={pins.get(only)}>
+          <section className="inv-section text-center text-sm" style={{ color: 'var(--inv-muted)', padding: '3rem 1.5rem' }}>
+            <p>{why}</p>
+          </section>
+        </div>
+      )];
+    }
     if (peek) {
       // the ground, then the pages up to the one the design ends the peek on
       const ground = out.slice(0, 2);
@@ -2004,12 +2207,19 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return <Hero key={key} occasion={occasion} content={content} lang={lang} layout={layout} format={format} look={look} saveTheDate={saveTheDate} eyebrow={look ? line('cover') : undefined} spec={coverOf(doc)} />;
       case 'countdown':
         return bool(data, 'enabled') && eventAt ? (
-          <Section key={key} id="countdown" eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')} tagline={look ? str(data, 'label') || line('countdown') : undefined}>
+          <Section
+            key={key}
+            id="countdown"
+            eyebrow={look ? undefined : str(data, 'label') || t(lang, 'countdown.title')}
+            eyebrowSrc={[{ bind: { section: 'countdown', field: 'label' } }, { copy: 'countdown.title' }]}
+            tagline={look ? str(data, 'label') || line('countdown') : undefined}
+            taglineSrc={[{ bind: { section: 'countdown', field: 'label' } }, { word: 'countdown' }, fx(str(data, 'label') || line('countdown') || '')]}
+          >
             <Countdown target={eventAt.toISOString()} labels={[t(lang, 'countdown.days'), t(lang, 'countdown.hours'), t(lang, 'countdown.minutes'), t(lang, 'countdown.seconds')]} today={t(lang, 'countdown.today')} />
           </Section>
         ) : null;
       case 'parents':
-        return <Parents key={key} occasion={occasion} data={data} lang={lang} />;
+        return <Parents key={key} occasion={occasion} data={data} lang={lang} title={lookTitle(look, lang, 'parents', occasion)} tagline={line('parents')} />;
       case 'ceremony': {
         const block = (
           <EventBlock
@@ -2043,7 +2253,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           <Fragment key={key}>
             {block}
             {format && <GettingThere data={data} ceremony={content.ceremony} sameVenue={sameVenue} lang={lang} title={named('getting', t(lang, 'venue.getting'))} />}
-            {after && <Interlude id="interlude-2" text={after} />}
+            {after && <Interlude id="interlude-2" text={after} src={[{ bind: { section: 'cover', field: 'interlude2' } }, { word: 'interlude2' }, fx(after)]} />}
           </Fragment>
         );
       }
@@ -2072,7 +2282,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           // stops at four for this design. A video, which no frame can hold,
           // gets a page of its own after it, which the document names
           // 'gallery-video'.
-          babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} /> : null;
+          babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} taglineSrc={[{ bind: { section: 'gallery', field: 'close' } }, { word: 'galleryClose' }, fx(str(data, 'close') || line('galleryClose') || '')]} /> : null;
         }
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;
       }
@@ -2120,15 +2330,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // than the body, because the colour is the design's and a variable set on
     // the invitation cannot be read by its own parent.
     <div className="inv-stage" style={ownColours as CSSProperties}>
-    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours }} lang={lang}>
+    {pinned.length > 0 && !print && <Pinned pins={pinned} phoneWindow={PHONE_WINDOW} />}
+    <div className="inv" data-layout={layout} data-doc={doc ? '' : undefined} data-pinned={pinned.length ? '' : undefined} data-paged={format && !saveTheDate ? '' : undefined} data-card={saveTheDate ? '' : undefined} data-look={look?.key} data-shape={shape} data-mode={mode} data-peek={peek ? '' : undefined} style={{ ...(stdArt ? { ...style, ['--std-art' as string]: `url(${stdArt})` } : style), ...ownColours, ...(only && screen ? { ['--inv-screen' as string]: `${screen}px` } : {}) }} lang={lang}>
       {!!fonts.load.length && <link rel="stylesheet" href={googleFontsUrl(fonts)} precedence="default" />}
       {/* a face she uploaded, served from our own bucket rather than by Google */}
       {!!faceRules(fonts) && <style precedence="default" href="inv-faces">{faceRules(fonts)}</style>}
-      {peek && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
+      {peek && !embed && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}
       {!print && <Motion />}
-      {preview && (
+      {/* not in the builder's own phone, where it would sit over the cover of a page the customer already knows is theirs */}
+      {preview && !bare && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
@@ -2136,6 +2348,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         {peekEndBlock}
+        {/* the studio's frame is one page and nothing around it: no footer, no floating RSVP */}
+        {!only && (
         <footer className="inv-section text-center text-xs" style={{ color: 'var(--inv-muted)' }}>
           {!print && !peek && (
             <div className="no-print mb-4 flex flex-wrap justify-center gap-2">
@@ -2145,7 +2359,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           )}
           <p>{businessName}</p>
         </footer>
-        {rsvpVisible && !print && !peek && (
+        )}
+        {rsvpVisible && !print && !peek && !only && (
           <a href="#rsvp" className="inv-btn inv-sticky no-print">{t(lang, 'nav.rsvp')}</a>
         )}
       </Shell>

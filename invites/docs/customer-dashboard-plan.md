@@ -24,7 +24,7 @@ After paying, a customer lands on a dashboard with cards stacked down the page (
 
 **Steps in the order of the page.** The parts to fill in are listed as numbered steps in the order the design shows them — Cover, Our Story, The Invitation, Entourage, Photos, Venue, Dress code… — so as they work down the list, the phone scrolls down the page with them. The old "Done — save & fold away" button becomes a tick on each step: *Mark this part done*. Marking every part done still tells our team the form is complete, exactly as before.
 
-**One form for everyone.** A Done-For-You customer fills in the same Invitation tab; the separate intake accordion goes. The three ways of sending details stay: fill the form, or send it over Messenger/Viber, or send an Excel — the second and third are a card in the checklist ("Prefer to send it to us?") that tells our team to expect it. Their preview-and-approval thread (open the preview, approve, request changes) moves to the Share tab, where publishing happens.
+**One form for everyone.** A Done-For-You customer fills in the same Invitation tab; the separate intake accordion goes. The three ways of sending details stay: fill the form, or send it over Messenger, or send an Excel — the second and third are a card in the checklist ("Prefer to send it to us?") that tells our team to expect it. Their preview-and-approval thread (open the preview, approve, request changes) moves to the Share tab, where publishing happens.
 
 **The Share tab** is where the link lives: the Publish button with its named blanks and the tick, then once live the link, a QR code they can download on its own, the Messenger/Viber/WhatsApp/SMS buttons, the card image, the print view, and the Save the Date pair. For Done-For-You, the approval thread sits at the top of this tab until it is published.
 
@@ -38,6 +38,45 @@ After paying, a customer lands on a dashboard with cards stacked down the page (
 - **History**: every auto-save kept for a while, with *Restore*.
 - **Suggested writings on every writing box**, in the occasion's own words (a christening's, a debut's), as tap-to-use examples — we already do this on the hardest boxes.
 - **Guestbook and Guest photos switched on from their own tabs**, not from a toggle in the form.
+
+### What the screenshots showed, and where each thing lives with us
+
+Read after the full set of screenshots (the Guide chapters, every sub-tab of their Invitation tab, the Guest list, RSVP responses, Seating chart, Save the Date and Memories), on 14 September 2026, once phase 1 had merged (#156).
+
+**What makes their dashboard read as systematic is not technical.** Edit on the left with the phone on the right, always; a Get-started list that *is* the plan, walked again by the tour and again by the guide; one tab per tool that opens with its numbers and one sentence saying what it is for; every card explains itself before it shows its controls; empty states say what will appear; auto-save with a visible history; a theme grid you can switch any time. Everything else on their screens — blocks, the envelope generator, background themes, block fonts and colours, dividers, borders — is them handing the design to the customer. That is the do-it-yourself we do not sell.
+
+**The split — where each thing lives with us.**
+
+| On wooow | With us | Whose |
+|---|---|---|
+| Themes, Envelope, Blocks, Block styles, Background theme, Drawing dividers, Borders, per-block colours, the Countdown / Venue / Story block levers, the music library | **The studio** — the design we build and they pay for. These become studio levers on our backlog (decorations, dividers, opening styles), never the customer's form. | Us |
+| The Details tab, the wording ideas, the RSVP questions, dress code, gift, FAQ, story, timeline, photos, song | **The Invitation tab** — one form in the design's page order, auto-saved, with the phone beside it | The customer (or us, for Done-For-You, in the same form) |
+| Guest list, RSVP responses, Seating chart, Memories, Save the Date, Links, Guide | **Their account tabs** — one tab per tool, numbers first, a sentence each; a tool their package lacks stays in the strip with an Upgrade pill | The customer |
+| Planning, the Betting game, languages as separate links, custom-URL requests | **Not sold** (the owner's call); English and Tagalog live inside one page; a custom slug is Standard's already | — |
+
+**What we lay out for the customer to give us.** The form already asks, part by part: the names and the cover photograph · dates, times, ceremony and reception (the maps come from the address) · parents and entourage · the story and its photos · dress code and motif colours · the gift note and GCash or bank QR · FAQ · the song · the RSVP deadline and questions · the closing message · spare photos and files at the end, kept for us to pull from. The Get-started list ticks itself from what is filled, so they can see what is still owed. For Done-For-You the "Prefer to send it to us?" card stays (Messenger, Viber, Excel), and marking every part done moves the job to *intake received* for the team.
+
+**What they see in the account, and how it is explained.**
+
+- *Live (phase 1, #156):* the tab strip on every page; the two-pane Invitation tab with auto-save and a phone that jumps to the part being edited; Opening on/off on the phone; the tour; the Share tab (publish, link, QR download, share buttons, the Done-For-You approval thread); the Guide with a chapter per tab.
+- *Phase 2 (#157):* **Seating chart** as its own tab (Tables · Seated · Empty seats; drag names onto tables; numbered seats; a table's shape). **Guest list** in working order (numbers → *Add a guest* and *Import your list* as cards that explain themselves → the list → reminders; duplicates skipped on import and said so). **RSVP responses** with the numbers drawn (Responses · Attending · Not attending · Average party; attendance bars; meal and dietary counts; messages as cards) and a *What guests see* phone showing the real RSVP form with the questions as switches beside it — turn one on and it is on the form at once — plus the sentence about the automatic thank-you and the confirmation e-mail. **Guestbook** and **Guest photos** switched on and off, and moderated, from their own tabs.
+- *Phase 3 (#159):* History with Restore; a starting point in every writing box.
+- *The welcome:* after checkout the customer lands on the Invitation tab, not on a receipt with a button. Over the Get-started list, the welcome carries the receipt — the order, the payment confirmed — and lays out the plan, and offers the tour once: *Show me around* or *I'll find my way*. The answer is remembered on the invitation (`welcomedAt`), so a phone and a laptop agree, and a first open on a closed browser is offered again. The activation e-mail and notice already open the tab, so a manual payer verified days later meets the same welcome.
+
+**Packages, and how it syncs.** One table in the code (`FEATURE_MIN_TIER` in `src/lib/tiers.ts`) decides what each package gets, and everything reads it: the comparison on the landing page, checkout, the upgrade page, the padlocks in the form, the tabs (locked → Upgrade) and the guest's page. A tool a customer has not paid for cannot appear on their page, and one they have cannot go missing.
+
+| Tool | Basic | Standard | Signature | Luxury |
+|---|---|---|---|---|
+| The form, Share, Messages, Link & design, Guide | ✓ | ✓ | ✓ | ✓ |
+| RSVP responses | simple | + dashboard, Excel, headcount sheet | + meal choice, auto-close | + e-mail confirmation to each guest |
+| Guest list (import, a personal link per guest) | — | — | ✓ | ✓ |
+| Guestbook | — | — | ✓ | ✓ |
+| Seating chart · QR check-in · Guest photos · Password | add-on | add-on | add-on (password ✓) | ✓ |
+| Save the Date card | add-on | add-on | add-on | included |
+
+An add-on buys the room, not the package: Seating and Check-in bring the guest list with them because neither works without it. One drift found while reading: the "seating charts are included in…" sentence still named Signature, though seating has been Luxury's since #127; phase 2 makes both sentences read their tier from the table so they cannot drift again.
+
+**Next.** Phases 1 to 3 and the welcome are live. What remains from their screens is the studio's: the levers — dividers, side borders, opening and envelope styles, block-level backgrounds — go onto the studio backlog, ours to build and priced into the template.
 
 ### What she does not need to change
 
@@ -102,7 +141,7 @@ On a phone (below `lg`) the right pane is hidden and a floating **Preview** butt
 
 A Save the Date card has three lines (cover, dates, publish). The tour is `components/account/tour.tsx`: an overlay that reads `data-tour="tabs|steps|form|saving|phone|done|publish|guide"` off the page, positions a card beside the target, and steps with Next / Back / Finish; *Don't show again* is a `localStorage` key per invitation.
 
-**Done-For-You.** `IntakeForm` (`dfy/forms.tsx:15-107`) is retired: the builder is the form for every customer, so there is one place their details live and the phone shows what they typed. When every section is marked Done and a `DfyJob` sits at `NEW`, `saveSection` moves it to `INTAKE_RECEIVED` (the same move `saveIntake` made on submit, `lib/dfy.ts:50`) and staff are notified as now. The Messenger/Viber and Excel choices become one card in the checklist, *Prefer to send it to us?*, whose button calls `saveIntakeAction` with the chosen method and `submit: true` — the existing action, with no content. `saveIntake` stays for staff and for the encoder workspace.
+**Done-For-You.** `IntakeForm` (`dfy/forms.tsx:15-107`) is retired: the builder is the form for every customer, so there is one place their details live and the phone shows what they typed. When every section is marked Done and a `DfyJob` sits at `NEW`, `saveSection` moves it to `INTAKE_RECEIVED` (the same move `saveIntake` made on submit, `lib/dfy.ts:50`) and staff are notified as now. The Messenger and Excel choices become one card in the checklist, *Prefer to send it to us?*, whose button calls `saveIntakeAction` with the chosen method and `submit: true` — the existing action, with no content. `saveIntake` stays for staff and for the encoder workspace.
 
 ### 3.3 The Share tab — `account/invitations/[id]/share/page.tsx`
 

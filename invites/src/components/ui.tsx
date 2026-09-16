@@ -172,22 +172,21 @@ export function Notice({ tone = 'info', children }: { tone?: Tone; children: Rea
   );
 }
 
-/** The two buttons that go on every page: Messenger and Viber. */
-export function ContactButtons({ messenger, viber, className = '', size = 'md' }: { messenger: string; viber: string; className?: string; size?: 'sm' | 'md' }) {
+/**
+ * The way to reach us, on every page: Messenger. One door rather than two —
+ * Viber used to sit beside it, and a customer told to send their details
+ * "on Messenger or Viber" sent them wherever they happened to be, which is
+ * two inboxes to watch for one order. The form on the website and Messenger
+ * are the two ways in, and the words everywhere say so.
+ */
+export function ContactButtons({ messenger, className = '', size = 'md' }: { messenger: string; className?: string; size?: 'sm' | 'md' }) {
   const cls = size === 'sm' ? 'btn btn-sm' : 'btn';
-  if (!messenger && !viber) return null;
+  if (!messenger) return null;
   return (
     <div className={`flex flex-wrap gap-2 ${className}`}>
-      {messenger && (
-        <a href={messenger} target="_blank" rel="noopener" className={`${cls} btn-secondary`}>
-          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#0084ff]" /> Messenger
-        </a>
-      )}
-      {viber && (
-        <a href={viber} className={`${cls} btn-secondary`}>
-          <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#7360f2]" /> Viber
-        </a>
-      )}
+      <a href={messenger} target="_blank" rel="noopener" className={`${cls} btn-secondary`}>
+        <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full bg-[#0084ff]" /> Messenger
+      </a>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { listToGrid, gridToList, sheetFilename } from '../src/lib/sheet';
+import { listToGrid, gridToList, sheetFilename, pastedToGrid, pasteColumns } from '../src/lib/sheet';
 import { fieldsFor } from '../src/lib/sections';
 import type { Field } from '../src/lib/sections';
 
@@ -117,4 +117,43 @@ test('the real sections are all made of the shape this reads', () => {
     // Round-tripping an empty list of each gives back exactly its headers.
     assert.deepEqual(listToGrid(l.item!, []), [l.item!.map((f) => f.label)]);
   }
+});
+
+test('a pasted column: one name per line, numbering and bullets stripped, blanks dropped', () => {
+  assert.deepEqual(pastedToGrid('1. Jose Santos\r\n2) Pedro Reyes\n\n• Juan Cruz\n- Ana Lim  \n   \n', 1), [['Jose Santos'], ['Pedro Reyes'], ['Juan Cruz'], ['Ana Lim']]);
+});
+
+test('a single column is never split: a slash or a dash inside a name stays', () => {
+  assert.deepEqual(pastedToGrid('Santos / Reyes\nMary-Ann Cruz', 1), [['Santos / Reyes'], ['Mary-Ann Cruz']]);
+});
+
+test('two columns split on a tab, a pipe, a slash, a dash or an ampersand', () => {
+  assert.deepEqual(pastedToGrid('Jose Santos\tAna Santos\nRamón Cruz | Teresa Cruz\nBen Lim / Liza Lim\nTony Go - Fe Go\nPaul Tan & May Tan', 2), [
+    ['Jose Santos', 'Ana Santos'],
+    ['Ramón Cruz', 'Teresa Cruz'],
+    ['Ben Lim', 'Liza Lim'],
+    ['Tony Go', 'Fe Go'],
+    ['Paul Tan', 'May Tan'],
+  ]);
+});
+
+test('a comma and an "and" are not separators, and a line without one fills the first column', () => {
+  assert.deepEqual(pastedToGrid('Juan dela Cruz, Jr.\nMr. and Mrs. Jose Santos', 2), [['Juan dela Cruz, Jr.'], ['Mr. and Mrs. Jose Santos']]);
+});
+
+test('more parts than columns keep the extra in the last column', () => {
+  assert.deepEqual(pastedToGrid('a / b / c', 2), [['a', 'b / c']]);
+  assert.deepEqual(pastedToGrid('a\tb\tc', 2), [['a', 'b c']]);
+});
+
+test('a pasted grid becomes rows like a file would, a heading line included', () => {
+  assert.deepEqual(gridToList(PAIR, pastedToGrid('Ninong\tNinang\nJose Santos\tAna Santos', 2)), [{ ninong: 'Jose Santos', ninang: 'Ana Santos' }]);
+  assert.deepEqual(gridToList(PAIR, pastedToGrid('Jose Santos & Ana Santos\nBen Lim', 2), 5), [{ ninong: 'Jose Santos', ninang: 'Ana Santos' }, { ninong: 'Ben Lim', ninang: '' }]);
+  assert.equal(gridToList(PAIR, pastedToGrid('a & b\nc & d\ne & f', 2), 2).length, 2, 'the room left caps it');
+});
+
+test('the columns a paste can fill are the leading text fields', () => {
+  assert.equal(pasteColumns(PAIR), 2);
+  assert.equal(pasteColumns([{ key: 'name', label: 'Name', type: 'text' }]), 1);
+  assert.equal(pasteColumns(ROLE), 0, 'a select first: nothing to paste into');
 });

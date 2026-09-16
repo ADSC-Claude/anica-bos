@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Tier } from '@prisma/client';
-import type { Field, SectionData, SectionKey } from '@/lib/sections';
+import type { Field, Issue, SectionData, SectionKey } from '@/lib/sections';
 import type { Lang } from '@/lib/copy';
 import type { ChecklistLine } from '@/lib/checklist';
+import type { BuilderSection } from '@/lib/builder-props';
 import { TIER_LABELS } from '@/lib/tiers';
 import { SectionFields } from './fields';
 import { saveSectionAction, sectionDoneAction, languageAction, themeAction } from '@/app/account/actions';
@@ -14,8 +15,13 @@ import { invitationPath } from '@/lib/app-url';
 import { formatDate } from '@/lib/datetime';
 import { Notice } from '@/components/ui';
 import { GetStarted, type SendToUs } from '@/components/account/checklist';
+import type { Welcome } from '@/lib/welcome';
+import { PhonePreview } from '@/components/account/phone';
 
-export type BuilderSection = { key: SectionKey; label: string; description: string; unlocked: boolean; filled: boolean; minTier: Tier };
+export type { BuilderSection };
+
+/** What a save that landed came back with. */
+export type SavedResult = { issues: Issue[]; done: SectionKey[]; completedAt: string | null; slug: string };
 
 /** How long after the last keystroke the section is saved. */
 export const SAVE_AFTER_MS = 700;
@@ -33,6 +39,11 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
  * opening — so the customer sees their words on the page a moment after
  * they type them. "Done" is no longer a way of saving: it is a tick that
  * says a part is finished, or left empty on purpose.
+ *
+ * The same form sits inside the studio (`embed`), where the page beside it
+ * is the canvas rather than a phone: there it keeps the steps, the fields
+ * and the saving line, drops everything that is the tab's own, and tells
+ * its host what was typed and what was saved instead of refreshing a page.
  */
 export function Builder({
   invitationId,
@@ -46,15 +57,23 @@ export function Builder({
   listLimits,
   listHints,
   lookKey,
-  allLooks,
+  allLooks = 0,
   tier,
-  looks,
+  looks = [],
   done: doneInitial,
   completedAt,
   window: changes,
   hidesWhenEmpty = false,
-  checklist,
-  send,
+  checklist = [],
+  send = null,
+  welcome = null,
+  embed = false,
+  canEditClosed = false,
+  onDraft,
+  onSaved,
+  onError,
+  onStep,
+  onSaving,
 }: {
   invitationId: string;
   /** The parts the couple has marked done, when the form was completed, and when changes close. */
@@ -67,9 +86,9 @@ export function Builder({
   status: string;
   /** The look the page is set in ('' for the design's own) and the looks to choose from. */
   lookKey: string;
-  allLooks: number;
+  allLooks?: number;
   tier: Tier;
-  looks: { key: string; name: string; tagline: string }[];
+  looks?: { key: string; name: string; tagline: string }[];
   sections: BuilderSection[];
   current: SectionKey;
   fields: Field[];
@@ -78,9 +97,32 @@ export function Builder({
   listLimits: Record<string, number>;
   /** a list's hint from the design, e.g. a photo page with a fixed number of frames */
   listHints?: Record<string, string>;
-  checklist: ChecklistLine[];
+  checklist?: ChecklistLine[];
   /** The other ways of handing us the details, where the package has us typing them in. */
-  send: SendToUs | null;
+  send?: SendToUs | null;
+  /** The first open after paying: the receipt and the plan over the list, and the tour offered once. */
+  welcome?: Welcome | null;
+  /**
+   * Inside the studio: the form alone, filling whatever it is put in — no
+   * checklist, no notices, no language and look choices, no phone. Its host
+   * hears about a save through onSaved rather than through a page refresh.
+   */
+  embed?: boolean;
+  /**
+   * Staff editing for the customer. The server already takes their saves
+   * past the window and on a live card; this keeps the form from disabling
+   * itself on them.
+   */
+  canEditClosed?: boolean;
+  /** Every change as it is made — a keystroke, a row, an upload — before it is saved. */
+  onDraft?: (section: SectionKey, data: SectionData) => void;
+  /** Every save that landed: what was sent, and what came back. */
+  onSaved?: (section: SectionKey, data: SectionData, result: SavedResult) => void;
+  onError?: (message: string) => void;
+  /** Given, the steps and Next are the host's to take: they call this instead of linking to the tab. */
+  onStep?: (key: SectionKey) => void;
+  /** Every save as it starts, so a host that asks for the next part can wait for this one to land first. */
+  onSaving?: (save: Promise<unknown>) => void;
 }) {
   const router = useRouter();
   const [value, setValue] = useState<SectionData>(initial);
@@ -103,6 +145,20 @@ export function Builder({
   const inflight = useRef(false);
   // a save asked for while one is in flight: it goes next, with any Done mark it carried
   const again = useRef<{ done?: boolean } | null>(null);
+  // The save on the way out reports to a host that outlives this form — the
+  // studio remounts it for every part — so the callback is read through a
+  // ref, not the closure the effect was made with.
+  const onSavedRef = useRef(onSaved);
+  const onSavingRef = useRef(onSaving);
+  useEffect(() => {
+    onSavedRef.current = onSaved;
+    onSavingRef.current = onSaving;
+  }, [onSaved, onSaving]);
+  // Inside the studio the host re-asks for the marks after a save on another
+  // part; the tab never hands new ones to a mounted form, so it is unchanged.
+  useEffect(() => {
+    if (embed) setDone(doneInitial);
+  }, [embed, doneInitial]);
 
   const total = sections.filter((s) => s.unlocked).length;
   const doneCount = sections.filter((s) => s.unlocked && done.includes(s.key)).length;
@@ -113,8 +169,9 @@ export function Builder({
   const isDone = done.includes(current);
   // Two things close the form to a customer: publishing (revisions happen
   // before it, so there is nothing left to spend) and the three-week window.
+  // Neither closes it to staff editing for them.
   const live = status === 'PUBLISHED';
-  const closed = live || Boolean(changes?.closed);
+  const closed = !canEditClosed && (live || Boolean(changes?.closed));
   const allDone = total > 0 && doneCount >= total;
   const when = (iso: string) => formatDate(new Date(iso));
   const labelOf = (path: string) => fields.find((f) => f.key === path.split(/[.[]/)[0])?.label ?? path;
@@ -138,18 +195,22 @@ export function Builder({
     setSave('saving');
     setError('');
     const v = latest.current;
-    const res = await saveSectionAction(invitationId, current, v, opts);
+    const save = saveSectionAction(invitationId, current, v, opts);
+    onSavingRef.current?.(save);
+    const res = await save;
     inflight.current = false;
     if (!res.ok) {
       setSave('error');
       setError(res.error);
+      onError?.(res.error);
     } else {
       setDone(res.data.done);
       setNotes(res.data.issues.map((i) => `${labelOf(i.path)} — ${i.message}`));
       setSavedAt(new Date());
       if (latest.current === v && !again.current) setSave('saved');
       setVersion((k) => k + 1);
-      router.refresh();
+      onSavedRef.current?.(current, v, res.data);
+      if (!embed) router.refresh();
     }
     if (again.current) {
       const queued = again.current;
@@ -161,6 +222,7 @@ export function Builder({
   function change(nextValue: SectionData) {
     setValue(nextValue);
     latest.current = nextValue;
+    onDraft?.(current, nextValue);
     setSave('dirty');
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), SAVE_AFTER_MS);
@@ -178,7 +240,14 @@ export function Builder({
       window.removeEventListener('beforeunload', ask);
       if (timer.current) {
         clearTimeout(timer.current);
-        if (stateRef.current === 'dirty') void saveSectionAction(invitationId, current, latest.current);
+        if (stateRef.current === 'dirty') {
+          const v = latest.current;
+          const save = saveSectionAction(invitationId, current, v);
+          onSavingRef.current?.(save);
+          void save.then((res) => {
+            if (res.ok) onSavedRef.current?.(current, v, res.data);
+          });
+        }
       }
     };
   }, [invitationId, current]);
@@ -191,28 +260,28 @@ export function Builder({
         const res = await sectionDoneAction(invitationId, current, false);
         if (!res.ok) {
           setError(res.error);
+          onError?.(res.error);
           return;
         }
         setDone(res.data.done);
-        router.refresh();
+        onSavedRef.current?.(current, latest.current, { issues: [], done: res.data.done, completedAt, slug });
+        if (!embed) router.refresh();
       }
     });
   }
 
   const previewSrc = opening ? `${invitationPath(slug)}?at=${current}` : `${invitationPath(slug)}?bare=1&at=${current}`;
 
-  // One column on a phone, two on a desk: the form and the phone. Every column
-  // is min-w-0 so a wide list cannot set the page's width and zoom it out.
-  return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_27rem]">
-      <section className="min-w-0">
-        <GetStarted invitationId={invitationId} lines={checklist} send={send} />
+  const form = (
+    <section className="min-w-0">
+      {!embed && <GetStarted invitationId={invitationId} lines={checklist} send={send} welcome={welcome} />}
 
+      {!embed && (
         <div className="mb-4 space-y-2">
           {live ? (
             <Notice tone="info">
               Your invitation is live, so this is how it stands rather than something to change here.
-              Revisions happen before we publish; anything that still needs fixing is ours to do — message us on Messenger or Viber and we will sort it out.
+              Revisions happen before we publish; anything that still needs fixing is ours to do — message us on Messenger and we will sort it out.
             </Notice>
           ) : closed && changes ? (
             <Notice tone="warn">Changes closed on {when(changes.closesAt)}, three weeks before your event. Your invitation is with our team for the final touches, done by {when(changes.finalAt)}. Message us for anything urgent.</Notice>
@@ -220,86 +289,132 @@ export function Builder({
             <Notice tone="ok">Every part is marked done{completedAt ? ` (${when(completedAt)})` : ''} — our team has your invitation. You can still open a part to change something{changes ? ` until ${when(changes.closesAt)}` : ''}.</Notice>
           ) : null}
         </div>
-        {!closed && <QuickChoices invitationId={invitationId} lang={lang} lookKey={lookKey} looks={looks} allLooks={allLooks} tier={tier} onChanged={() => setVersion((k) => k + 1)} />}
+      )}
+      {!embed && !closed && <QuickChoices invitationId={invitationId} lang={lang} lookKey={lookKey} looks={looks} allLooks={allLooks} tier={tier} onChanged={() => setVersion((k) => k + 1)} />}
 
-        <ol data-tour="steps" aria-label="The parts of your invitation" className="mb-4 flex flex-wrap gap-1">
-          {sections.map((s, i) => {
-            const n = sections.slice(0, i + 1).filter((x) => x.unlocked).length;
-            const on = s.key === current;
-            return (
-              <li key={s.key}>
-                {s.unlocked ? (
-                  <Link href={`/account/invitations/${invitationId}?section=${s.key}`} aria-current={on ? 'step' : undefined} className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${on ? 'border-[color:var(--color-plum-600)] bg-[color:var(--color-plum-600)] text-white' : 'border-[color:var(--color-sand-200)] bg-white hover:bg-[color:var(--color-sand-100)]'}`}>
-                    <span className={`tabular-nums ${on ? 'text-white/80' : 'text-[color:var(--color-ink-500)]'}`}>{n}</span>
-                    {s.label}
-                    {done.includes(s.key) ? <span aria-label="Done" className={on ? 'text-white' : 'text-[color:var(--ok)]'}>✓</span> : s.filled ? <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-white/70' : 'bg-[color:var(--warn)]'}`} /> : null}
-                  </Link>
+      <ol data-tour="steps" aria-label={embed ? 'The parts of the invitation' : 'The parts of your invitation'} className="mb-4 flex flex-wrap gap-1">
+        {sections.map((s, i) => {
+          const n = sections.slice(0, i + 1).filter((x) => x.unlocked).length;
+          const on = s.key === current;
+          const open = `flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${on ? 'border-[color:var(--color-plum-600)] bg-[color:var(--color-plum-600)] text-white' : 'border-[color:var(--color-sand-200)] bg-white hover:bg-[color:var(--color-sand-100)]'}`;
+          const locked = 'flex items-center gap-1.5 rounded-full border border-dashed border-[color:var(--color-sand-300)] px-3 py-1 text-xs text-[color:var(--color-ink-500)]';
+          const from = `Included from ${TIER_LABELS[s.minTier]}`;
+          const pill = s.unlocked ? (
+            <>
+              <span className={`tabular-nums ${on ? 'text-white/80' : 'text-[color:var(--color-ink-500)]'}`}>{n}</span>
+              {s.label}
+              {done.includes(s.key) ? <span aria-label="Done" className={on ? 'text-white' : 'text-[color:var(--ok)]'}>✓</span> : s.filled ? <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-white/70' : 'bg-[color:var(--warn)]'}`} /> : null}
+            </>
+          ) : (
+            <>
+              <span aria-hidden>🔒</span>
+              {s.label}
+            </>
+          );
+          return (
+            <li key={s.key}>
+              {s.unlocked ? (
+                onStep ? (
+                  <button type="button" onClick={() => onStep(s.key)} aria-current={on ? 'step' : undefined} className={open}>{pill}</button>
                 ) : (
-                  <Link href={`/account/invitations/${invitationId}/upgrade`} className="flex items-center gap-1.5 rounded-full border border-dashed border-[color:var(--color-sand-300)] px-3 py-1 text-xs text-[color:var(--color-ink-500)] hover:bg-[color:var(--color-sand-100)]" title={`Included from ${TIER_LABELS[s.minTier]}`}>
-                    <span aria-hidden>🔒</span>
-                    {s.label}
-                  </Link>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-
-        <header className="mb-3">
-          <p className="eyebrow">Part {stepNo} of {total}</p>
-          <h2 className="display text-2xl">{section?.label} {isDone && <span className="pill pill-ok align-middle text-xs">Done</span>}</h2>
-          <p className="text-sm text-[color:var(--color-ink-500)]">{section?.description}</p>
-        </header>
-
-        {/*
-          Said before it happens, not after. A part left empty is a choice a
-          customer is allowed to make — some couples have no story page to
-          write and no programme to give — and the invitation is shorter for
-          it. What is not allowed is finding that out from the finished page,
-          so the form says plainly what an empty part means here.
-        */}
-        {hidesWhenEmpty && !section?.filled && !isDone && !closed && (
-          <p className="mb-3 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] px-3 py-2 text-xs text-[color:var(--color-ink-700)]">
-            Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all, and that is a perfectly good choice — mark it done to say so. If you decide you would like it after publishing, we will gladly add it, and it will be counted as one revision round.
-          </p>
-        )}
-        <fieldset disabled={closed} className="min-w-0 border-0 p-0" data-tour="form">
-          <SectionFields fields={fields} value={value} onChange={change} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
-        </fieldset>
-
-        {!closed && (
-          <div className="sticky bottom-0 z-30 mt-6 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] py-3">
-            <span data-tour="done" className="flex flex-wrap items-center gap-2">
-              {isDone ? (
-                <>
-                  <span className="pill pill-ok">✓ Marked done</span>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => markDone(false)} disabled={pending}>Not done yet</button>
-                </>
-              ) : (
-                <button type="button" className="btn btn-primary btn-sm" onClick={() => markDone(true)} disabled={pending}>✓ Mark this part done</button>
-              )}
-            </span>
-            {next && <Link href={`/account/invitations/${invitationId}?section=${next.key}`} className="btn btn-secondary btn-sm">Next: {next.label} →</Link>}
-            <span data-tour="saving" className="ml-auto text-xs" aria-live="polite">
-              {state === 'saving' || pending ? (
-                <span className="text-[color:var(--color-ink-500)]">Saving…</span>
-              ) : state === 'error' ? (
-                <span role="alert" className="text-[color:var(--bad)]">{error || 'Something went wrong — try again.'}</span>
-              ) : state === 'dirty' ? (
-                <span className="text-[color:var(--color-ink-500)]">Saving in a moment…</span>
-              ) : state === 'saved' && savedAt ? (
-                notes.length ? (
-                  <span className="text-[color:var(--warn)]" title={notes.join('; ')}>Saved, with a note: {notes[0]}</span>
-                ) : (
-                  <span className="text-[color:var(--ok)]">Saved {savedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}</span>
+                  <Link href={`/account/invitations/${invitationId}?section=${s.key}`} aria-current={on ? 'step' : undefined} className={open}>{pill}</Link>
                 )
+              ) : onStep ? (
+                // a locked part is not the host's to open: the upgrade is the customer's
+                <button type="button" disabled className={`${locked} opacity-70`} title={from}>{pill}</button>
               ) : (
-                <span className="text-[color:var(--color-ink-500)]">Auto-save on</span>
+                <Link href={`/account/invitations/${invitationId}/upgrade`} className={`${locked} hover:bg-[color:var(--color-sand-100)]`} title={from}>{pill}</Link>
               )}
-            </span>
-          </div>
-        )}
-      </section>
+            </li>
+          );
+        })}
+      </ol>
+
+      <header className="mb-3">
+        <p className="eyebrow">Part {stepNo} of {total}</p>
+        <h2 className="display text-2xl">{section?.label} {isDone && <span className="pill pill-ok align-middle text-xs">Done</span>}</h2>
+        <p className="text-sm text-[color:var(--color-ink-500)]">{section?.description}</p>
+      </header>
+
+      {/*
+        Staff working past the point the customer could: said once, quietly,
+        so she knows a change made here is one the customer could not have
+        made themselves.
+      */}
+      {embed && canEditClosed && (live ? (
+        <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">This invitation is live, so the customer can no longer change it. You still can.</p>
+      ) : changes?.closed ? (
+        <p className="mb-3 text-xs text-[color:var(--color-ink-500)]">Changes closed for the customer on {when(changes.closesAt)}, three weeks before the event. You still can.</p>
+      ) : null)}
+
+      {/*
+        Said before it happens, not after. A part left empty is a choice a
+        customer is allowed to make — some couples have no story page to
+        write and no programme to give — and the invitation is shorter for
+        it. What is not allowed is finding that out from the finished page,
+        so the form says plainly what an empty part means here.
+      */}
+      {hidesWhenEmpty && !section?.filled && !isDone && !closed && (
+        <p className="mb-3 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] px-3 py-2 text-xs text-[color:var(--color-ink-700)]">
+          {embed ? (
+            // staff reading it, about somebody else's card: no "we" and no revision round
+            <>Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on the invitation at all.</>
+          ) : (
+            <>Nothing here yet. Left empty, <b>{section?.label}</b> will not appear on your invitation at all, and that is a perfectly good choice — mark it done to say so. If you decide you would like it after publishing, we will gladly add it, and it will be counted as one revision round.</>
+          )}
+        </p>
+      )}
+      <fieldset disabled={closed} className="min-w-0 border-0 p-0" data-tour="form">
+        <SectionFields fields={fields} value={value} onChange={change} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
+      </fieldset>
+
+      {!closed && (
+        <div className="sticky bottom-0 z-30 mt-6 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] py-3">
+          <span data-tour="done" className="flex flex-wrap items-center gap-2">
+            {isDone ? (
+              <>
+                <span className="pill pill-ok">✓ Marked done</span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => markDone(false)} disabled={pending}>Not done yet</button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => markDone(true)} disabled={pending}>✓ Mark this part done</button>
+            )}
+          </span>
+          {next && (onStep ? (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onStep(next.key)}>Next: {next.label} →</button>
+          ) : (
+            <Link href={`/account/invitations/${invitationId}?section=${next.key}`} className="btn btn-secondary btn-sm">Next: {next.label} →</Link>
+          ))}
+          <span data-tour="saving" className="ml-auto text-xs" aria-live="polite">
+            {state === 'saving' || pending ? (
+              <span className="text-[color:var(--color-ink-500)]">Saving…</span>
+            ) : state === 'error' ? (
+              <span role="alert" className="text-[color:var(--bad)]">{error || 'Something went wrong — try again.'}</span>
+            ) : state === 'dirty' ? (
+              <span className="text-[color:var(--color-ink-500)]">Saving in a moment…</span>
+            ) : state === 'saved' && savedAt ? (
+              notes.length ? (
+                <span className="text-[color:var(--warn)]" title={notes.join('; ')}>Saved, with a note: {notes[0]}</span>
+              ) : (
+                <span className="text-[color:var(--ok)]">Saved {savedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}</span>
+              )
+            ) : (
+              <span className="text-[color:var(--color-ink-500)]">Auto-save on</span>
+            )}
+          </span>
+        </div>
+      )}
+    </section>
+  );
+
+  // In the studio the canvas is the page, so the form is all there is.
+  if (embed) return form;
+
+  // One column on a phone, two on a desk: the form and the phone. Every column
+  // is min-w-0 so a wide list cannot set the page's width and zoom it out.
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_27rem]">
+      {form}
 
       <aside data-tour="phone" className={`min-w-0 lg:sticky lg:top-4 lg:block lg:self-start ${sheet ? 'fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-[#1f1d1a]/85 p-4 lg:static lg:z-auto lg:bg-transparent lg:p-0' : 'hidden'}`}>
         <div className="mb-2 flex w-full max-w-[410px] items-center justify-between gap-2">
@@ -317,40 +432,6 @@ export function Builder({
         {sheet && <button type="button" className="btn btn-secondary lg:hidden" onClick={() => setSheet(false)}>Close</button>}
       </aside>
       {!sheet && <button type="button" className="btn btn-primary fixed bottom-16 right-4 z-40 shadow-lg lg:hidden" onClick={() => setSheet(true)}>Preview</button>}
-    </div>
-  );
-}
-
-/**
- * The phone, reloaded without a blink. Two frames sit in the bezel; the
- * one in front shows the last save, the one behind loads the next, and
- * they swap only once the new page has arrived — so the customer never
- * watches a blank screen between one save and the next.
- */
-function PhonePreview({ src, version }: { src: string; version: number }) {
-  const at = (v: number) => `${src}&v=${v}`;
-  const [slots, setSlots] = useState<[{ src: string; v: number }, { src: string; v: number }]>([{ src: at(0), v: 0 }, { src: '', v: -1 }]);
-  const [front, setFront] = useState<0 | 1>(0);
-  useEffect(() => {
-    setSlots((s) => {
-      if (s[front].v === version) return s;
-      const back = front === 0 ? 1 : 0;
-      const copy: typeof s = [s[0], s[1]];
-      copy[back] = { src: at(version), v: version };
-      return copy;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version, front]);
-  const arrived = (i: 0 | 1) => {
-    if (i !== front && slots[i].v === version) setFront(i);
-  };
-  return (
-    <div className="phone mx-auto">
-      {([0, 1] as const).map((i) =>
-        slots[i].src ? (
-          <iframe key={i} src={slots[i].src} title={i === front ? 'Your page' : 'Loading your page'} onLoad={() => arrived(i)} style={{ visibility: i === front ? 'visible' : 'hidden', zIndex: i === front ? 2 : 1 }} />
-        ) : null,
-      )}
     </div>
   );
 }

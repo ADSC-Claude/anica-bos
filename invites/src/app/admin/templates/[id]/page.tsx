@@ -12,9 +12,12 @@ import { colourFamilies } from '@/lib/palette';
 import { findSet } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { wordsOf, artOf, documentOf, offeredSections, wordsFor, lineLabel, titleLabel, titleWord, BABYBLUE_GROUNDS, BABYBLUE_GROUND_KEYS, type WordKey } from '@/lib/design';
+import { MOMENT_PARTS } from '@/lib/moments';
 import { UploadField } from './upload-field';
 import { OpeningUpload } from './opening-upload';
 import { PreviewPanel } from './preview-panel';
+import { SectionTicks } from './section-ticks';
+import { TemplateTabs } from './tabs';
 import { OCCASION_SECTIONS, SECTION_BY_KEY, sectionLabel, type SectionKey } from '@/lib/sections';
 import { COLLECTIONS } from '@/lib/collections';
 import { OPENINGS } from '@/lib/openings';
@@ -76,17 +79,30 @@ export default async function TemplateEditor({ params, searchParams }: { params:
       <BackLink href="/admin/templates">Templates</BackLink>
       <PageHeader
         title={isNew ? 'New template' : t!.name}
-        subtitle="A template is a layout, a palette and fonts. Content never lives here."
+        subtitle={isNew ? 'Name it and pick its occasion here. The pages are drawn in the studio, which opens the moment it is created.' : 'A template is a layout, a palette and fonts. Content never lives here.'}
         actions={
-          t && (
+          t ? (
             <>
               {t.published ? <Pill tone="ok">On the website</Pill> : <Pill tone="warn">Hidden</Pill>}
               <Link href={`/admin/templates/${t.id}/design`} className="btn btn-primary btn-sm">Design the pages</Link>
             </>
+          ) : (
+            <button form="template-form" type="submit" className="btn btn-primary btn-sm">Create and open the studio</button>
           )
         }
       />
       <Flash {...sp} />
+      <TemplateTabs id={t?.id ?? null} active="details" />
+      {isNew && (
+        <div className="card mb-4 p-4 text-sm" data-testid="where-to-design">
+          <p className="font-semibold">Where the design happens</p>
+          <p className="mt-1">
+            Not on this page. This page is the name, the occasion and the details. Tick the parts the design needs below, then press <strong>Create and open the studio</strong>:
+            the studio opens by itself, with every ticked part already a page, and that is where the pictures, the backgrounds and the decorations are placed and moved.
+            Come back to this tab any time for the details.
+          </p>
+        </div>
+      )}
       {t && (
         <div className="mb-4">
           <AsksSheet
@@ -101,7 +117,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         <div className="card space-y-3 p-4">
           <Field label="Name" name="name" defaultValue={t?.name} required />
           <Field label="Slug" name="slug" defaultValue={t?.slug} hint="Lowercase, dashes. Used in URLs and the gallery." />
-          <Select label="Occasion" name="occasion" defaultValue={occasion} options={OCCASIONS.map((o) => ({ value: o.key, label: o.label }))} hint="Changing the occasion changes which sections apply — save, then tick sections again." />
+          <Select label="Occasion" name="occasion" defaultValue={occasion} options={OCCASIONS.map((o) => ({ value: o.key, label: o.label }))} hint="The parts below follow it the moment it is picked." />
           <div>
             <p className="label">Also offered for</p>
             <div className="grid grid-cols-2 gap-1 text-sm">
@@ -126,25 +142,6 @@ export default async function TemplateEditor({ params, searchParams }: { params:
         </div>
         <div className="card space-y-3 p-4">
           <Select label="Layout" name="layout" defaultValue={t?.layout ?? 'classic'} options={LAYOUTS.map((l) => ({ value: l, label: l }))} hint="classic: full-bleed photo hero · editorial: portrait photo, big serif · garden: arched photo · modern: uppercase sans · festive: confetti · quiet: memorial" />
-          {/*
-            * Where its pages come from, asked once and never again: a design
-            * with pages of its own is edited in the studio from then on. A
-            * starter is one page per section this occasion offers, on plain
-            * colours; the layout's own is Baby Blue's or Capiz's pages
-            * exactly, which is the same thing Duplicate makes.
-            */}
-          {isNew && (
-            <Select
-              label="Start the pages from"
-              name="startFrom"
-              defaultValue="starter"
-              options={[
-                { value: 'starter', label: 'A starter — one page per section you tick, on plain colours' },
-                { value: 'layout', label: "The layout's own pages, as Baby Blue and Capiz are built" },
-              ]}
-              hint="A starter is one page per section you tick, on plain colours, ready to draw on. The layout's own pages are Capiz's or Baby Blue's, and only those two layouts have any."
-            />
-          )}
           <Select label="Start from palette preset" name="paletteKey" defaultValue="" options={[{ value: '', label: '— keep the colours below —' }, ...PALETTE_PRESETS.map((p) => ({ value: p.key, label: p.label }))]} hint="Pick a preset and clear the six colours below to apply it." />
           {/*
             * The same one-tap the studio's Theme popover has: six roles made
@@ -208,15 +205,7 @@ export default async function TemplateEditor({ params, searchParams }: { params:
               </p>
             </div>
           ) : (
-            <div>
-              <p className="label">Sections this layout renders</p>
-              <div className="grid grid-cols-2 gap-1 text-sm">
-                {OCCASION_SECTIONS[occasion].map((k) => (
-                  <label key={k} className="flex items-center gap-2"><input type="checkbox" name={`section_${k}`} defaultChecked={!t || t.sections.length === 0 || t.sections.includes(k)} className="h-4 w-4" />{sectionLabel(k, occasion)}</label>
-                ))}
-              </div>
-              <p className="hint">Unticked sections are hidden on this design but the customer&apos;s data is kept. A design drawn in the studio says this in its pages instead.</p>
-            </div>
+            <SectionTicks occasion={occasion} ticked={t && t.sections.length ? t.sections : null} />
           )}
         </div>
         <details className="card p-4 lg:col-span-2">
@@ -246,9 +235,15 @@ export default async function TemplateEditor({ params, searchParams }: { params:
               <UploadField key={`night${i}`} name={`art_night_${i + 1}`} label={`Night background ${i + 1}`} defaultValue={art.night?.[i] ?? ''} templateId={tid} hint={i === 0 ? 'Shown in night mode. With none set, night darkens the day backgrounds instead.' : undefined} />
             ))}
             {t?.layout !== 'babyblue' && <UploadField name="art_strand" label="Strand under the prenup photograph" defaultValue={art.strand ?? ''} placeholder={t?.layout === 'capiz' ? '/capiz/strand-b.webp' : ''} templateId={tid} hint="A wide picture with a transparent background." />}
+            {MOMENT_PARTS.map((p) => (
+              <UploadField key={`part-${p.key}`} name={`art_part_${p.key.replace('/', '__')}`} label={`Moment — ${p.label}`} defaultValue={art.parts?.[p.key] ?? ''} placeholder={p.url} templateId={tid} hint={p.hint} />
+            ))}
           </div>
         </details>
-        <div className="lg:col-span-2"><button className="btn btn-primary" type="submit">{isNew ? 'Create template' : 'Save template'}</button></div>
+        <div className="lg:col-span-2 flex flex-wrap items-center gap-3">
+          <button className="btn btn-primary" type="submit">{isNew ? 'Create and open the studio' : 'Save template'}</button>
+          {isNew && <span className="hint">The studio opens as soon as it is created.</span>}
+        </div>
       </form>
       {/*
         * Throwing a design away, and why the door is sometimes shut.

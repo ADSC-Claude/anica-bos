@@ -4,11 +4,13 @@ import type { Occasion } from '@prisma/client';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
-  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  decorStyle, decorOver, flowFloats, flowDecor, motionOf,
-  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef,
+  elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, floatAt, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture,
+  type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
+import { Moment } from './moments';
+import { MOMENT_BY_KEY, momentHint, triggerOf, type MomentKey, aspectOf } from '@/lib/moments';
 
 /**
  * A page drawn from the design's document.
@@ -46,6 +48,8 @@ export type EditView = {
    * geometry to keep in step.
    */
   cropping?: string;
+  /** the clip she has picked, which plays on the canvas so she can see what it looks like where it is; the rest stay their posters */
+  playing?: string;
 };
 
 /**
@@ -57,18 +61,21 @@ export type EditView = {
  * holding `{word: 'invitation'}` on a christening must not read "Join us as
  * we say I do!". Without one, a look answers as written.
  */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView): Read {
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean): Read {
   return {
     content,
     lang,
     edit,
+    parts,
+    onArt,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey, occasion) : lookLine(look, lang, key as LineKey, occasion)) ?? '',
     copy: (key: string) => t(lang, key as Parameters<typeof t>[1]),
   };
 }
 
-export function DrawnPage({ page, content, look, lang, occasion, edit }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView }) {
-  const read = reader(content, look, lang, occasion, edit);
+export function DrawnPage({ page, content, look, lang, occasion, edit, parts }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string> }) {
+  // a page whose own background is a picture: a moment on it stands on the page, not on a studio card
+  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)));
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -79,7 +86,20 @@ export function DrawnPage({ page, content, look, lang, occasion, edit }: { page:
   );
 }
 
-type Read = Parameters<typeof lineText>[1] & { content: Record<string, unknown>; edit?: EditView };
+type Read = Parameters<typeof lineText>[1] & {
+  content: Record<string, unknown>;
+  edit?: EditView;
+  /** the design's own photographed parts for its moments, by PartKey */
+  parts?: Record<string, string>;
+  /**
+   * Whether the page under these elements already carries a picture of its
+   * own. A moment stands on the studio ground it was photographed on where
+   * the page gives it nothing; on a page that is already a photograph the
+   * ground would be a card laid over the design's art, so it stands on the
+   * page itself instead — the cut-out object and its shadow are the scene.
+   */
+  onArt?: boolean;
+};
 
 /**
  * The pictures a flow page's words flow around.
@@ -109,19 +129,29 @@ export function FlowFloats({ page, content, lang }: { page: PageSpec; content: R
         if (!url) return null;
         const shape = floatShape(el.aspect ?? 1, el.rotate ?? 0);
         const alt = el.alt ? valueAt(content, el.alt) : '';
+        // the whole width of what floats, and from it the place she dropped it
+        const box = (el.w ?? 40) * shape.width;
+        const at = floatAt(el, box);
         return (
           <figure
             key={el.id}
             className="inv-bb-float"
-            data-float={el.float}
+            data-el={el.id}
+            data-float={at.side}
             data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
             data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
             style={{
-              width: `${(el.w ?? 40) * shape.width}%`,
+              width: `${box}%`,
               aspectRatio: `${shape.width} / ${shape.height}`,
               shapeOutside: shape.polygon,
               ['--float-inner' as string]: `${shape.inner}%`,
               ['--float-turn' as string]: `${el.rotate ?? 0}deg`,
+              // the place, as margins: in from its own side, down from where
+              // the words start. Per-cent, so both are shares of the column
+              // the words are in — which is what a float's place is measured
+              // in, because the column is what it stands in (`floatAt`).
+              ['--float-x' as string]: `${at.inset}%`,
+              ['--float-y' as string]: `${at.down}%`,
             } as CSSProperties}
           >
             <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" lang={lang === 'tl' ? 'tl' : undefined} />
@@ -164,7 +194,7 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
 }) {
   const decor = flowDecor(page).filter((el) => decorOver(el) === (layer === 'over'));
   if (!decor.length) return null;
-  const read = reader(content, look, lang, occasion, edit);
+  const read = reader(content, look, lang, occasion, edit, undefined, Boolean(page.ground && isPicture(page.ground)));
   return (
     <div className="inv-bb-art inv-deco" data-layer={layer}>
       {decor.map((el) => <Fragment key={el.id}>{draw(el, read, undefined, true)}</Fragment>)}
@@ -174,12 +204,62 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
 
 function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
   if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} deco={deco} />;
-  // a flow page's words are its sections': see flowDecor
-  if (el.kind === 'text') return deco ? null : <Block el={el} read={read} grow={grow} />;
+  // on a flow page a box of words hangs off the head or the foot like any other decoration: see flowDecor
+  if (el.kind === 'text') return <Block el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'shape') return <Shape el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'video') return <Clip el={el} read={read} grow={grow} deco={deco} />;
   if (el.kind === 'anim') return <Anim el={el} read={read} grow={grow} deco={deco} />;
+  if (el.kind === 'moment') return <MomentBox el={el} read={read} grow={grow} deco={deco} />;
   return null;
+}
+
+/**
+ * An interactive moment in its box, resolved for this invitation: the
+ * photographs it carries (the customer's, or the design's own), and the
+ * words it reveals, read the way a text box's lines are. The scene and the
+ * gesture are the client's (Moment); this is the part that knows the form.
+ */
+function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: number; deco?: boolean }) {
+  const def = MOMENT_BY_KEY[el.moment];
+  const photos = (el.photos ?? []).map((p) => ('asset' in p.bind ? p.bind.asset : valueAt(read.content, p.bind))).filter(Boolean);
+  const texts = (el.lines ?? []).map((l) => lineText(l.sources, read));
+  const hasWords = texts.some(Boolean);
+  const wants = def?.photos.count ?? 0;
+  // nothing to show and nothing asked: the moment is not there for this invitation
+  if (!read.edit && el.hidden !== 'never' && wants > 0 && !photos.length && !hasWords) return null;
+  const style = {
+    ...(deco ? decorStyle(el) : elementStyle(el, grow)),
+    ['--moment-aspect' as string]: String(el.aspect ?? aspectOf(el.moment, el.variant)),
+    ...motionOf(el).vars,
+  } as CSSProperties;
+  const trigger = triggerOf(el.moment, el.trigger);
+  // the words it reveals, read the way a text box's lines are; in the studio an empty moment says what fills it
+  const words = hasWords
+    ? <>{el.lines?.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null))}</>
+    : read.edit && !photos.length ? <p className="inv-bb-ask">{read.edit.label(el)}</p> : undefined;
+  return (
+    <Moment
+      id={el.id}
+      scene={el.moment}
+      variant={el.variant}
+      trigger={trigger}
+      speed={el.speed}
+      plays={el.plays}
+      hint={momentHint(el.moment, trigger, read.lang)}
+      edit={Boolean(read.edit)}
+      photos={photos.map((u) => imageUrl(u, IMAGE.grid))}
+      words={words}
+      code={el.code}
+      parts={read.parts}
+      ground={!read.onArt}
+      style={style}
+      attrs={{
+        ...(motionOf(el).attrs as Record<string, string | undefined>),
+        ...(read.edit ? { 'data-el': el.id, 'data-empty': !photos.length && !hasWords ? '' : undefined } : {}),
+        ...(grow && el.from === 'bottom' ? { 'data-foot': '' } : {}),
+      }}
+    />
+  );
 }
 
 /**
@@ -261,11 +341,14 @@ function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !el.url ? '' : undefined}
     >
-      {read.edit || !el.url
-        ? poster
-          ? <img src={poster} alt="" />
-          : <span className="inv-bb-ask">{read.edit!.label(el)}</span>
-        : <LazyVideo src={el.url} webm={el.webm} poster={poster} loop={el.loop !== false} />}
+      {read.edit && el.url && read.edit.playing === el.id
+        // the one she has picked plays, muted and looping, so she can see what it looks like where it is
+        ? <video src={el.url} poster={poster} muted autoPlay loop playsInline />
+        : read.edit || !el.url
+          ? poster
+            ? <img src={poster} alt="" />
+            : <span className="inv-bb-ask">{read.edit!.label(el)}</span>
+          : <LazyVideo src={el.url} webm={el.webm} poster={poster} loop={el.loop !== false} />}
     </div>
   );
 }
@@ -331,11 +414,11 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
  * line under it, or a milestone's name with its sentence. An empty line is
  * dropped; a block whose every line is empty draws nothing.
  */
-function Block({ el, read, grow }: { el: TextEl; read: Read; grow?: number }) {
+function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number; deco?: boolean }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
   if (blank && el.hidden !== 'never' && !read.edit) return null;
-  const style = { ...elementStyle(el, grow), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
+  const style = { ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
   // `data-foot` says this one is placed from the foot: what holds the bottom
   // of a page that grows follows the page down and is never what pushes it

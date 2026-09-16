@@ -1,6 +1,7 @@
 'use server';
 
 import { wordsOf, artOf, LINE_KEYS, TITLE_KEYS, titleWord, BABYBLUE_GROUND_KEYS, documentOf, studioDoc, builtinDesign, starterDesign, designOf, blastRadius, offeredSections, type DesignDoc, type PageSpec, type PageSectionKey } from '@/lib/design';
+import { MOMENT_PARTS } from '@/lib/moments';
 import { pageNeeds } from '@/lib/needs';
 import { designFiles } from '@/lib/design-files';
 import { canAddPart, extraSectionsOf } from '@/lib/parts';
@@ -33,7 +34,7 @@ import { fontBook } from '@/lib/font-book';
 import { slugify } from '@/lib/codes';
 import { toCents } from '@/lib/money';
 import { addDays } from '@/lib/datetime';
-import { OCCASION_SECTIONS, sectionOrder, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
+import { OCCASION_SECTIONS, sectionFilled, sectionLabel, type SectionKey } from '@/lib/sections';
 import { STAFF_ROLES } from '@/lib/rbac';
 import type { Permission } from '@/lib/rbac';
 
@@ -199,30 +200,28 @@ export async function saveTemplateAction(templateId: string | null, back: string
         night: Array.from({ length: 8 }, (_, i) => s(fd, `art_night_${i + 1}`)),
         strand: s(fd, 'art_strand'),
         grounds: Object.fromEntries(BABYBLUE_GROUND_KEYS.map((k) => [k, s(fd, `art_ground_${k}`)])),
+        parts: Object.fromEntries(MOMENT_PARTS.map((p) => [p.key, s(fd, `art_part_${p.key.replace('/', '__')}`)])),
       }) as never,
     };
     if (!data.name) throw new HttpError(400, 'A template needs a name.');
     /*
      * A design made here starts with pages, so the studio has something to
-     * open on. Before this it started with nothing and the only way to get a
-     * design was to copy one of the two, which meant carrying their page
-     * names and their proportions whether they were wanted or not.
+     * open on: one page per part ticked above, in the order the form lists
+     * them, on plain colours. Its own structure and nobody else's — the
+     * option to start from Baby Blue's or Capiz's pages is gone, because a
+     * new design was never meant to inherit theirs; a copy of either is
+     * still made from the Templates list, where copying is what is meant.
      *
      * It goes in the draft, never in what a guest renders: a design is
      * published from the studio and nowhere else.
      */
-    const start = !templateId
-      // in the layout's own order, not the form's: a starter should read like
-      // an invitation — the story and the details, then the forms and the
-      // countdown — rather than like the list of questions it came from
-      ? (s(fd, 'startFrom') === 'layout' ? builtinDesign(layout) : null)
-        ?? starterDesign(sectionOrder(occasion as Occasion, layout).filter((k) => ticked.includes(k)))
-      : null;
+    const start = !templateId ? starterDesign(ticked) : null;
     const saved = templateId
       ? await prisma.template.update({ where: { id: templateId }, data })
       : await prisma.template.create({ data: { ...data, ...(start ? { designDraft: start as never } : {}) } });
     await audit(user, { module: 'templates', action: templateId ? 'update' : 'create', entityType: 'Template', entityId: saved.id, summary: saved.name });
-    if (!templateId) redirect(`/admin/templates/${saved.id}?ok=Created`);
+    // straight to the studio, with the invitation on the canvas
+    if (!templateId) redirect(`/admin/templates/${saved.id}/design`);
     return 'Template saved.';
   });
 }
@@ -502,25 +501,30 @@ export async function invitationsToDrawAction(templateId: string): Promise<{ id:
 /**
  * One invitation's answers, for the canvas to draw a page against.
  *
- * Read-only by construction rather than by promise: the studio hands this
- * to the canvas as what it draws, and everything the studio saves is the
- * design document, which has no customer's words in it at all. The only
- * way this could reach an invitation is if somebody wrote that code, and
- * there is none.
+ * Read-only here: the studio hands this to the canvas as what it draws,
+ * and everything the studio saves as the design is the design document,
+ * which has no customer's words in it at all. The one way from the studio
+ * back to an invitation is the form it now carries, and that saves through
+ * the customer's own actions and their own ownership check, not through
+ * anything the design can reach.
+ *
+ * The slug is for the whole-invitation view, so it can show the page she
+ * is drawing against rather than always the demo; the tier and status are
+ * what the sample menu names her by.
  *
  * Scoped to the design, so an id from anywhere else cannot be read through
  * the studio; and reading a customer's answers is an invitations
  * permission, not a design one, so it asks for that as well.
  */
 export async function invitationContentAction(templateId: string, id: string): Promise<
-  { ok: true; title: string; content: Record<string, unknown> } | { ok: false; error: string }
+  { ok: true; title: string; slug: string; tier: Tier; status: string; content: Record<string, unknown> } | { ok: false; error: string }
 > {
   const user = await requireStaffSession();
   assertPermission(user, 'templates.edit');
   assertPermission(user, 'invitations.view');
-  const inv = await prisma.invitation.findFirst({ where: { id, templateId }, select: { title: true, content: true } });
+  const inv = await prisma.invitation.findFirst({ where: { id, templateId }, select: { title: true, slug: true, tier: true, status: true, content: true } });
   if (!inv) return { ok: false, error: 'That invitation is not on this design any more.' };
-  return { ok: true, title: inv.title, content: contentOf(inv.content) as Record<string, unknown> };
+  return { ok: true, title: inv.title, slug: inv.slug, tier: inv.tier, status: inv.status, content: contentOf(inv.content) as Record<string, unknown> };
 }
 
 // --- the theme -------------------------------------------------------------

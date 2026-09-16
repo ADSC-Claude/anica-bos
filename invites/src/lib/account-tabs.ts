@@ -1,5 +1,6 @@
-import type { Tier } from '@prisma/client';
+import type { Occasion, Tier } from '@prisma/client';
 import { hasFeature, entitled, featureOffered } from './tiers';
+import { sectionOnCard } from './sections';
 
 /**
  * The strip of tabs across every page about one invitation.
@@ -11,7 +12,7 @@ import { hasFeature, entitled, featureOffered } from './tiers';
  * exists cannot want one. The list is a pure function so the strip and the
  * tests read the same one.
  */
-export type TabKey = 'invitation' | 'share' | 'guests' | 'rsvps' | 'checkin' | 'messages' | 'guestbook' | 'photos' | 'saveTheDate' | 'pair' | 'settings' | 'guide';
+export type TabKey = 'invitation' | 'share' | 'guests' | 'rsvps' | 'seating' | 'checkin' | 'messages' | 'guestbook' | 'photos' | 'saveTheDate' | 'pair' | 'settings' | 'guide';
 
 export type Tab = {
   key: TabKey;
@@ -25,6 +26,8 @@ export type TabsInput = {
   id: string;
   tier: Tier;
   addOns: string[];
+  /** Decides which pages the invitation has at all: a kids' birthday has no guestbook page, so it gets no Guestbook tab. */
+  occasion: Occasion;
   /** This card is a Save the Date, announcing the invitation `pairId` names. */
   saveTheDate: boolean;
   /** The other half of the pair: the invitation this announces, or this invitation's Save the Date. */
@@ -57,10 +60,14 @@ export function tabsFor(inv: TabsInput): Tab[] {
     { key: 'share', label: 'Share', href: at('/share') },
     featureOffered('guests.manager') ? { key: 'guests', label: 'Guest list', href: entitled(inv, 'guests.manager') ? at('/guests') : upgrade, ...lock(entitled(inv, 'guests.manager')) } : null,
     { key: 'rsvps', label: 'RSVP responses', href: at('/rsvps') },
+    featureOffered('seating') ? { key: 'seating', label: 'Seating chart', href: entitled(inv, 'seating') ? at('/seating') : upgrade, ...lock(entitled(inv, 'seating')) } : null,
     featureOffered('checkin') ? { key: 'checkin', label: 'Check-in', href: entitled(inv, 'checkin') ? at('/checkin') : upgrade, ...lock(entitled(inv, 'checkin')) } : null,
     // Open to every package: the words are the couple's whatever they bought.
     { key: 'messages', label: 'Messages', href: at('/messages') },
-    { key: 'guestbook', label: 'Guestbook', href: hasFeature(inv.tier, 'guestbook') ? at('/guestbook') : upgrade, ...lock(hasFeature(inv.tier, 'guestbook')) },
+    // By package, like the others — but only where the occasion has the page:
+    // a tab for a guestbook the invitation cannot carry would be an Upgrade
+    // pill that buys nothing.
+    sectionOnCard('guestbook', inv.occasion, false) ? { key: 'guestbook', label: 'Guestbook', href: hasFeature(inv.tier, 'guestbook') ? at('/guestbook') : upgrade, ...lock(hasFeature(inv.tier, 'guestbook')) } : null,
     { key: 'photos', label: 'Guest photos', href: entitled(inv, 'photoSharing') ? at('/photos') : upgrade, ...lock(entitled(inv, 'photoSharing')) },
     inv.pairId ? { key: 'saveTheDate', label: 'Save the Date', href: `/account/invitations/${inv.pairId}` } : null,
     { key: 'settings', label: 'Link & design', href: at('/settings') },

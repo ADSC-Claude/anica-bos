@@ -3,17 +3,13 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { contentOf } from '@/lib/invitations';
-import { sectionOrder, sectionLabel, sectionMinTier, sectionUnlocked, sectionFilled, sectionAlwaysShows, fieldsFor, customerFields, emptySection, photoFrames, photoFramesHint, SECTION_BY_KEY, SAVE_THE_DATE_SECTIONS, type SectionKey } from '@/lib/sections';
-import { documentOf } from '@/lib/design';
-import { designForm, askedFields, askedLimits, designMedia } from '@/lib/asks';
-import { isStaff } from '@/lib/rbac';
-import { galleryLimit } from '@/lib/tiers';
+import { builderPropsFor } from '@/lib/builder-props';
 import { Builder } from '@/components/builder/builder';
 import { setsFor } from '@/lib/fonts';
 import { fontBook } from '@/lib/font-book';
 import { getSettings } from '@/lib/settings';
-import { changeWindow, doneSections } from '@/lib/progress';
 import { checklistFor } from '@/lib/checklist';
+import { welcomeDue, welcomeFor } from '@/lib/welcome';
 import type { SendToUs } from '@/components/account/checklist';
 
 export const dynamic = 'force-dynamic';
@@ -36,65 +32,31 @@ export default async function InvitationPage({ params, searchParams }: { params:
   const [sets, s, job] = await Promise.all([fontBook(), getSettings(), prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true, intakeMethod: true, intakeSubmittedAt: true } })]);
   const offered = setsFor(inv.tier, sets, inv.template.fontSets);
   const std = Boolean(inv.saveTheDateOfId);
-  const keys = sectionOrder(inv.occasion, inv.template.layout).filter((k) => !std || SAVE_THE_DATE_SECTIONS.includes(k));
-  const defs = keys.map((k) => SECTION_BY_KEY[k]).filter((d) => !d.hidden);
-  const sections = defs.map((d) => ({
-    key: d.key,
-    label: sectionLabel(d.key, inv.occasion),
-    description: d.description,
-    unlocked: sectionUnlocked(d.key, inv.occasion, inv.tier, inv.addOns),
-    filled: sectionFilled(d.key, inv.occasion, content[d.key]),
-    minTier: sectionMinTier(d.key, inv.occasion),
-  }));
-  const current = (sections.find((x) => x.key === section && x.unlocked)?.key ?? sections.find((x) => x.unlocked)!.key) as SectionKey;
-  /*
-   * The form this design asks for. A design that says nothing gives back the
-   * very fields it was handed, so every invitation on a design with no
-   * document of its own — which is all of them today — sees exactly the form
-   * it saw before. The fixed writings are ours: staff editing for the
-   * customer see them, the customer does not.
-   */
-  const form = designForm(documentOf(inv.template), inv.occasion);
-  const all = designMedia(fieldsFor(current, inv.occasion, inv.tier, std), current, form);
-  const own = isStaff(user.role) ? all : customerFields(all);
-  const fields = askedFields(own, current, form);
-  const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
-  const limit = galleryLimit(inv.tier);
-  const done = doneSections(content.progress);
-  const hidesWhenEmpty = !sectionAlwaysShows(current);
-  const w = changeWindow(inv.eventAt);
-  const window = w ? { closesAt: w.closesAt.toISOString(), finalAt: w.finalAt.toISOString(), closed: w.closed } : null;
-  const checklist = checklistFor({ id: inv.id, occasion: inv.occasion, content, tier: inv.tier, addOns: inv.addOns, status: inv.status, saveTheDate: std, layout: inv.template.layout, done });
+  // The parts, the fields, the window: worked out once, for this tab and for
+  // the studio's copy of the form alike. What follows is this tab's own.
+  const props = builderPropsFor(user.role, inv, section);
+  const checklist = checklistFor({ id: inv.id, occasion: inv.occasion, content, tier: inv.tier, addOns: inv.addOns, status: inv.status, saveTheDate: std, layout: inv.template.layout, done: props.done });
   // Where our team types the details in, the two other ways of handing them
   // over stay on offer — up to the point the job is approved.
   const dfy = Boolean(inv.order?.serviceMode && inv.order.serviceMode !== 'DIY') && job;
   const send: SendToUs | null = dfy && job
-    ? { method: job.intakeMethod, submittedAt: job.intakeSubmittedAt?.toISOString() ?? null, messenger: s['contact.messenger'], viber: s['contact.viber'], reference: inv.order?.reference ?? '', editable: ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status) }
+    ? { method: job.intakeMethod, submittedAt: job.intakeSubmittedAt?.toISOString() ?? null, messenger: s['contact.messenger'], reference: inv.order?.reference ?? '', editable: ['NEW', 'INTAKE_RECEIVED', 'ENCODING', 'REVISION', 'PREVIEW_SENT'].includes(job.status) }
     : null;
+  // The first open after paying: the checkout sends the customer straight
+  // here, and the receipt, the plan and the offer of a tour sit over the
+  // Get-started list until they answer.
+  const welcome = welcomeDue(inv, user) ? welcomeFor(user, inv) : null;
 
   return (
     <Builder
-      key={current}
+      key={props.current}
       invitationId={inv.id}
-      slug={inv.slug}
-      status={inv.status}
-      sections={sections}
-      current={current}
-      fields={fields}
-      initial={initial}
-      done={done}
-      hidesWhenEmpty={hidesWhenEmpty}
-      completedAt={content.progress?.completedAt ?? null}
-      window={window}
-      lang={inv.language === 'tl' ? 'tl' : 'en'}
-      listLimits={{ photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) }}
-      listHints={photoFramesHint(inv.template.layout)}
-      lookKey={content.theme?.lookKey ?? ''}
+      {...props}
       looks={offered.map((l) => ({ key: l.key, name: l.name, tagline: l.tagline }))}
       allLooks={sets.length}
-      tier={inv.tier}
       checklist={checklist}
       send={send}
+      welcome={welcome}
     />
   );
 }

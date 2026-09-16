@@ -280,8 +280,9 @@ test('the band over the words holds only what asked for it', () => {
   assert.doesNotMatch(over, /inv-bb-shape/);
 });
 
-test('a text box is never a decoration, in either band', () => {
-  assert.doesNotMatch(band('under'), /not here|inv-bb-text/);
+test('a box of words is a decoration too, hung off the head in the band its layer says', () => {
+  // no layer of its own, so behind the section's words like any other piece, and placed by a share of the width
+  assert.match(band('under'), /<div class="inv-bb-text" style="left:50%;top:5cqw;width:60%;transform:translateX\(-50%\)"><p class="inv-bb-body">not here<\/p>/);
   assert.doesNotMatch(band('over'), /not here|inv-bb-text/);
 });
 

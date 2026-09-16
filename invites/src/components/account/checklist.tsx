@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { ChecklistLine } from '@/lib/checklist';
-import { saveIntakeAction } from '@/app/account/actions';
+import { welcomeLines, type Welcome } from '@/lib/welcome';
+import { saveIntakeAction, welcomedAction } from '@/app/account/actions';
 import { Tour, INVITATION_TOUR } from './tour';
 
 /**
@@ -11,11 +12,18 @@ import { Tour, INVITATION_TOUR } from './tour';
  * fills as they are, and the tour. Put away with "Don't show again" it
  * folds to one line that still says how far along they are — the ticks are
  * the plan, and the plan should stay in sight.
+ *
+ * On a first open after paying the same card is the welcome: the receipt and
+ * the plan over the lines, and the tour offered once, with the answer kept
+ * on the invitation rather than in this browser. A welcome is never folded —
+ * the "Don't show again" that folds the list cannot have been pressed yet,
+ * and a customer about to start should meet the plan open.
  */
-export function GetStarted({ invitationId, lines, send }: { invitationId: string; lines: ChecklistLine[]; send: SendToUs | null }) {
+export function GetStarted({ invitationId, lines, send, welcome = null }: { invitationId: string; lines: ChecklistLine[]; send: SendToUs | null; welcome?: Welcome | null }) {
   const key = `yit:checklist:${invitationId}`;
   const [hidden, setHidden] = useState(false);
   const [tour, setTour] = useState(false);
+  const [welcoming, setWelcoming] = useState(Boolean(welcome));
   useEffect(() => {
     try {
       setHidden(window.localStorage.getItem(key) === 'hidden');
@@ -32,10 +40,19 @@ export function GetStarted({ invitationId, lines, send }: { invitationId: string
       /* not remembered, still hidden for now */
     }
   };
+  // The welcome answered, either way. Written to the invitation so it is not
+  // offered again on another device; a write that fails only means it is
+  // offered once more, which is not worth an alert.
+  const answer = (walk: boolean) => {
+    setWelcoming(false);
+    if (walk) setTour(true);
+    void welcomedAction(invitationId);
+  };
   const done = lines.filter((l) => l.done).length;
   const pct = Math.round((done / Math.max(1, lines.length)) * 100);
+  const words = welcoming && welcome ? welcomeLines(welcome) : null;
 
-  if (hidden) {
+  if (hidden && !words) {
     return (
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[color:var(--color-sand-200)] bg-white px-4 py-2 text-sm">
         <span><b>Get started</b> · {done} of {lines.length} done</span>
@@ -45,6 +62,13 @@ export function GetStarted({ invitationId, lines, send }: { invitationId: string
   }
   return (
     <div className="card mb-4 p-4" data-tour="checklist">
+      {words && (
+        <div className="mb-3 border-b border-[color:var(--color-sand-200)] pb-3" data-testid="welcome">
+          <p className="eyebrow">{words.eyebrow}</p>
+          <h2 className="display mt-1 text-xl">{words.title}</h2>
+          <p className="mt-1 text-sm text-[color:var(--color-ink-700)]">{words.body}</p>
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">Get started</h2>
         <span className="text-xs text-[color:var(--color-ink-500)]">{done} of {lines.length} done</span>
@@ -61,11 +85,22 @@ export function GetStarted({ invitationId, lines, send }: { invitationId: string
           </li>
         ))}
       </ol>
+      <p className="mt-3 text-xs text-[color:var(--color-ink-500)]">
+        Prefer paper? <Link href={`/account/invitations/${invitationId}/details-sheet`} className="underline">Download the details sheet</Link> — every part your package asks for, as a Word file to fill in offline or send back over Messenger.
+      </p>
       {send && <SendToUsCard invitationId={invitationId} {...send} />}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setTour(true)}>Show me around</button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={() => put(true)}>Don’t show again</button>
-      </div>
+      {words ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-sm">Want a two-minute look around first?</span>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => answer(true)}>Show me around</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => answer(false)}>I’ll find my way</button>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setTour(true)}>Show me around</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => put(true)}>Don’t show again</button>
+        </div>
+      )}
       {tour && <Tour steps={INVITATION_TOUR} onClose={() => setTour(false)} />}
     </div>
   );
@@ -78,11 +113,11 @@ export function GetStarted({ invitationId, lines, send }: { invitationId: string
  * ninongs, or a bride who would rather send screenshots by chat, should not
  * have to copy it all into boxes. One button tells the team to expect it.
  */
-export type SendToUs = { method: string; submittedAt: string | null; messenger: string; viber: string; reference: string; editable: boolean };
+export type SendToUs = { method: string; submittedAt: string | null; messenger: string; reference: string; editable: boolean };
 
-function SendToUsCard({ invitationId, method: initial, submittedAt, messenger, viber, reference, editable }: SendToUs & { invitationId: string }) {
+function SendToUsCard({ invitationId, method: initial, submittedAt, messenger, reference, editable }: SendToUs & { invitationId: string }) {
   const [pending, start] = useTransition();
-  const [method, setMethod] = useState(initial === 'EXCEL' ? 'EXCEL' : 'MESSENGER');
+  const [method, setMethod] = useState(initial === 'EXCEL' || initial === 'SHEET' ? initial : 'MESSENGER');
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(submittedAt);
   const tell = () =>
@@ -94,15 +129,16 @@ function SendToUsCard({ invitationId, method: initial, submittedAt, messenger, v
   return (
     <div className="mt-3 rounded-xl border border-dashed border-[color:var(--color-sand-300)] p-3 text-sm">
       <p className="font-semibold">Prefer to send it to us?</p>
-      <p className="text-xs text-[color:var(--color-ink-700)]">Message your details, photos or an Excel over Messenger or Viber — mention order <b>{reference}</b> — and we will type them in for you.</p>
+      <p className="text-xs text-[color:var(--color-ink-700)]">Message your details, photos or an Excel over Messenger — or fill in the details sheet, the Word file of everything your package asks for, and send that back. Mention order <b>{reference}</b> and we will type them in for you.</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {messenger && <a href={messenger} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Messenger</a>}
-        {viber && <a href={viber} className="btn btn-secondary btn-sm">Viber</a>}
+        <a href={`/account/invitations/${invitationId}/details-sheet.docx`} download className="btn btn-secondary btn-sm">Details sheet (Word)</a>
         {editable && !sent && (
           <>
             <select className="field min-h-0 w-auto py-1 text-xs" value={method} onChange={(e) => setMethod(e.target.value)} aria-label="How you are sending it">
-              <option value="MESSENGER">by chat</option>
+              <option value="MESSENGER">by Messenger</option>
               <option value="EXCEL">as an Excel file</option>
+              <option value="SHEET">the details sheet, filled in</option>
             </select>
             <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={tell}>{pending ? 'Telling the team…' : 'I have sent it — tell the team'}</button>
           </>

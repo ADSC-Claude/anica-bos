@@ -20,7 +20,11 @@ const el = (doc: DesignDoc, page: string, id: string) => on(doc, page).elements!
  */
 test('the two designs as shipped need nothing', () => {
   assert.deepEqual(run(base), []);
-  assert.deepEqual(pageNeeds({ doc: builtinDesign('capiz'), occasion: 'WEDDING' as never }), []);
+  // Capiz carries its storyline, so the one line it gets is the count of what it asks for — nothing to fix
+  const capiz = pageNeeds({ doc: builtinDesign('capiz'), occasion: 'WEDDING' as never });
+  assert.deepEqual(capiz.map((n) => n.rule), ['asks']);
+  assert.match(capiz[0].text, /3 photographs and 2 writings/);
+  assert.equal(publishable(capiz), true);
   assert.equal(publishable(run(base)), true);
   assert.deepEqual(pageNeeds({ doc: null, occasion: 'WEDDING' as never }), []);
 });
@@ -324,18 +328,17 @@ test('a decoration running off the side of the page still says so', () => {
   assert.equal(b[0].level, 'blocks');
 });
 
-test('words on a page laid out by its words are never drawn, and it says so', () => {
+test('words on a page laid out by its words are drawn over it, so a box there is nothing to fix', () => {
+  // a page laid out by its words draws its boxes over the words (flowDecor),
+  // so a writing lifted off the flow, or words added beside it, pass as they
+  // would on a page drawn by hand
   const d = clone();
-  on(d, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
-  const n = run(d).filter((x) => x.rule === 'not-drawn');
-  assert.equal(n.length, 1);
-  assert.equal(n[0].level, 'blocks');
-  assert.match(n[0].text, /never drawn/);
-  assert.equal(publishable(run(d)), false);
-  // the same box on a drawn page is exactly where it belongs
+  on(d, 'venue').elements = [{ id: 'stray', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lifted: 'venue.title', lines: [{ role: 'body', sources: [{ word: 'venue' }, { fixed: { en: 'nowhere', tl: 'wala' } }] }] }];
+  assert.deepEqual(run(d).filter((x) => x.id === 'stray'), []);
+  assert.equal(publishable(run(d)), true);
   const drawn = clone();
   on(drawn, 'story').elements!.push({ id: 'fine', kind: 'text', block: 'free', x: 50, y: 10, w: 60, lines: [{ role: 'body', sources: [{ fixed: { en: 'here', tl: 'dito' } }] }] });
-  assert.deepEqual(run(drawn).filter((x) => x.rule === 'not-drawn'), []);
+  assert.deepEqual(run(drawn).filter((x) => x.id === 'fine'), []);
 });
 
 // --- what a guest downloads --------------------------------------------------
@@ -520,6 +523,13 @@ test('every rule the type names can be made to fire', () => {
   cap.offerLine = true;
   cap.lines[0].sources = [...cap.lines[0].sources, { fixed: { en: 'Much longer than eight letters' } }];
   add(o);
+
+  // a moment: one that opens onto a photograph nothing is linked to, a secret
+  // code with no code, one too narrow to tap, and four on one page
+  const mo = clone(); on(mo, 'story').elements!.push({ id: 'mo-1', kind: 'moment', moment: 'curtains', x: 50, y: 40, w: 60, photos: [] }); add(mo);
+  const mc = clone(); on(mc, 'story').elements!.push({ id: 'mo-code', kind: 'moment', moment: 'code', x: 50, y: 40, w: 60, photos: [{ bind: { asset: '/p.webp' } }] }); add(mc);
+  const ms = clone(); on(ms, 'story').elements!.push({ id: 'mo-small', kind: 'moment', moment: 'capiz', x: 50, y: 40, w: 20 }); add(ms);
+  const mm = clone(); on(mm, 'story').elements!.push(...[1, 2, 3, 4].map((n) => ({ id: `mo-${n}`, kind: 'moment' as const, moment: 'capiz' as const, x: 50, y: 15 * n, w: 40 }))); add(mm);
 
   // the four about clips: one too heavy, one too long, bare words on a
   // bright one, and every clip in the design over the budget together

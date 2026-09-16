@@ -37,7 +37,8 @@ import { fontBook } from './font-book';
 import { hasPremiumOpening } from './openings';
 import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
-import { changeWindow, withDone, formComplete, doneSections, type Progress } from './progress';
+import { changeWindow, withDone, formComplete, doneSections, liveEditable, LIVE_LOCK, windowLock, type Progress } from './progress';
+import { revisionsToDrop } from './revision-keep';
 import { documentOf } from './design';
 import { designForm, askedFields, designMedia } from './asks';
 import { notifyStaff } from './notifications';
@@ -61,7 +62,7 @@ export type StoredContent = Content & { theme?: ThemeOverride; progress?: Progre
 export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null }) {
   if (user.role !== 'CUSTOMER') return;
   const w = changeWindow(invitation.eventAt);
-  if (w?.closed) throw new HttpError(403, `Changes closed on ${formatDate(w.closesAt)}, three weeks before your event, so our team can finish the final touches by ${formatDate(w.finalAt)}. Message us for anything urgent.`);
+  if (w?.closed) throw new HttpError(403, windowLock(w));
 }
 
 /**
@@ -75,12 +76,14 @@ export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: D
  * than an allowance: there is no number of changes left to spend, and no row
  * an admin can raise to reopen one by accident. Staff are never gated, because
  * after publish a change is ours to make — that is what "message us" means.
+ *
+ * The one exception is the switches that run the day (LIVE_SECTIONS in
+ * progress.ts): saveSection lets those through, live or not, because a
+ * guestbook nobody can switch on at the reception is not a guestbook.
  */
 export function assertNotPublished(user: SessionUser, invitation: { status: string }) {
   if (user.role !== 'CUSTOMER') return;
-  if (invitation.status === 'PUBLISHED') {
-    throw new HttpError(403, 'Your invitation is already live, so changes to it are ours to make. Message us on Messenger or Viber and we will sort it out.');
-  }
+  if (invitation.status === 'PUBLISHED') throw new HttpError(403, LIVE_LOCK);
 }
 
 /**
@@ -229,14 +232,44 @@ export function unlocked(invitation: { order: { status: string } | null }): bool
   return invitation.order?.status === 'ACTIVE' || invitation.order?.status === 'PAID' || invitation.order === null;
 }
 
+/**
+ * The columns that follow from the content: the title the dashboard and the
+ * link preview use, the moment the countdown counts to, when the RSVP form
+ * closes, and the picture the link shows. Read from the content every time
+ * it is written, by a save and by a restore alike, so the columns never
+ * describe an invitation the content no longer is.
+ */
+export function derivedColumns(occasion: Occasion, content: StoredContent) {
+  const eventAt = eventInstant(content);
+  const deadline = rsvpDeadline(content);
+  return { title: displayTitle(occasion, content), eventAt: eventAt ?? undefined, rsvpDeadline: deadline ?? undefined, ogImageUrl: coverImage(content) };
+}
+
+/**
+ * History: the invitation as it was just before a save that changed
+ * something, kept so a wrong keystroke and a wrong week can both be undone.
+ * Pruned as it is written — see revisionsToDrop — so the table never grows
+ * past what anybody would want back.
+ */
+export async function recordRevision(invitation: { id: string; title: string; content: unknown }, section: string) {
+  await prisma.invitationRevision.create({ data: { invitationId: invitation.id, section, title: invitation.title, content: invitation.content as never } });
+  const all = await prisma.invitationRevision.findMany({ where: { invitationId: invitation.id }, select: { id: true, createdAt: true } });
+  const drop = revisionsToDrop(all);
+  if (drop.length) await prisma.invitationRevision.deleteMany({ where: { id: { in: drop } } });
+}
+
 export async function saveSection(user: SessionUser, invitationId: string, key: SectionKey, raw: unknown, opts: { done?: boolean } = {}) {
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
     include: { order: { select: { status: true } }, template: { select: { design: true, layout: true } } },
   });
   if (!invitation) throw new HttpError(404, 'That invitation does not exist.');
-  assertNotPublished(user, invitation);
-  assertOpenForChanges(user, invitation);
+  // The switches that run the day stay the customer's on a live page and
+  // inside the window; everything else passes to us.
+  if (!liveEditable(key)) {
+    assertNotPublished(user, invitation);
+    assertOpenForChanges(user, invitation);
+  }
   if (!sectionOnCard(key, invitation.occasion, Boolean(invitation.saveTheDateOfId))) throw new HttpError(400, 'That section does not belong to this card.');
   if (!sectionUnlocked(key, invitation.occasion, invitation.tier, invitation.addOns)) {
     throw new HttpError(403, 'That section is not included in your package. Upgrade to unlock it.');
@@ -258,9 +291,16 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
     form,
   );
   const { data: cleaned, issues } = cleanSection(fields, raw);
+  // The row as it stands, before anything below touches it: contentOf hands
+  // back the same object when nothing needs migrating, so this is the only
+  // copy that still says what the part was.
+  const before = { id: invitation.id, title: invitation.title, content: JSON.parse(JSON.stringify(invitation.content)) as unknown };
   const content = contentOf(invitation.content);
   // the fixed writings are ours: a customer's save keeps them as they were
   const data = isStaff(user.role) && can(user.role, 'invitations.edit') ? cleaned : keepStaffFields(fields, content[key], cleaned);
+  // Only a save that changed the part is history; the same words saved
+  // twice would fill the thirty with nothing to go back to.
+  const changed = JSON.stringify(content[key] ?? null) !== JSON.stringify(data);
   content[key] = data;
   // Done, section by section; the form is complete once every section the couple has is Done, and the team is told
   let completed = false;
@@ -273,19 +313,13 @@ export async function saveSection(user: SessionUser, invitationId: string, key: 
     }
   }
 
-  const eventAt = eventInstant(content);
-  const deadline = rsvpDeadline(content);
-  const title = displayTitle(invitation.occasion, content);
+  const derived = derivedColumns(invitation.occasion, content);
+  const title = derived.title;
 
+  if (changed) await recordRevision(before, key);
   const updated = await prisma.invitation.update({
     where: { id: invitationId },
-    data: {
-      content: content as never,
-      title,
-      eventAt: eventAt ?? undefined,
-      rsvpDeadline: deadline ?? undefined,
-      ogImageUrl: coverImage(content),
-    },
+    data: { content: content as never, ...derived },
   });
   if (completed) {
     await audit(user, { module: 'invitations', action: 'form.complete', entityType: 'Invitation', entityId: invitationId, summary: `Every section marked Done: ${title}` });
@@ -308,6 +342,17 @@ export async function setSectionDone(user: SessionUser, invitationId: string, ke
   content.progress = withDone(content.progress, key, done);
   await prisma.invitation.update({ where: { id: invitationId }, data: { content: content as never } });
   return doneSections(content.progress);
+}
+
+/**
+ * The welcome answered: the tour taken or declined, so it is not offered
+ * again. Remembered on the invitation rather than in a browser, so a welcome
+ * answered on a phone is not asked again on the laptop. Only the owner's
+ * answer counts — staff opening a customer's invitation must not spend it —
+ * and a second answer changes nothing.
+ */
+export async function markWelcomed(user: SessionUser, invitationId: string) {
+  await prisma.invitation.updateMany({ where: { id: invitationId, userId: user.id, welcomedAt: null }, data: { welcomedAt: new Date() } });
 }
 
 export async function updateTheme(user: SessionUser, invitationId: string, theme: ThemeOverride) {

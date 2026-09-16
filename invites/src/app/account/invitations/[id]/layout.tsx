@@ -7,6 +7,7 @@ import { occasionLabel } from '@/lib/occasions';
 import { TIER_LABELS } from '@/lib/tiers';
 import { formatDate } from '@/lib/datetime';
 import { invitationPath } from '@/lib/app-url';
+import { isStaff, can } from '@/lib/rbac';
 import { tabsFor } from '@/lib/account-tabs';
 import { InvitationPill } from '@/components/ui';
 import { TabStrip } from '@/components/account/tabs';
@@ -31,7 +32,7 @@ export default async function InvitationLayout({ children, params }: { children:
       : prisma.invitation.findUnique({ where: { saveTheDateOfId: inv.id }, select: { id: true } }),
     prisma.dfyJob.findUnique({ where: { invitationId: inv.id }, select: { status: true } }),
   ]);
-  const tabs = tabsFor({ id: inv.id, tier: inv.tier, addOns: inv.addOns, saveTheDate, pairId: pair?.id ?? null });
+  const tabs = tabsFor({ id: inv.id, tier: inv.tier, addOns: inv.addOns, occasion: inv.occasion, saveTheDate, pairId: pair?.id ?? null });
   const live = inv.status === 'PUBLISHED';
   // Done-For-You publishes through the approval thread on the Share tab; a
   // customer's own card publishes with the button there.
@@ -49,6 +50,9 @@ export default async function InvitationLayout({ children, params }: { children:
           </p>
         </div>
         <div className="flex flex-wrap gap-2" data-tour="publish">
+          {/* Our way into the studio, drawn against this very invitation. The customer never sees it. */}
+          {isStaff(user.role) && can(user.role, 'templates.edit') && <Link href={`/admin/templates/${inv.templateId}/design?against=${inv.id}`} className="btn btn-secondary btn-sm">Design studio</Link>}
+          <Link href={`${base}/history`} className="btn btn-secondary btn-sm">History</Link>
           <a href={invitationPath(inv.slug)} target="_blank" rel="noopener" className="btn btn-secondary btn-sm">Preview</a>
           <Link href={`${base}/share`} className="btn btn-primary btn-sm">{live ? 'Share' : dfy ? 'Preview & approval' : 'Publish'}</Link>
         </div>

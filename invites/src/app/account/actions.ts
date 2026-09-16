@@ -6,7 +6,8 @@ import type { Occasion, Privacy, Tier } from '@prisma/client';
 import { requireUser, ownInvitation, action, HttpError } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { changePassword } from '@/lib/auth';
-import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening } from '@/lib/invitations';
+import { saveSection, updateSettings, updateTheme, changeTemplate, publish, unpublish, type ThemeOverride, setSectionDone, setPremiumOpening, markWelcomed } from '@/lib/invitations';
+import { restoreRevision } from '@/lib/revisions';
 import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, saveTable, deleteTable, assignTable, checkIn, setArrived, type GuestInput } from '@/lib/guests';
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
@@ -20,6 +21,7 @@ import { planReminders, sendReminders, planEmailReminders, sendEmailReminders } 
 import { eraseCustomer } from '@/lib/privacy';
 import { destroySession } from '@/lib/auth';
 import type { SectionKey } from '@/lib/sections';
+import { builderPropsFor } from '@/lib/builder-props';
 import { entitled } from '@/lib/tiers';
 import { withTone, withOverride, withPicked, type MessageKind, type Tone } from '@/lib/messages';
 import { CAMPAIGN_KINDS } from '@/lib/campaigns';
@@ -43,6 +45,17 @@ export async function saveSectionAction(invitationId: string, key: SectionKey, d
   });
 }
 
+/** Put the invitation back as it was at one version; the state being left is kept first. */
+export async function restoreRevisionAction(invitationId: string, revisionId: string) {
+  const user = await requireUser();
+  return action(async () => {
+    await ownInvitation(user, invitationId);
+    const r = await restoreRevision(user, invitationId, revisionId);
+    refresh(invitationId);
+    return { title: r.title, at: r.at.toISOString() };
+  });
+}
+
 /** Reopen a section marked Done (or mark it Done again) without saving anything else. */
 export async function sectionDoneAction(invitationId: string, key: SectionKey, done: boolean) {
   const user = await requireUser();
@@ -51,6 +64,32 @@ export async function sectionDoneAction(invitationId: string, key: SectionKey, d
     const list = await setSectionDone(user, invitationId, key, done);
     refresh(invitationId);
     return { done: list };
+  });
+}
+
+/** The welcome on the Invitation tab answered — the tour taken or declined — so it is not offered again. */
+export async function welcomedAction(invitationId: string) {
+  const user = await requireUser();
+  return action(async () => {
+    await markWelcomed(user, invitationId);
+    refresh(invitationId);
+    return {};
+  });
+}
+
+/**
+ * The form's props for one part, for a host that draws the form itself —
+ * the studio, which opens it beside the canvas. Exactly what the Invitation
+ * tab works out on its page, and one thing more: whether the order behind
+ * the card is paid. The tab redirects an unpaid one to the checkout; here
+ * the caller is told and decides, because a page and a panel do not answer
+ * that the same way.
+ */
+export async function builderPropsAction(invitationId: string, section?: string) {
+  const user = await requireUser();
+  return action(async () => {
+    const inv = await ownInvitation(user, invitationId);
+    return { ...builderPropsFor(user.role, inv, section), paid: !inv.order || inv.order.status === 'ACTIVE' || inv.order.status === 'PAID' };
   });
 }
 
@@ -295,7 +334,9 @@ export async function saveTableAction(invitationId: string, fd: FormData) {
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    await saveTable(inv, { id: String(fd.get('id') ?? '') || undefined, name: String(fd.get('name') ?? ''), capacity: Number(fd.get('capacity') ?? 10) });
+    // A missing shape is a form that did not ask, not a request for round.
+    const shape = fd.get('shape');
+    await saveTable(inv, { id: String(fd.get('id') ?? '') || undefined, name: String(fd.get('name') ?? ''), capacity: Number(fd.get('capacity') ?? 10), shape: shape === null ? undefined : String(shape) });
     refresh(invitationId);
   });
 }

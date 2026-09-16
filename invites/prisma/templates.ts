@@ -15,8 +15,16 @@ import { premiumOpeningsFor } from '../src/lib/premium-openings';
  *
  * A design marked `retired` stays in the catalogue so the invitations built on
  * it keep rendering, but it is unpublished: off the shop floor, out of the
- * checkout, gone from the gallery. Only Capiz is on sale while the new
- * designs are made, and each is shown to the public by its opening alone.
+ * checkout, gone from the gallery.
+ *
+ * **Nothing is on sale at the moment.** Both shipped designs are retired
+ * while the new Canva-sourced ones are made, because two designs built the
+ * old way, sitting in the gallery beside the new ones, are two designs to
+ * keep explaining and to keep confusing ourselves with. Retired is not
+ * deleted and is meant to be undone: the row stays, the document stays, the
+ * artwork stays, the demo keeps rendering, and taking the word off this list
+ * and running `scripts/sync-templates.ts` puts either of them back on the
+ * shop floor exactly as it was.
  */
 const pal = (key: string) => PALETTE_PRESETS.find((p) => p.key === key)!.palette;
 const fonts = (key: string) => FONT_PRESETS.find((f) => f.key === key)!.fonts;
@@ -75,7 +83,7 @@ export const TEMPLATES: TemplateSeed[] = [
   // the rest. Its words are a christening's, over the Romance look.
   {
     slug: 'baby-blue', name: 'Baby Blue', occasion: 'CHRISTENING', minTier: 'BASIC', premium: false, layout: 'babyblue', collection: 'babyblue', opening: 'universal',
-    palette: pal('babyblue'), fonts: fonts('serif'), look: 'romance', featured: true,
+    palette: pal('babyblue'), fonts: fonts('serif'), look: 'romance', featured: true, retired: true,
     description: 'Sky and clouds, a dove, baby’s breath and blue organza. Made for a christening, soft as a blanket.',
     thumb: '/covers/baby-blue.jpg', demo: 'lucas-andrei-christening',
     words: {
@@ -103,7 +111,7 @@ export const TEMPLATES: TemplateSeed[] = [
       },
     },
   },
-  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg', demo: 'juan-and-maria', design: builtinDesign('capiz')! },
+  { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, retired: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg', demo: 'juan-and-maria', design: builtinDesign('capiz')! },
 ];
 
 /** The Prisma payload for one row. `sortOrder` is its position in the list. */

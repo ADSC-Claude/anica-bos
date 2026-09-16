@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { closedForNow } from '@/lib/storefront';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
@@ -16,6 +17,8 @@ export const dynamic = 'force-dynamic';
 type Search = { occasion?: string; tier?: string; mode?: string; template?: string; coupon?: string; addon?: string };
 
 export default async function CheckoutPage({ searchParams }: { searchParams: Promise<Search> }) {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const sp = await searchParams;
   const session = await getSession();
   if (!session) {

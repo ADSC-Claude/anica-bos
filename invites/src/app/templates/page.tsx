@@ -1,4 +1,5 @@
 import { getSettings } from '@/lib/settings';
+import { closedForNow } from '@/lib/storefront';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import Link from 'next/link';
@@ -14,6 +15,8 @@ export const metadata = { title: 'Templates', description: 'Digital invitation t
 export const dynamic = 'force-dynamic';
 
 export default async function TemplatesPage() {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const [s, session, templates, premium] = await Promise.all([
     getSettings(),
     getSession(),

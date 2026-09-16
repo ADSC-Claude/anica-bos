@@ -24,8 +24,30 @@ export type GuestLike = { name: string; phone?: string | null; email?: string | 
 /** The three keys a guest is known by, each empty when there is nothing to compare. */
 export type GuestKeys = { name: string; phone: string; email: string };
 
-/** What an import came to: rows added, blank rows left out, rows already on the list. */
-export type ImportResult = { added: number; skipped: number; duplicates: number; examples: number };
+/**
+ * What an import came to, in the six ways a row can land.
+ *
+ * Six and not four because a guest sheet is now two things at once: a blank
+ * a couple fills in, and the seat sheet we hand back for them to correct. A
+ * row carrying a personal link is an edit to the guest it belongs to; a row
+ * without one is somebody new, and only those are checked for repeats —
+ * which is what lets the same sheet be sent back with ten names added
+ * without doubling the other two hundred.
+ */
+export type ImportResult = {
+  /** Rows with no link that were not repeats: somebody new. */
+  added: number;
+  /** Rows whose link found a guest on this list, edited in place. */
+  updated: number;
+  /** Rows with no name at all. */
+  skipped: number;
+  /** New rows that were already on the list, or repeated each other. */
+  duplicates: number;
+  /** The blank's own example rows, sent back unedited. */
+  examples: number;
+  /** Rows carrying a link that belongs to no guest here. */
+  unmatched: number;
+};
 
 /**
  * The blank guest list's own lines: two made-up guests to show the shape,
@@ -116,10 +138,14 @@ export function duplicateRows(existing: GuestLike[], rows: GuestLike[]): Set<num
  * sentence of their own: a customer who sent the same file twice should read
  * that nothing doubled, not wonder why the count came out low.
  */
-export function importNotice({ added, skipped, duplicates, examples }: ImportResult): string {
+export function importNotice({ added, updated, skipped, duplicates, examples, unmatched }: ImportResult): string {
   const parts = [`Imported ${added} ${added === 1 ? 'guest' : 'guests'}.`];
+  if (updated) parts.push(`${updated} ${updated === 1 ? 'guest was' : 'guests were'} updated.`);
   if (duplicates) parts.push(`${duplicates} already on the list ${duplicates === 1 ? 'was' : 'were'} skipped.`);
   if (skipped) parts.push(`${skipped} blank ${skipped === 1 ? 'row was' : 'rows were'} left out.`);
   if (examples) parts.push("The template's example rows and notes were left out.");
+  // A link that matches nobody is the one outcome a customer cannot explain
+  // to themselves, so it says what to do rather than only what happened.
+  if (unmatched) parts.push(`${unmatched} ${unmatched === 1 ? 'row' : 'rows'} had a personal link we do not recognise and ${unmatched === 1 ? 'was' : 'were'} left alone — check you are uploading this invitation's own seat sheet.`);
   return parts.join(' ');
 }

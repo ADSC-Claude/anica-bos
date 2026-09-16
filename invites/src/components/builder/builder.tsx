@@ -64,6 +64,7 @@ export function Builder({
   completedAt,
   window: changes,
   hidesWhenEmpty = false,
+  previewPath,
   checklist = [],
   send = null,
   welcome = null,
@@ -82,6 +83,8 @@ export function Builder({
   window: { closesAt: string; finalAt: string; closed: boolean } | null;
   /** True where leaving this part empty means it simply does not appear on the invitation. */
   hidesWhenEmpty?: boolean;
+  /** What the phone beside the form shows, when it is not the invitation. */
+  previewPath?: string;
   slug: string;
   status: string;
   /** The look the page is set in ('' for the design's own) and the looks to choose from. */
@@ -270,7 +273,14 @@ export function Builder({
     });
   }
 
-  const previewSrc = opening ? `${invitationPath(slug)}?at=${current}` : `${invitationPath(slug)}?bare=1&at=${current}`;
+  /*
+   * The phone shows the invitation, except where the part being filled in is
+   * not on the invitation. Arranging how the check-in pass looks beside a
+   * preview of something else is the same mistake as keeping its controls in
+   * RSVP: the thing being changed has to be the thing on screen. A page that
+   * is not the invitation is shown as it is — no opening, nothing to scroll to.
+   */
+  const previewSrc = previewPath ?? (opening ? `${invitationPath(slug)}?at=${current}` : `${invitationPath(slug)}?bare=1&at=${current}`);
 
   const form = (
     <section className="min-w-0">

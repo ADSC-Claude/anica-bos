@@ -34,11 +34,14 @@ export function Decide({
   invitationId,
   hosts,
   link,
+  canEmail,
   reply,
 }: {
   invitationId: string;
   hosts: string;
   link: string;
+  /** Whether this invitation bought the sending, not just the writing. */
+  canEmail: boolean;
   reply: Reply;
 }) {
   const [pending, start] = useTransition();
@@ -49,6 +52,9 @@ export function Decide({
   const [settled, setSettled] = useState<number | null>(reply.approved);
   const [open, setOpen] = useState(false);
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
+  // Shown only after a successful copy: an empty Messenger tab opened before
+  // the words were on the clipboard would be worse than no button at all.
+  const [toMessenger, setToMessenger] = useState(false);
 
   const note = trimNote({ guestName: reply.guestName, hosts, claimed, approved: settled ?? want, link });
   const [subject, setSubject] = useState(note.subject);
@@ -79,6 +85,18 @@ export function Decide({
 
   const trimmed = settled !== null && settled < claimed;
   const chat = asChatText({ subject, body });
+
+  /** Puts the message on the clipboard, and says so either way. */
+  const copy = (done: () => void) => {
+    const failed = () => {
+      setToMessenger(false);
+      setSaid({ ok: false, text: 'Could not copy here — select the message above and copy it by hand.' });
+    };
+    // Undefined outside a secure context, where the optional call would
+    // otherwise succeed at doing nothing at all.
+    if (!navigator.clipboard) { failed(); return; }
+    navigator.clipboard.writeText(chat).then(done, failed);
+  };
 
   return (
     <div className="grid gap-2">
@@ -116,7 +134,7 @@ export function Decide({
       {open && (
         <div className="grid gap-2 rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50,#fbf8f3)] p-3">
           <p className="text-xs text-[color:var(--color-ink-500)]">
-            Your words, not ours — change anything. Nothing has gone to this guest yet.
+            Your words, not ours — change anything. Nothing is sent from here.
           </p>
           <label className="grid gap-1">
             <span className="text-xs font-medium">Subject</span>
@@ -127,33 +145,71 @@ export function Decide({
             <textarea className="field text-xs" rows={10} value={body} onChange={(e) => setBody(e.target.value)} />
           </label>
 
+          {/* The couple's own apps come first, and they are free on every
+              package: the chat links carry the words, so their phone does the
+              sending. Our own e-mail is the paid one, below the rule, because
+              it spends our mail key on their behalf. */}
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--color-ink-500)]">
+            Send it from
+          </span>
           <span className="flex flex-wrap items-center gap-2">
-            <button type="button" className="btn btn-primary btn-sm" disabled={pending || !reply.address} onClick={send}>
-              Send by e-mail
-            </button>
-            {/* The chat apps take the words in the link, so these open the
-                couple's own app with the message already typed. Their phone
-                sends it, which costs nobody anything and lands in the thread
-                the family is already using. */}
             {chatLinks(chat).map((l) => (
               <a key={l.label} className="btn btn-secondary btn-sm" href={l.href} target="_blank" rel="noopener">{l.label}</a>
             ))}
+            {/* Messenger's dialog forwards a link and has no body field, so a
+                button shaped like the others would silently lose the message.
+                This one copies instead, and only then offers the way in. */}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => copy(() => { setToMessenger(true); setSaid({ ok: true, text: 'Copied — open Messenger and paste it into their chat.' }); })}
+            >
+              Messenger
+            </button>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
-              onClick={() => {
-                const fallback = () => setSaid({ ok: false, text: 'Could not copy here — select the message above and copy it by hand.' });
-                if (!navigator.clipboard) { fallback(); return; }
-                navigator.clipboard.writeText(chat).then(() => setSaid({ ok: true, text: 'Copied — paste it into Messenger.' }), fallback);
-              }}
+              onClick={() => copy(() => { setToMessenger(false); setSaid({ ok: true, text: 'Copied.' }); })}
             >
               Copy
             </button>
           </span>
-          {!reply.address && (
-            <p className="text-xs text-[color:var(--color-ink-500)]">
-              This guest left no e-mail address, so send it from your own phone with one of the buttons above.
-            </p>
+          <p className="text-xs text-[color:var(--color-ink-500)]">
+            These open your own app with the message already typed. You read it once and press send, so it arrives
+            from you, in the chat you already have with them.
+          </p>
+          {toMessenger && (
+            <a className="btn btn-secondary btn-sm justify-self-start" href="https://www.messenger.com/" target="_blank" rel="noopener">
+              Open Messenger →
+            </a>
+          )}
+
+          <hr className="border-0 border-t border-[color:var(--color-sand-200)]" />
+
+          {canEmail ? (
+            <>
+              <span className="flex flex-wrap items-center gap-2">
+                <button type="button" className="btn btn-secondary btn-sm" disabled={pending || !reply.address} onClick={send}>
+                  Send by e-mail
+                </button>
+                <span className="text-xs text-[color:var(--color-ink-500)]">
+                  Or we send it for you, from your invitation’s own address.
+                </span>
+              </span>
+              {!reply.address && (
+                <p className="text-xs text-[color:var(--color-ink-500)]">
+                  This guest left no e-mail address, so use one of the buttons above.
+                </p>
+              )}
+            </>
+          ) : (
+            <span className="flex flex-wrap items-center gap-2">
+              <button type="button" className="btn btn-secondary btn-sm" disabled>Send by e-mail</button>
+              <span className="pill pill-muted">Guest communication add-on</span>
+              <span className="text-xs text-[color:var(--color-ink-500)]">
+                We can send it for you instead — that comes with the Exclusive package, or with any reminder pack.
+              </span>
+            </span>
           )}
         </div>
       )}

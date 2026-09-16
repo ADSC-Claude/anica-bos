@@ -110,7 +110,19 @@ export function GuestManager({ invitationId, baseUrl, reminder, canSeating, tabl
         <div className="card p-4">
           <h2 className="font-semibold">Import your list</h2>
           <p className="mb-3 text-sm text-[color:var(--color-ink-500)]">Bring the list you already keep. Columns: Name, Group, Seats, Mobile, Email — a header row is fine, Greeting is optional. Download the blank list, fill it in with Excel or Google Sheets, and upload it back — the workbook is read as it is, no need to save as CSV.</p>
-          <a href={`/account/invitations/${invitationId}/guest-template.csv`} className="btn btn-secondary btn-sm">Download the blank list</a>
+          {/* Two files, one question each: have you got a list yet, or are you
+              fixing the one you have? Offering only the blank was what made a
+              second upload mean a second copy of everybody. */}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <a href={`/account/invitations/${invitationId}/guest-template.csv`} className="rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50,#fbf8f3)] p-3 no-underline hover:bg-[color:var(--color-sand-100)]">
+              <b className="block text-sm">Blank list ↓</b>
+              <span className="text-xs text-[color:var(--color-ink-500)]">Starting from nothing. Name, group, seats, mobile, email, greeting — with an example of each.</span>
+            </a>
+            <a href={`/account/invitations/${invitationId}/seat-sheet.csv`} className="rounded-xl border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50,#fbf8f3)] p-3 no-underline hover:bg-[color:var(--color-sand-100)]">
+              <b className="block text-sm">Seat sheet ↓</b>
+              <span className="text-xs text-[color:var(--color-ink-500)]">The {guests.length} {guests.length === 1 ? 'guest' : 'guests'} you already have, with a Seats column to settle. Send it back and it updates them — it does not add them again.</span>
+            </a>
+          </div>
           <label className="label mt-4" htmlFor="guest-file">Upload the file</label>
           <input
             id="guest-file"
@@ -126,7 +138,7 @@ export function GuestManager({ invitationId, baseUrl, reminder, canSeating, tabl
               run(() => importGuestFileAction(invitationId, form), imported);
             }}
           />
-          <p className="hint">Excel (.xlsx) or CSV. A name, mobile or e-mail already on the list is skipped, so sending the same file twice is safe.</p>
+          <p className="hint">Excel (.xlsx) or CSV. <b>The instructions are inside the file.</b> A name, mobile or e-mail already on the list is skipped, and a row that keeps its personal link is read as an edit — so sending the same file twice is safe either way.</p>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -145,7 +157,6 @@ export function GuestManager({ invitationId, baseUrl, reminder, canSeating, tabl
 
       {error && <Notice tone="bad">{error}</Notice>}
       {notice && <Notice tone="ok">{notice}</Notice>}
-
       <div className="card">
         <div className="flex flex-wrap items-center gap-2 p-3">
           <input className="field max-w-xs" placeholder="Search guests" aria-label="Search guests" value={filter} onChange={(e) => setFilter(e.target.value)} />

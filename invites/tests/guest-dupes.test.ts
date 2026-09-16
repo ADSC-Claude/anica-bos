@@ -52,11 +52,11 @@ test('two different people do not match', () => {
 });
 
 test('the notice counts in words, singular and plural, and says nothing about a zero', () => {
-  assert.equal(importNotice({ added: 12, skipped: 0, duplicates: 3, examples: 0 }), 'Imported 12 guests. 3 already on the list were skipped.');
-  assert.equal(importNotice({ added: 1, skipped: 0, duplicates: 1, examples: 0 }), 'Imported 1 guest. 1 already on the list was skipped.');
-  assert.equal(importNotice({ added: 5, skipped: 0, duplicates: 0, examples: 0 }), 'Imported 5 guests.');
-  assert.equal(importNotice({ added: 0, skipped: 2, duplicates: 4, examples: 0 }), 'Imported 0 guests. 4 already on the list were skipped. 2 blank rows were left out.');
-  assert.equal(importNotice({ added: 3, skipped: 1, duplicates: 0, examples: 0 }), 'Imported 3 guests. 1 blank row was left out.');
+  assert.equal(importNotice({ added: 12, updated: 0, skipped: 0, duplicates: 3, examples: 0, unmatched: 0 }), 'Imported 12 guests. 3 already on the list were skipped.');
+  assert.equal(importNotice({ added: 1, updated: 0, skipped: 0, duplicates: 1, examples: 0, unmatched: 0 }), 'Imported 1 guest. 1 already on the list was skipped.');
+  assert.equal(importNotice({ added: 5, updated: 0, skipped: 0, duplicates: 0, examples: 0, unmatched: 0 }), 'Imported 5 guests.');
+  assert.equal(importNotice({ added: 0, updated: 0, skipped: 2, duplicates: 4, examples: 0, unmatched: 0 }), 'Imported 0 guests. 4 already on the list were skipped. 2 blank rows were left out.');
+  assert.equal(importNotice({ added: 3, updated: 0, skipped: 1, duplicates: 0, examples: 0, unmatched: 0 }), 'Imported 3 guests. 1 blank row was left out.');
 });
 
 test("the blank's own example guests and notes are known by sight", () => {
@@ -70,6 +70,6 @@ test("the blank's own example guests and notes are known by sight", () => {
 });
 
 test('the notice says when the template lines were left out', () => {
-  assert.equal(importNotice({ added: 4, skipped: 0, duplicates: 0, examples: 7 }), "Imported 4 guests. The template's example rows and notes were left out.");
-  assert.equal(importNotice({ added: 0, skipped: 0, duplicates: 0, examples: 7 }), "Imported 0 guests. The template's example rows and notes were left out.");
+  assert.equal(importNotice({ added: 4, updated: 0, skipped: 0, duplicates: 0, examples: 7, unmatched: 0 }), "Imported 4 guests. The template's example rows and notes were left out.");
+  assert.equal(importNotice({ added: 0, updated: 0, skipped: 0, duplicates: 0, examples: 7, unmatched: 0 }), "Imported 0 guests. The template's example rows and notes were left out.");
 });

@@ -202,6 +202,38 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
   );
 }
 
+/**
+ * What an object that opens a booklet carries, spread onto the element the
+ * kind drew.
+ *
+ * On the drawn element and not on a box around it, so the tap target is the
+ * artwork itself: a shut door is the door, not a rectangle laid over one.
+ * Wrapping would also break the placing, since it is the drawn element that
+ * carries `elementStyle` — and cloning the kind's own JSX does not work
+ * either, because that sets a prop on a component rather than an attribute
+ * on a node, which is a quiet way to get nothing at all.
+ *
+ * `aria-hidden` has to come *off*, and that is the part worth stating. A
+ * shape is decoration by default, and decoration is hidden from a screen
+ * reader — so a door drawn as a rectangle would be a door nobody using one
+ * could find. Spread this after `aria-hidden` and it undoes it.
+ *
+ * Only the name goes here. The role, the tab stop, the label, the tap and
+ * the way back all belong to `Hub`, so an invitation whose script never
+ * runs carries an inert decoration and reads its booklets in the column,
+ * rather than an object that looks tappable and is not.
+ *
+ * **A moment and a Lottie do not take it.** A moment is already a gesture —
+ * the doors open, the seal breaks — and two things on one tap is one of them
+ * not happening; a design wanting both can put a shape over the moment. A
+ * Lottie is drawn by the player rather than by us, so there is no node here
+ * to name. Both are caught by the checklist rather than ignored in silence.
+ */
+function opensAttrs(el: Element): Record<string, string | undefined> | undefined {
+  if (!el.opens || el.kind === 'moment' || el.kind === 'anim') return undefined;
+  return { 'data-opens': el.opens, 'aria-hidden': undefined };
+}
+
 function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
   if (el.kind === 'photo') return <Frame el={el} read={read} grow={grow} deco={deco} />;
   // on a flow page a box of words hangs off the head or the foot like any other decoration: see flowDecor
@@ -340,6 +372,7 @@ function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !el.url ? '' : undefined}
+      {...opensAttrs(el)}
     >
       {read.edit && el.url && read.edit.playing === el.id
         // the one she has picked plays, muted and looping, so she can see what it looks like where it is
@@ -362,6 +395,7 @@ function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: numbe
     <div
       className="inv-bb-shape"
       aria-hidden
+      {...opensAttrs(el)}
       data-shape={el.shape}
       style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el), ...motionOf(el).vars } as CSSProperties}
       {...motionOf(el).attrs}
@@ -391,6 +425,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
       data-crop={el.crop ? '' : undefined}
       data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
       data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
+      {...opensAttrs(el)}
     >
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
@@ -430,6 +465,7 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
     // colour, or a pale card. Both are the stylesheet's, so both scale with
     // the column and both follow the palette into night.
     ...(el.backing && el.backing !== 'none' ? { 'data-backing': el.backing } : {}),
+    ...opensAttrs(el),
   };
   // the caption is the paragraph itself, the way the polaroid's strip is written
   if (el.block === 'caption') {

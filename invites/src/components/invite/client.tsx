@@ -1641,6 +1641,130 @@ export function Motion() {
 }
 
 /**
+ * A hub: the objects a guest taps, and the booklets they open.
+ *
+ * Off until this runs, for the reason Motion is off until Motion runs. A
+ * booklet's pages are rendered in the column, after it, so a guest with no
+ * JavaScript — or one whose script failed, or a crawler, or the printed
+ * page — reads the whole invitation as one scroll with nothing missing.
+ * `data-hub` is what takes them out of the scroll and puts them behind a
+ * tap. No script, no attribute, nothing hidden.
+ *
+ * It also refuses to turn the hub on at all unless it finds at least one
+ * object whose booklet this invitation actually carries. A design can name
+ * a booklet the package left out — no programme, no programme page — and an
+ * object that opens nothing must not be made to look as though it would.
+ *
+ * ## Why an attribute and not React state
+ *
+ * The objects are drawn deep inside a page by a server component, and the
+ * booklets are siblings of that page. There is no shared ancestor to hold
+ * state in short of making the whole column a client component, which is a
+ * large price for one boolean. So the DOM is the state, the way the
+ * envelope and the motion already work here.
+ *
+ * ## Why nothing navigates
+ *
+ * A tap that loaded a page would stop the song, replay the opening, and
+ * meet a guest coming back with the sealed envelope again. So the booklet
+ * is shown in place and nothing unmounts. What it borrows from navigation
+ * is only the history entry, so that Android's own back button closes the
+ * booklet instead of leaving the invitation — and closing is *always*
+ * `history.back()`, from the button, from Escape, from anywhere, so there
+ * is one path through and the DOM cannot drift from the history.
+ */
+export function Hub() {
+  useEffect(() => {
+    const root = document.querySelector<HTMLElement>('.inv');
+    if (!root) return;
+    const booklets = new Map<string, HTMLElement>();
+    for (const el of root.querySelectorAll<HTMLElement>('.inv-booklet')) {
+      if (el.dataset.booklet) booklets.set(el.dataset.booklet, el);
+    }
+    const openers = [...root.querySelectorAll<HTMLElement>('[data-opens]')]
+      .filter((el) => booklets.has(el.dataset.opens ?? ''));
+    if (!openers.length) return;
+    root.setAttribute('data-hub', '');
+
+    /** the object the guest came in by, so closing gives them the focus back */
+    let from: HTMLElement | null = null;
+
+    const show = (key: string | null) => {
+      for (const [name, el] of booklets) {
+        const on = name === key;
+        if (on) el.setAttribute('data-open', '');
+        else el.removeAttribute('data-open');
+        if (on) el.scrollTop = 0;
+      }
+      for (const el of openers) el.setAttribute('aria-expanded', String(el.dataset.opens === key));
+      if (key) root.setAttribute('data-booklet-open', key);
+      else root.removeAttribute('data-booklet-open');
+      // the way back is where a keyboard lands, and the object is where it
+      // is given back — a guest tabbing through the hub should not have to
+      // find their place again
+      if (key) booklets.get(key)?.querySelector<HTMLElement>('[data-back]')?.focus();
+      else if (from) { from.focus(); from = null; }
+    };
+
+    const open = (el: HTMLElement) => {
+      const key = el.dataset.opens;
+      if (!key || !booklets.has(key)) return;
+      from = el;
+      history.pushState({ invBooklet: key }, '');
+      show(key);
+    };
+
+    const onPop = () => {
+      const key = (history.state as { invBooklet?: string } | null)?.invBooklet;
+      show(key && booklets.has(key) ? key : null);
+    };
+
+    const onClick = (e: Event) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      if (t.closest('[data-back]')) { history.back(); return; }
+      const opener = t.closest<HTMLElement>('[data-opens]');
+      if (opener && openers.includes(opener)) { e.preventDefault(); open(opener); }
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && root.hasAttribute('data-booklet-open')) { history.back(); return; }
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const opener = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-opens]');
+      if (opener && openers.includes(opener)) { e.preventDefault(); open(opener); }
+    };
+
+    // an object drawn as a shape or a photograph is not a button until it is
+    // told it is one, and a guest on a screen reader is given the booklet's
+    // own name rather than "button"
+    for (const el of openers) {
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-expanded', 'false');
+      const key = el.dataset.opens ?? '';
+      el.setAttribute('aria-controls', `booklet-${key}`);
+      if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', booklets.get(key)?.dataset.label || key.replace(/-/g, ' '));
+    }
+
+    root.addEventListener('click', onClick);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('popstate', onPop);
+    return () => {
+      root.removeEventListener('click', onClick);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('popstate', onPop);
+      for (const el of booklets.values()) el.removeAttribute('data-open');
+      for (const el of openers) {
+        for (const a of ['role', 'tabindex', 'aria-expanded', 'aria-controls']) el.removeAttribute(a);
+      }
+      root.removeAttribute('data-booklet-open');
+      root.removeAttribute('data-hub');
+    };
+  }, []);
+  return null;
+}
+
+/**
  * A vector animation on a page: a Lottie, played by lottie-web.
  *
  * The player is a third of a megabyte, so it is imported *inside* the

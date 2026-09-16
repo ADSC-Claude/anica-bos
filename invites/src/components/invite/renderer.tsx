@@ -17,8 +17,8 @@ import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion, Hub } from './client';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -2060,6 +2060,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    */
   function pages(card?: PageSpec) {
     const drawn = new Map<string, ReactNode>();
+    /** the pages of each booklet, gathered as they are built */
+    const behind = new Map<string, ReactNode[]>();
     for (const key of order) {
       const el = section(key);
       if (el) drawn.set(key, el);
@@ -2214,15 +2216,42 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const own = spec.ground && isPicture(spec.ground);
         const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
         const pin = pins.get(spec.key);
-        if (parts.length) out.push(page(spec.key, parts, pin
+        const built = parts.length ? page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
           ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow, booklet: spec.booklet }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }));
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }) : null;
+        // A booklet's pages are gathered rather than laid in the column, and
+        // put after it below. The studio asking for one page by key wants it
+        // on the canvas wherever it lives, so `only` gathers nothing.
+        if (built && spec.booklet && !only) {
+          const list = behind.get(spec.booklet) ?? [];
+          list.push(built);
+          behind.set(spec.booklet, list);
+        } else if (built) out.push(built);
       }
     }
     // a section the document does not name gets a page of its own, in its
     // place — on the invitation. A card is the one page it was drawn as.
     if (!card) for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    /*
+     * The booklets, laid after the column.
+     *
+     * After it, and not hidden here, because that is the safe way round. A
+     * guest with no JavaScript — or one whose script failed, or a crawler,
+     * or the printed page — reads the whole invitation as one scroll, in
+     * order, with nothing missing. `Hub` is what takes them out of the
+     * column and puts them behind a tap, and only once it knows it can.
+     */
+    if (doc && !card) for (const b of bookletsOf(doc)) {
+      const inside = behind.get(b.key);
+      if (!inside?.length) continue;
+      out.push(
+        <div key={`booklet-${b.key}`} id={`booklet-${b.key}`} className="inv-booklet" data-booklet={b.key} data-label={b.pages[0]?.label?.en || b.key.replace(/-/g, ' ')}>
+          <button type="button" className="inv-booklet-back" data-back="">{lang === 'tl' ? 'Bumalik' : 'Back'}</button>
+          {inside}
+        </div>,
+      );
+    }
     if (only && !card) {
       // the ground, and the one page the studio is drawing
       const ground = out.slice(0, 2);
@@ -2429,6 +2458,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}
       {!print && <Motion />}
+      {!print && !peek && !only && <Hub />}
       {/* not in the builder's own phone, where it would sit over the cover of a page the customer already knows is theirs */}
       {preview && !bare && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">

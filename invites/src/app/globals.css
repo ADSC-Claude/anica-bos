@@ -4797,3 +4797,82 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv-contents { animation: inv-contents-in 0.45s ease-out both; }
 @keyframes inv-contents-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .inv-contents { animation: none; } }
+
+/* ---------------------------------------------------------------------------
+   A booklet: the pages behind a hub.
+
+   The whole of this is behind `.inv[data-hub]`, and that is the safe way
+   round rather than the timid one. The server lays a booklet's pages in the
+   column, after it, so a guest with no JavaScript — or one whose script
+   failed, or a crawler, or the printed page — reads the invitation as one
+   scroll with nothing missing. `Hub` sets the attribute once it has found an
+   object that really opens something, and only then do the booklets leave
+   the column. No script, no attribute, nothing hidden.
+   --------------------------------------------------------------------------- */
+
+/* Not part of the column, so the way back means nothing there. */
+.inv-booklet-back { display: none; }
+
+.inv[data-hub] .inv-booklet { display: none; }
+.inv[data-hub] .inv-booklet[data-open] {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow-y: auto;
+  /* the scroll stops at the booklet's end rather than carrying on into the
+     column behind it, which is what a fixed overlay otherwise lets happen */
+  overscroll-behavior: contain;
+  background: var(--inv-paper, var(--inv-bg));
+}
+
+/*
+ * Opacity only, and for the same reason the jump menu's fade is: `both`
+ * leaves the animated properties resolved, and a resolved `transform` would
+ * make this the containing block for its own `position: fixed` children —
+ * which is how a backdrop last stopped meaning the viewport. An opacity is
+ * a stacking context and not a containing block, so it is safe; a transform
+ * is not, however harmless it looks in a stylesheet.
+ */
+.inv[data-hub] .inv-booklet[data-open] { animation: inv-booklet-in 0.3s ease-out both; }
+@keyframes inv-booklet-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .inv[data-hub] .inv-booklet[data-open] { animation: none; } }
+
+.inv[data-hub] .inv-booklet[data-open] .inv-booklet-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  /* sticky rather than fixed: the booklet is the scroller, so the way back
+     rides along inside it and cannot be left behind at the top */
+  position: sticky;
+  z-index: 3;
+  top: calc(0.85rem + env(safe-area-inset-top, 0px));
+  margin: 0 0 0 max(0.85rem, env(safe-area-inset-left, 0px));
+  padding: 0.5rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--inv-ink) 14%, transparent);
+  border-radius: 999px;
+  background: var(--inv-paper, #fff);
+  color: var(--inv-ink);
+  font-family: var(--inv-font-body, inherit);
+  font-size: 0.82rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.inv[data-hub] .inv-booklet[data-open] .inv-booklet-back::before { content: '\2190'; }
+
+/* An object that opens one gives itself away as tappable — but only once
+   `Hub` has made it a button, so a design whose script never runs carries an
+   inert decoration rather than a promise it cannot keep. */
+.inv[data-hub] [data-opens][role='button'] { cursor: pointer; }
+
+/* The jump menu belongs to the column, and the column is not what is on
+   screen while a booklet is open. */
+.inv[data-booklet-open] .inv-contents { display: none; }
+
+/* Paper has nothing to tap, so every booklet prints, in order, where the
+   column left off — and its way back prints never. */
+@media print {
+  .inv[data-hub] .inv-booklet,
+  .inv[data-hub] .inv-booklet[data-open] { display: block; position: static; animation: none; }
+  .inv-booklet-back { display: none !important; }
+}

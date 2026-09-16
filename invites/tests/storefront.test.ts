@@ -112,3 +112,40 @@ test('nothing over the guest’s list of parts is transformed', () => {
   // paper does not scroll
   assert.match(css, /@media print \{ \.inv-contents \{ display: none; \} \}/);
 });
+
+/**
+ * A booklet is never hidden unless the hub is known to work.
+ *
+ * The property being guarded is the one that keeps an invitation whole. The
+ * server lays a booklet's pages in the column, and `Hub` takes them out of
+ * it only after it has found an object that really opens one. So an
+ * unconditional `display: none` on `.inv-booklet` anywhere in this
+ * stylesheet is a guest with no JavaScript — or a crawler, or a printed
+ * page, or a script that threw — reading an invitation with a third of it
+ * missing, and nothing about the page would say so.
+ */
+test('a booklet only leaves the column once the hub is on', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  // every rule that hides or moves a booklet is behind the attribute
+  for (const m of css.matchAll(/^([^\n{]*\.inv-booklet[^\n{]*)\{/gm)) {
+    const sel = m[1];
+    if (/\.inv-booklet-back/.test(sel)) continue;
+    assert.match(sel, /\[data-hub\]/, `a booklet rule outside the hub: ${sel.trim()}`);
+  }
+  // and paper, which has nothing to tap, prints every one of them
+  assert.match(css, /@media print \{[\s\S]*?\.inv\[data-hub\] \.inv-booklet,[\s\S]*?display: block; position: static;/);
+});
+
+/**
+ * The same trap as the jump menu's fade, written down a second time because
+ * it is the same two lines and the same afternoon lost. `both` leaves the
+ * animated properties resolved; a resolved `transform` makes the element a
+ * containing block for its own `position: fixed` children. An opacity is
+ * only a stacking context, so this fade is safe — a transform would not be.
+ */
+test('nothing about an opening booklet is transformed', () => {
+  const css = readFileSync(new URL('../src/app/globals.css', import.meta.url), 'utf8');
+  const at = css.indexOf('@keyframes inv-booklet-in');
+  assert.ok(at > 0, 'the fade is gone');
+  assert.doesNotMatch(css.slice(at, at + 200), /transform/);
+});

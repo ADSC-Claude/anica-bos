@@ -206,17 +206,11 @@ function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: 
     ['--moment-aspect' as string]: String(el.aspect ?? def?.aspect ?? 1),
     ...motionOf(el).vars,
   } as CSSProperties;
-  // the scene's own pictures (behind the curtains, behind the doors) come from the same slots as what it reveals
   const trigger = triggerOf(el.moment, el.trigger);
-  const reveal = (hasWords || photos.length > wants || (wants > 0 && !['curtains', 'doors'].includes(el.moment)))
-    ? (
-      <>
-        {wants > 0 && !['curtains', 'doors'].includes(el.moment) && photos[0] && <img src={imageUrl(photos[0], IMAGE.grid)} alt="" loading="lazy" />}
-        {el.lines?.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null))}
-        {read.edit && !hasWords && !photos.length && <p className="inv-bb-ask">{read.edit.label(el)}</p>}
-      </>
-    )
-    : read.edit ? <p className="inv-bb-ask">{read.edit.label(el)}</p> : undefined;
+  // the words it reveals, read the way a text box's lines are; in the studio an empty moment says what fills it
+  const words = hasWords
+    ? <>{el.lines?.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} /> : null))}</>
+    : read.edit && !photos.length ? <p className="inv-bb-ask">{read.edit.label(el)}</p> : undefined;
   return (
     <Moment
       id={el.id}
@@ -227,8 +221,9 @@ function MomentBox({ el, read, grow, deco }: { el: MomentEl; read: Read; grow?: 
       plays={el.plays}
       hint={momentHint(el.moment, trigger, read.lang)}
       edit={Boolean(read.edit)}
-      scenePhotos={['curtains', 'doors'].includes(el.moment) ? photos.map((u) => imageUrl(u, IMAGE.grid)) : []}
-      reveal={reveal}
+      photos={photos.map((u) => imageUrl(u, IMAGE.grid))}
+      words={words}
+      code={el.code}
       style={style}
       attrs={{
         ...(motionOf(el).attrs as Record<string, string | undefined>),

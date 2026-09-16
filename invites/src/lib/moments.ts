@@ -84,6 +84,14 @@ export type MomentDef = {
   built: boolean;
   /** the variants a shelf may ask for, by name */
   variants?: Record<string, string>;
+  /**
+   * What the scene draws itself rather than leaving to the reveal: the
+   * print in the instant camera carries the photograph and the caption,
+   * the flip card's back face carries the words. Left unsaid, the
+   * photograph and the words are the reveal's, drawn over the scene once
+   * it has moved aside.
+   */
+  holds?: { photo?: boolean; words?: boolean };
 };
 
 export const MOMENTS: MomentDef[] = [
@@ -107,14 +115,14 @@ export const MOMENTS: MomentDef[] = [
     built: true,
   },
   {
-    key: 'curtains', name: 'Curtains', triggers: ['swipe', 'tap'], swipe: 'apart',
+    key: 'curtains', name: 'Curtains', triggers: ['swipe', 'tap'], swipe: 'apart', holds: { photo: true },
     photos: { count: 1, shape: 'portrait', label: 'the photograph behind the curtains' }, aspect: 1.25, width: 84, duration: 1400, minTier: 'BASIC',
     realism: 'Velvet with vertical folds and a 3% grain; the panels follow the finger and part with a heavy ease; the photograph waits behind, lit from the top left.',
     built: true,
     variants: { panels: 'Slide Panels' },
   },
   {
-    key: 'doors', name: 'Doors', triggers: ['tap', 'swipe'], swipe: 'apart',
+    key: 'doors', name: 'Doors', triggers: ['tap', 'swipe'], swipe: 'apart', holds: { photo: true },
     photos: { count: 1, shape: 'portrait', label: 'the photograph behind the doors' }, aspect: 1.2, width: 84, duration: 1600, minTier: 'BASIC',
     realism: 'Two leaves hinged at the outer edges with a real pivot in perspective; brass handles in the accent; the leaves swing out at 900ms and the light comes through first.',
     built: true,
@@ -137,46 +145,49 @@ export const MOMENTS: MomentDef[] = [
     key: 'instant-camera', name: 'Instant Camera', triggers: ['tap'],
     photos: { count: 1, shape: 'square', label: 'the photograph in the instant camera' }, words: 'line', aspect: 1.3, width: 60, duration: 2600, minTier: 'STANDARD',
     realism: 'A matte body with one lens ring; a white flash that opens to 140% and is gone in 500ms; the print slides out on a slow ease and develops from grey over two seconds.',
-    built: false,
+    built: true,
+    holds: { photo: true, words: true },
   },
   {
     key: 'ring-box', name: 'Ring Box', triggers: ['tap'],
     photos: { count: 0, shape: 'square', label: '' }, words: 'names', aspect: 0.9, width: 56, duration: 1400, minTier: 'STANDARD',
     realism: 'A velvet box on a hinge at the back; the lid opens past vertical and settles; the names come up in the cushion.',
-    built: false,
+    built: true,
   },
   {
     key: 'light', name: 'Magic Light', triggers: ['tap'],
     photos: { count: 1, shape: 'landscape', label: 'the photograph the light reveals' }, words: 'line', aspect: 0.75, width: 80, duration: 1200, minTier: 'STANDARD',
     realism: 'One soft radial flash from the point tapped, never a sparkle; what it reveals fades in as the light fades.',
-    built: false,
+    built: true,
     variants: { flash: 'Magic Flash' },
   },
   {
     key: 'bloom', name: 'Flower Bloom', triggers: ['tap'],
     photos: { count: 1, shape: 'square', label: 'the photograph inside the flower' }, words: 'line', aspect: 1, width: 64, duration: 1800, minTier: 'STANDARD',
     realism: 'Petals as paths in one design colour, opening on staggered eases from the centre; the photograph is behind them from the start.',
-    built: false,
+    built: true,
+    holds: { photo: true },
   },
   {
     key: 'candle', name: 'Candle', triggers: ['tap'],
     photos: { count: 0, shape: 'square', label: '' }, words: 'line', aspect: 1.1, width: 56, duration: 1500, minTier: 'STANDARD',
     realism: 'A taper with a wick; the flame lights with a small flicker and the message warms in around it. The cake variant blows it out instead.',
-    built: false,
+    built: true,
     variants: { cake: 'Birthday Cake' },
   },
   {
     key: 'gift', name: 'Gift Box', triggers: ['tap'],
     photos: { count: 1, shape: 'square', label: 'the photograph in the gift box' }, words: 'line', aspect: 1.1, width: 60, duration: 1600, minTier: 'STANDARD',
     realism: 'A lidded box with a satin ribbon; the lid lifts and tips back; what is inside rises. Mystery shakes three times first; Holiday releases the ribbon first.',
-    built: false,
+    built: true,
     variants: { mystery: 'Mystery Gift', holiday: 'Holiday Gift' },
   },
   {
     key: 'frame', name: 'Photo Frame', triggers: ['tap'],
     photos: { count: 1, shape: 'portrait', label: 'the photograph in the frame' }, aspect: 1.25, width: 64, duration: 1200, minTier: 'STANDARD',
     realism: 'A thin frame in the accent; the photograph reveals with a soft wipe from the top, as if a cloth were drawn off it.',
-    built: false,
+    built: true,
+    holds: { photo: true },
   },
   // ── Swipe & Pull ──
   {
@@ -189,7 +200,7 @@ export const MOMENTS: MomentDef[] = [
     key: 'scratch', name: 'Scratch Reveal', triggers: [], mechanic: 'rub',
     photos: { count: 1, shape: 'landscape', label: 'the photograph under the scratch card' }, words: 'line', aspect: 0.7, width: 80, duration: 800, minTier: 'COMPLETE',
     realism: 'A foil layer with a brushed sheen on a canvas; the finger clears it in a soft-edged stroke; at six tenths cleared the rest falls away.',
-    built: false,
+    built: true,
   },
   {
     key: 'sticker', name: 'Peel Sticker', triggers: ['swipe'], swipe: 'left',
@@ -265,25 +276,27 @@ export const MOMENTS: MomentDef[] = [
     key: 'hold', name: 'Hold to Reveal', triggers: ['hold'],
     photos: { count: 1, shape: 'landscape', label: 'the photograph the hold reveals' }, words: 'line', aspect: 0.75, width: 80, duration: 1200, minTier: 'COMPLETE',
     realism: 'A thin ring fills while the finger stays; let go early and it drains back; at the top the veil lifts.',
-    built: false,
+    built: true,
   },
   {
     key: 'code', name: 'Secret Code', triggers: [], mechanic: 'keys',
     photos: { count: 1, shape: 'landscape', label: 'the photograph the code unlocks' }, words: 'code', aspect: 0.9, width: 70, duration: 1000, minTier: 'COMPLETE',
     realism: 'Four dials; a wrong code shakes once, two degrees; the right one opens a latch.',
-    built: false,
+    built: true,
   },
   {
     key: 'puzzle', name: 'Puzzle Reveal', triggers: [], mechanic: 'drag',
     photos: { count: 1, shape: 'square', label: 'the photograph the puzzle makes' }, aspect: 1, width: 80, duration: 900, minTier: 'COMPLETE',
     realism: 'Nine pieces of the one photograph, dragged into place and snapping within eight percent; the last piece settles the whole.',
-    built: false,
+    built: true,
+    holds: { photo: true },
   },
   {
     key: 'flip', name: 'Flip Card', triggers: ['tap'],
     photos: { count: 1, shape: 'portrait', label: 'the photograph on the card' }, words: 'lines', aspect: 1.35, width: 64, duration: 1000, minTier: 'COMPLETE',
     realism: 'A card that turns on its vertical axis in perspective, the back face carrying the words; one turn, no wobble.',
-    built: false,
+    built: true,
+    holds: { photo: true, words: true },
   },
 ];
 

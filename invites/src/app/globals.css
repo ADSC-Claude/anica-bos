@@ -3746,3 +3746,96 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
 .inv-mo-face[data-side='back'] { transform: rotateY(180deg); background: color-mix(in srgb, var(--inv-surface) 92%, var(--inv-accent)); }
 .inv-mo-face[data-side='back'] > * { margin: 0; }
 :is([data-state='opening'], [data-state='open']) .inv-mo-flip-card { transform: rotateY(180deg); }
+
+/* --- Swipe & Pull ------------------------------------------------------------ */
+
+/* pull the invitation: the card follows the finger up out of its pocket, its shadow deepening as more of it is out */
+.inv-mo-pull { perspective: none; }
+.inv-mo-pull-card {
+  position: absolute; left: 10%; right: 10%; top: 30%; bottom: 8%; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2cqw; padding: 4cqw;
+  border-radius: 0.8cqw; text-align: center;
+  background-color: var(--inv-surface);
+  background-image: repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent), 0 calc(1cqw + var(--moment-drag) * 3cqw) calc(2cqw + var(--moment-drag) * 4cqw) rgba(0, 0, 0, calc(0.12 + var(--moment-drag) * 0.14));
+  transform: translateY(calc(var(--moment-drag) * -64%));
+  transition: transform calc(900ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow calc(900ms * var(--moment-t)) ease;
+}
+.inv-mo-pull-photo { display: block; width: 100%; max-height: 55%; overflow: hidden; border-radius: 0.4cqw; }
+.inv-mo-pull-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-pull-words > * { margin: 0; }
+.inv-mo-pull-pocket {
+  position: absolute; left: 4%; right: 4%; bottom: 0; height: 52%; z-index: 2;
+  border-radius: 1.2cqw;
+  background-color: color-mix(in srgb, var(--inv-surface) 90%, var(--inv-ink));
+  background-image: linear-gradient(to bottom right, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%), linear-gradient(to bottom left, transparent 49.6%, color-mix(in srgb, var(--inv-ink) 14%, transparent) 50%, transparent 50.6%), repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  background-size: 50% 100%, 50% 100%, auto; background-repeat: no-repeat, no-repeat, repeat; background-position: left top, right top, 0 0;
+  clip-path: polygon(0 0, 50% 45%, 100% 0, 100% 100%, 0 100%);
+  box-shadow: 0 -0.6cqw 1.6cqw rgba(0, 0, 0, 0.12);
+}
+.inv-mo-pull-lip { position: absolute; left: 4%; right: 4%; bottom: 0; height: 52%; z-index: 0; border-radius: 1.2cqw; background: color-mix(in srgb, var(--inv-surface) 84%, var(--inv-ink)); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-pull-card { transform: translateY(-64%); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-pull-pocket, :is([data-state='opening'], [data-state='open']) .inv-mo-pull-lip { opacity: 0.55; transition: opacity calc(800ms * var(--moment-t)) ease calc(300ms * var(--moment-t)); }
+[data-moment='pull-card'] .inv-moment-reveal { display: none; }
+
+/* peel the sticker: the corner curls with a lighter back and a shadow under the curl, and the peel follows the finger across */
+.inv-mo-sticker, .inv-mo-frost { perspective: none; border-radius: 1.2cqw; overflow: hidden; background: color-mix(in srgb, var(--inv-ink) 8%, var(--inv-surface)); }
+.inv-mo-under { position: absolute; inset: 0; }
+.inv-mo-under img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.inv-mo-peel { position: absolute; inset: 0; z-index: 2; clip-path: inset(0 calc(var(--moment-drag) * 100%) 0 0); transition: clip-path calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1); }
+.inv-mo-peel-face {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 40%, transparent 60%, rgba(0, 0, 0, 0.06)),
+    var(--inv-accent);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.inv-mo-peel-face::after { content: ''; position: absolute; inset: 6%; border-radius: 999px; border: 0.5cqw dotted rgba(255, 255, 255, 0.5); }
+.inv-mo-peel-curl {
+  position: absolute; top: 0; bottom: 0; width: 9cqw; right: calc(var(--moment-drag) * 100% - 4.5cqw); z-index: 3;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.22), rgba(255, 255, 255, 0.85) 45%, color-mix(in srgb, var(--inv-accent) 40%, white) 60%, rgba(0, 0, 0, 0.18));
+  border-radius: 999px;
+  opacity: calc(min(1, var(--moment-drag) * 8));
+  transition: right calc(900ms * var(--moment-t)) cubic-bezier(0.3, 0, 0.2, 1), opacity 200ms ease;
+}
+:is([data-state='opening'], [data-state='open']) .inv-mo-peel { clip-path: inset(0 100% 0 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-peel-curl { right: calc(100% - 4.5cqw); opacity: 0; }
+[data-moment='sticker'] { --moment-reveal-at: 500ms; }
+[data-moment='sticker'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+
+/* frosted glass: the photograph is there, out of focus, and comes clear wherever the finger passes */
+[data-moment='frost'] .inv-mo-foil { cursor: default; }
+[data-moment='frost'] .inv-moment-reveal { justify-content: flex-end; padding-bottom: 5cqw; color: #fff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+[data-moment='frost'] { --moment-reveal-at: 300ms; }
+
+/* the scroll: paper on a rod that unfurls downward with the finger, the roll shrinking as it goes; the diploma is tied first */
+.inv-mo-scroll { perspective: none; }
+.inv-mo-scroll .inv-mo-rod { position: absolute; left: -3%; right: -3%; top: 2cqw; height: 3cqw; z-index: 3; border-radius: 999px; background: linear-gradient(180deg, color-mix(in srgb, var(--inv-accent2) 70%, white), var(--inv-accent2) 55%, color-mix(in srgb, var(--inv-accent2) 60%, black)); box-shadow: 0 0.6cqw 1.2cqw rgba(0, 0, 0, 0.3); }
+.inv-mo-scroll .inv-mo-rod::before, .inv-mo-scroll .inv-mo-rod::after { content: ''; position: absolute; top: -0.8cqw; width: 4.6cqw; height: 4.6cqw; border-radius: 999px; background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--inv-accent) 55%, white), var(--inv-accent) 55%, color-mix(in srgb, var(--inv-accent) 60%, black)); }
+.inv-mo-scroll .inv-mo-rod::before { left: -1cqw; }
+.inv-mo-scroll .inv-mo-rod::after { right: -1cqw; }
+.inv-mo-paper {
+  position: absolute; left: 6%; right: 6%; top: 3.5cqw; bottom: 4%; z-index: 1;
+  display: flex; align-items: center; justify-content: center; padding: 6cqw 5cqw; text-align: center;
+  background-color: color-mix(in srgb, var(--inv-surface) 96%, var(--inv-accent2));
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.07), transparent 8%, transparent 92%, rgba(0, 0, 0, 0.07)), repeating-linear-gradient(0deg, color-mix(in srgb, var(--inv-ink) 3%, transparent) 0 1px, transparent 1px 4px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--inv-ink) 10%, transparent);
+  clip-path: inset(0 0 calc((1 - var(--moment-drag)) * 100%) 0);
+  transition: clip-path calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-paper-words > * { margin: 0; }
+.inv-mo-roll {
+  position: absolute; left: 4%; right: 4%; top: calc(3.5cqw + var(--moment-drag) * (100% - 12cqw)); height: 8cqw; z-index: 2;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--inv-surface) 80%, var(--inv-accent2)), color-mix(in srgb, var(--inv-surface) 96%, white) 40%, color-mix(in srgb, var(--inv-surface) 70%, var(--inv-ink)));
+  box-shadow: 0 1cqw 1.6cqw rgba(0, 0, 0, 0.28);
+  transform: scaleY(calc(1 - var(--moment-drag) * 0.55));
+  transition: top calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1), transform calc(1500ms * var(--moment-t)) cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.inv-mo-roll-tie { display: none; position: absolute; left: 44%; top: -1cqw; bottom: -1cqw; width: 12%; border-radius: 0.6cqw; background: linear-gradient(90deg, color-mix(in srgb, var(--inv-accent) 70%, black), var(--inv-accent) 40%, color-mix(in srgb, var(--inv-accent) 70%, black)); box-shadow: 0 0.4cqw 0.8cqw rgba(0, 0, 0, 0.3); transition: opacity calc(300ms * var(--moment-t)) ease, transform calc(400ms * var(--moment-t)) ease; }
+.inv-mo-scroll[data-diploma] .inv-mo-roll-tie { display: block; }
+:is([data-state='opening'], [data-state='open']) .inv-mo-paper { clip-path: inset(0 0 0 0); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll { top: calc(3.5cqw + (100% - 12cqw)); transform: scaleY(0.45); }
+:is([data-state='opening'], [data-state='open']) .inv-mo-roll-tie { opacity: 0; transform: translateY(2cqw) scaleX(0.6); }
+.inv-mo-scroll[data-diploma] .inv-mo-paper, .inv-mo-scroll[data-diploma] .inv-mo-roll { transition-delay: calc(350ms * var(--moment-t)); }
+[data-moment='scroll'] .inv-moment-reveal { display: none; }

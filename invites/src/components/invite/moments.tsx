@@ -286,7 +286,7 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
     >
       <Scene scene={scene} variant={variant} photos={holds.photo ? photos : []} monogram={monogram} words={holds.words ? words : undefined} />
       {reveal !== undefined && <div className="inv-moment-reveal">{reveal}</div>}
-      {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} />}
+      {def?.mechanic === 'rub' && !still && <Scratch open={g.open} state={g.state} frost={scene === 'frost' ? photos[0] : undefined} />}
       {def?.mechanic === 'keys' && !still && code && <Keypad code={code} open={g.open} state={g.state} />}
       {def?.mechanic === 'drag' && <Tiles id={id} photo={photos[0]} open={g.open} state={state} still={still} />}
       {trigger === 'hold' && !still && (
@@ -300,8 +300,8 @@ export function Moment({ id, scene, variant, trigger, speed, plays, hint, edit, 
   );
 }
 
-/** How much of the foil must be cleared before the rest falls away. */
-const SCRATCH_DONE = 0.6;
+/** How much of the foil must be cleared before the rest falls away: past half, the guest has seen what is under it. */
+const SCRATCH_DONE = 0.55;
 
 /**
  * The scratch card: a foil the finger clears, on a canvas over the reveal.
@@ -309,7 +309,7 @@ const SCRATCH_DONE = 0.6;
  * circle out of it; every few strokes the cleared share is read off a
  * coarse sample of the pixels, and past six tenths the whole card opens.
  */
-function Scratch({ open, state }: { open: () => void; state: MomentState }) {
+function Scratch({ open, state, frost }: { open: () => void; state: MomentState; /** the photograph, for a frosted glass: a blurred, whitened copy is what the finger clears */ frost?: string }) {
   const canvas = useRef<HTMLCanvasElement | null>(null);
   const down = useRef(false);
   const strokes = useRef(0);
@@ -324,6 +324,29 @@ function Scratch({ open, state }: { open: () => void; state: MomentState }) {
       const ctx = c.getContext('2d');
       if (!ctx) return;
       const cs = getComputedStyle(c);
+      if (frost) {
+        // the glass: the photograph out of focus under a white breath, until the finger passes
+        ctx.fillStyle = 'rgba(235,238,242,1)'; ctx.fillRect(0, 0, c.width, c.height);
+        const img = new Image();
+        img.onload = () => {
+          const ctx2 = c.getContext('2d');
+          if (!ctx2) return;
+          // paint over what is there: the rub set the context to cut, and this is the same context
+          ctx2.globalCompositeOperation = 'source-over';
+          ctx2.save();
+          ctx2.filter = 'blur(14px) saturate(0.7) brightness(1.15)';
+          // cover: the same crop the sharp photograph has under it
+          const s = Math.max(c.width / img.width, c.height / img.height);
+          const dw = img.width * s, dh = img.height * s;
+          ctx2.drawImage(img, (c.width - dw) / 2, (c.height - dh) / 2, dw, dh);
+          ctx2.restore();
+          ctx2.fillStyle = 'rgba(255,255,255,0.42)'; ctx2.fillRect(0, 0, c.width, c.height);
+          ctx2.globalCompositeOperation = 'destination-out';
+        };
+        img.src = frost;
+        ctx.globalCompositeOperation = 'destination-out';
+        return;
+      }
       const accent = cs.getPropertyValue('--inv-accent').trim() || '#a08a5a';
       // brushed foil: the accent under a diagonal sheen and fine lines
       const g = ctx.createLinearGradient(0, 0, c.width, c.height);
@@ -342,7 +365,8 @@ function Scratch({ open, state }: { open: () => void; state: MomentState }) {
     const step = 6;
     const data = ctx.getImageData(0, 0, c.width, c.height).data;
     let clear = 0, all = 0;
-    for (let y = 0; y < c.height; y += step) for (let x = 0; x < c.width; x += step) { all++; if (data[(y * c.width + x) * 4 + 3]! < 40) clear++; }
+    // a half-cleared pixel reads as cleared: the soft edge of a stroke shows what is under it
+    for (let y = 0; y < c.height; y += step) for (let x = 0; x < c.width; x += step) { all++; if (data[(y * c.width + x) * 4 + 3]! < 128) clear++; }
     return all ? clear / all : 0;
   };
   const rub = (e: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -353,7 +377,8 @@ function Scratch({ open, state }: { open: () => void; state: MomentState }) {
     const y = ((e.clientY - r.top) / r.height) * c.height;
     const ctx = c.getContext('2d');
     if (!ctx) return;
-    const rad = c.width * 0.07;
+    // a thumb's width: a tenth of the card, soft at the edge
+    const rad = c.width * 0.1;
     const grad = ctx.createRadialGradient(x, y, rad * 0.4, x, y, rad);
     grad.addColorStop(0, 'rgba(0,0,0,1)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = grad;
@@ -607,6 +632,40 @@ export function Scene({ scene, variant, photos = [], monogram, words }: { scene:
         <span className="inv-mo inv-mo-frame" aria-hidden>
           <span className="inv-mo-frame-photo">{photo && <img src={photo} alt="" loading="lazy" />}</span>
           <span className="inv-mo-cloth" />
+        </span>
+      );
+    // ── Swipe & Pull ──
+    case 'pull-card':
+      return (
+        <span className="inv-mo inv-mo-pull" aria-hidden>
+          <span className="inv-mo-pull-card">
+            {photo && <span className="inv-mo-pull-photo"><img src={photo} alt="" loading="lazy" /></span>}
+            <span className="inv-mo-pull-words">{words}</span>
+          </span>
+          <span className="inv-mo-pull-pocket" />
+          <span className="inv-mo-pull-lip" />
+        </span>
+      );
+    case 'sticker':
+      return (
+        <span className="inv-mo inv-mo-sticker" aria-hidden>
+          <span className="inv-mo-under">{photo && <img src={photo} alt="" loading="lazy" />}</span>
+          <span className="inv-mo-peel"><span className="inv-mo-peel-face" /><span className="inv-mo-peel-curl" /></span>
+        </span>
+      );
+    case 'frost':
+      // the sharp photograph under the glass; the glass is the canvas the box adds
+      return (
+        <span className="inv-mo inv-mo-frost" aria-hidden>
+          <span className="inv-mo-under">{photo && <img src={photo} alt="" loading="lazy" />}</span>
+        </span>
+      );
+    case 'scroll':
+      return (
+        <span className="inv-mo inv-mo-scroll" data-diploma={variant === 'diploma' ? '' : undefined} aria-hidden>
+          <span className="inv-mo-rod" data-end="top" />
+          <span className="inv-mo-paper"><span className="inv-mo-paper-words">{words}</span></span>
+          <span className="inv-mo-roll"><span className="inv-mo-roll-tie" /></span>
         </span>
       );
     // ── Surprise ──

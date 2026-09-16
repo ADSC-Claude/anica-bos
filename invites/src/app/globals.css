@@ -692,6 +692,11 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-pin { position: absolute; inset: 0; opacity: 0; transition: opacity 520ms ease; }
 .inv-pin[data-active] { opacity: 1; }
 .inv-pin img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+/* The phone's background keeps to the column: the picture is the shape of a
+   phone screen, so on a laptop it fills the column and the design's surround
+   stands beside it. The website's background has no such rule — it is the
+   window. */
+.inv-pin[data-column] { left: 50%; right: auto; width: min(100%, 32rem); transform: translateX(-50%); }
 .inv-pin img[data-night] { display: none; }
 .inv-stage:has(.inv[data-mode='night']) .inv-pin img[data-night] { display: block; }
 .inv-stage:has(.inv[data-mode='night']) .inv-pin[data-night-art] img[data-day] { display: none; }

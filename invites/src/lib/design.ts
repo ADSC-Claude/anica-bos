@@ -233,6 +233,13 @@ export function withWords(look: Look | undefined, words: DesignWords): Look | un
  * as a multiple of its width. Six are tall and narrow, four the shape of a
  * phone; the page machinery trims each to the page it sits behind.
  */
+/**
+ * One background picture as a page holds it: her file, and what the browser
+ * measured off it when it arrived — how tall it is for its width, and the
+ * colours of its top and bottom edges, for the strips beyond it.
+ */
+export type Picture = { url: string; ratio: number; top: string; bottom: string; night?: string };
+
 export type PictureGround = {
   url: string;
   /** height as a multiple of the width */
@@ -250,9 +257,30 @@ export type PictureGround = {
   /** the same picture by night, when the design has one */
   night?: string;
   /**
-   * How many pages after this one sit on this picture where it runs on,
-   * one length of it down all of them, instead of on a ground of their own.
-   * `runOf` says which pages actually do.
+   * The same background drawn for a phone, when she has uploaded one: a
+   * phone-shaped picture for a phone-shaped window, where `url` is the wide
+   * one a laptop gets. Both are her own files, used as she gave them — the
+   * window picks between them (`PHONE_WINDOW`) rather than either being
+   * stretched or cut to fit the other's shape.
+   *
+   * A page with only one picture keeps it here in `url`, whatever its
+   * shape, and `pin` says whether it fills the window or the column.
+   */
+  phone?: Picture;
+  /**
+   * How many pages after this one this background also stands behind — the
+   * pages she picked it to flow over.
+   *
+   * A background pinned behind the words (the phone's, the website's) simply
+   * stays put over that many more pages: the writings move on over it and
+   * the picture never moves or stretches, which is the whole point of the
+   * choice. `pinOf` says which pages it reaches, and a page with a picture
+   * of its own, or one placed by hand, ends it early.
+   *
+   * On the tall grounds the two shipped designs were drawn on, which flow
+   * rather than pin, it means what it always did: one length of the picture
+   * laid down all of them instead of each starting again. `runOf` says
+   * which pages those are.
    */
   runsOn?: number;
 };
@@ -475,15 +503,21 @@ export type PageSpec = {
    */
   bleed?: boolean;
   /**
-   * The page's picture pinned to the screen: it fills the window — a phone's
-   * screen, a laptop's — and stays put while the words move over it, and
-   * the pages after sit on it too, until one brings a picture of its own or
-   * is drawn. The way a website lays a photograph under a scrolling page,
-   * and the way a design exported at 1920 by 1080 is meant to be shown: a
-   * phone shows the middle of it. Only a page laid out by its words pins;
-   * a drawn page is its picture. `pinOf` is the rule.
+   * The page's picture pinned behind the words: it fills what it is pinned
+   * to and stays put while the words move over it, and the pages after sit
+   * on it too, until one brings a picture of its own or is drawn.
+   *
+   * `true` pins it to the window — the whole website's background, edge to
+   * edge on a laptop, a phone showing the middle of it, which is how a
+   * design exported at 1920 by 1080 is meant to be shown. `'column'` pins
+   * it to the column — the phone's background, the shape a phone screen is,
+   * with the design's surround beside it on a laptop.
+   *
+   * Only a page laid out by its words pins; a drawn page is its picture.
+   * `groundKind` says which of the three backgrounds a picture is and
+   * `pinOf` which pages sit on it.
    */
-  pin?: true;
+  pin?: true | 'column';
   /**
    * A page laid out by its words, told to be taller than they are: at least
    * this many screens. The words sit in the middle of it and the pieces
@@ -963,6 +997,10 @@ const zPictureGround = z.object({
   slices: z.object({ top: z.string(), foot: z.string(), mid: z.string() }).optional(),
   runsOn: z.number().int().min(1).max(6).optional(),
   night: z.string().max(500).optional(),
+  phone: z.object({
+    url: z.string().min(1).max(500), ratio: z.number().positive().max(40),
+    top: zColour, bottom: zColour, night: z.string().max(500).optional(),
+  }).strict().optional(),
 }).strict();
 const zColourGround = z.object({ color: zColour, ratio: z.number().positive().max(40).optional() }).strict();
 const zGround = z.union([zPictureGround, zColourGround]);
@@ -1056,7 +1094,7 @@ const zPage = z.object({
   peekEnd: z.literal(true).optional(),
   outside: z.union([z.literal('design'), zColour]).optional(),
   bleed: z.boolean().optional(),
-  pin: z.literal(true).optional(),
+  pin: z.union([z.literal(true), z.literal('column')]).optional(),
   minScreens: z.number().min(0.3).max(6).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
   cover: z.object({
@@ -1587,7 +1625,64 @@ export function outsideOf(page: PageSpec): string | undefined {
 export function bleeds(page: PageSpec): boolean {
   const g = page.ground;
   if (!g) return false;
+  // a picture says so by which of the three backgrounds it is: the website's
+  // is the whole page by definition, the phone's is the column by definition,
+  // and one flowing down the pages reaches only if the page says it does
+  const kind = groundKind(page);
+  if (kind === 'website') return true;
+  if (kind === 'phone') return false;
   return page.bleed ?? !isPicture(g);
+}
+
+/**
+ * The three backgrounds, which is every way a picture can sit behind a page:
+ *
+ *  - `phone`   the phone's background. It fills the phone's screen and stays
+ *              put while the words move over it; on a laptop it keeps to the
+ *              column, with the design's surround beside it.
+ *  - `website` the whole website's background. One picture across the window,
+ *              edge to edge on a laptop, the column showing its middle — and
+ *              a phone showing the middle of it too.
+ *  - `flow`    one picture flowing down the pages it is given: one length of
+ *              it, drawn once, the way a tall design is meant to be read.
+ *
+ * A picture wider than it is tall is the website's background whatever an
+ * older draft says about it. There is no length of such a picture to flow
+ * down a page: a page taller than it can only crop it or pull it out of
+ * shape, and pulling it is what made a 1920-by-1080 upload come out as a
+ * band of stretched middle down a very long page.
+ */
+export type GroundKind = 'phone' | 'website' | 'flow';
+export function groundKind(page: PageSpec): GroundKind | undefined {
+  const g = page.ground;
+  if (!g || !isPicture(g) || page.drawn) return undefined;
+  if (page.pin === 'column') return 'phone';
+  if (page.pin) return 'website';
+  return g.ratio < 1 ? 'website' : 'flow';
+}
+
+/**
+ * Which background a picture of this shape arrives as, so that uploading one
+ * is the whole of the job. Wider than tall is the website's; about the shape
+ * of a phone screen is the phone's; anything longer than that was drawn to be
+ * read down the pages and flows.
+ */
+export function kindOfShape(ratio: number): GroundKind {
+  if (ratio < 1) return 'website';
+  return ratio <= ONE_SCREEN * 1.15 ? 'phone' : 'flow';
+}
+
+/**
+ * How tall a page is told to be, in screens, or nothing for as tall as its
+ * words. A page whose picture is pinned behind it is a screen tall unless it
+ * says otherwise: the picture is meant to be seen, and a page of four words
+ * over it would be past before a guest saw any of it.
+ */
+export function screensOf(page: PageSpec): number | undefined {
+  if (page.drawn) return undefined;
+  if (page.minScreens) return page.minScreens;
+  const kind = groundKind(page);
+  return kind === 'phone' || kind === 'website' ? 1 : undefined;
 }
 
 /**
@@ -1746,6 +1841,16 @@ export const WIDEST_COLUMN = 512;
 
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */
 export const ONE_SCREEN = 1.777;
+
+/**
+ * The widest window that counts as a phone's, for a page carrying both a
+ * phone background and a website one: at this width and under, the window is
+ * about the column itself and the phone's picture is the one that fits it;
+ * wider, and the website's picture has somewhere to go. It is a media query
+ * in the end (`Pinned`), so the browser chooses and nothing has to be
+ * measured or re-rendered.
+ */
+export const PHONE_WINDOW = 639;
 
 /**
  * What the browser keeps for itself, as a share of one screen.
@@ -1964,19 +2069,33 @@ export function runOf(doc: DesignDoc): Map<string, string> {
 }
 
 /**
- * The pages that sit on a pinned picture, each mapped to the page whose
- * picture it is — the head itself included, mapped to itself. A pinned
- * picture runs on down every page after its head, a colour of their own or
- * not, until a page brings a picture of its own or is drawn; either starts
- * afresh. A pin on a page with no picture, or on a drawn page, pins nothing.
+ * The pages a pinned background stands behind, each mapped to the page whose
+ * picture it is — the head itself included, mapped to itself.
+ *
+ * How far it reaches is hers to say: `ground.runsOn` is how many pages after
+ * the head it also stands behind, and saying nothing means this page only.
+ * The writings of every page it reaches move over one still picture, which is
+ * what "flowing over the pages I picked" means; a page with a picture of its
+ * own, or one placed by hand, ends it early whatever the number says.
+ *
+ * Which pictures pin is `groundKind`'s answer, not the `pin` field's alone:
+ * the phone's background and the website's both do, and the only picture
+ * that does not is one of the tall shipped grounds, which flows (`runOf`).
  */
 export function pinOf(doc: DesignDoc): Map<string, string> {
   const on = new Map<string, string>();
   let head: string | undefined;
+  /** how many more pages the pin still reaches */
+  let left = 0;
   for (const p of doc.pages) {
-    const own = p.ground && isPicture(p.ground);
-    if (p.drawn || own) head = undefined;
-    if (own && p.pin && !p.drawn) head = p.key;
+    const own = p.ground && isPicture(p.ground) ? p.ground : undefined;
+    if (own || p.drawn) {
+      head = own && !p.drawn && groundKind(p) !== 'flow' ? p.key : undefined;
+      left = head && own ? own.runsOn ?? 0 : 0;
+    } else if (head) {
+      if (left > 0) left -= 1;
+      else head = undefined;
+    }
     if (head) on.set(p.key, head);
   }
   return on;

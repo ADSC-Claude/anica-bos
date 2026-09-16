@@ -96,10 +96,19 @@ export default async function DesignStudioPage({ params, searchParams }: { param
     designFiles(t.id),
   ]);
 
+  /*
+   * The way back, said once and given to both: the link above the tabs and
+   * the one in the studio's own top bar, which is the one still on the
+   * screen after she has scrolled into the canvas.
+   */
+  const back = against
+    ? { href: `/account/invitations/${against.id}`, label: `${against.title} — the Invitation tab` }
+    : { href: '/admin/templates', label: 'Templates' };
+
   return (
     <>
       {/* the way back is the way she came: the tab, when the tab sent her */}
-      <BackLink href={against ? `/account/invitations/${against.id}` : '/admin/templates'}>{against ? `${against.title} — the Invitation tab` : 'Templates'}</BackLink>
+      <BackLink href={back.href}>{back.label}</BackLink>
       <TemplateTabs id={t.id} active="pages" />
       <Studio
         templateId={t.id}
@@ -116,6 +125,7 @@ export default async function DesignStudioPage({ params, searchParams }: { param
         content={demo ? (contentOf(demo.content) as Record<string, unknown>) : {}}
         parts={artOf(t.art).parts}
         against={against ? { id: against.id, slug: against.slug, title: against.title, content: contentOf(against.content) as Record<string, unknown>, tier: against.tier, status: against.status } : null}
+        back={back}
         look={look}
         vars={vars}
         weights={files.weights}

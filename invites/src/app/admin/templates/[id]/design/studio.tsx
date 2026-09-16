@@ -4,11 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, bleeds, runOf, pinOf, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
-  type MomentEl,
+  type MomentEl, type Picture, type ColourGround,
 } from '@/lib/design';
 import { MOMENTS, MOMENT_BY_KEY, SHELVES, SHELF_KEYS, SHELF_NAMES, SPEEDS, SPEED_NAMES, momentName, momentOf, shelvesOf, type MomentKey, type Shelf, type ShelfEntry, type Trigger as MomentTrigger } from '@/lib/moments';
 import { sectionsFor, sectionLabel, SECTION_BY_KEY, type SectionKey, type SectionData } from '@/lib/sections';
@@ -23,7 +23,7 @@ import { PDF_TROUBLE, type PdfText } from '@/lib/pdf-import';
 import { cssVars, fontsFrom, PALETTE_PRESETS, type Fonts, type Palette } from '@/lib/theme';
 import { colourFamilies, swatchName, swatchStyle, PALETTE } from '@/lib/palette';
 import { saveDesignDraftAction, shareDesignDraftAction, stopSharingDesignDraftAction, themeAction } from '../../../actions';
-import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, cutFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
+import { uploadGround, readPicture, drawAt, sendPicture, groundFromUrl, movingKind, readMoving, sendMoving, type ReadPicture, type Uploaded } from './ground';
 import { readPdfFile } from './pdf';
 import { readClip, sendClip, type SentClip } from './clip';
 import { readAnim, sendAnim, type SentAnim } from './anim';
@@ -60,6 +60,8 @@ const VIEWS = [
 type ViewKey = (typeof VIEWS)[number]['key'];
 /** The invitation column is never wider than this, whatever the window: see `.inv[data-paged]`. */
 const COLUMN = 512;
+/** How wide a phone is, for the marks the guide draws at website width. */
+const PHONE_VIEW = VIEWS.find((v) => v.key === 'phone')!.width;
 
 /** How far a drag has to come to snap: a fifth of a percent of the page's width. */
 const SNAP = 0.8;
@@ -92,6 +94,13 @@ type Props = {
    * canvas, rather than on the demo.
    */
   against?: Real | null;
+  /**
+   * The way back out, in the studio's own top bar: where she came from and
+   * what to call it. The page has a back link of its own above the tabs,
+   * but the studio is a screen of its own that scrolls and it goes out of
+   * reach — so the way out is beside Save draft, where it stays.
+   */
+  back?: { href: string; label: string };
   look?: Look;
   vars: Record<string, string>;
   /** what each of this design's own uploads weighs, by address, for the checklist */
@@ -711,15 +720,16 @@ export function Studio(p: Props) {
     setDrop({ busy: true, error: '' });
     try {
       const g = found?.ground ?? await groundFromUrl(url);
-      // A picture wider than it is tall on a page laid out by its words is
-      // a screen: it is pinned to the window and the words move over it, so
-      // it is never cut. A tall one flows down the page with the words and
-      // can run past its foot, which is what the three cuts are for. A
-      // shipped ground already has its own, cut by hand when it shipped;
-      // one she uploaded is cut here, from the file already on the server.
-      const pinned = !page?.drawn && g.ratio < 1;
-      const slices = page?.drawn || pinned ? undefined : g.slices ?? await cutFromUrl(url, p.templateId);
-      setGround({ url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(slices ? { slices } : {}) }, pinned);
+      /*
+       * Which slot it lands in comes from its shape (`kindOfShape`): a
+       * picture about the shape of a phone screen is the phone's background,
+       * anything wider is the whole website's. She can move it by uploading
+       * it into the other slot; nothing about it is cut or stretched either
+       * way.
+       */
+      const pic = { url, ratio: g.ratio, top: g.top, bottom: g.bottom };
+      if (page?.drawn) setGround(pic);
+      else setBackground(kindOfShape(g.ratio) === 'phone' ? 'phone' : 'website', pic);
       setDrop({ busy: false, error: '' });
     } catch (e) {
       setDrop({ busy: false, error: (e as Error).message });
@@ -1043,12 +1053,19 @@ export function Studio(p: Props) {
   }
 
   /**
-   * A picture that runs on under the pages after it. Set on the head; the
-   * pages it runs on under lose a ground of their own, since they sit on
-   * this picture now, and one given a ground again ends the run there.
+   * How far this page's background reaches: the pages after it that it also
+   * stands behind — the ones she picked it to flow over.
+   *
+   * A background pinned behind the words simply stays put over them, so the
+   * pages keep whatever they have: a page with a colour of its own shows it
+   * again the moment the picture stops, and one with a picture of its own
+   * ends the reach there. A tall shipped ground is the other case — one
+   * length of it is laid down all of them, so the pages it covers lose a
+   * ground of their own, which is what they had before this.
    */
   function setRunsOn(n: number) {
     if (!page || !page.ground || !isPicture(page.ground)) return;
+    const flows = groundKind(page) === 'flow';
     const at = doc.pages.findIndex((x) => x.key === page.key);
     const pages = doc.pages.map((x, i) => {
       if (i === at) {
@@ -1056,7 +1073,7 @@ export function Studio(p: Props) {
         if (n > 0) g.runsOn = n; else delete g.runsOn;
         return { ...x, ground: g };
       }
-      if (n > 0 && i > at && i <= at + n && !x.drawn && x.ground) {
+      if (flows && n > 0 && i > at && i <= at + n && !x.drawn && x.ground) {
         const next = { ...x };
         delete next.ground;
         return next;
@@ -1131,57 +1148,55 @@ export function Studio(p: Props) {
    * or nothing. A picture may come pinned to the screen (`pin`); a colour or
    * nothing never is, and the pin goes with the picture it was on.
    */
-  function setGround(ground: Ground | undefined, pin = false) {
+  function setGround(ground: Ground | undefined, pin?: PageSpec['pin']) {
     editPage((pg) => {
       const next: PageSpec = { ...pg, ground };
       // a page with a ground of known proportions can be drawn on; one with none cannot
       if (!ground) next.drawn = undefined;
-      if (pin && ground && isPicture(ground) && !next.drawn) next.pin = true; else delete next.pin;
+      if (pin && ground && isPicture(ground) && !next.drawn) next.pin = pin; else delete next.pin;
+      // what the background reaches is the choice's to say, not a leftover tick's
+      if (pin) delete next.bleed;
       return next;
     });
   }
 
   /**
-   * How the page's picture sits. Pinned, it fills the window and stays put
-   * while the words move over it, on down the pages after until one brings
-   * a picture of its own — so it neither runs on under the pages after (it
-   * is already there) nor reaches or stops short of the window's edge (it is
-   * the window). Down the page, it flows with the words and can run past its
-   * foot, which wants the three cuts: a picture pinned when it arrived was
-   * never cut, so it is cut here, from the file already on the server.
+   * The page's two backgrounds: one for the phone, one for the whole
+   * website, either or both.
+   *
+   * Both are her own files and neither is ever cut or stretched: the window
+   * picks between them (`PHONE_WINDOW`), and each fills what it was made
+   * for — the phone's the phone screen, the website's the whole window.
+   * Where she gives only one, that one is the page's background and the pin
+   * says which it is: `'column'` for the phone's, which keeps to the column
+   * on a laptop with the surround beside it, and `true` for the website's,
+   * which is the window. Where she gives both, the wide one is the page's
+   * and the phone's rides along in `ground.phone`.
+   *
+   * What the page already had is read back into the two slots the same way,
+   * so replacing one leaves the other alone. The three cuts an older draft
+   * carried are dropped: nothing pinned is ever cut.
    */
-  async function setPin(pin: boolean) {
-    if (!page || page.drawn || !page.ground || !isPicture(page.ground)) return;
-    if (pin) {
-      editPage((pg) => {
-        const next: PageSpec = { ...pg, pin: true };
-        delete next.bleed;
-        if (next.ground && isPicture(next.ground) && next.ground.runsOn) {
-          const g = { ...next.ground };
-          delete g.runsOn;
-          next.ground = g;
-        }
-        return next;
-      });
-      return;
-    }
-    const g = page.ground;
-    let slices = g.slices;
-    if (!slices) {
-      setDrop({ busy: true, error: '' });
-      try {
-        slices = await cutFromUrl(g.url, p.templateId);
-        setDrop({ busy: false, error: '' });
-      } catch (e) {
-        setDrop({ busy: false, error: (e as Error).message });
-        return;
-      }
-    }
-    const cut = slices;
+  function setBackground(which: 'phone' | 'website', pic: Picture | undefined) {
     editPage((pg) => {
+      const g = pg.ground && isPicture(pg.ground) ? pg.ground : undefined;
+      const own = g ? { url: g.url, ratio: g.ratio, top: g.top, bottom: g.bottom, ...(g.night ? { night: g.night } : {}) } : undefined;
+      const had = { phone: pg.pin === 'column' ? own : g?.phone, website: pg.pin === 'column' ? undefined : own };
+      const want = { ...had, [which]: pic };
       const next: PageSpec = { ...pg };
       delete next.pin;
-      if (next.ground && isPicture(next.ground) && !next.ground.slices) next.ground = { ...next.ground, slices: cut };
+      if (want.website) {
+        next.ground = { ...want.website, ...(want.phone ? { phone: want.phone } : {}), ...(g?.runsOn ? { runsOn: g.runsOn } : {}) };
+        next.pin = true;
+      } else if (want.phone) {
+        next.ground = { ...want.phone, ...(g?.runsOn ? { runsOn: g.runsOn } : {}) };
+        next.pin = 'column';
+      } else {
+        delete next.ground;
+        next.drawn = undefined;
+      }
+      // what the background reaches is the choice's to say, not a leftover tick's
+      delete next.bleed;
       return next;
     });
   }
@@ -1764,6 +1779,39 @@ export function Studio(p: Props) {
     }
   }, [flowKey]);
   useEffect(() => { if (flowSrc) setDrawing(true); }, [flowSrc]);
+  /**
+   * The theme, on the frame, the moment she picks it.
+   *
+   * The frame is the guest page — its own document, drawn by the server in
+   * the theme the row holds — so the faces and colours she is *trying* in
+   * the Theme popover reached the canvas around it and nothing inside it.
+   * On a page laid out by its words, which is every page the frame draws,
+   * that is the whole page: she changed the faces and saw no change, which
+   * is what she said. So the variables are written onto the frame's own
+   * invitation, and the stylesheet that carries every face we offer is put
+   * in its head — the frame's page loads only the faces the saved theme
+   * asks for, and a face she has not saved yet is not among them.
+   *
+   * Same-origin, so this is a write rather than a message. It runs again on
+   * every reload of the frame, because a reload is the server's answer and
+   * carries the saved theme, not the one she is trying.
+   */
+  const paintFrame = useCallback(() => {
+    const doc = flowFrame.current?.contentDocument;
+    if (!doc) return;
+    if (!doc.getElementById('studio-faces')) {
+      const link = doc.createElement('link');
+      link.id = 'studio-faces';
+      link.rel = 'stylesheet';
+      link.href = p.theme.facesUrl;
+      doc.head?.appendChild(link);
+    }
+    for (const el of [doc.querySelector<HTMLElement>('.inv-stage'), doc.querySelector<HTMLElement>('.inv')]) {
+      if (!el) continue;
+      for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+    }
+  }, [vars, p.theme.facesUrl]);
+  useEffect(() => { if (framed) paintFrame(); }, [framed, paintFrame, flowKey, drawing]);
   /*
    * At once, not after the save. The frame is the guest page and it is
    * same-origin, so a colour, the colour beside the page and a height are
@@ -1779,7 +1827,8 @@ export function Studio(p: Props) {
     const g = page.ground;
     // a page on a picture pinned to the screen is see-through: its colour waits (pinOf)
     pg.style.background = g && !isPicture(g) && !pins.has(page.key) ? colourOf(g.color, vars) : '';
-    pg.style.minHeight = page.minScreens ? `calc(var(--inv-screen, 100dvh) * ${page.minScreens})` : '';
+    const screens = screensOf(page);
+    pg.style.minHeight = screens ? `calc(var(--inv-screen, 100dvh) * ${screens})` : '';
     const beside = outsideOf(page);
     const stage = win.document.querySelector<HTMLElement>('.inv-stage');
     if (stage) {
@@ -1790,6 +1839,7 @@ export function Studio(p: Props) {
   /** Measured on arrival, and again as its pictures and faces come in, which the page grows with. */
   const flowLoaded = useCallback(() => {
     setDrawing(false);
+    paintFrame();
     sizeFlow();
     flowWatch.current?.disconnect();
     const doc = flowFrame.current?.contentDocument;
@@ -1798,7 +1848,7 @@ export function Studio(p: Props) {
     ro.observe(doc.documentElement);
     for (const pg of Array.from(doc.querySelectorAll('[data-page]'))) ro.observe(pg);
     flowWatch.current = ro;
-  }, [sizeFlow]);
+  }, [sizeFlow, paintFrame]);
   useEffect(() => () => flowWatch.current?.disconnect(), []);
   // another page is another height; until it is measured the canvas guesses, as it always did
   useEffect(() => { setFlowBox({ top: 0, height: 0 }); }, [flowKey]);
@@ -2080,7 +2130,7 @@ export function Studio(p: Props) {
           {view === 'page' && page?.drawn && (
             <button
               type="button"
-              title="Where words are safe on the narrowest phone, the band the browser's own bar keeps, and whatever the checklist says about this page"
+              title="Lines only: where words are safe on the narrowest phone, where a phone's edges fall, where the browser's own bar sits, and whatever the checklist says about this page"
               onClick={() => setGuide((x) => !x)}
               className={`rounded px-2 py-1 ${guide ? 'bg-[color:var(--color-ink-700)] text-white' : 'bg-[color:var(--color-sand-200)]'}`}
             >
@@ -2268,9 +2318,10 @@ export function Studio(p: Props) {
                   * own photographs sit on top and nothing can be grabbed.
                   */}
                 {/*
-                  * The phone guide. Two bands and a set of rings, all of them
+                  * The phone guide. Hairlines and a set of rings, all of them
                   * over the page and none of them in it: the layer takes no
-                  * pointer, so it cannot get between her and a box.
+                  * pointer, so it cannot get between her and a box, and
+                  * nothing is shaded or striped over what she is drawing.
                   *
                   * The gutter is the same number the checklist measures words
                   * against (`GUTTER`), so the line on the page and the
@@ -2280,32 +2331,41 @@ export function Studio(p: Props) {
                   * it is only drawn on a page of a screen or less, which is
                   * the only page a bar can cover.
                   */}
+                {/*
+                  * The same guide over a page laid out by its words, which
+                  * until now showed none: she was editing at website width
+                  * with nothing on the canvas to say what a phone would do
+                  * with it, and asked for exactly this.
+                  *
+                  * Lines, and nothing else. A guide that shades or stripes
+                  * the page is a guide she has to look through to judge
+                  * what she is drawing — "it should only be a guide", in
+                  * her words — so each limit is one hairline and the design
+                  * underneath is untouched: the two the words want to stay
+                  * inside, the two where a phone's edges fall at website
+                  * width, and one where a phone browser's own bar cuts off
+                  * the first screen.
+                  */}
+                {framed && guide && (
+                  <div aria-hidden data-testid="flow-guide" style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none', overflow: 'hidden' }}>
+                    {[GUTTER, 100 - GUTTER].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: 0, borderLeft: '1px dashed rgba(47,111,208,0.5)' }} />
+                    ))}
+                    {column > PHONE_VIEW && [(column - PHONE_VIEW) / 2, column - (column - PHONE_VIEW) / 2].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: at, width: 0, borderLeft: '1px solid rgba(31,29,26,0.35)' }} />
+                    ))}
+                    {flowBox.height > screen * 0.5 && (
+                      <div style={{ position: 'absolute', left: 0, right: 0, top: Math.round(screen * (1 - BROWSER_BAR)), height: 0, borderTop: '1px dashed rgba(31,29,26,0.45)' }} />
+                    )}
+                  </div>
+                )}
                 {page?.drawn && guide && (
                   <div aria-hidden style={{ position: 'absolute', inset: 0, zIndex: 6, pointerEvents: 'none' }}>
-                    {[0, 100 - GUTTER].map((at) => (
-                      <div
-                        key={at}
-                        style={{
-                          position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: `${GUTTER}%`,
-                          background: 'rgba(47,111,208,0.06)',
-                          [at ? 'borderLeft' : 'borderRight']: '1px dashed rgba(47,111,208,0.55)',
-                        }}
-                      />
+                    {[GUTTER, 100 - GUTTER].map((at) => (
+                      <div key={at} style={{ position: 'absolute', top: 0, bottom: 0, left: `${at}%`, width: 0, borderLeft: '1px dashed rgba(47,111,208,0.5)' }} />
                     ))}
                     {ratio <= ONE_SCREEN + 0.02 && (
-                      <div
-                        style={{
-                          position: 'absolute', left: 0, right: 0, bottom: 0,
-                          height: `${(BROWSER_BAR / ratio) * 100}%`,
-                          background: 'repeating-linear-gradient(135deg, rgba(31,29,26,0.20) 0 6px, rgba(31,29,26,0.10) 6px 12px)',
-                          borderTop: '1px dashed rgba(31,29,26,0.5)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                      >
-                        <span style={{ font: '500 10px/1.2 system-ui, sans-serif', color: '#1f1d1a', background: 'rgba(255,255,255,0.75)', padding: '2px 6px', borderRadius: 3 }}>
-                          the browser&rsquo;s bar sits about here
-                        </span>
-                      </div>
+                      <div style={{ position: 'absolute', left: 0, right: 0, bottom: `${(BROWSER_BAR / ratio) * 100}%`, height: 0, borderTop: '1px dashed rgba(31,29,26,0.45)' }} />
                     )}
                     {/*
                       * And the checklist, on the page. A ring where a line is
@@ -2404,11 +2464,13 @@ export function Studio(p: Props) {
           * twice and nothing is ever re-cut. What changes on a smaller screen
           * is the size of it, which is what the guide's three marks are about.
           */}
-        {view === 'page' && page?.drawn && (
+        {view === 'page' && page && (
           <p className="hint mt-2">
-            This page is the same page at every width: a guest&rsquo;s invitation is never wider than the Laptop 512 above, and everything on the page is a share of that width &mdash; so what you place here lands in the same place on a 360 phone, only smaller. Nothing is cut and nothing moves.{' '}
+            {page.drawn
+              ? <>This page is the same page at every width: a guest&rsquo;s invitation is never wider than the Laptop 512 above, and everything on the page is a share of that width &mdash; so what you place here lands in the same place on a 360 phone, only smaller. Nothing is cut and nothing moves.{' '}</>
+              : <>This page is laid out by its words, so a phone re-wraps them inside a narrower column while the background behind them fills whatever screen it is on. What a phone changes is where the lines break and how much of the background it shows.{' '}</>}
             {guide
-              ? <>The guide shows the three things a phone does change: words inside the shaded gutter read as cut, the striped band at the foot is where a phone browser&rsquo;s own bar sits until the guest scrolls, and a ring marks anything the checklist has a line about. Switch between the widths above to see how big the writing actually gets.</>
+              ? <>The guide is lines only, nothing laid over the page: keep words inside the two dashed uprights and a phone will not read them as cut, and the dashed line across is where a phone browser&rsquo;s own bar sits until the guest scrolls. At website width the two solid uprights are where a phone&rsquo;s edges fall. A ring marks anything the checklist has a line about. Switch between the widths above to see how big the writing actually gets.</>
               : <>Turn on <strong>Phone guide</strong> above to see where words are safe, where a phone browser&rsquo;s bar sits, and whatever the checklist says about this page.</>}
           </p>
         )}
@@ -2458,8 +2520,8 @@ export function Studio(p: Props) {
             page={page}
             onChange={editPage}
             onGround={setGround}
+            onBackground={setBackground}
             onRunsOn={setRunsOn}
-            onPin={(pin) => void setPin(pin)}
             pinnedOn={pinnedOn}
             joinedTo={joinedTo ? (doc.pages.find((x) => x.key === joinedTo)?.label?.en || joinedTo) : undefined}
             templateId={p.templateId}
@@ -2476,11 +2538,12 @@ export function Studio(p: Props) {
 
 // ---------------------------------------------------------------------------
 
-function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
+function TopBar({ name, demoSlug, canPublish, templateId, shareLink, state, error, published, back, onSave }: Props & { state: string; error: string; rev: number; doc: DesignDoc; onSave: () => void }) {
   // named, because the Invitation drawer has a saving line of its own on the same screen
   const said: Record<string, string> = { clean: 'Design: no unsaved changes', dirty: 'Design: not saved yet', saving: 'Design: saving…', saved: 'Design draft saved', error: 'Design: not saved' };
   return (
     <div className="card col-span-full flex flex-wrap items-center gap-2 p-3">
+      {back && <Link href={back.href} className="btn btn-ghost btn-sm" data-testid="back">&larr; Back to {back.label}</Link>}
       <p className="font-semibold">{name}</p>
       <span className={`rounded-full px-2 py-0.5 text-xs ${published ? 'bg-[color:var(--color-sand-200)]' : 'bg-amber-100 text-amber-900'}`}>{published ? 'Published' : 'Never published'}</span>
       <span className={`text-xs ${state === 'error' ? 'text-red-700' : 'text-[color:var(--color-ink-500)]'}`}>{said[state]}</span>
@@ -4685,15 +4748,34 @@ type SectionTools = {
   move: (key: string, by: number) => void;
 };
 
-function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress }: {
+/**
+ * The two backgrounds a page can carry, in the words she asked for them in.
+ * She can give one or both: where both are there the window picks between
+ * them, so a guest on a phone gets the phone's picture and a guest on a
+ * laptop the wide one, and neither is ever stretched into the other's shape.
+ * How far either reaches down the invitation is the one other question, and
+ * it is asked once, below them both.
+ */
+const BACKGROUND_SLOTS: { key: 'phone' | 'website'; name: string; size: string; hint: string }[] = [
+  {
+    key: 'phone', name: 'Background for the phone', size: '1080 × 1920',
+    hint: 'The shape of a phone screen. It fills the screen and stays put while the writings move over it; on a laptop, with no website background beside it, it keeps to the column with the surround at either side.',
+  },
+  {
+    key: 'website', name: 'Background for the whole website', size: '1920 × 1080',
+    hint: 'One picture across the whole window, edge to edge on a laptop, and the writings move over it. A phone shows the middle of it, unless you give a phone background above — then the phone gets that one instead.',
+  },
+];
+
+function PageProps({ page, onChange, onGround, onBackground, onRunsOn, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
-  /** the background; a picture may come pinned to the screen */
-  onGround: (g: Ground | undefined, pin?: boolean) => void;
-  /** how many pages after this one its picture runs on under */
+  /** the whole background at once: a colour, a drawn page's picture, or none */
+  onGround: (g: Ground | undefined, pin?: PageSpec['pin']) => void;
+  /** one of the two background pictures, or taking one away */
+  onBackground: (which: 'phone' | 'website', pic: Picture | undefined) => void;
+  /** how many pages after this one its background also stands behind */
   onRunsOn: (n: number) => void;
-  /** whether its picture is pinned to the screen or flows down the page with the words */
-  onPin: (pin: boolean) => void;
   /** the page whose picture runs on under this one, by name, when this page sits on one */
   joinedTo?: string;
   /** the page whose picture is pinned to the screen under this one, by name, when this page scrolls over one */
@@ -4713,10 +4795,24 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
   const [error, setError] = useState('');
   const [heavy, setHeavy] = useState('');
   const [kept, setKept] = useState(false);
+  /** a picture put in the slot it does not suit, said rather than refused */
+  const [shape, setShape] = useState('');
   if (!page) return <p className="hint">This design has no pages yet.</p>;
   const ground = page.ground;
+  const picture = ground && isPicture(ground) ? ground : undefined;
+  /*
+   * The page's two backgrounds, read back out of what it holds the same way
+   * `setBackground` puts them in: the page's own picture is the phone's when
+   * the pin says the column, and the website's otherwise, with the phone's
+   * riding along beside it.
+   */
+  const slots: Record<'phone' | 'website', Picture | undefined> = {
+    phone: page.pin === 'column' ? picture : picture?.phone,
+    website: page.pin === 'column' ? undefined : picture,
+  };
+  const flows = groundKind(page) === 'flow';
 
-  async function pick(file: File) {
+  async function pick(file: File, which: 'phone' | 'website') {
     setBusy(true);
     setError('');
     /*
@@ -4730,13 +4826,24 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
       ? `That file is ${Math.round(file.size / 1024)} kB. Under ${Math.round(HEAVY_GROUND / 1024)} kB is what a guest on mobile data can carry for every page — a WebP export rather than a PNG usually gets there.`
       : '');
     try {
-      // A flow page's height comes from its words, so it can run past the
-      // picture behind it — which is what the three cuts are for. A drawn
-      // page is exactly its ground's height and never needs them, so it is
-      // not made to upload three more files.
-      const up = await uploadGround(file, templateId, !page?.drawn);
-      // wider than tall on a page laid out by its words: a screen, pinned to the window
-      onGround({ url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom, ...(up.slices ? { slices: up.slices } : {}) }, !page?.drawn && up.ratio < 1);
+      /*
+       * Her picture, as she gave it, in the slot she put it in. Nothing is
+       * cut in three and nothing is stretched: each of the two backgrounds
+       * fills what it was made for and the window picks between them. A
+       * picture whose shape does not suit its slot is still hers to use —
+       * it is cropped to fit, and the line below says so rather than the
+       * upload refusing it.
+       */
+      const up = await uploadGround(file, templateId);
+      const pic: Picture = { url: up.url, ratio: up.ratio, top: up.top, bottom: up.bottom };
+      const suits = kindOfShape(up.ratio);
+      setShape(page?.drawn || suits === which || (which === 'website' && suits === 'flow')
+        ? ''
+        : which === 'phone'
+          ? 'That picture is wider than a phone screen, so a phone will show the middle of it. A picture about 1080 × 1920 fills a phone exactly.'
+          : 'That picture is taller than a window, so a laptop will show the middle of it. A picture about 1920 × 1080 fills a window exactly.');
+      if (page?.drawn) onGround(pic);
+      else onBackground(which, pic);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -4963,87 +5070,117 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
             A picture or a colour picked below gives this page a ground of its own and ends the run here.
           </p>
         )}
-        <div className="mt-1 flex items-start gap-2">
-          <span
-            className="h-16 w-11 shrink-0 rounded border border-black/10 bg-cover bg-top"
-            style={ground && isPicture(ground) ? { backgroundImage: `url(${ground.url})` } : { background: ground ? colourOf(ground.color, vars) : 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <label className={`btn btn-secondary btn-sm w-full ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
-              {busy ? 'Reading the picture…' : ground && isPicture(ground) ? 'Replace the picture' : 'Upload a picture'}
-              <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0])} />
-            </label>
-            {ground && <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm w-full">No background</button>}
-            {/*
-              * A background she liked once is a background she will want
-              * again. Keeping it costs one tap and no second upload: the
-              * library points at the same file.
-              */}
-            {ground && isPicture(ground) && ground.url.startsWith('/uploads/') && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  const res = await keepPieceAction(ground.url, page.label?.en ?? page.key, 'background');
-                  setBusy(false);
-                  setError(res.ok ? '' : res.error ?? 'It would not save.');
-                  if (res.ok) setKept(true);
-                }}
-                className="btn btn-ghost btn-sm w-full"
-              >
-                {kept ? 'In the library' : 'Keep it in the library'}
-              </button>
-            )}
-          </div>
-        </div>
-        {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
-        {heavy && <p className="hint text-amber-800">{heavy}</p>}
         {/*
-          * A picture that runs on. A tall design is drawn as one length and
-          * meant to flow down the invitation; before this every page started
-          * its picture again at its own head, and the only way to carry one
-          * across was to cut it by hand. The head says how far it runs; the
-          * pages under it say so on their own Background, above.
+          * Two backgrounds, and one question about them.
+          *
+          * She asked for it in these words: one background for the phone,
+          * one for the whole website, and the choice of how far either
+          * flows over the pages she picks. So the picture is not asked what
+          * it is — the slot it goes in says that — and the four ways a
+          * background used to be able to be set, which between them could
+          * cut a picture in three and stretch its middle down a page, are
+          * gone. Neither of these is ever cut, and neither ever stretches:
+          * each fills what it was made for and the window picks between
+          * them.
+          *
+          * A page drawn by hand is the one exception: its picture *is* the
+          * page, at the page's own proportions, so it takes one picture and
+          * no choices.
           */}
-        {/*
-          * How the picture sits. Pinned, it is the screen: it fills the
-          * window, a phone showing the middle of it, and stays put while
-          * the words move over it — on down the pages after, until one
-          * brings a picture of its own. Down the page, it flows with the
-          * words, as a tall design meant to be read top to bottom does.
-          */}
-        {ground && isPicture(ground) && !page.drawn && (
-          <div className="mt-2" data-testid="pin">
-            <p className="label">How the picture sits</p>
-            <div className="mt-1 flex flex-col gap-1">
-              {([[true, 'Pinned to the screen', 'It fills the window and stays put while the words move over it, on down the pages after until one has a picture of its own. A phone shows the middle of it.'], [false, 'Down the page with the words', 'It flows with the words, top to bottom, the way a tall design is meant to be read, and can run on under the pages after.']] as const).map(([pin, name, hint]) => (
-                <label key={String(pin)} className="flex items-start gap-2">
-                  <input type="radio" name={`pin-${page.key}`} checked={Boolean(page.pin) === pin} onChange={() => onPin(pin)} disabled={busy} className="mt-0.5 h-4 w-4" />
-                  <span>
-                    {name}
-                    <span className="hint block">{hint}</span>
-                  </span>
-                </label>
-              ))}
+        {page.drawn ? (
+          <div className="mt-1 flex items-start gap-2">
+            <span
+              className="h-16 w-11 shrink-0 rounded border border-black/10 bg-cover bg-top"
+              style={picture ? { backgroundImage: `url(${picture.url})` } : { background: ground ? colourOf((ground as ColourGround).color, vars) : 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+            />
+            <div className="min-w-0 flex-1 space-y-1">
+              <label className={`btn btn-secondary btn-sm w-full ${busy ? 'opacity-60' : 'cursor-pointer'}`}>
+                {busy ? 'Reading the picture…' : picture ? 'Replace the picture' : 'Upload a picture'}
+                <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0], 'website')} />
+              </label>
+              {ground && <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm w-full">No background</button>}
             </div>
           </div>
+        ) : (
+          <div className="mt-1 space-y-2" data-testid="slots">
+            {BACKGROUND_SLOTS.map(({ key, name, size, hint }) => {
+              const pic = slots[key];
+              return (
+                <div key={key} className="flex items-start gap-2" data-testid={`slot-${key}`}>
+                  <span
+                    className={`h-16 shrink-0 rounded border bg-cover bg-center ${key === 'phone' ? 'w-9' : 'w-[104px]'} ${pic ? 'border-black/10' : 'border-dashed border-black/25'}`}
+                    style={pic ? { backgroundImage: `url(${pic.url})` } : { background: 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50%/10px 10px' }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="label">{name}</p>
+                    <p className="hint">{hint}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <label className={`btn btn-secondary btn-sm ${busy ? 'opacity-60' : 'cursor-pointer'}`} data-testid={`upload-${key}`}>
+                        {busy ? 'Reading the picture…' : pic ? 'Replace it' : `Upload one (${size})`}
+                        <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => e.target.files?.[0] && pick(e.target.files[0], key)} />
+                      </label>
+                      {pic && <button type="button" disabled={busy} onClick={() => onBackground(key, undefined)} className="btn btn-ghost btn-sm">Take it off</button>}
+                      {/*
+                        * A background she liked once is a background she will
+                        * want again. Keeping it costs one tap and no second
+                        * upload: the library points at the same file.
+                        */}
+                      {pic && pic.url.startsWith('/uploads/') && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={async () => {
+                            setBusy(true);
+                            const res = await keepPieceAction(pic.url, `${page.label?.en ?? page.key} — ${key === 'phone' ? 'phone' : 'website'}`, 'background');
+                            setBusy(false);
+                            setError(res.ok ? '' : res.error ?? 'It would not save.');
+                            if (res.ok) setKept(true);
+                          }}
+                          className="btn btn-ghost btn-sm"
+                        >
+                          {kept ? 'In the library' : 'Keep it in the library'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
-        {ground && isPicture(ground) && !page.drawn && !page.pin && (
+        {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
+        {heavy && <p className="hint text-amber-800">{heavy}</p>}
+        {shape && <p className="hint text-amber-800" data-testid="shape">{shape}</p>}
+        {/*
+          * How far it reaches: this page, or this page and the ones after it
+          * she picks. A pinned background simply stands behind them all —
+          * one still picture, the writings moving over it — which is what
+          * she means by one background flowing over the pages. The tall
+          * grounds the two shipped designs were drawn on are the other
+          * case, and say so.
+          */}
+        {picture && !page.drawn && (
           <label className="mt-2 block">
-            <span className="label">Runs on under</span>
-            <select className="input w-full text-xs" value={ground.runsOn ?? 0} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
+            <span className="label">Where it reaches</span>
+            <select className="input w-full text-xs" value={picture.runsOn ?? 0} onChange={(e) => onRunsOn(Number(e.target.value))} data-testid="runs-on">
               <option value={0}>this page only</option>
-              <option value={1}>the next page too</option>
-              <option value={2}>the next 2 pages</option>
-              <option value={3}>the next 3 pages</option>
-              <option value={4}>the next 4 pages</option>
+              <option value={1}>this page and the next</option>
+              <option value={2}>this page and the next 2</option>
+              <option value={3}>this page and the next 3</option>
+              <option value={4}>this page and the next 4</option>
             </select>
             <span className="hint">
-              One length of the picture down this page and the ones after, the way a tall design is meant to flow. The pages it runs on under lose a background of their own, and one given a background again ends the run there.
-              Where the pages run past the picture&rsquo;s foot, it keeps its head and its foot whole and stretches the band between.
+              {flows
+                ? <>One length of the picture down this page and the ones you pick, the way this design was drawn. The pages it flows over lose a background of their own, and where they run past its foot it keeps its head and its foot whole and stretches the band between &mdash; which is why an uploaded background is never laid this way.</>
+                : <>The same picture stands behind every page you pick: it stays put and only the writings move over it, so it never stretches. A page with a background of its own ends it there, and so does a page drawn by hand.</>}
             </span>
           </label>
+        )}
+        {flows && (
+          <p className="hint mt-2" data-testid="flows">
+            This page&rsquo;s picture is one of the tall backgrounds this design was drawn on, and is used as it was drawn.
+            Uploading a background above puts a still picture behind the page instead, which never stretches.
+          </p>
         )}
         {pinnedOn && !page.drawn && (
           <p className="hint mt-2" data-testid="pinned-on">
@@ -5076,6 +5213,9 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
           value={ground && !isPicture(ground) ? ground.color : undefined}
           onPick={(c) => onGround({ color: c, ratio: ground && !isPicture(ground) ? ground.ratio : undefined })}
         />
+        {ground && !isPicture(ground) && !page.drawn && (
+          <button type="button" onClick={() => onGround(undefined)} className="btn btn-ghost btn-sm mt-1 w-full">No background at all</button>
+        )}
         <p className="hint">A role colour follows the palette, so it turns itself down at night. A colour of your own does not.</p>
         {/*
           * Whether the background reaches the whole website page. On a
@@ -5086,7 +5226,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
           * Kept to the column, the colour beside it is the design's own
           * surround (Theme…, Beside it) or one said here.
           */}
-        {ground && !page.pin && (
+        {ground && !isPicture(ground) && (
           <label className="mt-2 flex items-start gap-2" data-testid="bleed">
             <input
               type="checkbox"
@@ -5096,11 +5236,11 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
             />
             <span>
               Reaches the whole website page
-              <span className="hint block">On a laptop it runs edge to edge behind the column &mdash; {ground && isPicture(ground) ? 'one picture across the whole page, the column showing the middle of it' : 'the colour out to the window\u2019s edges'} &mdash; and a phone shows the middle of it. A clip behind the page reaches with it. Off, it stays in the column.</span>
+              <span className="hint block">On a laptop the colour runs edge to edge behind the column, out to the window&rsquo;s edges. A clip behind the page reaches with it. Off, it stays in the column.</span>
             </span>
           </label>
         )}
-        {!bleeds(page) && !page.pin && (
+        {!bleeds(page) && (
           <>
             <p className="label mt-2">Beside the page, on a laptop</p>
             <div className="mt-1 flex items-center gap-1" data-testid="outside">
@@ -5139,7 +5279,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
             <input
               type="number" min={0.3} max={6} step={0.1}
               value={page.minScreens ?? ''}
-              placeholder="as tall as its words"
+              placeholder={groundKind(page) === 'phone' || groundKind(page) === 'website' ? 'one screen' : 'as tall as its words'}
               data-testid="min-screens"
               onChange={(e) => {
                 const v = e.target.value === '' ? undefined : place(Math.min(6, Math.max(0.3, Number(e.target.value) || 0.3)));
@@ -5147,7 +5287,7 @@ function PageProps({ page, onChange, onGround, onRunsOn, onPin, joinedTo, pinned
               }}
               className="input w-full"
             />
-            <span className="hint">1 is one screen, 2 is two; the words sit in the middle of it with the pieces around them. Blank is as tall as its words.</span>
+            <span className="hint">1 is one screen, 2 is two; the words sit in the middle of it with the pieces around them. {groundKind(page) === 'phone' || groundKind(page) === 'website' ? 'Blank is one screen, so the background is seen whole.' : 'Blank is as tall as its words.'}</span>
           </label>
         )}
 

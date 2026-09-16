@@ -1032,7 +1032,19 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * arrives: a head shorter than half a screen keeps its picture, and on a
  * laptop the sides of a page that sits on no pin keep the last one.
  */
-export function Pinned({ pins }: { pins: { key: string; url: string; night?: string }[] }) {
+export function Pinned({ pins, phoneWindow = 639 }: {
+  pins: {
+    key: string; url: string; night?: string; column?: boolean;
+    /** the same background drawn for a phone, where she gave one: the window chooses */
+    phone?: { url: string; night?: string };
+  }[];
+  /**
+   * The widest window that counts as a phone's, for a page carrying both
+   * pictures: `PHONE_WINDOW`, handed in rather than imported, because this
+   * island is in every guest's bundle and the document module is not.
+   */
+  phoneWindow?: number;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const layer = ref.current;
@@ -1082,9 +1094,24 @@ export function Pinned({ pins }: { pins: { key: string; url: string; night?: str
   return (
     <div ref={ref} className="inv-pins" aria-hidden="true">
       {pins.map((pin) => (
-        <div key={pin.key} className="inv-pin" data-pin={pin.key} data-night-art={pin.night ? '' : undefined}>
-          <img src={pin.url} alt="" data-day="" decoding="async" />
-          {pin.night && <img src={pin.night} alt="" data-night="" decoding="async" loading="lazy" />}
+        <div key={pin.key} className="inv-pin" data-pin={pin.key} data-column={pin.column ? '' : undefined} data-night-art={pin.night ? '' : undefined}>
+          {/*
+            * One picture or two. Where she has given a background for the
+            * phone as well as one for the whole website, the window picks
+            * between them — a media query, so the browser chooses before it
+            * fetches and neither picture is ever stretched into the other's
+            * shape. The marks the night rules read stay on the <img>.
+            */}
+          <picture>
+            {pin.phone && <source media={`(max-width: ${phoneWindow}px)`} srcSet={pin.phone.url} />}
+            <img src={pin.url} alt="" data-day="" decoding="async" />
+          </picture>
+          {pin.night && (
+            <picture>
+              {pin.phone?.night && <source media={`(max-width: ${phoneWindow}px)`} srcSet={pin.phone.night} />}
+              <img src={pin.night} alt="" data-night="" decoding="async" loading="lazy" />
+            </picture>
+          )}
         </div>
       ))}
     </div>

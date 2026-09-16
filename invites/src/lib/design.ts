@@ -1463,16 +1463,36 @@ export type PageDef = {
  * The two drawn pages keep their tops clear of the dissolve.
  */
 export const BABYBLUE_PAGES: PageDef[] = [
-  { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
+  /*
+   * The cover, without the verse.
+   *
+   * Baby Blue shipped with a psalm on it, and it is off at the owner's word
+   * — for a reason better than taste. A christening can be Catholic, Born
+   * Again or Aglipayan, and a family may want their own passage, so a verse
+   * lettered into the sky chooses the family's scripture for them. A design
+   * that wants one can name `verse` here again and the writing comes back.
+   */
+  { key: 'cover', bg: 'cover', sections: ['cover'] },
   { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
   { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
-  { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
+  /*
+   * The parents with the ninongs and ninangs — the owner's grouping, and
+   * the thing that actually places Parents on the page.
+   *
+   * Naming a part in `LAYOUT_ORDER` does *not* place it: an unplaced part
+   * falls to the renderer's overflow loop, which runs after every page of
+   * the document whatever the order says, so Our Parents was rendering
+   * after the Closing. A part is placed by being on a page. This is that.
+   */
+  { key: 'sponsors', bg: 'sponsors', sections: ['parents', 'sponsors'] },
   { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
   { key: 'venue', bg: 'venue', sections: ['reception'] },
   { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
   { key: 'program', bg: 'program', sections: ['gift', 'program'] },
   { key: 'share', bg: 'share', sections: ['social', 'photos'] },
-  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
+  // the assistance with the FAQ beside it, which is the owner's pairing and
+  // is also what stops the FAQ falling past the Closing now it is switched on
+  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'faq', 'closing'] },
 ];
 /** The ground a page the map does not name gets, for a layout that names them. */
 export const BABYBLUE_OVERFLOW = 'venue';
@@ -1589,7 +1609,10 @@ function babyblueDesign(): DesignDoc {
 export const CAPIZ_PAGES: PageDef[] = [
   { key: 'cover', sections: ['cover', 'verse'] },
   { key: 'story', sections: ['story'] },
-  { key: 'invitation', sections: ['ceremony'] },
+  // the parents above the ceremony, the way the wording runs: "together with
+  // their parents, you are invited". A page, not a place in the order — see
+  // the note on Baby Blue's sponsors page for why that distinction matters
+  { key: 'invitation', sections: ['parents', 'ceremony'] },
   { key: 'entourage', sections: ['entourage'] },
   { key: 'prenup', sections: ['gallery'] },
   { key: 'venue', sections: ['reception'] },
@@ -1599,7 +1622,11 @@ export const CAPIZ_PAGES: PageDef[] = [
   { key: 'guestbook', sections: ['guestbook'] },
   { key: 'photos', sections: ['photos'] },
   { key: 'rsvp', sections: ['rsvp'] },
-  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
+  // the FAQ with the contact person: any paalala, then who to ring, then the
+  // closing words. On a *page*, because Capiz's grounds are laid down the
+  // invitation by count — adding a page here would shift every background
+  // after it, so a part joins an existing page rather than getting its own
+  { key: 'closing', sections: ['countdown', 'contact', 'faq', 'closing'] },
 ];
 
 /**

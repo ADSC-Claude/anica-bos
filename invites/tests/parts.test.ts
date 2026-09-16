@@ -39,9 +39,17 @@ test('a part the design leaves out and the package includes can be added', () =>
   // Signature includes the programme and the guestbook
   assert.equal(state(parts, 'program'), 'addable');
   assert.equal(state(parts, 'guestbook'), 'addable');
-  // a part nobody is offered at all is not a choice on any package
-  assert.equal(state(parts, 'parents'), undefined);
-  assert.equal(state(parts, 'faq'), undefined);
+  /*
+   * The FAQ is a choice again: it was hidden from every package and is back
+   * on, sitting with the assistance on the christening.
+   *
+   * Parents is not, and for a different reason that is worth keeping
+   * straight: it is `optional`, which means the *design* places it rather
+   * than the customer ticking it on. So it has never been one of these and
+   * still is not, whatever its hidden flag says.
+   */
+  assert.equal(state(parts, 'faq'), 'addable');
+  assert.equal(state(parts, 'parents'), undefined, 'optional: the design places it, not the customer');
   // and the spare photographs at the end of the form have no page in any
   // design: their own form promises nothing there shows unless we place it
   assert.equal(state(parts, 'extras'), undefined);

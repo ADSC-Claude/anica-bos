@@ -151,16 +151,21 @@ test('the document walks the same pages, on the same grounds, in the same order'
  */
 test('the ten Baby Blue pages are the ten the renderer has always walked', () => {
   assert.deepEqual(BABYBLUE_PAGES, [
-    { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
+    // the verse came off at the owner's word: a christening can be Catholic,
+    // Born Again or Aglipayan, and a lettered psalm chooses for the family
+    { key: 'cover', bg: 'cover', sections: ['cover'] },
     { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
     { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
-    { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
+    // the parents with the ninongs: the owner's grouping, and what actually
+    // places Parents on a page rather than after the Closing
+    { key: 'sponsors', bg: 'sponsors', sections: ['parents', 'sponsors'] },
     { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
     { key: 'venue', bg: 'venue', sections: ['reception'] },
     { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
     { key: 'program', bg: 'program', sections: ['gift', 'program'] },
     { key: 'share', bg: 'share', sections: ['social', 'photos'] },
-    { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
+    // the FAQ with the assistance, now that the FAQ is switched back on
+    { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'faq', 'closing'] },
   ]);
 });
 
@@ -571,10 +576,17 @@ test('a starter is one page per section, cover first, and it is publishable the 
   assert.equal(new Set(doc.pages.map((p) => p.key)).size, doc.pages.length);
   // a page key is the section's, spelled the way a page spells it
   assert.ok(doc.pages.some((p) => p.key === 'dress-code'));
-  // and it reads like an invitation rather than like the form it came from:
-  // the story after the cover, the countdown near the end
-  assert.deepEqual(doc.pages.slice(0, 4).map((p) => p.key), ['cover', 'story', 'ceremony', 'sponsors']);
-  assert.ok(doc.pages.findIndex((p) => p.key === 'countdown') > doc.pages.findIndex((p) => p.key === 'rsvp'));
+  /*
+   * And it reads like an invitation rather than like the form it came from.
+   *
+   * The christening's order is the owner's hub order now: the cover, then the
+   * countdown on a short page of its own, then the invitation — the church
+   * before the venue before the dress code. The countdown moved from near
+   * the end to second, which is her decision and not a drift, so the old
+   * assertion that it came after the RSVP is gone rather than loosened.
+   */
+  assert.deepEqual(doc.pages.slice(0, 5).map((p) => p.key), ['cover', 'countdown', 'ceremony', 'reception', 'dress-code']);
+  assert.ok(doc.pages.findIndex((p) => p.key === 'closing') > doc.pages.findIndex((p) => p.key === 'rsvp'), 'the ending is still last');
   // plain colours, alternating so the seam between two pages can be seen at all
   assert.deepEqual(doc.pages.map((p) => (p.ground && !isPicture(p.ground) ? p.ground.color : '?')).slice(0, 4), ['bg', 'surface', 'bg', 'surface']);
   // nothing is drawn by hand and nothing asks for a picture

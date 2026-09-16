@@ -42,8 +42,8 @@ export type DesignArt = {
   parts?: Record<string, string>;
 };
 
-export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'moment2', 'moment3', 'story', 'invitation', 'entourage', 'sponsors', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'gentsNote', 'ladiesNote', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closingMessage', 'closing'];
-export const TITLE_KEYS: TitleKey[] = ['story', 'invitation', 'entourage', 'sponsors', 'gallery', 'venue', 'getting', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'contact'];
+export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'moment2', 'moment3', 'story', 'parents', 'invitation', 'entourage', 'sponsors', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'gentsNote', 'ladiesNote', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closingMessage', 'closing'];
+export const TITLE_KEYS: TitleKey[] = ['story', 'parents', 'invitation', 'entourage', 'sponsors', 'gallery', 'venue', 'getting', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'contact'];
 
 /** Where each line is read, for the admin's form. */
 /**
@@ -91,6 +91,7 @@ export const LINE_ON: Record<LineKey, { on: SectionKey; where: string }> = {
   guestbook: { on: 'guestbook', where: 'under the heading' },
   photos: { on: 'photos', where: 'under the heading' },
   photosIntro: { on: 'photos', where: 'the line above the upload' },
+  parents: { on: 'parents', where: 'under the heading' },
   countdown: { on: 'countdown', where: 'the line above the numbers' },
   contact: { on: 'contact', where: 'the small line under the heading' },
   contactNote: { on: 'contact', where: 'the note' },
@@ -100,7 +101,7 @@ export const LINE_ON: Record<LineKey, { on: SectionKey; where: string }> = {
 
 /** The part each heading names. */
 export const TITLE_ON: Record<TitleKey, SectionKey> = {
-  story: 'story', invitation: 'ceremony', entourage: 'entourage', sponsors: 'sponsors', gallery: 'gallery',
+  story: 'story', parents: 'parents', invitation: 'ceremony', entourage: 'entourage', sponsors: 'sponsors', gallery: 'gallery',
   venue: 'reception', getting: 'reception', dressCode: 'dressCode', gift: 'gift', program: 'program',
   social: 'social', guestbook: 'guestbook', photos: 'photos', rsvp: 'rsvp', contact: 'contact',
 };
@@ -524,6 +525,37 @@ export type PageSpec = {
    * around them. Absent, the page is as tall as its words.
    */
   minScreens?: number;
+  /**
+   * How big this page is drawn, against the size the design was written at:
+   * 1 is as designed, 0.6 is three fifths of it. It is the answer to a page
+   * that will not fit on a screen.
+   *
+   * The invitation is a column — never wider than 32rem, whatever the window
+   * — so a page laid out by its words is as tall as its words make it, and a
+   * page carrying a form and a countdown and a closing runs past two screens
+   * on a laptop with no way to bring it back. `minScreens` only ever made a
+   * page *taller*. This is the other direction, and it is a size rather than
+   * a height: the words, the air between them, the tiles and the pieces all
+   * come down together, so the page keeps its proportions and simply becomes
+   * smaller, the way a design shrunk on a sheet does.
+   *
+   * It is one number because that is what she asked for — "you should be
+   * able to resize the page to fit it" — and the studio works it out for
+   * her: *Fit it to one screen* measures the page on the canvas and writes
+   * the size that brings it inside a screen.
+   *
+   * **It is the website's size.** A phone shows the page whole whatever this
+   * says, because a phone is a column 390px wide and a guest scrolls it —
+   * the laptop is the one that lays that same column down the middle of a
+   * 1440px window and turns a page of words into a ribbon. Measured, not
+   * assumed: the closing page fitted to a laptop screen came out at 0.42,
+   * and at 0.42 on a phone its body type was 7px. The stylesheet is where
+   * that rule lives, in the one media query on `[data-size]`.
+   *
+   * Only a page laid out by its words takes one. A drawn page already has a
+   * size: its proportion, and the places its boxes hold in it.
+   */
+  size?: number;
   /**
    * The page's own writings taken off its flow, by the ids the renderer
    * marks them with (`data-w`), because a box of words carries each one
@@ -1104,6 +1136,7 @@ const zPage = z.object({
   bleed: z.boolean().optional(),
   pin: z.union([z.literal(true), z.literal('column')]).optional(),
   minScreens: z.number().min(0.3).max(6).optional(),
+  size: z.number().min(0.3).max(2).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
@@ -1723,6 +1756,49 @@ export function screensOf(page: PageSpec): number | undefined {
   if (page.minScreens) return page.minScreens;
   const kind = groundKind(page);
   return kind === 'phone' || kind === 'website' ? 1 : undefined;
+}
+
+/** The least and the most a page can be made, and the step the studio counts in. */
+export const SIZE_RANGE = { min: 0.3, max: 2, step: 0.01 } as const;
+
+/**
+ * How big this page is drawn (`PageSpec.size`), or nothing where the page
+ * is drawn at the size the design was written at.
+ *
+ * A drawn page never answers: its size is its proportion and the places its
+ * boxes hold. A size of 1 answers nothing either, so the page carries no
+ * attribute and the stylesheet has nothing to do — a design that has never
+ * touched this is not drawn a pixel differently.
+ */
+export function sizeOf(page: PageSpec): number | undefined {
+  if (page.drawn || page.size === undefined) return undefined;
+  const size = place(Math.min(SIZE_RANGE.max, Math.max(SIZE_RANGE.min, page.size)));
+  return size === 1 ? undefined : size;
+}
+
+/**
+ * The size that brings a page of this height inside `screens` screens.
+ *
+ * `tall` and `screen` are measured in the same unit — pixels on the canvas
+ * — so the ratio between them is the size, whatever the canvas is showing.
+ * A page already inside its screens is left alone rather than blown up: she
+ * asked to make a page fit, not to make every page fill.
+ */
+export function sizeToFit(tall: number, screen: number, was = 1, screens = 1): number {
+  if (!(tall > 0) || !(screen > 0)) return was;
+  const room = screen * screens;
+  if (tall <= room) return was;
+  /*
+   * Down to the step the slider counts in, and *down* rather than to the
+   * nearest: the slider can only stand on a step, so a size between two of
+   * them would show her a thumb at one number and a page drawn at another,
+   * and the moment she nudged it the page would stop fitting. Rounding down
+   * is the half that keeps the promise — a hair smaller than it needs to be
+   * rather than a hair too tall.
+   */
+  const want = was * (room / tall);
+  const stepped = Math.floor(want / SIZE_RANGE.step) * SIZE_RANGE.step;
+  return place(Math.min(SIZE_RANGE.max, Math.max(SIZE_RANGE.min, stepped)));
 }
 
 /**

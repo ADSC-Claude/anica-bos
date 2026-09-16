@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette,
@@ -1972,8 +1972,23 @@ export function Studio(p: Props) {
     const g = page.ground;
     // a page on a picture pinned to the screen is see-through: its colour waits (pinOf)
     pg.style.background = g && !isPicture(g) && !pins.has(page.key) ? colourOf(g.color, vars) : '';
+    /*
+     * The page's height and its size, written as the attribute and the
+     * variable the frame's own stylesheet reads rather than as a zoom and a
+     * height of our own. That matters for the size: it is the website's
+     * size, and the stylesheet only applies it above the phone's window
+     * (`[data-size]`), so handing it over this way is what makes the phone
+     * view show the page whole and the website view show it at the size she
+     * set — with no width test written twice.
+     */
     const screens = screensOf(page);
-    pg.style.minHeight = screens ? `calc(var(--inv-screen, 100dvh) * ${screens})` : '';
+    const size = sizeOf(page);
+    if (size === undefined) { delete pg.dataset.size; pg.style.removeProperty('--page-size'); }
+    else { pg.dataset.size = ''; pg.style.setProperty('--page-size', String(size)); }
+    if (screens) { pg.dataset.min = ''; pg.style.setProperty('--page-min', String(screens)); }
+    else { delete pg.dataset.min; pg.style.removeProperty('--page-min'); }
+    pg.style.zoom = '';
+    pg.style.minHeight = '';
     const beside = outsideOf(page);
     const stage = win.document.querySelector<HTMLElement>('.inv-stage');
     if (stage) {
@@ -1995,6 +2010,55 @@ export function Studio(p: Props) {
     flowWatch.current = ro;
   }, [sizeFlow, paintFrame]);
   useEffect(() => () => flowWatch.current?.disconnect(), []);
+  /**
+   * How tall this page came out, in screens of the view she is looking at.
+   *
+   * Measured, not worked out: the height of a page laid out by its words is
+   * whatever the words make it, and no number in the document can say it in
+   * advance. The frame is the guest's own markup at the view's width, so
+   * this is the number a guest gets.
+   */
+  const pageScreens = useMemo(
+    () => (page && !page.drawn && flowBox.height > 0 && screen > 0 ? place(flowBox.height / screen) : undefined),
+    [page, flowBox.height, screen],
+  );
+  /**
+   * "Fit it to one screen": the size that brings this page inside the height
+   * it asked for.
+   *
+   * Tried against the page rather than worked out in one go, because a page
+   * of words does not shrink in a straight line: a narrower column wraps its
+   * lines differently, so the height at half the size is not half the height.
+   * One sum on this page undershot by 2% — 815px into an 800px screen, close
+   * but still scrolling, and "Fit it to one screen" that leaves the page a
+   * hair too tall is not the promise.
+   *
+   * So the size is written into the frame, the height read back — reading a
+   * rect makes the browser lay the page out, so the number is the truth and
+   * not a guess — and the sum done again on it. Three passes is plenty; the
+   * frame is put back as it was either way, and the document is what moves
+   * the canvas in the end (`paintFrame`).
+   */
+  const fitPage = useCallback(() => {
+    if (!page || page.drawn || size === 'phone') return;
+    const win = flowFrame.current?.contentWindow;
+    const pg = win?.document.querySelector<HTMLElement>(`[data-page="${page.key}"]`) ?? win?.document.querySelector<HTMLElement>('[data-page]');
+    if (!pg) return;
+    const had = pg.dataset.size !== undefined ? pg.style.getPropertyValue('--page-size') : undefined;
+    const asked = screensOf(page) ?? 1;
+    let to = sizeOf(page) ?? 1;
+    for (let pass = 0; pass < 3; pass += 1) {
+      // the attribute and the variable, not a zoom of our own, so the trial reads the page the way a guest's laptop will
+      if (to === 1) { delete pg.dataset.size; pg.style.removeProperty('--page-size'); }
+      else { pg.dataset.size = ''; pg.style.setProperty('--page-size', String(to)); }
+      const next = sizeToFit(pg.getBoundingClientRect().height, screen, to, asked);
+      if (next === to) break;
+      to = next;
+    }
+    if (had === undefined) { delete pg.dataset.size; pg.style.removeProperty('--page-size'); }
+    else { pg.dataset.size = ''; pg.style.setProperty('--page-size', had); }
+    editPage((pgSpec) => { const next: PageSpec = { ...pgSpec, size: to }; if (to === 1) delete next.size; return next; });
+  }, [page, screen, size, editPage]);
   // another page is another height; until it is measured the canvas guesses, as it always did
   useEffect(() => { setFlowBox({ top: 0, height: 0 }); }, [flowKey]);
   const columns = view === 'import'
@@ -2681,6 +2745,7 @@ export function Studio(p: Props) {
             sections={{ offer: sectionOffer, name: nameOf, add: addSection, remove: removeSection, move: moveSection }}
             pieces={{ ...pieces, addFloat, addDecor, pick: (id) => setSel([id]), drop: remove }}
             dress={{ value: page?.sectionStyle, set: setDress }}
+            tall={{ screens: pageScreens, fit: fitPage, onPhone: size === 'phone' }}
           />
         )}
       </aside>
@@ -4922,7 +4987,7 @@ const BACKGROUND_SLOTS: { key: 'phone' | 'website'; name: string; size: string; 
   },
 ];
 
-function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress }: {
+function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress, tall }: {
   page?: PageSpec;
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   /** the whole background at once: a colour, a drawn page's picture, or none */
@@ -4958,6 +5023,16 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, jo
   };
   /** how that page dresses the sections it carries */
   dress: { value?: SectionStyle; set: (change: (d: SectionStyle) => SectionStyle) => void };
+  /**
+   * How tall the page came out, and the way to bring it inside a screen.
+   *
+   * The height is measured on the canvas rather than worked out, because
+   * the height of a page laid out by its words is whatever the words make
+   * it — nobody, the studio included, can say it in advance. `screens` is
+   * that measurement in screens of the view she is looking at, so the
+   * number she reads is the number a guest gets.
+   */
+  tall: { screens?: number; fit: () => void; onPhone: boolean };
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -5533,6 +5608,69 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, jo
             />
             <span className="hint">1 is one screen, 2 is two; the words sit in the middle of it with the pieces around them. {groundKind(page) === 'phone' || groundKind(page) === 'website' ? 'Blank is one screen, so the background is seen whole.' : 'Blank is as tall as its words.'}</span>
           </label>
+        )}
+
+        {/*
+          * "It is too big for the website." A page laid out by its words is
+          * as tall as its words make it, and the invitation is a column no
+          * wider than 32rem whatever the window — so a page carrying a form
+          * and a countdown and a closing runs past two screens on a laptop,
+          * and until now there was nothing to do about it: `minScreens`
+          * only ever made a page taller.
+          *
+          * So: a size, and the studio works it out for her. The line says
+          * how tall this page came out on the canvas, in screens, and the
+          * button writes the size that brings it inside one.
+          */}
+        {!page.drawn && (
+          <div className="mt-2" data-testid="page-size">
+            <p className="label">How big this page is on the website</p>
+            <div className="mt-1 flex items-center gap-1">
+              <input
+                type="range"
+                min={SIZE_RANGE.min} max={SIZE_RANGE.max} step={SIZE_RANGE.step}
+                value={page.size ?? 1}
+                data-testid="size"
+                onChange={(e) => {
+                  const v = place(Math.min(SIZE_RANGE.max, Math.max(SIZE_RANGE.min, Number(e.target.value) || 1)));
+                  onChange((pg) => { const next: PageSpec = { ...pg, size: v }; if (v === 1) delete next.size; return next; });
+                }}
+                className="min-w-0 flex-1"
+              />
+              <span className="w-12 shrink-0 text-right text-xs tabular-nums">{Math.round((page.size ?? 1) * 100)}%</span>
+            </div>
+            <div className="mt-1 flex items-center gap-1">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm flex-1"
+                data-testid="fit"
+                disabled={tall.onPhone || !tall.screens || tall.screens <= 1.01}
+                title={tall.onPhone ? 'The size is the website\u2019s \u2014 look at the page in Website to fit it' : undefined}
+                onClick={tall.fit}
+              >
+                Fit it to one screen
+              </button>
+              {page.size !== undefined && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  data-testid="size-off"
+                  onClick={() => onChange((pg) => { const next: PageSpec = { ...pg }; delete next.size; return next; })}
+                >
+                  As designed
+                </button>
+              )}
+            </div>
+            <p className="hint" data-testid="page-screens">
+              {tall.screens
+                ? `On the canvas this page is ${tall.screens.toFixed(2)} ${tall.screens === 1 ? 'screen' : 'screens'} tall.${tall.screens > 1.01 ? ' A guest scrolls to see the rest of it.' : ' It fits a screen.'}`
+                : 'Everything on the page comes down together \u2014 the words, the air between them, the countdown\u2019s tiles, the pieces \u2014 so the page keeps its shape and simply becomes smaller.'}
+              {' '}
+              {tall.onPhone
+                ? 'This is the phone, which shows the page whole whatever the size \u2014 a phone is a column and a guest scrolls it. Look at the page in Website to set the size.'
+                : 'A phone shows the page whole whatever this says: the size is the website\u2019s, where the same column has room either side of it and a long page has nowhere to go.'}
+            </p>
+          </div>
         )}
 
         {page.drawn && (

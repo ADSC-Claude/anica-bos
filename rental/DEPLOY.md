@@ -230,35 +230,54 @@ machine:
 
 ```bash
 cd rental
-DATABASE_URL="<direct string, port 5432>" npm run db:seed
+SEED_PASSWORD='<12+ characters of your own>' \
+  DATABASE_URL="<direct string, port 5432>" npm run db:seed
 ```
 
-It prints eight sign-ins sharing one password, every one forced to change it
-before reaching anything.
+`SEED_PASSWORD` is not optional here. The seed has a demo password built in, but
+that password is committed to this public repository, so the seed will only use
+it for a database on `localhost`, `127.0.0.1`, `::1`, `postgres` or `db`. Point
+it anywhere else without `SEED_PASSWORD` — or with one shorter than 12
+characters — and it refuses and exits non-zero, before it truncates anything.
+
+It prints eight sign-ins sharing that password. It does not print the password
+itself, only "as supplied in SEED_PASSWORD"; a run in GitHub Actions would
+otherwise put it in a log anyone can read. If you ever do run the seed from a
+workflow, pass the password as a **repository secret**, never as a
+`workflow_dispatch` input: inputs are recorded and shown on the run's page,
+secrets are masked in the log.
+
+Every seeded account is created with `mustChangePassword`, which is not the
+safeguard it looks like: the flag is checked *after* sign-in, so it only decides
+where an authenticated session lands. Whoever signs in first chooses the new
+password. Sign in as all eight and change them as soon as the seed finishes.
 
 To start empty instead, create the first Owner by hand:
 
 ```bash
 cd rental
-DATABASE_URL="<direct string>" npx tsx --conditions=react-server -e "
+OWNER_PASSWORD='<12+ characters of your own>' \
+  DATABASE_URL="<direct string>" npx tsx --conditions=react-server -e "
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-const p = new PrismaClient();
-const branch = await p.branch.create({ data: { name: 'Metro Manila', city: 'Manila' } });
-await p.user.create({ data: {
-  email: 'owner@example.com',
-  name: 'Owner',
-  role: 'OWNER',
-  branchId: branch.id,
-  passwordHash: await bcrypt.hash('ChangeThisNow!', 11),
-  mustChangePassword: true,
-} });
-await p.\$disconnect();
+void (async () => {
+  const p = new PrismaClient();
+  const branch = await p.branch.create({ data: { name: 'Metro Manila', city: 'Manila' } });
+  await p.user.create({ data: {
+    email: 'owner@example.com',
+    name: 'Owner',
+    role: 'OWNER',
+    branchId: branch.id,
+    passwordHash: await bcrypt.hash(process.env.OWNER_PASSWORD, 11),
+    mustChangePassword: true,
+  } });
+  await p.\$disconnect();
+})();
 "
 ```
 
-Then sign in and change the password immediately — the account cannot reach
-anything until you do.
+Pick that password the way you would any other: nothing that appears in this
+repository, and nothing you would paste into a shared terminal history.
 
 ### Check it
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { closedForNow } from '@/lib/storefront';
 import { getSettings } from '@/lib/settings';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
@@ -17,6 +18,8 @@ export const dynamic = 'force-dynamic';
  * occasions counts under each.
  */
 export default async function OccasionsPage() {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const [s, session, templates] = await Promise.all([
     getSettings(),
     getSession(),

@@ -1,8 +1,9 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { requireUser } from '@/lib/guard';
 import { prisma } from '@/lib/db';
 import { getSettings } from '@/lib/settings';
+import { welcomeDue } from '@/lib/welcome';
 import { OrderPill, PaymentPill } from '@/components/ui';
 
 export const metadata = { title: 'Order status', robots: { index: false } };
@@ -24,6 +25,12 @@ export default async function ConfirmPage({ params }: { params: Promise<{ refere
   const s = await getSettings();
   const latest = order.payments[0];
   const active = order.status === 'ACTIVE' || order.status === 'PAID';
+  // A first open lands on the Invitation tab, where the welcome carries the
+  // receipt — the order, the payment confirmed — and lays out the plan: one
+  // screen, not a receipt and then a button to press. Anyone coming back to
+  // this address later, or staff paying on a customer's behalf, still gets
+  // the receipt here.
+  if (active && order.invitation && welcomeDue(order.invitation, user)) redirect(`/account/invitations/${order.invitation.id}`);
   const waitingGateway = order.status === 'PENDING_PAYMENT' && latest?.provider === 'PAYMONGO' && latest.status === 'PENDING';
   const waitingProof = order.status === 'PENDING_PAYMENT' && latest?.provider === 'MANUAL' && latest.status === 'PENDING';
   const dfy = order.serviceMode !== 'DIY';
@@ -37,13 +44,13 @@ export default async function ConfirmPage({ params }: { params: Promise<{ refere
           <h1 className="display text-3xl">Payment confirmed — salamat!</h1>
           <p className="mt-3 text-[color:var(--color-ink-700)]">
             {dfy
-              ? 'Next, tell us the details. Fill in the intake form, or send everything over Messenger or Viber — whichever is easier.'
-              : 'Your builder is unlocked. Fill in the sections at your own pace; everything saves as you go.'}
+              ? 'Next, fill in your details. Every part saves as you go and shows on your page as you type — or send everything over Messenger and we will type it in, whichever is easier.'
+              : 'Your invitation is unlocked. Fill in the parts at your own pace; everything saves as you go.'}
           </p>
           <div className="mt-6 flex flex-col gap-2">
             {order.invitation && (
-              <Link href={dfy ? `/account/invitations/${order.invitation.id}/dfy` : `/account/invitations/${order.invitation.id}/builder`} className="btn btn-primary">
-                {dfy ? 'Open the intake form' : 'Start building'}
+              <Link href={`/account/invitations/${order.invitation.id}`} className="btn btn-primary">
+                Fill in your details
               </Link>
             )}
             <Link href="/account" className="btn btn-secondary">Go to my dashboard</Link>

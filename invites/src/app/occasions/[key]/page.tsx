@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { closedForNow } from '@/lib/storefront';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import type { Occasion } from '@prisma/client';
@@ -41,6 +42,8 @@ export async function generateMetadata({ params }: { params: Promise<{ key: stri
  * scoped to the occasion, so the checkout opens on it.
  */
 export default async function OccasionPage({ params }: { params: Promise<{ key: string }> }) {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const { key } = await params;
   const [s, session, found, premium, all] = await Promise.all([
     getSettings(),

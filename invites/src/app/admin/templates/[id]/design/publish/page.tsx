@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { requireStaffPage } from '@/lib/guard';
 import { prisma } from '@/lib/db';
-import { isPaged, SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
+import { SECTION_BY_KEY, type SectionKey } from '@/lib/sections';
 import { documentOf, builtinDesign, blastRadius } from '@/lib/design';
 import { pageNeeds } from '@/lib/needs';
 import { designFiles } from '@/lib/design-files';
@@ -29,7 +29,7 @@ export default async function PublishDesignPage({ params, searchParams }: { para
   const { id } = await params;
   const sp = await searchParams;
   const t = await prisma.template.findUnique({ where: { id } });
-  if (!t || !isPaged(t.layout)) notFound();
+  if (!t) notFound();
   const draft = documentOf({ design: t.designDraft, layout: t.layout });
   const before = documentOf(t) ?? builtinDesign(t.layout);
   const invitations = await prisma.invitation.findMany({ where: { templateId: id }, select: { status: true, content: true } });

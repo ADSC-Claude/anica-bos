@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
-import type { Lang } from './copy';
-import type { Look, LineKey, TitleKey } from './looks';
-import { OCCASION_SECTIONS, type SectionKey } from './sections';
+import { t, type Lang } from './copy';
+import { formatDate, formatTime, parseDateKey } from './datetime';
+import { LOOKS, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
+import { MOMENT_KEYS, type MomentKey, type Trigger as MomentTrigger, type Speed as MomentSpeed } from './moments';
+import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
@@ -33,51 +35,146 @@ export type DesignArt = {
    * the ground by the page's key. Blank keys keep the layout's own file.
    */
   grounds?: Record<string, string>;
+  /**
+   * The photographed parts a moment's scene is built from, by `scene/part`
+   * (the keys in MOMENT_PARTS): a design's own camera, curtain or door in
+   * place of the set shipped under /moments. Blank keeps the shipped one.
+   */
+  parts?: Record<string, string>;
 };
 
-export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'moment2', 'moment3', 'story', 'invitation', 'entourage', 'sponsors', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'gentsNote', 'ladiesNote', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closingMessage', 'closing'];
-export const TITLE_KEYS: TitleKey[] = ['story', 'invitation', 'entourage', 'sponsors', 'gallery', 'venue', 'getting', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'contact'];
+export const LINE_KEYS: LineKey[] = ['cover', 'verse', 'verseRef', 'moment1', 'moment2', 'moment3', 'story', 'parents', 'invitation', 'entourage', 'sponsors', 'gallery', 'galleryNote', 'galleryVideo', 'galleryClose', 'venue', 'interlude2', 'dressCode', 'gentsNote', 'ladiesNote', 'dressNote', 'giftThanks', 'program', 'social', 'socialCta', 'guestbook', 'photos', 'photosIntro', 'countdown', 'contact', 'contactNote', 'closingMessage', 'closing'];
+export const TITLE_KEYS: TitleKey[] = ['story', 'parents', 'invitation', 'entourage', 'sponsors', 'gallery', 'venue', 'getting', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'contact'];
 
 /** Where each line is read, for the admin's form. */
-export const LINE_LABELS: Record<LineKey, string> = {
-  cover: 'Cover — above the names',
-  verse: 'Cover page — the verse',
-  verseRef: 'Cover page — the verse’s source',
-  moment1: 'The Moment — first line',
-  moment2: 'The Moment — second line',
-  moment3: 'The Moment — third line',
-  story: 'Our Story — under the heading',
-  invitation: 'The Invitation — under the heading',
-  sponsors: 'Under the ninong and ninang heading',
-  entourage: 'Entourage — under the heading',
-  gallery: 'Prenup — under the heading',
-  galleryNote: 'Prenup — between the large photograph and the arches',
-  galleryVideo: 'Prenup — written over the film',
-  galleryClose: 'Prenup — the last word',
-  venue: 'The Venue — under the heading',
-  interlude2: 'The Venue — the script line after the way there',
-  dressCode: 'Dress Code — under the heading, when no attire is set',
-  gentsNote: 'Dress Code — the note under the gentlemen’s pieces',
-  ladiesNote: 'Dress Code — the note under the ladies’ pieces',
-  dressNote: 'Dress Code — the note under the palette',
-  giftThanks: 'Gift — the thank-you in script',
-  program: 'Program — under the heading',
-  social: 'Snap and Share — under the heading',
-  socialCta: 'Snap and Share — the call to post',
-  guestbook: 'Guestbook — under the heading',
-  photos: 'Post Event Photos — under the heading',
-  photosIntro: 'Post Event Photos — the line above the upload',
-  countdown: 'Countdown — the line above the numbers',
-  contact: 'Assistance — the small line under the heading',
-  contactNote: 'Assistance — the note',
-  closingMessage: 'Closing — the thank-you',
-  closing: 'Closing — the line above the names',
-};
-export const TITLE_LABELS: Record<TitleKey, string> = {
-  story: 'Our Story', invitation: 'The Invitation', entourage: 'Entourage', sponsors: 'Ninong and Ninang', gallery: 'Prenup Photos', venue: 'The Venue', getting: 'Getting There',
-  dressCode: 'Dress Code', gift: 'Gift Request', program: 'Program', social: 'Snap and Share', guestbook: 'Guestbook', photos: 'Post Event Photos', rsvp: 'RSVP', contact: 'Assistance',
+/**
+ * Where each writing belongs, and where on that part it lands.
+ *
+ * Two things used to be one. The name of a box — "Prenup — under the
+ * heading" — was a fixed string, so a christening's form offered a box
+ * called Prenup for a part the app itself calls Baby photos, and offered
+ * boxes for Entourage and The Moment, which a christening does not have at
+ * all. The section's name already varies by occasion (`sectionLabel`, and
+ * `labelFor` in sections.ts has said `CHRISTENING: 'Baby photos'` all
+ * along); only this list did not ask it.
+ *
+ * So a writing names the part it is on, and the place on it. The name is
+ * worked out per occasion from the first, which makes the form and the
+ * studio speak the occasion's own words without a second list to keep in
+ * step — and makes it possible to leave out the writings for parts this
+ * occasion does not carry.
+ */
+export const LINE_ON: Record<LineKey, { on: SectionKey; where: string }> = {
+  cover: { on: 'cover', where: 'above the names' },
+  verse: { on: 'cover', where: 'the verse' },
+  verseRef: { on: 'cover', where: 'the verse\u2019s source' },
+  moment1: { on: 'moment', where: 'first line' },
+  moment2: { on: 'moment', where: 'second line' },
+  moment3: { on: 'moment', where: 'third line' },
+  story: { on: 'story', where: 'under the heading' },
+  invitation: { on: 'ceremony', where: 'under the heading' },
+  sponsors: { on: 'sponsors', where: 'under the heading' },
+  entourage: { on: 'entourage', where: 'under the heading' },
+  gallery: { on: 'gallery', where: 'under the heading' },
+  galleryNote: { on: 'gallery', where: 'between the large photograph and the arches' },
+  galleryVideo: { on: 'gallery', where: 'written over the film' },
+  galleryClose: { on: 'gallery', where: 'the last word' },
+  venue: { on: 'reception', where: 'under the heading' },
+  interlude2: { on: 'reception', where: 'the script line after the way there' },
+  dressCode: { on: 'dressCode', where: 'under the heading, when no attire is set' },
+  gentsNote: { on: 'dressCode', where: 'the note under the gentlemen\u2019s pieces' },
+  ladiesNote: { on: 'dressCode', where: 'the note under the ladies\u2019 pieces' },
+  dressNote: { on: 'dressCode', where: 'the note under the palette' },
+  giftThanks: { on: 'gift', where: 'the thank-you in script' },
+  program: { on: 'program', where: 'under the heading' },
+  social: { on: 'social', where: 'under the heading' },
+  socialCta: { on: 'social', where: 'the call to post' },
+  guestbook: { on: 'guestbook', where: 'under the heading' },
+  photos: { on: 'photos', where: 'under the heading' },
+  photosIntro: { on: 'photos', where: 'the line above the upload' },
+  parents: { on: 'parents', where: 'under the heading' },
+  countdown: { on: 'countdown', where: 'the line above the numbers' },
+  contact: { on: 'contact', where: 'the small line under the heading' },
+  contactNote: { on: 'contact', where: 'the note' },
+  closingMessage: { on: 'closing', where: 'the thank-you' },
+  closing: { on: 'closing', where: 'the line above the names' },
 };
 
+/** The part each heading names. */
+export const TITLE_ON: Record<TitleKey, SectionKey> = {
+  story: 'story', parents: 'parents', invitation: 'ceremony', entourage: 'entourage', sponsors: 'sponsors', gallery: 'gallery',
+  venue: 'reception', getting: 'reception', dressCode: 'dressCode', gift: 'gift', program: 'program',
+  social: 'social', guestbook: 'guestbook', photos: 'photos', rsvp: 'rsvp', contact: 'contact',
+};
+
+/** What a writing's box is called, in this occasion's own words. */
+export function lineLabel(key: LineKey, occasion: Occasion): string {
+  const { on, where } = LINE_ON[key];
+  return `${sectionLabel(on, occasion)} \u2014 ${where}`;
+}
+
+/**
+ * Two headings name the same part: the venue, and the map for getting to it.
+ * Without this they would both be called "Heading — Reception" and she would
+ * have to guess which box was which.
+ */
+const TITLE_ALSO: Partial<Record<TitleKey, string>> = { getting: 'getting there' };
+
+/**
+ * Every wording a design might have printed for this heading.
+ *
+ * A master designed elsewhere carries its headings as *words* — "Our
+ * Story", "Gift Request", "Ninongs" — and a page brought in has to
+ * recognise them to wire them to the heading they are, rather than to
+ * whichever question happens to have a similar label. There is no one right
+ * wording to compare against: the app has its own phrase, each of the five
+ * looks has its own, and the part carries a name of its own in this
+ * occasion's words. A designer will have used any of them.
+ *
+ * So all of them are offered, and the reader matches on any. It is cheap,
+ * it is real data rather than a word list somebody has to maintain, and it
+ * grows by itself every time a look gains a heading.
+ */
+export function titleSaid(key: TitleKey, occasion: Occasion): string[] {
+  const said = new Set<string>([titleLabel(key, occasion), sectionLabel(TITLE_ON[key], occasion)]);
+  for (const lang of ['en', 'tl'] as Lang[]) {
+    /*
+     * Two of the headings have no phrase of their own in the copy file (the
+     * invitation's and the way there's, both of which are written into their
+     * blocks), so the key is asked for loosely and an answer that comes back
+     * as the key itself is the copy file saying it has none.
+     */
+    const own = t(lang, `${key}.title` as Parameters<typeof t>[1]);
+    if (own && own !== `${key}.title`) said.add(own);
+    for (const look of LOOKS) {
+      const its = lookTitle(look, lang, key, occasion);
+      if (its) said.add(its);
+    }
+  }
+  return [...said].filter(Boolean);
+}
+
+/** What a heading's box is called. The heading names a part, so that is its name. */
+export function titleLabel(key: TitleKey, occasion: Occasion): string {
+  const name = sectionLabel(TITLE_ON[key], occasion);
+  const also = TITLE_ALSO[key];
+  return also ? `${name} \u2014 ${also}` : name;
+}
+
+/**
+ * The writings an occasion has at all.
+ *
+ * A christening carries no entourage and no Moment, so a form that offers
+ * boxes for them is asking her to write words that can never be read. Only
+ * the parts this occasion carries are offered.
+ */
+export function wordsFor(occasion: Occasion): { titles: TitleKey[]; lines: LineKey[] } {
+  const has = new Set<SectionKey>(OCCASION_SECTIONS[occasion]);
+  return {
+    titles: TITLE_KEYS.filter((k) => has.has(TITLE_ON[k])),
+    lines: LINE_KEYS.filter((k) => has.has(LINE_ON[k].on)),
+  };
+}
 const isRecord = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 
 /** The JSON column as words, anything malformed dropped. */
@@ -118,6 +215,14 @@ export function artOf(raw: unknown): DesignArt {
     }
     if (Object.keys(grounds).length) out.grounds = grounds;
   }
+  if (raw.parts && typeof raw.parts === 'object') {
+    const parts: Record<string, string> = {};
+    for (const [k, v] of Object.entries(raw.parts as Record<string, unknown>)) {
+      const u = url(v);
+      if (u && /^[a-z][a-z0-9-]{0,30}\/[a-z][a-z0-9-]{0,30}$/.test(k)) parts[k] = u;
+    }
+    if (Object.keys(parts).length) out.parts = parts;
+  }
   return out;
 }
 
@@ -133,18 +238,30 @@ export function withWords(look: Look | undefined, words: DesignWords): Look | un
   if (!langs.length) return look;
   const lines = { ...look.lines };
   const titles = { ...look.titles };
+  /*
+   * What the design wrote, kept apart from what it inherited. The look's own
+   * wording is written for a wedding and some of it is withheld from other
+   * occasions (see `lookLine`); words typed for *this* design are never
+   * withheld, and by the time they are read the two are the same shape. So
+   * the keys are recorded as they are folded in.
+   */
+  const own: NonNullable<Look['own']> = { lines: {}, titles: {} };
   for (const lang of langs) {
     const block = words[lang] ?? {};
     for (const key of LINE_KEYS) {
       const v = block[key];
-      if (v) lines[key] = { ...lines[key], [lang]: v };
+      if (!v) continue;
+      lines[key] = { ...lines[key], [lang]: v };
+      own.lines![lang] = [...(own.lines![lang] ?? []), key];
     }
     for (const key of TITLE_KEYS) {
       const v = block[titleWord(key)];
-      if (v) titles[key] = { ...(titles[key] ?? { en: v, tl: v }), [lang]: v };
+      if (!v) continue;
+      titles[key] = { ...(titles[key] ?? { en: v, tl: v }), [lang]: v };
+      own.titles![lang] = [...(own.titles![lang] ?? []), key];
     }
   }
-  return { ...look, lines, titles };
+  return { ...look, lines, titles, own };
 }
 
 /**
@@ -152,6 +269,13 @@ export function withWords(look: Look | undefined, words: DesignWords): Look | un
  * as a multiple of its width. Six are tall and narrow, four the shape of a
  * phone; the page machinery trims each to the page it sits behind.
  */
+/**
+ * One background picture as a page holds it: her file, and what the browser
+ * measured off it when it arrived — how tall it is for its width, and the
+ * colours of its top and bottom edges, for the strips beyond it.
+ */
+export type Picture = { url: string; ratio: number; top: string; bottom: string; night?: string };
+
 export type PictureGround = {
   url: string;
   /** height as a multiple of the width */
@@ -168,6 +292,33 @@ export type PictureGround = {
   slices?: { top: string; foot: string; mid: string };
   /** the same picture by night, when the design has one */
   night?: string;
+  /**
+   * The same background drawn for a phone, when she has uploaded one: a
+   * phone-shaped picture for a phone-shaped window, where `url` is the wide
+   * one a laptop gets. Both are her own files, used as she gave them — the
+   * window picks between them (`PHONE_WINDOW`) rather than either being
+   * stretched or cut to fit the other's shape.
+   *
+   * A page with only one picture keeps it here in `url`, whatever its
+   * shape, and `pin` says whether it fills the window or the column.
+   */
+  phone?: Picture;
+  /**
+   * How many pages after this one this background also stands behind — the
+   * pages she picked it to flow over.
+   *
+   * A background pinned behind the words (the phone's, the website's) simply
+   * stays put over that many more pages: the writings move on over it and
+   * the picture never moves or stretches, which is the whole point of the
+   * choice. `pinOf` says which pages it reaches, and a page with a picture
+   * of its own, or one placed by hand, ends it early.
+   *
+   * On the tall grounds the two shipped designs were drawn on, which flow
+   * rather than pin, it means what it always did: one length of the picture
+   * laid down all of them instead of each starting again. `runOf` says
+   * which pages those are.
+   */
+  runsOn?: number;
 };
 
 /**
@@ -239,6 +390,8 @@ export const CAPIZ_DEFAULT_ART: Required<Pick<DesignArt, 'backgrounds' | 'strand
 /** A section on a page. Two are not sections: the verse, and the clip that no frame can hold. */
 export type PageSectionKey = SectionKey | 'verse' | 'gallery-video';
 
+export type SurroundArt = { url: string; fit: 'cover' | 'tile' };
+
 export type DesignDoc = {
   v: 1;
   pages: PageSpec[];
@@ -248,6 +401,15 @@ export type DesignDoc = {
   paper?: string;
   /** the colour beside the column on a laptop; blank means the palette's bg, barely inked */
   surround?: string;
+  /**
+   * A picture behind the whole website page, edge to edge, on a laptop —
+   * the column sits on top of it, and on a phone the column covers it.
+   * `cover` stretches one picture across the window and keeps it still as
+   * the page scrolls; `tile` repeats a small one. This is the thing the
+   * owner exports from Canva as "the background" and judges on the whole
+   * page rather than on a phone strip.
+   */
+  surroundArt?: SurroundArt;
   /**
    * How this design falls on paper.
    *
@@ -365,6 +527,12 @@ export type PageSpec = {
    * cannot have without a release.
    */
   footPad?: number;
+  /**
+   * The same room at the head. A moment or a flourish hung off the top of a
+   * page laid out by its words needs the words to start below it; this is
+   * how far below, as a multiple of the usual gap. Absent is 1.
+   */
+  headPad?: number;
   /** a drawn page: its height is the ground's ratio times its width, and its elements are placed */
   drawn?: true;
   /**
@@ -380,6 +548,86 @@ export type PageSpec = {
   grow?: true;
   /** the public peek stops after this page */
   peekEnd?: true;
+  /**
+   * The colour beside this page on a laptop, where the column does not reach
+   * the window's edge. Absent, it follows the page: a page on a plain colour
+   * carries that colour out to the edges, and a page on a picture leaves the
+   * design's own surround. 'design' says the design's surround whatever the
+   * page is on; anything else is a palette role or a colour of its own.
+   * `outsideOf` is the rule.
+   */
+  outside?: 'design' | ColorRole | string;
+  /**
+   * Whether this page's background reaches the whole website page. On a
+   * laptop the column stops short of the window's edge; a background that
+   * reaches runs edge to edge behind it — a colour out to the edges, or one
+   * picture across the whole page with the column showing the middle of it
+   * — and a phone shows the middle of it. Absent: a plain colour reaches,
+   * a picture stays in the column. `bleeds` is the rule.
+   */
+  bleed?: boolean;
+  /**
+   * The page's picture pinned behind the words: it fills what it is pinned
+   * to and stays put while the words move over it, and the pages after sit
+   * on it too, until one brings a picture of its own or is drawn.
+   *
+   * `true` pins it to the window — the whole website's background, edge to
+   * edge on a laptop, a phone showing the middle of it, which is how a
+   * design exported at 1920 by 1080 is meant to be shown. `'column'` pins
+   * it to the column — the phone's background, the shape a phone screen is,
+   * with the design's surround beside it on a laptop.
+   *
+   * Only a page laid out by its words pins; a drawn page is its picture.
+   * `groundKind` says which of the three backgrounds a picture is and
+   * `pinOf` which pages sit on it.
+   */
+  pin?: true | 'column';
+  /**
+   * A page laid out by its words, told to be taller than they are: at least
+   * this many screens. The words sit in the middle of it and the pieces
+   * around them. Absent, the page is as tall as its words.
+   */
+  minScreens?: number;
+  /**
+   * How big this page is drawn, against the size the design was written at:
+   * 1 is as designed, 0.6 is three fifths of it. It is the answer to a page
+   * that will not fit on a screen.
+   *
+   * The invitation is a column — never wider than 32rem, whatever the window
+   * — so a page laid out by its words is as tall as its words make it, and a
+   * page carrying a form and a countdown and a closing runs past two screens
+   * on a laptop with no way to bring it back. `minScreens` only ever made a
+   * page *taller*. This is the other direction, and it is a size rather than
+   * a height: the words, the air between them, the tiles and the pieces all
+   * come down together, so the page keeps its proportions and simply becomes
+   * smaller, the way a design shrunk on a sheet does.
+   *
+   * It is one number because that is what she asked for — "you should be
+   * able to resize the page to fit it" — and the studio works it out for
+   * her: *Fit it to one screen* measures the page on the canvas and writes
+   * the size that brings it inside a screen.
+   *
+   * **It is the website's size.** A phone shows the page whole whatever this
+   * says, because a phone is a column 390px wide and a guest scrolls it —
+   * the laptop is the one that lays that same column down the middle of a
+   * 1440px window and turns a page of words into a ribbon. Measured, not
+   * assumed: the closing page fitted to a laptop screen came out at 0.42,
+   * and at 0.42 on a phone its body type was 7px. The stylesheet is where
+   * that rule lives, in the one media query on `[data-size]`.
+   *
+   * Only a page laid out by its words takes one. A drawn page already has a
+   * size: its proportion, and the places its boxes hold in it.
+   */
+  size?: number;
+  /**
+   * The page's own writings taken off its flow, by the ids the renderer
+   * marks them with (`data-w`), because a box of words carries each one
+   * now — dragged off the page in the studio, still reading the same
+   * answer. The renderer draws nothing for these; the box that took a
+   * writing's place says which one (`TextEl.lifted`), and taking the box
+   * off puts the writing back.
+   */
+  offFlow?: string[];
   /**
    * A page that belongs to the Save the Date alone.
    *
@@ -522,7 +770,29 @@ type Base = {
  * including the blanks. It names a field rather than being a flag because a
  * frame and the caption beside it must count the same rows.
  */
-export type FieldRef = { section: string; field: string; index?: number; sub?: string; skipEmpty?: string };
+export type FieldRef = {
+  section: string;
+  field: string;
+  index?: number;
+  sub?: string;
+  skipEmpty?: string;
+  /**
+   * How a stored date or time is read out, where the field holds one.
+   *
+   * A date is kept as `2026-12-18` and a time as `16:00`, because that is
+   * what a date field and a time field are; printed on a cover they are
+   * neither of them what a guest should see. So a box bound to one says how
+   * to say it — "18 December 2026", "Dec 18, 2026", "Friday", "4:00 PM" —
+   * and the design, not the store, decides.
+   *
+   * It matters most for a page brought in from somewhere else: a master
+   * designed elsewhere carries the date as *words*, in the designer's own
+   * format, and a box put where those words were has to be able to say them
+   * the same way. Absent, the value is read out exactly as it is stored,
+   * which is right for every other field.
+   */
+  show?: 'date' | 'dateShort' | 'weekday' | 'time';
+};
 
 /** One text source. A line tries its sources in order and shows the first that has something. */
 export type Source =
@@ -555,7 +825,15 @@ export type PhotoEl = Base & {
   /** a moving picture: never re-encoded, never sent through imageUrl() */
   animated?: boolean;
   /**
-   * On a page laid out by its words: the side the words flow around it on.
+   * On a page laid out by its words: that the words flow around it, and
+   * which side of them it stands on.
+   *
+   * The side is the last word on it, but not the first: a float carries a
+   * place of its own now (`x` across and `y` down, both shares of the
+   * page's width — see `floatAt`), and the side follows whichever edge the
+   * place is nearer unless a hand-written document says otherwise. The
+   * studio writes both from the drag, so dragging one across the middle
+   * moves it to the other side of the words.
    *
    * Only a flow page reads it. A drawn page places everything by hand and
    * has no words to flow, so a float there would mean nothing; the studio
@@ -579,6 +857,8 @@ export type TextEl = Base & {
   room?: number;
   /** the design's own line is offered to the customer as an example under their box */
   offerLine?: boolean;
+  /** the page's own writing this box took the place of (its data-w id, in PageSpec.offFlow); taking the box off puts the writing back */
+  lifted?: string;
 };
 
 /**
@@ -610,7 +890,37 @@ export type VideoEl = Base & {
 export type AnimEl = Base & { kind: 'anim'; url: string; poster: string; aspect: number; loop?: boolean; speed?: number };
 export type ShapeEl = Base & { kind: 'shape'; shape: 'rect' | 'ellipse' | 'line'; fill?: string; stroke?: string; strokeWidth?: number; radius?: number; h?: number };
 
-export type Element = PhotoEl | TextEl | VideoEl | AnimEl | ShapeEl;
+/**
+ * An interactive moment: a thing a guest taps, swipes or holds, and what it
+ * reveals — the instant camera, the ring box, the doors. The scene is one of
+ * the library's (src/lib/moments.ts); the photographs and the words it
+ * reveals are the customer's, bound the way a frame's and a text box's are,
+ * so the form asks for them in the one list. `lifted` on a line is the
+ * page's own writing dropped into it (see TextEl.lifted).
+ */
+export type MomentEl = Base & {
+  kind: 'moment';
+  moment: MomentKey;
+  /** a shelf's version of the scene: 'church' doors, a 'cake' candle, a 'mystery' gift */
+  variant?: string;
+  /** blank means the scene's own first trigger */
+  trigger?: MomentTrigger;
+  speed?: MomentSpeed;
+  /** once: it stays open after the guest opened it; always: it closes again out of view */
+  plays?: 'once' | 'always';
+  /** its photographs, each a frame like any other */
+  photos?: Array<{ bind: FieldRef | { asset: string }; crop?: PhotoEl['crop'] }>;
+  /** what it reveals in writing */
+  lines?: Line[];
+  /** the writing a lifted line took the place of, so removing the moment gives it back */
+  lifted?: string;
+  /** the Secret Code's answer */
+  code?: string;
+  /** height over width of its box, where it is not the scene's own */
+  aspect?: number;
+};
+
+export type Element = PhotoEl | TextEl | VideoEl | AnimEl | ShapeEl | MomentEl;
 
 /** The wrapper class each kind of text block is drawn in. */
 export const BLOCK_CLASS: Record<TextEl['block'], string> = {
@@ -830,7 +1140,12 @@ const zPictureGround = z.object({
   url: z.string().min(1).max(500), ratio: z.number().positive().max(40),
   top: zColour, bottom: zColour,
   slices: z.object({ top: z.string(), foot: z.string(), mid: z.string() }).optional(),
+  runsOn: z.number().int().min(1).max(6).optional(),
   night: z.string().max(500).optional(),
+  phone: z.object({
+    url: z.string().min(1).max(500), ratio: z.number().positive().max(40),
+    top: zColour, bottom: zColour, night: z.string().max(500).optional(),
+  }).strict().optional(),
 }).strict();
 const zColourGround = z.object({ color: zColour, ratio: z.number().positive().max(40).optional() }).strict();
 const zGround = z.union([zPictureGround, zColourGround]);
@@ -839,6 +1154,7 @@ const zFieldRef = z.object({
   section: z.string().regex(FIELD), field: z.string().regex(FIELD),
   index: z.number().int().min(0).max(199).optional(), sub: z.string().regex(FIELD).optional(),
   skipEmpty: z.string().regex(FIELD).optional(),
+  show: z.enum(['date', 'dateShort', 'weekday', 'time']).optional(),
 }).strict();
 const zSource = z.union([
   z.object({ bind: zFieldRef }).strict(),
@@ -895,9 +1211,20 @@ const zElement = z.union([
     tracking: z.number().min(-0.05).max(0.4).optional(),
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
+    lifted: z.string().max(80).optional(),
   }).strict(),
   z.object({ ...zBase, kind: z.literal('video'), url: z.string().max(500), webm: z.string().max(500).optional(), poster: z.string().max(500), aspect: z.number().positive().max(10).optional(), loop: z.boolean().optional(), glare: z.number().int().min(0).max(255).optional(), bg: z.literal(true).optional() }).strict(),
   z.object({ ...zBase, kind: z.literal('anim'), url: z.string().max(500), poster: z.string().max(500), aspect: z.number().positive().max(10), loop: z.boolean().optional(), speed: z.number().positive().max(4).optional() }).strict(),
+  z.object({
+    ...zBase, kind: z.literal('moment'), moment: z.enum(MOMENT_KEYS), variant: z.string().regex(/^[a-z]{1,20}$/).optional(),
+    trigger: z.enum(['tap', 'swipe', 'hold']).optional(), speed: z.enum(['slow', 'normal', 'fast']).optional(), plays: z.enum(['once', 'always']).optional(),
+    photos: z.array(z.object({
+      bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
+      crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
+    }).strict()).max(6).optional(),
+    lines: z.array(zLine).max(8).optional(), lifted: z.string().max(80).optional(), code: z.string().regex(/^[0-9]{3,8}$/).optional(),
+    aspect: z.number().positive().max(10).optional(),
+  }).strict(),
   z.object({ ...zBase, kind: z.literal('shape'), shape: z.enum(['rect', 'ellipse', 'line']), fill: zColour.optional(), stroke: zColour.optional(), strokeWidth: z.number().min(0).max(40).optional(), radius: z.number().min(0).max(100).optional(), h: z.number().min(0).max(200).optional() }).strict(),
 ]);
 const zPage = z.object({
@@ -906,10 +1233,17 @@ const zPage = z.object({
   sections: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(30),
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
-  footPad: z.number().min(0).max(5).optional(),
+  footPad: z.number().min(0).max(12).optional(),
+  headPad: z.number().min(0).max(12).optional(),
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
+  outside: z.union([z.literal('design'), zColour]).optional(),
+  bleed: z.boolean().optional(),
+  pin: z.union([z.literal(true), z.literal('column')]).optional(),
+  minScreens: z.number().min(0.3).max(6).optional(),
+  size: z.number().min(0.3).max(2).optional(),
+  offFlow: z.array(z.string().max(80)).max(80).optional(),
   only: z.literal('std').optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
@@ -930,6 +1264,7 @@ const zDoc = z.object({
   overflowGround: zGround.optional(),
   paper: zColour.optional(),
   surround: zColour.optional(),
+  surroundArt: z.object({ url: z.string().min(1).max(500), fit: z.enum(['cover', 'tile']) }).strict().optional(),
   strand: z.string().min(1).max(500).optional(),
   nightColours: z.object({
     ink: zColour.optional(), muted: zColour.optional(), surface: zColour.optional(),
@@ -1158,10 +1493,66 @@ export const CAPIZ_PAGES: PageDef[] = [
   { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
 ];
 
+/**
+ * The storyline Capiz plays, in the owner's words: tap the wax seal (the
+ * opening clip) → the invitation begins → tap the camera in Our Story and a
+ * print develops → swipe the curtains for the prenup → tap the church doors
+ * for the ceremony → scratch a surprise message at the close.
+ *
+ * Each moment reads the customer's own form — the camera the story's photo
+ * and a line for its print, the curtains the first prenup photograph, the
+ * doors the church photo, the scratch card a surprise line at the close — so
+ * the form asks for exactly what they need, and a Capiz whose customer left
+ * them blank shows none of them. Every one hangs off the head of its page
+ * with the words starting below it (`headPad`), except the scratch card,
+ * which is the last thing on the closing page (`footPad`). The room is the
+ * moment's own height plus its gap, in multiples of the usual gap, worked
+ * out for both a phone and the capped laptop column.
+ */
+const CAPIZ_STORYLINE: Record<string, { headPad?: number; footPad?: number; elements: Element[] }> = {
+  story: {
+    headPad: 8,
+    elements: [{
+      id: 'story-camera', kind: 'moment', moment: 'instant-camera', x: 50, y: 4, w: 58, ask: true, ifEmpty: 'leave', plays: 'once',
+      photos: [{ bind: { section: 'story', field: 'photo' } }],
+      lines: [{ role: 'caption', sources: [{ bind: { section: 'story', field: 'caption' } }] }],
+    }],
+  },
+  prenup: {
+    headPad: 11,
+    elements: [{
+      id: 'prenup-curtains', kind: 'moment', moment: 'curtains', x: 50, y: 4, w: 84, ask: true, ifEmpty: 'leave', plays: 'once',
+      photos: [{ bind: { section: 'gallery', field: 'photos', index: 0, sub: 'url' } }],
+    }],
+  },
+  invitation: {
+    headPad: 11,
+    elements: [{
+      id: 'church-doors', kind: 'moment', moment: 'doors', variant: 'church', x: 50, y: 4, w: 84, ask: true, ifEmpty: 'leave', plays: 'once',
+      photos: [{ bind: { section: 'ceremony', field: 'photo' } }],
+    }],
+  },
+  closing: {
+    footPad: 6,
+    elements: [{
+      id: 'closing-scratch', kind: 'moment', moment: 'scratch', x: 50, y: 4, w: 80, from: 'bottom', ask: true, ifEmpty: 'leave', plays: 'once',
+      lines: [{ role: 'body', sources: [{ bind: { section: 'closing', field: 'surprise' } }] }],
+    }],
+  },
+};
+
 function capizDesign(): DesignDoc {
   return {
     v: 1,
-    pages: CAPIZ_PAGES.map((def) => ({ key: def.key, sections: [...def.sections], ...(def.key === 'story' ? { peekEnd: true as const } : {}) })),
+    pages: CAPIZ_PAGES.map((def) => {
+      const story = CAPIZ_STORYLINE[def.key];
+      return {
+        key: def.key,
+        sections: [...def.sections],
+        ...(def.key === 'story' ? { peekEnd: true as const } : {}),
+        ...(story ? { elements: story.elements.map((el) => ({ ...el })), ...(story.headPad ? { headPad: story.headPad } : {}), ...(story.footPad ? { footPad: story.footPad } : {}) } : {}),
+      };
+    }),
     // as above: Capiz's own two, out of the stylesheet and into the design
     paper: '#f0dccb',
     surround: '#e9dfd2',
@@ -1218,7 +1609,7 @@ export function starterDesign(sections: PageSectionKey[]): DesignDoc {
 }
 
 /** A section's key as a page would spell it: `dressCode` becomes `dress-code`. */
-const pageKeyOf = (key: string): string => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+export const pageKeyOf = (key: string): string => key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
 /**
  * The document a design renders from, or null for one that has none — which
@@ -1234,11 +1625,28 @@ export function documentOf(t: { design?: unknown; layout?: string }): DesignDoc 
 
 /**
  * The document the studio opens: the draft if there is one, else what is
- * published, else the layout's built-in. A design opened for the first time
- * is drawn from its base, which is what makes it editable at all.
+ * published, else the layout's built-in, else a starter made from the
+ * occasion's own sections. A design opened for the first time is drawn from
+ * its base, which is what makes it editable at all.
+ *
+ * That last fallback is what lets *every* design be drawn rather than only
+ * the two built as pages. Before it, a design on one of the six flat layouts
+ * had no document and no base to make one from, so the studio had nothing to
+ * open and refused the page — which meant a design made from the Templates
+ * list led to a form and stopped there. A starter is one page per section the
+ * occasion offers, on plain colours, in the layout's own order: not a design
+ * yet, but a place to stand while she draws one.
+ *
+ * Opening it saves nothing. It is what the canvas draws until her first save
+ * writes a draft of her own.
  */
-export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: string }): DesignDoc | null {
-  return documentOf({ design: t.designDraft, layout: t.layout }) ?? documentOf(t) ?? builtinDesign(t.layout);
+export function studioDoc(t: { design?: unknown; designDraft?: unknown; layout: string; occasion?: Occasion }): DesignDoc | null {
+  return (
+    documentOf({ design: t.designDraft, layout: t.layout })
+    ?? documentOf(t)
+    ?? builtinDesign(t.layout)
+    ?? (t.occasion ? starterDesign(sectionOrder(t.occasion, t.layout)) : null)
+  );
 }
 
 /**
@@ -1300,6 +1708,38 @@ export function canAttach(elements: Element[], id: string, to: string): boolean 
  * Pure trigonometry, so the polygon can be asserted without a browser — a
  * square turned 45° has to come out a diamond, and it does.
  */
+/**
+ * Where a float lands, from the place she dropped it at.
+ *
+ * A float is in among the words — that is the whole of what it is, and it
+ * is what lets them flow past it — so it cannot simply be put at a
+ * coordinate the way a drawn page's frame is. What it *can* have is the
+ * two things a margin gives it: how far in from the side of the column it
+ * stands, and how far down the words it begins. Between them those are a
+ * place, and they are the place a drag writes.
+ *
+ * `x` is the middle of the box, as it is on every drawn page, and `y` how
+ * far down the words it begins. Both are shares of the width of *the column
+ * the words are in* — not of the whole page, as a drawn page's numbers and a
+ * decoration's are, because the column is what a float stands in and a
+ * margin on it is a share of that. The width for `y` as well, because a flow
+ * page's height is its customer's words and a share of that would move as
+ * they typed. The side is whichever edge that middle is nearer, so dragging
+ * one across the middle of the column hands it to the other side of the
+ * words; a document that names a side and no `x` keeps the side it names and
+ * stands against that edge.
+ *
+ * `box` is the float's whole width as the page sees it — the frame's width
+ * times the bounding box a turn needs (`floatShape`) — so an inset can
+ * never push what floats out past the column's other edge.
+ */
+export function floatAt(el: { x?: number; y?: number; float?: 'left' | 'right' }, box: number): { side: 'left' | 'right'; inset: number; down: number } {
+  const wide = Math.max(0, Math.min(100, box));
+  const side = el.x === undefined ? el.float ?? 'left' : el.x < 50 ? 'left' : 'right';
+  const edge = el.x === undefined ? 0 : side === 'left' ? el.x - wide / 2 : 100 - (el.x + wide / 2);
+  return { side, inset: Math.max(0, Math.min(100 - wide, place(edge))), down: Math.max(0, place(el.y ?? 0)) };
+}
+
 export function floatShape(aspect: number, rotate = 0): { width: number; height: number; inner: number; polygon: string } {
   const h = Math.max(0.01, aspect);
   const rad = (rotate * Math.PI) / 180;
@@ -1339,9 +1779,143 @@ const round = (n: number) => Math.round(n * 1e4) / 1e4;
 export const flowFloats = (page: PageSpec): PhotoEl[] =>
   (page.elements ?? []).filter((e): e is PhotoEl => e.kind === 'photo' && Boolean(e.float));
 
-/** The decorations on a flow page: everything but the floats and the words. */
+/**
+ * The decorations on a flow page: everything but the floats. Words too, now:
+ * a box of words hung off the head or the foot is a caption, a title over a
+ * picture, a line beside the numbers — not the section's words, which stay
+ * the customer's and keep flowing under it.
+ */
 export const flowDecor = (page: PageSpec): Element[] =>
-  (page.elements ?? []).filter((e) => e.kind !== 'text' && !(e.kind === 'photo' && e.float));
+  (page.elements ?? []).filter((e) => !(e.kind === 'photo' && e.float));
+
+/**
+ * The colour beside a page on a laptop, or nothing for the design's own
+ * surround. A page on a plain colour carries that colour out to the window's
+ * edges unless it says otherwise: a blue page in a cream window read as "the
+ * outside did not change", and a page on a picture keeps the surround the
+ * design set, since a picture has edges and the surround is what frames it.
+ */
+export function outsideOf(page: PageSpec): string | undefined {
+  const g = page.ground;
+  // a plain colour that reaches the edges is the colour beside the page
+  if (g && !isPicture(g) && bleeds(page)) return g.color;
+  // a background kept to the column: the design's surround, or a colour said here
+  if (!bleeds(page) && page.outside && page.outside !== 'design') return page.outside;
+  return undefined;
+}
+
+/**
+ * Whether a page's background reaches the whole website page. A plain
+ * colour does unless the page says otherwise, since a blue page in a cream
+ * window read as "the outside did not change"; a picture stays in the
+ * column unless the page says otherwise, since a picture has edges. A page
+ * with no background has nothing to reach with.
+ */
+export function bleeds(page: PageSpec): boolean {
+  const g = page.ground;
+  if (!g) return false;
+  // a picture says so by which of the three backgrounds it is: the website's
+  // is the whole page by definition, the phone's is the column by definition,
+  // and one flowing down the pages reaches only if the page says it does
+  const kind = groundKind(page);
+  if (kind === 'website') return true;
+  if (kind === 'phone') return false;
+  return page.bleed ?? !isPicture(g);
+}
+
+/**
+ * The three backgrounds, which is every way a picture can sit behind a page:
+ *
+ *  - `phone`   the phone's background. It fills the phone's screen and stays
+ *              put while the words move over it; on a laptop it keeps to the
+ *              column, with the design's surround beside it.
+ *  - `website` the whole website's background. One picture across the window,
+ *              edge to edge on a laptop, the column showing its middle — and
+ *              a phone showing the middle of it too.
+ *  - `flow`    one picture flowing down the pages it is given: one length of
+ *              it, drawn once, the way a tall design is meant to be read.
+ *
+ * A picture wider than it is tall is the website's background whatever an
+ * older draft says about it. There is no length of such a picture to flow
+ * down a page: a page taller than it can only crop it or pull it out of
+ * shape, and pulling it is what made a 1920-by-1080 upload come out as a
+ * band of stretched middle down a very long page.
+ */
+export type GroundKind = 'phone' | 'website' | 'flow';
+export function groundKind(page: PageSpec): GroundKind | undefined {
+  const g = page.ground;
+  if (!g || !isPicture(g) || page.drawn) return undefined;
+  if (page.pin === 'column') return 'phone';
+  if (page.pin) return 'website';
+  return g.ratio < 1 ? 'website' : 'flow';
+}
+
+/**
+ * Which background a picture of this shape arrives as, so that uploading one
+ * is the whole of the job. Wider than tall is the website's; about the shape
+ * of a phone screen is the phone's; anything longer than that was drawn to be
+ * read down the pages and flows.
+ */
+export function kindOfShape(ratio: number): GroundKind {
+  if (ratio < 1) return 'website';
+  return ratio <= ONE_SCREEN * 1.15 ? 'phone' : 'flow';
+}
+
+/**
+ * How tall a page is told to be, in screens, or nothing for as tall as its
+ * words. A page whose picture is pinned behind it is a screen tall unless it
+ * says otherwise: the picture is meant to be seen, and a page of four words
+ * over it would be past before a guest saw any of it.
+ */
+export function screensOf(page: PageSpec): number | undefined {
+  if (page.drawn) return undefined;
+  if (page.minScreens) return page.minScreens;
+  const kind = groundKind(page);
+  return kind === 'phone' || kind === 'website' ? 1 : undefined;
+}
+
+/** The least and the most a page can be made, and the step the studio counts in. */
+export const SIZE_RANGE = { min: 0.3, max: 2, step: 0.01 } as const;
+
+/**
+ * How big this page is drawn (`PageSpec.size`), or nothing where the page
+ * is drawn at the size the design was written at.
+ *
+ * A drawn page never answers: its size is its proportion and the places its
+ * boxes hold. A size of 1 answers nothing either, so the page carries no
+ * attribute and the stylesheet has nothing to do — a design that has never
+ * touched this is not drawn a pixel differently.
+ */
+export function sizeOf(page: PageSpec): number | undefined {
+  if (page.drawn || page.size === undefined) return undefined;
+  const size = place(Math.min(SIZE_RANGE.max, Math.max(SIZE_RANGE.min, page.size)));
+  return size === 1 ? undefined : size;
+}
+
+/**
+ * The size that brings a page of this height inside `screens` screens.
+ *
+ * `tall` and `screen` are measured in the same unit — pixels on the canvas
+ * — so the ratio between them is the size, whatever the canvas is showing.
+ * A page already inside its screens is left alone rather than blown up: she
+ * asked to make a page fit, not to make every page fill.
+ */
+export function sizeToFit(tall: number, screen: number, was = 1, screens = 1): number {
+  if (!(tall > 0) || !(screen > 0)) return was;
+  const room = screen * screens;
+  if (tall <= room) return was;
+  /*
+   * Down to the step the slider counts in, and *down* rather than to the
+   * nearest: the slider can only stand on a step, so a size between two of
+   * them would show her a thumb at one number and a page drawn at another,
+   * and the moment she nudged it the page would stop fitting. Rounding down
+   * is the half that keeps the promise — a hair smaller than it needs to be
+   * rather than a hair too tall.
+   */
+  const want = was * (room / tall);
+  const stepped = Math.floor(want / SIZE_RANGE.step) * SIZE_RANGE.step;
+  return place(Math.min(SIZE_RANGE.max, Math.max(SIZE_RANGE.min, stepped)));
+}
 
 /**
  * Whether a decoration sits over the page's words or behind them.
@@ -1499,6 +2073,16 @@ export const WIDEST_COLUMN = 512;
 
 /** A drawn page's height, as a multiple of its width. One screen is 1.777. */
 export const ONE_SCREEN = 1.777;
+
+/**
+ * The widest window that counts as a phone's, for a page carrying both a
+ * phone background and a website one: at this width and under, the window is
+ * about the column itself and the phone's picture is the one that fits it;
+ * wider, and the website's picture has somewhere to go. It is a media query
+ * in the end (`Pinned`), so the browser chooses and nothing has to be
+ * measured or re-rendered.
+ */
+export const PHONE_WINDOW = 639;
 
 /**
  * What the browser keeps for itself, as a share of one screen.
@@ -1690,6 +2274,65 @@ export function blastRadius(
  * which is the safe way round. A design that renames its story page keeps its
  * peek, because the mark travels with the page and not with its name.
  */
+/**
+ * Which page's picture each page sits on, where a picture runs on.
+ *
+ * A picture that says it runs on under the next pages is laid once, down all
+ * of them, one length of it — a tall design flows down the invitation the
+ * way it was drawn instead of starting again at every page. The page it was
+ * uploaded on is the head of the run, and the pages after sit on it for as
+ * long as they have no ground of their own and are not placed by hand:
+ * either ends the run early, whatever the number says. Only the pages that
+ * sit on another page's picture are in the map; a head sits on its own.
+ */
+export function runOf(doc: DesignDoc): Map<string, string> {
+  const on = new Map<string, string>();
+  const pages = doc.pages;
+  for (let i = 0; i < pages.length; i++) {
+    const g = pages[i].ground;
+    if (!g || !isPicture(g) || !g.runsOn) continue;
+    for (let j = i + 1; j <= i + g.runsOn && j < pages.length; j++) {
+      const p = pages[j];
+      if (p.ground || p.drawn) break;
+      on.set(p.key, pages[i].key);
+    }
+  }
+  return on;
+}
+
+/**
+ * The pages a pinned background stands behind, each mapped to the page whose
+ * picture it is — the head itself included, mapped to itself.
+ *
+ * How far it reaches is hers to say: `ground.runsOn` is how many pages after
+ * the head it also stands behind, and saying nothing means this page only.
+ * The writings of every page it reaches move over one still picture, which is
+ * what "flowing over the pages I picked" means; a page with a picture of its
+ * own, or one placed by hand, ends it early whatever the number says.
+ *
+ * Which pictures pin is `groundKind`'s answer, not the `pin` field's alone:
+ * the phone's background and the website's both do, and the only picture
+ * that does not is one of the tall shipped grounds, which flows (`runOf`).
+ */
+export function pinOf(doc: DesignDoc): Map<string, string> {
+  const on = new Map<string, string>();
+  let head: string | undefined;
+  /** how many more pages the pin still reaches */
+  let left = 0;
+  for (const p of doc.pages) {
+    const own = p.ground && isPicture(p.ground) ? p.ground : undefined;
+    if (own || p.drawn) {
+      head = own && !p.drawn && groundKind(p) !== 'flow' ? p.key : undefined;
+      left = head && own ? own.runsOn ?? 0 : 0;
+    } else if (head) {
+      if (left > 0) left -= 1;
+      else head = undefined;
+    }
+    if (head) on.set(p.key, head);
+  }
+  return on;
+}
+
 export function peekEndPage(doc: DesignDoc | null): string | undefined {
   return invitationPages(doc).find((p) => p.peekEnd)?.key;
 }
@@ -1739,14 +2382,30 @@ const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'n
 export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef): string {
   const data = isRecord(content?.[ref.section]) ? (content![ref.section] as Rowish) : undefined;
   if (!data) return '';
-  if (ref.index === undefined) return text(data[ref.field]);
+  if (ref.index === undefined) return said(text(data[ref.field]), ref.show);
   const raw = data[ref.field];
   if (!Array.isArray(raw)) return '';
   const all = raw.filter(isRecord) as Rowish[];
   const list = ref.skipEmpty ? all.filter((r) => text(r[ref.skipEmpty!])) : all;
   const row = list[ref.index];
   if (!row) return '';
-  return text(ref.sub ? row[ref.sub] : row.value);
+  return said(text(ref.sub ? row[ref.sub] : row.value), ref.show);
+}
+
+/**
+ * A stored value said the way the box asks for it (`FieldRef.show`).
+ *
+ * Nothing said is the value itself, which is what every field but a date or
+ * a time wants. A value that will not parse is handed back untouched rather
+ * than blanked: a half-typed date is better on the page than nothing, and
+ * the checklist is where a bad one gets caught.
+ */
+function said(value: string, show: FieldRef['show']): string {
+  if (!show || !value) return value;
+  if (show === 'time') return formatTime(value) || value;
+  const when = parseDateKey(value);
+  if (!when) return value;
+  return formatDate(when, show === 'dateShort' ? 'short' : show === 'weekday' ? 'weekday' : 'long') || value;
 }
 
 /**
@@ -1896,6 +2555,12 @@ export function designVars(doc: DesignDoc | null): Record<string, string> {
   if (!doc) return vars;
   if (doc.paper) vars['--inv-paper'] = colourVar(doc.paper);
   if (doc.surround) vars['--inv-surround'] = colourVar(doc.surround);
+  if (doc.surroundArt?.url) {
+    vars['--inv-surround-art'] = `url(${doc.surroundArt.url})`;
+    vars['--inv-surround-size'] = doc.surroundArt.fit === 'tile' ? 'auto' : 'cover';
+    vars['--inv-surround-repeat'] = doc.surroundArt.fit === 'tile' ? 'repeat' : 'no-repeat';
+    vars['--inv-surround-attach'] = doc.surroundArt.fit === 'tile' ? 'scroll' : 'fixed';
+  }
   for (const [role, name] of Object.entries(NIGHT_VAR) as [keyof NightPalette, string][]) {
     const colour = doc.nightColours?.[role];
     // a role name by night would follow the *day* palette, which is the one

@@ -584,7 +584,7 @@ So the document says what the design **refuses**: `DesignDoc.hides`, and `offere
 
 **Built.** The float needed one thing the plan did not know: `.inv-page` is `display: flex`, and **a float inside a flex container is not a float** — it becomes a flex item and stacks above the words. So the float and the sections share one plain block (`.inv-flow`), which is the only arrangement in which the words' line boxes move aside. The probe that caught it had to be rewritten too: it measured a paragraph's bounding box, which a float does not change — a float shifts the *line boxes* inside the box, so what has to be measured is a `Range` over the first characters of the section's real words. It moves from 308px to 421px, past the figure's right edge at 416, and stays where it was on a phone, where the float is off.
 
-The decorations are the same page's other half, and the rule is now complete with no silent case: **on a page laid out by its words, a picture that names a side floats, the words belong to the sections, and anything else hangs off the head or the foot.** Before this, a shape, a clip or an unfloated picture on a flow page was in the document and drawn nowhere — the worst of the three possible answers — and words there still are, so the studio does not offer them and the checklist says so out loud (`not-drawn`) rather than losing them.
+The decorations are the same page's other half, and the rule is now complete with no silent case: **on a page laid out by its words, a picture that names a side floats, the words belong to the sections, and anything else hangs off the head or the foot.** Before this, a shape, a clip or an unfloated picture on a flow page was in the document and drawn nowhere — the worst of the three possible answers. Words there were the last to be drawn: since the page became one (#171) a words box hangs off the head or the foot like anything else, and a writing of the page's own can be lifted off the flow into one (`PageSpec.offFlow`, `TextEl.lifted`).
 
 One band, `inset: 0` over the page, does it (`FlowDecor`), and it answers three problems at once: a flow page's height is its customer's words, so the gap from an edge is a share of its **width** instead (`decorStyle`, in `cqw`); a flow page is not a query container, so without the band every `cqw` inside a decoration — a shape's height, a frame's card, a polaroid's foot — would be measured against the viewport and be wrong on a laptop; and the band carries `inv-bb-art`, so every rule a drawn page's frames, cards, cuts and clips already have applies unchanged. Two bands are drawn, one behind the words and one over them, because a negative layer cannot escape its own band — and behind is the default, since words a guest cannot read are the one thing a design must not be able to do by accident.
 
@@ -653,6 +653,40 @@ Measured in the browser on a copy of Baby Blue with every flow page dressed, bes
 **Total: 73 working days.** First hands-on use at the end of phase 1 (about day 21); a complete new design whose form asks for exactly what it draws, without a developer, at the end of phase 2 (about day 48); video from day 56, animation from day 61, and the owner's own fonts and colours from day 73.
 
 ---
+
+### After the plan: every design opens in the studio
+
+The plan assumed the studio was for designs built as a run of pages, and for
+the length of the build that was true: Capiz and Baby Blue have built-in
+documents compiled from the constants they were drawn to, and the six flat
+layouts have none. The studio read the layout's name, found nothing to open a
+flat design on, and refused the page.
+
+Which meant the one path a person actually takes — Templates, + New template,
+name it, save — led to a settings form and stopped there. The owner filled that
+form in and asked where the studio was. It was two designs away, behind a
+button that only those two designs had.
+
+So paged-ness is now a property of the *document*, not of the layout's name:
+
+- `studioDoc` falls back to a **starter** — one page per section the occasion
+  offers, on plain colours, in the layout's own order. Opening it saves
+  nothing; it is what the canvas draws until her first save.
+- Every new design is born with that starter in its draft, so "+ New template"
+  leads into the studio rather than into a form.
+- The studio and its publish door open for every design; the button is on
+  every design's page.
+- The renderer reads `format` off the document rather than off `isPaged`. The
+  designs there are do not move — the two originals have built-ins, and a flat
+  design nobody has drawn still has no document and stays the plain stack of
+  sections. The new case is a flat design whose pages have been drawn and
+  published, and that one renders as pages, because pages are what she drew.
+
+A starter's pages are flow pages: laid out by the words of the sections they
+carry. The inspector's **Drawn page** tick is what turns one into a page placed
+by hand, and from there + Words, + Photo frame, + Shape, the clips, the
+animations, the turn and the crop all apply — the same page the two originals
+are built from.
 
 ## 5a. After the plan: the Save the Date and the paper
 

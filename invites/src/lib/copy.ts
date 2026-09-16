@@ -199,6 +199,10 @@ const PHRASES = {
   'seating.title': { en: 'Your table', tl: 'Ang inyong mesa' },
   'closing.title': { en: 'See you there', tl: 'Kita-kits' },
   'envelope.open': { en: 'Tap to open', tl: 'I-tap para buksan' },
+  'envelope.swipe': { en: 'Swipe to open', tl: 'I-swipe para buksan' },
+  'envelope.swipeApart': { en: 'Swipe apart to open', tl: 'I-swipe pahiwalay para buksan' },
+  'envelope.swipeDown': { en: 'Pull down to open', tl: 'Hilahin pababa para buksan' },
+  'envelope.hold': { en: 'Press and hold to open', tl: 'Pindutin nang matagal para buksan' },
   'share.download': { en: 'Download as image', tl: 'I-download bilang larawan' },
   'share.print': { en: 'Print / Save as PDF', tl: 'I-print / I-save bilang PDF' },
   'speakers.title': { en: 'Speakers', tl: 'Mga Tagapagsalita' },
@@ -221,6 +225,35 @@ const PHRASES = {
 } as const;
 
 export type PhraseKey = keyof typeof PHRASES;
+
+/**
+ * The phrase whose words these are, in either language, or nothing.
+ *
+ * It exists for pages brought in from a master designed elsewhere. Such a
+ * master carries the app's own headings as typed words — "Ninongs",
+ * "Well Wishes", "Days" — and a box put where those words were should be
+ * bound to the phrase rather than to a question or to fixed English: bound
+ * to the phrase it comes out in Tagalog on a Tagalog invitation, which is
+ * what the words were standing in for.
+ *
+ * It is also how the reading of a placeholder knows what *is not* somebody's
+ * answer. "Ninongs" reads exactly like a name and there is nothing in the
+ * word itself to say otherwise; that the app prints those words itself is
+ * the only thing that does.
+ *
+ * Compared with case and punctuation put aside, because a designer sets a
+ * heading in capitals as often as not.
+ */
+export function phraseFor(words: string): PhraseKey | undefined {
+  const want = bare(words);
+  if (!want) return undefined;
+  for (const [key, said] of Object.entries(PHRASES) as [PhraseKey, { en: string; tl: string }][]) {
+    if (bare(said.en) === want || bare(said.tl) === want) return key;
+  }
+  return undefined;
+}
+
+const bare = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 export function t(lang: Lang, key: PhraseKey, vars: Record<string, string | number> = {}): string {
   const entry = PHRASES[key] as { en: string; tl: string } | undefined;

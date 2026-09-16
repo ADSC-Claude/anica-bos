@@ -56,7 +56,7 @@ export type Quote = {
 export const SERVICE_MODES: { key: ServiceMode; label: string; short: string; blurb: string; turnaround: string; revisions: string; intake: string }[] = [
   // Withdrawn. Kept so an order sold under it still names itself; nothing shows its blurb.
   { key: 'DIY', label: 'Do it yourself', short: 'DIY', blurb: 'The customer filled in the builder themselves.', turnaround: 'Instant', revisions: 'None', intake: 'Builder' },
-  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form, Messenger, Viber or Excel. We encode it.', turnaround: '7 to 10 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
+  { key: 'DFY', label: 'Done-For-You', short: 'DFY', blurb: 'Send us the details by form or Messenger, Excel included. We encode it.', turnaround: '7 to 10 working days', revisions: '2 rounds', intake: 'Intake form, Messenger/Viber, or Excel' },
   { key: 'CONCIERGE', label: 'Priority', short: 'Priority', blurb: 'We encode everything for you, with extra time, an extra revision round, and a call to walk through it together.', turnaround: '5 working days', revisions: '3 rounds', intake: 'Intake form + a short call' },
 ];
 

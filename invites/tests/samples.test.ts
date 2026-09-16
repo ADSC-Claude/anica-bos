@@ -15,7 +15,7 @@ test('the demo is handed back exactly as it came, and nobody is nobody', () => {
   assert.equal(new Set(SAMPLES.map((s) => s.key)).size, SAMPLES.length);
 });
 
-test('anybody fills every box the document is bound to, and nothing else', () => {
+test('anybody fills every box the document is bound to and every part its word-laid pages carry, and nothing else', () => {
   const got = sampleContent('anybody', { doc, occasion: CH, demo });
   const story = doc.pages.find((p) => p.key === 'story')!;
   // the six milestone frames and the six labels beside them
@@ -34,8 +34,15 @@ test('anybody fills every box the document is bound to, and nothing else', () =>
     assert.match(valueAt(got, ref!), /placeholder-photo/, `frame ${i + 1}`);
   });
   assert.equal((got.gallery as { photos: unknown[] }).photos.length, 4);
-  // a section the document never names is never invented
-  assert.equal(got.reception, undefined);
+  // a part a page laid out by its words carries is filled too, box by box,
+  // now that the canvas draws such a page for real
+  const named = new Set<string>(doc.pages.filter((p) => !p.drawn).flatMap((p) => p.sections));
+  assert.ok(named.has('reception'), 'Baby Blue lays the reception out by its words');
+  assert.ok(got.reception, 'the reception is filled');
+  // a part the document never names is never invented
+  const absent = ['faq', 'travel', 'seating', 'music'].find((k) => !named.has(k) && !doc.pages.some((p) => (p.elements ?? []).some((e) => JSON.stringify(e).includes(`"section":"${k}"`))));
+  assert.ok(absent, 'a part the document never names');
+  assert.equal(got[absent!], undefined);
   void story;
 });
 

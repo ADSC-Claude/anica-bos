@@ -20,6 +20,8 @@ export type WizardProps = {
   templates: WizardTemplate[];
   initial: { occasion?: string; tier?: string; template?: string; coupon?: string; addon?: string };
   demoSlug: string;
+  /** Whether paying online is offered; otherwise the transfer with a receipt is the way to pay. */
+  online: boolean;
 };
 
 export function CheckoutWizard(p: WizardProps) {
@@ -136,7 +138,7 @@ export function CheckoutWizard(p: WizardProps) {
           <h2 className="display mb-3 text-xl">3. What happens after you pay</h2>
           <ol className="grid gap-3 sm:grid-cols-3">
             {[
-              { title: 'You tell us the details', body: 'Fill in one form — names, entourage, venues, photos, RSVP. Or send them over Messenger, Viber or an Excel file if that is easier.' },
+              { title: 'You tell us the details', body: 'Fill in one form — names, entourage, venues, photos, RSVP. Or send them over Messenger — an Excel file or screenshots are fine — if that is easier.' },
               { title: 'We build it', body: `Our team encodes and lays out your invitation. ${modeInfo.turnaround}.` },
               { title: 'You approve, we publish', body: `A preview on your phone, ${roundsLabel} of changes, then your link and QR go live.` },
             ].map((step, i) => (
@@ -194,7 +196,7 @@ export function CheckoutWizard(p: WizardProps) {
                   <span className="block text-sm font-semibold">{a.name}</span>
                   <span className="block text-xs text-[color:var(--color-ink-500)]">{a.description}</span>
                   {a.code === PREMIUM_OPENING_CODE && template && (template.premiumOpenings.length
-                    ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours in the builder.' : '.'}</span>
+                    ? <span className="block text-xs text-[color:var(--color-ink-500)]">For {template.name}: {template.premiumOpenings.join(', ')}{template.premiumOpenings.length > 1 ? ' — choose yours under Link & design once it is yours.' : '.'}</span>
                     : <span className="block text-xs text-[color:var(--color-ink-500)]">Not made for {template.name} yet — pick a design marked “premium opening add-on”.</span>)}
                 </span>
                 <span className="text-sm font-semibold">{addOnIncluded(a.code, tier) ? 'Included' : a.quoted ? formatPesoShort(addOnPrice(a, tier)) : 'Ask us'}</span>
@@ -265,7 +267,7 @@ export function CheckoutWizard(p: WizardProps) {
           <button type="button" className="btn btn-primary mt-4 w-full" onClick={submit} disabled={pending || !q}>
             {pending ? 'Placing order…' : 'Continue to payment'}
           </button>
-          <p className="mt-3 text-center text-xs text-[color:var(--color-ink-500)]">GCash · Maya · Cards · Bank transfer</p>
+          <p className="mt-3 text-center text-xs text-[color:var(--color-ink-500)]">{p.online ? 'GCash · Maya · Cards · Bank transfer' : 'GCash · Maya · Bank transfer — upload your receipt, verified within business hours'}</p>
         </div>
       </aside>
     </div>

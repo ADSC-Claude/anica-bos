@@ -12,6 +12,10 @@ import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
 import { str, eventInstant } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
 import { Invitation, type GuestForPage } from '@/components/invite/renderer';
+import { ScrollTo } from '@/components/invite/scroll-to';
+import type { SectionKey } from '@/lib/sections';
+import { documentOf } from '@/lib/design';
+import { sampleContent, isSample } from '@/lib/samples';
 
 /**
  * Shared by /[slug], /[slug]/[token] and the print view: who may see
@@ -121,8 +125,15 @@ export async function PeekPage({ slug, embed = false }: { slug: string; embed?: 
  * what is published — the whole invitation, page after page, as the design
  * she is drawing would serve it. Like `bare` it is a previewer's view only,
  * so an unfinished design cannot be handed to anybody through a link.
+ *
+ * `only`, `sample` and `mode` are the studio's canvas: one page of the
+ * draft on its own, as a guest would be served it — the words laid out for
+ * real, at their real height — drawn against the demo, a customer, or a
+ * made-up sample, by day or by night. Bare and previewer only, all three:
+ * a guest's link is never one page of an invitation, and a sample is
+ * nobody's words.
  */
-export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false, designKey }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean; designKey?: string }) {
+export async function InvitationPage({ slug, token, print = false, wrongPassword = false, bare = false, draft = false, designKey, at, only, sample, mode, screen }: { slug: string; token?: string; print?: boolean; wrongPassword?: boolean; bare?: boolean; draft?: boolean; designKey?: string; at?: string; only?: string; sample?: string; mode?: string; screen?: string }) {
   const { invitation, guest, previewer, keyed, locked } = await resolveInvitation(slug, token, designKey);
   if (locked) return <PasswordGate slug={slug} token={token} error={wrongPassword} />;
   const live = invitation.status === 'PUBLISHED' && !invitation.expired;
@@ -134,5 +145,33 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
   const shown = draft && (previewer || keyed)
     ? { ...invitation, template: { ...invitation.template, design: invitation.template.designDraft } }
     : invitation;
-  return <Invitation invitation={shown} guest={guest} preview={!live} print={print} bare={bare && previewer} sets={await fontBook()} businessName={s['business.name']} />;
+  const studio = bare && (previewer || keyed);
+  const content = contentOf(shown.content) as Record<string, unknown>;
+  const made = studio && isSample(sample) && sample !== 'demo'
+    ? sampleContent(sample, { doc: documentOf(shown.template), occasion: invitation.occasion, demo: content })
+    : content;
+  const themed = studio && mode === 'night' ? { ...made, theme: { ...((made.theme as Record<string, unknown> | undefined) ?? {}), mode: 'night' } } : made;
+  const canvas = themed === content ? shown : { ...shown, content: themed as never };
+  return (
+    <>
+      <Invitation invitation={canvas} guest={guest} preview={!live} print={print} bare={bare && previewer} only={studio ? only : undefined} screen={screenPx(screen)} sets={await fontBook()} businessName={s['business.name']} />
+      {bare && previewer && at && <ScrollTo id={anchorOf(at)} />}
+    </>
+  );
+}
+
+/** The studio's screen height, held to a plausible phone or laptop. */
+export function screenPx(v: string | undefined): number | undefined {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 400 && n <= 2000 ? Math.round(n) : undefined;
+}
+
+/**
+ * Where each part of the form lands on the page — the ids the renderer
+ * gives its sections, for the builder's phone to come back to. A part with
+ * no place of its own (the music, the spare photographs) goes to the top.
+ */
+const ANCHOR: Partial<Record<SectionKey, string>> = { cover: 'top', dressCode: 'dress-code', photos: 'guest-photos' };
+export function anchorOf(section: string): string {
+  return ANCHOR[section as SectionKey] ?? (section === 'music' || section === 'extras' ? 'top' : section);
 }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { plateChars } from '@/lib/openings';
+import { Scene, useMomentGesture } from './moments';
+import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
 import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
 
@@ -27,6 +29,8 @@ export type OpeningProps = {
   /** An OpeningKey. "none" renders nothing at all. */
   style: string;
   monogram: string;
+  /** the design's own photographed parts for the scene, by PartKey; the shipped set otherwise */
+  parts?: Record<string, string>;
   names: string;
   /** "08 · 24 · 26" — already formatted by the server. */
   date: string;
@@ -49,12 +53,20 @@ export type OpeningProps = {
   and?: string;
   /** "Tap to open". */
   hint: string;
+  /** the opening's pace: the same motion, slower or quicker */
+  speed?: Speed;
+  /** how the guest opens it, where the opening takes more than one way */
+  trigger?: Trigger;
 };
 
-function Stage({ style, monogram, photos, video, poster, videoRef }: {
+/** The scene an opening plays, where it is one of the moments' — the envelope and the seal are, since #174. */
+const SCENE_OF: Partial<Record<string, MomentKey>> = { envelope: 'envelope', seal: 'seal', ribbon: 'ribbon', doors: 'doors', capiz: 'capiz', letter: 'letter' };
+
+function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
   style: string;
   monogram: string;
   photos: string[];
+  parts?: Record<string, string>;
   video: string;
   poster: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -78,13 +90,12 @@ function Stage({ style, monogram, photos, video, poster, videoRef }: {
       );
     case 'envelope':
     case 'seal':
-      return (
-        <span className="inv-open-env" aria-hidden>
-          <span className="inv-open-card" />
-          <span className="inv-open-flap" />
-          <span className="inv-open-wax">{monogram || '♥'}</span>
-        </span>
-      );
+    case 'ribbon':
+    case 'doors':
+    case 'capiz':
+    case 'letter':
+      // the same scene a moment on a page plays, filling the screen
+      return <Scene scene={SCENE_OF[style]!} photos={photos} monogram={monogram} parts={parts} />;
     case 'drape':
       return <span className="inv-open-drape" aria-hidden />;
     case 'curtain':
@@ -165,6 +176,11 @@ export function Shell({
 }) {
   const closed = opening.style !== 'none';
   const [open, setOpen] = useState(!closed);
+  // how it is opened: the trigger the invitation chose where the scene takes it, else the scene's own; a tap for the openings that are not scenes
+  const scene = SCENE_OF[opening.style];
+  const sceneDef = scene ? MOMENT_BY_KEY[scene] : undefined;
+  const trigger: Trigger = sceneDef && opening.trigger && sceneDef.triggers.includes(opening.trigger) ? opening.trigger : sceneDef?.triggers[0] ?? 'tap';
+  const speed: Speed = opening.speed ?? 'normal';
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const clip = useRef<HTMLVideoElement | null>(null);
@@ -257,7 +273,13 @@ export function Shell({
    * The tap is also what makes both of these work at all on a phone: playing
    * video or audio without a user gesture is blocked, and this is the gesture.
    */
+  const gesture = useMomentGesture({ trigger, speed, duration: sceneDef?.duration ?? 1200, swipe: sceneDef?.swipe, disabled: open, onOpen: () => revealNow() });
   const reveal = () => {
+    if (trigger !== 'tap') return; // a swipe or a hold arrives through the gesture, never through a click
+    revealNow();
+  };
+  const revealNow = () => {
+    if (tapped) return;
     setTapped(true);
     if (music) void play();
     const video = clip.current;
@@ -348,17 +370,25 @@ export function Shell({
             data-style={opening.style}
             data-clip={opening.clip || undefined}
             data-open={open}
+            data-state={open || tapped ? 'open' : 'closed'}
+            data-trigger={trigger}
+            data-dragging={gesture.dragging ? '' : undefined}
             data-tapped={tapped}
             data-still={still || undefined}
+            style={{ ['--moment-t' as string]: String(SPEED_FACTOR[speed]), ['--open-drag' as string]: gesture.drag.toFixed(3) }}
             role="button"
             tabIndex={open ? -1 : 0}
             aria-label={opening.hint}
             aria-hidden={open}
             onClick={reveal}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && reveal()}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && revealNow()}
+            onPointerDown={gesture.handlers.onPointerDown}
+            onPointerMove={gesture.handlers.onPointerMove}
+            onPointerUp={gesture.handlers.onPointerUp}
+            onPointerCancel={gesture.handlers.onPointerCancel}
           >
             <div className="inv-open-stage">
-              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} />
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} parts={opening.parts} />
             </div>
             {/* the card the words go on when the clip could not play */}
             {opening.words && <div className="inv-open-still" data-show={still} aria-hidden />}
@@ -988,6 +1018,107 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
 }
 
 /**
+ * The pictures pinned to the screen (PageSpec.pin), one layer fixed behind
+ * the column, and which of them shows.
+ *
+ * A pinned picture belongs to a run of pages — its own and the ones after
+ * it that sit on it — and every page in a run carries the head's key in
+ * `data-pin`. The picture that shows is the one whose run holds the middle
+ * of the screen; as the pages of the next run reach it, that one fades in
+ * over this. Measured on scroll and on resize, a frame at a time, because
+ * where a run begins and ends is the pages' own business and changes with
+ * every answer typed. Short of the first run the first picture shows, and
+ * past the foot of one the picture just left stays until the next run
+ * arrives: a head shorter than half a screen keeps its picture, and on a
+ * laptop the sides of a page that sits on no pin keep the last one.
+ */
+export function Pinned({ pins, phoneWindow = 639 }: {
+  pins: {
+    key: string; url: string; night?: string; column?: boolean;
+    /** the same background drawn for a phone, where she gave one: the window chooses */
+    phone?: { url: string; night?: string };
+  }[];
+  /**
+   * The widest window that counts as a phone's, for a page carrying both
+   * pictures: `PHONE_WINDOW`, handed in rather than imported, because this
+   * island is in every guest's bundle and the document module is not.
+   */
+  phoneWindow?: number;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const layer = ref.current;
+    const stage = layer?.closest<HTMLElement>('.inv-stage');
+    const inv = stage?.querySelector<HTMLElement>('.inv');
+    if (!layer || !inv) return;
+    let frame = 0;
+    const settle = () => {
+      frame = 0;
+      const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page[data-pin]'));
+      if (!pages.length) return;
+      // the runs: the first and the last page of each, by the head's key
+      const runs = new Map<string, { top: number; bottom: number }>();
+      for (const p of pages) {
+        const head = p.dataset.pin!;
+        const r = p.getBoundingClientRect();
+        const run = runs.get(head);
+        if (run) { run.top = Math.min(run.top, r.top); run.bottom = Math.max(run.bottom, r.bottom); }
+        else runs.set(head, { top: r.top, bottom: r.bottom });
+      }
+      // the middle of the layer's own box: the window, or the part of it the studio's canvas shows
+      const box = layer.getBoundingClientRect();
+      const middle = box.height > 0 ? box.top + box.height / 2 : window.innerHeight / 2;
+      // the run the middle is in; past the foot of one and short of the next, the one just left, so a
+      // head shorter than half the screen keeps its picture and the sides keep the last one on a laptop
+      let active: string | undefined;
+      for (const [head, run] of runs) if (active === undefined || run.top <= middle) active = head;
+      for (const pin of Array.from(layer.querySelectorAll<HTMLElement>('.inv-pin'))) {
+        if (pin.dataset.pin === active) pin.setAttribute('data-active', '');
+        else pin.removeAttribute('data-active');
+      }
+    };
+    const ask = () => { if (!frame) frame = requestAnimationFrame(settle); };
+    settle();
+    window.addEventListener('scroll', ask, { passive: true });
+    window.addEventListener('resize', ask);
+    // a page grows as its words arrive, and the opening's overlay leaves: both move the runs
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(ask) : null;
+    ro?.observe(inv);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', ask);
+      window.removeEventListener('resize', ask);
+      ro?.disconnect();
+    };
+  }, [pins]);
+  return (
+    <div ref={ref} className="inv-pins" aria-hidden="true">
+      {pins.map((pin) => (
+        <div key={pin.key} className="inv-pin" data-pin={pin.key} data-column={pin.column ? '' : undefined} data-night-art={pin.night ? '' : undefined}>
+          {/*
+            * One picture or two. Where she has given a background for the
+            * phone as well as one for the whole website, the window picks
+            * between them — a media query, so the browser chooses before it
+            * fetches and neither picture is ever stretched into the other's
+            * shape. The marks the night rules read stay on the <img>.
+            */}
+          <picture>
+            {pin.phone && <source media={`(max-width: ${phoneWindow}px)`} srcSet={pin.phone.url} />}
+            <img src={pin.url} alt="" data-day="" decoding="async" />
+          </picture>
+          {pin.night && (
+            <picture>
+              {pin.phone?.night && <source media={`(max-width: ${phoneWindow}px)`} srcSet={pin.phone.night} />}
+              <img src={pin.night} alt="" data-night="" decoding="async" loading="lazy" />
+            </picture>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The Capiz ground, laid to the pages: behind each page its background, in
  * order, trimmed to the page's own height — a page longer than one background
  * carries on into the next. Where a background begins it dissolves in over the
@@ -1004,7 +1135,7 @@ export function VideoFacade({ src, poster, fallback, title, cta, label }: { src:
  * a multiple of the width (Baby Blue). `seam` is how far one ground dissolves
  * into the next, as a share of the width — longer where the tones differ.
  */
-type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string };
+type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string; runsOn?: number };
 export function PageGround({ ratio, order, last, backgrounds, night, grounds, seam: seamShare = 0.24 }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[]; grounds?: Record<string, Ground>; seam?: number }) {
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
@@ -1088,17 +1219,45 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const dusk = dark ? night?.[i] : '';
         return dusk ? { url: dusk, night: true } : { url: backgrounds[i], night: false };
       };
-      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean }[] = [];
+      const segs: { url: string; bg: number; top: number; height: number; foot: boolean; above: number; below: number; own?: Ground; night: boolean; run?: string; bleed?: boolean }[] = [];
+      /*
+       * A picture that reaches the whole website page is drawn at the
+       * stage's width — the window's, on a laptop — in the column and beside
+       * it alike, so the column shows exactly the middle of the one picture
+       * across the page. On a phone the stage is the column and nothing
+       * changes.
+       */
+      const stage = inv.closest<HTMLElement>('.inv-stage');
+      const stageW = stage?.clientWidth || width;
+      const stageTop = stage ? stage.getBoundingClientRect().top : invTop;
       let k = 0;
+      // a page on a picture pinned to the screen is see-through to that picture (Pinned): no paper under it,
+      // and the papers on either side stop at its edges rather than dissolving into it
+      const onPin = (p: HTMLElement | undefined) => Boolean(p?.hasAttribute('data-pin'));
+      const tailPinned = onPin(pages[pages.length - 1]);
       pages.forEach((p, i) => {
+        if (onPin(p)) return;
         const r = p.getBoundingClientRect();
         const top = r.top - invTop;
         const lastPage = i === pages.length - 1;
         const own = grounds && p.dataset.bg ? grounds[p.dataset.bg] : undefined;
         const bg = width * (own ? own.ratio : ratio);
         if (!bg) return;
+        /*
+         * A picture that runs on. The page after the head sits on the same
+         * picture, so it joins the paper before it — one length of the
+         * picture down both, and no join between them — rather than
+         * starting a paper of its own.
+         */
+        const run = own ? p.dataset.run : undefined;
+        const prev = segs[segs.length - 1];
+        if (run && prev && prev.run === run) {
+          prev.height = top + r.height - prev.top;
+          prev.foot = lastPage;
+          return;
+        }
         const seam = seamOf(p);
-        const join = joinOf(p, pages[i - 1], seam);
+        const join = onPin(pages[i - 1]) ? { above: 0, below: 0 } : joinOf(p, pages[i - 1], seam);
         // A page with a ground of its own always sits on that one ground,
         // whatever its height. By number: a page up to a tenth taller than one
         // background (with the seam it reaches into) stays on one, drawn a
@@ -1119,7 +1278,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           const picked = own ? { url: dusk || own.url, night: Boolean(dusk) } : byNumber(foot ? last : order[Math.min(k++, order.length - 1)]);
           // a page split over several backgrounds joins itself half and half
           const half = Math.round(seam / 2);
-          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own });
+          segs.push({ ...picked, bg, top: top + j * share, height: share, foot, above: j === 0 ? join.above : half, below: j === 0 ? join.below : seam - half, own, run, bleed: own ? p.hasAttribute('data-bleed') : false });
         }
       });
       // The papers to draw: one per segment, and under a page shorter than its
@@ -1128,7 +1287,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
       // dissolves out across its foot (`out`) — over the next paper, which
       // starts that far up, opaque. A foot paper also fades in at its top
       // (`seam`), over its own page's ground.
-      const papers: { className: string; top: number; height: number; seam: number; out: number; z: number; draw: (el: HTMLElement) => void }[] = [];
+      const papers: { className: string; top: number; height: number; seam: number; out: number; z: number; draw: (el: HTMLElement) => void; bleed?: boolean; page?: HTMLElement }[] = [];
       segs.forEach((s, i) => {
         const first = i === 0;
         const final = i === segs.length - 1;
@@ -1138,12 +1297,13 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const nextHalf = final ? 0 : segs[i + 1].below;
         const out = final ? 0 : segs[i + 1].above + segs[i + 1].below;
         const top = first ? s.top : s.top - half;
-        const bottom = final ? inv.scrollHeight : s.top + s.height + nextHalf;
+        // the last paper runs to the column's foot — unless the pages there sit on a pinned picture
+        const bottom = final ? (tailPinned ? s.top + s.height : inv.scrollHeight) : s.top + s.height + nextHalf;
         const box = bottom - top;
         const z = 2 * (segs.length - i);
         const g = s.own;
         const bgH = Math.round(s.bg);
-        if (g && g.slices && s.height < bgH * 0.96) {
+        if (g && g.slices && s.height < bgH * 0.96 && !s.bleed) {
           // shorter than its ground: the foot of the picture comes in under the
           // words, fading up from nothing, so the page ends the way the ground
           // does; it runs to the paper's foot, so the join never cuts it
@@ -1159,8 +1319,17 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
             el.toggleAttribute('data-night-art', false);
           } });
         }
-        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: 0, out, z, draw: (el) => {
-        if (s.own) {
+        papers.splice(papers.length - (g && g.slices && s.height < bgH * 0.96 && !s.bleed ? 1 : 0), 0, { className: `inv-paper${first ? ' is-first' : ''}${s.foot && !s.own ? ' is-foot' : ''}`, top, height: box, seam: 0, out, z, bleed: s.bleed, page: s.bleed ? pages.find((p) => p.dataset.bg && grounds && grounds[p.dataset.bg] === s.own) : undefined, draw: (el) => {
+        if (s.own && s.bleed) {
+          // one picture across the whole page, at the stage's width, from the paper's top: the column shows its middle
+          const g = s.own;
+          const bgPx = Math.round(stageW * g.ratio);
+          el.style.backgroundImage = `url("${s.url}"), linear-gradient(to bottom, ${g.top} 0, ${g.top} 0px, ${g.bottom} ${bgPx}px, ${g.bottom} 100%)`;
+          el.style.backgroundSize = `${stageW}px auto, 100% 100%`;
+          el.style.backgroundPosition = 'center top, center top';
+          el.style.backgroundRepeat = 'no-repeat';
+          el.toggleAttribute('data-night-art', s.night);
+        } else if (s.own) {
           // A ground of the page's own, laid from the paper's top: for most
           // pages that is half a seam up inside the page before, so the picture
           // crosses into the one before it; for a drawn page it is the page's
@@ -1198,6 +1367,36 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         }
         } });
       });
+      /*
+       * The colour beside each page, out to the window's edge. The stage is
+       * what is beside the column, so the bands are its background: one
+       * gradient with a hard-edged stripe for every page that names a colour
+       * (`data-outside`, see outsideOf), measured here because a page's
+       * height is its words'. A role is read off the invitation's own
+       * variables; by night a role would be the day's colour beside a
+       * darkened page, so only a colour of the page's own is drawn then.
+       */
+      if (stage) {
+        const stops: string[] = [];
+        for (const p of pages) {
+          const want = p.dataset.outside;
+          if (!want) continue;
+          const role = ['bg', 'surface', 'ink', 'muted', 'accent', 'accent2'].includes(want);
+          if (role && dark) continue;
+          const colour = role ? getComputedStyle(inv).getPropertyValue(`--inv-${want}`).trim() : want;
+          if (!colour) continue;
+          const r = p.getBoundingClientRect();
+          const a = Math.round(r.top - stageTop);
+          const b = Math.round(r.bottom - stageTop);
+          if (b <= a) continue;
+          stops.push(`transparent ${a}px, ${colour} ${a}px, ${colour} ${b}px, transparent ${b}px`);
+        }
+        const beside = stops.length ? `linear-gradient(to bottom, ${stops.join(', ')})` : '';
+        if (stage.style.getPropertyValue('--inv-outside') !== beside) {
+          if (beside) stage.style.setProperty('--inv-outside', beside);
+          else stage.style.removeProperty('--inv-outside');
+        }
+      }
       while (ground.children.length > papers.length) ground.lastElementChild?.remove();
       papers.forEach((pp, i) => {
         let el = ground.children[i] as HTMLElement | undefined;
@@ -1222,6 +1421,53 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
        * Read off what was actually drawn, so the mark and the pictures cannot
        * disagree.
        */
+      /*
+       * Beside the column, the pictures that reach the whole website page:
+       * a band on the stage for each such paper, the same picture at the
+       * same size from the same top, with the paper's own dissolves, so the
+       * column's copy and the band read as one. A clip behind the page rides
+       * along as a copy of its own frame. Nothing is drawn where the stage
+       * is the column.
+       */
+      if (stage && stageW > width + 1) {
+        const bleeding = papers.filter((pp) => pp.bleed);
+        const bands = [...stage.querySelectorAll<HTMLElement>(':scope > .inv-beside')];
+        while (bands.length > bleeding.length) bands.pop()?.remove();
+        bleeding.forEach((pp, i) => {
+          let band = bands[i];
+          if (!band) {
+            band = document.createElement('div');
+            band.className = 'inv-paper inv-beside';
+            band.setAttribute('aria-hidden', 'true');
+            stage.insertBefore(band, stage.firstChild);
+            bands.push(band);
+          }
+          const paper = ground.children[papers.indexOf(pp)] as HTMLElement | undefined;
+          band.style.top = `${Math.round(pp.top + (invTop - stageTop))}px`;
+          band.style.height = `${Math.round(pp.height)}px`;
+          band.style.zIndex = String(pp.z);
+          band.style.setProperty('--seam', `${pp.seam}px`);
+          band.style.setProperty('--out', `${pp.out}px`);
+          if (paper) {
+            band.style.backgroundImage = paper.style.backgroundImage;
+            band.style.backgroundSize = paper.style.backgroundSize;
+            band.style.backgroundPosition = paper.style.backgroundPosition;
+            band.style.backgroundRepeat = paper.style.backgroundRepeat;
+            band.toggleAttribute('data-night-art', paper.hasAttribute('data-night-art'));
+          }
+          const clip = pp.page?.querySelector<HTMLElement>('.inv-bb-clip[data-bg] > video, .inv-bb-clip[data-bg] > img');
+          const had = band.firstElementChild as HTMLElement | null;
+          const src = clip?.getAttribute('src') ?? '';
+          if (clip && (!had || had.getAttribute('src') !== src)) {
+            band.replaceChildren();
+            const copy = clip.cloneNode(true) as HTMLElement;
+            if (copy instanceof HTMLVideoElement) { copy.muted = true; copy.autoplay = true; copy.loop = true; copy.playsInline = true; void copy.play().catch(() => {}); }
+            band.appendChild(copy);
+          } else if (!clip && had) band.replaceChildren();
+        });
+      } else if (stage) {
+        for (const band of stage.querySelectorAll(':scope > .inv-beside')) band.remove();
+      }
       const papersDrawn = [...ground.children] as HTMLElement[];
       ground.toggleAttribute('data-night-art', dark && papersDrawn.length > 0 && papersDrawn.every((el) => el.hasAttribute('data-night-art')));
     };

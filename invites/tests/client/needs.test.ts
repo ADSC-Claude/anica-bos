@@ -83,7 +83,9 @@ test('the library loads outside a server component', async () => {
 test('the guide loads outside a server component', async () => {
   const { PAGE_SHAPES, canvaSize } = await import('../../src/lib/guide');
   const { ONE_SCREEN } = await import('../../src/lib/design');
-  assert.equal(PAGE_SHAPES.length, 4);
+  // named, not just counted: the list is what the studio offers, so a row
+  // going missing or arriving unannounced should fail here
+  assert.deepEqual(PAGE_SHAPES.map((s) => s.key), ['screen', 'screen-half', 'two', 'long', 'three']);
   assert.equal(canvaSize(ONE_SCREEN), '1080 × 1919 px');
 });
 

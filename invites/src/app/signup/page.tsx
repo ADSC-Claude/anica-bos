@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { closedForNow } from '@/lib/storefront';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { home } from '@/lib/guard';
@@ -9,6 +10,8 @@ export const metadata = { title: 'Create an account', robots: { index: false } }
 export const dynamic = 'force-dynamic';
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  // the shop floor is closed while the designs are made (site.comingSoon)
+  await closedForNow();
   const session = await getSession();
   const { next } = await searchParams;
   if (session) redirect(next?.startsWith('/') ? next : home(session.role));

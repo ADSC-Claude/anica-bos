@@ -29,7 +29,31 @@ export const PAGE_SHAPES: Shape[] = [
   { key: 'screen', label: 'One screen', ratio: ONE_SCREEN, use: 'A cover, or a page that is one picture and a few words.' },
   { key: 'screen-half', label: 'One and a half screens', ratio: round(ONE_SCREEN * 1.5), use: 'A page with a heading and a short list under it.' },
   { key: 'two', label: 'Two screens', ratio: round(ONE_SCREEN * 2), use: 'A page of photographs, or a programme.' },
-  { key: 'three', label: 'Three screens', ratio: 2.989, use: 'A long page, scrolled: Baby Blue’s cover, story and closing are all this shape.' },
+  /*
+   * One and two-thirds, said plainly, because that is what 2.989 is.
+   *
+   * This row was labelled "Three screens", which is 5.331 — so it read as
+   * the tallest shape on the list while being shorter than the two-screen
+   * row above it, and anybody sizing a page from the list was sent to the
+   * wrong number. The ratio itself was never wrong: it is the measured shape
+   * of ten of the shipped grounds. Only the name was.
+   *
+   * The three-screen row below is the real one, put back on the owner's
+   * word after this correction took the false one away.
+   */
+  { key: 'long', label: 'One and two-thirds screens', ratio: 2.989, use: 'A long page, scrolled: Baby Blue’s cover, story and closing are all this shape.' },
+  /*
+   * Three screens, and the only shape on this list that comes with a
+   * warning rather than a use.
+   *
+   * 1080 by 5757 is a tall export. The rules further down this file ask for
+   * a ground under about 400 KB, and a page this size will not get there
+   * without care — a plain wash or a soft gradient will, a photograph
+   * across the whole of it will not. It is offered because a story told
+   * down one page is a real thing to want, and saying so is better than
+   * leaving the list to stop at two and letting somebody guess.
+   */
+  { key: 'three', label: 'Three screens', ratio: round(ONE_SCREEN * 3), use: 'The longest worth making — a story told down one page. Watch its weight: keep the artwork plain through the middle, or it will not come under 400 KB.' },
 ];
 
 function round(n: number): number {

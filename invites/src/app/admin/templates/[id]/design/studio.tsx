@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, reachablePages, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, reachablePages, bookletsOf, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, titleSaid, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette, type SheetSpec, type SheetSize,
@@ -377,6 +377,8 @@ export function Studio(p: Props) {
 
   const page = doc.pages.find((x) => x.key === pageKey) ?? doc.pages[0];
   const elements = useMemo(() => page?.elements ?? [], [page]);
+  /** the booklets this design has, for the page panel's field and the element's "Opens" */
+  const bookletNames = useMemo(() => bookletsOf(doc).map((b) => b.key), [doc]);
   const chosen = useMemo(() => new Set(sel), [sel]);
   /** one thing selected shows its own panel; several show what they have in common */
   const selected = sel.length === 1 ? elements.find((e) => e.id === sel[0]) ?? null : null;
@@ -2746,10 +2748,12 @@ export function Studio(p: Props) {
             onFit={() => (fit ? keepFit() : startFit(selected.id))}
             fitting={fit?.id === selected.id}
             vars={vars}
+            booklets={bookletNames}
           />
         ) : (
           <PageProps
             page={page}
+            booklets={bookletNames}
             onChange={editPage}
             onGround={setGround}
             onBackground={setBackground}
@@ -3293,8 +3297,10 @@ function Ties({ elements, boxes, on }: { elements: Element[]; boxes: Record<stri
   );
 }
 
-function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, onPlayMoment, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars }: {
+function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplicate, onRemove, onReplay, onPlayMoment, label, templateId, flow, onFillPage, measureRoom, attachable, grows, onFit, fitting, vars, booklets }: {
   el: Element; ratio: number; label: string; occasion: Occasion; templateId: string;
+  /** the booklets this design has; an object can only open one that exists */
+  booklets: string[];
   /** the page is laid out by its words, so a picture on it floats rather than being placed */
   flow: boolean;
   onFillPage: () => Promise<void>;
@@ -3361,6 +3367,38 @@ function Properties({ el, ratio, occasion, onChange, onMoveTo, onLayer, onDuplic
         </label>
       )}
       <Attach value={el.attachTo} options={attachable} onChange={(to) => onChange((e) => ({ ...e, attachTo: to }))} />
+      {/*
+        * What a tap on this object opens.
+        *
+        * A list and not a box: an object can only open a booklet that
+        * exists, and one pointing at a name nothing answers to is a door
+        * that goes nowhere. The booklet is made by naming it on a page.
+        *
+        * Not offered on a moment or a Lottie, and the same two reasons as in
+        * `opensAttrs`: a moment is already a gesture — the doors open, the
+        * seal breaks — and two things on one tap is one of them not
+        * happening; a Lottie is drawn by its player, so there is no element
+        * of ours to make a button.
+        */}
+      {el.kind !== 'moment' && el.kind !== 'anim' && (
+        <label className="block">
+          <span className="label">Opens</span>
+          <select
+            className="input w-full"
+            value={el.opens ?? ''}
+            onChange={(e) => onChange((x) => { const v = e.target.value; const next = { ...x, opens: v || undefined }; if (!v) delete next.opens; return next; })}
+          >
+            <option value="">Nothing — it is artwork</option>
+            {booklets.map((b) => <option key={b} value={b}>{b}</option>)}
+            {el.opens && !booklets.includes(el.opens) && <option value={el.opens}>{el.opens} — no page is in this booklet</option>}
+          </select>
+          <span className="hint">
+            {booklets.length
+              ? 'A tap brings that booklet over the page, with one way back. Draw it as something visibly shut and wanting opening — a door, a folded card — or a guest will scroll straight past it.'
+              : 'No booklets yet. Put a page behind a hub first — the page panel, “Behind a hub” — and it will appear here.'}
+          </span>
+        </label>
+      )}
       <MotionBlock el={el} onChange={onChange} onReplay={onReplay} num={num} />
       {el.kind === 'photo' && (
         <PictureBlock el={el as PhotoEl} onChange={onChange} onFit={onFit} fitting={fitting} num={num} flow={flow} />
@@ -5221,8 +5259,10 @@ const BACKGROUND_SLOTS: { key: 'phone' | 'website'; name: string; size: string; 
   },
 ];
 
-function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress, tall }: {
+function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, joinedTo, pinnedOn, templateId, vars, sections, pieces, dress, tall, booklets }: {
   page?: PageSpec;
+  /** the booklets this design already has, so a page can join one by name rather than by spelling */
+  booklets: string[];
   onChange: (fn: (p: PageSpec) => PageSpec) => void;
   /** the whole background at once: a colour, a drawn page's picture, or none */
   onGround: (g: Ground | undefined, pin?: PageSpec['pin']) => void;
@@ -5966,6 +6006,38 @@ function PageProps({ page, onChange, onGround, onBackground, onRunsOn, words, jo
         <span>This page is the Save the Date card, not part of the invitation</span>
       </label>
       {page.only === 'std' && <p className="hint">The card shows this page alone. A Save the Date carries the names, the date and a countdown, so bind its words to those; the rest of the design is not on it.</p>}
+
+      {/*
+        * A page behind a hub. It leaves the column a guest scrolls and is
+        * reached by tapping an object instead — so it needs an object
+        * somewhere that opens it, or nobody ever sees it. A name typed here
+        * makes the booklet; the same name on the page after it puts the two
+        * in one booklet, read in the order they sit in the list.
+        *
+        * A text box with the existing names beside it, rather than a list of
+        * them: a booklet comes into being by being named, so there is
+        * nothing to pick from the first time.
+        */}
+      <label className="block">
+        <span className="label">Behind a hub</span>
+        <input
+          className="input w-full"
+          list="inv-booklets"
+          placeholder="Not behind one — this page is in the column"
+          value={page.booklet ?? ''}
+          onChange={(e) => {
+            const v = e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 31);
+            onChange((p) => { const next = { ...p, booklet: v || undefined }; if (!v) delete next.booklet; return next; });
+          }}
+        />
+        <datalist id="inv-booklets">{booklets.map((b) => <option key={b} value={b} />)}</datalist>
+        <span className="hint">
+          {page.booklet
+            ? `In the “${page.booklet}” booklet. Give an object on another page “Opens” → ${page.booklet}, or a guest will never reach this page.`
+            : 'Name a booklet and this page leaves the column, reached by tapping an object that opens that booklet. Several pages with the same name are one booklet.'}
+        </span>
+      </label>
+
       <p className="hint">Click an element on the page to change it. Nothing here reaches a guest until the design is published.</p>
     </>
   );

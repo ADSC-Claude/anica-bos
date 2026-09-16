@@ -1031,6 +1031,28 @@ export const LINE_TAG: Record<LineRole, 'h2' | 'p'> = {
  * customer wrote a long sentence. y is still a share of the page's *base*
  * height, so the same number means the same place on both.
  */
+/**
+ * Whether a tap on this element really opens the booklet it names.
+ *
+ * Lives here, beside the field, because it is a fact about the document
+ * rather than about any one renderer — and because there are two readers who
+ * must agree: `opensAttrs`, which decides whether the drawn element gets the
+ * attribute, and the checklist, which decides whether a booklet counts as
+ * reachable. Two copies of this rule would eventually disagree, and the way
+ * they would disagree is the worst one available: the checklist saying a
+ * booklet is reachable through an object that does not open it, so the line
+ * that would have caught an unreachable part goes quiet.
+ *
+ * A moment refuses it because a moment is already a gesture — the doors
+ * open, the seal breaks — and two things on one tap is one of them not
+ * happening. A Lottie refuses it because it is drawn by its player, so there
+ * is no element of ours to make a button. Neither is silent about it: the
+ * checklist says so (`opens-ignored`).
+ */
+export function canOpen(el: Element): boolean {
+  return Boolean(el.opens) && el.kind !== 'moment' && el.kind !== 'anim';
+}
+
 export function elementStyle(el: Element, grow?: number): Record<string, string> {
   const st: Record<string, string> = {};
   if (el.x !== undefined) st.left = `${el.x}%`;

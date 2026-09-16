@@ -5,7 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { imageUrl, IMAGE } from '@/lib/images';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, floatAt, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture, canOpen,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
@@ -223,14 +223,12 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
  * runs carries an inert decoration and reads its booklets in the column,
  * rather than an object that looks tappable and is not.
  *
- * **A moment and a Lottie do not take it.** A moment is already a gesture —
- * the doors open, the seal breaks — and two things on one tap is one of them
- * not happening; a design wanting both can put a shape over the moment. A
- * Lottie is drawn by the player rather than by us, so there is no node here
- * to name. Both are caught by the checklist rather than ignored in silence.
+ * Which kinds honour `opens` at all is `canOpen`'s answer and not this
+ * function's, because the checklist has to give the same answer: a booklet
+ * counts as reachable only through an object that really opens it.
  */
 function opensAttrs(el: Element): Record<string, string | undefined> | undefined {
-  if (!el.opens || el.kind === 'moment' || el.kind === 'anim') return undefined;
+  if (!canOpen(el)) return undefined;
   return { 'data-opens': el.opens, 'aria-hidden': undefined };
 }
 

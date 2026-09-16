@@ -3,7 +3,7 @@ import type { Occasion } from '@prisma/client';
 import { sectionLabel, type SectionKey } from './sections';
 import { asksOf, fieldOf, askCounts } from './asks';
 import {
-  frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, reachablePages, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
+  frameLists, pageRatio, valueAt, isPicture, flowDecor, moves, reachablePages, bookletsOf, canOpen, LEGIBLE_CQW, ONE_SCREEN, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type VideoEl, type AnimEl, type MomentEl
 } from './design';
 import { contrast } from './palette';
@@ -80,6 +80,9 @@ export const NEED_RULES = [
   'moment-code',
   'moment-small',
   'moment-many',
+  'unreachable',
+  'opens-nothing',
+  'opens-ignored',
 ] as const;
 
 export type NeedRule = (typeof NEED_RULES)[number];
@@ -550,6 +553,66 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
         page: list.page,
         text: `${sectionLabel(list.section as SectionKey, occasion)} allows up to ${field.max} on ${occasionWord(occasion)}; this page has ${list.count} frames.`,
       });
+    }
+  }
+
+  /*
+   * The hub, checked in both directions.
+   *
+   * This is the one fault in the whole design that a guest cannot see and
+   * cannot report. A booklet no object opens is a part of the invitation
+   * nobody will ever reach — the pages are there, the customer filled them
+   * in, the customer paid for them, and they are simply gone. Worse than a
+   * part left out, because nothing about the page says anything is missing.
+   * So it blocks a publish rather than warning about one.
+   *
+   * The other direction is the same mistake from the other end: an object
+   * drawn as a door, pointing at a booklet no page is in. `Hub` leaves it
+   * as artwork rather than making a door that goes nowhere, which is the
+   * right thing to do at render time and the wrong thing to be silent
+   * about here — she meant a door.
+   */
+  {
+    const booklets = bookletsOf(doc);
+    const openers = reachablePages(doc).flatMap((pg) => (pg.elements ?? []).map((el) => ({ pg, el })));
+    // `canOpen` and not `el.opens`: a moment naming a booklet does not open
+    // it, so counting it here would let an unreachable part pass as reached —
+    // which is the one fault in a design nobody can see and nobody reports
+    const opened = new Set(openers.filter(({ el }) => canOpen(el)).map(({ el }) => el.opens!));
+    for (const b of booklets) {
+      if (opened.has(b.key)) continue;
+      const what = b.pages.map((pg) => pg.label?.en || pg.key).join(', ');
+      out.push({
+        level: 'blocks',
+        rule: 'unreachable',
+        page: b.pages[0]?.key ?? '',
+        text: `Nothing opens the “${b.key}” booklet, so no guest will ever see ${what}. Give an object on another page Opens → ${b.key}.`,
+      });
+    }
+    const names = new Set(booklets.map((b) => b.key));
+    for (const { pg, el } of openers) {
+      if (!el.opens) continue;
+      // set, and refused. Silence here would be indistinguishable from a
+      // bug: she chose it, the panel shows it chosen, and nothing happens
+      if (!canOpen(el)) {
+        out.push({
+          level: 'says',
+          rule: 'opens-ignored',
+          page: pg.key,
+          id: el.id,
+          text: `This ${el.kind === 'moment' ? 'moment' : 'animation'} is set to open “${el.opens}”, and will not. A moment already has its own tap, and an animation is drawn by its player. Put a shape over it and give that the Opens instead.`,
+        });
+        continue;
+      }
+      if (!names.has(el.opens)) {
+        out.push({
+          level: 'blocks',
+          rule: 'opens-nothing',
+          page: pg.key,
+          id: el.id,
+          text: `This object opens “${el.opens}”, and no page is in that booklet — so a tap on it does nothing. Put a page behind a hub of that name, or set Opens back to nothing.`,
+        });
+      }
     }
   }
 

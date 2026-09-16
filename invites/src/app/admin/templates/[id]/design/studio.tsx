@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import Link from 'next/link';
 import type { Look, LineKey, TitleKey } from '@/lib/looks';
 import { designVars, type SurroundArt, pageKeyOf,   isPicture, pageRatio, place, withFollowers, fillPageWithClip, canAttach, putSection, dropSection, shiftSection, titleWord,
-  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, invitationPages, APP_NIGHT,
+  cropWindow, cropAt, flowFloats, flowDecor, floatAt, floatShape, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, SIZE_RANGE, reachablePages, APP_NIGHT,
   wordsFor, lineLabel, titleLabel, titleSaid, ONE_SCREEN, LEGIBLE_CQW, BROWSER_BAR,
   type DesignDoc, type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type CoverSpec, type FieldRef, type Ground, type LineRole, type PageSectionKey,
   type Source, type WordKey, type SectionStyle, type NightPalette, type SheetSpec, type SheetSize,
@@ -3040,7 +3040,7 @@ function PaperPanel({ doc, onSheet }: { doc: DesignDoc; onSheet: (patch: Partial
           </label>
           <div className="space-y-1">
             <p className="hint">Left off the paper. The print view shows what will come out of the printer, so these go from it too.</p>
-            {invitationPages(doc).map((pg) => (
+            {reachablePages(doc).map((pg) => (
               <label key={pg.key} className="flex items-center gap-2">
                 <input type="checkbox" checked={hidden.has(pg.key)} onChange={(e) => toggleHide(pg.key, e.target.checked)} className="h-4 w-4" />
                 <span>{pg.label?.en || pg.key}</span>

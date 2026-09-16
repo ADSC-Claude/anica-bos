@@ -666,6 +666,30 @@ export type PageSpec = {
    */
   offFlow?: string[];
   /**
+   * The booklet this page belongs to, which takes it off the invitation's
+   * flow.
+   *
+   * An invitation has always been one column read top to bottom. A design
+   * with a hub is not: a few pages of it are reached by tapping an object
+   * rather than by scrolling past one, and a guest who taps nothing never
+   * sees them. This is how such a page says so — it names the booklet it is
+   * in, and every page naming the same booklet is that booklet, in the order
+   * they sit in the list. One page is a booklet of one, which most of them
+   * are; three pages in a row are read as three pages of one thing.
+   *
+   * It is stated on the page for the same reason `only` is: the studio's
+   * whole page machinery — add, copy, arrange, the inspector, the grounds —
+   * then works on it untouched, and a page moves between the flow and a
+   * booklet by one field rather than by being lifted out of one list into
+   * another.
+   *
+   * The price is the same too: every reader of `doc.pages` has to decide
+   * whether it means them. `invitationPages` is the flow, `bookletsOf` is
+   * the booklets, and `reachablePages` is both — which is what paper prints,
+   * because a printed invitation has no taps and must carry everything.
+   */
+  booklet?: string;
+  /**
    * A page that belongs to the Save the Date alone.
    *
    * The Save the Date is not a second design: it is the same design, on one
@@ -797,6 +821,22 @@ type Base = {
   motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
+  /**
+   * The booklet this element opens when a guest taps it.
+   *
+   * What makes a hub a hub. An object drawn on a page — a shut door, a folded
+   * card, a gramophone with its arm up — says which booklet it stands for,
+   * and a tap takes the guest there. It names the booklet by the same key its
+   * pages carry in `PageSpec.booklet`, so the link is one string pointing one
+   * way and there is no second list to keep in step.
+   *
+   * A name nothing answers to opens nothing, which is a design left half
+   * finished rather than a crash. The checklist is where that is caught: a
+   * booklet no element opens is a part of the invitation a guest can never
+   * reach, and that is worse than a part left out, because the customer paid
+   * for it and cannot tell it is missing.
+   */
+  opens?: string;
 };
 
 /**
@@ -1233,6 +1273,7 @@ const zBase = {
     delay: z.number().min(0).max(2000).optional(),
   }).strict().optional(),
   attachTo: z.string().max(41).optional(),
+  opens: z.string().regex(KEY).optional(),
 };
 const zElement = z.union([
   z.object({
@@ -1288,6 +1329,7 @@ const zPage = z.object({
   minScreens: z.number().min(0.3).max(6).optional(),
   size: z.number().min(0.3).max(2).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
+  booklet: z.string().regex(KEY).optional(),
   only: z.literal('std').optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
@@ -2355,7 +2397,10 @@ export function runOf(doc: DesignDoc): Map<string, string> {
     if (!g || !isPicture(g) || !g.runsOn) continue;
     for (let j = i + 1; j <= i + g.runsOn && j < pages.length; j++) {
       const p = pages[j];
-      if (p.ground || p.drawn) break;
+      // a picture cannot run from the column into a booklet, or between two
+      // booklets: they are separate surfaces, and a guest who never taps
+      // would be looking at the foot of a picture whose head they never saw
+      if (p.ground || p.drawn || p.booklet !== pages[i].booklet) break;
       on.set(p.key, pages[i].key);
     }
   }
@@ -2381,7 +2426,17 @@ export function pinOf(doc: DesignDoc): Map<string, string> {
   let head: string | undefined;
   /** how many more pages the pin still reaches */
   let left = 0;
+  /** which surface we are on: the column, or one of the booklets */
+  let surface: string | undefined;
   for (const p of doc.pages) {
+    // crossing into a booklet, out of one, or between two ends the run: a
+    // pinned picture stands behind a stretch of one surface, and the column
+    // and a booklet are never on screen together
+    if (p.booklet !== surface) {
+      surface = p.booklet;
+      head = undefined;
+      left = 0;
+    }
     const own = p.ground && isPicture(p.ground) ? p.ground : undefined;
     if (own || p.drawn) {
       head = own && !p.drawn && groundKind(p) !== 'flow' ? p.key : undefined;
@@ -2400,18 +2455,60 @@ export function peekEndPage(doc: DesignDoc | null): string | undefined {
 }
 
 /**
- * The pages the invitation itself is made of — every page except the ones
- * kept for the Save the Date.
+ * The pages of the invitation's own column — every page except the ones kept
+ * for the Save the Date and the ones behind a hub.
  *
- * Every question about the invitation asks this rather than `doc.pages`:
- * what is drawn, where the peek stops, what the cover's settings are, which
- * sections the design offers. The two questions that deliberately do *not*
- * are the ones about files and answers — `frameLists` and the checklist's
- * weights — because a frame on the Save the Date still needs the customer's
- * photograph and its bytes still reach whoever opens the card.
+ * Every question about the column asks this rather than `doc.pages`: where
+ * the peek stops, what the cover's settings are, which sections the design
+ * offers. The two questions that deliberately do *not* are the ones about
+ * files and answers — `frameLists` and the checklist's weights — because a
+ * frame on the Save the Date still needs the customer's photograph and its
+ * bytes still reach whoever opens the card.
+ *
+ * A booklet's pages are left out here for the same reason the card's are:
+ * they are not scrolled to. Anything asking "what does a guest see", rather
+ * than "what is in the column", wants `reachablePages`.
  */
 export function invitationPages(doc: DesignDoc | null): PageSpec[] {
-  return (doc?.pages ?? []).filter((p) => p.only !== 'std');
+  return (doc?.pages ?? []).filter((p) => p.only !== 'std' && !p.booklet);
+}
+
+/**
+ * The booklets, each with its pages in the order they are listed.
+ *
+ * Keyed in the order the booklets first appear rather than alphabetically,
+ * because that is the order the designer arranged them in and the order
+ * paper prints them in. Pages of one booklet do not have to sit together in
+ * the list — they are gathered by name — but a design that scatters them
+ * reads badly in the studio, so the studio keeps them together.
+ */
+export function bookletsOf(doc: DesignDoc | null): { key: string; pages: PageSpec[] }[] {
+  const out: { key: string; pages: PageSpec[] }[] = [];
+  const at = new Map<string, { key: string; pages: PageSpec[] }>();
+  for (const p of doc?.pages ?? []) {
+    if (p.only === 'std' || !p.booklet) continue;
+    let found = at.get(p.booklet);
+    if (!found) {
+      found = { key: p.booklet, pages: [] };
+      at.set(p.booklet, found);
+      out.push(found);
+    }
+    found.pages.push(p);
+  }
+  return out;
+}
+
+/**
+ * Every page a guest can reach: the column first, then each booklet in turn.
+ *
+ * This is the honest answer to "what is in this invitation" — and it is the
+ * order paper prints in, because a printed invitation has nothing to tap and
+ * so must carry the booklets one after another rather than lose them. The
+ * card is still left out: it is a different thing that goes out months
+ * earlier, not a part of this one.
+ */
+export function reachablePages(doc: DesignDoc | null): PageSpec[] {
+  return [...invitationPages(doc), ...bookletsOf(doc).flatMap((b) => b.pages)];
 }
 
 /**
@@ -2423,9 +2520,15 @@ export function stdPage(doc: DesignDoc | null): PageSpec | undefined {
   return (doc?.pages ?? []).find((p) => p.only === 'std');
 }
 
-/** The page a section is drawn on, for the anchor a preview scrolls to. */
+/**
+ * The page a section is drawn on, for the anchor a preview scrolls to.
+ *
+ * Asks `reachablePages`, not the column alone: a part inside a booklet is
+ * still a part of the invitation, and the studio's preview has to be able to
+ * scroll to the dress code whether it sits in the column or behind a door.
+ */
 export function pageOfSection(doc: DesignDoc | null, key: string): PageSpec | undefined {
-  return invitationPages(doc).find((p) => p.sections.includes(key as PageSectionKey));
+  return reachablePages(doc).find((p) => p.sections.includes(key as PageSectionKey));
 }
 
 // ---------------------------------------------------------------------------

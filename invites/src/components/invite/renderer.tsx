@@ -18,7 +18,7 @@ import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, invitationPages, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -2089,7 +2089,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -2098,6 +2098,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           key={key}
           className="inv-page"
           data-page={key}
+          // which booklet this page is in, absent on the column's own pages.
+          // Commit 1 lays the booklets after the column so nothing is lost;
+          // the tap that opens one reads this.
+          data-booklet={o.booklet}
           data-bg={o.bg}
           // the head of the run this page's picture belongs to, on the head and on every page that sits on it: PageGround lays one paper down them all
           data-run={o.run}
@@ -2189,12 +2193,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // The document's own page list. A drawn page is its elements; every
       // other page is the sections it names. The clip that no frame can hold
       // rides on 'gallery-video'.
-      // The card is the one page it was drawn as. Otherwise: the invitation's
-      // pages — which leave the card out, that being the point of
-      // `invitationPages` — except when the studio has asked for one page by
-      // key, where it may well be the card she is drawing, so the whole list
-      // is searched and the slice below picks hers out.
-      for (const spec of card ? [card] : only ? doc.pages : invitationPages(doc)) {
+      // The card is the one page it was drawn as. Otherwise: every page a
+      // guest can reach — the column, then each booklet in turn, which leaves
+      // the card out, that being the point of `reachablePages` — except when
+      // the studio has asked for one page by key, where it may well be the
+      // card she is drawing, so the whole list is searched and the slice
+      // below picks hers out.
+      for (const spec of card ? [card] : only ? doc.pages : reachablePages(doc)) {
         // A drawn page that names sections comes and goes with them, the way
         // the photographs page goes when a package has no gallery. One that
         // names none depends on nothing — it is the design's own page, a
@@ -2211,8 +2216,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const pin = pins.get(spec.key);
         if (parts.length) out.push(page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
-          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
+          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow, booklet: spec.booklet }
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }));
       }
     }
     // a section the document does not name gets a page of its own, in its

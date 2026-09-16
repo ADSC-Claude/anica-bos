@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape,
-  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
+  flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
@@ -1277,6 +1277,49 @@ test('a picture that runs on is laid down the pages after it, until one has a gr
   assert.deepEqual(read.dropped, []);
   const head = read.doc?.pages[0].ground;
   assert.equal(head && 'url' in head ? head.runsOn : undefined, 2);
+});
+
+test('a picture pinned to the screen is the pages after it too, until one brings a picture of its own', () => {
+  const pic = { url: '/screen.webp', ratio: 0.5625, top: '#fff', bottom: '#eee' };
+  const doc = {
+    v: 1 as const,
+    pages: [
+      { key: 'cover', sections: ['cover'], ground: pic, pin: true as const },
+      { key: 'countdown', sections: ['countdown'] },
+      { key: 'parents', sections: ['parents'], ground: { color: 'surface' } },
+      { key: 'ceremony', sections: ['ceremony'], ground: { ...pic, url: '/church.webp' } },
+      { key: 'reception', sections: ['reception'] },
+      { key: 'dress-code', sections: ['dress-code'], ground: pic, pin: true as const },
+      { key: 'gift', sections: ['gift'] },
+      { key: 'story', sections: ['story'], drawn: true as const, ground: { color: 'bg', ratio: 1.777 } },
+      { key: 'closing', sections: ['closing'] },
+      { key: 'thanks', sections: ['thanks'], ground: { color: 'bg' }, pin: true as const },
+      { key: 'map', sections: ['map'] },
+    ],
+  } as unknown as Parameters<typeof pinOf>[0];
+  const pins = pinOf(doc);
+  // the head is on its own picture, and the pages after ride on it — a colour of their own or not
+  assert.equal(pins.get('cover'), 'cover');
+  assert.equal(pins.get('countdown'), 'cover');
+  assert.equal(pins.get('parents'), 'cover');
+  // a page with a picture of its own ends it, pinned or not, and one not pinned pins nothing
+  assert.equal(pins.has('ceremony'), false);
+  assert.equal(pins.has('reception'), false);
+  // a second pin starts afresh
+  assert.equal(pins.get('dress-code'), 'dress-code');
+  assert.equal(pins.get('gift'), 'dress-code');
+  // a page placed by hand ends it and pins nothing
+  assert.equal(pins.has('story'), false);
+  assert.equal(pins.has('closing'), false);
+  // a pin on a colour pins nothing
+  assert.equal(pins.has('thanks'), false);
+  assert.equal(pins.has('map'), false);
+  // the pin is the document's and survives the parse; a false one is not a pin
+  const read = designOf(doc, 'classic');
+  assert.deepEqual(read.dropped, []);
+  assert.equal(read.doc?.pages[0].pin, true);
+  assert.equal(read.doc?.pages[1].pin, undefined);
+  assert.equal(designOf({ v: 1, pages: [{ key: 'p', sections: ['countdown'], ground: pic, pin: false }] }, 'classic').doc?.pages.length, 0);
 });
 
 test('a page laid out by its words can be told to be at least so many screens tall', () => {

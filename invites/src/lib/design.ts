@@ -475,6 +475,16 @@ export type PageSpec = {
    */
   bleed?: boolean;
   /**
+   * The page's picture pinned to the screen: it fills the window — a phone's
+   * screen, a laptop's — and stays put while the words move over it, and
+   * the pages after sit on it too, until one brings a picture of its own or
+   * is drawn. The way a website lays a photograph under a scrolling page,
+   * and the way a design exported at 1920 by 1080 is meant to be shown: a
+   * phone shows the middle of it. Only a page laid out by its words pins;
+   * a drawn page is its picture. `pinOf` is the rule.
+   */
+  pin?: true;
+  /**
    * A page laid out by its words, told to be taller than they are: at least
    * this many screens. The words sit in the middle of it and the pieces
    * around them. Absent, the page is as tall as its words.
@@ -1046,6 +1056,7 @@ const zPage = z.object({
   peekEnd: z.literal(true).optional(),
   outside: z.union([z.literal('design'), zColour]).optional(),
   bleed: z.boolean().optional(),
+  pin: z.literal(true).optional(),
   minScreens: z.number().min(0.3).max(6).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
   cover: z.object({
@@ -1948,6 +1959,25 @@ export function runOf(doc: DesignDoc): Map<string, string> {
       if (p.ground || p.drawn) break;
       on.set(p.key, pages[i].key);
     }
+  }
+  return on;
+}
+
+/**
+ * The pages that sit on a pinned picture, each mapped to the page whose
+ * picture it is — the head itself included, mapped to itself. A pinned
+ * picture runs on down every page after its head, a colour of their own or
+ * not, until a page brings a picture of its own or is drawn; either starts
+ * afresh. A pin on a page with no picture, or on a drawn page, pins nothing.
+ */
+export function pinOf(doc: DesignDoc): Map<string, string> {
+  const on = new Map<string, string>();
+  let head: string | undefined;
+  for (const p of doc.pages) {
+    const own = p.ground && isPicture(p.ground);
+    if (p.drawn || own) head = undefined;
+    if (own && p.pin && !p.drawn) head = p.key;
+    if (head) on.set(p.key, head);
   }
   return on;
 }

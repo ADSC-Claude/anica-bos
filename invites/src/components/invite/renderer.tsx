@@ -2247,6 +2247,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       if (!inside?.length) continue;
       out.push(
         <div key={`booklet-${b.key}`} id={`booklet-${b.key}`} className="inv-booklet" data-booklet={b.key} data-label={b.pages[0]?.label?.en || b.key.replace(/-/g, ' ')}>
+          {/*
+            A booklet's own ground layer. The pass that lays the backgrounds
+            (PageGround) works one surface at a time, and a booklet is a
+            surface: its pages start at its own top rather than at the
+            column's, so their pictures cannot be laid into the column's
+            layer. Without this the nine pages behind the hub came up bare.
+          */}
+          <div className="inv-ground" aria-hidden="true" />
           <button type="button" className="inv-booklet-back" data-back="">{lang === 'tl' ? 'Bumalik' : 'Back'}</button>
           {inside}
         </div>,

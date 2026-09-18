@@ -9,6 +9,7 @@ import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
 } from './babyblue';
+import { CHRISTENING_PAGES, CHRISTENING_PAPER, CHRISTENING_SURROUND } from './christening';
 
 /**
  * What a design's encoder can change without a release: the words it writes
@@ -1721,7 +1722,23 @@ export function templateGround(t: { design?: unknown; layout?: string }): string
 export function builtinDesign(layout: string): DesignDoc | null {
   if (layout === 'babyblue') return babyblueDesign();
   if (layout === 'capiz') return capizDesign();
+  if (layout === 'christening') return christeningDesign();
   return null;
+}
+
+/**
+ * The christening on her sixteen Canva grounds: seven pages in the column
+ * and nine in three booklets behind the Highlights page. The pages are data
+ * (`src/lib/christening.ts`) because every place on them is a fraction read
+ * off her PDF, and a list of measurements belongs in a file of its own.
+ */
+function christeningDesign(): DesignDoc {
+  return {
+    v: 1,
+    pages: CHRISTENING_PAGES.map((p) => ({ ...p })),
+    paper: CHRISTENING_PAPER,
+    surround: CHRISTENING_SURROUND,
+  };
 }
 
 /**

@@ -1140,14 +1140,45 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');
-    const ground = inv?.querySelector<HTMLElement>('.inv-ground');
-    if (!inv || !ground) return;
-    const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
+    if (!inv) return;
+    const allPages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
+    /*
+     * One run per surface, and a booklet is a surface.
+     *
+     * This was written when an invitation was one column, so it took `.inv`,
+     * every page in it and the one ground layer, and laid the papers down
+     * that single scroll. A booklet broke it quietly: its pages were still
+     * found by the query, so their papers were positioned against the
+     * column's top — inside a layer only as tall as the column — and the
+     * pages themselves, which sit after it, came up bare. Sixteen grounds in
+     * the markup, nine of them nowhere near the pages they belonged to.
+     *
+     * So the surfaces are gathered first: the column with the pages that are
+     * not in a booklet, then each booklet with its own layer and its own
+     * pages. Every measurement below is against the surface rather than the
+     * invitation, which is what makes a booklet's first page start at zero
+     * the way the cover does.
+     *
+     * A closed booklet measures nothing, and that is the right answer rather
+     * than a problem to work around: it lays nothing, and the ResizeObserver
+     * below — which watches every page, booklet pages included — runs the
+     * pass again the moment one opens and has a size.
+     */
+    const booklets = Array.from(inv.querySelectorAll<HTMLElement>('.inv-booklet'));
+    const surfaces: { box: HTMLElement; ground: HTMLElement; pages: HTMLElement[]; column: boolean }[] = [];
+    const column = inv.querySelector<HTMLElement>(':scope > .inv-ground');
+    if (column) surfaces.push({ box: inv, ground: column, pages: allPages.filter((p) => !p.closest('.inv-booklet')), column: true });
+    for (const b of booklets) {
+      const g = b.querySelector<HTMLElement>(':scope > .inv-ground');
+      if (g) surfaces.push({ box: b, ground: g, pages: Array.from(b.querySelectorAll<HTMLElement>('.inv-page')), column: false });
+    }
+    if (!surfaces.length) return;
     let frame = 0;
-    const lay = () => {
-      const width = inv.clientWidth;
+    const lay = () => { for (const s of surfaces) layOne(s.box, s.ground, s.pages, s.column); };
+    const layOne = (surface: HTMLElement, ground: HTMLElement, pages: HTMLElement[], isColumn: boolean) => {
+      const width = surface.clientWidth;
       if (!width || !pages.length) return;
-      const invTop = inv.getBoundingClientRect().top;
+      const invTop = surface.getBoundingClientRect().top;
       // how far the ground before dissolves into this page: the layout's share
       // of the width, or the page's own (a drawn page keeps its top clear)
       const seamOf = (p: HTMLElement) => Math.round(width * (p.dataset.seam ? Number(p.dataset.seam) : seamShare));
@@ -1298,7 +1329,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const out = final ? 0 : segs[i + 1].above + segs[i + 1].below;
         const top = first ? s.top : s.top - half;
         // the last paper runs to the column's foot — unless the pages there sit on a pinned picture
-        const bottom = final ? (tailPinned ? s.top + s.height : inv.scrollHeight) : s.top + s.height + nextHalf;
+        const bottom = final ? (tailPinned ? s.top + s.height : surface.scrollHeight) : s.top + s.height + nextHalf;
         const box = bottom - top;
         const z = 2 * (segs.length - i);
         const g = s.own;
@@ -1397,6 +1428,17 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           else stage.style.removeProperty('--inv-outside');
         }
       }
+      /*
+       * A booklet scrolls inside itself, so its ground cannot simply be
+       * `inset: 0` like the column's: that is the height of what is on
+       * screen, and the layer clips its own overflow, so every paper below
+       * the fold would be cut off. The pass has the real number, so it says
+       * it. The column keeps the stylesheet's inset, where it is right.
+       */
+      if (!isColumn) {
+        ground.style.bottom = 'auto';
+        ground.style.height = `${surface.scrollHeight}px`;
+      }
       while (ground.children.length > papers.length) ground.lastElementChild?.remove();
       papers.forEach((pp, i) => {
         let el = ground.children[i] as HTMLElement | undefined;
@@ -1429,7 +1471,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
        * along as a copy of its own frame. Nothing is drawn where the stage
        * is the column.
        */
-      if (stage && stageW > width + 1) {
+      if (isColumn && stage && stageW > width + 1) {
         const bleeding = papers.filter((pp) => pp.bleed);
         const bands = [...stage.querySelectorAll<HTMLElement>(':scope > .inv-beside')];
         while (bands.length > bleeding.length) bands.pop()?.remove();
@@ -1465,7 +1507,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
             band.appendChild(copy);
           } else if (!clip && had) band.replaceChildren();
         });
-      } else if (stage) {
+      } else if (isColumn && stage) {
         for (const band of stage.querySelectorAll(':scope > .inv-beside')) band.remove();
       }
       const papersDrawn = [...ground.children] as HTMLElement[];
@@ -1475,7 +1517,8 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
     queue();
     const ro = new ResizeObserver(queue);
     ro.observe(inv);
-    for (const p of pages) ro.observe(p);
+    for (const b of booklets) ro.observe(b);
+    for (const p of allPages) ro.observe(p);
     // day to night and back: the papers change
     const mo = new MutationObserver(queue);
     mo.observe(inv, { attributes: true, attributeFilter: ['data-mode'] });

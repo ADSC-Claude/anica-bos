@@ -54,6 +54,15 @@ export const PALETTE_PRESETS: { key: string; label: string; palette: Palette; mu
   { key: 'terracotta', label: 'Terracotta & Cream', palette: { bg: '#fbf6ef', surface: '#ffffff', ink: '#3b2a22', muted: '#7d6a5f', accent: '#b8603d', accent2: '#e0b98a' } },
   { key: 'emerald', label: 'Emerald & Ivory', palette: { bg: '#f5f8f5', surface: '#ffffff', ink: '#1f2d27', muted: '#5e6d66', accent: '#1e5c47', accent2: '#b9a26b' } },
   { key: 'babyblue', label: 'Baby Blue', palette: { bg: '#eef3f9', surface: '#ffffff', ink: '#4a5b7a', muted: '#8391a8', accent: '#8fb0d8', accent2: '#c9d9ec' } },
+  /**
+   * The christening's two colours, taken off her Canva file rather than
+   * chosen: azure #2b5275 sets nearly every word on the sixteen pages, and
+   * pastel grey orange #e6b181 the cover's name, the gallery captions and
+   * the venue lines. The ground is the page's own baby blue, sampled from
+   * the fill behind the clouds, and the muted grey is the one her CLICK HERE
+   * is written in.
+   */
+  { key: 'christening', label: 'Christening — azure & tan', palette: { bg: '#e7f3ff', surface: '#ffffff', ink: '#2b5275', muted: '#67676d', accent: '#e6b181', accent2: '#c6d8e8' } },
   { key: 'dusty', label: 'Dusty Blue', palette: { bg: '#f4f6f9', surface: '#ffffff', ink: '#2a3340', muted: '#66707e', accent: '#5b7a9d', accent2: '#c7b48e' } },
   { key: 'lilac', label: 'Lilac & Silver', palette: { bg: '#f8f5fb', surface: '#ffffff', ink: '#2f2a3a', muted: '#6f6980', accent: '#7c5fa3', accent2: '#b9b9c4' } },
   { key: 'sunset', label: 'Sunset Beach', palette: { bg: '#fff8f0', surface: '#ffffff', ink: '#33302b', muted: '#75705f', accent: '#e07a3f', accent2: '#5aa9a0' } },

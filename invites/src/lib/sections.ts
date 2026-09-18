@@ -510,6 +510,20 @@ const SECTION_DEFS: SectionDef[] = [
           person('father', two ? 'Her father' : 'Father'),
           person('mother', two ? 'Her mother' : 'Mother'),
           ...(two ? [person('father2', 'His father'), person('mother2', 'His mother')] : []),
+          /**
+           * The surnames as one line, under the child's name on a cover.
+           *
+           * It cannot be worked out from the two above. A Filipino name may
+           * carry a mother's maiden surname in the middle and a father's
+           * after it, some families hyphenate and some do not, and the order
+           * on a christening cover is the family's own choice — so a design
+           * that prints "Reyes - Cruz" has to be told those words rather
+           * than given two full names to guess from. Blank prints nothing,
+           * which is the right answer for a design that does not ask.
+           */
+          ...(occasion === 'CHRISTENING' || occasion === 'COMMUNION'
+            ? [text('familyName', 'Family name, as it should read', { placeholder: 'e.g. Reyes - Cruz', hint: 'Printed under the child’s name on designs that carry a line for it.' })]
+            : []),
           text('note', 'Note', { wide: true, placeholder: 'e.g. together with Lolo and Lola' }),
         ];
       }

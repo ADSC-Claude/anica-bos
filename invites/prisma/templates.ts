@@ -111,6 +111,59 @@ export const TEMPLATES: TemplateSeed[] = [
       },
     },
   },
+  /**
+   * The christening on her own sixteen Canva pages: the first design drawn
+   * as artwork first and wired second. Seven pages scroll; nine sit behind
+   * the Highlights page in three booklets a guest opens by tapping the
+   * envelope, the oval and the sealed RSVP.
+   *
+   * Not on sale yet. The grounds, the hub and the words are in; the two
+   * pull-out gestures her brief asks for — the print out of the instant
+   * camera, the card out of the envelope — are not, and a christening that
+   * shows a CLICK HERE which does not move is worse than one that waits.
+   */
+  {
+    slug: 'christening', name: 'Baby Blue Christening', occasion: 'CHRISTENING', minTier: 'STANDARD', premium: false,
+    layout: 'christening', collection: 'babyblue', opening: 'universal',
+    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), look: 'romance', featured: true, retired: true,
+    description: 'Clouds, a paper bow and a desk of small things to open. Sixteen pages for a christening, seven to scroll and nine to find.',
+    thumb: '/christening/cover.webp', demo: 'lucas-andrei-christening',
+    design: builtinDesign('christening')!,
+    words: {
+      en: {
+        cover: 'Christening',
+        'title:story': 'Our Story', 'title:invitation': 'C E R E M O N Y', 'title:sponsors': 'G O D P A R E N T S',
+        'title:gallery': 'Baby Photos', 'title:venue': 'R E C E P T I O N', 'title:dressCode': 'D R E S S   C O D E',
+        'title:gift': 'G I F T   N O T E', 'title:program': 'Program', 'title:social': 'SHARE THE JOY',
+        'title:rsvp': 'RSVP', 'title:contact': 'QUESTIONS?',
+        story: 'A little prayer, a big answer.',
+        invitation: 'Join us as we welcome our little one into God’s family',
+        galleryNote: 'Mom and Dad love you!', galleryClose: 'You are our greatest blessing!',
+        countdown: 'before the big day',
+        dressNote: 'Any shade of blue for our guests; cream to beige for the ninongs and ninangs.',
+        contactNote: 'Or message us on Messenger.',
+        closing: 'SEE YOU THERE!',
+        closingMessage: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.',
+        giftThanks: 'Our little one is growing fast! If you’d like to bring a gift, clothes or shoes for a 1-year-old, or a monetary gift for their savings, would be greatly appreciated.',
+      },
+      tl: {
+        cover: 'Binyag',
+        'title:story': 'Ang Aming Kuwento', 'title:invitation': 'S E R E M O N Y A', 'title:sponsors': 'N I N O N G   A T   N I N A N G',
+        'title:gallery': 'Mga Larawan ni Baby', 'title:venue': 'S A L U - S A L O', 'title:dressCode': 'D R E S S   C O D E',
+        'title:gift': 'T U N G K O L   S A   R E G A L O', 'title:program': 'Programa', 'title:social': 'I-SHARE ANG SAYA',
+        'title:rsvp': 'RSVP', 'title:contact': 'MAY TANONG?',
+        story: 'Isang munting dasal, isang malaking sagot.',
+        invitation: 'Samahan kami sa pagtanggap ng aming anak sa pamilya ng Diyos',
+        galleryNote: 'Mahal ka nina Mama at Papa!', galleryClose: 'Ikaw ang aming pinakamalaking biyaya!',
+        countdown: 'bago ang malaking araw',
+        dressNote: 'Anumang kulay asul para sa mga bisita; cream hanggang beige para sa mga ninong at ninang.',
+        contactNote: 'O mag-message sa amin sa Messenger.',
+        closing: 'KITA-KITS!',
+        closingMessage: 'Salamat sa pagiging bahagi ng biyayang ito. Hindi na kami makapaghintay na makipagdiwang sa inyo.',
+        giftThanks: 'Mabilis lumaki ang aming munting anak! Kung nais ninyong magdala ng regalo, damit o sapatos para sa 1-taong-gulang, o salapi para sa kanyang ipon, labis naming ikagagalak.',
+      },
+    },
+  },
   { slug: 'capiz', name: 'Capiz', occasion: 'WEDDING', minTier: 'STANDARD', premium: false, layout: 'capiz', collection: 'filipiniana', opening: 'universal', palette: pal('capiz'), fonts: fonts('capiz'), look: 'heritage', featured: true, retired: true, description: 'Capiz shell and bronze wax. Your guest taps the seal and it unfolds. Made for a wedding that looks like home.', thumb: '/covers/capiz.jpg', demo: 'juan-and-maria', design: builtinDesign('capiz')! },
 ];
 

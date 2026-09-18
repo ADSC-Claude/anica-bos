@@ -375,6 +375,12 @@ export const PRESET_VOICE: Record<string, LookKey> = {
   'cormorant-michroma': 'modern',
   'alex-brush-sanchez': 'romance',
   'bodoni-muellerhoff': 'editorial',
+  'abhaya-parisienne': 'romance',
+  'abhaya-petit-formal': 'romance',
+  'abhaya-imperial': 'romance',
+  'abhaya-sacramento': 'romance',
+  'abhaya-cormorant-italic': 'heritage',
+  'abhaya-playfair-italic': 'editorial',
 };
 
 /** What the fallback chain says about a face, for the admin's own sample line. */

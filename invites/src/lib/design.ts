@@ -439,6 +439,43 @@ export type DesignDoc = {
    */
   sheet?: SheetSpec;
   /**
+   * A list of the parts, for a guest who does not want to scroll all of it.
+   *
+   * An invitation is one column read top to bottom, and for a guest who came
+   * to read it that is the right shape. But a tita who only wants the church
+   * address should not have to swipe past the entourage to find it, and a
+   * ninong checking the dress code should not meet the whole love story on
+   * the way. Set, the guest gets a small way in to a list of every part this
+   * invitation actually carries, in its own order, and a tap takes them
+   * there.
+   *
+   * **It is the app's, not the design's, and that is deliberate.** The parts
+   * an invitation carries depend on the package, on which questions the
+   * customer answered and on what the design draws — so a list drawn by hand
+   * would go stale the first time a customer left the programme blank, and
+   * would offer a guest a part that is not there. It is built at render time
+   * from the parts that were drawn, labelled in the words the occasion uses,
+   * and it takes this design's fonts and colours so it looks like the
+   * invitation rather than like a website.
+   *
+   * Absent on a design that has not asked for one: the two originals do not
+   * have it, and a Save the Date — three lines and a date — never wants one.
+   *
+   * **`true` lists every part; a list names the few worth jumping to.** The
+   * first is a table of contents and the second is a menu, and the
+   * difference matters: a wedding draws seventeen parts, and seventeen rows
+   * a guest has to scroll is the thing this feature exists to save them
+   * from. So a design may instead name its own shortlist — the parts people
+   * actually arrive wanting, which on a Filipino wedding is the church, the
+   * reception, the dress code and the RSVP — in the order it wants them
+   * offered, which need not be the order they are read in.
+   *
+   * A named part that this invitation does not draw is dropped, not shown
+   * broken: the list is still filtered against what `pages()` drew, so a
+   * package without a programme cannot offer one.
+   */
+  contents?: boolean | string[];
+  /**
    * This design's own colours by night.
    *
    * Night was one fixed set of colours for every design — an ivory ink, a
@@ -629,6 +666,30 @@ export type PageSpec = {
    */
   offFlow?: string[];
   /**
+   * The booklet this page belongs to, which takes it off the invitation's
+   * flow.
+   *
+   * An invitation has always been one column read top to bottom. A design
+   * with a hub is not: a few pages of it are reached by tapping an object
+   * rather than by scrolling past one, and a guest who taps nothing never
+   * sees them. This is how such a page says so — it names the booklet it is
+   * in, and every page naming the same booklet is that booklet, in the order
+   * they sit in the list. One page is a booklet of one, which most of them
+   * are; three pages in a row are read as three pages of one thing.
+   *
+   * It is stated on the page for the same reason `only` is: the studio's
+   * whole page machinery — add, copy, arrange, the inspector, the grounds —
+   * then works on it untouched, and a page moves between the flow and a
+   * booklet by one field rather than by being lifted out of one list into
+   * another.
+   *
+   * The price is the same too: every reader of `doc.pages` has to decide
+   * whether it means them. `invitationPages` is the flow, `bookletsOf` is
+   * the booklets, and `reachablePages` is both — which is what paper prints,
+   * because a printed invitation has no taps and must carry everything.
+   */
+  booklet?: string;
+  /**
    * A page that belongs to the Save the Date alone.
    *
    * The Save the Date is not a second design: it is the same design, on one
@@ -760,6 +821,22 @@ type Base = {
   motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
+  /**
+   * The booklet this element opens when a guest taps it.
+   *
+   * What makes a hub a hub. An object drawn on a page — a shut door, a folded
+   * card, a gramophone with its arm up — says which booklet it stands for,
+   * and a tap takes the guest there. It names the booklet by the same key its
+   * pages carry in `PageSpec.booklet`, so the link is one string pointing one
+   * way and there is no second list to keep in step.
+   *
+   * A name nothing answers to opens nothing, which is a design left half
+   * finished rather than a crash. The checklist is where that is caught: a
+   * booklet no element opens is a part of the invitation a guest can never
+   * reach, and that is worse than a part left out, because the customer paid
+   * for it and cannot tell it is missing.
+   */
+  opens?: string;
 };
 
 /**
@@ -954,6 +1031,28 @@ export const LINE_TAG: Record<LineRole, 'h2' | 'p'> = {
  * customer wrote a long sentence. y is still a share of the page's *base*
  * height, so the same number means the same place on both.
  */
+/**
+ * Whether a tap on this element really opens the booklet it names.
+ *
+ * Lives here, beside the field, because it is a fact about the document
+ * rather than about any one renderer — and because there are two readers who
+ * must agree: `opensAttrs`, which decides whether the drawn element gets the
+ * attribute, and the checklist, which decides whether a booklet counts as
+ * reachable. Two copies of this rule would eventually disagree, and the way
+ * they would disagree is the worst one available: the checklist saying a
+ * booklet is reachable through an object that does not open it, so the line
+ * that would have caught an unreachable part goes quiet.
+ *
+ * A moment refuses it because a moment is already a gesture — the doors
+ * open, the seal breaks — and two things on one tap is one of them not
+ * happening. A Lottie refuses it because it is drawn by its player, so there
+ * is no element of ours to make a button. Neither is silent about it: the
+ * checklist says so (`opens-ignored`).
+ */
+export function canOpen(el: Element): boolean {
+  return Boolean(el.opens) && el.kind !== 'moment' && el.kind !== 'anim';
+}
+
 export function elementStyle(el: Element, grow?: number): Record<string, string> {
   const st: Record<string, string> = {};
   if (el.x !== undefined) st.left = `${el.x}%`;
@@ -1134,6 +1233,13 @@ export const place = (n: number): number => Math.round(n * 1e10) / 1e10;
 const zPlace = (min: number, max: number) => z.number().min(min).max(max).transform(place);
 
 const KEY = /^[a-z][a-z0-9-]{0,30}$/;
+/**
+ * A *section* key, which is not the same shape as a page key above: pages
+ * are named in kebab-case by whoever draws them, sections are named in the
+ * code and several are camelCase — `dressCode` is the one that catches this
+ * out, and it caught this out. Anything holding section keys uses this.
+ */
+const SECTION = /^[a-zA-Z][a-zA-Z0-9-]{0,40}$/;
 const FIELD = /^[a-zA-Z][a-zA-Z0-9_]{0,40}$/;
 const zColour = z.string().min(1).max(60);
 const zPictureGround = z.object({
@@ -1189,6 +1295,7 @@ const zBase = {
     delay: z.number().min(0).max(2000).optional(),
   }).strict().optional(),
   attachTo: z.string().max(41).optional(),
+  opens: z.string().regex(KEY).optional(),
 };
 const zElement = z.union([
   z.object({
@@ -1244,6 +1351,7 @@ const zPage = z.object({
   minScreens: z.number().min(0.3).max(6).optional(),
   size: z.number().min(0.3).max(2).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
+  booklet: z.string().regex(KEY).optional(),
   only: z.literal('std').optional(),
   cover: z.object({
     names: z.enum(['top', 'middle', 'bottom']).optional(),
@@ -1271,7 +1379,7 @@ const zDoc = z.object({
     accent: zColour.optional(), accent2: zColour.optional(),
     paper: zColour.optional(), surround: zColour.optional(),
   }).strict().optional(),
-  hides: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(40).optional(),
+  hides: z.array(z.string().regex(SECTION)).max(40).optional(),
   sheet: z.object({
     size: z.enum(['a4', 'a5', 'letter', '5x7']).optional(),
     // 40mm is already an inch and a half of white on every edge; past that
@@ -1281,6 +1389,7 @@ const zDoc = z.object({
     // the same shape as a page key, because that is what these are
     hide: z.array(z.string().regex(KEY)).max(60).optional(),
   }).strict().optional(),
+  contents: z.union([z.literal(true), z.array(z.string().regex(SECTION)).max(24)]).optional(),
 }).strict();
 
 /**
@@ -1354,16 +1463,36 @@ export type PageDef = {
  * The two drawn pages keep their tops clear of the dissolve.
  */
 export const BABYBLUE_PAGES: PageDef[] = [
-  { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
+  /*
+   * The cover, without the verse.
+   *
+   * Baby Blue shipped with a psalm on it, and it is off at the owner's word
+   * — for a reason better than taste. A christening can be Catholic, Born
+   * Again or Aglipayan, and a family may want their own passage, so a verse
+   * lettered into the sky chooses the family's scripture for them. A design
+   * that wants one can name `verse` here again and the writing comes back.
+   */
+  { key: 'cover', bg: 'cover', sections: ['cover'] },
   { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
   { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
-  { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
+  /*
+   * The parents with the ninongs and ninangs — the owner's grouping, and
+   * the thing that actually places Parents on the page.
+   *
+   * Naming a part in `LAYOUT_ORDER` does *not* place it: an unplaced part
+   * falls to the renderer's overflow loop, which runs after every page of
+   * the document whatever the order says, so Our Parents was rendering
+   * after the Closing. A part is placed by being on a page. This is that.
+   */
+  { key: 'sponsors', bg: 'sponsors', sections: ['parents', 'sponsors'] },
   { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
   { key: 'venue', bg: 'venue', sections: ['reception'] },
   { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
   { key: 'program', bg: 'program', sections: ['gift', 'program'] },
   { key: 'share', bg: 'share', sections: ['social', 'photos'] },
-  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
+  // the assistance with the FAQ beside it, which is the owner's pairing and
+  // is also what stops the FAQ falling past the Closing now it is switched on
+  { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'faq', 'closing'] },
 ];
 /** The ground a page the map does not name gets, for a layout that names them. */
 export const BABYBLUE_OVERFLOW = 'venue';
@@ -1480,7 +1609,10 @@ function babyblueDesign(): DesignDoc {
 export const CAPIZ_PAGES: PageDef[] = [
   { key: 'cover', sections: ['cover', 'verse'] },
   { key: 'story', sections: ['story'] },
-  { key: 'invitation', sections: ['ceremony'] },
+  // the parents above the ceremony, the way the wording runs: "together with
+  // their parents, you are invited". A page, not a place in the order — see
+  // the note on Baby Blue's sponsors page for why that distinction matters
+  { key: 'invitation', sections: ['parents', 'ceremony'] },
   { key: 'entourage', sections: ['entourage'] },
   { key: 'prenup', sections: ['gallery'] },
   { key: 'venue', sections: ['reception'] },
@@ -1490,7 +1622,11 @@ export const CAPIZ_PAGES: PageDef[] = [
   { key: 'guestbook', sections: ['guestbook'] },
   { key: 'photos', sections: ['photos'] },
   { key: 'rsvp', sections: ['rsvp'] },
-  { key: 'closing', sections: ['countdown', 'contact', 'closing'] },
+  // the FAQ with the contact person: any paalala, then who to ring, then the
+  // closing words. On a *page*, because Capiz's grounds are laid down the
+  // invitation by count — adding a page here would shift every background
+  // after it, so a part joins an existing page rather than getting its own
+  { key: 'closing', sections: ['countdown', 'contact', 'faq', 'closing'] },
 ];
 
 /**
@@ -2310,7 +2446,10 @@ export function runOf(doc: DesignDoc): Map<string, string> {
     if (!g || !isPicture(g) || !g.runsOn) continue;
     for (let j = i + 1; j <= i + g.runsOn && j < pages.length; j++) {
       const p = pages[j];
-      if (p.ground || p.drawn) break;
+      // a picture cannot run from the column into a booklet, or between two
+      // booklets: they are separate surfaces, and a guest who never taps
+      // would be looking at the foot of a picture whose head they never saw
+      if (p.ground || p.drawn || p.booklet !== pages[i].booklet) break;
       on.set(p.key, pages[i].key);
     }
   }
@@ -2336,7 +2475,17 @@ export function pinOf(doc: DesignDoc): Map<string, string> {
   let head: string | undefined;
   /** how many more pages the pin still reaches */
   let left = 0;
+  /** which surface we are on: the column, or one of the booklets */
+  let surface: string | undefined;
   for (const p of doc.pages) {
+    // crossing into a booklet, out of one, or between two ends the run: a
+    // pinned picture stands behind a stretch of one surface, and the column
+    // and a booklet are never on screen together
+    if (p.booklet !== surface) {
+      surface = p.booklet;
+      head = undefined;
+      left = 0;
+    }
     const own = p.ground && isPicture(p.ground) ? p.ground : undefined;
     if (own || p.drawn) {
       head = own && !p.drawn && groundKind(p) !== 'flow' ? p.key : undefined;
@@ -2355,18 +2504,60 @@ export function peekEndPage(doc: DesignDoc | null): string | undefined {
 }
 
 /**
- * The pages the invitation itself is made of — every page except the ones
- * kept for the Save the Date.
+ * The pages of the invitation's own column — every page except the ones kept
+ * for the Save the Date and the ones behind a hub.
  *
- * Every question about the invitation asks this rather than `doc.pages`:
- * what is drawn, where the peek stops, what the cover's settings are, which
- * sections the design offers. The two questions that deliberately do *not*
- * are the ones about files and answers — `frameLists` and the checklist's
- * weights — because a frame on the Save the Date still needs the customer's
- * photograph and its bytes still reach whoever opens the card.
+ * Every question about the column asks this rather than `doc.pages`: where
+ * the peek stops, what the cover's settings are, which sections the design
+ * offers. The two questions that deliberately do *not* are the ones about
+ * files and answers — `frameLists` and the checklist's weights — because a
+ * frame on the Save the Date still needs the customer's photograph and its
+ * bytes still reach whoever opens the card.
+ *
+ * A booklet's pages are left out here for the same reason the card's are:
+ * they are not scrolled to. Anything asking "what does a guest see", rather
+ * than "what is in the column", wants `reachablePages`.
  */
 export function invitationPages(doc: DesignDoc | null): PageSpec[] {
-  return (doc?.pages ?? []).filter((p) => p.only !== 'std');
+  return (doc?.pages ?? []).filter((p) => p.only !== 'std' && !p.booklet);
+}
+
+/**
+ * The booklets, each with its pages in the order they are listed.
+ *
+ * Keyed in the order the booklets first appear rather than alphabetically,
+ * because that is the order the designer arranged them in and the order
+ * paper prints them in. Pages of one booklet do not have to sit together in
+ * the list — they are gathered by name — but a design that scatters them
+ * reads badly in the studio, so the studio keeps them together.
+ */
+export function bookletsOf(doc: DesignDoc | null): { key: string; pages: PageSpec[] }[] {
+  const out: { key: string; pages: PageSpec[] }[] = [];
+  const at = new Map<string, { key: string; pages: PageSpec[] }>();
+  for (const p of doc?.pages ?? []) {
+    if (p.only === 'std' || !p.booklet) continue;
+    let found = at.get(p.booklet);
+    if (!found) {
+      found = { key: p.booklet, pages: [] };
+      at.set(p.booklet, found);
+      out.push(found);
+    }
+    found.pages.push(p);
+  }
+  return out;
+}
+
+/**
+ * Every page a guest can reach: the column first, then each booklet in turn.
+ *
+ * This is the honest answer to "what is in this invitation" — and it is the
+ * order paper prints in, because a printed invitation has nothing to tap and
+ * so must carry the booklets one after another rather than lose them. The
+ * card is still left out: it is a different thing that goes out months
+ * earlier, not a part of this one.
+ */
+export function reachablePages(doc: DesignDoc | null): PageSpec[] {
+  return [...invitationPages(doc), ...bookletsOf(doc).flatMap((b) => b.pages)];
 }
 
 /**
@@ -2378,9 +2569,15 @@ export function stdPage(doc: DesignDoc | null): PageSpec | undefined {
   return (doc?.pages ?? []).find((p) => p.only === 'std');
 }
 
-/** The page a section is drawn on, for the anchor a preview scrolls to. */
+/**
+ * The page a section is drawn on, for the anchor a preview scrolls to.
+ *
+ * Asks `reachablePages`, not the column alone: a part inside a booklet is
+ * still a part of the invitation, and the studio's preview has to be able to
+ * scroll to the dress code whether it sits in the column or behind a door.
+ */
 export function pageOfSection(doc: DesignDoc | null, key: string): PageSpec | undefined {
-  return invitationPages(doc).find((p) => p.sections.includes(key as PageSectionKey));
+  return reachablePages(doc).find((p) => p.sections.includes(key as PageSectionKey));
 }
 
 // ---------------------------------------------------------------------------

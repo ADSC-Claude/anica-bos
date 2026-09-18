@@ -414,3 +414,45 @@ test('an animation with no file yet is an empty box in the studio and nothing to
   assert.match(studio, /inv-bb-anim/);
   assert.match(studio, /fills gap/);
 });
+
+/**
+ * An object that opens a booklet says so on the element it was drawn as.
+ *
+ * Twice now this has been got wrong in a way that renders perfectly and
+ * does nothing: first by cloning the kind's own JSX, which sets a prop on a
+ * component rather than an attribute on a node. So this asserts the
+ * attribute reaches the markup, and that `aria-hidden` comes off with it —
+ * a shape is decoration by default, and a door nobody on a screen reader
+ * can find is not a door.
+ */
+test('an object that opens a booklet carries its name, and is not hidden', () => {
+  const hub: PageSpec = {
+    key: 'menu',
+    sections: [],
+    drawn: true,
+    elements: [
+      { id: 'the-door', kind: 'shape', shape: 'rect', x: 50, y: 40, w: 60, h: 20, opens: 'invitation' },
+      { id: 'just-art', kind: 'shape', shape: 'rect', x: 50, y: 70, w: 60, h: 10 },
+    ],
+  };
+  const out = renderToStaticMarkup(DrawnPage({ page: hub, content: {}, look: undefined, lang: 'en' }) as ReactElement);
+  assert.match(out, /data-opens="invitation"/);
+  // the opener is announced; the decoration beside it is still hidden
+  assert.equal(out.match(/aria-hidden/g)?.length, 1, 'the opener kept aria-hidden, or the decoration lost it');
+});
+
+/**
+ * A moment is already a gesture — the doors open, the seal breaks — so two
+ * things on one tap is one of them not happening. It takes no `opens`, and
+ * this is what says the silence is deliberate.
+ */
+test('a moment does not also open a booklet', () => {
+  const hub: PageSpec = {
+    key: 'menu',
+    sections: [],
+    drawn: true,
+    elements: [{ id: 'the-doors', kind: 'moment', moment: 'doors', x: 50, y: 30, w: 80, opens: 'invitation' }],
+  };
+  const out = renderToStaticMarkup(DrawnPage({ page: hub, content: {}, look: undefined, lang: 'en' }) as ReactElement);
+  assert.doesNotMatch(out, /data-opens/);
+});

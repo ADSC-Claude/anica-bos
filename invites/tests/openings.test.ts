@@ -339,8 +339,30 @@ test('Baby Blue: a christening in its own collection, on its own pages, drawn in
   const look = withWords(LOOK_BY_KEY.romance, bb.words!);
   assert.equal(look?.titles.gallery?.en, 'Baby Photos');
   assert.equal(look?.lines.gallery.en, 'Little moments, big love.');
-  // the pages, in the owner's order: cover, story, invitation, ninong and ninang, baby photos, venue, dress code, gift, program, snap and share, post-event photos, RSVP, countdown, assistance, ending
-  assert.deepEqual(sectionOrder('CHRISTENING', 'babyblue').slice(0, 15), ['cover', 'story', 'ceremony', 'sponsors', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'photos', 'rsvp', 'countdown', 'contact', 'closing']);
+  /*
+   * The parts, in the owner's hub order — written out whole rather than
+   * sliced, because the list is now the design and a change to it has to be
+   * one somebody meant.
+   *
+   * The cover and the countdown; then the four things behind the hub in the
+   * order she listed them — the invitation (church, venue, dress code,
+   * programme, gift), the story with the baby photos, the parents with the
+   * ninongs and ninangs, the RSVP; then what comes after the hub: snap and
+   * share, the assistance with the FAQ, and the ending.
+   *
+   * Parents and the FAQ are in here at all because they were switched back
+   * on, and named here because an unnamed part lands after the Closing.
+   */
+  assert.deepEqual(sectionOrder('CHRISTENING', 'babyblue'), [
+    'cover', 'countdown',
+    'ceremony', 'reception', 'dressCode', 'program', 'gift',
+    'story', 'gallery',
+    'parents', 'sponsors',
+    'rsvp', 'music',
+    'social', 'photos', 'contact', 'faq', 'closing',
+    // offered by the occasion and named by no page: they fall after the rest
+    'checkin', 'guestbook', 'extras',
+  ]);
   assert.ok(isPaged('babyblue') && isPaged('capiz') && !isPaged('classic'));
 });
 

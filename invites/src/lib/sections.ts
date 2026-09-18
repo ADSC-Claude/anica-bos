@@ -836,7 +836,6 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'faq',
-    hidden: true,
     label: 'FAQ',
     tl: 'Mga Paalala',
     description: 'Parking, kids, rain plan, shuttle, hashtag reminders.',
@@ -1163,11 +1162,33 @@ export const OCCASION_SECTIONS: Record<Occasion, SectionKey[]> = {
  * occasion order after the ones that are.
  */
 export const LAYOUT_ORDER: Partial<Record<string, SectionKey[]>> = {
-  capiz: ['cover', 'story', 'ceremony', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
-  // Baby Blue: cover with the verse, the story, the invitation, ninong and
-  // ninang, baby photos, the venue, the dress code, gift and program, snap and
-  // share with the post-event photos, then RSVP, countdown, assistance, ending.
-  babyblue: ['cover', 'story', 'ceremony', 'sponsors', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'photos', 'rsvp', 'countdown', 'contact', 'closing'],
+  /*
+   * Capiz, with two parts that were falling off the end.
+   *
+   * `parents` and `faq` were not named here, and an unnamed part lands after
+   * everything named — so Our Parents was rendering *after* the Closing,
+   * which is the last thing a guest should be shown. Parents sits with the
+   * entourage: the families first, then the party. FAQ sits at the end
+   * because that is where a list of paalala belongs, after the contacts.
+   *
+   * Both placements are one line to move, and the five tests that pin this
+   * order will say so loudly if they are moved by accident.
+   */
+  capiz: ['cover', 'story', 'ceremony', 'parents', 'entourage', 'gallery', 'reception', 'dressCode', 'gift', 'program', 'social', 'guestbook', 'photos', 'rsvp', 'countdown', 'contact', 'faq', 'closing'],
+  /*
+   * Baby Blue, in the order the owner drew for the hub.
+   *
+   * The cover, the countdown, then the four things behind the hub in the
+   * order she listed them — the invitation (church, venue, dress code,
+   * programme, gift), the story with the baby photos, the parents with the
+   * ninongs and ninangs, the RSVP — and then the pages after the hub: snap
+   * and share, assistance with the FAQ, and the ending.
+   *
+   * This is the *reading* order, which is what the checklist and the paper
+   * follow. Which of these a guest scrolls past and which they reach by
+   * tapping is the pages' business, not this list's (`PageSpec.booklet`).
+   */
+  babyblue: ['cover', 'countdown', 'ceremony', 'reception', 'dressCode', 'program', 'gift', 'story', 'gallery', 'parents', 'sponsors', 'rsvp', 'music', 'social', 'photos', 'contact', 'faq', 'closing'],
 };
 
 /** The layouts built as a run of pages, each on its own ground. */
@@ -1761,4 +1782,21 @@ export function readForward<T extends Content>(content: T): T {
       ...(addHonors ? { honors: [{ title: str(e, 'honorTitle') || 'maid', name: maid }] } : {}),
     },
   };
+}
+
+/**
+ * Where each part lands on the page — the ids the renderer gives its
+ * sections, for anything that wants to scroll to one: the builder's phone
+ * coming back to the part being edited, and the guest's own list of parts.
+ *
+ * It lives here rather than beside either of them because both need it and a
+ * second copy would drift: an id that changed in the renderer and not in the
+ * list would give a guest a tap that goes nowhere.
+ *
+ * A part with no place of its own — the music, the spare photographs — goes
+ * to the top.
+ */
+const ANCHOR: Partial<Record<SectionKey, string>> = { cover: 'top', dressCode: 'dress-code', photos: 'guest-photos' };
+export function anchorOf(section: string): string {
+  return ANCHOR[section as SectionKey] ?? (section === 'music' || section === 'extras' ? 'top' : section);
 }

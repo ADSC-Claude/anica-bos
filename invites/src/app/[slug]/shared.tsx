@@ -9,11 +9,10 @@ import { readDraftLink, keyOpens } from '@/lib/draft-link';
 import { getSettings } from '@/lib/settings';
 import { fontBook } from '@/lib/font-book';
 import { absoluteUrl, invitationPath, invitationUrl } from '@/lib/app-url';
-import { str, eventInstant } from '@/lib/sections';
+import { str, eventInstant, anchorOf } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
 import { Invitation, type GuestForPage } from '@/components/invite/renderer';
 import { ScrollTo } from '@/components/invite/scroll-to';
-import type { SectionKey } from '@/lib/sections';
 import { documentOf } from '@/lib/design';
 import { sampleContent, isSample } from '@/lib/samples';
 
@@ -164,14 +163,4 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
 export function screenPx(v: string | undefined): number | undefined {
   const n = Number(v);
   return Number.isFinite(n) && n >= 400 && n <= 2000 ? Math.round(n) : undefined;
-}
-
-/**
- * Where each part of the form lands on the page — the ids the renderer
- * gives its sections, for the builder's phone to come back to. A part with
- * no place of its own (the music, the spare photographs) goes to the top.
- */
-const ANCHOR: Partial<Record<SectionKey, string>> = { cover: 'top', dressCode: 'dress-code', photos: 'guest-photos' };
-export function anchorOf(section: string): string {
-  return ANCHOR[section as SectionKey] ?? (section === 'music' || section === 'extras' ? 'top' : section);
 }

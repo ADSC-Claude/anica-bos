@@ -5,7 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { MOMENT_BY_KEY, triggerOf, type MomentKey, type Trigger } from '@/lib/moments';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
-import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, anchorOf as anchorIn, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -17,8 +17,8 @@ import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
-import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Motion } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, invitationPages, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion, Hub } from './client';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1932,6 +1932,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const opening = openingProps();
 
   const order = sectionOrder(occasion, layout);
+  /*
+   * Filled in by pages() below, which is the only place that knows which
+   * parts were actually drawn. Declared here so the list survives out to the
+   * render, where the guest's Contents gets it.
+   */
+  let reachable: { id: string; label: string }[] = [];
   // The look's words: the line under each heading, and the headings it names.
   /*
    * The look's words: the line under each heading, and the headings it names
@@ -2054,11 +2060,30 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
    */
   function pages(card?: PageSpec) {
     const drawn = new Map<string, ReactNode>();
+    /** the pages of each booklet, gathered as they are built */
+    const behind = new Map<string, ReactNode[]>();
     for (const key of order) {
       const el = section(key);
       if (el) drawn.set(key, el);
     }
     if (verse) drawn.set('verse', verse);
+    /*
+     * The parts, for the list a guest taps. Built here because this is the
+     * one place that knows what was *drawn* rather than what was offered — a
+     * part the package leaves out, or the customer left blank, never reaches
+     * this map, so the list can never send a guest somewhere that is not
+     * there. Walking `order` rather than the map's own keys also leaves the
+     * verse out for free — it is a line under the names, not a destination,
+     * and it is the one entry in `drawn` that is not a part.
+     */
+    const wants = Array.isArray(doc?.contents) ? doc.contents : undefined;
+    // A named shortlist is offered in the order it names, which need not be
+    // the order the invitation is read in — a guest looking for the church
+    // should find it first in the list even though the story comes before it
+    // on the page. Either way it is filtered against what was drawn.
+    reachable = (wants ?? order)
+      .filter((k) => drawn.has(k))
+      .map((k) => ({ id: anchorIn(k), label: sectionLabel(k as SectionKey, occasion) }));
     const placed = new Set<string>();
     const out: ReactNode[] = [];
     /**
@@ -2066,7 +2091,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -2075,6 +2100,10 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           key={key}
           className="inv-page"
           data-page={key}
+          // which booklet this page is in, absent on the column's own pages.
+          // Commit 1 lays the booklets after the column so nothing is lost;
+          // the tap that opens one reads this.
+          data-booklet={o.booklet}
           data-bg={o.bg}
           // the head of the run this page's picture belongs to, on the head and on every page that sits on it: PageGround lays one paper down them all
           data-run={o.run}
@@ -2166,12 +2195,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // The document's own page list. A drawn page is its elements; every
       // other page is the sections it names. The clip that no frame can hold
       // rides on 'gallery-video'.
-      // The card is the one page it was drawn as. Otherwise: the invitation's
-      // pages — which leave the card out, that being the point of
-      // `invitationPages` — except when the studio has asked for one page by
-      // key, where it may well be the card she is drawing, so the whole list
-      // is searched and the slice below picks hers out.
-      for (const spec of card ? [card] : only ? doc.pages : invitationPages(doc)) {
+      // The card is the one page it was drawn as. Otherwise: every page a
+      // guest can reach — the column, then each booklet in turn, which leaves
+      // the card out, that being the point of `reachablePages` — except when
+      // the studio has asked for one page by key, where it may well be the
+      // card she is drawing, so the whole list is searched and the slice
+      // below picks hers out.
+      for (const spec of card ? [card] : only ? doc.pages : reachablePages(doc)) {
         // A drawn page that names sections comes and goes with them, the way
         // the photographs page goes when a package has no gallery. One that
         // names none depends on nothing — it is the design's own page, a
@@ -2186,15 +2216,42 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const own = spec.ground && isPicture(spec.ground);
         const run = head ?? (own && spec.ground && isPicture(spec.ground) && spec.ground.runsOn ? spec.key : undefined);
         const pin = pins.get(spec.key);
-        if (parts.length) out.push(page(spec.key, parts, pin
+        const built = parts.length ? page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
-          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow }));
+          ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow, booklet: spec.booklet }
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }) : null;
+        // A booklet's pages are gathered rather than laid in the column, and
+        // put after it below. The studio asking for one page by key wants it
+        // on the canvas wherever it lives, so `only` gathers nothing.
+        if (built && spec.booklet && !only) {
+          const list = behind.get(spec.booklet) ?? [];
+          list.push(built);
+          behind.set(spec.booklet, list);
+        } else if (built) out.push(built);
       }
     }
     // a section the document does not name gets a page of its own, in its
     // place — on the invitation. A card is the one page it was drawn as.
     if (!card) for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    /*
+     * The booklets, laid after the column.
+     *
+     * After it, and not hidden here, because that is the safe way round. A
+     * guest with no JavaScript — or one whose script failed, or a crawler,
+     * or the printed page — reads the whole invitation as one scroll, in
+     * order, with nothing missing. `Hub` is what takes them out of the
+     * column and puts them behind a tap, and only once it knows it can.
+     */
+    if (doc && !card) for (const b of bookletsOf(doc)) {
+      const inside = behind.get(b.key);
+      if (!inside?.length) continue;
+      out.push(
+        <div key={`booklet-${b.key}`} id={`booklet-${b.key}`} className="inv-booklet" data-booklet={b.key} data-label={b.pages[0]?.label?.en || b.key.replace(/-/g, ' ')}>
+          <button type="button" className="inv-booklet-back" data-back="">{lang === 'tl' ? 'Bumalik' : 'Back'}</button>
+          {inside}
+        </div>,
+      );
+    }
     if (only && !card) {
       // the ground, and the one page the studio is drawing
       const ground = out.slice(0, 2);
@@ -2384,9 +2441,24 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         */}
       {print && !!sheetRules(doc) && <style precedence="default" href="inv-sheet">{sheetRules(doc)}</style>}
       {peek && !embed && <PeekControls href={PEEK_EXIT} backLabel={lang === 'tl' ? 'Bumalik' : 'Back'} closeLabel={lang === 'tl' ? 'Isara ang disenyo' : 'Close this design'} />}
+      {/*
+        * The list a guest taps, where the design asked for one. Not on the
+        * printable sheet (paper does not scroll), not on the peek (a snippet
+        * has nowhere to go), not on a Save the Date (one card), and not on
+        * the studio's single-page canvas, where the only page there is is the
+        * one she is drawing.
+        */}
+      {doc?.contents && !print && !peek && !saveTheDate && !only && (
+        <Contents
+          parts={reachable}
+          label={lang === 'tl' ? 'Mga bahagi' : 'Jump to'}
+          closeLabel={lang === 'tl' ? 'Isara' : 'Close'}
+        />
+      )}
       {!print && !bare && <ModeToggle mode={mode} slug={inv.slug} dayLabel={t(lang, 'mode.day')} nightLabel={t(lang, 'mode.night')} />}
       {/* the arrivals and the idling, and the three questions they ask first */}
       {!print && <Motion />}
+      {!print && !peek && !only && <Hub />}
       {/* not in the builder's own phone, where it would sit over the cover of a page the customer already knows is theirs */}
       {preview && !bare && (
         <div className="no-print sticky top-0 z-40 bg-[#1f1d1a] px-4 py-2 text-center text-xs text-white">

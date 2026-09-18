@@ -531,6 +531,18 @@ test('every rule the type names can be made to fire', () => {
   const ms = clone(); on(ms, 'story').elements!.push({ id: 'mo-small', kind: 'moment', moment: 'capiz', x: 50, y: 40, w: 20 }); add(ms);
   const mm = clone(); on(mm, 'story').elements!.push(...[1, 2, 3, 4].map((n) => ({ id: `mo-${n}`, kind: 'moment' as const, moment: 'capiz' as const, x: 50, y: 15 * n, w: 40 }))); add(mm);
 
+  // the hub, all three ways round: a booklet nothing opens, an object
+  // opening a booklet no page is in, and an `opens` on a moment, which is
+  // refused by `opensAttrs` and so has to be said out loud
+  const hub1 = clone(); on(hub1, 'dress-code').booklet = 'invitation'; add(hub1);
+  const hub2 = clone();
+  on(hub2, 'story').elements!.push({ id: 'the-door', kind: 'shape', shape: 'rect', x: 50, y: 40, w: 40, h: 10, opens: 'nowhere' });
+  add(hub2);
+  const hub3 = clone();
+  on(hub3, 'dress-code').booklet = 'invitation';
+  on(hub3, 'story').elements!.push({ id: 'the-doors', kind: 'moment', moment: 'doors', x: 50, y: 40, w: 60, opens: 'invitation' });
+  add(hub3);
+
   // the four about clips: one too heavy, one too long, bare words on a
   // bright one, and every clip in the design over the budget together
   runRow(withClip({ glare: 240 }), { weights: { 'u/c.mp4': 5_000_000 }, lengths: { 'u/c.mp4': 20_000 } }).forEach((x) => fired.add(x.rule));
@@ -681,4 +693,66 @@ test('words beside a clip rather than on it are left alone', () => {
   // the clip is 60 wide centred on 50, so it spans 20 to 80 across
   (on(d, 'story').elements!.find((e) => e.id === 'over')!).x = 95;
   assert.deepEqual(run(d).filter((n) => n.rule === 'clip-glare'), []);
+});
+
+/**
+ * The one fault in a design that a guest cannot see and cannot report.
+ *
+ * A booklet nothing opens is a part of the invitation nobody will ever
+ * reach — the pages are drawn, the customer filled them in and paid for
+ * them, and they are simply gone, with nothing on the page to say so. That
+ * is why it blocks a publish rather than warning about one, and why the
+ * line has to name both the booklet and what is inside it: "something is
+ * unreachable" sends her hunting, and she has twelve pages to hunt through.
+ */
+test('a booklet nothing opens blocks the publish, and says what is lost', () => {
+  const d = clone();
+  on(d, 'dress-code').booklet = 'invitation';
+  on(d, 'dress-code').label = { en: 'Dress code' };
+  const n = run(d).filter((x) => x.rule === 'unreachable');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.match(n[0].text, /Dress code/, 'it has to name what a guest loses');
+  assert.match(n[0].text, /Opens → invitation/, 'and what to do about it');
+  assert.equal(n[0].page, 'dress-code', 'pressing the line goes to the page behind the hub');
+
+  // give it a door and the line goes
+  on(d, 'story').elements!.push({ id: 'the-door', kind: 'shape', shape: 'rect', x: 50, y: 40, w: 40, h: 10, opens: 'invitation' });
+  assert.deepEqual(run(d).filter((x) => x.rule === 'unreachable'), []);
+  assert.deepEqual(run(d).filter((x) => x.rule === 'opens-nothing'), [], 'and the door is not itself a fault');
+});
+
+/** The same mistake from the other end: a door with no room behind it. */
+test('an object opening a booklet no page is in blocks too', () => {
+  const d = clone();
+  on(d, 'story').elements!.push({ id: 'the-door', kind: 'shape', shape: 'rect', x: 50, y: 40, w: 40, h: 10, opens: 'nowhere' });
+  const n = run(d).filter((x) => x.rule === 'opens-nothing');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'blocks');
+  assert.equal(n[0].id, 'the-door', 'pressing the line selects the object');
+});
+
+/**
+ * A moment refuses `opens`, and the checklist is where that refusal is said.
+ * Silence here would be indistinguishable from a bug: she set it, it looks
+ * set, and nothing happens on the phone.
+ */
+test('an opens on a moment is said out loud rather than ignored', () => {
+  const d = clone();
+  on(d, 'dress-code').booklet = 'invitation';
+  on(d, 'story').elements!.push({ id: 'the-doors', kind: 'moment', moment: 'doors', x: 50, y: 40, w: 60, opens: 'invitation' });
+  const n = run(d).filter((x) => x.rule === 'opens-ignored');
+  assert.equal(n.length, 1);
+  assert.equal(n[0].level, 'says');
+  assert.equal(n[0].id, 'the-doors');
+  assert.match(n[0].text, /own tap/);
+  // and it does not count as opening the booklet, so that line still stands
+  assert.equal(run(d).filter((x) => x.rule === 'unreachable').length, 1);
+});
+
+/** A design without a hub says nothing about one. */
+test('the hub rules are silent on a design that has no booklet', () => {
+  for (const rule of ['unreachable', 'opens-nothing', 'opens-ignored']) {
+    assert.deepEqual(run(base).filter((x) => x.rule === rule), [], rule);
+  }
 });

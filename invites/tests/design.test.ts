@@ -5,7 +5,7 @@ import {
   builtinDesign, designOf, documentOf, elementStyle, frameCount, pageRatio, peekEndPage, place, valueAt, pageOfSection,
   photoStyle, maskRadius, cropStyle, cropWindow, cropAt, shapeStyle, colourVar, COLOR_ROLES, coverOf, coverStyle,
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape, floatAt,
-  invitationPages, stdPage, sheetRules, SHEET_SIZES,
+  invitationPages, bookletsOf, reachablePages, stdPage, sheetRules, SHEET_SIZES,
   flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, TITLE_ON, LINE_ON, wordsFor, sectionDress, designVars, APP_NIGHT, motionOf, moves,
   BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
@@ -151,16 +151,21 @@ test('the document walks the same pages, on the same grounds, in the same order'
  */
 test('the ten Baby Blue pages are the ten the renderer has always walked', () => {
   assert.deepEqual(BABYBLUE_PAGES, [
-    { key: 'cover', bg: 'cover', sections: ['cover', 'verse'] },
+    // the verse came off at the owner's word: a christening can be Catholic,
+    // Born Again or Aglipayan, and a lettered psalm chooses for the family
+    { key: 'cover', bg: 'cover', sections: ['cover'] },
     { key: 'story', bg: 'story', seam: 0.18, drawn: true, sections: ['story'] },
     { key: 'invitation', bg: 'invitation', sections: ['ceremony'] },
-    { key: 'sponsors', bg: 'sponsors', sections: ['sponsors'] },
+    // the parents with the ninongs: the owner's grouping, and what actually
+    // places Parents on a page rather than after the Closing
+    { key: 'sponsors', bg: 'sponsors', sections: ['parents', 'sponsors'] },
     { key: 'baby-photos', bg: 'babyphotos', seam: 0.18, drawn: true, sections: ['gallery'] },
     { key: 'venue', bg: 'venue', sections: ['reception'] },
     { key: 'dress-code', bg: 'dresscode', sections: ['dressCode'] },
     { key: 'program', bg: 'program', sections: ['gift', 'program'] },
     { key: 'share', bg: 'share', sections: ['social', 'photos'] },
-    { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'closing'] },
+    // the FAQ with the assistance, now that the FAQ is switched back on
+    { key: 'closing', bg: 'closing', sections: ['rsvp', 'countdown', 'contact', 'faq', 'closing'] },
   ]);
 });
 
@@ -571,10 +576,17 @@ test('a starter is one page per section, cover first, and it is publishable the 
   assert.equal(new Set(doc.pages.map((p) => p.key)).size, doc.pages.length);
   // a page key is the section's, spelled the way a page spells it
   assert.ok(doc.pages.some((p) => p.key === 'dress-code'));
-  // and it reads like an invitation rather than like the form it came from:
-  // the story after the cover, the countdown near the end
-  assert.deepEqual(doc.pages.slice(0, 4).map((p) => p.key), ['cover', 'story', 'ceremony', 'sponsors']);
-  assert.ok(doc.pages.findIndex((p) => p.key === 'countdown') > doc.pages.findIndex((p) => p.key === 'rsvp'));
+  /*
+   * And it reads like an invitation rather than like the form it came from.
+   *
+   * The christening's order is the owner's hub order now: the cover, then the
+   * countdown on a short page of its own, then the invitation — the church
+   * before the venue before the dress code. The countdown moved from near
+   * the end to second, which is her decision and not a drift, so the old
+   * assertion that it came after the RSVP is gone rather than loosened.
+   */
+  assert.deepEqual(doc.pages.slice(0, 5).map((p) => p.key), ['cover', 'countdown', 'ceremony', 'reception', 'dress-code']);
+  assert.ok(doc.pages.findIndex((p) => p.key === 'closing') > doc.pages.findIndex((p) => p.key === 'rsvp'), 'the ending is still last');
   // plain colours, alternating so the seam between two pages can be seen at all
   assert.deepEqual(doc.pages.map((p) => (p.ground && !isPicture(p.ground) ? p.ground.color : '?')).slice(0, 4), ['bg', 'surface', 'bg', 'surface']);
   // nothing is drawn by hand and nothing asks for a picture
@@ -1527,6 +1539,55 @@ test('the parents are a part a design can carry, with a heading and a line of it
 });
 
 /**
+ * The guest's list of parts survives being saved.
+ *
+ * `zDoc` is `.strict()`, so a field the *type* knows and the schema does not
+ * is not quietly stripped — the whole parse fails and the design falls back
+ * to its built-in. That caught the Save the Date and the paper settings out
+ * twice: both saved perfectly and rendered nothing at all. So this asserts
+ * the round trip rather than the type.
+ */
+test('a design that offers a list of parts still says so after a save', () => {
+  const base = builtinDesign('capiz')!;
+  const written = JSON.parse(JSON.stringify({ ...base, contents: true }));
+  const read = designOf(written, 'capiz');
+  assert.deepEqual(read.dropped, [], 'the document did not survive the schema');
+  assert.equal(read.doc?.contents, true, 'the list was stripped on the way through');
+
+  // and the designs that have not asked for one say nothing, which is what
+  // keeps the two originals exactly as they were
+  assert.equal(builtinDesign('capiz')!.contents, undefined);
+  assert.equal(builtinDesign('babyblue')!.contents, undefined);
+
+  // anything else is a design document somebody hand-edited, and refused
+  assert.equal(designOf({ ...written, contents: false }, 'capiz').doc, null, 'false is not a thing a document may say');
+  assert.equal(designOf({ ...written, contents: 3 }, 'capiz').doc, null);
+});
+
+/**
+ * A shortlist, because seventeen rows is not a menu.
+ *
+ * `true` lists every part a guest could reach, which is a table of contents.
+ * A design that knows what people arrive wanting can name those instead, in
+ * the order it wants them offered — which need not be the order the
+ * invitation is read in.
+ */
+test('a design can name the few parts worth jumping to', () => {
+  const base = builtinDesign('capiz')!;
+  const few = ['ceremony', 'reception', 'dressCode', 'rsvp'];
+  const written = JSON.parse(JSON.stringify({ ...base, contents: few }));
+  const read = designOf(written, 'capiz');
+  assert.deepEqual(read.dropped, []);
+  assert.deepEqual(read.doc?.contents, few, 'the shortlist did not survive the schema');
+
+  // the keys have to look like keys, and the list has a ceiling
+  assert.equal(designOf({ ...written, contents: ['not a key!'] }, 'capiz').doc, null);
+  const none = designOf({ ...written, contents: [] }, 'capiz').doc?.contents;
+  assert.deepEqual(none, [], 'an empty list is allowed and simply offers nothing');
+  assert.equal(designOf({ ...written, contents: Array(25).fill('rsvp') }, 'capiz').doc, null, 'a list this long is a table of contents again');
+});
+
+/**
  * A page kept for the Save the Date leaves the invitation.
  *
  * The hazard this is really about: a Save the Date names the cover section,
@@ -1665,4 +1726,143 @@ test('a Save the Date page and the paper settings survive the column', () => {
   assert.equal(designOf({ ...written, sheet: { size: 'a3' } }, 'capiz').doc, null, 'a size we do not offer');
   assert.equal(designOf({ ...written, sheet: { hide: ['not a key'] } }, 'capiz').doc, null, 'a hidden page must be named like a page');
   assert.deepEqual(designOf({ ...written, sheet: { margin: 0 } }, 'capiz').doc?.sheet, { margin: 0 }, '0mm is a real answer');
+});
+
+/**
+ * A booklet leaves the column, and does not leave the invitation.
+ *
+ * The distinction this is really about. `invitationPages` has always meant
+ * "every page except the card", and half a dozen questions lean on it —
+ * where the peek stops, what the cover's settings are. A booklet page must
+ * leave that list, because it is not scrolled to. But it must *not* leave
+ * the invitation: its frames want the customer's photographs, its bytes
+ * reach whoever opens it, its parts count as drawn, and paper has to print
+ * it because paper has nothing to tap. So there are two lists now and the
+ * whole of the risk is a reader asking the wrong one.
+ */
+test('a booklet page leaves the column, stays in the invitation, and is not the card', () => {
+  const base = builtinDesign('babyblue')!;
+  const behind: PageSpec[] = [
+    { key: 'invitation-details', sections: ['ceremony', 'reception'], booklet: 'invitation' },
+    { key: 'invitation-dress', sections: ['dressCode'], booklet: 'invitation' },
+    { key: 'invitation-program', sections: ['program', 'gift'], booklet: 'invitation' },
+    { key: 'rsvp-card', sections: ['rsvp'], booklet: 'rsvp' },
+  ];
+  const hub: DesignDoc = { ...base, pages: [...base.pages, ...behind] };
+
+  // off the column
+  assert.deepEqual(invitationPages(hub).map((p) => p.key), base.pages.map((p) => p.key));
+  // a booklet is not the Save the Date, and asking for one does not find the other
+  assert.equal(stdPage(hub), undefined);
+
+  // grouped, in the order the booklets first appear, pages in list order
+  assert.deepEqual(bookletsOf(hub).map((b) => b.key), ['invitation', 'rsvp']);
+  assert.deepEqual(bookletsOf(hub)[0].pages.map((p) => p.key), ['invitation-details', 'invitation-dress', 'invitation-program']);
+  assert.deepEqual(bookletsOf(hub)[1].pages.map((p) => p.key), ['rsvp-card']);
+  assert.deepEqual(bookletsOf(base), [], 'a design without a hub has no booklets');
+
+  // and still in the invitation: the column first, then each booklet in turn
+  assert.deepEqual(
+    reachablePages(hub).map((p) => p.key),
+    [...base.pages.map((p) => p.key), 'invitation-details', 'invitation-dress', 'invitation-program', 'rsvp-card'],
+  );
+  /*
+   * The invariant the renderer leans on. It marks a section `placed` as it
+   * draws the page carrying it, and anything left unplaced gets a plain page
+   * of its own at the end. Walk a list that misses a booklet and every part
+   * inside it is drawn twice — once behind the hub and once on a bare
+   * overflow ground — which is the fault this line exists to catch.
+   */
+  assert.equal(new Set(reachablePages(hub).map((p) => p.key)).size, hub.pages.length);
+});
+
+/** Pages of one booklet are gathered by name, not by sitting together. */
+test('a scattered booklet is still one booklet', () => {
+  const base = builtinDesign('babyblue')!;
+  const doc2: DesignDoc = {
+    ...base,
+    pages: [
+      { key: 'a', sections: [], booklet: 'one' },
+      { key: 'b', sections: [], booklet: 'two' },
+      { key: 'c', sections: [], booklet: 'one' },
+    ],
+  };
+  assert.deepEqual(bookletsOf(doc2).map((b) => [b.key, b.pages.map((p) => p.key)]), [['one', ['a', 'c']], ['two', ['b']]]);
+});
+
+/** A part behind a hub is still a part, and the preview must be able to reach it. */
+test('pageOfSection finds a part drawn inside a booklet', () => {
+  const base = builtinDesign('babyblue')!;
+  const hub: DesignDoc = {
+    ...base,
+    pages: [...base.pages.filter((p) => !p.sections.includes('dressCode')), { key: 'invitation-dress', sections: ['dressCode'], booklet: 'invitation' }],
+  };
+  assert.equal(pageOfSection(hub, 'dressCode')?.key, 'invitation-dress');
+});
+
+/**
+ * Both fields survive the strict schema.
+ *
+ * `zDoc` and `zPage` are `.strict()`, so a field the *type* knows and the
+ * schema does not fails the whole parse and the design falls silently back
+ * to its built-in — a fault that has been shipped twice on this document and
+ * looks, from the outside, exactly like the feature not working.
+ */
+test('booklet and opens round-trip through the strict schema', () => {
+  const base = builtinDesign('babyblue')!;
+  const raw: DesignDoc = {
+    ...base,
+    pages: [
+      {
+        key: 'menu',
+        sections: [],
+        drawn: true,
+        elements: [
+          { id: 'the-door', kind: 'shape', shape: 'rect', x: 50, y: 30, w: 40, opens: 'invitation' },
+          { id: 'no-door', kind: 'shape', shape: 'rect', x: 50, y: 60, w: 40 },
+        ],
+      },
+      { key: 'invitation-details', sections: ['ceremony'], booklet: 'invitation' },
+    ],
+  };
+  const { doc: parsed, dropped } = designOf(JSON.parse(JSON.stringify(raw)), 'babyblue');
+  assert.deepEqual(dropped, []);
+  assert.ok(parsed, 'the document survived the parse');
+  assert.equal(parsed!.pages.find((p) => p.key === 'invitation-details')?.booklet, 'invitation');
+  const els = parsed!.pages.find((p) => p.key === 'menu')?.elements ?? [];
+  assert.equal(els.find((e) => e.id === 'the-door')?.opens, 'invitation');
+  assert.equal(els.find((e) => e.id === 'no-door')?.opens, undefined, 'an object that opens nothing says nothing');
+});
+
+/**
+ * A picture cannot run, and a pin cannot stand, across a booklet's edge.
+ *
+ * Both reach forward through the page list by counting pages, and the list
+ * is now two surfaces rather than one. Left alone, a tall ground at the foot
+ * of the column would lend its head to the first page of a booklet nobody
+ * has opened — so the guest who taps the door meets the bottom half of a
+ * picture whose top they never saw.
+ */
+test('a ground that runs on, and a pin, both stop at a booklet', () => {
+  const doc2: DesignDoc = {
+    ...builtinDesign('babyblue')!,
+    pages: [
+      { key: 'tall', sections: [], ground: { url: '/a.webp', ratio: 3, runsOn: 2, top: '#eef3f9', bottom: '#eef3f9' } },
+      { key: 'next', sections: [] },
+      { key: 'behind', sections: [], booklet: 'invitation' },
+    ],
+  };
+  assert.equal(runOf(doc2).get('next'), 'tall', 'the page after it in the same surface still sits on it');
+  assert.equal(runOf(doc2).get('behind'), undefined, 'the booklet page does not');
+
+  const pinned: DesignDoc = {
+    ...doc2,
+    pages: [
+      { key: 'tall', sections: [], ground: { url: '/a.webp', ratio: 3, runsOn: 2, top: '#eef3f9', bottom: '#eef3f9' }, pin: true },
+      { key: 'next', sections: [] },
+      { key: 'behind', sections: [], booklet: 'invitation' },
+    ],
+  };
+  assert.equal(pinOf(pinned).get('next'), 'tall');
+  assert.equal(pinOf(pinned).get('behind'), undefined, 'a pin does not stand behind a booklet it cannot be on screen with');
 });

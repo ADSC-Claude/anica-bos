@@ -36,7 +36,9 @@ test('designChange: a page gone, a page added, a section no longer carried', () 
   const c = designChange(base, after);
   assert.deepEqual(c.pagesRemoved, ['sponsors']);
   assert.deepEqual(c.pagesAdded, ['thanks']);
-  assert.deepEqual(c.sectionsRemoved, ['sponsors']);
+  // the sponsors page carries the parents too now, so dropping it drops both
+  // — which is the whole point of the report: she is told what a guest loses
+  assert.deepEqual(c.sectionsRemoved, ['parents', 'sponsors']);
   assert.deepEqual(c.sectionsAdded, []);
 });
 

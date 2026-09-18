@@ -31,6 +31,13 @@ christening are painted one colour nothing else uses, which is what
 finds them; redaction then lifts the line art out of those rects while
 leaving the images and background behind them alone.
 
+    The mode matters. REMOVE_IF_TOUCHED took the page's baby blue
+    ground with the underline, because that ground is a single filled
+    path the size of the page and everything on the page touches it —
+    so the two pages carrying underlines came out white and the other
+    fourteen were fine. REMOVE_IF_COVERED removes only what sits
+    wholly inside the rect, which is the underline and nothing else.
+
 **Flattened text is not text at all.** Canva rasterises any text
 carrying an effect — a drop shadow does it — so the cover's names, the
 hashtag and the whole gift-note paragraph arrive as pictures.
@@ -166,8 +173,11 @@ def build(src, out, drops):
                 p.add_redact_annot(dr['rect'] + (-1, -1, 1, 1), fill=False)
                 rules += 1
         if rules:
+            # REMOVE_IF_COVERED, never IF_TOUCHED: the page ground is one
+            # filled path the width of the page, so anything that merely
+            # *touches* the rect takes the whole background with it.
             p.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
-                               graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_TOUCHED,
+                               graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_COVERED,
                                text=pymupdf.PDF_REDACT_TEXT_NONE)
 
         p = d.reload_page(p)

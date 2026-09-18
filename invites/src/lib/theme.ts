@@ -109,6 +109,30 @@ export const FONT_PRESETS: { key: string; label: string; fonts: Fonts }[] = [
   { key: 'cormorant-michroma', label: 'Cormorant / Michroma lines (for Hello Paris)', fonts: { display: "'Cormorant Garamond', Georgia, serif", body: "'Cormorant Garamond', Georgia, serif", script: "'Michroma', 'Segoe UI', system-ui, sans-serif", load: ['Cormorant Garamond:wght@400;500;600', 'Michroma:wght@400'] } },
   { key: 'alex-brush-sanchez', label: 'Alex Brush names / Sanchez (for Symphony)', fonts: { display: "'Sanchez', Georgia, serif", body: "'Sanchez', Georgia, serif", names: "'Alex Brush', 'Brush Script MT', cursive", script: "'Alex Brush', 'Brush Script MT', cursive", load: ['Sanchez:ital,wght@0,400;1,400', 'Alex Brush:wght@400'] } },
   { key: 'bodoni-muellerhoff', label: 'Bodoni Moda / Herr Von Muellerhoff script (for Perandory / Burgues)', fonts: { display: "'Bodoni Moda', Georgia, serif", body: "'Bodoni Moda', Georgia, serif", names: "'Herr Von Muellerhoff', 'Brush Script MT', cursive", script: "'Herr Von Muellerhoff', 'Brush Script MT', cursive", load: ['Bodoni Moda:opsz,wght@6..96,400;6..96,700', 'Herr Von Muellerhoff:wght@400'] } },
+  /*
+   * The christening's own pairing, and the five faces she compared it
+   * against. TT Nooks Script — the face the christening was drawn in — is a
+   * TypeType licence we do not hold and it is not on Google, so a free face
+   * stands in for it. She picked Parisienne.
+   *
+   * It is worth writing down what that costs, because the page will show it:
+   * TT Nooks Script is an *upright* italic and Parisienne leans. The letters
+   * are close in warmth and weight; the posture is not. Nothing here can fix
+   * that, and a later licence for the real face would be the only thing that
+   * does — which is why the pairing keeps TT Nooks in its label rather than
+   * quietly pretending Parisienne was always the design.
+   *
+   * The other five are here because she asked for all of them, not only the
+   * one she chose. Each takes Abhaya Libre, the serif the christening
+   * actually uses, so every row is a pairing she could put on a design
+   * tomorrow rather than a face sitting on its own with nothing to sit with.
+   */
+  { key: 'abhaya-parisienne', label: 'Abhaya Libre / Parisienne script (christening, for TT Nooks Script)', fonts: { display: "'Abhaya Libre', Georgia, serif", body: "'Abhaya Libre', Georgia, serif", names: "'Parisienne', 'Brush Script MT', cursive", script: "'Parisienne', 'Brush Script MT', cursive", load: ['Abhaya Libre:wght@400;600;700', 'Parisienne:wght@400'] } },
+  { key: 'abhaya-petit-formal', label: 'Abhaya Libre / Petit Formal Script', fonts: { display: "'Abhaya Libre', Georgia, serif", body: "'Abhaya Libre', Georgia, serif", names: "'Petit Formal Script', 'Brush Script MT', cursive", script: "'Petit Formal Script', 'Brush Script MT', cursive", load: ['Abhaya Libre:wght@400;600;700', 'Petit Formal Script:wght@400'] } },
+  { key: 'abhaya-imperial', label: 'Abhaya Libre / Imperial Script', fonts: { display: "'Abhaya Libre', Georgia, serif", body: "'Abhaya Libre', Georgia, serif", names: "'Imperial Script', 'Brush Script MT', cursive", script: "'Imperial Script', 'Brush Script MT', cursive", load: ['Abhaya Libre:wght@400;600;700', 'Imperial Script:wght@400'] } },
+  { key: 'abhaya-sacramento', label: 'Abhaya Libre / Sacramento', fonts: { display: "'Abhaya Libre', Georgia, serif", body: "'Abhaya Libre', Georgia, serif", names: "'Sacramento', 'Brush Script MT', cursive", script: "'Sacramento', 'Brush Script MT', cursive", load: ['Abhaya Libre:wght@400;600;700', 'Sacramento:wght@400'] } },
+  { key: 'abhaya-cormorant-italic', label: 'Abhaya Libre / Cormorant Garamond italic lines', fonts: { display: "'Abhaya Libre', Georgia, serif", body: "'Abhaya Libre', Georgia, serif", script: "'Cormorant Garamond', Georgia, serif", scriptStyle: 'italic', load: ['Abhaya Libre:wght@400;600;700', 'Cormorant Garamond:ital,wght@1,400;1,600'] } },
+  { key: 'abhaya-playfair-italic', label: 'Abhaya Libre / Playfair Display italic lines', fonts: { display: "'Abhaya Libre', Georgia, serif", body: "'Abhaya Libre', Georgia, serif", script: "'Playfair Display', Georgia, serif", scriptStyle: 'italic', load: ['Abhaya Libre:wght@400;600;700', 'Playfair Display:ital,wght@1,400;1,600'] } },
 ];
 
 export const LAYOUTS = ['classic', 'editorial', 'garden', 'modern', 'festive', 'quiet', 'capiz', 'babyblue'] as const;

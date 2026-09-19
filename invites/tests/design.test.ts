@@ -7,7 +7,7 @@ import {
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape, floatAt,
   invitationPages, bookletsOf, reachablePages, stdPage, sheetRules, SHEET_SIZES,
   flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, TITLE_ON, LINE_ON, wordsFor, sectionDress, designVars, APP_NIGHT, motionOf, moves,
-  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
+  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW, shows,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
@@ -1865,4 +1865,34 @@ test('a ground that runs on, and a pin, both stop at a booklet', () => {
   };
   assert.equal(pinOf(pinned).get('next'), 'tall');
   assert.equal(pinOf(pinned).get('behind'), undefined, 'a pin does not stand behind a booklet it cannot be on screen with');
+});
+
+/*
+ * The gift page's two layouts have to cover every answer, blank included.
+ *
+ * `when` hides an element whose answer does not match, so a value that is in
+ * neither list draws neither the QR nor the account — a page with a heading
+ * and a hole under it. Blank is not a hypothetical: it is every invitation
+ * saved before the question existed, and every one whose owner has not
+ * reached it yet.
+ */
+test('the christening gift page draws one layout for every pay-by answer', () => {
+  const doc = builtinDesign('christening')!;
+  const page = doc.pages.find((p) => p.key === 'gift-note')!;
+  const elements = page.elements ?? [];
+  const branching = elements.filter((el) => el.when?.field === 'payBy');
+  assert.ok(branching.length >= 2, 'the page branches on the answer');
+
+  for (const answer of ['', 'gcash', 'bank', 'none']) {
+    const content = { gift: { payBy: answer } };
+    const on = branching.filter((el) => shows(el, content));
+    assert.ok(on.length > 0, `"${answer || '(blank)'}" draws something`);
+    // one layout, never both: the QR sits where the account lines would go
+    const qr = on.some((el) => el.id === 'gift-qr');
+    const inItsPlace = on.some((el) => el.id.startsWith('gift-bank-'));
+    assert.ok(!(qr && inItsPlace), `"${answer || '(blank)'}" draws one layout, not both`);
+  }
+
+  assert.ok(shows(elements.find((el) => el.id === 'gift-qr')!, { gift: {} }),
+    'no answer at all is the QR page, as the scrolled one has always been');
 });

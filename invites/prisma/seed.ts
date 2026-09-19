@@ -294,14 +294,56 @@ async function main() {
     await prisma.rsvp.create({ data: { invitationId: demo.id, guestId: guests[gi].id, name: guests[gi].name, response, seats, attendees: [...attendees] as never, mealChoice: meal, message: response === 'ACCEPT' ? 'See you there! Congrats!' : 'So sorry, we will be abroad. Love you both!', createdAt: addDays(new Date(), -10 + gi) } });
   }
   await prisma.rsvp.create({ data: { invitationId: demo.id, name: 'Tita Baby Reyes', response: 'ACCEPT', seats: 3, attendees: ['Baby Reyes', 'Boy Reyes', 'Ate Jing'] as never, mealChoice: 'Beef', message: 'Excited na kami!', phone: '0918 111 2222' } });
+  /*
+   * A wall with something on it.
+   *
+   * Both of these used to seed two approved rows and one waiting, which was
+   * enough to prove the feature worked and not enough to show what it looks
+   * like in use. The page shows the newest three messages and the newest nine
+   * photographs (showlist.ts), so a demo with two of each never draws a full
+   * wall and never draws the line that says how many are behind it — the two
+   * things anyone looking at the demo is trying to see. Twelve and eight, so
+   * both walls are full and both have a remainder.
+   *
+   * `minutes` walks the timestamps backwards from an hour ago: newest first is
+   * the whole point of the showlist, and rows written in one tick sort
+   * arbitrarily.
+   */
+  const anHourAgo = addDays(new Date(), 0).getTime() - 60 * 60 * 1000;
+  const minutes = (i: number) => new Date(anHourAgo + i * 4 * 60 * 1000);
+  const guestShots: [string, string, boolean][] = [
+    ['Grabe ang ganda ng church!', 'Tita Baby', true],
+    ['First dance 🥹', 'Camille', true],
+    ['The whole barkada', 'Paolo', true],
+    ['Sabado ng gabi', 'Rina', true],
+    ['Lola and Lolo', 'Jomar', true],
+    ['Cake time!', 'Cecil', true],
+    ['Photobooth queue', 'Ben', true],
+    ['The entourage', 'Malou', true],
+    ['Sunset sa garden', 'Dex', true],
+    ['Kids table chaos', 'Ana', true],
+    ['The toast', 'Kim', true],
+    ['Last song', 'Vic', true],
+    ['Blurry but happy', 'Anonymous', false],
+  ];
   await prisma.media.createMany({
-    data: [
-      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-1', 900, 900), storagePath: 'seed/guest-photo-1.jpg', contentType: 'image/jpeg', caption: 'Grabe ang ganda ng church!', uploadedBy: 'Tita Baby', approved: true, sortOrder: 0 },
-      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-2', 900, 900), storagePath: 'seed/guest-photo-2.jpg', contentType: 'image/jpeg', caption: 'First dance 🥹', uploadedBy: 'Camille', approved: true, sortOrder: 1 },
-      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-3', 900, 900), storagePath: 'seed/guest-photo-3.jpg', contentType: 'image/jpeg', caption: 'The whole barkada', uploadedBy: 'Paolo', approved: false, sortOrder: 2 },
-    ],
+    data: guestShots.map(([caption, uploadedBy, approved], i) => ({
+      invitationId: demo.id, kind: 'GUEST_PHOTO' as const,
+      url: pic(`guest-photo-${i + 1}`, 900, 900), storagePath: `seed/guest-photo-${i + 1}.jpg`, contentType: 'image/jpeg',
+      caption, uploadedBy, approved, sortOrder: i, createdAt: minutes(i),
+    })),
   });
-  await prisma.guestbookEntry.createMany({ data: [{ invitationId: demo.id, name: 'Tita Baby', message: 'Finally! Ang tagal naming hinintay ito. Congratulations, Juan and Maria!', approved: true }, { invitationId: demo.id, name: 'Camille', message: 'From taho to “I do” — so proud of you two. ❤️', approved: true }, { invitationId: demo.id, name: 'Anonymous', message: 'Best wishes from the office!', approved: false }] });
+  const wishes: [string, string, boolean][] = [
+    ['Tita Baby', 'Finally! Ang tagal naming hinintay ito. Congratulations, Juan and Maria!', true],
+    ['Camille', 'From taho to “I do” — so proud of you two. ❤️', true],
+    ['Kuya Ben', 'Wishing you a lifetime of Sunday breakfasts together.', true],
+    ['Rina', 'Ang ganda ng lahat! Salamat sa invite.', true],
+    ['Jomar', 'From the college barkada — sobrang saya para sa inyo.', true],
+    ['Anonymous', 'Best wishes from the office!', false],
+  ];
+  await prisma.guestbookEntry.createMany({
+    data: wishes.map(([name, message, approved], i) => ({ invitationId: demo.id, name, message, approved, createdAt: minutes(i) })),
+  });
   await prisma.invitationView.createMany({ data: Array.from({ length: 14 }, (_, i) => ({ invitationId: demo.id, day: new Date(addDays(new Date(), -i).toISOString().slice(0, 10)), count: 10 + ((i * 7) % 40) })) });
 
   // --- a christening Done-For-You job on Baby Blue, the client's form in -------

@@ -41,6 +41,7 @@ import { changeWindow, withDone, formComplete, doneSections, liveEditable, LIVE_
 import { revisionsToDrop } from './revision-keep';
 import { documentOf } from './design';
 import { designForm, askedFields, designMedia } from './asks';
+import { SHOW_MESSAGES, SHOW_PHOTOS } from './showlist';
 import { notifyStaff } from './notifications';
 import { formatDate } from './datetime';
 
@@ -585,17 +586,48 @@ export async function loadPublic(slug: string, opts: { preview?: boolean } = {})
     include: {
       template: true,
       tables: { orderBy: { sortOrder: 'asc' } },
-      guestbook: { where: { approved: true }, orderBy: { createdAt: 'desc' }, take: 100 },
-      media: { where: { kind: 'GUEST_PHOTO', approved: true }, orderBy: { createdAt: 'desc' }, take: 60 },
+      guestbook: { where: { approved: true }, orderBy: { createdAt: 'desc' }, take: SHOW_MESSAGES },
+      media: { where: { kind: 'GUEST_PHOTO', approved: true }, orderBy: { createdAt: 'desc' }, take: SHOW_PHOTOS },
     },
   });
   if (!invitation) return null;
   if (invitation.status === 'ARCHIVED') return null;
   if (invitation.status !== 'PUBLISHED' && !opts.preview) return null;
+  const kept = await keptCounts(invitation.id, invitation.content, {
+    messages: invitation.guestbook.length,
+    photos: invitation.media.length,
+  });
   if (invitation.status === 'PUBLISHED' && invitation.expiresAt && invitation.expiresAt.getTime() < Date.now() && !opts.preview) {
-    return { ...invitation, expired: true as const };
+    return { ...invitation, kept, expired: true as const };
   }
-  return { ...invitation, expired: false as const };
+  return { ...invitation, kept, expired: false as const };
+}
+
+/**
+ * How many messages and photos there are altogether, against the handful the
+ * page is showing.
+ *
+ * The showlist is the newest few; everything else is still in the book. A
+ * guest who wrote last week and no longer sees their own line needs to be
+ * told that, or the page has simply lost it — so the wall ends with "and 41
+ * more", and the count has to be the real one rather than the length of a
+ * truncated fetch.
+ *
+ * Two extra reads, and only for a wall that is switched on: both are covered
+ * by an index, and a page with no guestbook and no album pays nothing.
+ */
+async function keptCounts(invitationId: string, content: unknown, shown: { messages: number; photos: number }) {
+  const c = contentOf(content);
+  const on = (section: unknown) => Boolean(section && typeof section === 'object' && (section as { enabled?: unknown }).enabled === true);
+  // Fewer than the cap were fetched, so the cap was never reached and what is
+  // on the page is all there is. No count can say anything the page does not.
+  const askMessages = on(c.guestbook) && shown.messages >= SHOW_MESSAGES;
+  const askPhotos = on(c.photos) && shown.photos >= SHOW_PHOTOS;
+  const [messages, photos] = await Promise.all([
+    askMessages ? prisma.guestbookEntry.count({ where: { invitationId, approved: true } }) : Promise.resolve(shown.messages),
+    askPhotos ? prisma.media.count({ where: { invitationId, kind: 'GUEST_PHOTO', approved: true } }) : Promise.resolve(shown.photos),
+  ]);
+  return { messages, photos };
 }
 
 export async function checkGuestPassword(invitationId: string, password: string): Promise<boolean> {

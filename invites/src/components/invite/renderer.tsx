@@ -17,6 +17,7 @@ import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
+import { SHOW_MESSAGES, SHOW_PHOTOS } from '@/lib/showlist';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion, Hub } from './client';
 import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
@@ -1465,30 +1466,47 @@ function GuestPhotos({
   format?: boolean;
   intro?: string;
 }) {
+  /*
+   * Nine cells, drawn whether or not there are nine photographs.
+   *
+   * A grid that springs into existence when the first photograph lands reads
+   * as a page that was broken until somebody fixed it, and an empty section
+   * with one apologetic line reads as a feature nobody used. Nine frames
+   * standing empty read as an album waiting to be filled — which is what it
+   * is, and which is the whole invitation to add to it.
+   *
+   * The newest nine, and the tenth pushes the oldest off the wall. Nothing is
+   * lost by that: the count underneath says how many are behind, and every one
+   * of them is in the couple's Photos tab and in the download. See showlist.ts.
+   */
   const photos = inv.media;
+  const more = Math.max(0, inv.kept.photos - photos.length);
+  const blanks = print ? 0 : Math.max(0, SHOW_PHOTOS - photos.length);
   if (!photos.length && print) return null;
   return (
     <Section id="guest-photos" title={title ?? t(lang, 'photos.title')} tagline={tagline}>
       {format && <Ico name="upload" className="inv-ico-lg" />}
       {format && intro && <p className="mx-auto mb-4 max-w-sm text-center">{intro}</p>}
-      {photos.length > 0 ? (
-        <div className="inv-gallery">
-          {photos.map((m) => (
-            <figure key={m.id}>
-              <img src={imageUrl(m.url, IMAGE.grid)} alt={m.caption || ''} loading="lazy" />
-              {(m.caption || m.uploadedBy) && (
-                <figcaption className="inv-muted mt-1 text-center text-xs">
-                  {m.caption}
-                  {m.caption && m.uploadedBy ? ' — ' : ''}
-                  {m.uploadedBy}
-                </figcaption>
-              )}
-            </figure>
-          ))}
-        </div>
-      ) : (
-        <p className="inv-muted mb-4 text-center text-sm">{t(lang, 'photos.empty')}</p>
-      )}
+      <div className="inv-wall-grid">
+        {photos.map((m) => (
+          <figure key={m.id} className="inv-wall-cell">
+            <img src={imageUrl(m.url, IMAGE.grid)} alt={m.caption || ''} loading="lazy" />
+            {(m.caption || m.uploadedBy) && (
+              <figcaption>
+                {m.caption}
+                {m.caption && m.uploadedBy ? ' — ' : ''}
+                {m.uploadedBy}
+              </figcaption>
+            )}
+          </figure>
+        ))}
+        {Array.from({ length: blanks }, (_, i) => (
+          <div key={`slot-${i}`} className="inv-slot inv-slot-photo" {...(i === 0 ? {} : { 'aria-hidden': true })}>
+            {i === 0 && <span>{t(lang, 'photos.slot')}</span>}
+          </div>
+        ))}
+      </div>
+      {more > 0 && <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'photos.more', { n: more })}</p>}
       {!print && (
         <div className="mt-5">
           <p className="mb-3 text-center">{str(data, 'prompt') || t(lang, 'photos.prompt')}</p>
@@ -1520,18 +1538,33 @@ function GuestPhotos({
 
 function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; tagline?: string; title?: string }) {
   if (!bool(data, 'enabled')) return null;
+  /*
+   * Three on the wall, and the fourth message takes the oldest one's place.
+   *
+   * Same reasoning as the photographs above, and the same promise underneath:
+   * what leaves the wall is still in the book. Three empty cards stand where
+   * the messages will go, so the section has its shape from the first look
+   * rather than appearing once a stranger has written something.
+   */
+  const notes = inv.guestbook;
+  const more = Math.max(0, inv.kept.messages - notes.length);
+  const blanks = Math.max(0, SHOW_MESSAGES - notes.length);
   return (
     <Section id="guestbook" title={title ?? t(lang, 'guestbook.title')} tagline={tagline}>
-      {inv.guestbook.length > 0 && (
-        <ul className="mb-5 space-y-2">
-          {inv.guestbook.map((g) => (
-            <li key={g.id} className="inv-card">
-              <p className="whitespace-pre-line text-sm">{g.message}</p>
-              <p className="inv-muted mt-1 text-xs">— {g.name}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="mb-2 space-y-2">
+        {notes.map((g) => (
+          <li key={g.id} className="inv-card">
+            <p className="whitespace-pre-line text-sm">{g.message}</p>
+            <p className="inv-muted mt-1 text-xs">— {g.name}</p>
+          </li>
+        ))}
+        {Array.from({ length: blanks }, (_, i) => (
+          <li key={`slot-${i}`} className="inv-slot inv-slot-note" {...(i === 0 && !notes.length ? {} : { 'aria-hidden': true })}>
+            {i === 0 && !notes.length && <span>{t(lang, 'guestbook.first')}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="inv-muted mb-5 text-center text-xs">{more > 0 ? t(lang, 'guestbook.more', { n: more }) : '\u00a0'}</p>
       <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'rsvp.thanks') }} />
     </Section>
   );
@@ -2235,7 +2268,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           : [];
         const parts = spec.drawn
           ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k))
-              ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} path={invitationPath(inv.slug)} />, ...working]
+              // `-art`, not the page's own key: on a `live` page the section's
+              // node follows in the same list and is keyed by the section it
+              // renders, which for the FAQ and the RSVP is the page's key
+              // exactly. Two children with one key is React's to resolve, and
+              // it resolves it by dropping one of them.
+              ? [<DrawnPage key={`${spec.key}-art`} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} path={invitationPath(inv.slug)} />, ...working]
               : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));

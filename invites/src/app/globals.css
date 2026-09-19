@@ -2659,6 +2659,71 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   aspect-ratio: 4 / 3;
 }
 
+/*
+ * The guest wall — the messages and the photographs guests add on the day.
+ *
+ * Three by three, and the cells are drawn whether or not there is anything to
+ * put in them. An empty section that appears only once a stranger has used it
+ * is a section the couple never sees working and never trusts; nine standing
+ * frames are an album waiting, and the first of them says so.
+ *
+ * The caption sits *on* the photograph rather than under it. Under it, a cell
+ * with a caption is taller than a cell without and the grid goes ragged; over
+ * it, every cell is the same square and the row lines up. One line, clipped:
+ * a small square is no place for a paragraph.
+ */
+.inv-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.inv-wall-cell {
+  position: relative;
+}
+.inv-wall-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  display: block;
+}
+.inv-wall-cell figcaption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 0.6rem 0.4rem 0.3rem;
+  border-radius: 0 0 0.75rem 0.75rem;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), transparent);
+  color: #fff;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A cell with nothing in it yet: the frame, and on the first one the ask. */
+.inv-slot {
+  border: 1px dashed color-mix(in srgb, var(--inv-accent2) 65%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--inv-surface) 55%, transparent);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.5rem;
+}
+.inv-slot > span {
+  color: var(--inv-muted);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+.inv-slot-photo {
+  aspect-ratio: 1;
+}
+.inv-slot-note {
+  min-height: 3.75rem;
+}
+
 .inv-timeline {
   border-left: 2px solid var(--inv-accent2);
   margin-left: 0.5rem;

@@ -105,7 +105,7 @@ export const LOOKS: Look[] = [
       program: { en: 'Program', tl: 'Programa' },
       social: { en: 'Snap and Share', tl: 'Kuha at I-share' },
       guestbook: { en: 'Guestbook', tl: 'Guestbook' },
-      photos: { en: 'Post Event Photos', tl: 'Mga Larawan Pagkatapos' },
+      photos: { en: 'Photos From The Day', tl: 'Mga Larawan Ngayong Araw' },
       rsvp: { en: 'RSVP', tl: 'RSVP' },
       contact: { en: 'Need Assistance?', tl: 'May Tanong?' },
     },

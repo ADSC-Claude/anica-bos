@@ -92,6 +92,21 @@ type Ink = NonNullable<Line['color']>;
  * uses for a line box is what matters, and it is not always what the file
  * says.
  */
+/*
+ * The two answers to "how do guests send a gift", and which layout each takes.
+ *
+ * The empty string is in QR_WAY on purpose. Blank means the question was
+ * never put — every invitation built before the field existed, and every one
+ * a customer has not reached yet — and blank has always behaved as the QR
+ * page, because that is the only page there was. Leaving it out of both lists
+ * would draw *neither* layout: a gift page with a heading and nothing under
+ * it. The flow renderer treats blank the same way (renderer.tsx, Gift), and
+ * the two have to agree or the same invitation says different things on a
+ * drawn page and a scrolled one.
+ */
+const QR_WAY = ['', 'gcash'];
+const BANK_WAY = ['bank', 'none'];
+
 const HALF: Record<Face, number> = {
   body: 0.218,    // Abhaya Libre
   display: 0.218, // Abhaya Libre
@@ -717,14 +732,14 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        */
       { id: 'gift-qr', kind: 'photo', bind: { section: 'gift', field: 'gcashQr' },
         x: 49.95, y: 68.08, w: 27.31, aspect: 1, anchor: 'centre',
-        when: { section: 'gift', field: 'payBy', is: ['gcash'] } },
+        when: { section: 'gift', field: 'payBy', is: QR_WAY } },
       ...([
         // under her QR, where she drew them
         { at: 'gcash' as const, who: 86.224, bank: 90.863, no: 94.9 },
         // in the QR's own place, where there is no QR to sit under
         { at: 'bank' as const, who: 63.5, bank: 69.4, no: 75.3 },
       ].flatMap(({ at, who, bank, no }) => {
-        const when = { section: 'gift', field: 'payBy', is: at === 'gcash' ? ['gcash'] : ['bank', 'none'] };
+        const when = { section: 'gift', field: 'payBy', is: at === 'gcash' ? QR_WAY : BANK_WAY };
         return [
           GIFT.one(`gift-${at}-who`, { base: who, size: pt(35), hide: true, room: 40, when },
             bind('gift', 'bankAccountName'), bind('gift', 'gcashName')),

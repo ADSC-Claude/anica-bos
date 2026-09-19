@@ -1103,6 +1103,22 @@ export type TextEl = Base & {
    * alone — so what a customer sees in the form is still their own words.
    */
   caps?: true;
+  /**
+   * The words drawn as a button rather than set as a line of type.
+   *
+   * A pill in the surface colour with the mark of where it goes beside the
+   * label — a pin for a map, a calendar for the date. Only for a box that
+   * carries `go`, because the mark comes from where it goes and a pill
+   * with nothing behind it is a lie.
+   *
+   * Her christening asks for it and it is the honest shape for these
+   * three: ADD TO CALENDAR, OPEN IN GOOGLE MAPS and OPEN IN WAZE are not
+   * writing a guest reads, they are things a guest presses, and set as
+   * small underlined type they read as a footnote. `rule` is the other
+   * treatment for the same idea — a line under the words, which is what a
+   * printed design does — and a box takes one or the other.
+   */
+  button?: true;
   /** the letters this box holds, measured from the box and the face: the form's cap for what it asks */
   room?: number;
   /** the design's own line is offered to the customer as an example under their box */
@@ -1499,6 +1515,7 @@ const zElement = z.union([
     tracking: z.number().min(-0.05).max(0.4).optional(),
     leading: z.number().min(0.6).max(3).optional(),
     rule: z.literal(true).optional(),
+    button: z.literal(true).optional(),
     highlight: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
     caps: z.literal(true).optional(),
     room: z.number().int().min(1).max(2000).optional(),

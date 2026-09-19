@@ -531,6 +531,25 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
  * line under it, or a milestone's name with its sentence. An empty line is
  * dropped; a block whose every line is empty draws nothing.
  */
+/**
+ * The mark on a button, drawn from where it goes: a pin for either map, a
+ * calendar for the date. Drawn here rather than taken from the renderer's
+ * set because a drawn page is mounted in the browser by the studio and
+ * nothing server-only may be on the path — the same reason places.ts is
+ * where it is. It scales with the label, so it stays the right size at any
+ * width the design sets.
+ */
+function GoMark({ to }: { to: NonNullable<TextEl['go']>['to'] }) {
+  const d = to === 'calendar'
+    ? 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M8 14h2M12 14h2M16 14h1'
+    : 'M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z';
+  return (
+    <svg className="inv-bb-btn-mark" viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d={d} />
+    </svg>
+  );
+}
+
 function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number; deco?: boolean }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
@@ -563,9 +582,21 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
     : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} face={el.face} size={el.size} leading={el.leading} highlight={el.highlight} /> : null));
   if (el.block === 'head') return <header className={cls} style={style} {...mark}>{body}</header>;
   const go = goProps(el, read);
+  // a box she asked to be drawn as a button: the pill, and the mark of
+  // where it goes beside the label. Only where it goes somewhere — see
+  // TextEl.button — so the studio shows an unbound one as plain words.
+  if (go.tag && el.button) {
+    return (
+      <a className={`${cls} inv-bb-btn`} style={style} {...mark} {...go.props}>
+        <GoMark to={el.go!.to} />
+        <span>{body}</span>
+      </a>
+    );
+  }
   if (go.tag) return <a className={cls} style={style} {...mark} {...go.props}>{body}</a>;
   return <div className={cls} style={style} {...mark}>{body}</div>;
 }
+
 
 /**
  * One line inside a block.

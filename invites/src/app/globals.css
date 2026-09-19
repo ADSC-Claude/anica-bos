@@ -1625,6 +1625,16 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-card] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
 .inv[data-paged] .inv-count span,
 .inv[data-card] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
+/* A countdown on a page the design drew.
+   The shared rule above sets the numbers in rem, which is a fixed size inside a
+   page that is scaled by its own width: on her christening the band drawn
+   for the countdown is a narrow strip and the numbers crowded it. Cut to
+   the page instead, and a little smaller than they were, so the four cells
+   sit inside the strip at every width. Only a drawn page — a design whose
+   countdown is a section in the scroll keeps the shared size. */
+.inv-page[data-drawn] .inv-count b { font-size: 6.1cqw; }
+.inv-page[data-drawn] .inv-count span { font-size: 1.82cqw; }
+
 
 /* --- social brand row --- */
 .inv-brand { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1.1rem; }
@@ -2165,6 +2175,47 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   padding: 0.19em 0.5em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+/* A box the design asked to be drawn as a button (TextEl.button).
+   A pill in the surface colour with the mark of where it goes beside the
+   label — what she drew, and what these three actually are: not writing a
+   guest reads but a thing a guest presses. Everything is in em so the pill
+   is cut to whatever size the design gave the words, at any page width, and
+   the colours are roles so the pill follows the palette into night. */
+.inv-bb-art .inv-bb-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  padding: 0.72em 1.1em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--inv-surface) 88%, transparent);
+  color: var(--inv-ink);
+  box-shadow: 0 0.12em 0.5em rgb(0 0 0 / 0.07);
+  text-decoration: none;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+/* the underline is the other treatment for the same idea: never both */
+.inv-bb-art .inv-bb-btn .t,
+.inv-bb-art .inv-bb-btn .x { text-decoration: none; }
+.inv-bb-art .inv-bb-btn:hover {
+  background: var(--inv-surface);
+  box-shadow: 0 0.2em 0.7em rgb(0 0 0 / 0.11);
+}
+.inv-bb-art .inv-bb-btn:active { transform: translateY(0.06em); }
+.inv-bb-btn-mark {
+  flex: none;
+  width: 1.32em;
+  height: 1.32em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-bb-art .inv-bb-btn { transition: none; }
+  .inv-bb-art .inv-bb-btn:active { transform: none; }
 }
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }

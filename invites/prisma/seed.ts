@@ -217,7 +217,7 @@ async function main() {
     brideFather: { title: 'Engr.', name: 'Roberto A. Santos', deceased: false }, brideMother: { title: 'Mrs.', name: 'Carmen L. Santos', deceased: false }, brideNote: '',
     groomFather: { title: 'Mr.', name: 'Antonio B. Dela Cruz', deceased: true }, groomMother: { title: 'Dr.', name: 'Teresita R. Dela Cruz', deceased: false }, groomNote: '',
   });
-  Object.assign(content.ceremony!, { type: 'catholic', venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dateKey, time: '14:00', seatedBy: '1:30 PM', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-agustin', 1200, 800), note: 'The church is air-conditioned. Please arrive early — Intramuros traffic is real.' });
+  Object.assign(content.ceremony!, { type: 'catholic', venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dateKey, time: '14:00', seatedBy: '1:30 PM', mapsUrl: '', wazeUrl: '', photo: pic('san-agustin', 1200, 800), note: 'The church is air-conditioned. Please arrive early — Intramuros traffic is real.' });
   Object.assign(content.reception!, { venue: 'The Manila Hotel — Fiesta Pavilion', address: 'One Rizal Park, Ermita, Manila', time: '17:30', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the hotel. A shuttle leaves the church at 4:15 PM.', photo: pic('manila-hotel', 1200, 800), note: '' });
   Object.assign(content.entourage!, {
     brideParents: [{ name: 'Engr. Roberto A. Santos' }, { name: 'Mrs. Carmen L. Santos' }],
@@ -366,7 +366,7 @@ async function main() {
     const c: Content = defaultContent('CHRISTENING', 'en');
     const intake: Content = {
       cover: { childFull: 'Amara Sofia Reyes', childNick: 'Amara', birthDate: addDays(new Date(), -80).toISOString().slice(0, 10), date: dayKey, time: '09:30', introPreset: 'simple', intro: 'With grateful hearts, Paolo and Denise invite you to the christening of their daughter.' },
-      ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: 'https://maps.app.goo.gl/9x3b1QhF2kJmTq8s7', note: 'Kindly be seated by 9:15 AM.' },
+      ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: '', note: 'Kindly be seated by 9:15 AM.' },
       reception: { venue: 'Ilustrado Restaurant', address: '744 Calle Real del Palacio, Intramuros, Manila', time: '11:30', parkingNote: 'Parking along Calle Real.' },
       sponsors: { ninongs: ['Mr. Rafael Reyes', 'Engr. Marco dela Cruz', 'Dr. Adrian Lim', 'Mr. Joseph Tan'].map((name) => ({ name })), ninangs: ['Mrs. Patricia Reyes', 'Ms. Camille dela Cruz', 'Dr. Andrea Lim', 'Ms. Bianca Tan'].map((name) => ({ name })) },
       story: { timeline: [['The Prayer', 'We asked, and we waited.'], ['The Wait', 'Nine months of hope.'], ['The Answer', 'She came on a Sunday morning.'], ['The Preparation', 'Tiny dresses, big dreams.'], ['The Arrival', 'Home at last.'], ['Our Greatest Blessing', 'You are so loved, Amara.']].map(([title, text], i) => ({ title, text, photo: pic(`amara-story-${i + 1}`, 800, 800) })) },
@@ -426,7 +426,7 @@ async function main() {
       note: 'Together with Lolo Ernesto and Lola Remedios',
       familyName: 'Reyes - Cruz',
     });
-    Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
+    Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: '', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
     Object.assign(c.reception!, { venue: 'Blue Leaf Cosmopolitan', address: '30th St cor. 8th Ave, Bonifacio Global City, Taguig', time: '12:00', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the venue.', photo: pic('blue-leaf', 1200, 800), note: '' });
     Object.assign(c.sponsors!, {
       ninongs: ['Mr. Rafael Villanueva', 'Engr. Marco Santos', 'Dr. Adrian Lim', 'Atty. Carlo Reyes', 'Mr. Joseph Tan', 'Mr. Miguel Garcia'].map((name) => ({ name })),

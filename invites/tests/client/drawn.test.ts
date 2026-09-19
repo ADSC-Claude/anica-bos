@@ -456,3 +456,61 @@ test('a moment does not also open a booklet', () => {
   const out = renderToStaticMarkup(DrawnPage({ page: hub, content: {}, look: undefined, lang: 'en' }) as ReactElement);
   assert.doesNotMatch(out, /data-opens/);
 });
+
+/**
+ * A box she asked to be drawn as a button.
+ *
+ * Her reference is a soft pill with a pin beside the label, not a line of
+ * small underlined type, and the mark comes from where the button goes —
+ * so a box with nowhere to go is drawn as plain words rather than as a
+ * pill that does nothing. That last rule is the one worth holding: it is
+ * what keeps a christening with no reception address from carrying a
+ * button-shaped OPEN IN WAZE.
+ */
+const btn = (extra: Record<string, unknown>): PageSpec => ({
+  key: 'where',
+  sections: [],
+  drawn: true,
+  elements: [{
+    id: 'go', kind: 'text', block: 'free', x: 50, y: 40, w: 70, anchor: 'top',
+    lines: [{ role: 'body', sources: [{ fixed: { en: 'OPEN IN WAZE' } }] }], button: true, ...extra,
+  }],
+});
+const place = { reception: { venue: 'Blue Leaf Cosmopolitan', address: '30th St, Taguig' } };
+
+test('a button with somewhere to go is a pill with its mark on it', () => {
+  const out = renderToStaticMarkup(
+    DrawnPage({ page: btn({ go: { to: 'waze', of: 'reception' } }), content: place, look: undefined, lang: 'en' }) as ReactElement,
+  );
+  assert.match(out, /inv-bb-btn/);
+  assert.match(out, /inv-bb-btn-mark/);
+  assert.match(out, /href="https:\/\/waze\.com/);
+  assert.match(out, /OPEN IN WAZE/);
+});
+
+test('a button with nowhere to go is not drawn as a button', () => {
+  // no `go` at all, and a `go` whose place the family left blank
+  const cases: [PageSpec, Record<string, unknown>][] = [
+    // nothing to point at
+    [btn({}), place],
+    // somewhere to point at, but the family left the address blank
+    [btn({ go: { to: 'waze', of: 'reception' } }), {}],
+  ];
+  for (const [page, content] of cases) {
+    const out = renderToStaticMarkup(DrawnPage({ page, content, look: undefined, lang: 'en' }) as ReactElement);
+    assert.doesNotMatch(out, /inv-bb-btn/);
+    assert.doesNotMatch(out, /<a /);
+  }
+});
+
+test('the christening draws all five of its buttons', () => {
+  const doc = builtinDesign('christening')!;
+  const ids = doc.pages.flatMap((p) => (p.elements ?? []).filter((e) => e.kind === 'text' && e.button).map((e) => e.id));
+  assert.deepEqual(ids.sort(), ['inv-cal', 'venue-cer-maps', 'venue-cer-waze', 'venue-rec-maps', 'venue-rec-waze']);
+  // and every one of them says where it goes, or the mark would be a guess
+  for (const p of doc.pages) {
+    for (const e of p.elements ?? []) {
+      if (e.kind === 'text' && e.button) assert.ok(e.go, `${e.id} is a button with nowhere to go`);
+    }
+  }
+});

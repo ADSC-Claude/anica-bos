@@ -146,6 +146,8 @@ type Set = {
   blink?: true;
   /** the line she drew under it */
   rule?: true;
+  /** drawn as a button rather than set as type: the pill and the mark of where it goes */
+  button?: true;
   /** it comes up once whatever it is written on has arrived */
   after?: number;
   /** her box is set in capitals, however the family types their answer */
@@ -213,6 +215,7 @@ const sheet = (ratio: number) => {
       ...(s.hide ? { hidden: 'whenEmpty' as const } : {}),
       ...(s.blink ? { motion: { idle: 'flicker' as const } } : {}),
       ...(s.rule ? { rule: true as const } : {}),
+      ...(s.button ? { button: true as const } : {}),
       ...(s.caps ? { caps: true as const } : {}),
       ...(s.mark ? { highlight: s.mark } : {}),
       ...(s.after ? { motion: { enter: 'fade' as const, delay: s.after } } : {}),
@@ -722,7 +725,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         bind('ceremony', 'note')),
       // she drew the button; `link` makes it one. See LinkEl for what the
       // calendar file is built out of.
-      INVITE.one('inv-cal', { base: 91.897, size: pt(25), face: 'display', weight: 700, cx: 49.66, w: 50, rule: true, go: { to: 'calendar' } },
+      INVITE.one('inv-cal', { base: 91.897, size: pt(20), face: 'display', weight: 700, cx: 49.66, w: 72, button: true, go: { to: 'calendar' } },
         say('ADD TO CALENDAR')),
     ],
   },
@@ -754,9 +757,9 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         { src: [bind('ceremony', 'address')] },
         { src: [bind('ceremony', 'time', { show: 'time' })] },
       ]),
-      VENUE.one('venue-cer-maps', { base: 39.286, size: pt(15.06), face: 'display', weight: 700, cx: 50.07, w: 40, rule: true, go: { to: 'maps', of: 'ceremony' } },
+      VENUE.one('venue-cer-maps', { base: 39.0, size: pt(19), face: 'display', weight: 700, cx: 50, w: 72, button: true, go: { to: 'maps', of: 'ceremony' } },
         say('OPEN IN GOOGLE MAPS')),
-      VENUE.one('venue-cer-waze', { base: 43.632, size: pt(15.06), face: 'display', weight: 700, cx: 48.64, w: 40, rule: true, go: { to: 'waze', of: 'ceremony' } },
+      VENUE.one('venue-cer-waze', { base: 45.2, size: pt(19), face: 'display', weight: 700, cx: 50, w: 72, button: true, go: { to: 'waze', of: 'ceremony' } },
         say('OPEN IN WAZE')),
       VENUE.one('venue-rec-head', { base: 61.622, size: pt(40), color: 'muted', role: 'title', cx: 50.01 },
         { word: 'title:venue' }, say('RECEPTION')),
@@ -766,9 +769,9 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         { src: [bind('reception', 'address')] },
         { src: [bind('reception', 'time', { show: 'time' })] },
       ]),
-      VENUE.one('venue-rec-maps', { base: 82.572, size: pt(15.06), face: 'display', weight: 700, cx: 50.22, w: 40, rule: true, go: { to: 'maps', of: 'reception' } },
+      VENUE.one('venue-rec-maps', { base: 82.4, size: pt(19), face: 'display', weight: 700, cx: 50, w: 72, button: true, go: { to: 'maps', of: 'reception' } },
         say('OPEN IN GOOGLE MAPS')),
-      VENUE.one('venue-rec-waze', { base: 86.918, size: pt(15.06), face: 'display', weight: 700, cx: 48.64, w: 40, rule: true, go: { to: 'waze', of: 'reception' } },
+      VENUE.one('venue-rec-waze', { base: 88.6, size: pt(19), face: 'display', weight: 700, cx: 50, w: 72, button: true, go: { to: 'waze', of: 'reception' } },
         say('OPEN IN WAZE')),
     ],
   },

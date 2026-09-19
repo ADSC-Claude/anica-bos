@@ -17,8 +17,15 @@ import type { Attendee } from '@/lib/attendees';
  */
 
 // ---------------------------------------------------------------------------
-// The opening + music. One component, because the tap that opens the
-// invitation is the user gesture that lets audio play on a phone.
+// The opening + music. One component, because the player has to outlive the
+// overlay: the song is started from a control — the floating ♫, or the one
+// the design drew, like her record's CLICK FOR MUSIC — and goes on playing
+// down the whole invitation.
+//
+// Nothing starts the song by itself. A guest who never presses anything
+// never hears it, which is what she asked for and what a phone in a quiet
+// room deserves. The file is fetched ahead of the press all the same (see
+// `warm`), so pressing it plays rather than waits.
 //
 // Every opening is the same overlay with a different stage inside it and a
 // different exit in CSS. Nothing here downloads a video: the couple's own
@@ -318,10 +325,6 @@ export function Shell({
     } else void play();
   }, [playing, play]);
 
-  useEffect(() => {
-    if (!closed && music) void play();
-  }, [closed, music, play]);
-
   /*
    * A control the *design* drew, anywhere on the invitation.
    *
@@ -366,8 +369,9 @@ export function Shell({
    * on a timer; the cinematic one instead plays its clip and leaves when the
    * clip ends, because the reveal *is* the clip.
    *
-   * The tap is also what makes both of these work at all on a phone: playing
-   * video or audio without a user gesture is blocked, and this is the gesture.
+   * The tap is also what makes the clip play at all on a phone: video
+   * without a user gesture is blocked, and this is the gesture. The song is
+   * not started here — it waits for its own control to be pressed.
    */
   const gesture = useMomentGesture({ trigger, speed, duration: sceneDef?.duration ?? 1200, swipe: sceneDef?.swipe, disabled: open, onOpen: () => revealNow() });
   const reveal = () => {
@@ -377,7 +381,7 @@ export function Shell({
   const revealNow = () => {
     if (tapped) return;
     setTapped(true);
-    if (music) void play();
+    // the song is not started here: it waits for a control to be pressed
     const video = clip.current;
     if (opening.style !== 'cinematic' || !video) {
       setOpen(true);

@@ -719,6 +719,17 @@ export type PageSpec = {
    */
   live?: true;
   /**
+   * How this page shows a wall a guest fills — the shared album, for now.
+   *
+   * The album is a three-by-three grid everywhere, which is right for a page
+   * that has room for nine frames. A page drawn as one photograph has room
+   * for one: "okay with one single photos that they can swipe, just put a
+   * note to swipe so they can see other photos." `swipe` is that — the same
+   * cells laid in a row a page wide each, moved between by the phone's own
+   * scroll snapping, with the note under them.
+   */
+  wall?: 'swipe';
+  /**
    * The booklet this page belongs to, which takes it off the invitation's
    * flow.
    *
@@ -1592,6 +1603,7 @@ const zPage = z.object({
   size: z.number().min(0.3).max(2).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
   live: z.literal(true).optional(),
+  wall: z.enum(['swipe']).optional(),
   booklet: z.string().regex(KEY).optional(),
   only: z.literal('std').optional(),
   cover: z.object({

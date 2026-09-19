@@ -325,6 +325,8 @@ const DRESS = sheet(1.7778);
 const PROGRAM = sheet(1.4815);
 const GIFT = sheet(1.1111);
 const RSVP = sheet(1.7778);
+const GUESTBOOK = sheet(1.7778);
+const POSTEVENT = sheet(1.7778);
 
 /**
  * Her four milestones and her five programme slots, down the drawn spine:
@@ -734,6 +736,58 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       // 0.34em, which turned her hashtag into spaced capitals off both edges.
       // A hashtag is written the way the family wrote it.
       SOCIAL.one('social-tag', { base: 67.279, size: pt(50), cx: 49.64, w: 86, room: 26 }, bind('social', 'hashtag')),
+    ],
+  },
+  /**
+   * The guestbook, on her torn-paper page.
+   *
+   * It grows: three messages are on the wall at once (`SHOW_MESSAGES`) and
+   * under them is the box a guest writes in, which is taller on some phones
+   * than others. So the picture is cut in three — and the band that stretches
+   * is the one strip of her sky with no hearts in it, between 45% and 52% of
+   * the page, because a stretched heart is an egg.
+   *
+   * `headPad` clears the torn edge at its deepest (20.63% of the page, 36.7cqw)
+   * and `footPad` clears the baby, whose head starts 31.1cqw above the foot.
+   */
+  {
+    key: 'guestbook', label: { en: 'Guestbook' }, sections: ['guestbook'], seam: 0,
+    drawn: true, grow: true, live: true, headPad: 40, footPad: 3,
+    ground: ground('guestbook', 1.7778, true),
+    elements: [
+      // under her heart-in-a-speech-bubble, which sits at 7.5–11.5% dead centre
+      GUESTBOOK.one('gb-head', { base: 15.4, size: pt(40), face: 'display', weight: 700, cx: 50, w: 74, room: 24, caps: true },
+        { word: 'title:guestbook' }, say('GUESTBOOK')),
+    ],
+  },
+  /**
+   * The photographs guests send, in her Instagram post.
+   *
+   * "okay with one single photos that they can swipe, just put a note to
+   * swipe so they can see other photos." So the nine-cell wall becomes one
+   * photograph at a time on this page, swiped sideways — a scroll strip that
+   * snaps, which is what a phone already knows how to do, and no script.
+   *
+   * Her heart reactions are not in the ground any more. They cannot be: this
+   * page grows with however many guests write, and the band of the picture
+   * that stretches has to be plain. They are cut out into a piece
+   * (`parts/post-hearts.webp`, the card behind them made transparent) and
+   * laid back over the photograph at z 3 — which is where reactions belong
+   * anyway, on top of the picture rather than beside it.
+   */
+  {
+    key: 'post-event', label: { en: 'Photos from the day' }, sections: ['photos'], seam: 0,
+    drawn: true, grow: true, live: true, wall: 'swipe', headPad: 26, footPad: 3,
+    ground: ground('post-event', 1.7778, true),
+    elements: [
+      // where a post puts whose post it is: left of her ⋯ and ✕, which sit at
+      // 77.96–91.85% across and 9.53–12.19% down
+      POSTEVENT.one('pe-head', { base: 11.9, size: pt(30), face: 'display', weight: 700, cx: 39.65, w: 68.7, align: 'left', room: 26, caps: true },
+        { word: 'title:photos' }, say('PHOTOS FROM THE DAY')),
+      // 52.13% of the page wide as she drew them, brought down to 40 so they
+      // sit inside the photograph rather than across its whole width
+      piece('pe-hearts', '/christening/parts/post-hearts.webp',
+        { cx: 73, cy: 45.06, w: 40, aspect: 1.4938, z: 3 }),
     ],
   },
   {

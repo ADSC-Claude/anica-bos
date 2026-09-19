@@ -3314,6 +3314,61 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-paged] .inv-page[data-live] > .inv-section:not(.inv-bb-art) > :is(.inv-eyebrow, .inv-title, .inv-tagline):first-child { display: none; }
 
 /* ---------------------------------------------------------------------------
+   The two guest-wall pages of the christening, whose artwork says where its
+   working part goes: the guestbook's blue field, and the white card of the
+   Instagram post.
+
+   Both are `live` pages, so what follows is the section's own markup laid
+   inside a picture rather than beside it. The sections are the app's own
+   components — the same guestbook and the same album every design gets — so
+   nothing here changes what they render; it changes the box they render in,
+   in cqw, which is the unit the artwork was measured in.
+   --------------------------------------------------------------------------- */
+/* Her sky is 100% wide and the cards want a margin off both edges. */
+.inv[data-doc] .inv-page[data-page='guestbook'] > .inv-section:not(.inv-bb-art) {
+  max-width: none; padding-left: 9cqw; padding-right: 9cqw;
+}
+
+/* The card runs 4.26% to 95.83% across, so its inside starts a little in from
+   each edge — and the section fills it rather than sitting in the middle of
+   it at the app's own 26rem. */
+.inv[data-doc] .inv-page[data-page='post-event'] > .inv-section:not(.inv-bb-art) {
+  max-width: none; padding-left: 5.3cqw; padding-right: 5.3cqw;
+}
+/* The design has drawn both the heading and the line under it, so the
+   section's own pair goes — not only the first of them, which is all the
+   rule above takes. */
+.inv[data-doc] .inv-page[data-page='post-event'] > .inv-section:not(.inv-bb-art) > :is(.inv-title, .inv-tagline) { display: none; }
+/* And the upload mark the format lays above an album: it landed between the
+   note and the photograph, which is the one place on this page nothing may
+   go. Her own camera is in the comment bar at the foot. */
+.inv[data-doc] .inv-page[data-page='post-event'] > .inv-section:not(.inv-bb-art) > .inv-ico-lg { display: none; }
+/*
+ * One photograph at a time, swiped.
+ *
+ * "okay with one single photos that they can swipe". The wall is a
+ * three-by-three grid wherever there is room for nine frames; a page drawn as
+ * one photograph asks for this instead (`PageSpec.wall: 'swipe'`), and the
+ * same cells are laid in a row a page wide each. The phone's own scroll
+ * snapping moves between them, so there is no script to load and nothing to
+ * go wrong on a guest's phone.
+ */
+.inv-wall-grid.is-strip {
+  display: flex; gap: 0;
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.inv-wall-grid.is-strip::-webkit-scrollbar { display: none; }
+.inv-wall-grid.is-strip > * { flex: 0 0 100%; scroll-snap-align: center; }
+/* A grid draws nine empty frames so the album has its shape before anyone
+   fills it. A strip cannot: eight of them would be eight swipes of nothing.
+   The one that carries the invitation to add a photograph stays; the rest are
+   the ones already marked `aria-hidden`, and they go. */
+.inv-wall-grid.is-strip > .inv-slot[aria-hidden] { display: none; }
+.inv-wall-grid.is-strip > .inv-slot { aspect-ratio: 1; }
+
+/* ---------------------------------------------------------------------------
    A drawn element that goes somewhere: the calendar, Google Maps, Waze.
 
    The element itself is the anchor — same class, same box — rather than

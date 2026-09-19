@@ -1214,33 +1214,67 @@ function AudioInput({ field, value, onChange, invitationId, sibling }: { field: 
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
   const input = useRef<HTMLInputElement>(null);
+  /**
+   * What the browser calls the file, turned into what we store it as.
+   *
+   * The type a browser reports for a song is not one thing: an MP3 picked on
+   * a Mac is `audio/mpeg`, the same file out of Google Drive on Android is
+   * often `application/octet-stream`, and an iPhone's own recording is
+   * `audio/x-m4a`. So the name is read as well as the type, and neither on
+   * its own has to be right. Only the two we store come out of here.
+   */
+  function typeOf(file: File): string {
+    const name = file.name.toLowerCase();
+    if (/^audio\/(mpeg|mp3|mpeg3|x-mpeg-3|mpg)$/.test(file.type) || name.endsWith('.mp3')) return 'audio/mpeg';
+    if (/^audio\/(mp4|m4a|x-m4a|aac)$/.test(file.type) || name.endsWith('.m4a')) return 'audio/mp4';
+    return '';
+  }
+
+  /** Through the server, the way every photograph goes. Only for a file small enough to fit in one request. */
+  async function throughServer(file: File): Promise<string> {
+    const fd = new FormData();
+    fd.set('file', file);
+    fd.set('invitationId', invitationId);
+    fd.set('kind', 'AUDIO');
+    const res = await fetch('/api/account/upload', { method: 'POST', body: fd });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error ?? 'Upload failed.');
+    return json.url as string;
+  }
+
   async function upload(file: File) {
     setBusy(true);
     setError('');
     setProgress(0);
     try {
-      const contentType =
-        file.type === 'audio/mpeg' || file.type === 'audio/mp3' || /\.mp3$/i.test(file.name) ? 'audio/mpeg'
-        : file.type === 'audio/mp4' || file.type === 'audio/x-m4a' || /\.m4a$/i.test(file.name) ? 'audio/mp4'
-        : '';
-      if (!contentType) throw new Error('Only MP3 and M4A audio files are accepted.');
+      const contentType = typeOf(file);
+      if (!contentType) throw new Error(`“${file.name}” is not an MP3 or M4A. Only those two play behind a page.`);
       if (file.size > 20 * 1024 * 1024) throw new Error('Songs must be 20 MB or smaller.');
       const signRes = await fetch('/api/account/upload/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitationId, contentType, size: file.size }) });
-      const sign = await signRes.json();
+      const sign = await signRes.json().catch(() => ({}));
       if (!signRes.ok) throw new Error(sign.error ?? 'Upload failed.');
       if (sign.direct) {
-        const fd = new FormData();
-        fd.set('file', file);
-        fd.set('invitationId', invitationId);
-        fd.set('kind', 'AUDIO');
-        const res = await fetch('/api/account/upload', { method: 'POST', body: fd });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? 'Upload failed.');
-        onChange(json.url);
+        onChange(await throughServer(file));
       } else {
-        await putWithProgress(sign.uploadUrl, file, contentType, setProgress);
+        try {
+          await putWithProgress(sign.uploadUrl, file, contentType, setProgress);
+        } catch (e) {
+          /*
+           * The browser puts a song into storage itself, because a song is
+           * often bigger than a request to the server may carry. When that
+           * put fails — and it can fail for reasons no one here can see, a
+           * flaky connection or a rule on the storage's side — a file small
+           * enough to fit in one request still has the ordinary road open,
+           * the one every photograph on this page already travels. Taking it
+           * is better than telling a customer their song cannot be uploaded.
+           */
+          if (file.size > 4 * 1024 * 1024) throw e;
+          setProgress(0);
+          onChange(await throughServer(file));
+          return;
+        }
         const res = await fetch('/api/account/upload/commit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ invitationId, storagePath: sign.storagePath, contentType }) });
-        const json = await res.json();
+        const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error ?? 'Upload failed.');
         onChange(json.url);
       }
@@ -1257,7 +1291,11 @@ function AudioInput({ field, value, onChange, invitationId, sibling }: { field: 
       <Label field={field} />
       <div className="space-y-2">
         {value && <audio controls preload="metadata" src={value} className="w-full" />}
-        <input ref={input} type="file" accept="audio/mpeg,audio/mp4,.mp3,.m4a" className="field max-w-full text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        {/* `audio/*` and not the two types alone: a phone's file browser greys out
+            whatever the list does not name, and the type it gives an MP3 sitting in
+            Google Drive is often not `audio/mpeg` at all. The file is still checked
+            when it is picked — this only stops the picker refusing to show it. */}
+        <input ref={input} type="file" accept="audio/*,.mp3,.m4a" className="field max-w-full text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         <input type="url" className="field text-xs" placeholder="…or paste a direct link to an MP3" value={uploaded ? '' : value} onChange={(e) => onChange(e.target.value)} />
         {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>Remove</button>}
         {busy && <p className="hint">{progress > 0 && progress < 100 ? `Uploading… ${progress}%` : 'Uploading…'}</p>}

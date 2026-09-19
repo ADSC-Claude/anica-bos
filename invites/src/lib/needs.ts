@@ -531,14 +531,17 @@ export function pageNeeds({ doc, occasion, content, weights, lengths, shop }: Lo
       say(out, a, 'says', 'orphan', `${a.label} is a field ${occasionWord(occasion)} does not have; it stays empty there.`);
       continue;
     }
-    if (a.kind === 'photo' && !a.ifEmpty) {
+    // only where she ticked the box: a frame is surveyed without the tick
+    // now, and one that simply binds a field has always drawn nothing when
+    // it is empty, which is right and needs no answer from her
+    if (a.kind === 'photo' && a.marked && !a.ifEmpty) {
       say(out, a, 'says', 'if-empty', `${a.label} is asked for but has nothing to show when it is left empty.`);
     }
     const field = fieldOf(a.ref, occasion);
     if (a.room && field?.max && field.max > a.room) {
       say(out, a, 'says', 'room', `${a.label}: the box fits about ${a.room} letters; the question on the form still asks for ${field.max}.`);
     }
-    if (content && a.kind === 'photo' && !valueAt(content, a.ref)) {
+    if (content && a.kind === 'photo' && a.marked && !valueAt(content, a.ref)) {
       say(out, a, 'says', 'demo-blank', `The demo has nothing for ${a.label}.`);
     }
   }

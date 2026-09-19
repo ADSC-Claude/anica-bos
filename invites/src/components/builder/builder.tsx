@@ -57,6 +57,7 @@ export function Builder({
   lang,
   listLimits,
   listHints,
+  frames,
   lookKey,
   allLooks = 0,
   tier,
@@ -101,6 +102,8 @@ export function Builder({
   listLimits: Record<string, number>;
   /** a list's hint from the design, e.g. a photo page with a fixed number of frames */
   listHints?: Record<string, string>;
+  /** the frame each picture in this part goes into, so the form can let the customer move it inside the real cut */
+  frames?: Record<string, { aspect: number; cut?: 'circle' | 'arch' }>;
   checklist?: ChecklistLine[];
   /** The other ways of handing us the details, where the package has us typing them in. */
   send?: SendToUs | null;
@@ -408,7 +411,7 @@ export function Builder({
         </p>
       )}
       <fieldset disabled={closed} className="min-w-0 border-0 p-0" data-tour="form">
-        <SectionFields fields={fields} value={value} onChange={change} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
+        <SectionFields fields={fields} value={value} onChange={change} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} frames={frames} />
       </fieldset>
 
       {!closed && (

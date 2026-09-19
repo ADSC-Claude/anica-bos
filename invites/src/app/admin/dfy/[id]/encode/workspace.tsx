@@ -46,6 +46,7 @@ export function Workspace({
   lang,
   listLimits,
   listHints,
+  frames,
   done: doneInitial,
 }: {
   jobId: string;
@@ -62,6 +63,7 @@ export function Workspace({
   lang: Lang;
   listLimits: Record<string, number>;
   listHints?: Record<string, string>;
+  frames?: Record<string, { aspect: number; cut?: 'circle' | 'arch' }>;
   done: SectionKey[];
 }) {
   const router = useRouter();
@@ -204,7 +206,7 @@ export function Workspace({
           <PhotoStrip key={f.key} field={f} value={Array.isArray(value[f.key]) ? (value[f.key] as Record<string, unknown>[]) : []} onChange={(rows) => { setValue({ ...value, [f.key]: rows }); setDirty(true); }} />
         ))}
 
-        <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} />
+        <SectionFields fields={fields} value={value} onChange={(v) => { setValue(v); setDirty(true); }} lang={lang} invitationId={invitationId} listLimits={listLimits} listHints={listHints} frames={frames} />
 
         <div className="sticky bottom-0 mt-6 flex flex-wrap items-center gap-2 border-t border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-50)] py-3">
           <button type="button" className="btn btn-primary" onClick={() => save(true, Boolean(next))} disabled={pending}>{pending ? 'Saving…' : next ? `Save, check off & next: ${next.label}` : 'Save & check off'}</button>

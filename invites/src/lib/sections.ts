@@ -12,6 +12,7 @@ import { suggestionsFor } from './suggestions';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
 import { parseStart } from './song';
+import { cropKeyOf, readCrop, placeCrop } from './photo-crop';
 
 /**
  * The shape of an invitation, section by section.
@@ -1624,6 +1625,7 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
         const obj = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>;
         const out: Record<string, unknown> = {};
         for (const sub of field.item ?? []) out[sub.key] = cleanField(sub, obj[sub.key], `${path}[${i}].${sub.key}`, issues);
+        keepCrops(field.item ?? [], obj, out);
         return out;
       });
       // Drop rows where every required sub-field is blank — an empty row is a
@@ -1646,7 +1648,30 @@ export function cleanSection(fields: Field[], raw: unknown): { data: SectionData
   const issues: Issue[] = [];
   const data: SectionData = {};
   for (const f of fields) data[f.key] = cleanField(f, obj[f.key], f.key, issues);
+  keepCrops(fields, obj, data as Record<string, unknown>);
   return { data, issues };
+}
+
+/**
+ * A picture's window travels with the picture.
+ *
+ * `cleanSection` keeps what the fields describe and drops the rest, which
+ * is what stops a browser writing whatever it likes into the content — and
+ * it would drop a crop, because a crop is not a question anybody is asked.
+ * So every `image` field is followed by its own `<key>Crop`, cleaned here
+ * rather than declared as a field: it is part of the picture's answer, not
+ * a second answer, and a customer never sees it as a box of its own.
+ *
+ * Written only when it is a real window. An absent crop is the picture as
+ * the frame has always shown it, so there is nothing to store for one.
+ */
+function keepCrops(fields: Field[], from: Record<string, unknown>, into: Record<string, unknown>): void {
+  for (const f of fields) {
+    if (f.type !== 'image') continue;
+    const key = cropKeyOf(f.key);
+    const crop = readCrop(from[key]);
+    if (crop) into[key] = placeCrop(crop);
+  }
 }
 
 /** What stops an invitation from being published. */

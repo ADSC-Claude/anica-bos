@@ -13,8 +13,11 @@ test('the checklist loads outside a server component', async () => {
   const { pageNeeds, needCount, publishable } = await import('../../src/lib/needs');
   const { builtinDesign } = await import('../../src/lib/design');
   const doc = builtinDesign('babyblue')!;
-  assert.deepEqual(pageNeeds({ doc, occasion: 'CHRISTENING' as never }), []);
-  assert.equal(publishable([]), true);
+  // nothing to fix; the one line a right design still prints is the count
+  // of the frames it asks a customer to fill
+  const clean = pageNeeds({ doc, occasion: 'CHRISTENING' as never });
+  assert.deepEqual(clean.map((n) => n.rule), ['asks']);
+  assert.equal(publishable(clean), true);
 
   // and it still finds a fault out here, so the import is not the only thing proved
   const broken = JSON.parse(JSON.stringify(doc)) as typeof doc;

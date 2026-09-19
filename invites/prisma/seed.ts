@@ -385,12 +385,18 @@ async function main() {
     });
   }
 
-  // --- the christening demo: Lucas Andrei, on Baby Blue ------------------------
-  // The design's two drawn pages filled: six milestones with their photographs,
-  // six baby photographs (four in the frames, two on the page after), and every
-  // other page the Signature package carries.
+  // --- the christening demo: Lucas Andrei, on Baby Blue Christening ------------
+  // The design's drawn pages filled: the milestones with their dates and
+  // photographs, the baby photographs in her frames, the questions on Good to
+  // know, and every other page the Signature package carries.
+  //
+  // On `christening`, not `baby-blue`. The catalogue names this invitation as
+  // the christening design's demo (`demo: 'lucas-andrei-christening'`), so a
+  // demo standing on the *older* design pointed the gallery and the template
+  // preview at one design and drew another — and a seeded database showed the
+  // sixteen pages nowhere at all.
   {
-    const babyBlue = bySlug('baby-blue');
+    const christening = bySlug('christening');
     const day = addDays(new Date(), 60);
     const dayKey = day.toISOString().slice(0, 10);
     const c: Content = defaultContent('CHRISTENING', 'en');
@@ -441,7 +447,7 @@ async function main() {
     Object.assign(c.closing!, { message: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.', signature: 'Paolo, Denise & Lucas', photo: '' });
     const lucas = await prisma.invitation.create({
       data: {
-        userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
+        userId: maria.id, templateId: christening.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
         content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: 6, ogImageUrl: '',
         // The theme's own premium opening: the blue bow unties and the ribbons sweep aside.
         premiumOpening: true, premiumOpeningKey: 'baby-blue-bow',

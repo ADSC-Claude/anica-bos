@@ -2931,6 +2931,36 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-motion] [data-enter] { opacity: 0; }
 .inv[data-motion] [data-enter='rise'] { translate: 0 14px; }
 .inv[data-motion] [data-enter='drift'] { translate: -18px 0; }
+/* `slide`: the thing inside the frame starts a whole height below it and
+   rises into place, while the frame itself stays where it is and clips.
+
+   That is the difference between this and `rise`, and it is the whole point:
+   a frame clips (`.inv-bb-slot` has `overflow: hidden`), so what is below it
+   cannot be seen at all, and what a guest watches is an object being drawn
+   out of a slot — the print out of the camera, the card out of the envelope.
+   Moving the frame would carry the clip with it and show the object lying
+   across whatever is underneath.
+
+   So the frame is fully opaque throughout and only the picture moves. The
+   travel is the picture's own height rather than a distance, which is what
+   keeps it out of sight whatever size the page is. */
+.inv[data-motion] figure[data-enter='slide'] { opacity: 1; }
+.inv[data-motion] figure[data-enter='slide'] > img { translate: 0 100%; }
+.inv[data-motion] figure[data-enter='slide'][data-in] > img {
+  translate: 0 0;
+  transition: translate 1250ms cubic-bezier(0.16, 0.84, 0.3, 1);
+  transition-delay: var(--motion-delay, 0ms);
+}
+/* anything else that asks for it gets the plain long rise */
+.inv[data-motion] :not(figure)[data-enter='slide'] { translate: 0 14cqw; }
+.inv[data-motion] :not(figure)[data-enter='slide'][data-in] {
+  opacity: 1; translate: 0 0;
+  transition: opacity 500ms ease, translate 1250ms cubic-bezier(0.16, 0.84, 0.3, 1);
+  transition-delay: var(--motion-delay, 0ms);
+}
+/* What a guest is meant to tap looks tappable and answers a keyboard. */
+.inv [data-taps] { cursor: pointer; }
+.inv [data-taps]:focus-visible { outline: 2px solid var(--inv-accent, currentColor); outline-offset: 0.4cqw; border-radius: 0.6cqw; }
 .inv[data-motion] [data-enter][data-in] {
   opacity: 1;
   translate: 0 0;
@@ -2945,16 +2975,66 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   animation: inv-sway 7.5s ease-in-out infinite;
   animation-delay: calc(var(--motion-delay, 0ms) + 800ms);
 }
+/* `flicker`: the pulse a lit sign has. Never all the way out — the lowest it
+   goes is still readable, because these are the words that tell a guest where
+   to tap and a word that disappears is a door they never find. The beat is
+   uneven on purpose; an even one reads as a fault rather than an invitation. */
+.inv[data-motion] [data-idle='flicker'][data-in] {
+  animation: inv-flicker 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--motion-delay, 0ms) + 600ms);
+}
 @keyframes inv-float {
   0%, 100% { translate: 0 0; }
   50% { translate: 0 -7px; }
+}
+@keyframes inv-flicker {
+  0%, 44%, 100% { opacity: 1; }
+  52% { opacity: 0.38; }
+  58% { opacity: 0.95; }
+  64% { opacity: 0.5; }
+  72% { opacity: 1; }
 }
 @keyframes inv-sway {
   0%, 100% { rotate: -1.1deg; }
   50% { rotate: 1.1deg; }
 }
+/* ---------------------------------------------------------------------------
+   A drawn page that also works: the RSVP's form, Good to know's questions.
+
+   The art is placed as usual and the section's own markup follows it in the
+   flow, so the page grows with however long the form or the list turns out
+   to be. Two things have to give way for that: the page stops being a fixed
+   shape, and the section's own heading goes — the design has already drawn
+   one, in her hand, and two headings is one of them being wrong.
+   --------------------------------------------------------------------------- */
+.inv[data-paged] .inv-page[data-live] { display: flow-root; }
+/* The art is a backdrop over the whole page, however tall the page turns
+   out; the section starts below whatever the art has words on (`--live-top`,
+   the design's own `headPad`) and the page grows from there. The ground goes
+   with it, which is why a live page's picture is cut into head, band and
+   foot: her banner is in the head and stays the shape she drew it. */
+.inv[data-paged] .inv-page[data-live] > .inv-bb-art { position: absolute; inset: 0; }
+.inv[data-paged] .inv-page[data-live] > .inv-section:not(.inv-bb-art) {
+  position: relative; z-index: 1; padding-top: var(--live-top, 0);
+}
+.inv[data-paged] .inv-page[data-live] > .inv-section:not(.inv-bb-art) > :is(.inv-eyebrow, .inv-title, .inv-tagline):first-child { display: none; }
+
+/* ---------------------------------------------------------------------------
+   A drawn element that goes somewhere: the calendar, Google Maps, Waze.
+
+   The element itself is the anchor — same class, same box — rather than
+   sitting inside one, because every rule that places a drawn element is
+   written as a direct child of the section and a wrapper would take the
+   placement away. So there is almost nothing to say here: it inherits its
+   colour from the design rather than taking a link's, and it shows a focus
+   ring for a guest on a keyboard.
+   --------------------------------------------------------------------------- */
+.inv [data-go] { color: inherit; cursor: pointer; }
+.inv [data-go]:focus-visible { outline: 2px solid var(--inv-accent, currentColor); outline-offset: 0.4cqw; }
+
 /* Paper does not move, and a page being printed is paper. */
 @media print {
+  .inv [data-enter] > img, .inv [data-idle] > img { translate: none !important; }
   .inv [data-enter], .inv [data-idle] { opacity: 1 !important; translate: none !important; rotate: none !important; animation: none !important; transition: none !important; }
 }
 

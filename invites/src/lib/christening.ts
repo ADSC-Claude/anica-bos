@@ -1,4 +1,4 @@
-import type { Element, FieldRef, Ground, Line, PageSpec, ShapeEl, Source, TextEl } from './design';
+import type { Element, FieldRef, Ground, Line, LineRole, PageSpec, PhotoEl, ShapeEl, Source, TextEl } from './design';
 
 /**
  * The christening, on the sixteen grounds she drew in Canva.
@@ -21,105 +21,195 @@ import type { Element, FieldRef, Ground, Line, PageSpec, ShapeEl, Source, TextEl
  *
  * ## Where the numbers come from
  *
- * Nothing here is eyeballed. Every place is read off the PDF she exported:
- * `y` is the top of her line over the page's height, `x` the middle of it
- * over the width, both as percentages because that is what `elementStyle`
- * writes into `top` and `left`. Setting `x` always centres the element on it
- * — the style function adds `translateX(-50%)` whenever x is present — so a
- * box is placed by its middle and given a width, never by its left edge.
+ * Nothing here is eyeballed, and nothing here is a round number. Every
+ * writing on every page was read out of her PDF — its baseline, the middle
+ * of it, its point size, its colour, its angle — by `scripts/canva-text.py`,
+ * and this file is that table with the words replaced by the questions that
+ * fill them. `pdfs/survey.json` is the table itself; run the script again
+ * after a new export and the differences are the design changes.
  *
- * Sizes are her point size over the page's 810pt width, times 100, because
- * `Line.size` is in cqw and cqw is one hundredth of the column. So 80pt on
- * her cover is 80/8.1 = 9.88.
+ * Four things that arithmetic alone does not settle:
  *
- * Two places where the arithmetic is not the whole answer, both deliberate:
+ * - **A baseline, not a top.** A box is placed by its top, and a line of
+ *   type sits some way below the top of its box — how far depends on the
+ *   face and on the leading. Placing by her *top* therefore puts two
+ *   different faces in two different places; placing by her *baseline*, the
+ *   line every typesetter measures from, puts them where she drew them.
+ *   `sheet()` does the conversion, and `HALF` is the one measured number it
+ *   needs per face (see its note).
  *
- * - **The faces are not her faces.** Westonia and Loubag are licensed to
- *   Canva; Allura and Jost Semibold stand in for them, and Parisienne for TT
- *   Nooks Script. Two faces at one point size do not cover the same width, so
- *   a few sizes are nudged off the arithmetic to hold her line breaks. Every
- *   one that is nudged says so where it sits.
- * - **A box says which face it is set in.** `face` is not decoration: a box
- *   that names none is set in the body serif, so the first build came out
- *   with the baby's name, "Our Story" and the programme's times all in
- *   Abhaya Libre, and none of the design's character reached the page.
- *   Every box here names one — `names` for Parisienne, `script` for Allura,
- *   `display` and `body` for Abhaya Libre.
- * - **The role does the tracking, so the words do not.** On a paged design
- *   `.inv-title` is uppercase with 0.34em of letter-spacing. Her headings
- *   are letter-spaced caps, so that is right — but she typed the spaces in
- *   as well ("G O D P A R E N T S"), and the two together doubled it off the
- *   page. The plain word, tracked once by the role, is what she drew.
+ * - **She set her own leading.** Canva lets a designer pull the lines of a
+ *   paragraph together, and she did: her date sits 0.99 of its own size
+ *   under the line above it and her venue 1.20, where the stylesheet's is
+ *   neither. Every box that holds more than one line carries the leading
+ *   measured between her baselines. This is the fault that reads as "the
+ *   spaces between them, some is too far, some is too tight".
  *
- *   The same rule is what ruined the baby's name: `title` on a script face
- *   set "Lucas Andrei Villanueva" in tracked capitals, 855px of it in a
- *   359px box. A script line is `role: 'script'`, which is the one that
- *   leaves the letters alone.
- * - **A name is capped, not shrunk.** Hers is "Lucas Andrei", twelve
- *   letters, and the cover was drawn for twelve. Nothing scales type down to
- *   fit, so at her 100pt a 23-letter name wrapped to seven lines and buried
- *   the page. The sizes below hold about twenty letters — measured in
- *   Parisienne with the real face loaded, not guessed — and `room` is what
- *   tells the form to stop there, so the cap is something a customer meets
- *   at the box rather than discovers on their own cover.
+ * - **The faces are not her faces.** Westonia, Loubag and TT Nooks Script
+ *   are licensed to Canva. Parisienne stands in for TT Nooks, Allura for
+ *   Westonia, Abhaya Libre Bold for Loubag. Two faces at one point size do
+ *   not cover the same width, so every fixed word set in a substitute is
+ *   sized to cover *her* width rather than to carry her point size —
+ *   measured in the browser with the real face loaded, not guessed. Where a
+ *   customer's own words go in, the size is the one that made her demo name
+ *   the width she drew, and `room` caps what the form will accept.
  *
- *   Measured with the real face loaded and the roles right: Parisienne on
- *   one line holds 12 letters at 14cqw, 17 at 12.5, 23 at 9.25. Her own
- *   100pt is 12.35cqw, so her page is drawn for about seventeen — which is
- *   the cap, and the size stays hers rather than being shrunk to fit a demo
- *   name longer than the one she drew for.
- * - **Her page is fixed and ours grows.** She drew four milestones and nine
- *   godparents; a customer may have two or twelve. A list is placed by its
- *   first line and left to grow downward, which is why the godparents'
- *   columns carry a width and no height.
+ * - **Her pages butt up, they do not dissolve.** Every page of hers is a
+ *   finished picture edge to edge, so the column's usual feathered join —
+ *   which exists for Capiz, where one long picture runs down several pages —
+ *   would fade the top of each into the bottom of the one before and take
+ *   her corner clouds with it. `seam: 0` on all sixteen.
+ *
+ * - **A colour is a role.** Her four inks are the palette's four: azure
+ *   #2b5275 is `ink`, the peach #e6b181 is `accent`, the pastel grey
+ *   #67676d is `muted`, and white is `surface` — which is why `surface`
+ *   exists as a line colour at all. Where she wrote in white she wrote over
+ *   her own dark pictures, and a white line that came out azure is a line
+ *   the guest cannot read.
  */
 
 /** cqw from her point size on an 810pt-wide page: one hundredth of the column. */
 const pt = (n: number) => Math.round((n / 8.1) * 100) / 100;
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
-const ground = (slug: string, ratio: number): Ground => ({
+type Face = NonNullable<TextEl['face']>;
+type Ink = NonNullable<Line['color']>;
+
+/**
+ * Half the difference between a face's ascent and its descent, as a share of
+ * the size — the one number that turns a leading and a size into the drop
+ * from the top of a box to the first baseline.
+ *
+ * A line box is `leading × size` tall; the glyphs' own box is
+ * `(ascent + descent) × size` and sits in the middle of it; the baseline is
+ * `ascent × size` down from the top of that. Put together, the drop is
+ * `size × (leading/2 + (ascent − descent)/2)` — so the ascent and the
+ * descent only ever appear as half their difference, and one number a face
+ * is enough.
+ *
+ * Measured in Chromium with the faces loaded (`scripts/canva-text.py
+ * --metrics` prints them), not read off the font files: what the browser
+ * uses for a line box is what matters, and it is not always what the file
+ * says.
+ */
+const HALF: Record<Face, number> = {
+  body: 0.218,    // Abhaya Libre
+  display: 0.218, // Abhaya Libre
+  names: 0.229,   // Parisienne
+  script: 0.146,  // Allura
+};
+
+/** the leading a box of one line gets, where she set none worth keeping */
+const LEAD = 1.25;
+
+/** Everything a writing needs to land where she drew it. */
+type Set = {
+  /** her baseline, as a share of this page's own height */
+  base: number;
+  /** her point size over 8.1, in cqw */
+  size: number;
+  face?: Face;
+  weight?: number;
+  role?: LineRole;
+  color?: Ink;
+  /** the middle of her line, as a share of the width; the default is the page's middle */
+  cx?: number;
+  /** the box, as a share of the width — hers plus the room a longer answer needs */
+  w?: number;
+  align?: 'left' | 'center' | 'right';
+  /** her leading, measured between her baselines, as a multiple of the size */
+  lead?: number;
+  /** her angle, positive clockwise, the way CSS turns things */
+  turn?: number;
+  /** what the form will accept in this box */
+  room?: number;
+  /** nothing to say, nothing drawn */
+  hide?: true;
+  /** her own letter-spacing, where the role's is not it */
+  track?: number;
+  /** it pulses, the way a lit sign does: the words that say where to tap */
+  blink?: true;
+  /** the line she drew under it */
+  rule?: true;
+  /** it comes up once whatever it is written on has arrived */
+  after?: number;
+  /** the id of the element a tap here plays */
+  taps?: string;
+  /** what a tap on it does, where it leaves the invitation */
+  go?: { to: 'calendar' | 'maps' | 'waze'; of?: string };
+};
+
+/**
+ * A page's typesetter, made once per page because the conversion needs the
+ * page's own shape.
+ *
+ * `y` is a share of the page's *height* and `size` a share of its *width*,
+ * so turning a size into a drop needs the ratio between them — which is the
+ * page's own, and different on nine of her sixteen.
+ */
+const sheet = (ratio: number) => {
+  const at = (s: Set, lead: number) => r2(s.base - (s.size * (lead / 2 + HALF[s.face ?? 'body'])) / ratio);
+  const line = (s: Set, sources: Source[]): Line => ({
+    role: s.role ?? 'body',
+    sources,
+    align: s.align ?? 'center',
+    size: s.size,
+    color: s.color ?? 'ink',
+  });
+  const box = (id: string, s: Set, lines: Line[]): TextEl => {
+    const lead = s.lead ?? LEAD;
+    return {
+      id, kind: 'text', block: 'free',
+      x: s.cx ?? 50, y: at(s, lead), w: s.w ?? 88, anchor: 'top',
+      face: s.face ?? 'body', size: s.size, leading: lead,
+      ...(s.weight ? { weight: s.weight } : {}),
+      ...(s.track !== undefined ? { tracking: s.track } : {}),
+      ...(s.turn ? { rotate: s.turn } : {}),
+      ...(s.room ? { room: s.room } : {}),
+      ...(s.hide ? { hidden: 'whenEmpty' as const } : {}),
+      ...(s.blink ? { motion: { idle: 'flicker' as const } } : {}),
+      ...(s.rule ? { rule: true as const } : {}),
+      ...(s.after ? { motion: { enter: 'fade' as const, delay: s.after } } : {}),
+      ...(s.taps ? { taps: s.taps } : {}),
+      ...(s.go ? { go: s.go } : {}),
+      lines,
+    };
+  };
+  return {
+    /** one line of words on her baseline */
+    one: (id: string, s: Set, ...sources: Source[]) => box(id, s, [line(s, sources)]),
+    /** several lines in one box, at her leading */
+    many: (id: string, s: Set, groups: Source[][]) => box(id, s, groups.map((g) => line(s, g))),
+    /** several lines of different sizes in one box, at her leading */
+    mixed: (id: string, s: Set, rows: Array<Partial<Set> & { src: Source[] }>) =>
+      box(id, s, rows.map((row) => line({ ...s, ...row }, row.src))),
+  };
+};
+
+/**
+ * A page's picture.
+ *
+ * `cut` is for a page that can outgrow it — the RSVP with its form, Good to
+ * know with however many questions the family wrote. Her banner is in the
+ * head and her clouds are in the foot, and only the band of plain sky
+ * between them stretches, so nothing she drew changes shape however long
+ * the page turns out (`scripts/canva-slices.py` cuts them).
+ */
+const ground = (slug: string, ratio: number, cut?: true): Ground => ({
   url: `/christening/${slug}.webp`,
   ratio,
+  ...(cut ? { slices: { top: `/christening/${slug}-top.webp`, mid: `/christening/${slug}-mid.webp`, foot: `/christening/${slug}-foot.webp` } } : {}),
   // the fill behind her clouds, sampled off the ground rather than chosen, so
   // a page taller than its picture carries the same blue past both edges
   top: '#e7f3ff',
   bottom: '#e7f3ff',
 });
 
-/**
- * A box of words centred on the page.
- *
- * Centred is the design's default and nearly its only alignment: fifteen of
- * the sixteen pages are symmetrical about the middle. The box is given most
- * of the width rather than the width of her own words, so a longer name than
- * "Lucas Andrei" stays centred instead of running off the edge she measured.
- */
-const mid = (id: string, y: number, lines: Line[], extra: Partial<TextEl> = {}): TextEl => ({
-  id, kind: 'text', block: 'free', x: 50, y, w: 88, anchor: 'top', face: 'body',
-  ...extra,
-  lines: lines.map((l) => ({ align: 'center' as const, ...l })),
-});
-
-/**
- * A box of words in a column of its own, placed by the column's middle.
- *
- * Four pages are built in columns rather than down the middle — the story's
- * milestones, the programme's slots, the two rows of godparents, the pair of
- * contacts — and each column is given here as its left edge and width, which
- * is how a page is measured, then turned into the middle, which is how the
- * document places things.
- */
-const col = (id: string, left: number, y: number, w: number, lines: Line[], extra: Partial<TextEl> = {}): TextEl => ({
-  id, kind: 'text', block: 'free', x: left + w / 2, y, w, anchor: 'top', face: 'body',
-  ...extra,
-  lines,
-});
-
 const say = (s: string): Source => ({ fixed: { en: s } });
 const bind = (section: string, field: string, rest: Omit<FieldRef, 'section' | 'field'> = {}): Source => ({ bind: { section, field, ...rest } });
 
 /**
- * The thing a guest taps to open a booklet, and the words under it.
+ * The invisible rectangle a guest taps to open a booklet.
  *
  * `opens` belongs on the artwork, and on the two shipped designs it is: a
  * shut door carries it, because the door is an element. Here the envelope
@@ -130,27 +220,65 @@ const bind = (section: string, field: string, rest: Omit<FieldRef, 'section' | '
  * and not just her caption: a guest aims at the envelope.
  *
  * Her CLICK HERE and the rule under it are gone from the ground, because the
- * live one flickers and a drawn one cannot — and a drawn underline beneath a
+ * live one pulses and a drawn one cannot — and a drawn underline beneath a
  * live one is two underlines.
  */
-const opener = (
-  id: string,
-  opens: string,
-  box: { x: number; y: number; w: number; h: number },
-  caption: { x: number; y: number; w: number },
-): Element[] => {
-  const target: ShapeEl = {
-    id, kind: 'shape', shape: 'rect',
-    x: box.x + box.w / 2, y: box.y + box.h / 2, w: box.w, h: box.h,
-    anchor: 'centre', fill: 'transparent', opens,
-  };
-  return [
-    target,
-    mid(`${id}-say`, caption.y, [{ role: 'caption', sources: [say('CLICK HERE')], size: pt(25), color: 'muted' }], {
-      x: caption.x, w: caption.w,
-    }),
-  ];
-};
+const opens = (id: string, booklet: string, box: { x: number; y: number; w: number; h: number }): ShapeEl => ({
+  id, kind: 'shape', shape: 'rect',
+  x: box.x + box.w / 2, y: box.y + box.h / 2, w: box.w, h: box.h,
+  anchor: 'centre', fill: 'transparent', opens: booklet,
+});
+
+/** A piece cut out of her own artwork, laid back on the page so it can move. */
+const piece = (id: string, url: string, at: { cx: number; cy: number; w: number; aspect: number; turn?: number; z?: number }, extra: Partial<PhotoEl> = {}): PhotoEl => ({
+  id, kind: 'photo', bind: { asset: url },
+  x: at.cx, y: at.cy, w: at.w, aspect: at.aspect, anchor: 'centre',
+  ...(at.turn ? { rotate: at.turn } : {}),
+  ...(at.z ? { z: at.z } : {}),
+  hidden: 'never',
+  ...extra,
+});
+
+// ───────────────────────── the seven in the column ─────────────────────────
+const COVER = sheet(1.7778);
+const COUNTDOWN = sheet(0.3241);
+const HUB = sheet(1.7778);
+const FAQ = sheet(1.1111);
+const SOCIAL = sheet(0.5556);
+const HELP = sheet(0.5556);
+const CLOSE = sheet(0.463);
+// ───────────────────────────── and the nine behind ─────────────────────────
+const STORY = sheet(1.7778);
+const GALLERY = sheet(1.7778);
+const INVITE = sheet(1.7778);
+const GODPARENTS = sheet(1.1111);
+const VENUE = sheet(1.2963);
+const DRESS = sheet(1.7778);
+const PROGRAM = sheet(1.4815);
+const GIFT = sheet(1.1111);
+const RSVP = sheet(1.7778);
+
+/**
+ * Her four milestones and her five programme slots, down the drawn spine:
+ * three lines a row, each on its own baseline because she gave the three
+ * different gaps, and the row alternating side so the page reads down the
+ * spine rather than down one margin.
+ */
+const ROWS = (
+  S: ReturnType<typeof sheet>,
+  key: string,
+  section: string,
+  field: string,
+  first: string,
+  rows: Array<{ left: number; date: number; title: number; text: number }>,
+): Element[] => rows.flatMap((row, i) => [
+  S.one(`${key}-${i + 1}-when`, { base: row.date, size: 4.5, face: 'script', cx: row.left + 15, w: 30, align: 'left', hide: true, room: 18 },
+    bind(section, field, { index: i, sub: first })),
+  S.one(`${key}-${i + 1}-what`, { base: row.title, size: pt(29.64), cx: row.left + 15, w: 30, align: 'left', hide: true, room: 22 },
+    bind(section, field, { index: i, sub: 'title' })),
+  S.one(`${key}-${i + 1}-note`, { base: row.text, size: pt(18.77), cx: row.left + 15, w: 30, align: 'left', lead: 1.35, hide: true, room: 90 },
+    bind(section, field, { index: i, sub: key === 'story' ? 'text' : 'note' })),
+]);
 
 /**
  * Sixteen pages: seven in the column, nine in three booklets.
@@ -164,53 +292,126 @@ const opener = (
 export const CHRISTENING_PAGES: PageSpec[] = [
   // ─────────────────────────── the column ───────────────────────────
   {
-    key: 'cover', label: { en: 'Cover' }, sections: ['cover'], drawn: true,
+    key: 'cover', label: { en: 'Cover' }, sections: ['cover'], seam: 0, drawn: true,
     ground: ground('cover', 1.7778),
     elements: [
-      mid('cover-the', 15.9, [{ role: 'eyebrow', sources: [say('The')], size: pt(35), color: 'accent' }]),
-      // her word in her script. Parisienne sets narrower than TT Nooks, so 86 where she had 80.
-      mid('cover-word', 17.6, [{ role: 'script', sources: [{ word: 'cover' }, say('Christening')], size: pt(78), color: 'ink' }], { face: 'names', w: 92 }),
-      mid('cover-of', 25.5, [{ role: 'eyebrow', sources: [say('of our son')], size: pt(30), color: 'accent' }]),
-      mid('cover-name', 36.8, [{ role: 'script', sources: [bind('cover', 'childFull')], size: pt(100), color: 'accent' }], { face: 'names', w: 92, room: 17 }),
-      mid('cover-family', 45.9, [{ role: 'sub', sources: [bind('parents', 'familyName')], size: pt(34), color: 'accent' }], { room: 28 }),
-      mid('cover-date', 58.8, [
-        { role: 'body', sources: [bind('cover', 'date', { show: 'date' })], size: pt(35), color: 'accent' },
-        { role: 'body', sources: [bind('cover', 'time', { show: 'time' })], size: pt(35), color: 'accent' },
-      ]),
-      mid('cover-church', 64.6, [{ role: 'body', sources: [bind('ceremony', 'venue')], size: pt(30), color: 'accent' }]),
+      COVER.one('cover-the', { base: 17.961, size: pt(35), color: 'accent', face: 'display', weight: 700 }, say('The')),
+      // Parisienne for TT Nooks Script: 90.4pt covers the 368pt she drew, where
+      // her own 80pt would have come out narrow
+      COVER.one('cover-word', { base: 24.215, size: 11.16, face: 'names', role: 'script', w: 92 },
+        { word: 'cover' }, say('Christening')),
+      COVER.one('cover-of', { base: 27.225, size: pt(30), color: 'accent', face: 'display', weight: 700, cx: 51.34 }, say('of our son')),
+      COVER.one('cover-name', { base: 45.455, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
+        bind('cover', 'childFull')),
+      COVER.one('cover-family', { base: 48.185, size: pt(40), color: 'accent', face: 'display', weight: 700, room: 28 },
+        bind('parents', 'familyName')),
+      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68 },
+        bind('cover', 'date', { show: 'date' })),
+      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68 },
+        bind('cover', 'time', { show: 'time' })),
+      // her venue runs to two lines 1.20 of its size apart; the box is wide
+      // enough to break in the same place and no wider
+      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 46, lead: 1.2, room: 40 },
+        bind('ceremony', 'venue')),
+      COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print' },
+        say('CLICK HERE')),
+      /*
+       * The print, and the tap that pulls it out.
+       *
+       * Her camera is in the ground, where it belongs — it never moves. What
+       * moves is the print, cut out of her own page (`scripts/canva-cut.py`)
+       * and laid back in the frame she drew it in, with the frame clipping:
+       * at rest the picture sits a whole height below the frame and cannot
+       * be seen at all, and the tap brings it up, so it reads as coming out
+       * of the slot rather than fading in on top of the camera.
+       *
+       * The frame's foot is a hair inside the camera's top plate, which is
+       * where the slot is, so the print appears from behind it.
+       *
+       * Two things carry the tap: her own CLICK HERE, and an invisible
+       * rectangle over the camera — because a guest aims at the camera
+       * whatever the words underneath it say.
+       */
+      piece('cover-print', '/christening/parts/instax-print.webp',
+        { cx: 51.30, cy: 78.70, w: 22.04, aspect: 1.1092 }, { motion: { enter: 'slide' } }),
+      { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
+        anchor: 'centre', fill: 'transparent', taps: 'cover-print' },
     ],
   },
   {
-    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], drawn: true,
+    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true,
     ground: ground('countdown', 0.3241),
     elements: [
-      mid('countdown-line', 63, [{ role: 'script', sources: [bind('countdown', 'label'), { word: 'countdown' }, say('before the big day')], size: pt(34), color: 'accent' }], { face: 'script', room: 34 }),
+      COUNTDOWN.one('countdown-line', { base: 76.804, size: 3.87, color: 'accent', face: 'names', role: 'script', w: 62, room: 34 },
+        bind('countdown', 'label'), { word: 'countdown' }, say('before the big day')),
     ],
   },
   /**
    * The hub. It carries no section of its own, because everything on it is a
    * door rather than a part of the invitation.
    *
+   * Every writing on it is turned, because every writing on it is written on
+   * something that is turned — the card in the envelope leans nine degrees
+   * counter-clockwise, the little RSVP envelope ten the other way, the oval's
+   * script fourteen. Set straight, they sat across her artwork rather than on
+   * it. The angles are hers, read off the export; each is the angle at the
+   * *middle* of her line, because that is the point an element turns about.
+   *
    * `peekEnd` stops the shop's preview here, which is the right place for it:
    * the hub is the whole idea of the design in one screen, and the nine pages
    * behind it are the thing being bought.
    */
   {
-    key: 'highlights', label: { en: 'Highlights' }, sections: [], drawn: true, peekEnd: true,
+    key: 'highlights', label: { en: 'Highlights' }, sections: [], seam: 0, drawn: true, peekEnd: true,
     ground: ground('highlights', 1.7778),
     elements: [
-      mid('hl-details', 16.6, [{ role: 'eyebrow', sources: [say('The Details')], size: pt(20), color: 'ink' }], { x: 39, w: 62 }),
-      mid('hl-of', 19.2, [{ role: 'eyebrow', sources: [say('The Christening of')], size: pt(23), color: 'ink' }], { x: 39, w: 62 }),
-      mid('hl-name', 20.2, [{ role: 'script', sources: [bind('cover', 'childFull')], size: pt(40), color: 'accent' }], { x: 39, w: 62, face: 'names' }),
-      // her "10 · 28 · 2028" has no match among the four formats; the short
-      // one ("Oct 28, 2028") is the nearest and is what the page now says
-      mid('hl-date', 25.2, [{ role: 'body', sources: [bind('cover', 'date', { show: 'dateShort' })], size: pt(23), color: 'ink' }], { x: 39, w: 62 }),
-      ...opener('hl-open-details', 'details', { x: 8, y: 8, w: 62, h: 26 }, { x: 43, y: 35.8, w: 42 }),
-      mid('hl-story', 57.5, [{ role: 'script', sources: [say('Our Story')], size: pt(66), color: 'ink' }], { x: 40, w: 44, face: 'script' }),
-      ...opener('hl-open-story', 'story', { x: 18, y: 44, w: 44, h: 26 }, { x: 41, y: 68.8, w: 42 }),
-      mid('hl-kindly', 47.3, [{ role: 'eyebrow', sources: [say('Kindly')], size: pt(25), color: 'ink' }], { x: 70, w: 28 }),
-      mid('hl-rsvp', 48.8, [{ role: 'label-title', sources: [say('RSVP')], size: pt(31), color: 'ink' }], { x: 70, w: 28, face: 'display', weight: 700 }),
-      ...opener('hl-open-rsvp', 'rsvp', { x: 54, y: 42, w: 34, h: 18 }, { x: 66, y: 58.3, w: 34 }),
+      opens('hl-open-details', 'details', { x: 8, y: 8, w: 62, h: 30 }),
+      /*
+       * The card, drawn out of the envelope as the guest arrives.
+       *
+       * She asked for it on turning to the page rather than on a tap, and
+       * that is right: the envelope already carries a tap, and it opens The
+       * Details. Two things on one tap is one of them not happening.
+       *
+       * She drew the card as tall as the envelope and pushed all the way in,
+       * so there is nowhere to hide it: move it a hair and its bottom corner
+       * appears below the envelope's. What *can* be hidden is everything
+       * above the envelope's mouth, so the card is cut along that line
+       * (`scripts/canva-cut.py`) and the piece above it rises inside a frame
+       * whose foot is the mouth. The pocket and the seal never move and stay
+       * in the ground.
+       */
+      piece('hl-card', '/christening/parts/envelope-card.webp',
+        { cx: 35.84, cy: 19.73, w: 44.91, aspect: 0.3457, turn: -9.36 }, { motion: { enter: 'slide' } }),
+      HUB.one('hl-details', { after: 1100, base: 18.220, size: pt(20), cx: 36.33, w: 40, turn: -8.8 }, say('The Details')),
+      HUB.one('hl-of', { after: 1100, base: 21.395, size: pt(23), cx: 37.54, w: 44, turn: -8.7 }, say('The Christening of')),
+      HUB.one('hl-name', { after: 1100, base: 24.531, size: 5.25, color: 'accent', face: 'names', role: 'script', cx: 38.93, w: 48, turn: -8.3, room: 20 },
+        bind('cover', 'childFull')),
+      HUB.one('hl-date', { after: 1100, base: 27.134, size: pt(23), cx: 40.18, w: 40, turn: -8.0 },
+        bind('cover', 'date', { show: 'dateShort' })),
+      HUB.one('hl-details-click', { base: 37.826, size: pt(25), color: 'muted', cx: 43.16, w: 34, turn: -7.2, role: 'caption', blink: true, rule: true },
+        say('CLICK HERE')),
+
+      opens('hl-open-rsvp', 'rsvp', { x: 52, y: 42, w: 36, h: 20 }),
+      HUB.one('hl-kindly', { base: 49.222, size: pt(25), cx: 70.07, w: 26, turn: 10.0 }, say('Kindly')),
+      // Loubag, in Abhaya Libre Bold: 38.85pt covers the 87.8pt she drew
+      HUB.one('hl-rsvp', { base: 52.048, size: 4.8, cx: 69.43, w: 26, turn: 10.7, face: 'display', weight: 700 }, say('RSVP')),
+      HUB.one('hl-rsvp-click', { base: 60.493, size: pt(25), color: 'muted', cx: 66.04, w: 32, turn: 9.0, role: 'caption', blink: true, rule: true },
+        say('CLICK HERE')),
+
+      opens('hl-open-story', 'story', { x: 14, y: 44, w: 44, h: 30 }),
+      // her two lines, at her two sizes and her two angles: one word over the
+      // other down the oval, which is the whole of why it does not look stiff
+      HUB.one('hl-our', { base: 61.590, size: 8.13, color: 'surface', face: 'script', role: 'script', cx: 35.51, w: 30, turn: -10.0 }, say('Our')),
+      HUB.one('hl-story', { base: 65.975, size: 12.11, color: 'surface', face: 'script', role: 'script', cx: 36.59, w: 40, turn: -14.0 }, say('Story')),
+      HUB.one('hl-story-click', { base: 71.686, size: pt(30), color: 'muted', cx: 41.41, w: 34, turn: -12.8, role: 'caption', blink: true, rule: true },
+        say('CLICK HERE')),
+
+      // her CLICK FOR MUSIC is set around the rim of the disc, which no box of
+      // words can do; it is cut out of her own page and laid back on it, and
+      // it pulses with the rest of them
+      piece('hl-music', '/christening/parts/click-for-music.webp',
+        { cx: 77.55, cy: 29.97, w: 20.09, aspect: 0.8525 }, { motion: { idle: 'flicker' } }),
     ],
   },
   /**
@@ -218,98 +419,106 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    * questions or ten, and the section draws the pairs itself.
    */
   {
-    key: 'faq', label: { en: 'Good to know' }, sections: ['faq'], drawn: true, grow: true,
-    ground: ground('faq', 1.1111),
+    key: 'faq', label: { en: 'Good to know' }, sections: ['faq'], seam: 0, drawn: true, grow: true, live: true, headPad: 22,
+    ground: ground('faq', 1.1111, true),
     elements: [
-      mid('faq-head', 8, [{ role: 'title', sources: [say('GOOD TO KNOW')], size: pt(40), color: 'ink' }]),
+      FAQ.one('faq-head', { base: 12.5, size: pt(40), role: 'title' }, say('GOOD TO KNOW')),
     ],
   },
   {
-    key: 'social', label: { en: 'Share the joy' }, sections: ['social'], drawn: true,
+    key: 'social', label: { en: 'Share the joy' }, sections: ['social'], seam: 0, drawn: true,
     ground: ground('social', 0.5556),
     elements: [
-      mid('social-head', 28.8, [{ role: 'eyebrow', sources: [{ word: 'title:social' }, say('SHARE THE JOY')], size: pt(30), color: 'ink' }]),
+      SOCIAL.one('social-head', { base: 34.432, size: pt(30), cx: 50.10 }, { word: 'title:social' }, say('SHARE THE JOY')),
       // `body`, not `title`: a title on a paged design is uppercase and tracked
       // 0.34em, which turned her hashtag into spaced capitals off both edges.
       // A hashtag is written the way the family wrote it.
-      mid('social-tag', 56.4, [{ role: 'body', sources: [bind('social', 'hashtag')], size: pt(46), color: 'ink' }], { w: 86, room: 26 }),
+      SOCIAL.one('social-tag', { base: 67.279, size: pt(50), cx: 49.64, w: 86, room: 26 }, bind('social', 'hashtag')),
     ],
   },
   {
-    key: 'assistance', label: { en: 'Questions?' }, sections: ['contact'], drawn: true,
+    key: 'assistance', label: { en: 'Questions?' }, sections: ['contact'], seam: 0, drawn: true,
     ground: ground('assistance', 0.5556),
     elements: [
-      mid('help-head', 19.6, [{ role: 'title', sources: [{ word: 'title:contact' }, say('QUESTIONS?')], size: pt(40), color: 'ink' }]),
-      col('help-one', 24, 52.9, 26, [
-        { role: 'body', sources: [bind('contact', 'name')], size: pt(25), color: 'ink', align: 'center' },
-        { role: 'body', sources: [bind('contact', 'phone')], size: pt(25), color: 'ink', align: 'center' },
-      ]),
-      col('help-two', 54, 52.6, 26, [
-        { role: 'body', sources: [bind('contact', 'name2')], size: pt(25), color: 'ink', align: 'center' },
-        { role: 'body', sources: [bind('contact', 'phone2')], size: pt(25), color: 'ink', align: 'center' },
-      ], { hidden: 'whenEmpty' }),
-      mid('help-note', 73.6, [{ role: 'body', sources: [bind('contact', 'chatNote'), { word: 'contactNote' }, say('Or message us on Messenger.')], size: pt(25), color: 'ink' }]),
+      HELP.one('help-head', { base: 27.079, size: pt(40), face: 'display', weight: 700 }, { word: 'title:contact' }, say('QUESTIONS?')),
+      HELP.many('help-one', { base: 57.599, size: pt(25), cx: 36.12, w: 26, lead: 1.18 },
+        [[bind('contact', 'name')], [bind('contact', 'phone')]]),
+      HELP.many('help-two', { base: 57.254, size: pt(25), cx: 65.97, w: 26, lead: 1.18, hide: true },
+        [[bind('contact', 'name2')], [bind('contact', 'phone2')]]),
+      HELP.one('help-note', { base: 78.221, size: pt(25), cx: 50.95 },
+        bind('contact', 'chatNote'), { word: 'contactNote' }, say('Or message us on Messenger.')),
     ],
   },
   {
-    key: 'closing', label: { en: 'See you there' }, sections: ['closing'], drawn: true,
+    key: 'closing', label: { en: 'See you there' }, sections: ['closing'], seam: 0, drawn: true,
     ground: ground('closing', 0.463),
     elements: [
-      mid('close-head', 18.3, [{ role: 'title', sources: [{ word: 'closing' }, say('SEE YOU THERE!')], size: pt(27.5), color: 'ink' }]),
-      mid('close-msg', 32.5, [{ role: 'body', sources: [bind('closing', 'line'), { word: 'closingMessage' }], size: pt(20), color: 'ink' }], { w: 56 }),
-      mid('close-sign', 49.4, [{ role: 'script', sources: [bind('closing', 'signature')], size: pt(30), color: 'ink' }], { face: 'script', room: 40 }),
-      mid('close-when', 67.7, [{ role: 'caption', sources: [bind('cover', 'date', { show: 'dateShort' })], size: pt(20), color: 'ink' }]),
-      mid('close-tag', 76.3, [{ role: 'caption', sources: [bind('social', 'hashtag')], size: pt(20), color: 'ink' }], { hidden: 'whenEmpty' }),
+      CLOSE.one('close-head', { base: 24.461, size: pt(27.5), face: 'display', weight: 700 }, { word: 'closing' }, say('SEE YOU THERE!')),
+      CLOSE.one('close-msg', { base: 36.979, size: pt(20), w: 58, lead: 1.5 },
+        bind('closing', 'message'), { word: 'closingMessage' }),
+      CLOSE.one('close-sign', { base: 55.743, size: pt(24.62), room: 40 }, bind('closing', 'signature')),
+      // hers read "LUCAS ANDREI'S CHRISTENING"; the nearest thing an
+      // invitation actually holds is the child's own name, so that is the line
+      CLOSE.one('close-what', { base: 64.753, size: pt(20), w: 70, hide: true, room: 40 }, bind('cover', 'childFull')),
+      CLOSE.one('close-when', { base: 72.153, size: pt(20) }, bind('cover', 'date', { show: 'dateShort' })),
+      CLOSE.one('close-tag', { base: 80.771, size: pt(20), hide: true }, bind('social', 'hashtag')),
     ],
   },
 
   // ───────────────────── behind the oval: Our Story ─────────────────────
   {
-    key: 'our-story', label: { en: 'Our Story' }, sections: ['story'], booklet: 'story', drawn: true,
+    key: 'our-story', label: { en: 'Our Story' }, sections: ['story'], seam: 0, booklet: 'story', drawn: true,
     ground: ground('our-story', 1.7778),
     elements: [
-      mid('story-head', 6.4, [{ role: 'script', sources: [{ word: 'title:story' }, say('Our Story')], size: pt(108), color: 'ink' }], { face: 'script', w: 84 }),
-      mid('story-line', 17.4, [{ role: 'sub', sources: [bind('story', 'line'), { word: 'story' }], size: pt(26), color: 'ink' }], { w: 62, room: 46 }),
+      // white, both of them: they are written over her blue banner
+      STORY.one('story-head', { base: 14.961, size: 12.43, color: 'surface', face: 'names', role: 'script', cx: 49.75, w: 84 },
+        { word: 'title:story' }, say('Our Story')),
+      STORY.one('story-line', { base: 18.267, size: pt(30), color: 'surface', face: 'display', weight: 700, cx: 50.22, w: 64, room: 46 },
+        bind('story', 'line'), { word: 'story' }),
       /*
        * Her four milestones, hung off the drawn spine: the words on one side
        * of it, a photograph on the other.
        *
+       * The date is hers and it is back — it was dropped in the first build
+       * and it is the line the row hangs on. Three lines, three baselines:
+       * she set the date 2.63 under nothing, the title 2.63 under the date
+       * and the sentence 2.98 under the title, and three boxes is the only
+       * way to keep three different gaps.
+       *
        * The photographs are ours rather than hers — she drew the spine and
        * its four dots and left both sides of it empty, and asked for frames
-       * afterwards. The side alternates with the words so the page reads
-       * down the spine rather than down one margin, and each pair is placed
-       * on its own dot: the words by their top, the picture on its middle,
-       * so a long description grows downward without dragging the frame
-       * with it.
-       *
-       * `story.timeline[].photo` already existed on the form — the question
-       * was being asked and nothing was drawing the answer.
+       * afterwards. `story.timeline[].photo` already existed on the form;
+       * the question was being asked and nothing was drawing the answer.
        */
-      ...[
-        { i: 0, y: 35.5, left: true }, { i: 1, y: 49.8, left: false },
-        { i: 2, y: 64.6, left: true }, { i: 3, y: 79.5, left: false },
-      ].flatMap(({ i, y, left }) => [
-        col(`story-note-${i + 1}`, left ? 6 : 59.8, y, 32, [
-          { role: 'script', sources: [bind('story', 'timeline', { index: i, sub: 'date' })], size: pt(30), color: 'ink' },
-          { role: 'label-title', sources: [bind('story', 'timeline', { index: i, sub: 'title' })], size: pt(24), color: 'ink' },
-          { role: 'label-text', sources: [bind('story', 'timeline', { index: i, sub: 'text' })], size: pt(17), color: 'ink' },
-        ], { hidden: 'whenEmpty' }),
-        {
-          id: `story-photo-${i + 1}`, kind: 'photo' as const,
-          x: left ? 72 : 26, y: y + 3.2, w: 26, aspect: 1, anchor: 'centre' as const,
-          rotate: left ? 2.5 : -2.5, frame: 'thin' as const,
-          bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
-          alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
-        },
+      ...ROWS(STORY, 'story', 'story', 'timeline', 'date', [
+        { left: 6.10, date: 36.899, title: 39.524, text: 42.499 },
+        { left: 59.84, date: 51.231, title: 53.856, text: 56.831 },
+        { left: 6.10, date: 66.040, title: 68.665, text: 71.640 },
+        { left: 59.84, date: 80.873, title: 83.498, text: 86.473 },
       ]),
+      ...[
+        { i: 0, y: 41.5, left: true }, { i: 1, y: 55.9, left: false },
+        { i: 2, y: 70.7, left: true }, { i: 3, y: 85.5, left: false },
+      ].map(({ i, y, left }): PhotoEl => ({
+        id: `story-photo-${i + 1}`, kind: 'photo',
+        x: left ? 72 : 26, y, w: 26, aspect: 1, anchor: 'centre',
+        rotate: left ? 2.5 : -2.5, frame: 'thin',
+        bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
+        alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
+      })),
     ],
   },
   {
-    key: 'gallery', label: { en: 'Baby photos' }, sections: ['gallery'], booklet: 'story', drawn: true,
+    key: 'gallery', label: { en: 'Baby photos' }, sections: ['gallery'], seam: 0, booklet: 'story', drawn: true,
     ground: ground('gallery', 1.7778),
     elements: [
-      col('gallery-left', 6, 36.5, 26, [{ role: 'script', sources: [bind('gallery', 'note'), { word: 'galleryNote' }, say('Mom and Dad love you!')], size: pt(34), color: 'accent' }], { face: 'script', room: 34 }),
-      col('gallery-right', 68, 53.5, 26, [{ role: 'script', sources: [bind('gallery', 'close'), { word: 'galleryClose' }, say('You are our greatest blessing!')], size: pt(30), color: 'accent', align: 'right' }], { face: 'script', room: 40 }),
+      // both of these are Abhaya Libre in her file, not a script, and both are
+      // set 1.05 of their size apart — tight, and the reason they read as one
+      // hand-written aside rather than a paragraph
+      GALLERY.one('gallery-left', { base: 39.843, size: pt(35), color: 'accent', cx: 22, w: 29, align: 'left', lead: 1.05, room: 34 },
+        bind('gallery', 'note'), { word: 'galleryNote' }, say('Mom and Dad love you!')),
+      GALLERY.one('gallery-right', { base: 56.523, size: pt(30), color: 'accent', cx: 75, w: 30, align: 'right', lead: 1.05, room: 40 },
+        bind('gallery', 'close'), { word: 'galleryClose' }, say('You are our greatest blessing!')),
     ],
   },
 
@@ -318,63 +527,89 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     // it carries the parents too — their names are drawn on it under
     // P A R E N T S — so the section is claimed here and the app does not
     // add a page of its own for a part this design already shows
-    key: 'invitation', label: { en: 'The Invitation' }, sections: ['ceremony', 'parents'], booklet: 'details', drawn: true,
+    key: 'invitation', label: { en: 'The Invitation' }, sections: ['ceremony', 'parents'], seam: 0, booklet: 'details', drawn: true,
     ground: ground('invitation', 1.7778),
     elements: [
-      mid('inv-head', 18.2, [{ role: 'title', sources: [{ word: 'title:invitation' }, say('CEREMONY')], size: pt(50), color: 'ink' }]),
-      mid('inv-line', 23.8, [{ role: 'sub', sources: [{ word: 'invitation' }, say('Join us as we welcome our little one into God’s family')], size: pt(28), color: 'ink' }], { w: 62 }),
-      mid('inv-name', 31.4, [{ role: 'script', sources: [bind('cover', 'childFull')], size: pt(80), color: 'ink' }], { face: 'names', w: 88, room: 17 }),
-      mid('inv-family', 39.6, [{ role: 'sub', sources: [bind('parents', 'familyName')], size: pt(22), color: 'ink' }]),
-      mid('inv-parents', 45.1, [{ role: 'label-title', sources: [say('P A R E N T S')], size: pt(30), color: 'ink' }]),
-      col('inv-dad', 18, 47.8, 26, [{ role: 'body', sources: [bind('parents', 'father')], size: pt(25), color: 'ink', align: 'center' }]),
-      col('inv-mum', 56, 47.9, 26, [{ role: 'body', sources: [bind('parents', 'mother')], size: pt(25), color: 'ink', align: 'center' }]),
-      // four rows beside her drawn icons, all off the same left edge
-      col('inv-day', 34, 53, 46, [
-        { role: 'label-title', sources: [bind('ceremony', 'date', { show: 'weekday' })], size: pt(25), color: 'ink', align: 'left' },
-        { role: 'label-text', sources: [bind('ceremony', 'date', { show: 'date' })], size: pt(20), color: 'ink', align: 'left' },
+      // she typed no spaces in this one — she let Canva track it — so the role
+      // does the tracking and the word stays a word
+      INVITE.one('inv-head', { base: 21.106, size: pt(50), role: 'title', cx: 50.22 }, { word: 'title:invitation' }, say('CEREMONY')),
+      INVITE.one('inv-line', { base: 26.506, size: pt(35), cx: 50.16, w: 68, lead: 1.39 },
+        { word: 'invitation' }, say('Join us as we welcome our little one into God’s family')),
+      INVITE.one('inv-name', { base: 38.356, size: 10.32, face: 'names', role: 'script', cx: 50.84, w: 88, room: 17 },
+        bind('cover', 'childFull')),
+      INVITE.one('inv-family', { base: 40.562, size: pt(25), face: 'display', weight: 700, cx: 49.93, room: 28 },
+        bind('parents', 'familyName')),
+      INVITE.one('inv-parents', { base: 46.815, size: pt(30), face: 'display', weight: 700, cx: 50.16 }, say('P A R E N T S')),
+      INVITE.one('inv-dad', { base: 49.266, size: pt(25), cx: 29.90, w: 28 }, bind('parents', 'father')),
+      INVITE.one('inv-mum', { base: 49.333, size: pt(25), cx: 70.41, w: 28 }, bind('parents', 'mother')),
+      // four rows beside her drawn icons, all off the same left edge, each a
+      // bold line over a lighter one at the gap she set between them
+      INVITE.mixed('inv-day', { base: 54.439, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.39, face: 'display', weight: 700 }, [
+        { src: [bind('ceremony', 'date', { show: 'weekday' })] },
+        { size: pt(20), weight: 400, src: [bind('ceremony', 'date', { show: 'date' })] },
       ]),
-      col('inv-time', 34, 58.8, 46, [
-        { role: 'label-title', sources: [bind('ceremony', 'time', { show: 'time' })], size: pt(25), color: 'ink', align: 'left' },
-        { role: 'label-text', sources: [say('CEREMONY')], size: pt(20), color: 'ink', align: 'left' },
+      INVITE.mixed('inv-time', { base: 60.257, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.23, face: 'display', weight: 700 }, [
+        { src: [bind('ceremony', 'time', { show: 'time' })] },
+        { size: pt(20), weight: 400, src: [say('CEREMONY')] },
       ]),
-      col('inv-where', 34, 64.6, 46, [
-        { role: 'label-title', sources: [bind('ceremony', 'venue')], size: pt(25), color: 'ink', align: 'left' },
-        { role: 'label-text', sources: [bind('ceremony', 'address')], size: pt(20), color: 'ink', align: 'left' },
+      INVITE.mixed('inv-where', { base: 66.090, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.15, face: 'display', weight: 700 }, [
+        { src: [bind('ceremony', 'venue')] },
+        { size: pt(20), weight: 400, src: [bind('ceremony', 'address')] },
       ]),
-      col('inv-wear', 34, 72.7, 46, [{ role: 'label-title', sources: [bind('dressCode', 'attireText'), { word: 'dressCode' }, say('SMART CASUAL')], size: pt(25), color: 'ink', align: 'left' }]),
-      mid('inv-note', 78.5, [{ role: 'caption', sources: [bind('ceremony', 'note')], size: pt(18.7), color: 'ink' }], { w: 56, hidden: 'whenEmpty' }),
-      mid('inv-cal', 90.4, [{ role: 'label-title', sources: [say('ADD TO CALENDAR')], size: pt(25), color: 'ink' }]),
+      INVITE.one('inv-wear', { base: 74.183, size: pt(25), cx: 57, w: 46, align: 'left', face: 'display', weight: 700 },
+        bind('dressCode', 'attireText'), { word: 'dressCode' }, say('SMART CASUAL')),
+      INVITE.one('inv-note', { base: 79.794, size: pt(18.69), cx: 50.16, w: 56, lead: 1.33, hide: true },
+        bind('ceremony', 'note')),
+      // she drew the button; `link` makes it one. See LinkEl for what the
+      // calendar file is built out of.
+      INVITE.one('inv-cal', { base: 91.897, size: pt(25), face: 'display', weight: 700, cx: 49.66, w: 50, rule: true, go: { to: 'calendar' } },
+        say('ADD TO CALENDAR')),
     ],
   },
   {
-    key: 'godparents', label: { en: 'Ninongs & Ninangs' }, sections: ['sponsors'], booklet: 'details', drawn: true, grow: true,
+    key: 'godparents', label: { en: 'Ninongs & Ninangs' }, sections: ['sponsors'], seam: 0, booklet: 'details', drawn: true, grow: true,
     ground: ground('godparents', 1.1111),
     elements: [
-      mid('gp-head', 19.1, [{ role: 'title', sources: [{ word: 'title:sponsors' }, say('GODPARENTS')], size: pt(46.8), color: 'accent' }], { w: 88, face: 'display' }),
-      col('gp-ninongs-head', 14, 29.7, 26, [{ role: 'eyebrow', sources: [say('NINONGS')], size: pt(32.8), color: 'muted', align: 'center' }]),
-      col('gp-ninangs-head', 59, 29.9, 26, [{ role: 'eyebrow', sources: [say('NINANGS')], size: pt(32.8), color: 'muted', align: 'center' }]),
+      GODPARENTS.one('gp-head', { base: 23.442, size: pt(46.83), color: 'accent', role: 'title', cx: 50.20, face: 'display' },
+        { word: 'title:sponsors' }, say('GODPARENTS')),
+      GODPARENTS.one('gp-ninongs-head', { base: 32.722, size: pt(32.78), color: 'muted', cx: 27.43, w: 30 }, say('NINONGS')),
+      GODPARENTS.one('gp-ninangs-head', { base: 32.916, size: pt(32.78), color: 'muted', cx: 72.44, w: 30 }, say('NINANGS')),
       // one box a column, not one a name: she drew nine rows and a customer
       // may bring three or twelve, so the list sets itself and the page grows
-      col('gp-ninongs', 14, 34.4, 26, [{ role: 'body', sources: [bind('sponsors', 'ninongs', { sub: 'name' })], size: pt(28.1), color: 'ink', align: 'center' }]),
-      col('gp-ninangs', 59, 34.4, 26, [{ role: 'body', sources: [bind('sponsors', 'ninangs', { sub: 'name' })], size: pt(28.1), color: 'ink', align: 'center' }]),
+      // at the 1.32 leading she put between her rows
+      GODPARENTS.one('gp-ninongs', { base: 37.052, size: pt(28.10), cx: 27.35, w: 30, lead: 1.32 },
+        bind('sponsors', 'ninongs', { sub: 'name' })),
+      GODPARENTS.one('gp-ninangs', { base: 37.052, size: pt(28.10), cx: 71.67, w: 30, lead: 1.32 },
+        bind('sponsors', 'ninangs', { sub: 'name' })),
     ],
   },
   {
-    key: 'venue', label: { en: 'The Venue' }, sections: ['reception'], booklet: 'details', drawn: true,
+    key: 'venue', label: { en: 'The Venue' }, sections: ['reception'], seam: 0, booklet: 'details', drawn: true,
     ground: ground('venue', 1.2963),
     elements: [
-      mid('venue-cer-head', 14.9, [{ role: 'title', sources: [say('CEREMONY')], size: pt(40), color: 'muted' }]),
-      mid('venue-cer-name', 21.8, [{ role: 'label-title', sources: [bind('ceremony', 'venue')], size: pt(30), color: 'accent' }]),
-      mid('venue-cer-where', 29.8, [
-        { role: 'body', sources: [bind('ceremony', 'address')], size: pt(25), color: 'accent' },
-        { role: 'body', sources: [bind('ceremony', 'time', { show: 'time' })], size: pt(25), color: 'accent' },
+      VENUE.one('venue-cer-head', { base: 18.064, size: pt(40), color: 'muted', role: 'title', cx: 50.05 }, say('CEREMONY')),
+      VENUE.one('venue-cer-name', { base: 24.176, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44 },
+        bind('ceremony', 'venue')),
+      VENUE.mixed('venue-cer-where', { base: 32.138, size: pt(25), color: 'accent', cx: 50.15, w: 76, lead: 1.13 }, [
+        { src: [bind('ceremony', 'address')] },
+        { src: [bind('ceremony', 'time', { show: 'time' })] },
       ]),
-      mid('venue-rec-head', 58.4, [{ role: 'title', sources: [{ word: 'title:venue' }, say('RECEPTION')], size: pt(40), color: 'muted' }]),
-      mid('venue-rec-name', 65.1, [{ role: 'label-title', sources: [bind('reception', 'venue')], size: pt(30), color: 'accent' }]),
-      mid('venue-rec-where', 70.4, [
-        { role: 'body', sources: [bind('reception', 'address')], size: pt(25), color: 'accent' },
-        { role: 'body', sources: [bind('reception', 'time', { show: 'time' })], size: pt(25), color: 'accent' },
+      VENUE.one('venue-cer-maps', { base: 39.286, size: pt(15.06), face: 'display', weight: 700, cx: 50.07, w: 40, rule: true, go: { to: 'maps', of: 'ceremony' } },
+        say('OPEN IN GOOGLE MAPS')),
+      VENUE.one('venue-cer-waze', { base: 43.632, size: pt(15.06), face: 'display', weight: 700, cx: 48.64, w: 40, rule: true, go: { to: 'waze', of: 'ceremony' } },
+        say('OPEN IN WAZE')),
+      VENUE.one('venue-rec-head', { base: 61.622, size: pt(40), color: 'muted', role: 'title', cx: 50.01 },
+        { word: 'title:venue' }, say('RECEPTION')),
+      VENUE.one('venue-rec-name', { base: 67.511, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44 },
+        bind('reception', 'venue')),
+      VENUE.mixed('venue-rec-where', { base: 72.746, size: pt(25), color: 'accent', cx: 50.15, w: 76, lead: 1.02 }, [
+        { src: [bind('reception', 'address')] },
+        { src: [bind('reception', 'time', { show: 'time' })] },
       ]),
+      VENUE.one('venue-rec-maps', { base: 82.572, size: pt(15.06), face: 'display', weight: 700, cx: 50.22, w: 40, rule: true, go: { to: 'maps', of: 'reception' } },
+        say('OPEN IN GOOGLE MAPS')),
+      VENUE.one('venue-rec-waze', { base: 86.918, size: pt(15.06), face: 'display', weight: 700, cx: 48.64, w: 40, rule: true, go: { to: 'waze', of: 'reception' } },
+        say('OPEN IN WAZE')),
     ],
   },
   /**
@@ -382,37 +617,39 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    * a heading, the attire, and her palette note under the drawn swatches.
    */
   {
-    key: 'dresscode', label: { en: 'Dress Code' }, sections: ['dressCode'], booklet: 'details', drawn: true,
+    key: 'dresscode', label: { en: 'Dress Code' }, sections: ['dressCode'], seam: 0, booklet: 'details', drawn: true,
     ground: ground('dresscode', 1.7778),
     elements: [
-      mid('dress-head', 8, [{ role: 'title', sources: [{ word: 'title:dressCode' }, say('DRESS CODE')], size: pt(46), color: 'ink' }]),
-      mid('dress-what', 14.5, [{ role: 'label-title', sources: [bind('dressCode', 'attireText'), say('SMART CASUAL')], size: pt(30), color: 'accent' }]),
-      mid('dress-note', 88, [{ role: 'caption', sources: [bind('dressCode', 'paletteNote'), { word: 'dressNote' }], size: pt(22), color: 'ink' }], { w: 70, hidden: 'whenEmpty' }),
+      DRESS.one('dress-head', { base: 11.5, size: pt(46), role: 'title' }, { word: 'title:dressCode' }, say('DRESS CODE')),
+      DRESS.one('dress-what', { base: 16.4, size: pt(30), color: 'accent', face: 'display', weight: 700 },
+        bind('dressCode', 'attireText'), say('SMART CASUAL')),
+      DRESS.one('dress-note', { base: 89.5, size: pt(22), w: 70, lead: 1.35, hide: true },
+        bind('dressCode', 'paletteNote'), { word: 'dressNote' }),
     ],
   },
   {
-    key: 'program', label: { en: 'Program' }, sections: ['program'], booklet: 'details', drawn: true,
+    key: 'program', label: { en: 'Program' }, sections: ['program'], seam: 0, booklet: 'details', drawn: true,
     ground: ground('program', 1.4815),
     elements: [
-      mid('prog-head', 6.2, [{ role: 'script', sources: [{ word: 'title:program' }, say('Program')], size: pt(66), color: 'ink' }], { face: 'script', w: 62 }),
-      // her six slots, left and right in turn down the drawn spine
-      ...[
-        { i: 0, left: 10.7, y: 15.8 }, { i: 1, left: 57.5, y: 31.9 },
-        { i: 2, left: 10.2, y: 47.8 }, { i: 3, left: 57.5, y: 63.8 },
-        { i: 4, left: 10.7, y: 79.8 }, { i: 5, left: 57.5, y: 95.8 },
-      ].map(({ i, left, y }) => col(`prog-${i + 1}`, left, y, 32, [
-        { role: 'script', sources: [bind('program', 'items', { index: i, sub: 'time' })], size: pt(30), color: 'ink' },
-        { role: 'label-title', sources: [bind('program', 'items', { index: i, sub: 'title' })], size: pt(24), color: 'ink' },
-        { role: 'label-text', sources: [bind('program', 'items', { index: i, sub: 'note' })], size: pt(17), color: 'ink' },
-      ], { hidden: 'whenEmpty' })),
+      PROGRAM.one('prog-head', { base: 10.375, size: 9.89, face: 'script', role: 'script', w: 62 },
+        { word: 'title:program' }, say('Program')),
+      // her five slots, left and right in turn down the drawn spine
+      ...ROWS(PROGRAM, 'prog', 'program', 'items', 'time', [
+        { left: 10.72, date: 17.438, title: 20.589, text: 24.159 },
+        { left: 57.52, date: 33.538, title: 36.689, text: 40.259 },
+        { left: 10.25, date: 49.529, title: 52.680, text: 56.249 },
+        { left: 57.52, date: 65.519, title: 68.670, text: 72.240 },
+        { left: 10.72, date: 81.510, title: 84.661, text: 88.231 },
+      ]),
     ],
   },
   {
-    key: 'gift-note', label: { en: 'Gift Note' }, sections: ['gift'], booklet: 'details', drawn: true,
+    key: 'gift-note', label: { en: 'Gift Note' }, sections: ['gift'], seam: 0, booklet: 'details', drawn: true,
     ground: ground('gift-note', 1.1111),
     elements: [
-      mid('gift-head', 9, [{ role: 'title', sources: [{ word: 'title:gift' }, say('GIFT NOTE')], size: pt(53.8), color: 'ink' }]),
-      mid('gift-words', 28.5, [{ role: 'body', sources: [bind('gift', 'text'), { word: 'giftThanks' }], size: pt(32.3), color: 'ink' }], { w: 72 }),
+      GIFT.one('gift-head', { base: 14.052, size: pt(53.8), role: 'title', cx: 50.45 }, { word: 'title:gift' }, say('GIFT NOTE')),
+      GIFT.one('gift-words', { base: 31.505, size: pt(32.28), w: 74, lead: 1.15 },
+        bind('gift', 'text'), { word: 'giftThanks' }),
       /*
        * One block for both ways of sending a gift.
        *
@@ -424,27 +661,38 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * one sees one. The bank's own line sits between them and disappears
        * when there is no bank.
        *
-       * The label is fixed and so always resolves, which is what keeps the
-       * whole block on the page — `hidden: 'whenEmpty'` only hides a box
-       * where *no* line resolved, and a fixed line always does. That is why
-       * the label is inside this box and not a box of its own: on its own it
-       * would sit there over nothing.
+       * The heading says which: her own SEND A GIFT VIA GCASH where there is
+       * a QR to scan, and SEND A GIFT where there is an account to type. The
+       * QR itself is drawn by the section, and the section is what knows
+       * which way they picked.
        */
-      mid('gift-pay', 49.4, [{ role: 'label-title', sources: [say('SEND A GIFT')], size: pt(26), color: 'ink' }]),
-      mid('gift-pay-who', 79.6, [{ role: 'body', sources: [bind('gift', 'bankAccountName'), bind('gift', 'gcashName')], size: pt(28), color: 'ink' }], { hidden: 'whenEmpty' }),
-      mid('gift-pay-bank', 84.2, [{ role: 'body', sources: [bind('gift', 'bankName')], size: pt(24), color: 'ink' }], { hidden: 'whenEmpty' }),
-      mid('gift-pay-no', 88.4, [{ role: 'body', sources: [bind('gift', 'bankAccountNumber'), bind('gift', 'gcashNumber')], size: pt(28), color: 'ink' }], { hidden: 'whenEmpty' }),
+      GIFT.one('gift-pay', { base: 52.833, size: pt(30), face: 'display', weight: 700 },
+        say('SEND A GIFT')),
+      GIFT.one('gift-pay-who', { base: 86.224, size: pt(35), hide: true, room: 40 },
+        bind('gift', 'bankAccountName'), bind('gift', 'gcashName')),
+      GIFT.one('gift-pay-bank', { base: 90.863, size: pt(30), hide: true, room: 40 },
+        bind('gift', 'bankName')),
+      GIFT.one('gift-pay-no', { base: 94.9, size: pt(35), hide: true, room: 34 },
+        bind('gift', 'bankAccountNumber'), bind('gift', 'gcashNumber')),
     ],
   },
 
   // ──────────────── behind the sealed envelope: the RSVP ────────────────
   {
-    key: 'rsvp', label: { en: 'RSVP' }, sections: ['rsvp'], booklet: 'rsvp', drawn: true, grow: true,
-    ground: ground('rsvp', 1.7778),
+    key: 'rsvp', label: { en: 'RSVP' }, sections: ['rsvp'], seam: 0, booklet: 'rsvp', drawn: true, grow: true, live: true, headPad: 52,
+    ground: ground('rsvp', 1.7778, true),
     elements: [
-      mid('rsvp-head', 6.9, [{ role: 'title', sources: [{ word: 'title:rsvp' }, say('RSVP')], size: pt(100), color: 'ink' }]),
-      mid('rsvp-line', 17.2, [{ role: 'sub', sources: [bind('rsvp', 'note'), say('Kindly confirm your attendance on or before')], size: pt(24), color: 'ink' }], { w: 62 }),
-      mid('rsvp-by', 24.2, [{ role: 'label-title', sources: [bind('rsvp', 'deadline', { show: 'date' })], size: pt(26), color: 'ink' }], { hidden: 'whenEmpty', face: 'display' }),
+      // four letters on an arc, each turned its own way, because that is how
+      // she set them and a box of words cannot bend. The word is the same in
+      // both languages, which is the only reason four fixed letters are safe.
+      RSVP.one('rsvp-r', { base: 13.231, size: pt(100), color: 'surface', face: 'display', weight: 700, cx: 34.14, w: 16, turn: 11.5 }, say('R')),
+      RSVP.one('rsvp-s', { base: 13.920, size: pt(100), color: 'surface', face: 'display', weight: 700, cx: 44.83, w: 16, turn: 3.7 }, say('S')),
+      RSVP.one('rsvp-v', { base: 13.868, size: pt(100), color: 'surface', face: 'display', weight: 700, cx: 55.48, w: 16, turn: -4.0 }, say('V')),
+      RSVP.one('rsvp-p', { base: 12.854, size: pt(100), color: 'surface', face: 'display', weight: 700, cx: 66.09, w: 16, turn: -11.8 }, say('P')),
+      // her line and her date are not drawn here: the section writes them
+      // itself, just under the banner, because it is the section that knows
+      // how many seats a guest was given and whether the date has passed.
+      // Two copies of one sentence is one of them wrong.
     ],
   },
 ];

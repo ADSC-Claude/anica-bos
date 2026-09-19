@@ -1674,9 +1674,48 @@ export function Motion() {
       // otherwise have to be half read before it began
       { threshold: 0.1 },
     );
-    for (const el of root.querySelectorAll('[data-enter], [data-idle]')) io.observe(el);
+    // an element some other one taps does not arrive on its own: it waits,
+    // however far a guest scrolls, until the thing that names it is tapped
+    for (const el of root.querySelectorAll('[data-enter], [data-idle]')) {
+      if (el.hasAttribute('data-hold')) continue;
+      io.observe(el);
+    }
+    /*
+     * One thing starting another: the print out of the camera when a guest
+     * taps CLICK HERE under it.
+     *
+     * Delegated from the root and matched inside the tapped element's own
+     * page, so two pages may each carry a pair with the same names and
+     * neither reaches the other. Releasing is one-way and once: the print
+     * comes out and stays out, which is what the object itself would do.
+     */
+    const play = (from: Element) => {
+      const name = from.getAttribute('data-taps');
+      if (!name) return;
+      const page = from.closest('.inv-page, .inv-section') ?? root;
+      for (const el of page.querySelectorAll(`[data-tap-id="${CSS.escape(name)}"]`)) {
+        el.removeAttribute('data-hold');
+        el.setAttribute('data-in', '');
+      }
+      from.setAttribute('data-tapped', '');
+    };
+    const onTap = (e: Event) => {
+      const from = (e.target as Element | null)?.closest?.('[data-taps]');
+      if (from) play(from);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const from = (e.target as Element | null)?.closest?.('[data-taps]');
+      if (!from) return;
+      e.preventDefault();
+      play(from);
+    };
+    root.addEventListener('click', onTap);
+    root.addEventListener('keydown', onKey as EventListener);
     return () => {
       io.disconnect();
+      root.removeEventListener('click', onTap);
+      root.removeEventListener('keydown', onKey as EventListener);
       root.removeAttribute('data-motion');
     };
   }, []);

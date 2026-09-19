@@ -145,7 +145,7 @@ def survey(src, out):
     print(f'List the lettering ones per page in {src}/drops.json, then run again without --survey.')
 
 
-def build(src, out, drops):
+def build(src, out, drops, cuts):
     os.makedirs(out, exist_ok=True)
     tot = [0, 0, 0]
     for f in sorted(glob.glob(f'{src}/*.pdf')):
@@ -167,6 +167,26 @@ def build(src, out, drops):
             except Exception:
                 print(f'  ! {stem}: xref {xref} would not delete')
 
+        # Rectangles to clear of drawn shapes, given per page in cuts.json as
+        # percentages of the page. A picture she drew with Canva's shape tools
+        # is line art rather than an image, so it has no xref to drop — the
+        # polaroid frame on the cover is one, and it has to leave the ground
+        # because the whole print rises out of the camera on a tap. The mode
+        # is REMOVE_IF_COVERED, so only shapes that fit *entirely* inside the
+        # rectangle go: the page's own background fill touches it and stays.
+        cut = 0
+        for box in cuts.get(stem, []):
+            x0, y0, x1, y1 = box
+            r = pymupdf.Rect(x0 / 100 * p.rect.width, y0 / 100 * p.rect.height,
+                             x1 / 100 * p.rect.width, y1 / 100 * p.rect.height)
+            p.add_redact_annot(r, fill=False)
+            cut += 1
+        if cut:
+            p.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE,
+                               graphics=pymupdf.PDF_REDACT_LINE_ART_REMOVE_IF_COVERED,
+                               text=pymupdf.PDF_REDACT_TEXT_NONE)
+            p = d.reload_page(p)
+
         rules = 0
         for dr in p.get_drawings():
             if near(dr.get('color')) or near(dr.get('fill')):
@@ -186,7 +206,7 @@ def build(src, out, drops):
         left = len(p.get_text().strip())
         tot[0] += t; tot[1] += imgs; tot[2] += rules
         note = '' if not left else f'  ! {left} chars of text left'
-        print(f'{stem[:36]:<38} text {t:>3}  lettering {imgs:>2}  rules {rules}{note}')
+        print(f'{stem[:36]:<38} text {t:>3}  lettering {imgs:>2}  rules {rules}  cuts {cut}{note}')
         d.close()
     print(f'\n{tot[0]} text blocks, {tot[1]} flattened pieces, {tot[2]} underlines')
 
@@ -207,4 +227,6 @@ else:
     else:
         drops = {}
         print(f'note: no {dj}, so every picture is kept. Run --survey to choose.\n')
-    build(src, out, drops)
+    cj = os.path.join(src, 'cuts.json')
+    cuts = {k: list(v) for k, v in json.load(open(cj)).items()} if os.path.isfile(cj) else {}
+    build(src, out, drops, cuts)

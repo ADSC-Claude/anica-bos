@@ -240,7 +240,7 @@ async function main() {
   });
   Object.assign(content.dressCode!, { attire: 'formal', attireText: 'We kindly encourage our guests to wear elegant formal attire.', gentsColors: ['soft-black', 'camel', 'olive', 'sand'].map(swatchHex), gentsItems: ['suit', 'coat', 'longSleeves'], gentsNote: 'Tie is optional.', ladiesColors: ['champagne-gold', 'sage', 'dusty-rose', 'caramel', 'mocha'].map(swatchHex), ladiesItems: ['longGown', 'cocktail', 'separates'], ladiesNote: 'We encourage earthy, neutral and muted tones.', colors: ['champagne', 'taupe', 'dusty-rose', 'sage', 'olive', 'mocha', 'caramel', 'chocolate'].map(swatchHex), paletteNote: 'You may choose from this palette or similar shades.', avoid: ['white', 'bright', 'casual', 'sports', 'slippers', 'prints'], sponsorsAttire: 'Champagne gown / Barong Tagalog', entourageAttire: 'Sage green', note: '' });
   Object.assign(content.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Maria S.', gcashNumber: '0917 123 4567', gcashQr: pic('gcash-qr', 400, 400), bankDetails: 'BPI · Juan Carlos Dela Cruz · 1234 5678 90', registry: [] });
-  Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
+  Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'custom', note: 'Kindly confirm your attendance on or before {date}.', contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
   Object.assign(content.story!, {
     photo: pic('story-snapshot', 900, 900),
     caption: 'Sagada, before the sunrise crowd',
@@ -371,9 +371,24 @@ async function main() {
       ninangs: ['Mrs. Patricia Villanueva', 'Ms. Camille Santos', 'Dr. Andrea Lim', 'Mrs. Nicole Reyes', 'Ms. Bianca Tan', 'Mrs. Erika Garcia'].map((name) => ({ name })),
     });
     Object.assign(c.dressCode!, { colors: ['powder-blue', 'sky-blue', 'white', 'ivory', 'dusty-blue'].map(swatchHex), paletteNote: 'Soft blues and whites, or anything close.' });
-    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Denise V.', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankDetails: '', registry: [] });
+    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, payBy: 'bank', gcashName: 'Denise V.', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankAccountName: 'Denise A. Villanueva', bankName: 'BPI', bankAccountNumber: '1234 5678 90', bankDetails: '', registry: [] });
     Object.assign(c.rsvp!, { deadline: addDays(day, -14).toISOString().slice(0, 10), showSeats: true, collectAttendees: true, askDietary: false, mealChoices: [], policy: 'none', policyText: '', notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 555 0142', reminderText: '' });
-    Object.assign(c.story!, { line: '', timeline: (c.story!.timeline as { title: string; text: string }[]).map((m, i) => ({ ...m, photo: pic(`lucas-story-${i + 1}`, 800, 800) })) });
+    // the date on every milestone: her drawn row is Date, Title, Description,
+    // and a row with no date reads as a caption rather than a moment
+    Object.assign(c.story!, {
+      line: 'A little prayer, a big answer.',
+      timeline: (c.story!.timeline as { title: string; text: string }[]).map((m, i) => ({
+        ...m, date: ['March 2025', 'June 2025', 'October 2025', 'This month'][i] ?? '',
+        photo: pic(`lucas-story-${i + 1}`, 800, 800),
+      })),
+    });
+    // the questions the design's Good to know page draws
+    Object.assign(c.faq!, { items: [
+      { q: 'Are children welcome?', a: 'Yes — the little ones are part of the day. There are games and giveaways for them after lunch.' },
+      { q: 'Is there parking?', a: 'Free parking at Blue Leaf Cosmopolitan, and street parking around the church.' },
+      { q: 'What time should we arrive?', a: 'Please be seated by 9:45 AM. The Mass starts on the dot at 10:00.' },
+      { q: 'Can we post photos?', a: 'Please do — tag them #LucasAndreiIsBlessed so we can find them all.' },
+    ] });
     // four frames on the drawn page, each with a word on its polaroid
     Object.assign(c.gallery!, { line: '', photos: ['One month old', 'First smile', 'Sunday best', 'With Lola'].map((caption, i) => ({ url: pic(`lucas-baby-${i + 1}`, 900, 900), caption })), note: '', videoUrl: '', videoTitle: '', close: '' });
     Object.assign(c.program!, { items: [{ time: '10:00 AM', title: 'Christening Mass', note: 'Santuario de San Antonio Parish' }, { time: '12:00 PM', title: 'Lunch reception', note: 'Blue Leaf Cosmopolitan' }, { time: '1:30 PM', title: 'Cake and photos', note: 'With the ninongs and ninangs' }, { time: '2:30 PM', title: 'Games and giveaways', note: 'For the little guests' }], activities: '' });

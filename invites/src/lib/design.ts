@@ -667,6 +667,26 @@ export type PageSpec = {
    */
   offFlow?: string[];
   /**
+   * A drawn page that also carries its sections' own working parts.
+   *
+   * A drawn page places everything by hand, which is exactly right for a
+   * page of words and pictures and exactly wrong for a page a guest has to
+   * *use*. The christening's RSVP page is her banner with four letters on
+   * it and then a form; its Good to know page is a heading and then however
+   * many questions the family wrote. Neither can be drawn, because neither
+   * is known until a guest is looking at it.
+   *
+   * So: the art is drawn as usual, and the section's own markup — the form,
+   * the pairs a guest opens — follows underneath it. The section's heading
+   * is hidden, because the design has already drawn one; everything else is
+   * the section's as it always was, with the same fields and the same
+   * script behind them.
+   *
+   * A page that sets this must also `grow`, since how far the form runs is
+   * not something a ratio can say.
+   */
+  live?: true;
+  /**
    * The booklet this page belongs to, which takes it off the invitation's
    * flow.
    *
@@ -819,7 +839,41 @@ type Base = {
    * off entirely without JavaScript — see `.inv[data-motion]` in globals.css
    * for why that is the safe way round rather than the timid one.
    */
-  motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
+  motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift' | 'slide'; idle?: 'none' | 'float' | 'sway' | 'flicker'; delay?: number };
+  /**
+   * What a tap here does, where what it does is leave the invitation.
+   *
+   * Three things a guest does with a phone and cannot do with a picture of a
+   * button: put the day in their calendar, and open the place in Google Maps
+   * or in Waze. She drew all three as buttons — ADD TO CALENDAR on the
+   * invitation, OPEN IN GOOGLE MAPS and OPEN IN WAZE under each of the two
+   * venues — and a drawn button that does nothing is worse than no button,
+   * because a guest taps it and decides the invitation is broken.
+   *
+   * `of` names the section whose venue and address the map uses, so one
+   * page can carry a pair for the church and a pair for the reception. The
+   * calendar ignores it: an invitation has one day.
+   *
+   * The link is built from what the family typed (see src/lib/places.ts):
+   * their own pasted pin where they gave one, a search for the name and the
+   * address where they did not. Nothing to point at and the button is not
+   * drawn at all, the same as an empty box of words.
+   */
+  go?: { to: 'calendar' | 'maps' | 'waze'; of?: string };
+  /**
+   * The id of another element on this page whose arrival a tap here plays.
+   *
+   * `opens` is a tap that goes somewhere; this is a tap that *starts*
+   * something where it stands. It exists because the thing a guest aims at
+   * and the thing that moves are rarely the same object: on the christening
+   * cover the words say CLICK HERE under the camera, and what moves is the
+   * print coming out of the slot above it. Two elements, one gesture.
+   *
+   * An element named by one of these does not arrive on its own — it waits,
+   * however far down the page a guest has scrolled — so a name that matches
+   * nothing leaves that element hidden for good. The checklist catches it.
+   */
+  taps?: string;
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
   /**
@@ -887,7 +941,8 @@ export type Line = {
   align?: 'left' | 'center' | 'right';
   /** in cqw, so it scales with the column; blank means the role's own size */
   size?: number;
-  color?: 'ink' | 'muted' | 'accent' | 'accent2';
+  /** `surface` is the white a design writes over its own dark pictures */
+  color?: 'ink' | 'muted' | 'accent' | 'accent2' | 'surface';
 };
 
 export type PhotoEl = Base & {
@@ -931,6 +986,29 @@ export type TextEl = Base & {
   size?: number;
   weight?: number;
   tracking?: number;
+  /**
+   * The distance from one line of this box to the next, as a multiple of the
+   * size — what a typesetter calls leading and CSS calls line-height.
+   *
+   * Here because a design drawn elsewhere sets its own. Canva lets a designer
+   * pull the lines of a paragraph together or push them apart, and the
+   * christening's does: her date sits 0.99 of its own size under the line
+   * above it and her venue 1.20, where the stylesheet's own leading is
+   * neither. Without this the two lines of an address arrive in the right
+   * place and the wrong distance apart, which is the fault that reads as
+   * "the spaces between them, some is too far, some is too tight".
+   *
+   * Unitless, so each line of a box that mixes sizes gets its own.
+   */
+  leading?: number;
+  /**
+   * A line under the words, the way a printed design marks the ones you act
+   * on. She drew one under every CLICK HERE and under OPEN IN GOOGLE MAPS
+   * and OPEN IN WAZE; the grounds script takes her rules off with the words
+   * so the live one is not doubled, and this puts it back where it belongs
+   * — on the writing, so it follows the words when a longer answer wraps.
+   */
+  rule?: true;
   /** the letters this box holds, measured from the box and the face: the form's cap for what it asks */
   room?: number;
   /** the design's own line is offered to the customer as an example under their box */
@@ -1274,7 +1352,7 @@ const zLine = z.object({
   sources: z.array(zSource).min(1).max(6),
   align: z.enum(['left', 'center', 'right']).optional(),
   size: z.number().positive().max(40).optional(),
-  color: z.enum(['ink', 'muted', 'accent', 'accent2']).optional(),
+  color: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
 }).strict();
 
 const zBase = {
@@ -1291,10 +1369,12 @@ const zBase = {
   ask: z.boolean().optional(),
   ifEmpty: z.union([z.object({ piece: z.string().max(80) }).strict(), z.literal('leave')]).optional(),
   motion: z.object({
-    enter: z.enum(['none', 'fade', 'rise', 'drift']).optional(),
-    idle: z.enum(['none', 'float', 'sway']).optional(),
+    enter: z.enum(['none', 'fade', 'rise', 'drift', 'slide']).optional(),
+    idle: z.enum(['none', 'float', 'sway', 'flicker']).optional(),
     delay: z.number().min(0).max(2000).optional(),
   }).strict().optional(),
+  go: z.object({ to: z.enum(['calendar', 'maps', 'waze']), of: z.string().max(40).optional() }).strict().optional(),
+  taps: z.string().max(41).optional(),
   attachTo: z.string().max(41).optional(),
   opens: z.string().regex(KEY).optional(),
 };
@@ -1317,6 +1397,8 @@ const zElement = z.union([
     size: z.number().positive().max(40).optional(),
     weight: z.number().int().min(100).max(900).optional(),
     tracking: z.number().min(-0.05).max(0.4).optional(),
+    leading: z.number().min(0.6).max(3).optional(),
+    rule: z.literal(true).optional(),
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
     lifted: z.string().max(80).optional(),
@@ -1342,7 +1424,7 @@ const zPage = z.object({
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
   footPad: z.number().min(0).max(12).optional(),
-  headPad: z.number().min(0).max(12).optional(),
+  headPad: z.number().min(0).max(200).optional(),
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
@@ -1352,6 +1434,7 @@ const zPage = z.object({
   minScreens: z.number().min(0.3).max(6).optional(),
   size: z.number().min(0.3).max(2).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
+  live: z.literal(true).optional(),
   booklet: z.string().regex(KEY).optional(),
   only: z.literal('std').optional(),
   cover: z.object({
@@ -2613,7 +2696,25 @@ const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'n
 export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef): string {
   const data = isRecord(content?.[ref.section]) ? (content![ref.section] as Rowish) : undefined;
   if (!data) return '';
-  if (ref.index === undefined) return said(text(data[ref.field]), ref.show);
+  if (ref.index === undefined) {
+    /*
+     * A whole list in one box, one name a line.
+     *
+     * A design that draws a list it did not write cannot know how long it
+     * is: the christening's page has two columns of godparents, and a
+     * family may bring three or twelve. Naming a `sub` without an `index`
+     * asks for all of them — the box places the first line and the rest
+     * follow at the box's own leading, and the page grows.
+     *
+     * A row with nothing in it is dropped rather than left as a gap, which
+     * is what an empty row in a form usually is.
+     */
+    const whole = data[ref.field];
+    if (Array.isArray(whole) && ref.sub) {
+      return whole.filter(isRecord).map((r) => said(text((r as Rowish)[ref.sub!]), ref.show)).filter(Boolean).join('\n');
+    }
+    return said(text(whole), ref.show);
+  }
   const raw = data[ref.field];
   if (!Array.isArray(raw)) return '';
   const all = raw.filter(isRecord) as Rowish[];

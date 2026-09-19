@@ -27,6 +27,7 @@ import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire
 import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
 import { parseStart, youtubeId, youtubeEmbed } from '@/lib/song';
 import { imageUrl, IMAGE } from '@/lib/images';
+import { mapsHref, wazeHref } from '@/lib/places';
 
 /**
  * The invitation, rendered on the server from its JSON. The template decides
@@ -94,19 +95,6 @@ function nonEmpty(s: string): boolean {
   return s.trim() !== '';
 }
 
-function mapsHref(data: SectionData | undefined): string {
-  const given = str(data, 'mapsUrl');
-  if (given) return given;
-  const q = [str(data, 'venue'), str(data, 'address')].filter(Boolean).join(', ');
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : '';
-}
-
-function wazeHref(data: SectionData | undefined): string {
-  const given = str(data, 'wazeUrl');
-  if (given) return given;
-  const q = [str(data, 'venue'), str(data, 'address')].filter(Boolean).join(', ');
-  return q ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : '';
-}
 
 function videoEmbed(url: string): { src: string; poster?: string } | null {
   const yt = youtubeId(url);
@@ -2120,7 +2108,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; live?: boolean; top?: number; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -2140,6 +2128,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           data-foot={o.foot !== undefined ? '' : undefined}
           data-head={o.head !== undefined ? '' : undefined}
           data-drawn={o.drawn ? '' : undefined}
+          data-live={o.live ? '' : undefined}
           data-grow={o.grow ? '' : undefined}
           data-ground={o.colour}
           // the colour beside the page on a laptop, a role or a colour: PageGround lays the band on the stage
@@ -2157,6 +2146,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
             ...(o.head !== undefined ? { ['--page-head' as string]: o.head } : {}),
+            // where the working part of a live page starts, under the art
+            ...(o.live && o.top !== undefined ? { ['--live-top' as string]: `${o.top}cqw` } : {}),
             ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
             ...(o.size !== undefined ? { ['--page-size' as string]: o.size } : {}),
             ...(o.colour && !o.pin ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
@@ -2235,8 +2226,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // the photographs page goes when a package has no gallery. One that
         // names none depends on nothing — it is the design's own page, a
         // picture and some words — so it is always drawn.
+        // A drawn page that also has to *work*: the RSVP's form, the pairs a
+        // guest opens on Good to know. The art is drawn as usual and the
+        // section's own markup follows under it, with the heading the section
+        // would draw hidden, because the design has drawn one already.
+        const working = spec.drawn && spec.live
+          ? spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]
+          : [];
         const parts = spec.drawn
-          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} />] : [])
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k))
+              ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} path={invitationPath(inv.slug)} />, ...working]
+              : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
@@ -2248,7 +2248,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const built = parts.length ? page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
           ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow, booklet: spec.booklet }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }) : null;
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, live: spec.drawn && spec.live, top: spec.headPad, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }) : null;
         // A booklet's pages are gathered rather than laid in the column, and
         // put after it below. The studio asking for one page by key wants it
         // on the canvas wherever it lives, so `only` gathers nothing.

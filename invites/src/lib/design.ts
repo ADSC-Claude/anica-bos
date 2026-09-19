@@ -1004,6 +1004,17 @@ export type Line = {
   role: LineRole;
   sources: Source[];
   align?: 'left' | 'center' | 'right';
+  /**
+   * This line's own face, where the box's is not right for it.
+   *
+   * A box that mixes faces is how a milestone is set: the date in her script
+   * over the title in the body face, the two of them one block rather than
+   * two boxes. They have to be one block because a block is what can be
+   * centred on a cloud whatever its length — "could you always make sure
+   * they are in the middle of the clouds even if they are short or long" —
+   * and two boxes placed at two baselines cannot be. Blank takes the box's.
+   */
+  face?: 'display' | 'names' | 'script' | 'body';
   /** in cqw, so it scales with the column; blank means the role's own size */
   size?: number;
   /** `surface` is the white a design writes over its own dark pictures */
@@ -1485,6 +1496,7 @@ const zLine = z.object({
   role: z.enum(['title', 'sub', 'eyebrow', 'script', 'label-title', 'label-text', 'caption', 'body']),
   sources: z.array(zSource).min(1).max(6),
   align: z.enum(['left', 'center', 'right']).optional(),
+  face: z.enum(['display', 'names', 'script', 'body']).optional(),
   size: z.number().positive().max(40).optional(),
   color: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
   leading: z.number().min(0.6).max(3).optional(),

@@ -1,34 +1,41 @@
 /**
- * A milestone is a date, a title, a few words and a picture — stacked.
+ * A milestone is a date, a title, a few words and a picture.
  *
- * Two faults, one shape. The page has drawn a dated line above every
- * milestone since it was built and the christening form never asked for the
- * date, so the line came out empty on a page whose whole idea is a dated
- * timeline ("why does our story doesnt have dates"). And the photographs hung
- * opposite their own row, which put each one in the *neighbouring* row's
- * column and printed it over that row's sentence ("the photo on the upper
- * left is blocking the message, i think we can just put it on the top of the
- * date").
+ * Three faults and then a new drawing, in that order.
  *
- * Stacking the picture above its own date fixes the second and pays for the
- * first: the row owns a clean band of its own column instead of four per cent
- * of one, which is four lines of description rather than none. Measured in a
- * browser at every cap at once — an eighteen-letter date, a twenty-eight
- * letter title and the full description — and again one line longer, which is
- * where it breaks.
+ * The page had drawn a dated line above every milestone since it was built
+ * and the christening form never asked for the date, so the line came out
+ * empty on a page whose whole idea is a dated timeline ("why does our story
+ * doesnt have dates"). The photographs hung opposite their own row, which
+ * put each one in the *neighbouring* row's column and printed it over that
+ * row's sentence ("the photo on the upper left is blocking the message").
+ * And the words were too big for the clouds they were written on ("The fonts
+ * for date and title is too big that the text doesnt fit the cloud").
+ *
+ * Then she redrew the page. "i removed the line in the middle for the our
+ * story and replace it where the photos should go" — the spine and its four
+ * dots are gone and a cream filmstrip with four portrait windows runs down
+ * the middle instead, with her clouds alternating either side of it. "so now
+ * the writings should fit perfectly in the clouds."
+ *
+ * So a milestone is no longer a stack: the photograph is in its window on
+ * the strip, and the date, the title and the words are in the cloud beside
+ * it. Every number below is measured off her own file — the windows, the
+ * bands where the white actually runs, and the block's own height worked out
+ * the way the page works it out.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fieldsFor, FIT, fitOf } from '../src/lib/sections';
-import { CHRISTENING_PAGES } from '../src/lib/christening';
+import { CHRISTENING_PAGES, STORY_CLOUDS, STORY_BLOCK } from '../src/lib/christening';
 import type { PhotoEl, TextEl } from '../src/lib/design';
 
 const page = CHRISTENING_PAGES.find((p) => p.key === 'our-story')!;
 const elements = page.elements ?? [];
 const photos = elements.filter((e): e is PhotoEl => e.kind === 'photo');
 const text = elements.filter((e): e is TextEl => e.kind === 'text');
-const when = (i: number) => text.find((e) => e.id === `story-${i + 1}-when`)!;
-const what = (i: number) => text.find((e) => e.id === `story-${i + 1}-what`)!;
+/** a milestone is one box of three lines: the date, the title, the words */
+const block = (i: number) => text.find((e) => e.id === `story-${i + 1}`)!;
 
 test('the christening asks when a milestone happened, in the order the page prints', () => {
   for (const occasion of ['CHRISTENING', 'BABY_SHOWER', 'COMMUNION'] as const) {
@@ -40,95 +47,100 @@ test('the christening asks when a milestone happened, in the order the page prin
 });
 
 test('every milestone the page draws has a date bound to it', () => {
-  assert.equal(photos.length, 4, 'four dots on her spine, four milestones');
+  assert.equal(photos.length, 4, 'four windows on her filmstrip, four milestones');
   for (let i = 0; i < photos.length; i++) {
     assert.deepEqual(
-      when(i).lines[0].sources[0],
+      block(i).lines[0].sources[0],
       { bind: { section: 'story', field: 'timeline', index: i, sub: 'date' } },
       `milestone ${i + 1} draws its date`,
     );
   }
 });
 
-test('a picture sits above its own date, never across the row above', () => {
-  for (let i = 0; i < photos.length; i++) {
-    const p = photos[i];
+/**
+ * The windows, measured off her file: every one x 40.93 – 59.44 and 14.11 of
+ * the page tall, at four evenly spaced centres. They are all the same, which
+ * is the point — one strip, four frames.
+ */
+test('each photograph sits in its own window on her filmstrip', () => {
+  const centres = [35.76, 50.86, 65.96, 81.07];
+  for (const [i, p] of photos.entries()) {
     assert.equal(p.bind && 'section' in p.bind ? p.bind.index : undefined, i, `picture ${i + 1} belongs to milestone ${i + 1}`);
-    assert.ok(p.y < when(i).y, `picture ${i + 1} is above its own date`);
-    // and its foot clears the date's cap rather than landing on it
-    const foot = p.y + (p.w ?? 0) / 2 / 1.7778;
-    assert.ok(foot < when(i).y, `picture ${i + 1} ends before its date begins`);
+    assert.equal(p.x, 50.19, `picture ${i + 1} is on the strip, which runs down the middle`);
+    assert.equal(p.w, 18.52, `picture ${i + 1} is the width of her window`);
+    assert.equal(p.y, centres[i], `picture ${i + 1} is in window ${i + 1}`);
+    assert.equal(p.aspect, 1.355, `picture ${i + 1} is portrait, as she drew it`);
+    // her cream strip is the frame; a frame of ours would sit a card inside hers
+    assert.equal(p.frame, 'none', `picture ${i + 1} adds no frame of its own`);
   }
-  // the two rows that share a column do not reach into one another: a row's
-  // words start at its date and the next picture in that column is the wall
-  for (const [row, next] of [[0, 2], [1, 3]] as const) {
-    const wall = photos[next]!.y - (photos[next]!.w ?? 0) / 2 / 1.7778;
-    assert.ok(wall > when(row).y, `milestone ${row + 1} has a band of its own before milestone ${next + 1}'s picture`);
-    /*
-     * Fifteen per cent of the page's height is what a two-line title and
-     * four lines of description take, measured in a browser with every cap
-     * filled; one line more overran it, which is where 130 letters comes
-     * from. Asserting the band rather than re-deriving the typography here:
-     * the number that matters is the room, and the room is what moves when
-     * the picture's size or the air above the date is nudged.
-     */
-    assert.ok(wall - when(row).y > 15, `milestone ${row + 1} holds a two-line title and four lines of words (${(wall - when(row).y).toFixed(2)}% of the page)`);
-  }
-});
-
-test('the form lets in exactly what the row holds', () => {
-  assert.equal(FIT['story.timeline.text'], 130, 'four lines of the column');
-  assert.equal(FIT['story.timeline.date'], 18, 'one line of the date, so it can never wrap onto the title');
-  assert.equal(fitOf('story.timeline.text', 'textarea'), 130, 'and the form counts it down from there');
-  // the design never lets in more than the form does, or the page would take
-  // words the box refused
-  const words = what(0).lines.find((l) => l.room && l.room > 50)!;
-  assert.ok(words.room! >= FIT['story.timeline.text'], 'the drawn box holds at least what the form accepts');
-  assert.ok(when(0).room! <= FIT['story.timeline.date'], 'and the date box is no more generous than the form');
+  // and no two share a window
+  assert.equal(new Set(photos.map((p) => p.y)).size, 4);
 });
 
 /**
- * And a milestone fits the cloud it is written on.
+ * And the words are on the cloud beside that photograph — left, right, left,
+ * right, so the page reads down in a zigzag.
  *
- * "The fonts for date and title is too big that the text doesnt fit the
- * cloud. Arrange where to text are placed and make them fit."
- *
- * Her clouds are soft shapes, so their bounding boxes overstate them: the
- * band that matters is where the white actually runs at least thirty per cent
- * of the page wide, which is wide enough to carry a line of this column.
- * Measured off her own ground and kept in `STORY_CLOUDS`; the narrowest is
- * sixteen per cent of the page.
- *
- * A milestone's words stood at 15.8 and sat two per cent too low, so the last
- * two lines of every one of them printed on plain sky. The date and the title
- * are smaller now, the air above the words and their leading are tighter, and
- * each block is set from its own dot on the spine — 14.4, inside all four.
- *
- * The height is worked out the way the page works it out, at the caps the
- * form enforces: a two-line title and four lines of description. A shorter
- * title simply leaves more cloud under it.
+ * The block's height is worked out the way the page works it out, at every
+ * cap at once: one line of date, two of title and five of description. A
+ * shorter title simply leaves more cloud under it.
  */
-test('every milestone is written inside its own cloud', async () => {
-  const { STORY_CLOUDS } = await import('../src/lib/christening');
-  const R = 1.7778;
-  const high = (el: TextEl, n: number, i = 0) => {
-    const l = el.lines[i]!;
-    const size = l.size ?? el.size;
-    assert.ok(size, `${el.id} line ${i} has a size`);
-    return (n * size * (l.leading ?? el.leading ?? 1.25)) / R;
-  };
+test('a milestone is one block, left-aligned, in her script and her body face', () => {
   for (let i = 0; i < 4; i++) {
-    const [top, foot] = STORY_CLOUDS[i]!;
-    const w = what(i);
-    const words = w.lines[1]!;
-    const blockTop = when(i).y;
-    const blockFoot = w.y + high(w, 2, 0) + (words.space ?? 0) / R + high(w, 4, 1);
-    assert.ok(blockTop >= top, `milestone ${i + 1} starts on the cloud (${blockTop.toFixed(2)} vs ${top})`);
-    assert.ok(blockFoot <= foot, `milestone ${i + 1} ends on the cloud (${blockFoot.toFixed(2)} vs ${foot})`);
-    assert.ok(blockFoot - blockTop < 15, `milestone ${i + 1} is ${(blockFoot - blockTop).toFixed(2)}% of the page, and the narrowest cloud holds 16`);
+    const el = block(i);
+    assert.equal(el.lines.length, 3, `milestone ${i + 1} is the date, the title and the words in one box`);
+    for (const l of el.lines) assert.equal(l.align, 'left', `milestone ${i + 1} starts every line at the same left edge`);
+    assert.equal(el.lines[0].face, 'script', 'the date is her script');
+    assert.equal(el.lines[1].face, undefined, 'and the title takes the box’s own face');
+    assert.equal(el.lines[1].caps, true, 'the title is set in capitals, as she drew it');
   }
-  // the date and the title are the two she named, and both came down
-  assert.equal(when(0).size, 3.4, 'the date, from 4.1');
-  assert.equal(what(0).size, 3.09, 'the title, from 3.66');
-  assert.equal(what(0).lines[1]!.size, 2.32, 'and the sentence keeps its size — it is small enough on a phone already');
+});
+
+test('each milestone is written on the cloud beside its own photograph', () => {
+  const sides = STORY_CLOUDS.map((c) => (c.left < 50 ? 'left' : 'right'));
+  assert.deepEqual(sides, ['left', 'right', 'left', 'right'], 'the clouds alternate, as she drew them');
+
+  for (const [i, cloud] of STORY_CLOUDS.entries()) {
+    const height = cloud.foot - cloud.top;
+    assert.ok(STORY_BLOCK <= height,
+      `milestone ${i + 1} is ${STORY_BLOCK.toFixed(2)}% of the page and its cloud holds ${height.toFixed(2)}`);
+
+    // written down the middle of its own cloud, and inside its white
+    const cx = (cloud.left + cloud.right) / 2;
+    const el = block(i);
+    assert.equal(el.x, Math.round(cx * 100) / 100, `${el.id} sits on the middle of its cloud`);
+    assert.ok(el.x! - el.w! / 2 >= cloud.left, `${el.id} keeps its left edge on the white`);
+    assert.ok(el.x! + el.w! / 2 <= cloud.right, `${el.id} keeps its right edge on the white`);
+
+    /*
+     * And it is hung by its middle on the cloud's middle, so it is centred
+     * there whether it holds four words or a hundred and seventy letters —
+     * "even if they are short or long". A box hung by a baseline could not
+     * be: it would start where it was put and grow downwards.
+     */
+    assert.equal(el.anchor, 'centre', `milestone ${i + 1} is hung by its middle`);
+    assert.equal(el.y, Math.round(((cloud.top + cloud.foot) / 2) * 100) / 100,
+      `milestone ${i + 1} is centred on its cloud`);
+  }
+});
+
+/**
+ * The form lets in exactly what the cloud holds.
+ *
+ * Up from 130: the old clouds were sixteen per cent of the page tall and
+ * thirty wide, and these are eighteen to twenty by thirty-nine. That is five
+ * lines of this column instead of four, and a line takes about thirty-four
+ * letters — which is what finally fits the hundred-and-fifty to
+ * hundred-and-seventy letter paragraphs her client writes.
+ */
+test('the form lets in exactly what the cloud holds', () => {
+  assert.equal(FIT['story.timeline.text'], 170, 'five lines of this column');
+  assert.equal(FIT['story.timeline.date'], 18, 'one line of the date, so it can never wrap onto the title');
+  assert.equal(fitOf('story.timeline.text', 'textarea'), 170, 'and the form counts it down from there');
+  // the design never lets in more than the form does, or the page would take
+  // words the box refused
+  const lines = block(0).lines;
+  const words = lines.find((l) => l.room && l.room > 50)!;
+  assert.ok(words.room! >= FIT['story.timeline.text'], 'the drawn box holds at least what the form accepts');
+  assert.ok(lines[0].room! <= FIT['story.timeline.date'], 'and the date line is no more generous than the form');
 });

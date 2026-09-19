@@ -121,6 +121,13 @@ const LEAD = 1.25;
 type Set = {
   /** her baseline, as a share of this page's own height */
   base: number;
+  /**
+   * Its middle, as a share of the height, instead of its baseline.
+   *
+   * A box given this is hung by its middle and is centred on that line
+   * however many lines it turns out to hold. See `box`.
+   */
+  mid?: number;
   /** her point size over 8.1, in cqw */
   size: number;
   face?: Face;
@@ -196,16 +203,27 @@ const sheet = (ratio: number) => {
     align: s.align ?? 'center',
     size: s.size,
     color: s.color ?? 'ink',
+    ...(own.face ? { face: own.face } : {}),
     ...(own.lead !== undefined ? { leading: own.lead } : {}),
     ...(own.space !== undefined ? { space: own.space } : {}),
     ...(own.room !== undefined ? { room: own.room } : {}),
     ...(own.caps ? { caps: true as const } : {}),
   });
+  /*
+   * `mid` hangs a box by its middle instead of its top.
+   *
+   * "could you always make sure they are in the middle of the clouds even if
+   * they are short or long." A box placed at a baseline starts where the
+   * designer put it and grows downwards, so a short milestone sits high in
+   * its cloud and a long one low. Hung by its middle it is centred whatever
+   * it holds, which is what a cloud wants — and it is why a milestone is one
+   * box of three lines now rather than three boxes on three baselines.
+   */
   const box = (id: string, s: Set, lines: Line[]): TextEl => {
     const lead = s.lead ?? LEAD;
     return {
       id, kind: 'text', block: 'free',
-      x: s.cx ?? 50, y: at(s, lead), w: s.w ?? 88, anchor: 'top',
+      x: s.cx ?? 50, y: s.mid ?? at(s, lead), w: s.w ?? 88, anchor: s.mid !== undefined ? 'centre' : 'top',
       face: s.face ?? 'body', size: s.size, leading: lead,
       ...(s.weight ? { weight: s.weight } : {}),
       ...(s.track !== undefined ? { tracking: s.track } : {}),
@@ -377,94 +395,132 @@ const ROWS = (
  * else. The columns widen from 30 to 34 because a real date ("November 26,
  * 2025") would not fit in 30 and wrapped onto the title.
  */
-const STORY_COL = 34;
-/** Air between the foot of the picture and the cap of the date, in shares of the page's height. */
-const PHOTO_AIR = 2.2;
+/**
+ * The column a milestone's words are written in, and where the two of them sit.
+ *
+ * Her clouds run 0 – 39.26 on the left of the filmstrip and 61.11 – 100 on
+ * the right, and the column sits on the middle of whichever one it is
+ * written on — so 35 wide leaves two per cent of air at either edge of the
+ * page and never leaves the white. The centres are derived from the measured
+ * clouds rather than written twice.
+ */
+const STORY_COL = 35;
+/**
+ * The filmstrip she drew down the middle, and its four windows.
+ *
+ * "i removed the line in the middle for the our story and replace it where
+ * the photos should go" — so the spine and its four dots are gone, and in
+ * their place is a cream filmstrip with four portrait windows. Measured off
+ * her own file: every window is the same, x 40.93 – 59.44 and 14.11 of the
+ * page tall, at these four centres. Canva's green-hills placeholder came out
+ * of all four the way it came out of the baby photos, so an empty window
+ * shows her frame onto the sky rather than stock scenery.
+ */
+const STORY_PHOTO_X = 50.19;
+const STORY_PHOTO_W = 18.52;
+/** The window's height over its width — portrait, as she drew it. */
+const STORY_PHOTO_ASPECT = 1.355;
+const STORY_WINDOWS = [35.76, 50.86, 65.96, 81.07];
 /**
  * The cloud each milestone is written on, as the white actually runs.
  *
- * "The fonts for date and title is too big that the text doesnt fit the
- * cloud." Her four clouds are soft shapes with wispy edges, so a bounding
- * box overstates them: measured on her own ground, the band where the white
- * is at least thirty per cent of the page wide — wide enough to hold a line
- * of this column — is the band a milestone has to live in.
+ * "so now the writings should fit perfectly in the clouds." Her clouds
+ * alternate against the filmstrip — left beside windows one and three, right
+ * beside two and four — so a milestone's words sit in the cloud next to its
+ * own photograph and the page reads down in a zigzag. These are the bands
+ * where the white runs at least twenty-eight per cent of the page wide,
+ * measured on her file rather than guessed at:
  *
- *   1  32.66 – 48.75   2  43.75 – 63.59   3  60.52 – 79.43   4  74.17 – 93.91
+ *   1 left  26.67 – 44.79    2 right 40.47 – 59.32
+ *   3 left  55.52 – 76.04    4 right 70.16 – 89.95
  *
- * The narrowest is sixteen per cent of the page. A milestone stood at 28.3,
- * which is why the words ran off the bottom onto plain sky on all four. It
- * stands at 14.4 now: the date and the title are smaller, the gap above the
- * words and their leading are tighter, and each block is set from its own
- * dot on the spine rather than from a baseline read off the drawing.
+ * Eighteen to twenty per cent of the page tall and thirty-nine wide, against
+ * the sixteen by thirty the old clouds gave. That is what pays for the
+ * longer description below.
  */
-const STORY_DOTS = [35.89, 50.70, 65.49, 80.34];
-/** Those four bands, so the page and the test that guards it read one number. */
-export const STORY_CLOUDS: readonly (readonly [number, number])[] = [
-  [32.66, 48.75], [43.75, 63.59], [60.52, 79.43], [74.17, 93.91],
+export const STORY_CLOUDS: readonly { top: number; foot: number; left: number; right: number }[] = [
+  { top: 26.67, foot: 44.79, left: 0, right: 39.26 },
+  { top: 40.47, foot: 59.32, left: 61.11, right: 100 },
+  { top: 55.52, foot: 76.04, left: 0, right: 39.26 },
+  { top: 70.16, foot: 89.95, left: 61.11, right: 100 },
 ];
-/**
- * How far above its dot a milestone's date sits.
- *
- * She drew the date a shade *under* the dot. A shade over is what buys rows
- * one and two the half a per cent they were short of their cloud's foot, and
- * at this distance the dot still reads as the date's own marker.
- */
-const DATE_OVER_DOT = 0.4;
-/** The date's baseline to the title's, with the smaller faces. */
-const TITLE_UNDER_DATE = 2.53;
-/** The air above a milestone's words, tighter than the programme's row gap. */
+/** The air under the date, before the title, in cqw. */
+const DATE_UNDER = 0.9;
+/** The air above a milestone's words. */
 const STORY_GAP = 1.25;
-/** The photograph's width, as a share of the page's width. */
-const STORY_PHOTO = 21;
 /** The story page's height over its width, so a width can be said as a height. */
 const RATIO = 1.7778;
+const DATE_SIZE = 3.4;
+const TITLE_SIZE = pt(25);
+const WORD_SIZE = pt(18.77);
 /**
- * The letters a milestone's description holds: three lines of this column.
- *
- * Measured on the rebuilt page rather than guessed — a line of this face at
- * this size takes about thirty-five characters in a column 34 wide, and three
- * lines is what clears the next picture even when the title takes two.
+ * What a milestone is allowed to take, at every cap at once: one line of
+ * date, two of title and five of description. A shorter title simply leaves
+ * more cloud under it.
  */
-const STORY_WORDS = 130;
+const STORY_LINES = 5;
+/**
+ * The letters a milestone's description holds.
+ *
+ * Up from 130, which is what the old sixteen-per-cent cloud held. The new
+ * ones are eighteen to twenty per cent tall and thirty-nine wide, which is
+ * five lines of this column — and a line of this face at this size takes
+ * about thirty-four letters. Measured on the rebuilt page at the full cap,
+ * not reasoned from the arithmetic alone.
+ */
+const STORY_WORDS = 170;
 
-const STORY_ROWS = (
-  S: ReturnType<typeof sheet>,
-  rows: Array<{ left: number }>,
-): Element[] => rows.flatMap((row, i) => {
-  const cx = row.left + STORY_COL / 2;
-  // the date under its dot, the title under the date: two numbers instead of
-  // three read off the drawing, so the block moves as one when either moves
-  const date = r2(STORY_DOTS[i] - DATE_OVER_DOT);
-  const title = r2(date + TITLE_UNDER_DATE);
-  // the picture's left edge on the words' left edge, not centred in the
-  // column: a narrower thing centred over wider words reads as indented
-  const px = row.left + STORY_PHOTO / 2;
-  // a square photograph as tall as it is wide; `w` is a share of the page's
-  // width and `y` a share of its height, so the half-height converts
-  const half = STORY_PHOTO / 2 / RATIO;
+/*
+ * A milestone is one block, hung by its middle on its own cloud.
+ *
+ * "could you always make sure they are in the middle of the clouds even if
+ * they are short or long" — so the date, the title and the words are three
+ * lines of one box rather than three boxes on three baselines, and the box
+ * is hung by its middle (`mid` on Set). A milestone of four words and one of
+ * a hundred and seventy letters are both centred on their cloud, and nothing
+ * has to be re-measured when a family writes more or less than the last one.
+ *
+ * "and also they should be written in all left side starting" — every line
+ * starts at the same left edge, so the three read as one hand rather than
+ * three centred blocks.
+ *
+ * It is one box that makes both of those true, and one box is only possible
+ * because a line may now carry its own face: the date is her script and the
+ * two under it are the body face. See Line.face.
+ */
+const STORY_ROWS = (S: ReturnType<typeof sheet>): Element[] => STORY_CLOUDS.flatMap((cloud, i) => {
+  // the column on the middle of its own cloud, whichever side of the strip
+  const cx = r2((cloud.left + cloud.right) / 2);
+  const mid = r2((cloud.top + cloud.foot) / 2);
+  // a portrait photograph in her window; `w` is a share of the page's width
   const photo: PhotoEl = {
     id: `story-photo-${i + 1}`, kind: 'photo',
-    x: px, y: date - PHOTO_AIR - half, w: STORY_PHOTO, aspect: 1, anchor: 'centre',
-    rotate: i % 2 === 0 ? 2.5 : -2.5, frame: 'thin',
+    x: STORY_PHOTO_X, y: STORY_WINDOWS[i]!, w: STORY_PHOTO_W, aspect: STORY_PHOTO_ASPECT, anchor: 'centre',
+    // her filmstrip is the frame; ours would sit a second card inside hers
+    frame: 'none',
     bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
     alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
   };
   return [
     photo,
-    // smaller than the 4.5 she drew, so eighteen letters of date stay on one
-    // line in this column and can never wrap onto the title below
-    S.one(`story-${i + 1}-when`, { base: date, size: 3.4, face: 'script', cx, w: STORY_COL, align: 'left', hide: true, room: 18 },
-      bind('story', 'timeline', { index: i, sub: 'date' })),
-    // the words keep their size — it is already small on a phone, and she
-    // named the date and the title, not the sentence. What they give up is
-    // the air above them and a little of their leading.
-    S.mixed(`story-${i + 1}-what`, { base: title, size: pt(25), cx, w: STORY_COL, align: 'left', hide: true, room: 28 }, [
-      { caps: true, src: [bind('story', 'timeline', { index: i, sub: 'title' })] },
-      { size: pt(18.77), lead: 1.30, space: STORY_GAP, room: STORY_WORDS,
+    S.mixed(`story-${i + 1}`, { base: 0, mid, size: TITLE_SIZE, cx, w: STORY_COL, align: 'left', hide: true }, [
+      { face: 'script', size: DATE_SIZE, room: 18, src: [bind('story', 'timeline', { index: i, sub: 'date' })] },
+      { caps: true, space: DATE_UNDER, room: 28, src: [bind('story', 'timeline', { index: i, sub: 'title' })] },
+      { size: WORD_SIZE, lead: 1.30, space: STORY_GAP, room: STORY_WORDS,
         src: [bind('story', 'timeline', { index: i, sub: 'text' })] },
     ]),
   ];
 });
+
+/**
+ * A milestone at every cap at once, as a share of the page's height: one line
+ * of date, two of title and five of description, plus the air between them.
+ * Kept so the test that guards the fit reads the page's own numbers.
+ */
+export const STORY_BLOCK =
+  (DATE_SIZE * LEAD
+    + DATE_UNDER + 2 * TITLE_SIZE * LEAD
+    + STORY_GAP + STORY_LINES * WORD_SIZE * 1.3) / RATIO;
 
 /**
  * Sixteen pages: seven in the column, nine in three booklets.
@@ -733,23 +789,30 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     key: 'our-story', label: { en: 'Our Story' }, sections: ['story'], seam: 0, booklet: 'story', drawn: true,
     ground: ground('our-story', 1.7778),
     elements: [
-      // white, both of them: they are written over her blue banner
-      STORY.one('story-head', { base: 14.961, size: 12.43, color: 'surface', face: 'names', role: 'script', cx: 49.75, w: 84 },
+      /*
+       * The title on her bar, and the family's line under it on the sky.
+       *
+       * Both were white, because her old artwork ran a blue banner behind
+       * them. The page she redrew has one tan plate at 16.09 – 19.43 and a
+       * bow above it, so a white heading floated over the bow and could not
+       * be read at all. A bar that size is a title plate: the title goes on
+       * it, in ink rather than white because white on that tan is barely two
+       * to one, and the line the family writes moves down to the clear sky
+       * between the plate and the filmstrip.
+       */
+      STORY.one('story-head', { base: 18.45, size: 4.0, face: 'display', weight: 700, cx: 50.19, w: 40, room: 22, caps: true },
         { word: 'title:story' }, say('Our Story')),
-      STORY.one('story-line', { base: 18.267, size: pt(30), color: 'surface', face: 'display', weight: 700, cx: 50.22, w: 64, room: 46, mark: 'accent' },
+      // ink, not the accent: the accent is her peach and the bow's tail is
+      // behind these words, which made them all but invisible
+      STORY.one('story-line', { base: 24.2, size: pt(26), face: 'names', role: 'script', cx: 50.19, w: 72, room: 46 },
         bind('story', 'line'), { word: 'story' }),
       /*
-       * Her four milestones, hung off the drawn spine, one to a dot: the
-       * photograph, then the date, the title and the words, all stacked in
-       * the one column and alternating sides as the page reads down.
-       *
-       * The date is hers and it is back — it was dropped in the first build,
-       * drawn all along and never asked for. She set the date 2.63 under
-       * nothing, the title 2.63 under the date and the sentence 2.98 under
-       * the title; those three baselines are kept, and only the column's
-       * width and the photograph's place have moved. See STORY_ROWS.
+       * Her four milestones: the photograph in its window on the filmstrip,
+       * and the date, the title and the words in the cloud beside it. See
+       * STORY_ROWS — the sides, the windows and the clouds are all measured
+       * off her own artwork.
        */
-      ...STORY_ROWS(STORY, [{ left: 6.10 }, { left: 59.84 }, { left: 6.10 }, { left: 59.84 }]),
+      ...STORY_ROWS(STORY),
     ],
   },
   {

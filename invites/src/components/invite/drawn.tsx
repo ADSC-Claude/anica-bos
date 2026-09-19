@@ -622,7 +622,9 @@ function LineText({ line, text, face, size, leading, highlight }: { line: Line; 
   const Tag = LINE_TAG[line.role];
   const cls = LINE_CLASS[line.role];
   const style: CSSProperties = {};
-  if (face) style.fontFamily = `var(--inv-${face})`;
+  // the line's own face where it has one, else the box's
+  const lineFace = line.face ?? face;
+  if (lineFace) style.fontFamily = `var(--inv-${lineFace})`;
   if (line.align) style.textAlign = line.align;
   if (line.size ?? size) style.fontSize = `${line.size ?? size}cqw`;
   // the box's leading has to be set on the line, not left to be inherited:

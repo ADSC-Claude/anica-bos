@@ -79,7 +79,14 @@ test('the window is found beside the picture, wherever the picture is', () => {
 
 test('the form is handed the real frame for every picture the design draws', () => {
   const form = designForm(builtinDesign('christening'), 'CHRISTENING');
-  assert.deepEqual(framesFor('story', form), { 'timeline.photo': { aspect: 1 } }, 'a milestone’s frame is square');
+  /*
+   * Portrait since she redrew the page: "i removed the line in the middle
+   * for the our story and replace it where the photos should go", and the
+   * four windows on the filmstrip she put there are 14.11 of the page tall
+   * over 18.52 wide. The form is handed that, so the crop box she drags in
+   * shows the shape the page will actually print.
+   */
+  assert.deepEqual(framesFor('story', form), { 'timeline.photo': { aspect: 1.355 } }, 'a milestone’s window is portrait');
   /*
    * The three polaroids on the Baby photos page are 0.9563, 0.9590 and
    * 0.9563 — measured off her artwork, so no two are the same number and

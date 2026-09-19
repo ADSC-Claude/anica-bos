@@ -1219,7 +1219,7 @@ export const FIT: Record<string, number> = {
   // A milestone's few words: three lines of the christening's column, which
   // is what the rebuilt row has room for now the photograph is stacked above
   // the date rather than sitting across the row above's sentence.
-  'story.timeline.title': 28, 'story.timeline.text': 130, 'story.timeline.date': 18,
+  'story.timeline.title': 28, 'story.timeline.text': 170, 'story.timeline.date': 18,
   // photos
   'gallery.line': 80, 'gallery.note': 90, 'gallery.months.label': 20, 'gallery.little.caption': 40, 'gallery.videoTitle': 40, 'gallery.close': 60, 'gallery.photos.caption': 40,
   'moment.line1': 40, 'moment.line2': 40, 'moment.line3': 40,

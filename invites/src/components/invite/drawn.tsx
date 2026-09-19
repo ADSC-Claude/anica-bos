@@ -265,7 +265,9 @@ function opensAttrs(el: Element): Record<string, string | undefined> | undefined
 function tapAttrs(el: Element, read: Read): Record<string, string | number | undefined> {
   const out: Record<string, string | number | undefined> = {};
   if (el.taps) { out['data-taps'] = el.taps; out.role = 'button'; out.tabIndex = 0; }
-  if (read.held?.has(el.id)) { out['data-tap-id'] = el.id; out['data-hold'] = ''; }
+  // the name it answers to, which is its id unless it shares another's (tapAs)
+  const name = el.tapAs ?? el.id;
+  if (read.held?.has(name)) { out['data-tap-id'] = name; out['data-hold'] = ''; }
   // the song's own control, wherever the design drew it: the Shell listens
   // for this across the whole invitation, because the player lives there
   if (el.song) { out['data-music'] = ''; out.role = 'button'; out.tabIndex = 0; }

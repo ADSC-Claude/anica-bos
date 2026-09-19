@@ -3362,6 +3362,12 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    it at the app's own 26rem. */
 .inv[data-doc] .inv-page[data-page='post-event'] > .inv-section:not(.inv-bb-art) {
   max-width: none; padding-left: 5.3cqw; padding-right: 5.3cqw;
+  /* "it looks awkward that it has a space thats not filling anything". The
+     section's own 3.25rem foot stacked on the design's `footPad` and left a
+     hand's width of empty card under the button. The design's foot is the
+     one that has work to do here — it holds her comment bar and her heart —
+     so the section's goes. */
+  padding-bottom: 0.5rem;
 }
 /* The design has drawn both the heading and the line under it, so the
    section's own pair goes — not only the first of them, which is all the

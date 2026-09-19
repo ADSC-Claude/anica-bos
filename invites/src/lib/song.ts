@@ -53,3 +53,26 @@ export function youtubeEmbed(id: string, start = 0): { src: string; poster: stri
     poster: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
   };
 }
+
+/**
+ * The song has come back to its beginning by itself.
+ *
+ * A guest who stays on the invitation longer than the song hears it
+ * again — "if the guest is still in the invitation and the music ends,
+ * it should repeat the song again" — and the repeat is the audio
+ * element's own `loop`, because the browser makes that turn inside the
+ * player: no gap, and it keeps going with the screen off, which a song
+ * restarted from script does not.
+ *
+ * What `loop` cannot know is the start point. It returns to 0, so a song
+ * whose first six seconds are an intro would play that intro on every
+ * turn but the first. This is how the turn is noticed: the clock has
+ * gone backwards, past the start point, which nothing else can do — the
+ * guest is given a play button and no scrubber.
+ *
+ * Half a second of slack, because a wrap is announced a moment after it
+ * happens and the clock has moved on by then.
+ */
+export function looped(currentTime: number, startAt: number): boolean {
+  return startAt > 0 && currentTime < startAt - 0.5;
+}

@@ -918,6 +918,17 @@ type Base = {
    */
   taps?: string;
   /**
+   * The name this element answers to when something taps it, where its own
+   * id is not that name.
+   *
+   * A `taps` names one thing to move, and usually the thing that moves is
+   * one element. Her instax is two: the print she drew, and the guest's
+   * photograph in its window. They have to come out of the camera together
+   * or the picture arrives without its frame, so the photograph answers to
+   * the print's name as well as carrying its own id.
+   */
+  tapAs?: string;
+  /**
    * A tap here starts or stops the invitation's song.
    *
    * Her christening draws CLICK FOR MUSIC around the rim of a record, and
@@ -1552,6 +1563,7 @@ const zBase = {
   }).strict().optional(),
   go: z.object({ to: z.enum(['calendar', 'maps', 'waze']), of: z.string().max(40).optional() }).strict().optional(),
   taps: z.string().max(41).optional(),
+  tapAs: z.string().max(41).optional(),
   song: z.literal(true).optional(),
   when: zWhen.optional(),
   attachTo: z.string().max(41).optional(),

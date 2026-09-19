@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { preload } from 'react-dom';
 import { plateChars } from '@/lib/openings';
+import { looped } from '@/lib/song';
 import { Scene, useMomentGesture } from './moments';
 import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
 import { PHOTOS_AT_ONCE } from '@/lib/album';
@@ -303,6 +304,26 @@ export function Shell({
     if (ranges.length && ranges.end(ranges.length - 1) >= startAt) seekToStart();
   }, [startAt, seekToStart]);
 
+  /**
+   * The song has come round again and has to be taken past its intro.
+   *
+   * `loop` is the audio element's own, so the turn is made inside the
+   * player: no gap, and it keeps going with the screen off. What it
+   * cannot know is the start point — it returns to 0 — so a wrap is
+   * caught here and sent back to where the song was told to begin.
+   *
+   * Watched on the seek the loop makes and on the clock both, because a
+   * browser that does not announce that seek still moves the clock; and
+   * only once the song has reached the start point at all, so this never
+   * fights the seek that gets it there in the first place.
+   */
+  const again = useCallback(() => {
+    const a = audio.current;
+    if (!a) return;
+    if (landed.current && looped(a.currentTime, startAt)) seekToStart();
+    else settle();
+  }, [startAt, seekToStart, settle]);
+
   const play = useCallback(async () => {
     if (!audio.current) return;
     if (!sought.current) {
@@ -548,20 +569,25 @@ export function Shell({
       )}
       {music && (
         <>
-          {/* no `loop`: the song returns to its start point, not to the beginning */}
+          {/* `loop`, so a guest still reading when the song runs out hears it
+              again; `again` puts each turn back at the start point, which
+              loop on its own knows nothing about */}
           <audio
             ref={audio}
             src={music}
+            loop
             preload={warm ? 'auto' : 'none'}
             onLoadedMetadata={settle}
             onCanPlay={settle}
             onProgress={settle}
             onPlaying={settle}
-            onSeeked={settle}
+            onSeeked={again}
+            onTimeUpdate={again}
             onEnded={() => {
+              // a player that ends the song regardless of `loop`: start it over
               landed.current = false;
               seekToStart();
-              void audio.current?.play();
+              audio.current?.play().then(() => setPlaying(true), () => setPlaying(false));
             }}
           />
           <button type="button" className="inv-music no-print" onClick={toggle} aria-label={playing ? pauseLabel : playLabel} title={playing ? pauseLabel : playLabel}>

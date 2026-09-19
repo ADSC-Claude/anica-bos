@@ -596,6 +596,26 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        */
       piece('cover-print', '/christening/parts/instax-print.webp',
         { cx: 51.39, cy: 79.40, w: 23.70, aspect: 1.1367 }, { motion: { enter: 'slide' } }),
+      /*
+       * And the photograph in it. "i need to know where can i upload the
+       * polaroid, it should have a photo inserter for that. thats a photo
+       * frame."
+       *
+       * It is, and it had none: the print she drew carries a placeholder
+       * landscape, so every guest saw the same green hill. The window is
+       * measured off the file — 7.42%–90.62% across it, 4.47%–74.91% down —
+       * and turned into the page's own units, which puts it here. It is laid
+       * over the print rather than behind it, because her picture area is
+       * not cut out, and it takes the cover photo: the one photograph this
+       * design asks for and, until now, never printed anywhere.
+       *
+       * `tapAs` is what makes the two one thing. The tap names the print;
+       * without it the frame would come out of the camera and leave the
+       * photograph behind.
+       */
+      { id: 'cover-photo', kind: 'photo', bind: { section: 'cover', field: 'coverPhoto' },
+        x: 51.16, y: 77.83, w: 19.72, aspect: 0.9625, anchor: 'centre', frame: 'none', z: 2,
+        tapAs: 'cover-print', motion: { enter: 'slide' } },
       { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
         anchor: 'centre', fill: 'transparent', taps: 'cover-print' },
     ],
@@ -610,13 +630,19 @@ export const CHRISTENING_PAGES: PageSpec[] = [
      * the live rule, the way every live page's heading is, because the design
      * has already written it.
      *
-     * `headPad` is small and the page grows. The counter is set in rem rather
-     * than in the page's own units — it is the app's furniture, not her
-     * artwork — so no single gap can hold at every width; four is the value
-     * that keeps it clear of her line on a phone and still looks deliberate
-     * on a laptop.
+     * `headPad` is where the counter starts, and it is measured off her
+     * clouds rather than guessed.
+     *
+     * "make the countdown in the center not at the top. always make sure of
+     * this." It was at the top: four put the numbers 12% of the way down a
+     * page whose middle column is clouded until 28% and clear from there to
+     * 80%, so DAYS and SECONDS were printed half over the cloud at either
+     * shoulder. Nine is 28% of the page's height (0.28 × 32.41cqw), which
+     * starts the counter on the first clear row; the numbers then run to
+     * about 60% and her line to 81%, so the whole thing is centred on the
+     * band of sky she drew for it, not on the page.
      */
-    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true, live: true, grow: true, headPad: 4,
+    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true, live: true, grow: true, headPad: 9,
     ground: ground('countdown', 0.3241, true),
     elements: [
       COUNTDOWN.one('countdown-line', { base: 76.804, size: 3.87, color: 'accent', face: 'names', role: 'script', w: 62, room: 34 },
@@ -803,7 +829,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    */
   {
     key: 'post-event', label: { en: 'Photos from the day' }, sections: ['photos'], seam: 0,
-    drawn: true, grow: true, live: true, wall: 'swipe', headPad: 26, footPad: 3,
+    drawn: true, grow: true, live: true, wall: 'swipe', headPad: 26, footPad: 2.2,
     ground: ground('post-event', 1.7778, true),
     elements: [
       // where a post puts whose post it is: left of her ⋯ and ✕, which sit at
@@ -880,11 +906,30 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * to one, and the line the family writes moves down to the clear sky
        * between the plate and the filmstrip.
        */
-      STORY.one('story-head', { base: 18.45, size: 4.0, face: 'display', weight: 700, cx: 50.19, w: 40, room: 22, caps: true },
+      /*
+       * The title over the plate, her line on it — her own old page, which
+       * she sent as `Sub Page 1 - Our Story`.
+       *
+       * "Our Story should be there, the writings below it should be place
+       * there, then the Our story is white font at the top of it. check our
+       * previous look."
+       *
+       * The two had been the other way round: a small OUR STORY in ink on
+       * the plate and her line adrift in the sky under it. On her page the
+       * title is large, white and set in title case across the open sky
+       * with the bow behind it (ink 9.90%–14.95% of the page, spanning
+       * 25.4%–73.8% of its width), and the plate below carries the line —
+       * white, the plate being the dark ground that makes it readable.
+       *
+       * Ten is the size that spans the page the way hers does. Her own face
+       * is more condensed than this one, so matching her width and matching
+       * her cap height cannot both be had; the width is what makes the
+       * composition, so the width is what is matched.
+       */
+      STORY.one('story-head', { base: 13.24, size: 10, color: 'surface', face: 'display', weight: 700, cx: 50.19, w: 72, room: 22 },
         { word: 'title:story' }, say('Our Story')),
-      // ink, not the accent: the accent is her peach and the bow's tail is
-      // behind these words, which made them all but invisible
-      STORY.one('story-line', { base: 24.2, size: pt(26), face: 'names', role: 'script', cx: 50.19, w: 72, room: 46 },
+      // on the plate (16.15%–19.27%), hung so the words sit on its middle
+      STORY.one('story-line', { base: 18.12, size: pt(26), color: 'surface', face: 'names', role: 'script', cx: 50.19, w: 62, room: 46 },
         bind('story', 'line'), { word: 'story' }),
       /*
        * Her four milestones: the photograph in its window on the filmstrip,

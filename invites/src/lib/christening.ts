@@ -644,11 +644,30 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     ground: ground('assistance', 0.5556),
     elements: [
       HELP.one('help-head', { base: 27.079, size: pt(40), face: 'display', weight: 700 }, { word: 'title:contact' }, say('QUESTIONS?')),
-      HELP.many('help-one', { base: 57.599, size: pt(25), cx: 36.12, w: 26, lead: 1.18 },
+      /*
+       * One name, or two.
+       *
+       * She drew two columns, so the first was pinned at 36.12 whether or
+       * not anything ever stood beside it — and a family who gives one
+       * number got it hanging off to the left of a page with nothing on
+       * the right: "when the customer only inputs one contact number it
+       * should be place in the middle and the word US should be ME".
+       *
+       * Both, then, chosen by whether there is a second name. `when` is
+       * the document's own conditional and this is what it is for; the two
+       * carry the same bindings, so a family who adds a second name later
+       * sees the first slide back into her column.
+       */
+      HELP.many('help-solo', { base: 57.599, size: pt(25), cx: 50, w: 40, lead: 1.18, when: { section: 'contact', field: 'name2', filled: false } },
+        [[bind('contact', 'name')], [bind('contact', 'phone')]]),
+      HELP.many('help-one', { base: 57.599, size: pt(25), cx: 36.12, w: 26, lead: 1.18, when: { section: 'contact', field: 'name2', filled: true } },
         [[bind('contact', 'name')], [bind('contact', 'phone')]]),
       HELP.many('help-two', { base: 57.254, size: pt(25), cx: 65.97, w: 26, lead: 1.18, hide: true },
         [[bind('contact', 'name2')], [bind('contact', 'phone2')]]),
-      HELP.one('help-note', { base: 78.221, size: pt(25), cx: 50.95 },
+      // and one person says me, not us
+      HELP.one('help-note-solo', { base: 78.221, size: pt(25), cx: 50.95, when: { section: 'contact', field: 'name2', filled: false } },
+        bind('contact', 'chatNote'), say('Or message me on Messenger.')),
+      HELP.one('help-note', { base: 78.221, size: pt(25), cx: 50.95, when: { section: 'contact', field: 'name2', filled: true } },
         bind('contact', 'chatNote'), { word: 'contactNote' }, say('Or message us on Messenger.')),
     ],
   },

@@ -1773,11 +1773,24 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
   return problems;
 }
 
-/** Roughly, has the customer touched this section? Drives the progress bar. */
+/**
+ * Roughly, has the customer touched this section? Drives the progress bar,
+ * and decides whether the page is on the invitation at all.
+ *
+ * Only what a *customer* answered counts. A fixed writing is ours — it
+ * arrives with the look, filled in, on every invitation ever made — so
+ * counting it made every part look touched the moment it existed. The
+ * christening's Share the joy page is the case she found: a heading, a
+ * camera and an empty band, on a family who never wrote a hashtag, because
+ * the unplugged wording had a default and the switch for it was off.
+ *
+ * "when they opt not to fill the hashtag, the pages shouldnt appear right?"
+ * Right — and now they do not.
+ */
 export function sectionFilled(key: SectionKey, occasion: Occasion, data: SectionData | undefined): boolean {
   if (!data) return false;
   const fields = fieldsFor(key, occasion);
-  const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
+  const meaningful = fields.filter((f) => !f.staff && f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
   if (meaningful.length === 0) return true;
   // the guestbook and the album: ticking the switch is the whole of it
   if (SECTION_BY_KEY[key]?.switchIsEnough) return data.enabled === true;

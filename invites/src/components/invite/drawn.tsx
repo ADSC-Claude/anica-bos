@@ -551,7 +551,7 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
   }
   const body = blank && read.edit
     ? <p className="inv-bb-ask">{read.edit.label(el)}</p>
-    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} face={el.face} size={el.size} leading={el.leading} /> : null));
+    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} face={el.face} size={el.size} leading={el.leading} highlight={el.highlight} /> : null));
   if (el.block === 'head') return <header className={cls} style={style} {...mark}>{body}</header>;
   const go = goProps(el, read);
   if (go.tag) return <a className={cls} style={style} {...mark} {...go.props}>{body}</a>;
@@ -567,7 +567,7 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
  * setting would do nothing at all. The line's own size still wins over the
  * block's, because she set that one last and more precisely.
  */
-function LineText({ line, text, face, size, leading }: { line: Line; text: string; face?: TextEl['face']; size?: number; leading?: number }) {
+function LineText({ line, text, face, size, leading, highlight }: { line: Line; text: string; face?: TextEl['face']; size?: number; leading?: number; highlight?: TextEl['highlight'] }) {
   const Tag = LINE_TAG[line.role];
   const cls = LINE_CLASS[line.role];
   const style: CSSProperties = {};
@@ -577,13 +577,27 @@ function LineText({ line, text, face, size, leading }: { line: Line; text: strin
   // the box's leading has to be set on the line, not left to be inherited:
   // every role class carries a line-height of its own, and a class beats
   // inheritance, so a box that only set it on the wrapper set nothing
-  if (leading !== undefined) style.lineHeight = leading;
+  if ((line.leading ?? leading) !== undefined) style.lineHeight = line.leading ?? leading;
+  // air above this line, where the box holds two writings her own gap apart
+  if (line.space !== undefined) style.marginTop = `${line.space}cqw`;
+  if (line.caps) style.textTransform = 'uppercase';
   // a whole list in one line's worth of markup: the newlines valueAt joined
   // it with are the line breaks, and the box's leading spaces them
   if (text.includes('\n')) style.whiteSpace = 'pre-line';
   if (line.color) style.color = `var(--inv-${line.color})`;
   const styled = Object.keys(style).length ? style : undefined;
-  return <Tag className={cls || undefined} style={styled}>{text}</Tag>;
+  /*
+   * Her highlight goes on a span inside the line, not on the line itself.
+   * It is an inline background, so it hugs the words rather than the box
+   * and `box-decoration-break: clone` gives every line of a wrapped answer
+   * a pill of its own — which is what Canva draws and what a baked one
+   * cannot do. Inline padding leaves the line box alone, so the baselines
+   * the page was fitted to do not move.
+   */
+  const body = highlight
+    ? <span className="inv-bb-hl" style={{ background: `var(--inv-${highlight})` }}>{text}</span>
+    : text;
+  return <Tag className={cls || undefined} style={styled}>{body}</Tag>;
 }
 
 /** The face, size, weight and letter-spacing the studio set on a whole block. */

@@ -1,0 +1,12 @@
+{
+  "_": "Rectangles of drawn shape to lift out of a page, as percentages of it: x0, y0, x1, y1. A shape drawn with Canva's tools is line art, not an image, so it has no xref for drops.json to name. Copy this file to cuts.json beside the PDFs before running canva-grounds.py.",
+
+  "Main Page 1 - Cover":
+    [[40.2, 71.5, 62.6, 86.4]],
+
+  "Sub Page 1 - Our Story-Our Story":
+    [[27.1, 15.8, 73.3, 19.7]],
+
+  "Sub Page 3 - The Details-Venue":
+    [[20.9, 20.9, 79.1, 29.5], [23.0, 64.2, 77.0, 69.4]]
+}

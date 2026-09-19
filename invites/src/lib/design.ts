@@ -970,6 +970,32 @@ export type Line = {
   size?: number;
   /** `surface` is the white a design writes over its own dark pictures */
   color?: 'ink' | 'muted' | 'accent' | 'accent2' | 'surface';
+  /**
+   * This line's own line-height, where the box's is not right for it.
+   *
+   * A box that mixes sizes mixes leadings too: the programme's title is set
+   * tight and the sentence under it open, and one number on the box cannot
+   * be both. Blank takes the box's.
+   */
+  leading?: number;
+  /**
+   * Air above this line, in cqw.
+   *
+   * What holds two writings apart *and lets them flow*. A drawn page places
+   * every box at a baseline the designer measured, which is right until an
+   * answer is longer than her sample: her programme reads TITLE over one
+   * line of description, and a real "Christening Mass" takes two lines and
+   * lands on top of the sentence below it. Putting both in one box makes
+   * the sentence follow the title down — and then the gap she drew between
+   * them has to be said as a gap rather than as a second baseline, because
+   * a leading wide enough to carry it would also push the sentence's own
+   * lines that far apart.
+   */
+  space?: number;
+  /** the letters this line holds, where it differs from the box's own `room` */
+  room?: number;
+  /** this line set in capitals, where the box as a whole is not */
+  caps?: true;
 };
 
 export type PhotoEl = Base & {
@@ -1036,6 +1062,22 @@ export type TextEl = Base & {
    * — on the writing, so it follows the words when a longer answer wraps.
    */
   rule?: true;
+  /**
+   * Canva's text highlight: a coloured pill behind the words themselves.
+   *
+   * Not `backing`, which is about reading words over a busy picture. This
+   * is a thing a designer drew on purpose — her Our Story tagline is white
+   * on a tan pill, and her two venue names are tan on white ones.
+   *
+   * It has to be live rather than left in the artwork. Canva bakes the
+   * pill at the shape of *her sample words*, so the ceremony's came out as
+   * a wide lobe with a narrow one under it, cut for "SANTUARIO DE SAN
+   * ANTONIO" over "PARISH" — and a family whose church fits on one line
+   * got the lower lobe with nothing on it. Drawn here it takes the shape
+   * of whatever they typed, on every line of it
+   * (`scripts/christening-cuts.json` is where the baked ones come off).
+   */
+  highlight?: 'ink' | 'muted' | 'accent' | 'accent2' | 'surface';
   /**
    * The words set in capitals, however the family typed them.
    *
@@ -1391,6 +1433,10 @@ const zLine = z.object({
   align: z.enum(['left', 'center', 'right']).optional(),
   size: z.number().positive().max(40).optional(),
   color: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
+  leading: z.number().min(0.6).max(3).optional(),
+  space: z.number().min(0).max(40).optional(),
+  room: z.number().int().min(1).max(2000).optional(),
+  caps: z.literal(true).optional(),
 }).strict();
 
 const zBase = {
@@ -1438,6 +1484,7 @@ const zElement = z.union([
     tracking: z.number().min(-0.05).max(0.4).optional(),
     leading: z.number().min(0.6).max(3).optional(),
     rule: z.literal(true).optional(),
+    highlight: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
     caps: z.literal(true).optional(),
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),

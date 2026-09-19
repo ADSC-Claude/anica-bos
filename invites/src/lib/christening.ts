@@ -150,6 +150,10 @@ type Set = {
   after?: number;
   /** her box is set in capitals, however the family types their answer */
   caps?: true;
+  /** on a row of `mixed`: air above this line in cqw, so the gap she drew survives a wrap */
+  space?: number;
+  /** her coloured pill behind the words, taken off the artwork so it follows them */
+  mark?: 'accent' | 'surface';
   /** the id of the element a tap here plays */
   taps?: string;
   /** drawn only when an answer says so */
@@ -177,12 +181,23 @@ type Set = {
  */
 const sheet = (ratio: number) => {
   const at = (s: Set, lead: number) => r2(s.base - (s.size * (lead / 2 + HALF[s.face ?? 'body'])) / ratio);
-  const line = (s: Set, sources: Source[]): Line => ({
+  /*
+   * `own` is what the *row* set, as against what the box set: a row of a
+   * `mixed` box may carry its own leading, its own gap above it, its own
+   * cap on the letters and its own capitals, and only the keys it names
+   * are written onto the line. A box of one line names none of them and
+   * keeps the box's.
+   */
+  const line = (s: Set, sources: Source[], own: Partial<Set> = {}): Line => ({
     role: s.role ?? 'body',
     sources,
     align: s.align ?? 'center',
     size: s.size,
     color: s.color ?? 'ink',
+    ...(own.lead !== undefined ? { leading: own.lead } : {}),
+    ...(own.space !== undefined ? { space: own.space } : {}),
+    ...(own.room !== undefined ? { room: own.room } : {}),
+    ...(own.caps ? { caps: true as const } : {}),
   });
   const box = (id: string, s: Set, lines: Line[]): TextEl => {
     const lead = s.lead ?? LEAD;
@@ -199,6 +214,7 @@ const sheet = (ratio: number) => {
       ...(s.blink ? { motion: { idle: 'flicker' as const } } : {}),
       ...(s.rule ? { rule: true as const } : {}),
       ...(s.caps ? { caps: true as const } : {}),
+      ...(s.mark ? { highlight: s.mark } : {}),
       ...(s.after ? { motion: { enter: 'fade' as const, delay: s.after } } : {}),
       ...(s.taps ? { taps: s.taps } : {}),
       ...(s.when ? { when: s.when } : {}),
@@ -213,7 +229,7 @@ const sheet = (ratio: number) => {
     many: (id: string, s: Set, groups: Source[][]) => box(id, s, groups.map((g) => line(s, g))),
     /** several lines of different sizes in one box, at her leading */
     mixed: (id: string, s: Set, rows: Array<Partial<Set> & { src: Source[] }>) =>
-      box(id, s, rows.map((row) => line({ ...s, ...row }, row.src))),
+      box(id, s, rows.map((row) => line({ ...s, ...row }, row.src, row))),
   };
 };
 
@@ -295,6 +311,23 @@ const RSVP = sheet(1.7778);
  * different gaps, and the row alternating side so the page reads down the
  * spine rather than down one margin.
  */
+/*
+ * The gap from the title's baseline down to the sentence's, said as air
+ * rather than as a second baseline: 1.73cqw.
+ *
+ * Her two pages set the same distance — 2.975% of the story page's height
+ * and 3.570% of the programme's, which are both 5.29cqw once the pages'
+ * own shapes are taken out. What the two lines take up on their own is
+ * `size × (leading/2 − HALF)` below the first baseline and
+ * `size × (leading/2 + HALF)` above the second: 3.66 × 0.407 plus
+ * 2.32 × 0.893, or 3.56cqw. The 1.73 is the difference.
+ *
+ * It has to be a margin and not a leading. A leading wide enough to carry
+ * the gap would carry it again between the sentence's *own* lines, and a
+ * description is usually more than one line.
+ */
+const ROW_GAP = 1.73;
+
 const ROWS = (
   S: ReturnType<typeof sheet>,
   key: string,
@@ -305,10 +338,20 @@ const ROWS = (
 ): Element[] => rows.flatMap((row, i) => [
   S.one(`${key}-${i + 1}-when`, { base: row.date, size: 4.5, face: 'script', cx: row.left + 15, w: 30, align: 'left', hide: true, room: 18 },
     bind(section, field, { index: i, sub: first })),
-  S.one(`${key}-${i + 1}-what`, { base: row.title, size: pt(29.64), cx: row.left + 15, w: 30, align: 'left', hide: true, room: 22, caps: true },
-    bind(section, field, { index: i, sub: 'title' })),
-  S.one(`${key}-${i + 1}-note`, { base: row.text, size: pt(18.77), cx: row.left + 15, w: 30, align: 'left', lead: 1.35, hide: true, room: 90 },
-    bind(section, field, { index: i, sub: key === 'story' ? 'text' : 'note' })),
+  /*
+   * The title and the sentence in one box, not two.
+   *
+   * She typed TITLE, one short word, so at her baselines the two never met.
+   * A real one is "Christening Mass" or "Games and Giveaways", which takes
+   * two lines in a column this narrow — and a second box pinned to its own
+   * baseline does not know that, so the sentence was printing straight
+   * through it. One box, and the sentence follows the title down.
+   */
+  S.mixed(`${key}-${i + 1}-what`, { base: row.title, size: pt(29.64), cx: row.left + 15, w: 30, align: 'left', hide: true, room: 22 }, [
+    { caps: true, src: [bind(section, field, { index: i, sub: 'title' })] },
+    { size: pt(18.77), lead: 1.35, space: ROW_GAP, room: 90,
+      src: [bind(section, field, { index: i, sub: key === 'story' ? 'text' : 'note' })] },
+  ]),
 ]);
 
 /**
@@ -544,7 +587,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       // white, both of them: they are written over her blue banner
       STORY.one('story-head', { base: 14.961, size: 12.43, color: 'surface', face: 'names', role: 'script', cx: 49.75, w: 84 },
         { word: 'title:story' }, say('Our Story')),
-      STORY.one('story-line', { base: 18.267, size: pt(30), color: 'surface', face: 'display', weight: 700, cx: 50.22, w: 64, room: 46 },
+      STORY.one('story-line', { base: 18.267, size: pt(30), color: 'surface', face: 'display', weight: 700, cx: 50.22, w: 64, room: 46, mark: 'accent' },
         bind('story', 'line'), { word: 'story' }),
       /*
        * Her four milestones, hung off the drawn spine: the words on one side
@@ -705,7 +748,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     ground: ground('venue', 1.2963),
     elements: [
       VENUE.one('venue-cer-head', { base: 18.064, size: pt(40), color: 'muted', role: 'title', cx: 50.05 }, say('CEREMONY')),
-      VENUE.one('venue-cer-name', { base: 24.176, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44, caps: true },
+      VENUE.one('venue-cer-name', { base: 24.176, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 56, lead: 1.2, room: 44, caps: true, mark: 'surface' },
         bind('ceremony', 'venue')),
       VENUE.mixed('venue-cer-where', { base: 32.138, size: pt(25), color: 'accent', cx: 50.15, w: 76, lead: 1.13 }, [
         { src: [bind('ceremony', 'address')] },
@@ -717,7 +760,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         say('OPEN IN WAZE')),
       VENUE.one('venue-rec-head', { base: 61.622, size: pt(40), color: 'muted', role: 'title', cx: 50.01 },
         { word: 'title:venue' }, say('RECEPTION')),
-      VENUE.one('venue-rec-name', { base: 67.511, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44, caps: true },
+      VENUE.one('venue-rec-name', { base: 67.511, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 56, lead: 1.2, room: 44, caps: true, mark: 'surface' },
         bind('reception', 'venue')),
       VENUE.mixed('venue-rec-where', { base: 72.746, size: pt(25), color: 'accent', cx: 50.15, w: 76, lead: 1.02 }, [
         { src: [bind('reception', 'address')] },

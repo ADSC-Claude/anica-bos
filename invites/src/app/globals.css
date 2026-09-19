@@ -2151,6 +2151,20 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    cqw so they scale with the type rather than with the screen. */
 .inv-bb-art [data-backing='shadow'] { text-shadow: 0 0.16cqw 0.55cqw var(--inv-surface), 0 0 1cqw var(--inv-surface); }
 .inv-bb-art [data-backing='scrim'] { padding: 0.9cqw 1.6cqw; background: color-mix(in srgb, var(--inv-surface) 70%, transparent); border-radius: 0.9cqw; }
+/*
+ * A designer's own text highlight — the coloured pill Canva puts behind a
+ * line of type. Inline, so it takes the shape of the words on every line
+ * of a wrapped answer instead of the shape of the box; in ems, so it holds
+ * its proportion at every size; and the vertical padding is inline padding,
+ * which does not grow the line box, so a highlighted writing sits on the
+ * same baseline as an unhighlighted one.
+ */
+.inv-bb-art .inv-bb-hl {
+  border-radius: 0.4em;
+  padding: 0.19em 0.5em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
 .inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }

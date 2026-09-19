@@ -47,6 +47,9 @@ export default async function GuestbookPage({ params }: { params: Promise<{ id: 
               ? 'The wall is on your page, and each new wish waits here for your approval.'
               : 'The wall is on your page, and wishes go straight onto it.'
         }
+        actions={entries.length > 0
+          ? <a href={`/account/invitations/${inv.id}/guestbook.csv`} className="btn btn-secondary btn-sm">Download messages</a>
+          : undefined}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

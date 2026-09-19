@@ -125,16 +125,24 @@ export const TEMPLATES: TemplateSeed[] = [
   {
     slug: 'christening', name: 'Baby Blue Christening', occasion: 'CHRISTENING', minTier: 'STANDARD', premium: false,
     layout: 'christening', collection: 'babyblue', opening: 'universal',
-    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), look: 'romance', featured: true, retired: true,
+    /*
+     * No `look`. A look is a palette and a pairing, and `resolveTheme` ends
+     * with `if (set) fonts = set.fonts` — so naming one here would throw the
+     * christening's own faces away and set the whole design in the look's.
+     * It did: every page came out in Lora. The design carries its own words
+     * in `words` below, which is the other half of what a look would have
+     * given it, so there is nothing left for one to do.
+     */
+    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), featured: true, retired: true,
     description: 'Clouds, a paper bow and a desk of small things to open. Sixteen pages for a christening, seven to scroll and nine to find.',
     thumb: '/christening/cover.webp', demo: 'lucas-andrei-christening',
     design: builtinDesign('christening')!,
     words: {
       en: {
         cover: 'Christening',
-        'title:story': 'Our Story', 'title:invitation': 'C E R E M O N Y', 'title:sponsors': 'G O D P A R E N T S',
-        'title:gallery': 'Baby Photos', 'title:venue': 'R E C E P T I O N', 'title:dressCode': 'D R E S S   C O D E',
-        'title:gift': 'G I F T   N O T E', 'title:program': 'Program', 'title:social': 'SHARE THE JOY',
+        'title:story': 'Our Story', 'title:invitation': 'CEREMONY', 'title:sponsors': 'GODPARENTS',
+        'title:gallery': 'Baby Photos', 'title:venue': 'RECEPTION', 'title:dressCode': 'DRESS CODE',
+        'title:gift': 'GIFT NOTE', 'title:program': 'Program', 'title:social': 'SHARE THE JOY',
         'title:rsvp': 'RSVP', 'title:contact': 'QUESTIONS?',
         story: 'A little prayer, a big answer.',
         invitation: 'Join us as we welcome our little one into God’s family',
@@ -148,9 +156,9 @@ export const TEMPLATES: TemplateSeed[] = [
       },
       tl: {
         cover: 'Binyag',
-        'title:story': 'Ang Aming Kuwento', 'title:invitation': 'S E R E M O N Y A', 'title:sponsors': 'N I N O N G   A T   N I N A N G',
-        'title:gallery': 'Mga Larawan ni Baby', 'title:venue': 'S A L U - S A L O', 'title:dressCode': 'D R E S S   C O D E',
-        'title:gift': 'T U N G K O L   S A   R E G A L O', 'title:program': 'Programa', 'title:social': 'I-SHARE ANG SAYA',
+        'title:story': 'Ang Aming Kuwento', 'title:invitation': 'SEREMONYA', 'title:sponsors': 'NINONG AT NINANG',
+        'title:gallery': 'Mga Larawan ni Baby', 'title:venue': 'SALU-SALO', 'title:dressCode': 'DRESS CODE',
+        'title:gift': 'TUNGKOL SA REGALO', 'title:program': 'Programa', 'title:social': 'I-SHARE ANG SAYA',
         'title:rsvp': 'RSVP', 'title:contact': 'MAY TANONG?',
         story: 'Isang munting dasal, isang malaking sagot.',
         invitation: 'Samahan kami sa pagtanggap ng aming anak sa pamilya ng Diyos',

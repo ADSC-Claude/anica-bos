@@ -917,12 +917,27 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
 
 function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionData; lang: Lang; title: string; tagline?: string; format?: boolean; thanks?: string }) {
   const registry = rows<{ label: string; url: string }>(data, 'registry');
-  const qr = str(data, 'gcashQr');
+  /*
+   * A QR or an account, by the family's own choice (gift.payBy).
+   *
+   * Blank means the choice was never made, which is every invitation built
+   * before it existed — so blank behaves exactly as it always did: the QR
+   * and the GCash lines, drawn when there is something to draw. Only a
+   * family who has actively picked "bank" loses the QR, which is what
+   * picking it means.
+   */
+  const payBy = str(data, 'payBy');
+  const qr = payBy === 'bank' || payBy === 'none' ? '' : str(data, 'gcashQr');
+  const showGcash = payBy !== 'bank' && payBy !== 'none';
+  const bankName = str(data, 'bankName');
+  const bankWho = str(data, 'bankAccountName');
+  const bankNo = str(data, 'bankAccountNumber');
+  const hasBank = Boolean(bankName || bankWho || bankNo);
   return (
     <Section id="gift" title={title} tagline={tagline}>
       {format && <Ico name="gift" className="inv-ico-lg" />}
       {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center" {...w('gift.text', [{ bind: { section: 'gift', field: 'text' } }])}>{str(data, 'text')}</p>}
-      {(qr || str(data, 'gcashNumber')) && (
+      {showGcash && (qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
           <p className="inv-eyebrow" {...w('gift.gcashLabel', [{ copy: 'gift.gcash' }])}>{t(lang, 'gift.gcash')}</p>
           {/*
@@ -936,7 +951,21 @@ function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionDat
           {str(data, 'gcashNumber') && <p className="tabular-nums" {...w('gift.gcashNumber', [{ bind: { section: 'gift', field: 'gcashNumber' } }])}>{str(data, 'gcashNumber')}</p>}
         </div>
       )}
-      {str(data, 'bankDetails') && (
+      {hasBank && (
+        <div className="inv-card mt-3 text-center">
+          <p className="inv-eyebrow" {...w('gift.bankLabel', [{ copy: 'gift.bank' }])}>{t(lang, 'gift.bank')}</p>
+          {bankWho && <p className="font-semibold" {...w('gift.bankAccountName', [{ bind: { section: 'gift', field: 'bankAccountName' } }])}>{bankWho}</p>}
+          {bankName && <p className="text-sm" {...w('gift.bankName', [{ bind: { section: 'gift', field: 'bankName' } }])}>{bankName}</p>}
+          {bankNo && <p className="text-sm tabular-nums" {...w('gift.bankAccountNumber', [{ bind: { section: 'gift', field: 'bankAccountNumber' } }])}>{bankNo}</p>}
+        </div>
+      )}
+      {/*
+        The one free-text line the three fields above replaced. Nothing asks
+        for it any more, but invitations written before they existed carry
+        it, and a family's account number disappearing off their live page
+        because we tidied a form is not a trade worth making.
+      */}
+      {!hasBank && str(data, 'bankDetails') && (
         <div className="inv-card mt-3 text-center">
           <p className="inv-eyebrow" {...w('gift.bankLabel', [{ copy: 'gift.bank' }])}>{t(lang, 'gift.bank')}</p>
           <p className="whitespace-pre-line text-sm" {...w('gift.bankDetails', [{ bind: { section: 'gift', field: 'bankDetails' } }])}>{str(data, 'bankDetails')}</p>

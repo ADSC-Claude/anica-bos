@@ -169,6 +169,17 @@ test('a section counts as filled once something meaningful is typed', () => {
   assert.equal(sectionFilled('countdown', 'WEDDING', { enabled: true, label: '' }), false);
 });
 
+test('the guestbook and the album are finished by their switch alone', () => {
+  // Everything else on them is the staff's, so a customer has one thing to
+  // do. Before `switchIsEnough` these read unfinished however many times it
+  // was done, and the checklist said so on every visit.
+  assert.equal(sectionFilled('guestbook', 'CHRISTENING', { enabled: true, prompt: '' }), true);
+  assert.equal(sectionFilled('guestbook', 'CHRISTENING', { enabled: false, prompt: '' }), false);
+  assert.equal(sectionFilled('photos', 'CHRISTENING', { enabled: true }), true);
+  assert.equal(sectionFilled('photos', 'CHRISTENING', {}), false);
+  // and the countdown, which looks the same and is not, is untouched above
+});
+
 test('a lady\'s garment is never white: pale colours are deepened, colours are kept', async () => {
   const { wearable, figureHeight } = await import('../src/lib/attire-art');
   const light = (hex: string) => { const n = parseInt(hex.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => v / 255); return (Math.max(...c) + Math.min(...c)) / 2; };

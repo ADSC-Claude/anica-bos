@@ -34,10 +34,17 @@ const form = (slug: string, occasion: string) => designForm(builtinDesign(slug),
 const asked = (slug: string, occasion: string, section: string) =>
   customerFields(designMedia(fieldsFor(section as never, occasion as never, 'LUXURY'), section, form(slug, occasion))).map((f) => f.key);
 
-test('a christening is not asked for a video it has no page for', () => {
+test('a christening is asked for the photographs its frames hold, and the film it has a page for', () => {
+  /*
+   * The film is here now, and it is here for a reason rather than by
+   * accident: the design carries a page for it — one that appears only when
+   * a family sends one, which was her own idea for the clip no frame can
+   * hold. A month-by-month year, a second video and two more photographs
+   * still have nowhere to go, so they are still not asked for.
+   */
   const keys = asked('christening', 'CHRISTENING', 'gallery');
-  assert.deepEqual(keys, ['photos'], 'the Baby photos part is the photographs and nothing else');
-  for (const gone of ['videoUrl', 'messageVideoUrl', 'months', 'familyPhoto', 'parentsPhoto']) {
+  assert.deepEqual(keys, ['photos', 'videoUrl', 'hide'], 'the photographs, the film that has a page of its own, and the switch that keeps the part off');
+  for (const gone of ['messageVideoUrl', 'months', 'familyPhoto', 'parentsPhoto']) {
     assert.ok(!keys.includes(gone), `${gone} has nowhere to go on this design`);
   }
 });
@@ -63,8 +70,11 @@ test('a flow page prints the whole part, so its form keeps everything', () => {
     assert.ok(keys.includes(kept), `${kept} is printed on a flow page, so it is still asked for`);
   }
   assert.equal(designBinds(form('capiz', 'WEDDING'), 'gallery', 'anything-at-all'), true, 'the whole part is bound');
-  // and a drawn page is still only its elements
-  assert.equal(designBinds(form('christening', 'CHRISTENING'), 'gallery', 'videoUrl'), false);
+  // and a drawn page is still only its elements: the christening's frames
+  // hold photographs, so a month-by-month year is not asked for, although
+  // the film is — that has a page of its own, further down the booklet
+  assert.equal(designBinds(form('christening', 'CHRISTENING'), 'gallery', 'months'), false);
+  assert.equal(designBinds(form('christening', 'CHRISTENING'), 'gallery', 'videoUrl'), true);
 });
 
 test('a design with no document of its own still asks for everything', () => {

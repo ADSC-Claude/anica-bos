@@ -149,6 +149,16 @@ export type Field = {
    * invitation by staff editing for the customer. Not on the client's form.
    */
   staff?: boolean;
+  /**
+   * A choice *about* the part rather than an answer *in* it — today, the
+   * switch that keeps a page off the invitation.
+   *
+   * It is the customer's and it is saved with the part, but it is not
+   * content: a part whose only tick is "hide this" is still an empty part,
+   * so `sectionFilled` and `answered` both look past it. Without that, every
+   * part would count as answered the moment the switch existed.
+   */
+  aside?: true;
 };
 
 export type Person = { title: string; name: string; deceased: boolean };
@@ -1402,7 +1412,35 @@ export function sectionOffered(key: SectionKey): boolean {
  */
 export function blankSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false, addOns: string[] = []): SectionKey[] {
   return sectionsFor(occasion, saveTheDate)
-    .filter((d) => !d.optional && sectionUnlocked(d.key, occasion, tier, addOns) && !sectionFilled(d.key, occasion, content[d.key]))
+    // a part they switched off is not a gap: they decided, and a run-down
+    // that nags about it is asking them to decide twice
+    .filter((d) => !d.optional && !sectionHidden(content[d.key]) && sectionUnlocked(d.key, occasion, tier, addOns) && !sectionFilled(d.key, occasion, content[d.key]))
+    .map((d) => d.key);
+}
+
+/** Whether the customer has switched this part off (`HIDE_FIELD`). */
+export function sectionHidden(data: SectionData | undefined): boolean {
+  return data?.hide === true;
+}
+
+/**
+ * The other half of the run-down: the parts they have answered.
+ *
+ * "everytime a customer publish something, we will give them a run down of
+ * what they filled out and what not." Naming only the gaps reads as a telling
+ * off; naming both is a summary of the invitation they are about to send, and
+ * it is the same list the page itself is built from.
+ */
+export function filledSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false, addOns: string[] = []): SectionKey[] {
+  return sectionsFor(occasion, saveTheDate)
+    .filter((d) => !d.optional && sectionUnlocked(d.key, occasion, tier, addOns) && !sectionHidden(content[d.key]) && sectionFilled(d.key, occasion, content[d.key]))
+    .map((d) => d.key);
+}
+
+/** And the parts they switched off themselves, which are neither filled nor a gap. */
+export function offSections(occasion: Occasion, content: Content, tier: Tier, saveTheDate = false, addOns: string[] = []): SectionKey[] {
+  return sectionsFor(occasion, saveTheDate)
+    .filter((d) => sectionUnlocked(d.key, occasion, tier, addOns) && sectionHidden(content[d.key]))
     .map((d) => d.key);
 }
 
@@ -1471,10 +1509,45 @@ export function keepStaffFields(fields: Field[], before: SectionData | undefined
   return data;
 }
 
+/**
+ * The parts a customer may switch off, and the switch that does it.
+ *
+ * "there should be on and off the page for them if they didnt want to answer
+ * it, so lets just say its a decision for them to hide it, then if they dont
+ * turn it off and they just dont fill it, we will just assume it to be hidden
+ * first while they havent fill it out."
+ *
+ * Two rules, and they are different questions. A part left blank is hidden
+ * already — that is `sectionFilled`, and it needs nobody's permission. This
+ * is the other half: a part they have filled in and have decided they would
+ * rather not show, which nothing else could express. So the switch is a
+ * *hide*, off by default: a customer who never touches it gets exactly what
+ * they had before.
+ *
+ * Not offered where there is nothing to switch. The five an invitation is
+ * built out of — who, when, where, the countdown to it and the reply — are
+ * always on the page. The song, the check-in pass and the spare files have no
+ * page of their own to hide. And the guest wall and the shared album already
+ * carry their own switch, which is the whole of them (`switchIsEnough`);
+ * a second one beside it would be two levers on one door.
+ */
+const ALWAYS_SHOWN = new Set<SectionKey>(['cover', 'countdown', 'ceremony', 'reception', 'rsvp']);
+const NO_PAGE_OF_ITS_OWN = new Set<SectionKey>(['music', 'checkin', 'extras']);
+export function hideable(key: SectionKey): boolean {
+  const def = SECTION_BY_KEY[key];
+  return Boolean(def) && !def.hidden && !def.switchIsEnough && !ALWAYS_SHOWN.has(key) && !NO_PAGE_OF_ITS_OWN.has(key);
+}
+const HIDE_FIELD: Field = toggle('hide', 'Keep this page off my invitation', {
+  aside: true,
+  wide: true,
+  hint: 'A part you leave blank does not appear anyway. Tick this to keep the page off even once there is something in it, and untick it to bring it back.',
+});
+
 export function fieldsFor(key: SectionKey, occasion: Occasion, tier?: Tier, saveTheDate = false): Field[] {
   // A Save the Date is read on sight — the renderer plays no opening on one,
   // so the three controls for it would be levers connected to nothing.
-  const all = SECTION_BY_KEY[key].fields(occasion);
+  const own = SECTION_BY_KEY[key].fields(occasion);
+  const all = hideable(key) ? [...own, HIDE_FIELD] : own;
   const fields = saveTheDate && key === 'cover' ? all.filter((f) => !OPENING_FIELDS.has(f.key)) : all;
   if (!tier) return fields;
   return fields.map((f) =>
@@ -1815,7 +1888,7 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
 export function sectionFilled(key: SectionKey, occasion: Occasion, data: SectionData | undefined): boolean {
   if (!data) return false;
   const fields = fieldsFor(key, occasion);
-  const meaningful = fields.filter((f) => !f.staff && f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
+  const meaningful = fields.filter((f) => !f.staff && !f.aside && f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
   if (meaningful.length === 0) return true;
   // the guestbook and the album: ticking the switch is the whole of it
   if (SECTION_BY_KEY[key]?.switchIsEnough) return data.enabled === true;
@@ -1844,7 +1917,7 @@ export function sectionFilled(key: SectionKey, occasion: Occasion, data: Section
 export function answered(fields: Field[], data: SectionData | undefined): boolean {
   if (!data) return false;
   return fields.some((f) => {
-    if (f.staff || f.type === 'select' || f.type === 'styles') return false;
+    if (f.staff || f.aside || f.type === 'select' || f.type === 'styles') return false;
     const v = data[f.key];
     if (f.type === 'toggle') return v === true;
     if (Array.isArray(v)) return v.length > 0;

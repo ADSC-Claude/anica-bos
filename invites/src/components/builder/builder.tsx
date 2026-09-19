@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Tier } from '@prisma/client';
-import { answered, type Field, type Issue, type SectionData, type SectionKey } from '@/lib/sections';
+import { answered, sectionHidden, type Field, type Issue, type SectionData, type SectionKey } from '@/lib/sections';
 import type { Lang } from '@/lib/copy';
 import type { ChecklistLine } from '@/lib/checklist';
 import type { BuilderSection } from '@/lib/builder-props';
@@ -308,7 +308,9 @@ export function Builder({
   useEffect(() => { setAskEmpty(false); }, [current]);
 
   function markDone(is: boolean) {
-    if (is && !answered(fields, value) && !askEmpty) { setAskEmpty(true); return; }
+    // A part switched off is a decision already made: nothing to warn about,
+    // and nothing missing from the invitation that they did not mean.
+    if (is && !sectionHidden(value) && !answered(fields, value) && !askEmpty) { setAskEmpty(true); return; }
     setAskEmpty(false);
     start(async () => {
       if (is) await flush({ done: true });

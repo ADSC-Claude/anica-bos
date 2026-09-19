@@ -772,6 +772,25 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       })),
     ],
   },
+  {
+    /*
+     * The film, and only if there is one.
+     *
+     * Her own answer to a page with three frames and nothing else: "what i
+     * can do next time is for the video if they will be inserting is create
+     * another page that can be an extension for it if they opt to send, and
+     * if not, it should be hidden." So the design carries the page always
+     * and the invitation shows it only when the family sent a film — which
+     * is what `when` says, in the document, rather than in a rule about this
+     * one design somewhere in the renderer.
+     *
+     * No ground of its own: it takes the column's own pale sky, the same as
+     * every other page this design does not draw, so a film sits on the page
+     * without her polaroids printed behind it.
+     */
+    key: 'baby-film', label: { en: 'The film' }, sections: ['gallery-video'], seam: 0, booklet: 'story',
+    when: { section: 'gallery', field: 'videoUrl', filled: true },
+  },
 
   // ─────────────────── behind the envelope: The Details ───────────────────
   {

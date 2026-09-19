@@ -400,7 +400,16 @@ function bound(doc: DesignDoc): Record<string, true> {
      * Without this, asking what a design has room for would have hidden
      * half of Capiz's gallery form.
      */
-    if (!page.drawn || page.live) for (const section of page.sections ?? []) out[`${section}.${ALL}`] = true;
+    if (!page.drawn || page.live) for (const section of page.sections ?? []) {
+      out[`${section}.${ALL}`] = true;
+      /*
+       * 'gallery-video' is not a part of its own — it is the gallery's film,
+       * on a page of its own because no frame can hold it. A design that
+       * carries that page has somewhere to put a film, so the form asks for
+       * one; without the page it does not, and the box stays away.
+       */
+      if (section === 'gallery-video') { out['gallery.videoUrl'] = true; out['gallery.close'] = true; }
+    }
     for (const el of page.elements ?? []) {
       const refs: FieldRef[] = [];
       if (el.kind === 'photo') {

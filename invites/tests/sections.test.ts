@@ -276,7 +276,9 @@ test('the fixed writings are ours: off the client’s form, and kept through a c
    * page's furniture.
    */
   const closing = customerFields(fieldsFor('closing', 'WEDDING')).map((f) => f.key);
-  assert.deepEqual(closing, ['photo', 'parentsMessage', 'message', 'signature']);
+  // 'hide' at the end is the switch every part a customer may leave out now
+  // carries: theirs, saved with the part, and not an answer in it
+  assert.deepEqual(closing, ['photo', 'parentsMessage', 'message', 'signature', 'hide']);
   assert.ok(!closing.includes('line'), 'the line above the names is still ours');
   // and staff editing for the customer see everything
   assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'line' && f.staff));

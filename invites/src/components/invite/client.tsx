@@ -2013,7 +2013,7 @@ export function Hub() {
       // the way back is where a keyboard lands, and the object is where it
       // is given back — a guest tabbing through the hub should not have to
       // find their place again
-      if (key) booklets.get(key)?.querySelector<HTMLElement>('[data-back]')?.focus();
+      if (key) booklets.get(key)?.querySelector<HTMLElement>('[data-back]')?.focus({ preventScroll: true });
       else if (from) { from.focus(); from = null; }
     };
 

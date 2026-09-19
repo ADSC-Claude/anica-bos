@@ -17,14 +17,23 @@ import { premiumOpeningsFor } from '../src/lib/premium-openings';
  * it keep rendering, but it is unpublished: off the shop floor, out of the
  * checkout, gone from the gallery.
  *
- * **Nothing is on sale at the moment.** Both shipped designs are retired
- * while the new Canva-sourced ones are made, because two designs built the
- * old way, sitting in the gallery beside the new ones, are two designs to
- * keep explaining and to keep confusing ourselves with. Retired is not
- * deleted and is meant to be undone: the row stays, the document stays, the
- * artwork stays, the demo keeps rendering, and taking the word off this list
- * and running `scripts/sync-templates.ts` puts either of them back on the
- * shop floor exactly as it was.
+ * **One design is on sale: the christening.** It is the standard from now
+ * on — the first drawn as artwork first and wired second — and the owner
+ * asked for it to stand alone while the rest of the set is made, so the
+ * gallery says plainly that more are coming.
+ *
+ * The two built the old way stay retired. Retired is not deleted and is
+ * meant to be undone: the row stays, the document stays, the artwork stays,
+ * the demo keeps rendering, and taking the word off this list and running
+ * `scripts/sync-templates.ts` puts either of them back on the shop floor
+ * exactly as it was.
+ *
+ * One catch, and it is the one that bites: the sync can take a design *off*
+ * the shop floor but never put one back (`scripts/sync-templates.ts`, where
+ * `published` is only in the payload for a retired design — so that staff
+ * unpublishing a live design in the admin is never undone by a deploy).
+ * Un-retiring a row here is half the job; the other half is publishing it
+ * in the admin, or by hand.
  */
 const pal = (key: string) => PALETTE_PRESETS.find((p) => p.key === key)!.palette;
 const fonts = (key: string) => FONT_PRESETS.find((f) => f.key === key)!.fonts;
@@ -134,10 +143,10 @@ export const TEMPLATES: TemplateSeed[] = [
    * the Highlights page in three booklets a guest opens by tapping the
    * envelope, the oval and the sealed RSVP.
    *
-   * Not on sale yet. The grounds, the hub and the words are in; the two
-   * pull-out gestures her brief asks for — the print out of the instant
-   * camera, the card out of the envelope — are not, and a christening that
-   * shows a CLICK HERE which does not move is worse than one that waits.
+   * On sale, and the only one: the standard template from here on. The
+   * grounds, the hub, the words and both pull-out gestures her brief asks
+   * for are in — the print out of the instant camera, the card out of the
+   * envelope — and every control a guest presses has been pressed.
    */
   {
     slug: 'christening', name: 'Baby Blue Christening', occasion: 'CHRISTENING', minTier: 'STANDARD', premium: false,
@@ -150,7 +159,7 @@ export const TEMPLATES: TemplateSeed[] = [
      * in `words` below, which is the other half of what a look would have
      * given it, so there is nothing left for one to do.
      */
-    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), featured: true, retired: true, owns: true,
+    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), featured: true, owns: true,
     description: 'Clouds, a paper bow and a desk of small things to open. Sixteen pages for a christening, seven to scroll and nine to find.',
     thumb: '/christening/cover.webp', demo: 'lucas-andrei-christening',
     design: builtinDesign('christening')!,

@@ -70,9 +70,9 @@ test('a guest, a customer and the staff are never shut out', () => {
 });
 
 /**
- * Nothing is on sale at the moment, and both shipped designs are retired
- * rather than deleted — the row stays, the document stays, the demo keeps
- * rendering, and taking the word off the list puts either back.
+ * The two built the old way are retired rather than deleted — the row
+ * stays, the document stays, the demo keeps rendering, and taking the word
+ * off the list puts either back.
  */
 test('the two shipped designs are off the shop floor, and recoverable', () => {
   const capiz = TEMPLATES.find((t) => t.slug === 'capiz');
@@ -87,8 +87,25 @@ test('the two shipped designs are off the shop floor, and recoverable', () => {
   assert.equal(templateData(babyBlue!, 1).published, false);
   // their designs are untouched: a retired design is not an emptied one
   assert.ok(capiz!.design, 'Capiz keeps its document');
-  // nothing at all is on sale
-  assert.equal(TEMPLATES.filter((t) => !t.retired).length, 0);
+});
+
+/**
+ * One design is on sale, and it is the christening.
+ *
+ * The owner asked for it to stand alone as the standard template while the
+ * rest of the set is made. This is the assertion that says so out loud: a
+ * second design reaching the shop floor by accident — a `retired` dropped
+ * in a merge, a new row added without one — fails here rather than on the
+ * website.
+ */
+test('the christening is the one design on sale', () => {
+  const onSale = TEMPLATES.filter((t) => !t.retired);
+  assert.deepEqual(onSale.map((t) => t.slug), ['christening']);
+  assert.equal(templateData(onSale[0], 0).published, true);
+  // and it carries its own document, which is the whole design
+  assert.ok(onSale[0].design, 'the christening must ship its document');
+  // `owns` is what lets a fix in code reach the live row at all
+  assert.equal(onSale[0].owns, true);
 });
 
 /**

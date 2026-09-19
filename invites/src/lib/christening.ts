@@ -553,13 +553,56 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     key: 'gallery', label: { en: 'Baby photos' }, sections: ['gallery'], seam: 0, booklet: 'story', drawn: true,
     ground: ground('gallery', 1.7778),
     elements: [
-      // both of these are Abhaya Libre in her file, not a script, and both are
-      // set 1.05 of their size apart — tight, and the reason they read as one
-      // hand-written aside rather than a paragraph
-      GALLERY.one('gallery-left', { base: 39.843, size: pt(35), color: 'accent', cx: 22, w: 29, align: 'left', lead: 1.05, room: 34 },
+      /*
+       * Her two asides, in the gutters her frames leave.
+       *
+       * Both are Abhaya Libre in her file, not a script, and both are set
+       * 1.05 of their size apart — tight, and the reason they read as one
+       * hand-written aside rather than a paragraph.
+       *
+       * The boxes are the width she drew and no wider. That is not fussiness:
+       * her polaroids stand from 30% to 68% of the page, so a box any wider
+       * than the gutter beside them puts the words *on* the frames. The left
+       * one starts at her 7.52 and is 17.5 across, the right one ends at her
+       * 90.0 and is 12 across. Both are her own edges; the widths are the
+       * substitute face's rather than hers, set so the lines break where she
+       * broke them — "Mom and / Dad love / you!" and "You are / our /
+       * greatest / blessing!" — because Abhaya Libre sets wider than the face
+       * she used and her exact widths took an extra line. Widen either past
+       * the gutter and the words climb onto the frames.
+       */
+      GALLERY.one('gallery-left', { base: 39.843, size: pt(35), color: 'accent', cx: 16.27, w: 17.5, align: 'left', lead: 1.05, room: 26 },
         bind('gallery', 'note'), { word: 'galleryNote' }, say('Mom and Dad love you!')),
-      GALLERY.one('gallery-right', { base: 56.523, size: pt(30), color: 'accent', cx: 75, w: 30, align: 'right', lead: 1.05, room: 40 },
+      GALLERY.one('gallery-right', { base: 56.523, size: pt(30), color: 'accent', cx: 84.0, w: 12.0, align: 'right', lead: 1.05, room: 32 },
         bind('gallery', 'close'), { word: 'galleryClose' }, say('You are our greatest blessing!')),
+      /*
+       * Three photographs, in the windows of her three polaroids.
+       *
+       * Canva leaves a photo *placeholder* in a frame — one landscape image
+       * placed three times and clipped — and it is baked into the export like
+       * any other picture. It came off with the words (`drops.json`), because
+       * a family's baby photos page carrying Canva's green hills is worse than
+       * one carrying nothing. The windows are measured off the cleaned ground
+       * rather than guessed: the gap between each frame's top border and its
+       * foot, and between its two sides.
+       *
+       * `cover`, so a portrait from a phone fills the square instead of
+       * sitting letterboxed in it, and no frame of our own — her polaroid is
+       * the frame.
+       */
+      // `aspect` is the window's height over its width, which is what the
+      // slot takes — 350 by 366 pixels on her 1080-wide page, near enough
+      // square and not quite
+      ...[
+        { cx: 48.89, cy: 19.22, aspect: 0.9563 },
+        { cx: 48.89, cy: 48.46, aspect: 0.9590 },
+        { cx: 48.43, cy: 77.45, aspect: 0.9563 },
+      ].map(({ cx, cy, aspect }, i): PhotoEl => ({
+        id: `gallery-photo-${i + 1}`, kind: 'photo',
+        x: cx, y: cy, w: 33.89, aspect, anchor: 'centre', frame: 'none',
+        bind: { section: 'gallery', field: 'photos', index: i, sub: 'url' },
+        alt: { section: 'gallery', field: 'photos', index: i, sub: 'caption' },
+      })),
     ],
   },
 

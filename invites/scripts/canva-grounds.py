@@ -62,6 +62,21 @@ Everything removed here is drawn again as a live element, so this is a
 subtraction, not a loss.
 """
 import pymupdf, re, glob, os, sys, json
+from PIL import Image
+
+
+def slug(stem):
+    """"Sub Page 2 - Our Story-Gallery" -> "gallery".
+
+    Canva names an export after where the page sits in her deck, which is
+    not what the page *is* and changes the moment she reorders it. The app
+    asks for /christening/gallery.webp, so the deck position is dropped and
+    what is left is lowercased: whatever follows the last dash, or the last
+    word of a "Main Page N - Name". A `names.json` beside the PDFs overrides
+    it where her wording and the app's part do not match.
+    """
+    tail = stem.rsplit('-', 1)[-1]
+    return re.sub(r'[^a-z0-9]+', '-', tail.strip().lower()).strip('-')
 
 BT_ET = re.compile(rb'BT\b.*?\bET\b', re.S)
 RULE  = (0.4039, 0.4039, 0.4275)   # the colour of the CLICK HERE underline
@@ -145,7 +160,7 @@ def survey(src, out):
     print(f'List the lettering ones per page in {src}/drops.json, then run again without --survey.')
 
 
-def build(src, out, drops, cuts):
+def build(src, out, drops, cuts, names):
     os.makedirs(out, exist_ok=True)
     tot = [0, 0, 0]
     for f in sorted(glob.glob(f'{src}/*.pdf')):
@@ -202,11 +217,13 @@ def build(src, out, drops, cuts):
 
         p = d.reload_page(p)
         z = 1080 / p.rect.width
-        p.get_pixmap(matrix=pymupdf.Matrix(z, z)).save(f'{out}/{stem}.png')
+        pix = p.get_pixmap(matrix=pymupdf.Matrix(z, z))
+        name = names.get(stem) or slug(stem)
+        Image.frombytes('RGB', (pix.width, pix.height), pix.samples).save(f'{out}/{name}.webp', quality=88, method=6)
         left = len(p.get_text().strip())
         tot[0] += t; tot[1] += imgs; tot[2] += rules
         note = '' if not left else f'  ! {left} chars of text left'
-        print(f'{stem[:36]:<38} text {t:>3}  lettering {imgs:>2}  rules {rules}  cuts {cut}{note}')
+        print(f'{stem[:34]:<36} → {name:<12} text {t:>3}  lettering {imgs:>2}  rules {rules}  cuts {cut}{note}')
         d.close()
     print(f'\n{tot[0]} text blocks, {tot[1]} flattened pieces, {tot[2]} underlines')
 
@@ -229,4 +246,6 @@ else:
         print(f'note: no {dj}, so every picture is kept. Run --survey to choose.\n')
     cj = os.path.join(src, 'cuts.json')
     cuts = {k: list(v) for k, v in json.load(open(cj)).items()} if os.path.isfile(cj) else {}
-    build(src, out, drops, cuts)
+    nj = os.path.join(src, 'names.json')
+    names = json.load(open(nj)) if os.path.isfile(nj) else {}
+    build(src, out, drops, cuts, names)

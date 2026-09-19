@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
 import { t, type Lang } from './copy';
 import { formatDate, formatTime, parseDateKey } from './datetime';
-import { LOOKS, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
+import { LOOKS, NO_LOOK, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
 import { MOMENT_KEYS, type MomentKey, type Trigger as MomentTrigger, type Speed as MomentSpeed } from './moments';
 import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
 import {
@@ -232,11 +232,19 @@ export function artOf(raw: unknown): DesignArt {
  * design gives in a language replaces the look's in that language, the rest
  * stands. The heading keys and the line keys are distinct sets, so one flat
  * block per language serves both.
+ *
+ * A design with no look still has words. It used to lose them here — the
+ * function was handed `undefined` and gave it straight back — so a design
+ * that withholds a look on purpose, as the christening does to keep its own
+ * faces, had every one of its fixed writings fall through to the occasion's
+ * stock line. `NO_LOOK` is the empty shelf those words stand on; a design
+ * with neither a look nor words of its own still gets nothing, which is what
+ * it asked for.
  */
 export function withWords(look: Look | undefined, words: DesignWords): Look | undefined {
-  if (!look) return look;
   const langs = Object.keys(words) as Lang[];
   if (!langs.length) return look;
+  look = look ?? NO_LOOK;
   const lines = { ...look.lines };
   const titles = { ...look.titles };
   /*

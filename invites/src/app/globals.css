@@ -142,8 +142,29 @@ input[type='color'] {
   cursor: not-allowed;
 }
 
+/*
+ * A box's width is a default, not a rule — so it lives in a layer.
+ *
+ * Tailwind's utilities sit in the `utilities` cascade layer, and a layer is
+ * weighed before specificity is even looked at: un-layered CSS beats a
+ * layered rule however plain the selector and however the source is
+ * ordered. So an un-layered `.field { width: 100% }` beat `w-28` outright,
+ * `className="field w-28"` came out full width, and whatever shared the row
+ * was squeezed to nothing — which is how the Parents step came to show a
+ * 320px "Mr." beside a 26px slot where the name goes.
+ *
+ * Putting the width in `components` — which Tailwind orders before
+ * `utilities` — lets a box that asks to be narrow be narrow, while a box
+ * that asks for nothing still fills its row. Only the width belongs here:
+ * the rest of `.field` is not meant to be overridden by a stray utility.
+ */
+@layer components {
+  .field {
+    width: 100%;
+  }
+}
+
 .field {
-  width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-sand-300);
   border-radius: 0.625rem;

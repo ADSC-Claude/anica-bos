@@ -596,6 +596,8 @@ function blockType(el: TextEl): CSSProperties {
   // her own leading, where she set one: unitless, so it follows the size
   if (el.leading !== undefined) style.lineHeight = el.leading;
   if (el.rule) { style.textDecoration = 'underline'; style.textUnderlineOffset = '0.22em'; }
+  // inherited, so the lines inside the box take it without being told
+  if (el.caps) style.textTransform = 'uppercase';
   return style;
 }
 

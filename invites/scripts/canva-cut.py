@@ -90,7 +90,9 @@ place('click-for-music', p, box, bb, before.size, W, H)
 # ── the polaroid, off the cover ──────────────────────────────────────────────
 d, p, before = render(f'{SRC}/Main Page 1 - Cover.pdf')
 W, H = p.rect.width, p.rect.height
-after = Image.open(f'{GROUNDS}/Main Page 1 - Cover.png').convert('RGB')
+# the cleaned ground, under the name canva-grounds.py now writes it: the page
+# it is, not the file Canva exported
+after = Image.open(f'{GROUNDS}/cover.webp').convert('RGB').resize(before.size)
 box = (int(0.395 * before.width), int(0.705 * before.height),
        int(0.635 * before.width), int(0.870 * before.height))
 piece, bb = difference(before, after, box, 6, 40)
@@ -112,18 +114,46 @@ def frame(xref):
                 centre=(e + (a + c) / 2, f + (b + dd) / 2))
 
 
+def rgba(doc, xref):
+    """One of her pictures with its transparency, straight out of the file."""
+    pix = pymupdf.Pixmap(doc, xref)
+    key = doc.xref_get_key(xref, 'SMask')
+    if key and key[0] == 'xref':
+        pix = pymupdf.Pixmap(pix, pymupdf.Pixmap(doc, int(key[1].split()[0])))
+    mode = 'RGBA' if pix.alpha else 'RGB'
+    return Image.frombytes(mode, (pix.width, pix.height), pix.samples).convert('RGBA')
+
+
 card, pocket = frame(38), frame(39)
 tl = (card['centre'][0] - card['u'][0] / 2 - card['v'][0] / 2,
       card['centre'][1] - card['u'][1] / 2 - card['v'][1] / 2)
-mouth = (pocket['centre'][0] - pocket['v'][0] / 2, pocket['centre'][1] - pocket['v'][1] / 2)
+
+# ── where the card stops being seen ─────────────────────────────────────────
+# Not the pocket's top edge: the pocket is a rectangle with a wide V cut out
+# of its top, and the card shows *through* that V. Cut at the pocket's top
+# edge and the card ends a third of the way up the notch, leaving the page
+# showing through under her own writing — which is what it did. The line that
+# matters is the V's point, the first row of the pocket that hides everything
+# behind it, and it is measured off the piece rather than guessed so it stays
+# true if she redraws the envelope.
+front = Image.open(f'{OUT}/envelope-pocket.webp').convert('RGBA')
+px = front.load()
+lo, hi = front.width // 3, 2 * front.width // 3
+notch = next((y for y in range(front.height)
+              if all(px[x, y][3] > 200 for x in range(lo, hi, 2))), front.height) / front.height
+top = (pocket['centre'][0] - pocket['v'][0] / 2, pocket['centre'][1] - pocket['v'][1] / 2)
+mouth = (top[0] + pocket['v'][0] * notch, top[1] + pocket['v'][1] * notch)
+
 dv = (mouth[0] - tl[0]) * card['vh'][0] + (mouth[1] - tl[1]) * card['vh'][1]
 share = dv / card['lv']
 turn = math.degrees(math.atan2(card['u'][1], card['u'][0]))
 cx = tl[0] + card['uh'][0] * card['lu'] / 2 + card['vh'][0] * dv / 2
 cy = tl[1] + card['uh'][1] * card['lu'] / 2 + card['vh'][1] * dv / 2
-im = Image.open(f'{OUT}/envelope-card.webp').convert('RGBA')
-if im.height > round(im.width * dv / card['lu']) + 2:
-    im.crop((0, 0, im.width, round(im.height * share))).save(
-        f'{OUT}/envelope-card.webp', 'WEBP', quality=94, method=6)
+# from the file every time, so a re-run never crops an already-cropped piece
+im = rgba(d, 38)
+im.crop((0, 0, im.width, round(im.height * share))).save(
+    f'{OUT}/envelope-card.webp', 'WEBP', quality=94, method=6)
+print(f'envelope-card: the V bottoms out {notch * 100:.1f}% down the pocket; '
+      f'the card keeps its top {share * 100:.1f}%')
 print(f'envelope-card: cx {cx / W * 100:.2f}  cy {cy / H * 100:.2f}  '
       f'w {card["lu"] / W * 100:.2f}  aspect {dv / card["lu"]:.4f}  turn {turn:.2f}')

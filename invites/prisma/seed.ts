@@ -401,16 +401,20 @@ async function main() {
     const dayKey = day.toISOString().slice(0, 10);
     const c: Content = defaultContent('CHRISTENING', 'en');
     Object.assign(c.cover!, {
-      childFull: 'Lucas Andrei Villanueva', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
+      // her own sample, so the demo reads the way her file does: the given
+      // names large in script, the family name small and bold on the line
+      // under them (parents.familyName, below)
+      childFull: 'Lucas Andrei Reyes - Cruz', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
       date: dayKey, time: '10:00', introPreset: 'simple', intro: 'With hearts full of gratitude, Paolo and Denise invite you to the christening of their son.',
       coverPhoto: pic('lucas-cover', 900, 1200), opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
     });
     Object.assign(c.countdown!, { enabled: true, label: '' });
     // the parents, so a christening design has a page of them to be drawn against
     Object.assign(c.parents!, {
-      father: { title: 'Mr.', name: 'Paolo M. Villanueva', deceased: false },
-      mother: { title: 'Mrs.', name: 'Denise A. Villanueva', deceased: false },
+      father: { title: '', name: 'Paolo Cruz', deceased: false },
+      mother: { title: '', name: 'Denise Reyes', deceased: false },
       note: 'Together with Lolo Ernesto and Lola Remedios',
+      familyName: 'Reyes - Cruz',
     });
     Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
     Object.assign(c.reception!, { venue: 'Blue Leaf Cosmopolitan', address: '30th St cor. 8th Ave, Bonifacio Global City, Taguig', time: '12:00', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the venue.', photo: pic('blue-leaf', 1200, 800), note: '' });
@@ -419,7 +423,7 @@ async function main() {
       ninangs: ['Mrs. Patricia Villanueva', 'Ms. Camille Santos', 'Dr. Andrea Lim', 'Mrs. Nicole Reyes', 'Ms. Bianca Tan', 'Mrs. Erika Garcia'].map((name) => ({ name })),
     });
     Object.assign(c.dressCode!, { colors: ['powder-blue', 'sky-blue', 'white', 'ivory', 'dusty-blue'].map(swatchHex), paletteNote: 'Soft blues and whites, or anything close.' });
-    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, payBy: 'bank', gcashName: 'Denise V.', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankAccountName: 'Denise A. Villanueva', bankName: 'BPI', bankAccountNumber: '1234 5678 90', bankDetails: '', registry: [] });
+    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, payBy: 'bank', gcashName: 'Denise Reyes', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankAccountName: 'Denise Reyes', bankName: 'BPI', bankAccountNumber: '1234 5678 90', bankDetails: '', registry: [] });
     Object.assign(c.rsvp!, { deadline: addDays(day, -14).toISOString().slice(0, 10), showSeats: true, collectAttendees: true, askDietary: false, mealChoices: [], policy: 'none', policyText: '', notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 555 0142', reminderText: '' });
     // the date on every milestone: her drawn row is Date, Title, Description,
     // and a row with no date reads as a caption rather than a moment

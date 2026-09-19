@@ -312,6 +312,49 @@ test('valueAt: skipEmpty counts the rows that are filled, and nothing else does'
   assert.equal(valueAt(undefined, { section: 'story', field: 'line' }), '');
 });
 
+/**
+ * A person is three answers in one box, and a drawn page that binds one has
+ * to write the line rather than the object.
+ *
+ * The christening's PARENTS row was printing nothing at all: the form keeps
+ * `parents.father` as `{ title, name, deceased }`, and a record read as a
+ * string is empty. The words have to be the scrolled renderer's, down to the
+ * late marker, or one invitation says two different things about a family.
+ */
+test('valueAt: a bound person is the line the renderer writes', () => {
+  const content = {
+    parents: {
+      father: { title: '', name: 'Paolo Cruz', deceased: false },
+      mother: { title: 'Dra.', name: 'Denise Reyes', deceased: false },
+      lolo: { title: '', name: 'Ernesto Cruz', deceased: true },
+      blank: { title: 'Mr.', name: '', deceased: false },
+    },
+  };
+  assert.equal(valueAt(content, { section: 'parents', field: 'father' }), 'Paolo Cruz');
+  assert.equal(valueAt(content, { section: 'parents', field: 'mother' }), 'Dra. Denise Reyes');
+  assert.equal(valueAt(content, { section: 'parents', field: 'lolo' }), 'the late Ernesto Cruz \u2020');
+  assert.equal(valueAt(content, { section: 'parents', field: 'lolo' }, 'tl'), 'yumaong Ernesto Cruz \u2020');
+  // a person with no name is nothing, so the box hides rather than printing a title
+  assert.equal(valueAt(content, { section: 'parents', field: 'blank' }), '');
+});
+
+/**
+ * `show: 'weekday'` is the weekday on its own.
+ *
+ * Her invitation page sets SATURDAY over OCTOBER 28, 2028 — two boxes off
+ * the one stored date — and a `weekday` that carried the whole date printed
+ * the date twice, once under itself.
+ */
+test('valueAt: weekday is the word, date is the date', () => {
+  const content = { ceremony: { date: '2028-10-28', time: '08:30' } };
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'date', show: 'weekday' }), 'Saturday');
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'date', show: 'date' }), 'October 28, 2028');
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'date', show: 'dateShort' }), 'Oct 28, 2028');
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'time', show: 'time' }), '8:30 AM');
+  // a half-typed date is handed back as typed rather than blanked
+  assert.equal(valueAt({ ceremony: { date: '2028-10' } }, { section: 'ceremony', field: 'date', show: 'weekday' }), '2028-10');
+});
+
 /** A preview scrolls to the block a section is drawn in; on a drawn page that is the page. */
 test('sectionAnchor follows the document when there is one', () => {
   assert.equal(sectionAnchor('gallery', 'babyblue'), 'baby-photos');

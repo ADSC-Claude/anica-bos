@@ -148,12 +148,23 @@ type Set = {
   rule?: true;
   /** it comes up once whatever it is written on has arrived */
   after?: number;
+  /** her box is set in capitals, however the family types their answer */
+  caps?: true;
   /** the id of the element a tap here plays */
   taps?: string;
   /** drawn only when an answer says so */
   when?: { section: string; field: string; is?: string[]; filled?: boolean };
   /** what a tap on it does, where it leaves the invitation */
   go?: { to: 'calendar' | 'maps' | 'waze'; of?: string };
+  /**
+   * Above the pieces, where she wrote on one.
+   *
+   * A writing needs this only when a `piece` is laid over the place it sits:
+   * her CLICK HERE is printed *on* the envelope, and the envelope's front is
+   * an element in front of the card (z 2), so without a z of its own the
+   * words went behind it and the one instruction on the object vanished.
+   */
+  z?: number;
 };
 
 /**
@@ -182,10 +193,12 @@ const sheet = (ratio: number) => {
       ...(s.weight ? { weight: s.weight } : {}),
       ...(s.track !== undefined ? { tracking: s.track } : {}),
       ...(s.turn ? { rotate: s.turn } : {}),
+      ...(s.z ? { z: s.z } : {}),
       ...(s.room ? { room: s.room } : {}),
       ...(s.hide ? { hidden: 'whenEmpty' as const } : {}),
       ...(s.blink ? { motion: { idle: 'flicker' as const } } : {}),
       ...(s.rule ? { rule: true as const } : {}),
+      ...(s.caps ? { caps: true as const } : {}),
       ...(s.after ? { motion: { enter: 'fade' as const, delay: s.after } } : {}),
       ...(s.taps ? { taps: s.taps } : {}),
       ...(s.when ? { when: s.when } : {}),
@@ -292,7 +305,7 @@ const ROWS = (
 ): Element[] => rows.flatMap((row, i) => [
   S.one(`${key}-${i + 1}-when`, { base: row.date, size: 4.5, face: 'script', cx: row.left + 15, w: 30, align: 'left', hide: true, room: 18 },
     bind(section, field, { index: i, sub: first })),
-  S.one(`${key}-${i + 1}-what`, { base: row.title, size: pt(29.64), cx: row.left + 15, w: 30, align: 'left', hide: true, room: 22 },
+  S.one(`${key}-${i + 1}-what`, { base: row.title, size: pt(29.64), cx: row.left + 15, w: 30, align: 'left', hide: true, room: 22, caps: true },
     bind(section, field, { index: i, sub: 'title' })),
   S.one(`${key}-${i + 1}-note`, { base: row.text, size: pt(18.77), cx: row.left + 15, w: 30, align: 'left', lead: 1.35, hide: true, room: 90 },
     bind(section, field, { index: i, sub: key === 'story' ? 'text' : 'note' })),
@@ -320,16 +333,16 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         { word: 'cover' }, say('Christening')),
       COVER.one('cover-of', { base: 27.225, size: pt(30), color: 'accent', face: 'display', weight: 700, cx: 51.34 }, say('of our son')),
       COVER.one('cover-name', { base: 45.455, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
-        bind('cover', 'childFull')),
+        bind('cover', 'childFull', { show: 'given' })),
       COVER.one('cover-family', { base: 48.185, size: pt(40), color: 'accent', face: 'display', weight: 700, room: 28 },
         bind('parents', 'familyName')),
-      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68 },
+      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68, caps: true },
         bind('cover', 'date', { show: 'date' })),
-      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68 },
+      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68, caps: true },
         bind('cover', 'time', { show: 'time' })),
       // her venue runs to two lines 1.20 of its size apart; the box is wide
       // enough to break in the same place and no wider
-      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 46, lead: 1.2, room: 40 },
+      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 46, lead: 1.2, room: 40, caps: true },
         bind('ceremony', 'venue')),
       COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print' },
         say('CLICK HERE')),
@@ -351,14 +364,29 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * whatever the words underneath it say.
        */
       piece('cover-print', '/christening/parts/instax-print.webp',
-        { cx: 51.30, cy: 78.70, w: 22.04, aspect: 1.1092 }, { motion: { enter: 'slide' } }),
+        { cx: 51.39, cy: 79.40, w: 23.70, aspect: 1.1367 }, { motion: { enter: 'slide' } }),
       { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
         anchor: 'centre', fill: 'transparent', taps: 'cover-print' },
     ],
   },
   {
-    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true,
-    ground: ground('countdown', 0.3241),
+    /*
+     * Her band says "before the big day" and nothing else — the numbers were
+     * never on it, because numbers that change every second cannot be drawn
+     * into a picture. So the page is `live`: her label stays exactly where
+     * she set it, near the foot of the band, and the section's own counter
+     * runs in the sky above it. The section's copy of the label is hidden by
+     * the live rule, the way every live page's heading is, because the design
+     * has already written it.
+     *
+     * `headPad` is small and the page grows. The counter is set in rem rather
+     * than in the page's own units — it is the app's furniture, not her
+     * artwork — so no single gap can hold at every width; four is the value
+     * that keeps it clear of her line on a phone and still looks deliberate
+     * on a laptop.
+     */
+    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true, live: true, grow: true, headPad: 4,
+    ground: ground('countdown', 0.3241, true),
     elements: [
       COUNTDOWN.one('countdown-line', { base: 76.804, size: 3.87, color: 'accent', face: 'names', role: 'script', w: 62, room: 34 },
         bind('countdown', 'label'), { word: 'countdown' }, say('before the big day')),
@@ -399,8 +427,12 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * whose foot is the mouth. The pocket and the seal never move and stay
        * in the ground.
        */
+      // Cut at the V's point, not at the pocket's top edge. Her pocket is a
+      // rectangle with a wide notch out of its top and the card shows
+      // *through* the notch, so a cut at the top edge ended the card a third
+      // of the way up it and left the page showing under her own writing.
       piece('hl-card', '/christening/parts/envelope-card.webp',
-        { cx: 35.84, cy: 19.73, w: 44.91, aspect: 0.3457, turn: -9.36, z: 1 }, { motion: { enter: 'slide' } }),
+        { cx: 36.99, cy: 23.64, w: 44.91, aspect: 0.6596, turn: -9.36, z: 1 }, { motion: { enter: 'slide' } }),
       /*
        * The flap, and the seal on its point, in front of the card.
        *
@@ -424,10 +456,11 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       HUB.one('hl-details', { after: 1100, base: 18.220, size: pt(20), cx: 36.33, w: 40, turn: -8.8 }, say('The Details')),
       HUB.one('hl-of', { after: 1100, base: 21.395, size: pt(23), cx: 37.54, w: 44, turn: -8.7 }, say('The Christening of')),
       HUB.one('hl-name', { after: 1100, base: 24.531, size: 5.25, color: 'accent', face: 'names', role: 'script', cx: 38.93, w: 48, turn: -8.3, room: 20 },
-        bind('cover', 'childFull')),
+        bind('cover', 'childFull', { show: 'given' })),
       HUB.one('hl-date', { after: 1100, base: 27.134, size: pt(23), cx: 40.18, w: 40, turn: -8.0 },
         bind('cover', 'date', { show: 'dateShort' })),
-      HUB.one('hl-details-click', { base: 37.826, size: pt(25), color: 'muted', cx: 43.16, w: 34, turn: -7.2, role: 'caption', blink: true, rule: true },
+      // on the envelope, so above it: the front is z 2 and this went under it
+      HUB.one('hl-details-click', { base: 37.826, size: pt(25), color: 'muted', cx: 43.16, w: 34, turn: -7.2, role: 'caption', blink: true, rule: true, z: 4 },
         say('CLICK HERE')),
 
       opens('hl-open-rsvp', 'rsvp', { x: 52, y: 42, w: 36, h: 20 }),
@@ -497,7 +530,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       CLOSE.one('close-sign', { base: 55.743, size: pt(24.62), room: 40 }, bind('closing', 'signature')),
       // hers read "LUCAS ANDREI'S CHRISTENING"; the nearest thing an
       // invitation actually holds is the child's own name, so that is the line
-      CLOSE.one('close-what', { base: 64.753, size: pt(20), w: 70, hide: true, room: 40 }, bind('cover', 'childFull')),
+      CLOSE.one('close-what', { base: 64.753, size: pt(20), w: 70, hide: true, room: 40, caps: true }, bind('cover', 'childFull', { show: 'given' })),
       CLOSE.one('close-when', { base: 72.153, size: pt(20) }, bind('cover', 'date', { show: 'dateShort' })),
       CLOSE.one('close-tag', { base: 80.771, size: pt(20), hide: true }, bind('social', 'hashtag')),
     ],
@@ -620,27 +653,27 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       INVITE.one('inv-line', { base: 26.506, size: pt(35), cx: 50.16, w: 68, lead: 1.39 },
         { word: 'invitation' }, say('Join us as we welcome our little one into God’s family')),
       INVITE.one('inv-name', { base: 38.356, size: 10.32, face: 'names', role: 'script', cx: 50.84, w: 88, room: 17 },
-        bind('cover', 'childFull')),
-      INVITE.one('inv-family', { base: 40.562, size: pt(25), face: 'display', weight: 700, cx: 49.93, room: 28 },
+        bind('cover', 'childFull', { show: 'given' })),
+      INVITE.one('inv-family', { base: 40.562, size: pt(25), face: 'display', weight: 700, cx: 49.93, room: 28, caps: true },
         bind('parents', 'familyName')),
       INVITE.one('inv-parents', { base: 46.815, size: pt(30), face: 'display', weight: 700, cx: 50.16 }, say('P A R E N T S')),
       INVITE.one('inv-dad', { base: 49.266, size: pt(25), cx: 29.90, w: 28 }, bind('parents', 'father')),
       INVITE.one('inv-mum', { base: 49.333, size: pt(25), cx: 70.41, w: 28 }, bind('parents', 'mother')),
       // four rows beside her drawn icons, all off the same left edge, each a
       // bold line over a lighter one at the gap she set between them
-      INVITE.mixed('inv-day', { base: 54.439, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.39, face: 'display', weight: 700 }, [
+      INVITE.mixed('inv-day', { base: 54.439, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.39, face: 'display', weight: 700, caps: true }, [
         { src: [bind('ceremony', 'date', { show: 'weekday' })] },
         { size: pt(20), weight: 400, src: [bind('ceremony', 'date', { show: 'date' })] },
       ]),
-      INVITE.mixed('inv-time', { base: 60.257, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.23, face: 'display', weight: 700 }, [
+      INVITE.mixed('inv-time', { base: 60.257, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.23, face: 'display', weight: 700, caps: true }, [
         { src: [bind('ceremony', 'time', { show: 'time' })] },
         { size: pt(20), weight: 400, src: [say('CEREMONY')] },
       ]),
-      INVITE.mixed('inv-where', { base: 66.090, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.15, face: 'display', weight: 700 }, [
+      INVITE.mixed('inv-where', { base: 66.090, size: pt(25), cx: 57, w: 46, align: 'left', lead: 1.15, face: 'display', weight: 700, caps: true }, [
         { src: [bind('ceremony', 'venue')] },
         { size: pt(20), weight: 400, src: [bind('ceremony', 'address')] },
       ]),
-      INVITE.one('inv-wear', { base: 74.183, size: pt(25), cx: 57, w: 46, align: 'left', face: 'display', weight: 700 },
+      INVITE.one('inv-wear', { base: 74.183, size: pt(25), cx: 57, w: 46, align: 'left', face: 'display', weight: 700, caps: true },
         bind('dressCode', 'attireText'), { word: 'dressCode' }, say('SMART CASUAL')),
       INVITE.one('inv-note', { base: 79.794, size: pt(18.69), cx: 50.16, w: 56, lead: 1.33, hide: true },
         bind('ceremony', 'note')),
@@ -672,7 +705,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     ground: ground('venue', 1.2963),
     elements: [
       VENUE.one('venue-cer-head', { base: 18.064, size: pt(40), color: 'muted', role: 'title', cx: 50.05 }, say('CEREMONY')),
-      VENUE.one('venue-cer-name', { base: 24.176, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44 },
+      VENUE.one('venue-cer-name', { base: 24.176, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44, caps: true },
         bind('ceremony', 'venue')),
       VENUE.mixed('venue-cer-where', { base: 32.138, size: pt(25), color: 'accent', cx: 50.15, w: 76, lead: 1.13 }, [
         { src: [bind('ceremony', 'address')] },
@@ -684,7 +717,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         say('OPEN IN WAZE')),
       VENUE.one('venue-rec-head', { base: 61.622, size: pt(40), color: 'muted', role: 'title', cx: 50.01 },
         { word: 'title:venue' }, say('RECEPTION')),
-      VENUE.one('venue-rec-name', { base: 67.511, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44 },
+      VENUE.one('venue-rec-name', { base: 67.511, size: pt(30), color: 'accent', face: 'display', weight: 700, w: 70, lead: 1.2, room: 44, caps: true },
         bind('reception', 'venue')),
       VENUE.mixed('venue-rec-where', { base: 72.746, size: pt(25), color: 'accent', cx: 50.15, w: 76, lead: 1.02 }, [
         { src: [bind('reception', 'address')] },

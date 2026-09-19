@@ -17,6 +17,21 @@ export function formatDate(d: Date | string | null | undefined, style: 'long' | 
   return new Intl.DateTimeFormat('en-PH', opts).format(date);
 }
 
+/**
+ * "Saturday" — the weekday on its own.
+ *
+ * `formatDate(d, 'weekday')` is the whole date *with* its weekday, which is
+ * what a row of an invitation usually wants. A design that sets the weekday
+ * on its own line over the date wants only the word, and splitting the long
+ * one on its comma is a guess about the locale's own punctuation.
+ */
+export function formatWeekday(d: Date | string | null | undefined): string {
+  if (!d) return '';
+  const date = typeof d === 'string' ? parseDateKey(d) : d;
+  if (!date || Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-PH', { timeZone: TZ, weekday: 'long' }).format(date);
+}
+
 export function formatDateTime(d: Date | null | undefined): string {
   if (!d) return '';
   return new Intl.DateTimeFormat('en-PH', {

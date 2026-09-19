@@ -1700,7 +1700,7 @@ export function Motion() {
       from.setAttribute('data-tapped', '');
     };
     const onTap = (e: Event) => {
-      const from = (e.target as Element | null)?.closest?.('[data-taps]');
+      const from = pressed(e, '[data-taps]');
       if (from) play(from);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -1719,6 +1719,36 @@ export function Motion() {
       root.removeAttribute('data-motion');
     };
   }, []);
+  return null;
+}
+
+/**
+ * What a guest actually pressed, when the thing on top is not the thing that
+ * matters.
+ *
+ * A drawn page places every element by coordinates, so they overlap on
+ * purpose — the envelope a guest taps carries the card's picture and a line
+ * of script *on top of it*, as siblings rather than as children. An ordinary
+ * `event.target.closest(...)` walks up from whatever was topmost and never
+ * reaches sideways, so the tap dies on the decoration. The stylesheet makes
+ * that decoration transparent to the pointer, which fixes it and fixes the
+ * cursor with it; this is the second lock. `closest` still answers first, so
+ * anything genuinely interactive lying on top keeps the press; only when the
+ * press hit nothing at all do we look down through the stack, topmost first,
+ * for the object underneath.
+ */
+function pressed(e: Event, selector: string): HTMLElement | null {
+  const direct = (e.target as Element | null)?.closest?.(selector);
+  if (direct) return direct as HTMLElement;
+  // structural, not `MouseEvent`: in a .tsx file that name is React's
+  // synthetic one, and this is a native listener
+  const { clientX = 0, clientY = 0 } = e as Event & { clientX?: number; clientY?: number };
+  // a keyboard-driven click carries no coordinates, and `closest` covers it
+  if (!clientX && !clientY) return null;
+  for (const node of document.elementsFromPoint(clientX, clientY)) {
+    const hit = node.closest?.(selector);
+    if (hit) return hit as HTMLElement;
+  }
   return null;
 }
 
@@ -1805,7 +1835,7 @@ export function Hub() {
       const t = e.target as HTMLElement | null;
       if (!t) return;
       if (t.closest('[data-back]')) { history.back(); return; }
-      const opener = t.closest<HTMLElement>('[data-opens]');
+      const opener = pressed(e, '[data-opens]');
       if (opener && openers.includes(opener)) { e.preventDefault(); open(opener); }
     };
 

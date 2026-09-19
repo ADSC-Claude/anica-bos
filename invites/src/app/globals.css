@@ -2082,6 +2082,32 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the page is passed an `edit` view, which a guest never is. It takes the
    frame's own placement, so it lands on the frame exactly, turn and all,
    with no second set of geometry to keep in step. */
+/*
+ * A drawn page's decoration does not eat the taps meant for what is under it.
+ *
+ * Every element on a drawn page is a sibling: the shape a guest taps, the
+ * photograph lying on it, the line of script written across it. They are
+ * placed by coordinates, so they overlap by design — her envelope is a
+ * transparent tap target with the card's picture and "The Christening of"
+ * sitting on top of it, and the hub's handler reads
+ * `event.target.closest('[data-opens]')`. `closest` walks *up*, and the
+ * script is not inside the shape; it is beside it. So the tap landed on the
+ * writing, found no opener above it, and nothing happened — on all three of
+ * her objects at once. The cursor was wrong too: an I-beam over the one
+ * thing on the page a guest is meant to press.
+ *
+ * So the decoration is transparent to the pointer and the things that are
+ * *for* pressing are not. Which is also the honest description of a drawn
+ * page: it is a picture with a few live objects on it.
+ */
+.inv-bb-art > * { pointer-events: none; }
+.inv-bb-art > [data-opens],
+.inv-bb-art > [data-taps],
+.inv-bb-art > [data-go],
+.inv-bb-art > [data-back],
+.inv-bb-art > a,
+.inv-bb-art > button,
+.inv-bb-art > video { pointer-events: auto; }
 .inv-bb-art > .inv-bb-ghost { position: absolute; aspect-ratio: 1; margin: 0; overflow: visible; pointer-events: none; opacity: 0.34; }
 .inv-bb-ghost img { position: absolute; display: block; max-width: none; object-fit: cover; }
 /* A shape: a card behind some words, a rule across the page, a dot. A div

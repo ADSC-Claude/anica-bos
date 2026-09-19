@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
 import { t, type Lang } from './copy';
-import { formatDate, formatTime, parseDateKey } from './datetime';
+import { formatDate, formatTime, formatWeekday, parseDateKey } from './datetime';
 import { LOOKS, NO_LOOK, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
 import { MOMENT_KEYS, type MomentKey, type Trigger as MomentTrigger, type Speed as MomentSpeed } from './moments';
-import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
+import { OCCASION_SECTIONS, formatPerson, sectionLabel, sectionOrder, type Person, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
@@ -950,7 +950,7 @@ export type FieldRef = {
    * the same way. Absent, the value is read out exactly as it is stored,
    * which is right for every other field.
    */
-  show?: 'date' | 'dateShort' | 'weekday' | 'time';
+  show?: 'date' | 'dateShort' | 'weekday' | 'time' | 'given';
 };
 
 /** One text source. A line tries its sources in order and shows the first that has something. */
@@ -1036,6 +1036,17 @@ export type TextEl = Base & {
    * — on the writing, so it follows the words when a longer answer wraps.
    */
   rule?: true;
+  /**
+   * The words set in capitals, however the family typed them.
+   *
+   * A design decides this, not the person filling the form: her invitation
+   * page reads SATURDAY over OCTOBER 28, 2028 and SANTUARIO DE SAN ANTONIO
+   * PARISH, and a family types "Santuario de San Antonio Parish" because
+   * that is how a church is written. Canva keeps it as a setting on the box
+   * for the same reason, and `text-transform` leaves the stored answer
+   * alone — so what a customer sees in the form is still their own words.
+   */
+  caps?: true;
   /** the letters this box holds, measured from the box and the face: the form's cap for what it asks */
   room?: number;
   /** the design's own line is offered to the customer as an example under their box */
@@ -1366,7 +1377,7 @@ const zFieldRef = z.object({
   section: z.string().regex(FIELD), field: z.string().regex(FIELD),
   index: z.number().int().min(0).max(199).optional(), sub: z.string().regex(FIELD).optional(),
   skipEmpty: z.string().regex(FIELD).optional(),
-  show: z.enum(['date', 'dateShort', 'weekday', 'time']).optional(),
+  show: z.enum(['date', 'dateShort', 'weekday', 'time', 'given']).optional(),
 }).strict();
 const zSource = z.union([
   z.object({ bind: zFieldRef }).strict(),
@@ -1427,6 +1438,7 @@ const zElement = z.union([
     tracking: z.number().min(-0.05).max(0.4).optional(),
     leading: z.number().min(0.6).max(3).optional(),
     rule: z.literal(true).optional(),
+    caps: z.literal(true).optional(),
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
     lifted: z.string().max(80).optional(),
@@ -2721,9 +2733,10 @@ const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'n
  * place among the rows that have that field filled, which is how the
  * photographs page counts and why a frame and its caption agree.
  */
-export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef): string {
+export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef, lang: Lang = 'en'): string {
   const data = isRecord(content?.[ref.section]) ? (content![ref.section] as Rowish) : undefined;
   if (!data) return '';
+  if (ref.show === 'given' && ref.index === undefined) return given(text(data[ref.field]), content);
   if (ref.index === undefined) {
     /*
      * A whole list in one box, one name a line.
@@ -2741,6 +2754,14 @@ export function valueAt(content: Record<string, unknown> | undefined, ref: Field
     if (Array.isArray(whole) && ref.sub) {
       return whole.filter(isRecord).map((r) => said(text((r as Rowish)[ref.sub!]), ref.show)).filter(Boolean).join('\n');
     }
+    /*
+     * A person is three answers in one box — a title, a name, and whether
+     * they have passed — and a design that binds one wants the line the
+     * scrolled renderer writes, not the object. The christening's PARENTS
+     * row is the case: `parents.father` bound plainly was printing nothing
+     * at all, because a record is not a string.
+     */
+    if (isRecord(whole) && 'name' in whole) return personLine(whole, lang);
     return said(text(whole), ref.show);
   }
   const raw = data[ref.field];
@@ -2749,6 +2770,7 @@ export function valueAt(content: Record<string, unknown> | undefined, ref: Field
   const list = ref.skipEmpty ? all.filter((r) => text(r[ref.skipEmpty!])) : all;
   const row = list[ref.index];
   if (!row) return '';
+  if (!ref.sub && 'name' in row) return personLine(row, lang);
   return said(text(ref.sub ? row[ref.sub] : row.value), ref.show);
 }
 
@@ -2770,6 +2792,47 @@ export function shows(el: Element, content: Record<string, unknown> | undefined)
 }
 
 /**
+ * A stored person as one line: "Mr. Paolo Cruz", "the late Denise Reyes †".
+ *
+ * The same words the scrolled renderer writes, out of the same helper, so a
+ * drawn page and a scrolled one never disagree about a family's own names.
+ */
+function personLine(row: Rowish, lang: Lang): string {
+  return formatPerson({ title: '', name: '', deceased: false, ...(row as Partial<Person>) }, t(lang, 'parents.late'));
+}
+
+/**
+ * A child's given names: the whole name with the family name taken off the end.
+ *
+ * Her cover sets the given names large in script and the family name small
+ * and bold on the line under it — two slots, and the form already asks for
+ * both (`cover.childFull`, and `parents.familyName`, whose hint says it is
+ * "printed under the child's name on designs that carry a line for it"). A
+ * family types the child's name once and in full, so the big line has to drop
+ * the part the small line is about to say, or the cover reads "Lucas Andrei
+ * Reyes - Cruz" with "Reyes - Cruz" again beneath it.
+ *
+ * Only off the end, and only when it is really there. The comparison ignores
+ * everything but letters and digits, so "Reyes - Cruz", "Reyes-Cruz" and
+ * "reyes cruz" are one ending; and it walks back a word at a time, because a
+ * Filipino family name is as often two words as one. A name that does not end
+ * with the family name is left whole — right for a family who typed only the
+ * given names, and for a child who does not carry that family name at all.
+ */
+function given(full: string, content: Record<string, unknown> | undefined): string {
+  const parents = isRecord(content?.parents) ? (content!.parents as Rowish) : undefined;
+  const family = text(parents?.familyName);
+  const bare = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const tail = bare(family);
+  if (!full || !tail) return full;
+  const words = full.trim().split(/\s+/);
+  for (let i = words.length - 1; i >= 1; i--) {
+    if (bare(words.slice(i).join(' ')) === tail) return words.slice(0, i).join(' ');
+  }
+  return full;
+}
+
+/**
  * A stored value said the way the box asks for it (`FieldRef.show`).
  *
  * Nothing said is the value itself, which is what every field but a date or
@@ -2782,7 +2845,11 @@ function said(value: string, show: FieldRef['show']): string {
   if (show === 'time') return formatTime(value) || value;
   const when = parseDateKey(value);
   if (!when) return value;
-  return formatDate(when, show === 'dateShort' ? 'short' : show === 'weekday' ? 'weekday' : 'long') || value;
+  // `weekday` is the word on its own — the christening sets SATURDAY over
+  // OCTOBER 28, 2028, two boxes, and a `weekday` that carried the date too
+  // would print the date twice
+  if (show === 'weekday') return formatWeekday(when) || value;
+  return formatDate(when, show === 'dateShort' ? 'short' : 'long') || value;
 }
 
 /**
@@ -3020,7 +3087,7 @@ export type WordReader = (key: WordKey) => string;
 export function lineText(sources: Source[], read: { content?: Record<string, unknown>; word: WordReader; copy: (key: string) => string; lang: Lang }): string {
   for (const s of sources) {
     let v = '';
-    if ('bind' in s) v = valueAt(read.content, s.bind);
+    if ('bind' in s) v = valueAt(read.content, s.bind, read.lang);
     else if ('word' in s) v = read.word(s.word);
     else if ('copy' in s) v = read.copy(s.copy);
     else v = (read.lang === 'tl' ? s.fixed.tl ?? s.fixed.en : s.fixed.en) ?? '';

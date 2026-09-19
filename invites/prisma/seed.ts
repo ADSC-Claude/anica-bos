@@ -254,7 +254,15 @@ async function main() {
   Object.assign(content.travel!, { hotels: [{ name: 'The Manila Hotel', address: 'One Rizal Park, Ermita', note: 'Use code JMWEDDING for the group rate', url: 'https://www.manila-hotel.com.ph' }, { name: 'Bayleaf Intramuros', address: 'Muralla St, Intramuros', note: 'Walking distance to the church', url: '' }], directions: 'From NAIA: Skyway to Roxas Blvd, exit at Rizal Park. About 40 minutes without traffic — allow 90.', tips: 'Grab and taxis are reliable in the area. The LRT-1 UN Avenue station is a 10-minute walk from both venues.' });
   Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', tiktok: '@juanandmaria', facebook: 'juanandmaria', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
   Object.assign(content.contact!, { name: 'Maria', phone: '0917 123 4567', name2: 'Juan', phone2: '0918 765 4321', email: '', messenger: 'https://m.me/juanandmaria', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
-  Object.assign(content.music!, { song: 'Ikaw — Yeng Constantino', start: 65, url: '' });
+  /*
+   * The demos carry a song, because a button nobody can hear is a button
+   * nobody can check. It is written rather than licensed — plain sine
+   * partials with a struck-bell decay, `scripts/make-music-box.py` — so a
+   * public repository is not carrying somebody's recording. A real family
+   * uploads their own and it plays in its place; `start` is 0 because this
+   * one has no intro to skip.
+   */
+  Object.assign(content.music!, { song: 'Music box (placeholder for the demo)', start: 0, url: '/demo/music-box.mp3' });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
   Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });
   Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900), surprise: 'Look under your seat at the reception — there is a little something from us. Open it at the toast.' });
@@ -409,6 +417,8 @@ async function main() {
       coverPhoto: pic('lucas-cover', 900, 1200), opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
     });
     Object.assign(c.countdown!, { enabled: true, label: '' });
+    // her hub draws CLICK FOR MUSIC around a record, and it plays this
+    Object.assign(c.music!, { song: 'Music box (placeholder for the demo)', start: 0, url: '/demo/music-box.mp3' });
     // the parents, so a christening design has a page of them to be drawn against
     Object.assign(c.parents!, {
       father: { title: '', name: 'Paolo Cruz', deceased: false },

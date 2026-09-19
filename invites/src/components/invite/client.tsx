@@ -254,6 +254,34 @@ export function Shell({
     if (!closed && music) void play();
   }, [closed, music, play]);
 
+  /*
+   * A control the *design* drew, anywhere on the invitation.
+   *
+   * Her christening sets CLICK FOR MUSIC around the rim of a record on the
+   * hub, and that picture has to work the same button the floating ♫ does.
+   * It is delegated from the document rather than wired per element,
+   * because the player is here and the record is drawn several components
+   * away, inside a page inside a booklet.
+   */
+  useEffect(() => {
+    if (!music) return;
+    const onClick = (e: Event) => {
+      if ((e.target as Element | null)?.closest?.('[data-music]')) toggle();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (!(e.target as Element | null)?.closest?.('[data-music]')) return;
+      e.preventDefault();
+      toggle();
+    };
+    document.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [music, toggle]);
+
   // The page behind must not scroll under the overlay — on a phone a stray
   // swipe would otherwise scroll the invitation past the opening unseen.
   useEffect(() => {
@@ -1653,6 +1681,17 @@ export function PeekControls({ href, backLabel, closeLabel }: { href: string; ba
  * The same three questions as a clip — reduced motion, saveData, in view —
  * because they are the same question: this is motion, and a guest who has
  * said no to a clip has not said yes to a floating photograph.
+ *
+ * A *held* element is the exception, and it has to be, because holding is
+ * not decoration. The print inside the camera is the surprise the tap is
+ * for: it is hidden by `data-hold` in the stylesheet, unconditionally, and
+ * released here. So the two halves are split — the tap is wired for every
+ * guest, and only the arrivals and the idling wait on `data-motion`.
+ * Leaving the release behind the motion check meant a guest who has asked
+ * their phone for less motion got the worst of both: the print sitting in
+ * the camera before they touched anything, and a CLICK HERE that did
+ * nothing when they did. Less motion means no *animation*; it does not mean
+ * every surprise spoiled.
  */
 export function Motion() {
   useEffect(() => {
@@ -1660,8 +1699,8 @@ export function Motion() {
     if (!root) return;
     const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
     const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
-    if (save || still) return;
-    root.setAttribute('data-motion', '');
+    const moving = !save && !still;
+    if (moving) root.setAttribute('data-motion', '');
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -1676,9 +1715,11 @@ export function Motion() {
     );
     // an element some other one taps does not arrive on its own: it waits,
     // however far a guest scrolls, until the thing that names it is tapped
-    for (const el of root.querySelectorAll('[data-enter], [data-idle]')) {
-      if (el.hasAttribute('data-hold')) continue;
-      io.observe(el);
+    if (moving) {
+      for (const el of root.querySelectorAll('[data-enter], [data-idle]')) {
+        if (el.hasAttribute('data-hold')) continue;
+        io.observe(el);
+      }
     }
     /*
      * One thing starting another: the print out of the camera when a guest
@@ -1695,7 +1736,15 @@ export function Motion() {
       const page = from.closest('.inv-page, .inv-section') ?? root;
       for (const el of page.querySelectorAll(`[data-tap-id="${CSS.escape(name)}"]`)) {
         el.removeAttribute('data-hold');
-        el.setAttribute('data-in', '');
+        /*
+         * Two steps, a frame apart. `data-hold` hides the element outright,
+         * and a transition needs one painted frame at its starting place to
+         * transition *from* — set both in the same tick and the browser has
+         * nothing to interpolate, so the print appears rather than rising.
+         * For a guest who asked for less motion there is no transition to
+         * spoil and the second step simply finishes the job.
+         */
+        requestAnimationFrame(() => el.setAttribute('data-in', ''));
       }
       from.setAttribute('data-tapped', '');
     };
@@ -1824,6 +1873,20 @@ export function Hub() {
       from = el;
       history.pushState({ invBooklet: key }, '');
       show(key);
+      /*
+       * An opener that is also a link lands on the place it names.
+       *
+       * The floating RSVP button is the case: it says `#rsvp` and the RSVP
+       * is inside a booklet, so opening the booklet is only half the
+       * journey — a booklet of several pages would open at its first one
+       * and leave the guest to find the form. The href is the target and
+       * the booklet is the door; an opener that is not a link names no
+       * place and simply opens, which is every other object on the hub.
+       */
+      const href = el.getAttribute('href');
+      if (href && href.startsWith('#') && href.length > 1) {
+        booklets.get(key)?.querySelector(`#${CSS.escape(href.slice(1))}`)?.scrollIntoView({ block: 'start' });
+      }
     };
 
     const onPop = () => {

@@ -525,7 +525,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       // words can do; it is cut out of her own page and laid back on it, and
       // it pulses with the rest of them
       piece('hl-music', '/christening/parts/click-for-music.webp',
-        { cx: 77.55, cy: 29.97, w: 20.09, aspect: 0.8525 }, { motion: { idle: 'flicker' } }),
+        { cx: 77.55, cy: 29.97, w: 20.09, aspect: 0.8525 }, { motion: { idle: 'flicker' }, song: true }),
     ],
   },
   /**

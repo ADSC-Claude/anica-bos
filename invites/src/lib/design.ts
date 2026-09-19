@@ -883,6 +883,20 @@ type Base = {
    */
   taps?: string;
   /**
+   * A tap here starts or stops the invitation's song.
+   *
+   * Her christening draws CLICK FOR MUSIC around the rim of a record, and
+   * a guest who presses it expects the record to play. The app has always
+   * had the song — it starts when the envelope is opened and the floating
+   * ♫ button pauses it — but her own words were a picture of a button and
+   * nothing more, which is the one thing worse than no button at all.
+   *
+   * It is not drawn when the invitation has no song, the same rule `go`
+   * follows for a map with no address: a design may always ask for the
+   * control, and a family who uploaded no music never sees a dead one.
+   */
+  song?: true;
+  /**
    * Draw this only when an answer says so.
    *
    * The one thing a drawn page has never been able to do is branch, and a
@@ -1459,6 +1473,7 @@ const zBase = {
   }).strict().optional(),
   go: z.object({ to: z.enum(['calendar', 'maps', 'waze']), of: z.string().max(40).optional() }).strict().optional(),
   taps: z.string().max(41).optional(),
+  song: z.literal(true).optional(),
   when: z.object({ section: z.string().max(40), field: z.string().max(40), is: z.array(z.string().max(60)).max(12).optional(), filled: z.boolean().optional() }).strict().optional(),
   attachTo: z.string().max(41).optional(),
   opens: z.string().regex(KEY).optional(),

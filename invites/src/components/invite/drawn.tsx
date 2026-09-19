@@ -62,13 +62,14 @@ export type EditView = {
  * holding `{word: 'invitation'}` on a christening must not read "Join us as
  * we say I do!". Without one, a look answers as written.
  */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean, path?: string, held?: Set<string>): Read {
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean, path?: string, held?: Set<string>, song?: boolean): Read {
   return {
     content,
     lang,
     edit,
     path,
     held,
+    hasSong: song,
     parts,
     onArt,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey, occasion) : lookLine(look, lang, key as LineKey, occasion)) ?? '',
@@ -76,16 +77,19 @@ function reader(content: Record<string, unknown>, look: Look | undefined, lang: 
   };
 }
 
-export function DrawnPage({ page, content, look, lang, occasion, edit, parts, path }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string>; path?: string }) {
+export function DrawnPage({ page, content, look, lang, occasion, edit, parts, path, song }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string>; path?: string; song?: boolean }) {
   // a page whose own background is a picture: a moment on it stands on the page, not on a studio card
   const held = new Set((page.elements ?? []).map((el) => el.taps).filter(Boolean) as string[]);
-  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)), path, held);
+  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)), path, held, song);
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
   return (
     <section id={page.key} className={`inv-section inv-bb-art inv-bb-${page.key}`}>
-      {(page.elements ?? []).filter((el) => read.edit || shows(el, content)).map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
+      {(page.elements ?? [])
+        // a control for a song this invitation has not got is a dead button
+        .filter((el) => read.edit || (shows(el, content) && (!el.song || read.hasSong)))
+        .map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
     </section>
   );
 }
@@ -114,6 +118,8 @@ type Read = Parameters<typeof lineText>[1] & {
    * siblings and this is a fact about the page.
    */
   held?: Set<string>;
+  /** whether this invitation actually has a song to play, for a `song` control */
+  hasSong?: boolean;
 };
 
 /**
@@ -259,6 +265,9 @@ function tapAttrs(el: Element, read: Read): Record<string, string | number | und
   const out: Record<string, string | number | undefined> = {};
   if (el.taps) { out['data-taps'] = el.taps; out.role = 'button'; out.tabIndex = 0; }
   if (read.held?.has(el.id)) { out['data-tap-id'] = el.id; out['data-hold'] = ''; }
+  // the song's own control, wherever the design drew it: the Shell listens
+  // for this across the whole invitation, because the player lives there
+  if (el.song) { out['data-music'] = ''; out.role = 'button'; out.tabIndex = 0; }
   return out;
 }
 

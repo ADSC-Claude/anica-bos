@@ -19,7 +19,7 @@ import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { SHOW_MESSAGES, SHOW_PHOTOS } from '@/lib/showlist';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion, Hub } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, pageOfSection, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -1899,6 +1899,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const musicUrl = visible('music') ? str(content.music, 'url') : '';
   const hashtag = str(content.social, 'hashtag');
   const rsvpVisible = visible('rsvp');
+  /*
+   * The booklet the RSVP is behind, where a design puts it behind one.
+   *
+   * The floating RSVP button is an anchor to `#rsvp`, and on the christening
+   * that anchor is inside a shut booklet — so the one button a guest is
+   * most likely to press did nothing at all. Naming the booklet makes the
+   * hub open it on the way (`Hub`, client.tsx), and the anchor is still
+   * there underneath for a guest with no script, whose booklet pages are
+   * all in the column anyway.
+   */
+  const rsvpBooklet = pageOfSection(doc, 'rsvp')?.booklet;
 
   /**
    * What the opening shows. Printing skips it, and so does a design that
@@ -2273,7 +2284,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
               // renders, which for the FAQ and the RSVP is the page's key
               // exactly. Two children with one key is React's to resolve, and
               // it resolves it by dropping one of them.
-              ? [<DrawnPage key={`${spec.key}-art`} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} path={invitationPath(inv.slug)} />, ...working]
+              ? [<DrawnPage key={`${spec.key}-art`} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} path={invitationPath(inv.slug)} song={Boolean(musicUrl)} />, ...working]
               : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
@@ -2556,7 +2567,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         </footer>
         )}
         {rsvpVisible && !print && !peek && !only && (
-          <a href="#rsvp" className="inv-btn inv-sticky no-print">{t(lang, 'nav.rsvp')}</a>
+          <a
+            href="#rsvp"
+            className="inv-btn inv-sticky no-print"
+            aria-label={t(lang, 'nav.rsvp')}
+            {...(rsvpBooklet ? { 'data-opens': rsvpBooklet } : {})}
+          >{t(lang, 'nav.rsvp')}</a>
         )}
       </Shell>
     </div>

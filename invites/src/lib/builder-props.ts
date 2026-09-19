@@ -8,7 +8,7 @@ import { documentOf } from './design';
 import { designForm, askedFields, askedLimits, designMedia } from './asks';
 import { isStaff } from './rbac';
 import { galleryLimit } from './tiers';
-import { changeWindow, doneSections, type Progress } from './progress';
+import { changeWindow, doneSections, handedOver, type Progress } from './progress';
 
 /**
  * What the form is told about one part of one invitation.
@@ -74,7 +74,7 @@ export function builderPropsFor(role: Role, inv: BuilderPropsInput, section?: st
   const fields = askedFields(own, current, form);
   const initial = { ...emptySection(fields), ...(content[current] ?? {}) };
   const limit = galleryLimit(inv.tier);
-  const w = changeWindow(inv.eventAt);
+  const w = changeWindow(inv.eventAt, new Date(), handedOver(content.progress));
   return {
     sections,
     current,

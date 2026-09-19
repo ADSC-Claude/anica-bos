@@ -23,12 +23,40 @@ export const FINAL_DAYS = 14;
 
 export type ChangeWindow = { closesAt: Date; finalAt: Date; closed: boolean };
 
-/** When changes close and when the final touches are due, for an event on this date; nothing for an event with no date yet. */
-export function changeWindow(eventAt: Date | null | undefined, now = new Date()): ChangeWindow | null {
+/**
+ * An invitation is with our team once the customer has marked every part
+ * Done. That is the hand-over, and it is what the window is measured against.
+ */
+export function handedOver(progress: Progress | undefined): boolean {
+  return Boolean(progress?.completedAt);
+}
+
+/**
+ * When changes close and when the final touches are due, for an event on this
+ * date; nothing for an event with no date yet.
+ *
+ * `closed` — the binding one — takes more than the date. The window exists to
+ * stop churn on an invitation that is already **with our team**, and an
+ * invitation reaches us when the customer marks the form complete. Until
+ * then it is a draft they are still building, and a draft is never locked,
+ * however near the day is.
+ *
+ * It was the date alone, and that trapped exactly the people it was least
+ * meant for. A christening booked a fortnight out is an ordinary booking
+ * here. The customer paid, opened the form, typed their date — and the form
+ * shut in front of them. Every box greyed out, on an invitation nobody had
+ * filled in a word of, under a notice saying it was with our team for the
+ * final touches. They could not even put the date back, because the date box
+ * was inside the part that had just locked.
+ *
+ * Nothing changes for an invitation that is finished: marked complete, or
+ * published (which has its own lock, LIVE_LOCK, and does not need this one).
+ */
+export function changeWindow(eventAt: Date | null | undefined, now = new Date(), over = false): ChangeWindow | null {
   if (!eventAt || Number.isNaN(eventAt.getTime())) return null;
   const closesAt = addDays(eventAt, -CLOSE_DAYS);
   const finalAt = addDays(eventAt, -FINAL_DAYS);
-  return { closesAt, finalAt, closed: now.getTime() >= closesAt.getTime() };
+  return { closesAt, finalAt, closed: over && now.getTime() >= closesAt.getTime() };
 }
 
 /**
@@ -56,10 +84,10 @@ export function windowLock(w: ChangeWindow): string {
  * The same reading saveSection enforces, so a page never offers a control
  * that the save would refuse, and never withholds one the save would take.
  */
-export function whyLocked(inv: { status: string; eventAt: Date | null }, key: SectionKey, now = new Date()): string | undefined {
+export function whyLocked(inv: { status: string; eventAt: Date | null; progress?: Progress }, key: SectionKey, now = new Date()): string | undefined {
   if (liveEditable(key)) return undefined;
   if (inv.status === 'PUBLISHED') return LIVE_LOCK;
-  const w = changeWindow(inv.eventAt, now);
+  const w = changeWindow(inv.eventAt, now, handedOver(inv.progress));
   return w?.closed ? windowLock(w) : undefined;
 }
 

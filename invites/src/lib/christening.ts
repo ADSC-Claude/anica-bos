@@ -379,7 +379,41 @@ const ROWS = (
  */
 const STORY_COL = 34;
 /** Air between the foot of the picture and the cap of the date, in shares of the page's height. */
-const PHOTO_AIR = 2.8;
+const PHOTO_AIR = 2.2;
+/**
+ * The cloud each milestone is written on, as the white actually runs.
+ *
+ * "The fonts for date and title is too big that the text doesnt fit the
+ * cloud." Her four clouds are soft shapes with wispy edges, so a bounding
+ * box overstates them: measured on her own ground, the band where the white
+ * is at least thirty per cent of the page wide — wide enough to hold a line
+ * of this column — is the band a milestone has to live in.
+ *
+ *   1  32.66 – 48.75   2  43.75 – 63.59   3  60.52 – 79.43   4  74.17 – 93.91
+ *
+ * The narrowest is sixteen per cent of the page. A milestone stood at 28.3,
+ * which is why the words ran off the bottom onto plain sky on all four. It
+ * stands at 14.4 now: the date and the title are smaller, the gap above the
+ * words and their leading are tighter, and each block is set from its own
+ * dot on the spine rather than from a baseline read off the drawing.
+ */
+const STORY_DOTS = [35.89, 50.70, 65.49, 80.34];
+/** Those four bands, so the page and the test that guards it read one number. */
+export const STORY_CLOUDS: readonly (readonly [number, number])[] = [
+  [32.66, 48.75], [43.75, 63.59], [60.52, 79.43], [74.17, 93.91],
+];
+/**
+ * How far above its dot a milestone's date sits.
+ *
+ * She drew the date a shade *under* the dot. A shade over is what buys rows
+ * one and two the half a per cent they were short of their cloud's foot, and
+ * at this distance the dot still reads as the date's own marker.
+ */
+const DATE_OVER_DOT = 0.4;
+/** The date's baseline to the title's, with the smaller faces. */
+const TITLE_UNDER_DATE = 2.53;
+/** The air above a milestone's words, tighter than the programme's row gap. */
+const STORY_GAP = 1.25;
 /** The photograph's width, as a share of the page's width. */
 const STORY_PHOTO = 21;
 /** The story page's height over its width, so a width can be said as a height. */
@@ -395,9 +429,13 @@ const STORY_WORDS = 130;
 
 const STORY_ROWS = (
   S: ReturnType<typeof sheet>,
-  rows: Array<{ left: number; date: number; title: number; text: number }>,
+  rows: Array<{ left: number }>,
 ): Element[] => rows.flatMap((row, i) => {
   const cx = row.left + STORY_COL / 2;
+  // the date under its dot, the title under the date: two numbers instead of
+  // three read off the drawing, so the block moves as one when either moves
+  const date = r2(STORY_DOTS[i] - DATE_OVER_DOT);
+  const title = r2(date + TITLE_UNDER_DATE);
   // the picture's left edge on the words' left edge, not centred in the
   // column: a narrower thing centred over wider words reads as indented
   const px = row.left + STORY_PHOTO / 2;
@@ -406,7 +444,7 @@ const STORY_ROWS = (
   const half = STORY_PHOTO / 2 / RATIO;
   const photo: PhotoEl = {
     id: `story-photo-${i + 1}`, kind: 'photo',
-    x: px, y: row.date - PHOTO_AIR - half, w: STORY_PHOTO, aspect: 1, anchor: 'centre',
+    x: px, y: date - PHOTO_AIR - half, w: STORY_PHOTO, aspect: 1, anchor: 'centre',
     rotate: i % 2 === 0 ? 2.5 : -2.5, frame: 'thin',
     bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
     alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
@@ -415,11 +453,14 @@ const STORY_ROWS = (
     photo,
     // smaller than the 4.5 she drew, so eighteen letters of date stay on one
     // line in this column and can never wrap onto the title below
-    S.one(`story-${i + 1}-when`, { base: row.date, size: 4.1, face: 'script', cx, w: STORY_COL, align: 'left', hide: true, room: 18 },
+    S.one(`story-${i + 1}-when`, { base: date, size: 3.4, face: 'script', cx, w: STORY_COL, align: 'left', hide: true, room: 18 },
       bind('story', 'timeline', { index: i, sub: 'date' })),
-    S.mixed(`story-${i + 1}-what`, { base: row.title, size: pt(29.64), cx, w: STORY_COL, align: 'left', hide: true, room: 28 }, [
+    // the words keep their size — it is already small on a phone, and she
+    // named the date and the title, not the sentence. What they give up is
+    // the air above them and a little of their leading.
+    S.mixed(`story-${i + 1}-what`, { base: title, size: pt(25), cx, w: STORY_COL, align: 'left', hide: true, room: 28 }, [
       { caps: true, src: [bind('story', 'timeline', { index: i, sub: 'title' })] },
-      { size: pt(18.77), lead: 1.35, space: ROW_GAP, room: STORY_WORDS,
+      { size: pt(18.77), lead: 1.30, space: STORY_GAP, room: STORY_WORDS,
         src: [bind('story', 'timeline', { index: i, sub: 'text' })] },
     ]),
   ];
@@ -708,12 +749,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * the title; those three baselines are kept, and only the column's
        * width and the photograph's place have moved. See STORY_ROWS.
        */
-      ...STORY_ROWS(STORY, [
-        { left: 6.10, date: 36.899, title: 39.524, text: 42.499 },
-        { left: 59.84, date: 51.231, title: 53.856, text: 56.831 },
-        { left: 6.10, date: 66.040, title: 68.665, text: 71.640 },
-        { left: 59.84, date: 80.873, title: 83.498, text: 86.473 },
-      ]),
+      ...STORY_ROWS(STORY, [{ left: 6.10 }, { left: 59.84 }, { left: 6.10 }, { left: 59.84 }]),
     ],
   },
   {

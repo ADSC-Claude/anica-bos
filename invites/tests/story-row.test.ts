@@ -86,3 +86,49 @@ test('the form lets in exactly what the row holds', () => {
   assert.ok(words.room! >= FIT['story.timeline.text'], 'the drawn box holds at least what the form accepts');
   assert.ok(when(0).room! <= FIT['story.timeline.date'], 'and the date box is no more generous than the form');
 });
+
+/**
+ * And a milestone fits the cloud it is written on.
+ *
+ * "The fonts for date and title is too big that the text doesnt fit the
+ * cloud. Arrange where to text are placed and make them fit."
+ *
+ * Her clouds are soft shapes, so their bounding boxes overstate them: the
+ * band that matters is where the white actually runs at least thirty per cent
+ * of the page wide, which is wide enough to carry a line of this column.
+ * Measured off her own ground and kept in `STORY_CLOUDS`; the narrowest is
+ * sixteen per cent of the page.
+ *
+ * A milestone's words stood at 15.8 and sat two per cent too low, so the last
+ * two lines of every one of them printed on plain sky. The date and the title
+ * are smaller now, the air above the words and their leading are tighter, and
+ * each block is set from its own dot on the spine — 14.4, inside all four.
+ *
+ * The height is worked out the way the page works it out, at the caps the
+ * form enforces: a two-line title and four lines of description. A shorter
+ * title simply leaves more cloud under it.
+ */
+test('every milestone is written inside its own cloud', async () => {
+  const { STORY_CLOUDS } = await import('../src/lib/christening');
+  const R = 1.7778;
+  const high = (el: TextEl, n: number, i = 0) => {
+    const l = el.lines[i]!;
+    const size = l.size ?? el.size;
+    assert.ok(size, `${el.id} line ${i} has a size`);
+    return (n * size * (l.leading ?? el.leading ?? 1.25)) / R;
+  };
+  for (let i = 0; i < 4; i++) {
+    const [top, foot] = STORY_CLOUDS[i]!;
+    const w = what(i);
+    const words = w.lines[1]!;
+    const blockTop = when(i).y;
+    const blockFoot = w.y + high(w, 2, 0) + (words.space ?? 0) / R + high(w, 4, 1);
+    assert.ok(blockTop >= top, `milestone ${i + 1} starts on the cloud (${blockTop.toFixed(2)} vs ${top})`);
+    assert.ok(blockFoot <= foot, `milestone ${i + 1} ends on the cloud (${blockFoot.toFixed(2)} vs ${foot})`);
+    assert.ok(blockFoot - blockTop < 15, `milestone ${i + 1} is ${(blockFoot - blockTop).toFixed(2)}% of the page, and the narrowest cloud holds 16`);
+  }
+  // the date and the title are the two she named, and both came down
+  assert.equal(when(0).size, 3.4, 'the date, from 4.1');
+  assert.equal(what(0).size, 3.09, 'the title, from 3.66');
+  assert.equal(what(0).lines[1]!.size, 2.32, 'and the sentence keeps its size — it is small enough on a phone already');
+});

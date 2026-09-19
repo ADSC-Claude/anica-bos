@@ -350,7 +350,9 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
     hint: 'Pick a preset, then edit the wording below.',
   }),
   textarea('intro', 'Intro wording', { placeholder: 'Together with their families…', staff: true }),
-  image('coverPhoto', 'Cover photo', { hint: 'Portrait works best on phones. This is also the preview image in Messenger and Viber.' }),
+  // Named, because on the christening it is the picture in the instax that
+  // slides out of the camera and a customer went looking for its own upload.
+  image('coverPhoto', 'Cover photo', { hint: 'The photograph on the cover — on Baby Blue it is the one in the instant print that slides out of the camera. Portrait works best on phones. It is also the preview image in Messenger and Viber.' }),
   // The cover asks for a portrait, because a phone is a portrait. A design
   // with a wide frame — a band across a page, a strip above the words — needs
   // a landscape one, and cropping the portrait to it cuts off the faces.

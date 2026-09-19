@@ -596,6 +596,26 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        */
       piece('cover-print', '/christening/parts/instax-print.webp',
         { cx: 51.39, cy: 79.40, w: 23.70, aspect: 1.1367 }, { motion: { enter: 'slide' } }),
+      /*
+       * And the photograph in it. "i need to know where can i upload the
+       * polaroid, it should have a photo inserter for that. thats a photo
+       * frame."
+       *
+       * It is, and it had none: the print she drew carries a placeholder
+       * landscape, so every guest saw the same green hill. The window is
+       * measured off the file — 7.42%–90.62% across it, 4.47%–74.91% down —
+       * and turned into the page's own units, which puts it here. It is laid
+       * over the print rather than behind it, because her picture area is
+       * not cut out, and it takes the cover photo: the one photograph this
+       * design asks for and, until now, never printed anywhere.
+       *
+       * `tapAs` is what makes the two one thing. The tap names the print;
+       * without it the frame would come out of the camera and leave the
+       * photograph behind.
+       */
+      { id: 'cover-photo', kind: 'photo', bind: { section: 'cover', field: 'coverPhoto' },
+        x: 51.16, y: 77.83, w: 19.72, aspect: 0.9625, anchor: 'centre', frame: 'none', z: 2,
+        tapAs: 'cover-print', motion: { enter: 'slide' } },
       { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
         anchor: 'centre', fill: 'transparent', taps: 'cover-print' },
     ],
@@ -886,24 +906,30 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * to one, and the line the family writes moves down to the clear sky
        * between the plate and the filmstrip.
        */
-      STORY.one('story-head', { base: 18.45, size: 4.0, color: 'surface', face: 'display', weight: 700, cx: 50.19, w: 40, room: 22, caps: true },
-        { word: 'title:story' }, say('Our Story')),
       /*
-       * White on the plate, and the line up against it.
+       * The title over the plate, her line on it — her own old page, which
+       * she sent as `Sub Page 1 - Our Story`.
        *
        * "Our Story should be there, the writings below it should be place
        * there, then the Our story is white font at the top of it. check our
-       * previous look." The previous look was white on a blue banner; the
-       * plate she drew now is tan (#E7B181), so white on it is faint — about
-       * 1.9 to 1 where the ink it replaces was 4.3. It is her title and her
-       * artwork, so it is set the way she asked; if it reads pale to her the
-       * way back is one word, `color`.
+       * previous look."
        *
-       * And the line no longer floats three per cent below the plate in open
-       * sky: at 21.9 its head is 20.4, a shade under the plate's foot at
-       * 19.27, so the two read as one title.
+       * The two had been the other way round: a small OUR STORY in ink on
+       * the plate and her line adrift in the sky under it. On her page the
+       * title is large, white and set in title case across the open sky
+       * with the bow behind it (ink 9.90%–14.95% of the page, spanning
+       * 25.4%–73.8% of its width), and the plate below carries the line —
+       * white, the plate being the dark ground that makes it readable.
+       *
+       * Ten is the size that spans the page the way hers does. Her own face
+       * is more condensed than this one, so matching her width and matching
+       * her cap height cannot both be had; the width is what makes the
+       * composition, so the width is what is matched.
        */
-      STORY.one('story-line', { base: 21.9, size: pt(26), face: 'names', role: 'script', cx: 50.19, w: 72, room: 46 },
+      STORY.one('story-head', { base: 13.24, size: 10, color: 'surface', face: 'display', weight: 700, cx: 50.19, w: 72, room: 22 },
+        { word: 'title:story' }, say('Our Story')),
+      // on the plate (16.15%–19.27%), hung so the words sit on its middle
+      STORY.one('story-line', { base: 18.12, size: pt(26), color: 'surface', face: 'names', role: 'script', cx: 50.19, w: 62, room: 46 },
         bind('story', 'line'), { word: 'story' }),
       /*
        * Her four milestones: the photograph in its window on the filmstrip,

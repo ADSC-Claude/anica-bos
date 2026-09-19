@@ -146,38 +146,44 @@ test('the form lets in exactly what the cloud holds', () => {
 });
 
 /**
- * The title and the line under it, on the plate she drew.
+ * The title over the plate, her line on it.
  *
  * "Our Story should be there, the writings below it should be place there,
  * then the Our story is white font at the top of it. check our previous
- * look." The previous look set both in white, because the artwork behind
- * them then was a blue banner. The page she redrew has a tan plate — a flat
- * #E7B181 from 16.15% to 19.27% of the page, centred on x 50.19 — and the
- * title goes on it in white, the way she asked, with her line brought up to
- * the plate's foot instead of floating three per cent below it in open sky.
+ * look" — and she sent the previous look, `Sub Page 1 - Our Story`. On it
+ * the title is large, white and in title case across the open sky, with the
+ * bow behind it; the tan plate below carries the line. Both are white, the
+ * sky and the plate being what they are read against.
+ *
+ * Off her file at 1080×1920: the title's ink runs 9.90%–14.95% down the page
+ * and 25.4%–73.8% across it, and the plate is 16.61%–19.32%. On the artwork
+ * we ship the plate is 16.15%–19.27%, which is what the line is set to.
  */
-test('the title is white on her plate and the line sits under it', () => {
+test('the title is white above the plate and her line is white on it', () => {
   const head = text.find((e) => e.id === 'story-head')!;
   const line = text.find((e) => e.id === 'story-line')!;
   const PLATE = { top: 16.15, foot: 19.27, cx: 50.19 };
-
-  assert.equal(head.lines[0].color, 'surface', 'the title is white, as she asked');
-  assert.equal(head.x, PLATE.cx, 'and centred on the plate, which is not centred on the page');
-  // the box the capitals are set in, head to foot, against the plate's own.
-  // Both boxes set a size of their own rather than taking the role's.
   const capsSize = head.lines[0].size!;
   const lineSize = line.lines[0].size!;
-  assert.ok(capsSize > 0 && lineSize > 0, 'both are set at a size of their own');
-  const foot = head.y! + (capsSize * 1.25) / 1.7778;
-  assert.ok(head.y! >= PLATE.top - 0.6 && foot <= PLATE.foot + 0.6,
-    `the title runs ${head.y!.toFixed(2)}–${foot.toFixed(2)} and the plate ${PLATE.top}–${PLATE.foot}`);
 
-  // and the line is up against the plate, not adrift under it
-  assert.equal(line.x, PLATE.cx, 'the line hangs from the same centre as the title');
-  const gap = line.y! - PLATE.foot;
-  assert.ok(gap > 0.4, 'the line clears the plate');
-  assert.ok(gap < 1.8, `the line is ${gap.toFixed(2)}% below the plate, so the two read as one title`);
-  // it must still clear the first milestone's cloud
-  assert.ok(line.y! + (lineSize * 1.25 * 2) / 1.7778 < STORY_CLOUDS[0]!.top,
-    'even wrapped to two lines it stays off the first cloud');
+  assert.equal(head.lines[0].color, 'surface', 'the title is white');
+  assert.equal(line.lines[0].color, 'surface', 'and so is the line on the plate');
+  assert.equal(head.lines[0].caps, undefined, 'title case, the way she set it — not capitals');
+
+  // the title is above the plate, and big enough to read across the page
+  const headFoot = head.y! + (capsSize * 1.25) / 1.7778;
+  assert.ok(headFoot <= PLATE.top + 0.8, `the title ends at ${headFoot.toFixed(2)}% and her plate starts at ${PLATE.top}%`);
+  assert.ok(capsSize > 8, 'it is the page-wide title she drew, not the small one it replaced');
+  assert.ok(head.w! >= 60, 'and its box is wide enough to keep it on one line');
+
+  // the line is on the plate, hung on its middle
+  assert.equal(line.x, PLATE.cx, 'the line is centred on the plate, which is not centred on the page');
+  const lineBox = (lineSize * 1.25) / 1.7778;
+  const middle = line.y! + lineBox / 2;
+  assert.ok(Math.abs(middle - (PLATE.top + PLATE.foot) / 2) < 0.4,
+    `the line's middle is ${middle.toFixed(2)}% and the plate's ${((PLATE.top + PLATE.foot) / 2).toFixed(2)}%`);
+  assert.ok(line.y! > PLATE.top - 0.6 && line.y! + lineBox < PLATE.foot + 0.6, 'and it stays on the plate');
+
+  // and neither reaches the first milestone's cloud
+  assert.ok(line.y! + lineBox * 2 < STORY_CLOUDS[0]!.top, 'even wrapped to two lines it stays off the first cloud');
 });

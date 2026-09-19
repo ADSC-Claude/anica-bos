@@ -756,7 +756,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    */
   {
     key: 'guestbook', label: { en: 'Guestbook' }, sections: ['guestbook'], seam: 0,
-    drawn: true, grow: true, live: true, headPad: 48, footPad: 3,
+    drawn: true, grow: true, live: true, headPad: 44, footPad: 3,
     ground: ground('guestbook', 1.7778, true),
     elements: [
       /*

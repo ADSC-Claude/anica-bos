@@ -3327,7 +3327,35 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* Her sky is 100% wide and the cards want a margin off both edges. */
 .inv[data-doc] .inv-page[data-page='guestbook'] > .inv-section:not(.inv-bb-art) {
   max-width: none; padding-left: 9cqw; padding-right: 9cqw;
+  /* the foot is the design's (`footPad`), where her baby is: the section's own
+     is dead air under the last thing a guest types */
+  padding-bottom: 0.5rem;
 }
+/*
+ * One frame, from her words on the torn paper down to the baby.
+ *
+ * "it should be in frame until the baby." Her page is drawn 1:1.7778, which
+ * is shorter than a phone screen — so the artwork was always meant to be
+ * read in one look, and everything the section puts on it has to fit that
+ * too: the three messages, the box a guest types in, and her baby peeking
+ * over the foot. On a 390-wide phone the app's own spacing came to 947 and
+ * the screen is 844, so the header scrolled off the top exactly when a guest
+ * looked at the form.
+ *
+ * What gives way is padding, not type and not the typing box: the message
+ * cards and the form card are read and filled at the same size they always
+ * were, in tighter boxes. A guest who writes a long message still pushes the
+ * page past one screen, and that is the page doing its job rather than
+ * cutting them off.
+ */
+.inv[data-doc] .inv-page[data-page='guestbook'] .inv-card { padding: 0.5rem 1rem; }
+.inv[data-doc] .inv-page[data-page='guestbook'] .inv-slot-note { min-height: 2.5rem; }
+.inv[data-doc] .inv-page[data-page='guestbook'] .inv-section > .inv-muted { margin-bottom: 0.4rem; }
+.inv[data-doc] .inv-page[data-page='guestbook'] .inv-section > ul { margin-bottom: 0.4rem; }
+.inv[data-doc] .inv-page[data-page='guestbook'] .inv-section > ul > li + li { margin-top: 0.4rem; }
+.inv[data-doc] .inv-page[data-page='guestbook'] form.inv-card > * + * { margin-top: 0.5rem; }
+/* three lines and it scrolls, which is what a message box does anyway */
+.inv[data-doc] .inv-page[data-page='guestbook'] form.inv-card textarea { min-height: 4.4rem; }
 
 /* The card runs 4.26% to 95.83% across, so its inside starts a little in from
    each edge — and the section fills it rather than sitting in the middle of

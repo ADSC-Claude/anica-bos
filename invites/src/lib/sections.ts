@@ -274,6 +274,9 @@ const list = (key: string, label: string, item: Field[], extra: Partial<Field> =
 /** A row of things to tick; stored as the ticked values, in the options' order. */
 const checks = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'checks', options, wide: true, ...extra });
 const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en, ...(i.for ? { when: i.for } : {}) }));
+/** The occasions whose people standing up are the ninongs and the ninangs. */
+const christening = (occasion: Occasion): boolean => occasion === 'CHRISTENING' || occasion === 'COMMUNION' || occasion === 'BABY_SHOWER';
+
 const names = (key: string, label: string, extra: Partial<Field> = {}): Field => list(key, label, [text('name', 'Name', { required: true })], { addLabel: 'Add a name', ...extra });
 
 /**
@@ -733,8 +736,30 @@ const SECTION_DEFS: SectionDef[] = [
       { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
       text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.', staff: true }),
       checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { max: AVOID_MAX, fold: true, hint: 'Up to six, from everything guests are ever asked to leave at home. Each one is drawn crossed out on the page.' }),
-      text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
-      text('entourageAttire', 'Entourage', { placeholder: 'e.g. Sage green' }),
+      /*
+       * The ninongs and ninangs, and everybody else standing up.
+       *
+       * They were a line of writing each and nothing more, while the guests
+       * got a palette to pick from: "can we do like a picker color for
+       * ninong and ninangs, sponsors etc, beside the words cream to beige
+       * smart casual, or cream barong or pastel gown as reference, we can
+       * just show the list of colors they could choose from. atleast an
+       * idea of the colors for them."
+       *
+       * So each gets colours beside its words, from the same palette the
+       * rest of the page picks from, and the page draws them as named
+       * swatches under the line. The words stay: "Cream to Beige Smart
+       * Casual" says something a colour cannot, and three swatches say
+       * something the words cannot.
+       *
+       * Named for the occasion, because "Principal sponsors" is wedding
+       * vocabulary and the people at a christening are the ninongs and the
+       * ninangs.
+       */
+      text('sponsorsAttire', christening(occasion) ? 'Ninongs & Ninangs' : 'Principal sponsors', { placeholder: christening(occasion) ? 'e.g. Cream to Beige Smart Casual' : 'e.g. Champagne gown / Barong Tagalog' }),
+      { key: 'sponsorsColors', label: christening(occasion) ? 'Colours for the ninongs & ninangs' : 'Colours for the principal sponsors', type: 'swatches', max: 4, hint: 'Up to four, from the palette. Shown under the line above, so they can see the shades as well as read them.' },
+      text('entourageAttire', christening(occasion) ? 'Everyone else standing up' : 'Entourage', { placeholder: 'e.g. Sage green' }),
+      { key: 'entourageColors', label: christening(occasion) ? 'Colours for them' : 'Colours for the entourage', type: 'swatches', max: 4, hint: 'Up to four, the same way.' },
       textarea('note', 'Note'),
     ],
   },

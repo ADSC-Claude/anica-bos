@@ -878,7 +878,18 @@ export const CHRISTENING_PAGES: PageSpec[] = [
      * colours and how many things to avoid is the family's answer.
      */
     key: 'dresscode', label: { en: 'Dress Code' }, sections: ['dressCode'], seam: 0, booklet: 'details',
-    drawn: true, grow: true, live: true, headPad: 26,
+    /*
+     * And room at the foot for the artwork that lives there.
+     *
+     * A page tall enough to need its ground cut in three keeps the head and
+     * the foot whole and stretches the band between, so the foot slice — the
+     * bottom of her white card, the clouds and the balloons under it — is
+     * pinned to the page's own bottom. Anything the words run to below that
+     * line is printed on the clouds. Her foot is 845 of 1920, about four
+     * fifths of the width, and the last block on this page was already
+     * landing in it before the ninongs' colours made it taller.
+     */
+    drawn: true, grow: true, live: true, headPad: 26, footPad: 5,
     ground: ground('dresscode', 1.7778, true),
     elements: [
       // the heading is hers; the line under it is the section's, written from

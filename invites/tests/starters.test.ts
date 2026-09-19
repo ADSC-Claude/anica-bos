@@ -134,3 +134,34 @@ test('answered asks what the family wrote into the boxes on the screen', async (
   assert.equal(answered(guestbook, { enabled: false, prompt: '' }), false);
   assert.equal(answered(guestbook, { enabled: true }), true);
 });
+
+/**
+ * The ninongs and the ninangs get colours too, not only words.
+ *
+ * "can we do like a picker color for ninong and ninangs, sponsors etc,
+ * beside the words cream to beige smart casual, or cream barong or pastel
+ * gown as reference, we can just show the list of colors they could choose
+ * from. atleast an idea of the colors for them."
+ */
+test('the people standing up have a palette beside their line, named for the occasion', async () => {
+  const { fieldsFor, FIT } = await import('../src/lib/sections');
+  for (const occasion of ['CHRISTENING', 'WEDDING'] as const) {
+    const keys = fieldsFor('dressCode', occasion).map((f) => f.key);
+    for (const k of ['sponsorsAttire', 'sponsorsColors', 'entourageAttire', 'entourageColors']) {
+      assert.ok(keys.includes(k), `${occasion}: ${k}`);
+    }
+    // the colours sit beside the words they explain, not at the end of the form
+    assert.equal(keys.indexOf('sponsorsColors'), keys.indexOf('sponsorsAttire') + 1);
+    assert.equal(keys.indexOf('entourageColors'), keys.indexOf('entourageAttire') + 1);
+    const picker = fieldsFor('dressCode', occasion).find((f) => f.key === 'sponsorsColors')!;
+    assert.equal(picker.type, 'swatches');
+    assert.equal(picker.max, 4);
+  }
+  // named for the occasion: a christening's are the ninongs and the ninangs
+  const child = fieldsFor('dressCode', 'CHRISTENING' as never).find((f) => f.key === 'sponsorsAttire')!;
+  assert.match(child.label, /Ninongs & Ninangs/);
+  const couple = fieldsFor('dressCode', 'WEDDING' as never).find((f) => f.key === 'sponsorsAttire')!;
+  assert.equal(couple.label, 'Principal sponsors');
+  // and the words are still capped where the page holds them
+  assert.equal(FIT['dressCode.sponsorsAttire'], 90);
+});

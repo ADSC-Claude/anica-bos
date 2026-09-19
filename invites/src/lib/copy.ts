@@ -83,6 +83,11 @@ const PHRASES = {
   'dressCode.motif': { en: 'Colour motif', tl: 'Kulay ng motif' },
   'dressCode.sponsors': { en: 'Principal sponsors', tl: 'Mga ninong at ninang' },
   'dressCode.entourage': { en: 'Entourage', tl: 'Entourage' },
+  // "Principal sponsors" is wedding vocabulary, and the people standing up at
+  // a christening are the ninongs and the ninangs — in English too, which is
+  // what a Filipino family calls them whichever language the page is in
+  'dressCode.ninongs': { en: 'Ninongs & Ninangs', tl: 'Mga ninong at ninang' },
+  'dressCode.everyone': { en: 'Everyone else', tl: 'Ang iba pa' },
   'dressCode.avoidWhite': { en: 'Please avoid white and off-white.', tl: 'Iwasan po ang puti at off-white.' },
   'dressCode.attireOf': { en: '{attire} Attire', tl: '{attire} Attire' },
   'dressCode.intro': { en: 'We kindly encourage our guests to come in {attire}.', tl: 'Hinihiling po namin sa aming mga bisita na dumalo nang naka-{attire}.' },

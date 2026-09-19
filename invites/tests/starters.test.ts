@@ -107,3 +107,30 @@ test('the Questions page has one name in the middle and two in her columns', asy
   assert.ok(JSON.stringify(solo).includes('message me on Messenger'));
   assert.ok(JSON.stringify(at('help-note')).includes('message us on Messenger'));
 });
+
+/**
+ * A part can be ticked done while it is empty, and nothing said so.
+ *
+ * "the GodParents havent been filled up while ive done inserting the
+ * details." Every auto-save of that invitation has both lists empty, so
+ * nothing was lost — but the part was marked done, and a part marked
+ * finished is a part nobody goes back to. `answered` is what the tick now
+ * checks before it accepts.
+ */
+test('answered asks what the family wrote into the boxes on the screen', async () => {
+  const { answered, fieldsFor } = await import('../src/lib/sections');
+  const fields = fieldsFor('sponsors', 'CHRISTENING' as never);
+  const blessing = 'May the Lord bless you and keep you.';
+  assert.equal(answered(fields, { ninongs: [], ninangs: [], groupPhoto: '', blessing: '' }), false);
+  assert.equal(answered(fields, { ninongs: [{ name: 'Mr. Rafael Reyes' }], ninangs: [] }), true, 'one name is an answer');
+  assert.equal(answered(fields, { ninongs: [], ninangs: [], blessing }), true, 'and so is a blessing they wrote');
+  assert.equal(answered(fields, undefined), false);
+  // ours is not theirs: a fixed writing arrives filled on every invitation
+  const social = fieldsFor('social', 'CHRISTENING' as never);
+  assert.equal(answered(social, { hashtag: '', unpluggedText: 'We kindly ask…' }), false);
+  assert.equal(answered(social, { hashtag: '#LucasIsBlessed' }), true);
+  // a switch flicked on is an answer, which is the whole of the guestbook
+  const guestbook = fieldsFor('guestbook', 'WEDDING' as never);
+  assert.equal(answered(guestbook, { enabled: false, prompt: '' }), false);
+  assert.equal(answered(guestbook, { enabled: true }), true);
+});

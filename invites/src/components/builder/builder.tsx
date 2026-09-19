@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { Tier } from '@prisma/client';
-import type { Field, Issue, SectionData, SectionKey } from '@/lib/sections';
+import { answered, type Field, type Issue, type SectionData, type SectionKey } from '@/lib/sections';
 import type { Lang } from '@/lib/copy';
 import type { ChecklistLine } from '@/lib/checklist';
 import type { BuilderSection } from '@/lib/builder-props';
@@ -292,7 +292,24 @@ export function Builder({
   }, [invitationId, current]);
 
   /** The tick: finished, or left out on purpose. Saves what is typed on the way. */
+  /*
+   * The tick is honest about an empty part.
+   *
+   * She ticked Ninongs & Ninangs done with both lists empty, and the
+   * Godparents page came out blank: "the GodParents havent been filled up
+   * while ive done inserting the details". Nothing was lost — every save of
+   * that invitation has both lists empty — but nothing said so either, and
+   * a part marked finished is a part nobody goes back to.
+   *
+   * It asks rather than refuses. A part left out on purpose is a real
+   * answer, and the page it would have printed simply is not there.
+   */
+  const [askEmpty, setAskEmpty] = useState(false);
+  useEffect(() => { setAskEmpty(false); }, [current]);
+
   function markDone(is: boolean) {
+    if (is && !answered(fields, value) && !askEmpty) { setAskEmpty(true); return; }
+    setAskEmpty(false);
     start(async () => {
       if (is) await flush({ done: true });
       else {
@@ -421,6 +438,14 @@ export function Builder({
               <>
                 <span className="pill pill-ok">✓ Marked done</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => markDone(false)} disabled={pending}>Not done yet</button>
+              </>
+            ) : askEmpty ? (
+              <>
+                <span role="status" className="text-xs text-[color:var(--warn)]">
+                  Nothing is filled in here yet, so this part will not show on the invitation.
+                </span>
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => markDone(true)} disabled={pending}>Mark it done anyway</button>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAskEmpty(false)} disabled={pending}>Let me fill it in</button>
               </>
             ) : (
               <button type="button" className="btn btn-primary btn-sm" onClick={() => markDone(true)} disabled={pending}>✓ Mark this part done</button>

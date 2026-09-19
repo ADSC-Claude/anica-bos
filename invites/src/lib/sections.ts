@@ -1802,6 +1802,32 @@ export function sectionFilled(key: SectionKey, occasion: Occasion, data: Section
   });
 }
 
+/**
+ * Has anything been written into the boxes on this form?
+ *
+ * `sectionFilled` asks the same question of a whole occasion's fields;
+ * this asks it of the fields actually on the screen, which is what a Done
+ * tick is claiming. The two differ where a design has taken boxes away.
+ *
+ * What it is for: she ticked Ninongs & Ninangs done with both lists empty
+ * and the Godparents page came out blank — "the GodParents havent been
+ * filled up while ive done inserting the details". Every auto-save of that
+ * invitation has both lists empty, so nothing was lost; the trap is that a
+ * part can be marked finished while it is still empty, and nothing says so
+ * until the page prints nothing.
+ */
+export function answered(fields: Field[], data: SectionData | undefined): boolean {
+  if (!data) return false;
+  return fields.some((f) => {
+    if (f.staff || f.type === 'select' || f.type === 'styles') return false;
+    const v = data[f.key];
+    if (f.type === 'toggle') return v === true;
+    if (Array.isArray(v)) return v.length > 0;
+    if (v && typeof v === 'object') return Boolean((v as Person).name);
+    return v !== '' && v !== null && v !== undefined;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Reading content
 // ---------------------------------------------------------------------------

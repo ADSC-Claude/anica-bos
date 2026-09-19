@@ -197,7 +197,7 @@ function FieldInput({
         />
       );
     case 'audio':
-      return <AudioInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
+      return <AudioInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} sibling={sibling} />;
     case 'offset':
       return <OffsetInput field={field} id={id} value={typeof value === 'number' ? value : null} onChange={onChange} />;
     case 'colors':
@@ -1209,7 +1209,7 @@ function Arrange({ field, item, value, onChange, onDone }: { field: Field; item:
  * has the server record it. Where there is no cloud storage (development)
  * the server says so and takes the file the ordinary way.
  */
-function AudioInput({ field, value, onChange, invitationId }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string }) {
+function AudioInput({ field, value, onChange, invitationId, sibling }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string; sibling?: SectionData }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
@@ -1264,8 +1264,30 @@ function AudioInput({ field, value, onChange, invitationId }: { field: Field; va
         {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
       </div>
       <Hint text={field.hint} />
+      <SongState named={String(sibling?.song ?? '')} file={value} start={typeof sibling?.start === 'number' ? sibling.start : 0} />
     </div>
   );
+}
+
+/**
+ * Whether this invitation has a song a page can actually play — said plainly,
+ * where the question is asked.
+ *
+ * The trap she fell into: she named a song with a YouTube link and set it to
+ * start at six seconds, and then "the CLICK FOR MUSIC is gone so weithout it
+ * people wont know theres a music in it… in preview, doesnt it play the song
+ * to atleast check if its working". It was gone because nothing could play:
+ * a page cannot stream from YouTube, so what plays is a file, and the file
+ * was not there yet. The control hides itself rather than offer a guest a
+ * button that does nothing — which is right, and silent, and told her
+ * nothing at all.
+ */
+function SongState({ named, file, start }: { named: string; file: string; start: number }) {
+  if (!named.trim() && !file) return null;
+  const at = `${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')}`;
+  return file
+    ? <p className="hint">The song is on the page. A guest taps the record to play it, and it starts at {at}.</p>
+    : <p className="hint text-[color:var(--warn)]">No file yet, so nothing plays and the music control is hidden — on the page and in the preview. Add the file above, or leave it with us and we will make it from the song you named.</p>;
 }
 
 /** PUT a file with a progress readout — fetch cannot report upload progress, XHR can. */

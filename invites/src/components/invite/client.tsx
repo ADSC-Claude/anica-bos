@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { preload } from 'react-dom';
 import { plateChars } from '@/lib/openings';
 import { Scene, useMomentGesture } from './moments';
 import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
@@ -62,7 +63,7 @@ export type OpeningProps = {
 /** The scene an opening plays, where it is one of the moments' — the envelope and the seal are, since #174. */
 const SCENE_OF: Partial<Record<string, MomentKey>> = { envelope: 'envelope', seal: 'seal', ribbon: 'ribbon', doors: 'doors', capiz: 'capiz', letter: 'letter' };
 
-function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
+function Stage({ style, monogram, photos, video, poster, videoRef, parts, warm }: {
   style: string;
   monogram: string;
   photos: string[];
@@ -70,12 +71,17 @@ function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
   video: string;
   poster: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  /** the page has landed, so the clip may fetch itself ahead of the tap */
+  warm?: boolean;
 }) {
   switch (style) {
     case 'cinematic':
       // The poster carries the whole closed screen, so the guest sees the
-      // artwork immediately and the clip is only fetched when they tap —
-      // preload="none" is what keeps the first paint free of it.
+      // artwork immediately and nothing of the clip is fetched for the first
+      // paint. It is warmed as soon as the page is interactive rather than
+      // on the tap: two megabytes asked for on the tap meant eight seconds of
+      // a still poster with the hint already gone, which is what looked
+      // broken.
       return (
         <video
           ref={videoRef}
@@ -84,7 +90,7 @@ function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
           poster={poster}
           muted
           playsInline
-          preload="none"
+          preload={warm ? 'auto' : 'none'}
           aria-hidden
         />
       );
@@ -132,6 +138,31 @@ function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
  * JavaScript off would be left tapping a screen that never opens.
  */
 const NO_JS = '.inv-open{display:none !important}';
+
+/**
+ * The one piece of script that has to be in the markup rather than in the
+ * bundle: it has to be running before the bundle is.
+ *
+ * It notes a tap made on the closed screen while the page is still arriving
+ * and leaves it on the element. Shell reads it the moment it mounts and
+ * opens on it, so a guest who tapped early is answered rather than ignored.
+ * It takes the first tap and no more — after that React's own handler is on
+ * the element and does the work — and it finds its own overlay by taking the
+ * last one in the document, which is the one the parser has just reached.
+ *
+ * Being inline, it runs only once the stylesheet has arrived: the parser
+ * holds a script behind a pending sheet. That is the right boundary rather
+ * than a gap to close, because the sheet is also what makes the closed
+ * screen look finished. Before it lands the page is plainly still
+ * assembling and nobody mistakes it for an invitation that will not open;
+ * after it, every tap is caught. Measured on a phone connection: the sheet
+ * at 1.6s, this listening from the same instant, React on the element at
+ * 2.0s.
+ */
+const EARLY_TAP = `(function(){var l=document.querySelectorAll('.inv-open'),e=l[l.length-1];if(!e)return;` +
+  `var w=function(){e.setAttribute('data-waiting','')};` +
+  `e.addEventListener('pointerdown',w,{capture:true,once:true});` +
+  `e.addEventListener('keydown',function(v){if(v.key==='Enter'||v.key===' ')w()},{capture:true,once:true})})()`;
 
 /** Seconds before a clip's end at which its card is out and the words come up on it. */
 const CARD_WORDS_AT = 0.9;
@@ -182,6 +213,43 @@ export function Shell({
   const trigger: Trigger = sceneDef && opening.trigger && sceneDef.triggers.includes(opening.trigger) ? opening.trigger : sceneDef?.triggers[0] ?? 'tap';
   const speed: Speed = opening.speed ?? 'normal';
   const [playing, setPlaying] = useState(false);
+  /*
+   * Whether the closed screen can answer a tap yet.
+   *
+   * It is drawn by the server on a poster, so it looks entirely finished
+   * while the script that opens it is still coming down — on a phone
+   * connection that gap was measured at more than twenty seconds. A guest
+   * who tapped in it got nothing back at all: no movement, no sign it had
+   * heard, so they tapped again and decided the invitation was broken.
+   *
+   * Two things follow from this flag. The hint is held back until the tap
+   * will work, so it never asks for one that goes nowhere; and EARLY_TAP
+   * below writes any tap made before then onto the overlay, which the
+   * effect under revealNow reads on mount and opens straight away. The tap
+   * is never lost, only answered late.
+   */
+  const [ready, setReady] = useState(false);
+  const overlay = useRef<HTMLDivElement | null>(null);
+  /*
+   * Whether the song and the clip may start fetching themselves.
+   *
+   * Both were preload="none", which is right for the first screen — the
+   * closed screen is a poster and neither file has any part in drawing it —
+   * and wrong for everything after. The tap reached an empty audio element
+   * and an empty video element: the song only began to arrive once play()
+   * had been called on it, and behind a two-megabyte clip on a phone
+   * connection nothing was heard for long enough that the guest gave up and
+   * found the design's own CLICK FOR MUSIC further down instead. That is
+   * exactly what she reported — the song starting at the disc and not at
+   * the opening — and the same wait is why the clip felt broken.
+   *
+   * The closed screen exists to buy this time. Both are warmed the moment
+   * the page can answer a tap at all, which is after the first paint and
+   * after the papers have been asked for in the head, so the artwork keeps
+   * the bandwidth it needs and the tap, whenever it comes, has something
+   * ready to play.
+   */
+  const [warm, setWarm] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const clip = useRef<HTMLVideoElement | null>(null);
   // The tap has landed: the hint goes, whatever the clip is still doing.
@@ -388,16 +456,43 @@ export function Shell({
     void video.play().catch(close);
   };
 
+  /*
+   * The page is ready, and a tap that came in before it was is answered now.
+   *
+   * This runs once, on mount, which is the first instant the closed screen
+   * can do anything at all. Nothing else in the component may set `ready`:
+   * it means precisely "React is on this element", and the hint's honesty
+   * rests on that.
+   */
+  useEffect(() => {
+    setReady(true);
+    // and the song and the clip may start fetching themselves: see `warm`.
+    // Mount, not the load event — that one waits for every picture on the
+    // page, which is long after the guest has tapped.
+    setWarm(true);
+    if (overlay.current?.hasAttribute('data-waiting')) revealNow();
+    // once, on mount: revealNow reads nothing that has changed by then
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       {closed && (
         <>
           <noscript><style>{NO_JS}</style></noscript>
           <div
+            ref={overlay}
+            /* EARLY_TAP writes data-waiting onto this element before React
+               reaches it, which is the whole point of it and is exactly what
+               this flag is for. Nothing else here can drift: every other
+               attribute below comes from state that starts at the value the
+               server rendered. */
+            suppressHydrationWarning
             className="inv-open"
             data-style={opening.style}
             data-clip={opening.clip || undefined}
             data-open={open}
+            data-ready={ready ? '' : undefined}
             data-state={open || tapped ? 'open' : 'closed'}
             data-trigger={trigger}
             data-dragging={gesture.dragging ? '' : undefined}
@@ -416,7 +511,7 @@ export function Shell({
             onPointerCancel={gesture.handlers.onPointerCancel}
           >
             <div className="inv-open-stage">
-              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} parts={opening.parts} />
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} parts={opening.parts} warm={warm} />
             </div>
             {/* the card the words go on when the clip could not play */}
             {opening.words && <div className="inv-open-still" data-show={still} aria-hidden />}
@@ -438,7 +533,13 @@ export function Shell({
               {opening.date && <p className="inv-open-date">{opening.date}</p>}
             </div>
             <p className="inv-open-hint">{opening.hint}</p>
+            {/* the tap was heard and the clip is still coming: a hint in
+                everything but what it says, so it takes the hint's place and
+                the clip's own colour — see .inv-open-wait */}
+            <p className="inv-open-hint inv-open-wait" aria-hidden><i /><i /><i /></p>
           </div>
+          {/* it has to be running before the bundle is: see EARLY_TAP */}
+          <script dangerouslySetInnerHTML={{ __html: EARLY_TAP }} />
         </>
       )}
       {music && (
@@ -447,7 +548,7 @@ export function Shell({
           <audio
             ref={audio}
             src={music}
-            preload="none"
+            preload={warm ? 'auto' : 'none'}
             onLoadedMetadata={settle}
             onCanPlay={settle}
             onProgress={settle}
@@ -1165,6 +1266,30 @@ export function Pinned({ pins, phoneWindow = 639 }: {
  */
 type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string; runsOn?: number };
 export function PageGround({ ratio, order, last, backgrounds, night, grounds, seam: seamShare = 0.24 }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[]; grounds?: Record<string, Ground>; seam?: number }) {
+  /*
+   * Ask for the papers before anything else on the page does.
+   *
+   * The pass below cannot run until the script has come down and React has
+   * hydrated, so until now the design's own artwork — the thing the page
+   * *is* — was the last file to be asked for. Every decoration in the
+   * markup, including the ones inside a closed booklet, went first. On a
+   * phone connection that measured fifteen seconds of pages with nothing
+   * behind the words, which is what she meant by pages that look broken
+   * while they load.
+   *
+   * Asking here puts a <link rel="preload"> in the head, rendered with the
+   * document, so the papers are in flight from the first byte and ahead of
+   * every picture in the body. They are small — the whole christening set
+   * is under 600 KB — and nothing about the layout below changes: the pass
+   * still measures and lays them, it just finds them already arrived.
+   */
+  for (const g of Object.values(grounds ?? {})) if (g.url) preload(g.url, { as: 'image' });
+  // A column laid by number (Capiz) has no page keys, so its first two
+  // backgrounds are asked for instead: the two the guest lands on. The rest
+  // are far enough down the scroll to arrive in their own time. Only where
+  // that column is actually laid — a document of another layout is handed
+  // the strip as a fallback it never uses, and ratio 0 is how it says so.
+  if (ratio > 0) for (const url of backgrounds.slice(0, 2)) if (url) preload(url, { as: 'image' });
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');

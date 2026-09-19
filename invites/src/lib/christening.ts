@@ -803,7 +803,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    */
   {
     key: 'post-event', label: { en: 'Photos from the day' }, sections: ['photos'], seam: 0,
-    drawn: true, grow: true, live: true, wall: 'swipe', headPad: 26, footPad: 3,
+    drawn: true, grow: true, live: true, wall: 'swipe', headPad: 26, footPad: 2.2,
     ground: ground('post-event', 1.7778, true),
     elements: [
       // where a post puts whose post it is: left of her ⋯ and ✕, which sit at

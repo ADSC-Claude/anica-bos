@@ -104,6 +104,23 @@ export type Field = {
    * design would be a worse form for everybody.
    */
   byDesign?: true;
+  /**
+   * On the form as it always was, and taken away by a design that has no
+   * place for it.
+   *
+   * The difference from `byDesign`: that one is a box nobody has ever been
+   * shown, which a design can add — the picture every part can carry. This
+   * one is a box every form has always had, which a design can remove. A
+   * christening drawn page by page prints no video and no month-by-month
+   * year, and asking for them is asking a customer to fill in something
+   * that goes nowhere: "it should detect only whats the template is
+   * needing and it should vary per template right?"
+   *
+   * A design that binds nothing at all is not judged to have no place for
+   * anything — it is judged to be a design nobody has drawn yet, and the
+   * form stays as it was.
+   */
+  ifDrawn?: true;
   /** swatches: offer the palette's presets — four colours that go together, in one tap */
   sets?: boolean;
   /** checks: the sibling field whose values decide which options (by their 'when') are offered */
@@ -867,11 +884,11 @@ const SECTION_DEFS: SectionDef[] = [
        * has nowhere to go but a scrolling heap. The extras section at the end
        * of the form takes the rest, for us to place if a page has room.
        */
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', max: 12 }),
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption', { ifDrawn: true })], { addLabel: 'Add a photo', max: 12 }),
       // A baby's first year, one photograph a month, as a christening or a
       // first birthday card runs it.
       ...(occasion === 'CHRISTENING' || occasion === 'KIDS_BIRTHDAY'
-        ? [list('months', 'Month by month', [text('label', 'Which month', { required: true, placeholder: 'e.g. 1 month' }), image('url', 'Photo', { required: true })], { addLabel: 'Add a month', max: 12, hint: 'Up to twelve — the first year, one photo a month. Designs with a month-by-month page use these.' })]
+        ? [list('months', 'Month by month', [text('label', 'Which month', { required: true, placeholder: 'e.g. 1 month' }), image('url', 'Photo', { required: true })], { addLabel: 'Add a month', max: 12, ifDrawn: true, hint: 'Up to twelve — the first year, one photo a month.' })]
         : []),
       // Two childhood photographs side by side, the way a printed card runs
       // them: the couple as children, or the debutante alone. A design draws
@@ -880,15 +897,15 @@ const SECTION_DEFS: SectionDef[] = [
       // block and a pair of pictures asked for in a section that does not
       // exist is a pair of pictures nobody is ever asked for.
       ...(occasion === 'WEDDING' || occasion === 'DEBUT'
-        ? [list('little', occasion === 'WEDDING' ? 'When we were little' : 'When I was little', [image('url', 'Photo', { required: true }), text('caption', 'Whose it is', { placeholder: occasion === 'WEDDING' ? 'e.g. Maria, 4 years old' : 'e.g. 3 years old' })], { addLabel: 'Add a childhood photo', max: 2, hint: occasion === 'WEDDING' ? 'Two: one of each of you.' : 'Up to two.' })]
+        ? [list('little', occasion === 'WEDDING' ? 'When we were little' : 'When I was little', [image('url', 'Photo', { required: true }), text('caption', 'Whose it is', { placeholder: occasion === 'WEDDING' ? 'e.g. Maria, 4 years old' : 'e.g. 3 years old' })], { addLabel: 'Add a childhood photo', max: 2, ifDrawn: true, hint: occasion === 'WEDDING' ? 'Two: one of each of you.' : 'Up to two.' })]
         : []),
-      image('familyPhoto', 'A family photo'),
-      image('parentsPhoto', "A photo of the parents"),
+      image('familyPhoto', 'A family photo', { ifDrawn: true }),
+      image('parentsPhoto', 'A photo of the parents', { ifDrawn: true }),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { ifDrawn: true, hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
       // A second clip, for a spoken message rather than a montage: a
       // grandparent who cannot travel, a maid of honour's greeting.
-      url('messageVideoUrl', 'A message video link', { hint: 'A second clip, for a spoken message. Same links: YouTube, Vimeo or a public Facebook video.' }),
+      url('messageVideoUrl', 'A message video link', { ifDrawn: true, hint: 'A second clip, for a spoken message. Same links: YouTube, Vimeo or a public Facebook video.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
       text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],

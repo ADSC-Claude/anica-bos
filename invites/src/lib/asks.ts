@@ -387,11 +387,35 @@ export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignFor
 function bound(doc: DesignDoc): Record<string, true> {
   const out: Record<string, true> = {};
   for (const page of doc.pages) {
+    /*
+     * A page that is not drawn prints the whole part.
+     *
+     * Only a drawn page is its element list: a flow page hands the part to
+     * its own renderer, which draws every answer the part has — Capiz's
+     * prenup page prints the video, the childhood pair and the family
+     * photograph without a single element pointing at any of them. A page
+     * that is drawn but `live` does both: the section's renderer draws
+     * beneath the elements, which is how the dress code gets its figures.
+     *
+     * Without this, asking what a design has room for would have hidden
+     * half of Capiz's gallery form.
+     */
+    if (!page.drawn || page.live) for (const section of page.sections ?? []) out[`${section}.${ALL}`] = true;
     for (const el of page.elements ?? []) {
       const refs: FieldRef[] = [];
       if (el.kind === 'photo') {
         if (!('asset' in el.bind)) refs.push(el.bind);
-        if (el.alt) refs.push(el.alt);
+        /*
+         * The words read out to somebody who cannot see the picture are
+         * not a place on the page, so they do not make a field one.
+         *
+         * Counting them did, and that is how the christening kept a
+         * Caption box beside every baby photograph on a page that prints
+         * no captions at all — the answer went nowhere a guest could see
+         * and the customer was left writing into it. A field a design
+         * only describes a picture with is a field the design has no
+         * room for.
+         */
       }
       if (el.kind === 'text') refs.push(...el.lines.flatMap((l) => l.sources).flatMap((x) => ('bind' in x ? [x.bind] : [])));
       // a moment's photographs and its words are places for a customer's own, the same as a frame's and a box's
@@ -406,8 +430,11 @@ function bound(doc: DesignDoc): Record<string, true> {
 }
 
 /** Whether this design has drawn a place for one field. */
+/** The key that stands for "every field this part has", where a page prints the lot. */
+const ALL = '*';
+
 export const designBinds = (form: DesignForm, section: string, field: string, sub?: string): boolean =>
-  Boolean(form.binds[`${section}.${field}${sub ? `.${sub}` : ''}`]);
+  Boolean(form.binds[`${section}.${ALL}`]) || Boolean(form.binds[`${section}.${field}${sub ? `.${sub}` : ''}`]);
 
 /**
  * The media fields this design asked for, and none of the others.
@@ -425,9 +452,30 @@ export const designBinds = (form: DesignForm, section: string, field: string, su
  * which is how today's forms stay exactly as they are.
  */
 export function designMedia(fields: Field[], section: string, form: DesignForm): Field[] {
-  if (!fields.some((f) => f.byDesign)) return fields;
+  /*
+   * A design that binds nothing at all has not drawn anything yet, and a
+   * design that has drawn nothing cannot be said to have no place for
+   * something. So it takes nothing away — which is also the contract that
+   * made this safe to add: every template without a document of its own
+   * keeps exactly the form it had.
+   */
+  const drawn = Object.keys(form.binds).length > 0;
+  const conditional = (f: Field): boolean => Boolean(f.byDesign) || (drawn && Boolean(f.ifDrawn));
+  const deep = (f: Field): boolean => conditional(f) || Boolean(f.item?.some(conditional));
+  if (!fields.some(deep)) return fields;
   return fields.flatMap((f) => {
-    if (!f.byDesign) return [f];
+    // a line inside a list row is asked for the same way: the christening's
+    // Caption sits on every photograph of a page that prints no captions
+    if (!conditional(f) && f.item?.some(conditional)) {
+      const item = f.item.flatMap((sub) => {
+        if (!conditional(sub)) return [sub];
+        if (!designBinds(form, section, f.key, sub.key)) return [];
+        const { staff: _s, ...rest } = sub;
+        return [rest as Field];
+      });
+      return [item.length === f.item.length ? f : { ...f, item }];
+    }
+    if (!conditional(f)) return [f];
     if (!designBinds(form, section, f.key)) return [];
     const { staff: _staff, ...rest } = f;
     return [rest as Field];

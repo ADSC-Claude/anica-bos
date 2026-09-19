@@ -4,7 +4,7 @@ import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
 import { contentOf } from '@/lib/invitations';
-import { publishProblems, sectionLabel, blankSections, skippedSections } from '@/lib/sections';
+import { publishProblems, sectionLabel, blankSections, skippedSections, filledSections, offSections } from '@/lib/sections';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { qrSvg } from '@/lib/qr';
 import { formatDate, formatDateTime } from '@/lib/datetime';
@@ -48,6 +48,11 @@ export default async function SharePage({ params }: { params: Promise<{ id: stri
   // for the customer at the moment they press Publish, never hidden from them.
   const blanks = blankSections(inv.occasion, content, inv.tier, saveTheDate, inv.addOns).map((k) => ({ key: k, label: sectionLabel(k, inv.occasion) }));
   const skipped = skippedSections(inv.occasion, content, inv.tier, saveTheDate, inv.addOns).map((k) => sectionLabel(k, inv.occasion));
+  // the other two thirds of the run-down: what they filled in, and what they
+  // switched off themselves
+  const named = (k: Parameters<typeof sectionLabel>[0]) => ({ key: k, label: sectionLabel(k, inv.occasion) });
+  const filled = filledSections(inv.occasion, content, inv.tier, saveTheDate, inv.addOns).map(named);
+  const off = offSections(inv.occasion, content, inv.tier, saveTheDate, inv.addOns).map(named);
   const live = inv.status === 'PUBLISHED';
   const stage = job ? DFY_COLUMNS.findIndex((c) => c.key === job.status) : -1;
   const left = job ? job.revisionsAllowed - job.revisionsUsed : 0;
@@ -103,7 +108,14 @@ export default async function SharePage({ params }: { params: Promise<{ id: stri
             ) : (
               <p className="text-sm text-[color:var(--color-ink-700)]">{selfPublish ? 'Only you can see your invitation until you publish it. Publishing gives you the link and the QR code; you can unpublish later if you need to.' : 'Our team publishes this once you approve the preview above.'}</p>
             )}
-            {selfPublish && <PublishControls invitationId={inv.id} status={inv.status} problems={problems} blanks={blanks} skipped={skipped} rounds={rounds} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />}
+            {/*
+              * The run-down is shown to everybody, the button only to the
+              * customers who publish for themselves. A Done-For-You family
+              * approves a preview instead of pressing Publish, and they were
+              * the ones seeing nothing at all: no list of what is filled in,
+              * no list of what is not, on the very screen where they decide.
+              */}
+            <PublishControls invitationId={inv.id} status={inv.status} canPublish={selfPublish} problems={problems} blanks={blanks} filled={filled} off={off} skipped={skipped} rounds={rounds} rsvpClosed={inv.rsvpClosed} rsvp={!saveTheDate} />
           </div>
 
           {pair && (

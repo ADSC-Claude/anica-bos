@@ -57,7 +57,9 @@ const slug = (s: string) =>
     .replace(/^-+|-+$/g, '');
 
 /** A field the owner answers: not ours, and not one a design has not asked for. */
-const theirs = (f: Field) => !f.staff && !f.byDesign;
+// A choice about the part (the switch that keeps a page off) is not something
+// to write down and send us, so the sheet leaves it out.
+const theirs = (f: Field) => !f.staff && !f.byDesign && !f.aside;
 
 /** The options a person may choose from, without the ones their package cannot have. */
 const offered = (f: Field, tier: Tier) => (f.options ?? []).filter((o) => !o.lockedTier || tierAtLeast(tier, o.lockedTier)).map((o) => o.label);

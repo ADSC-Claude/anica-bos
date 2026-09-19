@@ -551,12 +551,36 @@ export type NightPalette = {
   surround?: string;
 };
 
+/**
+ * One answer on the form, and what it has to say for the thing that carries
+ * this to be drawn at all. `is` lists the values that draw it; `filled` draws
+ * it when the answer has something in it, or, false, when it has not. Both
+ * given, both must hold. `shows` is the rule.
+ */
+export type When = { section: string; field: string; is?: string[]; filled?: boolean };
+
 export type PageSpec = {
   /** becomes data-page and the scroll anchor */
   key: string;
   label?: { en: string; tl?: string };
   sections: PageSectionKey[];
   ground?: Ground;
+  /**
+   * The answer this whole page waits for.
+   *
+   * A page that is not about a part the family may leave out, but about one
+   * *answer* they may or may not give. Her own idea, for the film: "what i
+   * can do next time is for the video if they will be inserting is create
+   * another page that can be an extension for it if they opt to send, and if
+   * not, it should be hidden." The design carries the page always; the
+   * invitation shows it only when the answer is there.
+   *
+   * It is the same condition an element takes, read by the same rule, so a
+   * page and the elements on it cannot disagree about what a blank means.
+   * The studio draws the page whatever the answer says — she is drawing it,
+   * not reading it.
+   */
+  when?: When;
   /** how long the dissolve into this page is, as a share of the width */
   seam?: number;
   /**
@@ -914,7 +938,7 @@ type Base = {
    * words. This asks about an answer somewhere else on the form, which is
    * what a layout decision is made of.
    */
-  when?: { section: string; field: string; is?: string[]; filled?: boolean };
+  when?: When;
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
   /**
@@ -1469,6 +1493,7 @@ const zLine = z.object({
   caps: z.literal(true).optional(),
 }).strict();
 
+const zWhen = z.object({ section: z.string().max(40), field: z.string().max(40), is: z.array(z.string().max(60)).max(12).optional(), filled: z.boolean().optional() }).strict();
 const zBase = {
   id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,40}$/),
   x: zPlace(-50, 150).optional(),
@@ -1490,7 +1515,7 @@ const zBase = {
   go: z.object({ to: z.enum(['calendar', 'maps', 'waze']), of: z.string().max(40).optional() }).strict().optional(),
   taps: z.string().max(41).optional(),
   song: z.literal(true).optional(),
-  when: z.object({ section: z.string().max(40), field: z.string().max(40), is: z.array(z.string().max(60)).max(12).optional(), filled: z.boolean().optional() }).strict().optional(),
+  when: zWhen.optional(),
   attachTo: z.string().max(41).optional(),
   opens: z.string().regex(KEY).optional(),
 };
@@ -1538,6 +1563,7 @@ const zElement = z.union([
 ]);
 const zPage = z.object({
   key: z.string().regex(KEY),
+  when: zWhen.optional(),
   label: z.object({ en: z.string().max(60), tl: z.string().max(60).optional() }).strict().optional(),
   sections: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9-]{0,40}$/)).max(30),
   ground: zGround.optional(),
@@ -1648,6 +1674,22 @@ export type PageDef = {
   sections: (SectionKey | 'verse')[];
   /** the ground under the page, by its key in BABYBLUE_GROUNDS */
   bg?: string;
+  /**
+   * The answer this whole page waits for.
+   *
+   * A page that is not about a part the family may leave out, but about one
+   * *answer* they may or may not give. Her own idea, for the film: "what i
+   * can do next time is for the video if they will be inserting is create
+   * another page that can be an extension for it if they opt to send, and if
+   * not, it should be hidden." The design carries the page always; the
+   * invitation shows it only when the answer is there.
+   *
+   * It is the same condition an element takes, read by the same rule, so a
+   * page and the elements on it cannot disagree about what a blank means.
+   * The studio draws the page whatever the answer says — she is drawing it,
+   * not reading it.
+   */
+  when?: When;
   /** how long the dissolve into this page is, as a share of the width */
   seam?: number;
   /**
@@ -2861,7 +2903,21 @@ export function valueAt(content: Record<string, unknown> | undefined, ref: Field
  * is a box the checklist does not ask the customer to fill.
  */
 export function shows(el: Element, content: Record<string, unknown> | undefined): boolean {
-  const w = el.when;
+  return meets(el.when, content);
+}
+
+/**
+ * Whether a whole page's condition holds — the same rule as an element's, so
+ * a page and what is drawn on it cannot read one answer two ways.
+ *
+ * A page with no condition is always there; whether it then has anything to
+ * show is the sections' question, not this one.
+ */
+export function pageShows(page: { when?: When }, content: Record<string, unknown> | undefined): boolean {
+  return meets(page.when, content);
+}
+
+function meets(w: When | undefined, content: Record<string, unknown> | undefined): boolean {
   if (!w) return true;
   const data = isRecord(content?.[w.section]) ? (content![w.section] as Rowish) : undefined;
   const value = text(data?.[w.field]);

@@ -358,6 +358,115 @@ const ROWS = (
 ]);
 
 /**
+ * A milestone, stacked: the photograph, then the date, the title and a few
+ * words under it — all in the one column, all on one side of the spine.
+ *
+ * The photographs used to hang opposite their own row, which put each one in
+ * the *neighbouring* row's column: the second milestone's picture sat across
+ * the first milestone's sentence and printed over it. "The photo on the upper
+ * left is blocking the message" — and it was, from the first line down.
+ *
+ * Stacking is the fix, and it buys the room the words were short of as well.
+ * A row now owns a clean band of its own column, from its picture down to the
+ * next picture in that column: thirteen per cent of the page against the four
+ * it had, which is three lines of description rather than none.
+ *
+ * The geometry, all in shares of the page: the date keeps the baseline she
+ * measured and the picture is hung above it — half its own height plus the
+ * date's ascent and a little air — so moving the picture's size moves nothing
+ * else. The columns widen from 30 to 34 because a real date ("November 26,
+ * 2025") would not fit in 30 and wrapped onto the title.
+ */
+const STORY_COL = 34;
+/** Air between the foot of the picture and the cap of the date, in shares of the page's height. */
+const PHOTO_AIR = 2.2;
+/**
+ * The cloud each milestone is written on, as the white actually runs.
+ *
+ * "The fonts for date and title is too big that the text doesnt fit the
+ * cloud." Her four clouds are soft shapes with wispy edges, so a bounding
+ * box overstates them: measured on her own ground, the band where the white
+ * is at least thirty per cent of the page wide — wide enough to hold a line
+ * of this column — is the band a milestone has to live in.
+ *
+ *   1  32.66 – 48.75   2  43.75 – 63.59   3  60.52 – 79.43   4  74.17 – 93.91
+ *
+ * The narrowest is sixteen per cent of the page. A milestone stood at 28.3,
+ * which is why the words ran off the bottom onto plain sky on all four. It
+ * stands at 14.4 now: the date and the title are smaller, the gap above the
+ * words and their leading are tighter, and each block is set from its own
+ * dot on the spine rather than from a baseline read off the drawing.
+ */
+const STORY_DOTS = [35.89, 50.70, 65.49, 80.34];
+/** Those four bands, so the page and the test that guards it read one number. */
+export const STORY_CLOUDS: readonly (readonly [number, number])[] = [
+  [32.66, 48.75], [43.75, 63.59], [60.52, 79.43], [74.17, 93.91],
+];
+/**
+ * How far above its dot a milestone's date sits.
+ *
+ * She drew the date a shade *under* the dot. A shade over is what buys rows
+ * one and two the half a per cent they were short of their cloud's foot, and
+ * at this distance the dot still reads as the date's own marker.
+ */
+const DATE_OVER_DOT = 0.4;
+/** The date's baseline to the title's, with the smaller faces. */
+const TITLE_UNDER_DATE = 2.53;
+/** The air above a milestone's words, tighter than the programme's row gap. */
+const STORY_GAP = 1.25;
+/** The photograph's width, as a share of the page's width. */
+const STORY_PHOTO = 21;
+/** The story page's height over its width, so a width can be said as a height. */
+const RATIO = 1.7778;
+/**
+ * The letters a milestone's description holds: three lines of this column.
+ *
+ * Measured on the rebuilt page rather than guessed — a line of this face at
+ * this size takes about thirty-five characters in a column 34 wide, and three
+ * lines is what clears the next picture even when the title takes two.
+ */
+const STORY_WORDS = 130;
+
+const STORY_ROWS = (
+  S: ReturnType<typeof sheet>,
+  rows: Array<{ left: number }>,
+): Element[] => rows.flatMap((row, i) => {
+  const cx = row.left + STORY_COL / 2;
+  // the date under its dot, the title under the date: two numbers instead of
+  // three read off the drawing, so the block moves as one when either moves
+  const date = r2(STORY_DOTS[i] - DATE_OVER_DOT);
+  const title = r2(date + TITLE_UNDER_DATE);
+  // the picture's left edge on the words' left edge, not centred in the
+  // column: a narrower thing centred over wider words reads as indented
+  const px = row.left + STORY_PHOTO / 2;
+  // a square photograph as tall as it is wide; `w` is a share of the page's
+  // width and `y` a share of its height, so the half-height converts
+  const half = STORY_PHOTO / 2 / RATIO;
+  const photo: PhotoEl = {
+    id: `story-photo-${i + 1}`, kind: 'photo',
+    x: px, y: date - PHOTO_AIR - half, w: STORY_PHOTO, aspect: 1, anchor: 'centre',
+    rotate: i % 2 === 0 ? 2.5 : -2.5, frame: 'thin',
+    bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
+    alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
+  };
+  return [
+    photo,
+    // smaller than the 4.5 she drew, so eighteen letters of date stay on one
+    // line in this column and can never wrap onto the title below
+    S.one(`story-${i + 1}-when`, { base: date, size: 3.4, face: 'script', cx, w: STORY_COL, align: 'left', hide: true, room: 18 },
+      bind('story', 'timeline', { index: i, sub: 'date' })),
+    // the words keep their size — it is already small on a phone, and she
+    // named the date and the title, not the sentence. What they give up is
+    // the air above them and a little of their leading.
+    S.mixed(`story-${i + 1}-what`, { base: title, size: pt(25), cx, w: STORY_COL, align: 'left', hide: true, room: 28 }, [
+      { caps: true, src: [bind('story', 'timeline', { index: i, sub: 'title' })] },
+      { size: pt(18.77), lead: 1.30, space: STORY_GAP, room: STORY_WORDS,
+        src: [bind('story', 'timeline', { index: i, sub: 'text' })] },
+    ]),
+  ];
+});
+
+/**
  * Sixteen pages: seven in the column, nine in three booklets.
  *
  * The order is hers. `booklet` is the one field that takes a page off the
@@ -384,13 +493,29 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       // where it was asked before, and is still read for anything typed then
       COVER.one('cover-family', { base: 48.185, size: pt(40), color: 'accent', face: 'display', weight: 700, room: 28 },
         bind('cover', 'childLast'), bind('parents', 'familyName')),
-      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68, caps: true },
+      /*
+       * The date, the time and the church, printed as they were typed.
+       *
+       * She set all three in capitals in Canva and the design followed her,
+       * which is right for a word the design writes itself and wrong for a
+       * word somebody else types: "dont make all the words in dates and
+       * ceremony venue all caps. only the one they inserted in the form,
+       * like which one is in the uppercase which one is not". A family who
+       * writes "St. Gabriel the Archangel Parish Church" gets their own
+       * capitals; one who writes it shouting still gets theirs.
+       *
+       * And the church has room to be two lines now, not three. Her box was
+       * 46 wide because her own sample broke in two there; a real parish
+       * name is longer and went to three, which is one line more than the
+       * cover has between the time above it and the camera below. It runs
+       * to 74 — the width of the cover's other writings — still centred on
+       * the middle she measured.
+       */
+      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68 },
         bind('cover', 'date', { show: 'date' })),
-      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68, caps: true },
+      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68 },
         bind('cover', 'time', { show: 'time' })),
-      // her venue runs to two lines 1.20 of its size apart; the box is wide
-      // enough to break in the same place and no wider
-      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 46, lead: 1.2, room: 40, caps: true },
+      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 74, lead: 1.2, room: 56 },
         bind('ceremony', 'venue')),
       COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print' },
         say('CLICK HERE')),
@@ -560,11 +685,30 @@ export const CHRISTENING_PAGES: PageSpec[] = [
     ground: ground('assistance', 0.5556),
     elements: [
       HELP.one('help-head', { base: 27.079, size: pt(40), face: 'display', weight: 700 }, { word: 'title:contact' }, say('QUESTIONS?')),
-      HELP.many('help-one', { base: 57.599, size: pt(25), cx: 36.12, w: 26, lead: 1.18 },
+      /*
+       * One name, or two.
+       *
+       * She drew two columns, so the first was pinned at 36.12 whether or
+       * not anything ever stood beside it — and a family who gives one
+       * number got it hanging off to the left of a page with nothing on
+       * the right: "when the customer only inputs one contact number it
+       * should be place in the middle and the word US should be ME".
+       *
+       * Both, then, chosen by whether there is a second name. `when` is
+       * the document's own conditional and this is what it is for; the two
+       * carry the same bindings, so a family who adds a second name later
+       * sees the first slide back into her column.
+       */
+      HELP.many('help-solo', { base: 57.599, size: pt(25), cx: 50, w: 40, lead: 1.18, when: { section: 'contact', field: 'name2', filled: false } },
+        [[bind('contact', 'name')], [bind('contact', 'phone')]]),
+      HELP.many('help-one', { base: 57.599, size: pt(25), cx: 36.12, w: 26, lead: 1.18, when: { section: 'contact', field: 'name2', filled: true } },
         [[bind('contact', 'name')], [bind('contact', 'phone')]]),
       HELP.many('help-two', { base: 57.254, size: pt(25), cx: 65.97, w: 26, lead: 1.18, hide: true },
         [[bind('contact', 'name2')], [bind('contact', 'phone2')]]),
-      HELP.one('help-note', { base: 78.221, size: pt(25), cx: 50.95 },
+      // and one person says me, not us
+      HELP.one('help-note-solo', { base: 78.221, size: pt(25), cx: 50.95, when: { section: 'contact', field: 'name2', filled: false } },
+        bind('contact', 'chatNote'), say('Or message me on Messenger.')),
+      HELP.one('help-note', { base: 78.221, size: pt(25), cx: 50.95, when: { section: 'contact', field: 'name2', filled: true } },
         bind('contact', 'chatNote'), { word: 'contactNote' }, say('Or message us on Messenger.')),
     ],
   },
@@ -595,39 +739,17 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       STORY.one('story-line', { base: 18.267, size: pt(30), color: 'surface', face: 'display', weight: 700, cx: 50.22, w: 64, room: 46, mark: 'accent' },
         bind('story', 'line'), { word: 'story' }),
       /*
-       * Her four milestones, hung off the drawn spine: the words on one side
-       * of it, a photograph on the other.
+       * Her four milestones, hung off the drawn spine, one to a dot: the
+       * photograph, then the date, the title and the words, all stacked in
+       * the one column and alternating sides as the page reads down.
        *
-       * The date is hers and it is back — it was dropped in the first build
-       * and it is the line the row hangs on. Three lines, three baselines:
-       * she set the date 2.63 under nothing, the title 2.63 under the date
-       * and the sentence 2.98 under the title, and three boxes is the only
-       * way to keep three different gaps.
-       *
-       * The photographs are ours rather than hers — she drew the spine and
-       * its four dots and left both sides of it empty, and asked for frames
-       * afterwards. `story.timeline[].photo` already existed on the form;
-       * the question was being asked and nothing was drawing the answer.
+       * The date is hers and it is back — it was dropped in the first build,
+       * drawn all along and never asked for. She set the date 2.63 under
+       * nothing, the title 2.63 under the date and the sentence 2.98 under
+       * the title; those three baselines are kept, and only the column's
+       * width and the photograph's place have moved. See STORY_ROWS.
        */
-      ...ROWS(STORY, 'story', 'story', 'timeline', 'date', [
-        { left: 6.10, date: 36.899, title: 39.524, text: 42.499 },
-        { left: 59.84, date: 51.231, title: 53.856, text: 56.831 },
-        { left: 6.10, date: 66.040, title: 68.665, text: 71.640 },
-        { left: 59.84, date: 80.873, title: 83.498, text: 86.473 },
-      ]),
-      // on the middle of its own row — halfway between her date's baseline
-      // and her sentence's — rather than under it, so the picture and the
-      // words read as one moment
-      ...[
-        { i: 0, y: 39.7, left: true }, { i: 1, y: 54.0, left: false },
-        { i: 2, y: 68.8, left: true }, { i: 3, y: 83.7, left: false },
-      ].map(({ i, y, left }): PhotoEl => ({
-        id: `story-photo-${i + 1}`, kind: 'photo',
-        x: left ? 72 : 26, y, w: 26, aspect: 1, anchor: 'centre',
-        rotate: left ? 2.5 : -2.5, frame: 'thin',
-        bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
-        alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
-      })),
+      ...STORY_ROWS(STORY, [{ left: 6.10 }, { left: 59.84 }, { left: 6.10 }, { left: 59.84 }]),
     ],
   },
   {
@@ -685,6 +807,25 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         alt: { section: 'gallery', field: 'photos', index: i, sub: 'caption' },
       })),
     ],
+  },
+  {
+    /*
+     * The film, and only if there is one.
+     *
+     * Her own answer to a page with three frames and nothing else: "what i
+     * can do next time is for the video if they will be inserting is create
+     * another page that can be an extension for it if they opt to send, and
+     * if not, it should be hidden." So the design carries the page always
+     * and the invitation shows it only when the family sent a film — which
+     * is what `when` says, in the document, rather than in a rule about this
+     * one design somewhere in the renderer.
+     *
+     * No ground of its own: it takes the column's own pale sky, the same as
+     * every other page this design does not draw, so a film sits on the page
+     * without her polaroids printed behind it.
+     */
+    key: 'baby-film', label: { en: 'The film' }, sections: ['gallery-video'], seam: 0, booklet: 'story',
+    when: { section: 'gallery', field: 'videoUrl', filled: true },
   },
 
   // ─────────────────── behind the envelope: The Details ───────────────────
@@ -792,7 +933,18 @@ export const CHRISTENING_PAGES: PageSpec[] = [
      * colours and how many things to avoid is the family's answer.
      */
     key: 'dresscode', label: { en: 'Dress Code' }, sections: ['dressCode'], seam: 0, booklet: 'details',
-    drawn: true, grow: true, live: true, headPad: 26,
+    /*
+     * And room at the foot for the artwork that lives there.
+     *
+     * A page tall enough to need its ground cut in three keeps the head and
+     * the foot whole and stretches the band between, so the foot slice — the
+     * bottom of her white card, the clouds and the balloons under it — is
+     * pinned to the page's own bottom. Anything the words run to below that
+     * line is printed on the clouds. Her foot is 845 of 1920, about four
+     * fifths of the width, and the last block on this page was already
+     * landing in it before the ninongs' colours made it taller.
+     */
+    drawn: true, grow: true, live: true, headPad: 26, footPad: 5,
     ground: ground('dresscode', 1.7778, true),
     elements: [
       // the heading is hers; the line under it is the section's, written from

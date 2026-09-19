@@ -265,12 +265,23 @@ test('the fixed writings are ours: off the client’s form, and kept through a c
   const cover = customerFields(fieldsFor('cover', 'WEDDING')).map((f) => f.key);
   assert.ok(cover.includes('introPreset') && cover.includes('coverPhoto') && cover.includes('date'));
   for (const k of ['intro', 'verse', 'verseRef', 'interlude2']) assert.ok(!cover.includes(k), k);
-  // the closing keeps the photo, the parents' own message and the signature for
-  // the client; the thank-you and the line above the names are ours
+  /*
+   * The closing thank-you is the family's, not ours.
+   *
+   * It was a fixed writing, on the reasoning that the look backs every
+   * empty one — but a thank-you at the end of an invitation is the family
+   * speaking, and a customer who wants to say something of their own had
+   * nowhere to say it: "in the gift note, theres no area to write their
+   * own". The line above the names stays ours, because that one is the
+   * page's furniture.
+   */
   const closing = customerFields(fieldsFor('closing', 'WEDDING')).map((f) => f.key);
-  assert.deepEqual(closing, ['photo', 'parentsMessage', 'signature']);
+  // 'hide' at the end is the switch every part a customer may leave out now
+  // carries: theirs, saved with the part, and not an answer in it
+  assert.deepEqual(closing, ['photo', 'parentsMessage', 'message', 'signature', 'hide']);
+  assert.ok(!closing.includes('line'), 'the line above the names is still ours');
   // and staff editing for the customer see everything
-  assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'message' && f.staff));
+  assert.ok(fieldsFor('closing', 'WEDDING').some((f) => f.key === 'line' && f.staff));
 });
 
 test('guests are offered their occasion\'s groups until the couple writes their own', () => {

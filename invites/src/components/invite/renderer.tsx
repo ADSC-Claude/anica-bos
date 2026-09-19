@@ -5,7 +5,7 @@ import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/l
 import { MOMENT_BY_KEY, triggerOf, type MomentKey, type Trigger } from '@/lib/moments';
 import { contentOf, resolveTheme, rsvpOpen, type PublicInvitation } from '@/lib/invitations';
 import type { BookSet } from '@/lib/fonts';
-import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionLabel, anchorOf as anchorIn, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
+import { guestGroups, sectionOnCard, OCCASION_SECTIONS, sectionOrder, sectionOffered, sectionUnlocked, sectionFilled, sectionHidden, sectionLabel, anchorOf as anchorIn, isPaged, str, bool, num, rows, personOf, formatPerson, eventInstant, ordinal, displayTitle, coverImage, type Content, type SectionKey, type SectionData } from '@/lib/sections';
 import { OPENING_BY_KEY, resolveOpening, openingAssets, hasPremiumOpening, UNIVERSAL_OPENING } from '@/lib/openings';
 import { premiumOpeningOf, type PremiumOpening } from '@/lib/premium-openings';
 import { resolveBackdrop } from '@/lib/backdrops';
@@ -19,7 +19,7 @@ import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
 import { SHOW_MESSAGES, SHOW_PHOTOS } from '@/lib/showlist';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion, Hub } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, pageOfSection, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, pageOfSection, stdPage, sheetRules, pageShows, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -820,12 +820,42 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
       </span>
     );
   });
-  const sponsors = (str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) ? (
-    <div className="inv-two inv-attire text-sm">
-      {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
-      {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
-    </div>
+  /*
+   * The ninongs and ninangs, and the entourage: their words and their
+   * colours.
+   *
+   * The guests have had a palette to look at since the page was built and
+   * these two had a line of writing each — "atleast an idea of the colors
+   * for them". The colours are drawn the same way the motif is, named, so
+   * a ninong reading "Cream to Beige Smart Casual" can see which creams.
+   * Either half stands on its own: words with no colours, or colours with
+   * no words, each print what they have.
+   */
+  const ninongs = occasion === 'CHRISTENING' || occasion === 'COMMUNION' || occasion === 'BABY_SHOWER';
+  const standing = (key: 'sponsors' | 'entourage', words: string, colours: string[]) => (words || colours.length) ? (
+    <p key={key}>
+      <span className="inv-eyebrow block">{t(lang, key === 'sponsors' ? (ninongs ? 'dressCode.ninongs' : 'dressCode.sponsors') : ninongs ? 'dressCode.everyone' : 'dressCode.entourage')}</span>
+      {words}
+      {colours.length > 0 && (
+        <span className="inv-swatches inv-swatches-few">
+          {colours.map((c, i) => {
+            const s = swatchByHex(c);
+            return (
+              <span key={`${c}-${i}`} className="inv-swatch-item">
+                <span className="inv-swatch" style={{ background: swatchStyle(c, s?.metallic) }} title={s?.name ?? c} />
+                {s && <span className="inv-swatch-name">{s.name}</span>}
+              </span>
+            );
+          })}
+        </span>
+      )}
+    </p>
   ) : null;
+  const theirs = [
+    standing('sponsors', str(data, 'sponsorsAttire'), rows<string>(data, 'sponsorsColors')),
+    standing('entourage', str(data, 'entourageAttire'), rows<string>(data, 'entourageColors')),
+  ].filter(Boolean);
+  const sponsors = theirs.length ? <div className="inv-two inv-attire text-sm">{theirs}</div> : null;
   if (format) {
     return (
       <Section id="dress-code" title={heading} tagline={attire ? undefined : tagline} className="inv-dresscode">
@@ -1866,8 +1896,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     : [];
   /** Where the peek stops: the page the design marks, or the first page. */
   const peekPage = doc ? peekEndPage(doc) : 'story';
-  // the baby photographs beyond the drawn frames, and the film: a page of their own after the frames
+  // the baby photographs beyond the drawn frames, and the film: a page of
+  // their own after the frames, wherever the design names one. It used to be
+  // Baby Blue's by name; the document says it now, so any design that draws
+  // a 'gallery-video' page gets the film on it.
   let babyMore: ReactNode = null;
+  const filmPage = Boolean(doc?.pages.some((p) => p.sections.includes('gallery-video')));
   const personal = Boolean(guest) && entitled(inv, 'rsvp.personalLinks');
   const hostsNoun = lang === 'tl' ? HOSTS[occasion]?.tl ?? 'sa host' : HOSTS[occasion]?.en ?? 'the hosts';
   const coverDate = str(content.cover, 'date');
@@ -1898,6 +1932,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     // too) is offered the way the invitation's occasion offers it
     (templateSections.size === 0 || templateSections.has(key) || !OCCASION_SECTIONS[inv.template.occasion].includes(key) || extras.has(key)) &&
     sectionUnlocked(key, occasion, inv.tier, inv.addOns) &&
+    /*
+     * And the switch the customer has on every part they may leave out.
+     * "there should be on and off the page for them if they didnt want to
+     * answer it" — a part they filled in and then decided against is the one
+     * case nothing else covers, because a blank one is hidden already.
+     */
+    !sectionHidden(content[key]) &&
     // the countdown's only content is its switch; the label is the look's to supply
     (key === 'rsvp' || key === 'cover' || key === 'countdown' || sectionFilled(key, occasion, content[key]));
 
@@ -2262,6 +2303,21 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         <PageGround key="ground-lay" ratio={doc && !capiz ? 0 : CAPIZ_BG_RATIO} order={STRIP_ORDER} last={8} backgrounds={art.backgrounds} night={art.night} grounds={docGrounds} />
       ),
     );
+    /*
+     * The column, as pages with their place in the reading order.
+     *
+     * A part the design draws no page for still gets a page, and it belongs
+     * where the reading order puts it — "guestbook and post event should be
+     * after the social which is the hashtag". Appending them after the
+     * document's last page put the guest wall and the shared album after
+     * "See you there", which is the last thing anybody should be shown.
+     *
+     * A page that names no part of its own — a flourish, a divider — keeps
+     * the place of the page before it, so nothing is ever slotted into the
+     * middle of a pair the designer drew together.
+     */
+    const column: { node: ReactNode; rank: number }[] = [];
+    let lastRank = -1;
     if (doc) {
       // The document's own page list. A drawn page is its elements; every
       // other page is the sections it names. The clip that no frame can hold
@@ -2273,6 +2329,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       // card she is drawing, so the whole list is searched and the slice
       // below picks hers out.
       for (const spec of card ? [card] : only ? doc.pages : reachablePages(doc)) {
+        /*
+         * A page that waits on one answer. Her idea, for the film: a page
+         * the design always carries and the invitation shows only when the
+         * family sent a video. The studio is exempt — `only` is one page
+         * asked for by key, and she is drawing it, not reading it.
+         */
+        if (!only && !pageShows(spec, content as Record<string, unknown>)) continue;
         // A drawn page that names sections comes and goes with them, the way
         // the photographs page goes when a package has no gallery. One that
         // names none depends on nothing — it is the design's own page, a
@@ -2312,12 +2375,24 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           const list = behind.get(spec.booklet) ?? [];
           list.push(built);
           behind.set(spec.booklet, list);
-        } else if (built) out.push(built);
+        } else if (built) {
+          const ranks = spec.sections.map((k) => order.indexOf(k as SectionKey)).filter((i) => i >= 0);
+          if (ranks.length) lastRank = Math.min(...ranks);
+          column.push({ node: built, rank: lastRank });
+        }
       }
     }
     // a section the document does not name gets a page of its own, in its
     // place — on the invitation. A card is the one page it was drawn as.
-    if (!card) for (const key of order) if (!placed.has(key) && drawn.has(key)) out.push(page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined }));
+    if (!card) for (const [rank, key] of order.entries()) {
+      if (placed.has(key) || !drawn.has(key)) continue;
+      const node = page(key, [drawn.get(key)], { bg: doc?.overflowGround ? OVERFLOW_BG : undefined });
+      // before the first page the design draws for a part that reads later
+      const at = column.findIndex((c) => c.rank > rank);
+      if (at < 0) column.push({ node, rank });
+      else column.splice(at, 0, { node, rank });
+    }
+    out.push(...column.map((c) => c.node));
     /*
      * The booklets, laid after the column.
      *
@@ -2464,12 +2539,13 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const sides = format ? ['line1', 'line2', 'line3'].map((k, i) => str(content.moment, k) || line(`moment${i + 1}` as LineKey) || '').filter(Boolean) : [];
         // the couple's own lines where they typed them, the look's where not
         const prenup = format ? { note: str(data, 'note') || (line('galleryNote') ?? ''), video: str(data, 'videoTitle') || (line('galleryVideo') ?? ''), close: str(data, 'close') || (line('galleryClose') ?? ''), watch: t(lang, inv.occasion === 'WEDDING' ? 'gallery.watchPrenup' : 'gallery.video'), sides, strand: doc?.strand || art.strand } : undefined;
-        if (babyblue) {
+        if (filmPage) {
           const video = hasFeature(inv.tier, 'video') ? str(data, 'videoUrl') : '';
-          // The drawn page holds four frames and that is the page: the form
-          // stops at four for this design. A video, which no frame can hold,
-          // gets a page of its own after it, which the document names
-          // 'gallery-video'.
+          // The drawn page holds the frames it was drawn with and that is the
+          // page: the form stops there for this design. A video, which no
+          // frame can hold, gets a page of its own after it — the page the
+          // document names 'gallery-video', which shows only when there is a
+          // film to put on it.
           babyMore = video ? <Gallery key="gallery-more" data={{ ...data, photos: [] }} lang={lang} tier={inv.tier} title={named('gallery', t(lang, 'gallery.title'))} tagline={str(data, 'close') || line('galleryClose')} taglineSrc={[{ bind: { section: 'gallery', field: 'close' } }, { word: 'galleryClose' }, fx(str(data, 'close') || line('galleryClose') || '')]} /> : null;
         }
         return <Gallery key={key} data={data} lang={lang} tier={inv.tier} tagline={str(data, 'line') || line('gallery')} title={lookTitle(look, lang, 'gallery')} format={prenup} />;

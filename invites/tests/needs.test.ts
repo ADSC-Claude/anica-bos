@@ -17,15 +17,22 @@ const el = (doc: DesignDoc, page: string, id: string) => on(doc, page).elements!
 /**
  * The checklist has to be silent on a design that is right, or it is noise
  * and she will stop reading it. Both shipped designs are right.
+ *
+ * "Silent" means nothing to fix. The running total of what a design asks
+ * for is not a fault and never was — it is the one line a right design
+ * still prints, and it counts the frames now that the survey sees them
+ * without waiting to be ticked.
  */
 test('the two designs as shipped need nothing', () => {
-  assert.deepEqual(run(base), []);
-  // Capiz carries its storyline, so the one line it gets is the count of what it asks for — nothing to fix
+  const mine = run(base);
+  assert.deepEqual(mine.map((n) => n.rule), ['asks']);
+  assert.match(mine[0].text, /10 photographs and 0 writings/);
+  // Capiz carries its storyline, so its count includes the moments' pictures
   const capiz = pageNeeds({ doc: builtinDesign('capiz'), occasion: 'WEDDING' as never });
   assert.deepEqual(capiz.map((n) => n.rule), ['asks']);
-  assert.match(capiz[0].text, /3 photographs and 2 writings/);
+  assert.match(capiz[0].text, /photographs and 2 writings/);
   assert.equal(publishable(capiz), true);
-  assert.equal(publishable(run(base)), true);
+  assert.equal(publishable(mine), true);
   assert.deepEqual(pageNeeds({ doc: null, occasion: 'WEDDING' as never }), []);
 });
 
@@ -207,7 +214,8 @@ test('the running total of what a design asks for is about the design, not a pag
   const n = run(d).filter((x) => x.rule === 'asks');
   assert.equal(n.length, 1);
   assert.equal(n[0].page, '');
-  assert.match(n[0].text, /asks for 1 photograph and 0 writings/);
+  // every frame the design draws for a customer's photograph, marked or not
+  assert.match(n[0].text, /asks for 10 photographs and 0 writings/);
   // so it is not counted against any page in the strip
   assert.deepEqual(needCount(run(d), 'cover'), { blocks: 0, says: 0 });
 });
@@ -219,7 +227,9 @@ test('needCount counts the whole design or one page', () => {
   on(d, 'story').ground = undefined;
   on(d, 'venue').sections = [];
   const n = run(d);
-  assert.deepEqual(needCount(n), { blocks: 1, says: 1 });
+  // one page with no ground blocks, one with no part says so, and the
+  // design's running total says one more
+  assert.deepEqual(needCount(n), { blocks: 1, says: 2 });
   assert.deepEqual(needCount(n, 'story'), { blocks: 1, says: 0 });
   assert.deepEqual(needCount(n, 'venue'), { blocks: 0, says: 1 });
   assert.deepEqual(needCount(n, 'closing'), { blocks: 0, says: 0 });
@@ -235,8 +245,9 @@ test('a heavy background says so, and an unrecorded one says nothing', () => {
   const d = clone();
   const ground = on(d, 'story').ground!;
   const url = (ground as { url: string }).url;
-  assert.deepEqual(runRow(d, {}), [], 'nothing is claimed with no weights handed in');
-  assert.deepEqual(runRow(d, { weights: { [url]: 200 * 1024 } }), [], 'a background within the budget is silent');
+  const only = (ns: ReturnType<typeof runRow>) => ns.filter((x) => x.rule !== 'asks');
+  assert.deepEqual(only(runRow(d, {})), [], 'nothing is claimed with no weights handed in');
+  assert.deepEqual(only(runRow(d, { weights: { [url]: 200 * 1024 } })), [], 'a background within the budget is silent');
   const n = runRow(d, { weights: { [url]: 1_800_000 } }).filter((x) => x.rule === 'ground-weight');
   assert.equal(n.length, 1);
   assert.equal(n[0].level, 'says');

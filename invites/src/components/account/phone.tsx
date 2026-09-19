@@ -12,29 +12,35 @@ import { useEffect, useState } from 'react';
  * the Invitation tab beside the form, and the RSVP tab beside the questions.
  * The bezel is the `.phone` frame in globals.css; a `.builder-phone` wrapper
  * around it sizes the frame to a real handset's width.
+ *
+ * What is on the phone is the address plus the save it is showing, and both
+ * move it. The address carries the part being filled in (`?at=`), so moving
+ * to another part is as much a reason to reload as saving one: the phone
+ * used to watch the save alone, and a customer who stepped from Our Story to
+ * the dress code kept the story on screen until she happened to type
+ * something.
  */
 export function PhonePreview({ src, version }: { src: string; version: number }) {
-  const at = (v: number) => `${src}&v=${v}`;
-  const [slots, setSlots] = useState<[{ src: string; v: number }, { src: string; v: number }]>([{ src: at(0), v: 0 }, { src: '', v: -1 }]);
+  const want = `${src}&v=${version}`;
+  const [slots, setSlots] = useState<[string, string]>(() => [want, '']);
   const [front, setFront] = useState<0 | 1>(0);
   useEffect(() => {
     setSlots((s) => {
-      if (s[front].v === version) return s;
+      if (s[front] === want) return s;
       const back = front === 0 ? 1 : 0;
-      const copy: typeof s = [s[0], s[1]];
-      copy[back] = { src: at(version), v: version };
+      const copy: [string, string] = [s[0], s[1]];
+      copy[back] = want;
       return copy;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [version, front]);
+  }, [want, front]);
   const arrived = (i: 0 | 1) => {
-    if (i !== front && slots[i].v === version) setFront(i);
+    if (i !== front && slots[i] === want) setFront(i);
   };
   return (
     <div className="phone mx-auto">
       {([0, 1] as const).map((i) =>
-        slots[i].src ? (
-          <iframe key={i} src={slots[i].src} title={i === front ? 'Your page' : 'Loading your page'} onLoad={() => arrived(i)} style={{ visibility: i === front ? 'visible' : 'hidden', zIndex: i === front ? 2 : 1 }} />
+        slots[i] ? (
+          <iframe key={i} src={slots[i]} title={i === front ? 'Your page' : 'Loading your page'} onLoad={() => arrived(i)} style={{ visibility: i === front ? 'visible' : 'hidden', zIndex: i === front ? 2 : 1 }} />
         ) : null,
       )}
     </div>

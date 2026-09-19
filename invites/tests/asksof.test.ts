@@ -24,17 +24,40 @@ function marked(): DesignDoc {
   return doc;
 }
 
-test('nothing is asked for until she marks something', () => {
-  assert.deepEqual(asksOf(base, 'CHRISTENING'), []);
+/**
+ * A frame is a question by construction; everything else waits for the mark.
+ *
+ * `ask` is a checkbox in the studio and it was never ticked on the designs
+ * written in code from the designer's own file — so the survey saw no
+ * photographs at all on the shipped templates, and the form could not be
+ * told what shape a frame is or let a customer move a picture inside one.
+ * A frame pointed at a customer's own field is a place for their photograph
+ * whether or not anybody ticked a box; a line of writing may be the design's
+ * own words rather than a question, so that one still waits to be marked.
+ */
+test('a frame pointed at a customer’s field is asked for; a writing waits to be marked', () => {
+  const asks = asksOf(base, 'CHRISTENING');
+  assert.ok(asks.length, 'the shipped design asks for its frames');
+  assert.deepEqual([...new Set(asks.map((a) => a.kind))], ['photo'], 'and nothing else, until she marks it');
+  assert.ok(asks.every((a) => a.ref.section === 'story' || a.ref.section === 'gallery'));
   assert.deepEqual(asksOf(null, 'CHRISTENING'), []);
+  // a frame holding a piece of the artwork is not a question: nobody is
+  // being asked for the design's own drawing
+  const art = clone();
+  const page = art.pages.find((p) => p.key === 'story')!;
+  (page.elements!.find((e) => e.id === 'story-photo-1') as PhotoEl).bind = { asset: '/x.webp' };
+  assert.equal(asksOf(art, 'CHRISTENING').length, asks.length - 1);
 });
 
 test('a marked frame becomes a question, named where a customer would look for it', () => {
   const asks = asksOf(marked(), 'CHRISTENING');
-  // four, not three: `story-label-3` is one box holding two questions — the
-  // milestone's title and the sentence under it — and both are asked for
-  assert.equal(asks.length, 4);
-  const [photo, words, sentence, first] = asks;
+  // the writings are the two the mark adds: `story-label-3` is one box
+  // holding two questions — the milestone's title and the sentence under it
+  const writings = asks.filter((a) => a.kind === 'text');
+  assert.equal(writings.length, 2);
+  const photo = asks.find((a) => a.id === 'story-photo-3')!;
+  const [words, sentence] = writings;
+  const first = asks.find((a) => a.id === 'photos-photo-1')!;
   assert.equal(photo.id, 'story-photo-3');
   assert.equal(photo.page, 'story');
   assert.equal(photo.kind, 'photo');
@@ -55,7 +78,11 @@ test('a marked frame becomes a question, named where a customer would look for i
   assert.equal(first.id, 'photos-photo-1');
   assert.equal(first.ifEmpty, 'leave');
   // the pages run in order, and so does the list
-  assert.deepEqual(asks.map((a) => a.page), ['story', 'story', 'story', 'baby-photos']);
+  assert.deepEqual([...new Set(asks.map((a) => a.page))], ['story', 'baby-photos']);
+  // and a box's two writings land with the frame they belong to, not after
+  // every frame on the page
+  const story = asks.filter((a) => a.page === 'story').map((a) => a.id);
+  assert.deepEqual(story.slice(2, 5), ['story-photo-3', 'story-label-3', 'story-label-3']);
 });
 
 /** A square frame is not a portrait, and a customer should be told which. */
@@ -67,9 +94,10 @@ test('a frame tells the customer what shape to send', () => {
   assert.equal(shapeOf(0.4), 'wide');
   assert.equal(shapeOf(undefined), 'square');
   const asks = asksOf(marked(), 'CHRISTENING');
-  assert.equal(asks[0].shape, 'square');
-  assert.equal(asks[0].guidance, SHAPE_GUIDANCE.square);
-  assert.match(asks[0].guidance!, /middle/);
+  const frame = asks.find((a) => a.id === 'story-photo-3')!;
+  assert.equal(frame.shape, 'square');
+  assert.equal(frame.guidance, SHAPE_GUIDANCE.square);
+  assert.match(frame.guidance!, /middle/);
 });
 
 /**
@@ -82,8 +110,9 @@ test('a field the occasion does not have is named as one', () => {
   const story = doc.pages.find((p) => p.key === 'story')!;
   (story.elements!.find((e) => e.id === 'story-photo-3') as PhotoEl).bind = { section: 'entourage', field: 'nope', index: 0, sub: 'photo' };
   const asks = asksOf(doc, 'CHRISTENING');
-  assert.equal(asks[0].orphan, true);
-  assert.equal(asks[0].field, undefined);
+  const moved = asks.find((a) => a.id === 'story-photo-3')!;
+  assert.equal(moved.orphan, true);
+  assert.equal(moved.field, undefined);
   assert.equal(askCounts(asks).orphans, 1);
   // and the same binding on an occasion that does have it is not an orphan
   assert.equal(fieldOf({ section: 'story', field: 'timeline', sub: 'photo' }, 'CHRISTENING')?.type, 'image');
@@ -104,7 +133,9 @@ test('two boxes asking the same field agree on the smaller', () => {
 
 test('the counts are what the publish line quotes', () => {
   const c = askCounts(asksOf(marked(), 'CHRISTENING'));
-  assert.equal(c.photos, 2);
+  // every frame the design draws for a customer's own photograph, and the
+  // two writings the mark adds
+  assert.equal(c.photos, 10);
   assert.equal(c.writings, 2);
   assert.equal(c.orphans, 0);
 });
@@ -205,9 +236,8 @@ test('a box she measured caps the question, and never raises it', () => {
 
 test('the shape she drew becomes the hint, after whatever the field already said', () => {
   const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
-  const frame = doc.pages.find((p) => p.key === 'story')!.elements!.find((e) => e.id === 'story-photo-1') as PhotoEl;
-  frame.ask = true;
-  frame.aspect = 1.5;
+  // every frame on the field, because they all speak now and they have to agree
+  for (const e of doc.pages.find((p) => p.key === 'story')!.elements!) if (e.kind === 'photo') (e as PhotoEl).aspect = 1.5;
   const form = designForm(doc, 'CHRISTENING' as never);
   assert.match(form.shape['story.timeline.photo'], /Upright, taller than it is wide/);
 
@@ -221,14 +251,16 @@ test('the shape she drew becomes the hint, after whatever the field already said
 test('two frames of different shapes on one field say nothing rather than half a truth', () => {
   const doc = JSON.parse(JSON.stringify(builtinDesign('babyblue'))) as DesignDoc;
   const els = doc.pages.find((p) => p.key === 'story')!.elements!;
-  const a = els.find((e) => e.id === 'story-photo-1') as PhotoEl;
+  for (const e of els) if (e.kind === 'photo') (e as PhotoEl).aspect = 1.5;
   const b = els.find((e) => e.id === 'story-photo-2') as PhotoEl;
-  a.ask = true; a.aspect = 1.5;
-  b.ask = true; b.aspect = 0.6;
+  b.aspect = 0.6;
   assert.equal(designForm(doc, 'CHRISTENING' as never).shape['story.timeline.photo'], undefined);
+  // and no one window to move a picture inside, either
+  assert.equal(designForm(doc, 'CHRISTENING' as never).frame['story.timeline.photo'], undefined);
   // agreeing, they speak
   b.aspect = 1.5;
   assert.match(designForm(doc, 'CHRISTENING' as never).shape['story.timeline.photo'], /Upright/);
+  assert.deepEqual(designForm(doc, 'CHRISTENING' as never).frame['story.timeline.photo'], { aspect: 1.5 });
 });
 
 test('a cut frame tells the customer what the cut will do to their photograph', () => {
@@ -303,11 +335,26 @@ test('an offer needs both a customer field and words of the designer’s own', (
   c.lines[0].sources.push({ fixed: { en: 'Something' } });
   assert.deepEqual(key(unmarked), []);
 
-  // and with nothing marked anywhere the form is the form it always was
+  /*
+   * And with nothing marked anywhere the design still offers no lines — but
+   * it is no longer silent about the form, because its frames speak without
+   * being marked. What it says about this part is one thing and one thing
+   * only: the shape a milestone's photograph has to be.
+   */
   const plain = designForm(clone(), 'CHRISTENING' as never);
   assert.deepEqual(plain.example, {});
   const fields = fieldsFor('story', 'CHRISTENING' as never);
-  assert.equal(askedFields(fields, 'story', plain), fields);
+  const asked = askedFields(fields, 'story', plain);
+  const before = fields.find((f) => f.key === 'timeline')!.item!.find((f) => f.key === 'photo')!;
+  const after = asked.find((f) => f.key === 'timeline')!.item!.find((f) => f.key === 'photo')!;
+  assert.match(after.hint!, /Square/);
+  const { hint: _was, ...rest } = after;
+  assert.deepEqual(before.hint ? { ...rest, hint: before.hint } : rest, before, 'and nothing else about it has moved');
+  assert.deepEqual(
+    asked.filter((f) => f.key !== 'timeline'),
+    fields.filter((f) => f.key !== 'timeline'),
+    'nor anything else on the part',
+  );
 });
 
 test('English only is offered in English, rather than left out of Tagalog', () => {

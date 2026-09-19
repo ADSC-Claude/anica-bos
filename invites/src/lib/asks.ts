@@ -31,6 +31,20 @@ export type Ask = {
   field?: string;
   /** a photograph's frame, in words a customer can act on */
   shape?: AskShape;
+  /** the frame's own height over its width, so a customer can be shown the real cut while they move the picture inside it */
+  aspect?: number;
+  /** the shape it is cut to, where it is cut to one */
+  cut?: 'circle' | 'arch';
+  /**
+   * She ticked "Ask the customer" on this element herself.
+   *
+   * A frame is surveyed whether or not she did, because a frame pointed at
+   * a customer's field is a place for their photograph by construction. The
+   * tick is still a different statement — *I am counting on this slot* —
+   * and the checklist's questions about a slot are hers to answer, so they
+   * are asked only where she made it.
+   */
+  marked?: true;
   guidance?: string;
   /** the letters the box holds: the form's cap for this answer */
   room?: number;
@@ -132,7 +146,20 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
   const out: Ask[] = [];
   for (const page of doc?.pages ?? []) {
     for (const el of page.elements ?? []) {
-      if (!el.ask) continue;
+      /*
+       * A frame is a question whether or not anybody ticked the box.
+       *
+       * `ask` is a checkbox in the studio, and it was never ticked on the
+       * designs written in code from the designer's file — so the survey
+       * saw no photographs at all on the christening, and the form could
+       * not be told what shape its frames are or let a customer move a
+       * picture inside one. A frame pointed at a customer's own field is a
+       * place for their photograph by construction; there is nothing for
+       * the box to add. It still gates everything else, which is what it
+       * is for: a line of writing may be the design's own words rather
+       * than a question, and a moment may have no picture picked yet.
+       */
+      if (!el.ask && !(el.kind === 'photo' && !('asset' in el.bind))) continue;
       if (el.kind === 'moment') {
         for (const a of momentAsks(el)) {
           const field = fieldOf(a.ref, occasion);
@@ -168,6 +195,9 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
           field: field?.key,
           label: `${sectionLabel(ref.section as SectionKey, occasion)} — ${what}${place}`,
           ...(shape ? { shape, guidance } : {}),
+          ...(el.kind === 'photo' ? { aspect: (el as PhotoEl).aspect ?? 1 } : {}),
+          ...(cut && cut !== 'none' ? { cut } : {}),
+          ...(el.ask ? { marked: true as const } : {}),
           ...(el.kind === 'text' && room ? { room } : {}),
           ...(el.ifEmpty ? { ifEmpty: el.ifEmpty } : {}),
           ...(field ? {} : { orphan: true }),
@@ -262,6 +292,15 @@ export type DesignForm = {
   room: Record<string, number>;
   /** what a photograph has to fit, in words a customer can act on */
   shape: Record<string, string>;
+  /**
+   * The frame itself — its proportions and its cut — so the form can show a
+   * customer the real window their photograph is going into and let them
+   * move it inside that window rather than describe it in words.
+   *
+   * Only where every frame on the field agrees, for the same reason `shape`
+   * is: a field drawn once square and once tall has no one window to offer.
+   */
+  frame: Record<string, { aspect: number; cut?: 'circle' | 'arch' }>;
   /** the design's own line for a box, offered to the customer as a starting point */
   example: Record<string, { en: string; tl: string }>;
   /**
@@ -275,7 +314,10 @@ export type DesignForm = {
   binds: Record<string, true>;
 };
 
-const EMPTY: DesignForm = { rows: {}, room: {}, shape: {}, example: {}, binds: {} };
+const EMPTY: DesignForm = { rows: {}, room: {}, shape: {}, frame: {}, example: {}, binds: {} };
+
+/** How far apart two frames' proportions may be and still be the same frame. */
+const FRAME_SAME = 0.02;
 
 /** An example's chip: her line, short enough to read at a glance. */
 const chip = (line: string): string => (line.length > 54 ? `${line.slice(0, 53).trimEnd()}\u2026` : line);
@@ -289,13 +331,50 @@ export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignFor
   for (const a of asks) {
     if (a.kind !== 'photo' || !a.shape) continue;
     const key = `${a.ref.section}.${a.ref.field}${a.ref.sub ? `.${a.ref.sub}` : ''}`;
-    // two frames on one field agree only if they agree; otherwise say nothing
-    // rather than tell a customer to crop for a shape half her photos are not
-    if (shape[key] && shape[key] !== SHAPE_GUIDANCE[a.shape]) shape[key] = '';
-    else shape[key] = SHAPE_GUIDANCE[a.shape];
+    /*
+     * Two frames on one field speak only if they agree; otherwise say
+     * nothing rather than tell a customer to crop for a shape half her
+     * photographs are not.
+     *
+     * And a disagreement is final. It used to be written as an empty
+     * string that the next frame overwrote, so with three frames — two
+     * portrait and one landscape between them — the third put the
+     * portrait guidance back and the customer was told to crop for a
+     * shape one of the three frames is not. Two frames could never show
+     * it, which is all any design had while the survey only saw marked
+     * elements.
+     */
+    if (key in shape && shape[key] !== SHAPE_GUIDANCE[a.shape]) shape[key] = '';
+    else if (!(key in shape)) shape[key] = SHAPE_GUIDANCE[a.shape];
   }
   for (const key of Object.keys(shape)) if (!shape[key]) delete shape[key];
-  return { rows, room: roomFor(asks), shape, example: offered(doc), binds: bound(doc) };
+  /*
+   * And the frame itself, where the frames on one field agree.
+   *
+   * "Agree" to within a fiftieth, not exactly. The christening's three
+   * polaroids are 0.9563, 0.9590 and 0.9563 — measured off her artwork, so
+   * no two are the same number and all three are the same frame. Demanding
+   * exactness offered a window on none of them, which is the page whose
+   * photographs she said were too zoomed in. Where they do differ the
+   * tallest wins: it is the one that trims the most, so a picture fitted to
+   * it is inside all of them.
+   *
+   * Really different shapes still offer nothing, because there is no one
+   * window to move a picture inside.
+   */
+  const frame: Record<string, { aspect: number; cut?: 'circle' | 'arch' } | null> = {};
+  for (const a of asks) {
+    if (a.kind !== 'photo' || a.aspect === undefined) continue;
+    const key = `${a.ref.section}.${a.ref.field}${a.ref.sub ? `.${a.ref.sub}` : ''}`;
+    const one = { aspect: a.aspect, ...(a.cut ? { cut: a.cut } : {}) };
+    const was = frame[key];
+    if (was === undefined) { frame[key] = one; continue; }
+    if (was === null || was.cut !== one.cut || Math.abs(was.aspect - one.aspect) > FRAME_SAME * Math.max(was.aspect, one.aspect)) frame[key] = null;
+    else if (one.aspect > was.aspect) frame[key] = one;
+  }
+  const frames: DesignForm['frame'] = {};
+  for (const [key, one] of Object.entries(frame)) if (one) frames[key] = one;
+  return { rows, room: roomFor(asks), shape, frame: frames, example: offered(doc), binds: bound(doc) };
 }
 
 /**
@@ -308,11 +387,44 @@ export function designForm(doc: DesignDoc | null, occasion: Occasion): DesignFor
 function bound(doc: DesignDoc): Record<string, true> {
   const out: Record<string, true> = {};
   for (const page of doc.pages) {
+    /*
+     * A page that is not drawn prints the whole part.
+     *
+     * Only a drawn page is its element list: a flow page hands the part to
+     * its own renderer, which draws every answer the part has — Capiz's
+     * prenup page prints the video, the childhood pair and the family
+     * photograph without a single element pointing at any of them. A page
+     * that is drawn but `live` does both: the section's renderer draws
+     * beneath the elements, which is how the dress code gets its figures.
+     *
+     * Without this, asking what a design has room for would have hidden
+     * half of Capiz's gallery form.
+     */
+    if (!page.drawn || page.live) for (const section of page.sections ?? []) {
+      out[`${section}.${ALL}`] = true;
+      /*
+       * 'gallery-video' is not a part of its own — it is the gallery's film,
+       * on a page of its own because no frame can hold it. A design that
+       * carries that page has somewhere to put a film, so the form asks for
+       * one; without the page it does not, and the box stays away.
+       */
+      if (section === 'gallery-video') { out['gallery.videoUrl'] = true; out['gallery.close'] = true; }
+    }
     for (const el of page.elements ?? []) {
       const refs: FieldRef[] = [];
       if (el.kind === 'photo') {
         if (!('asset' in el.bind)) refs.push(el.bind);
-        if (el.alt) refs.push(el.alt);
+        /*
+         * The words read out to somebody who cannot see the picture are
+         * not a place on the page, so they do not make a field one.
+         *
+         * Counting them did, and that is how the christening kept a
+         * Caption box beside every baby photograph on a page that prints
+         * no captions at all — the answer went nowhere a guest could see
+         * and the customer was left writing into it. A field a design
+         * only describes a picture with is a field the design has no
+         * room for.
+         */
       }
       if (el.kind === 'text') refs.push(...el.lines.flatMap((l) => l.sources).flatMap((x) => ('bind' in x ? [x.bind] : [])));
       // a moment's photographs and its words are places for a customer's own, the same as a frame's and a box's
@@ -327,8 +439,11 @@ function bound(doc: DesignDoc): Record<string, true> {
 }
 
 /** Whether this design has drawn a place for one field. */
+/** The key that stands for "every field this part has", where a page prints the lot. */
+const ALL = '*';
+
 export const designBinds = (form: DesignForm, section: string, field: string, sub?: string): boolean =>
-  Boolean(form.binds[`${section}.${field}${sub ? `.${sub}` : ''}`]);
+  Boolean(form.binds[`${section}.${ALL}`]) || Boolean(form.binds[`${section}.${field}${sub ? `.${sub}` : ''}`]);
 
 /**
  * The media fields this design asked for, and none of the others.
@@ -346,9 +461,30 @@ export const designBinds = (form: DesignForm, section: string, field: string, su
  * which is how today's forms stay exactly as they are.
  */
 export function designMedia(fields: Field[], section: string, form: DesignForm): Field[] {
-  if (!fields.some((f) => f.byDesign)) return fields;
+  /*
+   * A design that binds nothing at all has not drawn anything yet, and a
+   * design that has drawn nothing cannot be said to have no place for
+   * something. So it takes nothing away — which is also the contract that
+   * made this safe to add: every template without a document of its own
+   * keeps exactly the form it had.
+   */
+  const drawn = Object.keys(form.binds).length > 0;
+  const conditional = (f: Field): boolean => Boolean(f.byDesign) || (drawn && Boolean(f.ifDrawn));
+  const deep = (f: Field): boolean => conditional(f) || Boolean(f.item?.some(conditional));
+  if (!fields.some(deep)) return fields;
   return fields.flatMap((f) => {
-    if (!f.byDesign) return [f];
+    // a line inside a list row is asked for the same way: the christening's
+    // Caption sits on every photograph of a page that prints no captions
+    if (!conditional(f) && f.item?.some(conditional)) {
+      const item = f.item.flatMap((sub) => {
+        if (!conditional(sub)) return [sub];
+        if (!designBinds(form, section, f.key, sub.key)) return [];
+        const { staff: _s, ...rest } = sub;
+        return [rest as Field];
+      });
+      return [item.length === f.item.length ? f : { ...f, item }];
+    }
+    if (!conditional(f)) return [f];
     if (!designBinds(form, section, f.key)) return [];
     const { staff: _staff, ...rest } = f;
     return [rest as Field];
@@ -440,6 +576,26 @@ export function askedLimits(section: string, form: DesignForm): Record<string, n
   for (const [key, n] of Object.entries(form.rows)) {
     const [s, field] = key.split('.');
     if (s === section) out[field] = n;
+  }
+  return out;
+}
+
+/**
+ * The frames this part's pictures go into, keyed the way the form keys a
+ * field: `photo` for a picture of the section's own, `timeline.photo` for
+ * one inside a list row.
+ *
+ * What it is for: a customer choosing a photograph cannot see the cut it is
+ * going into, and "keep the face in the middle" only goes so far — the
+ * frames on this design are square and most photographs on a phone are not.
+ * Handed the real proportions, the form can show the window and let them
+ * drag the picture about inside it.
+ */
+export function framesFor(section: string, form: DesignForm): Record<string, { aspect: number; cut?: 'circle' | 'arch' }> {
+  const out: Record<string, { aspect: number; cut?: 'circle' | 'arch' }> = {};
+  for (const [key, frame] of Object.entries(form.frame)) {
+    const [s, ...rest] = key.split('.');
+    if (s === section && rest.length) out[rest.join('.')] = frame;
   }
   return out;
 }

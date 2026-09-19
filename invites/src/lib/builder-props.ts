@@ -5,7 +5,7 @@ import {
   type Content, type SectionKey,
 } from './sections';
 import { documentOf } from './design';
-import { designForm, askedFields, askedLimits, designMedia } from './asks';
+import { designForm, askedFields, askedLimits, designMedia, framesFor } from './asks';
 import { isStaff } from './rbac';
 import { galleryLimit } from './tiers';
 import { changeWindow, doneSections, handedOver, type Progress } from './progress';
@@ -90,6 +90,15 @@ export function builderPropsFor(role: Role, inv: BuilderPropsInput, section?: st
     // a package without a cap holds two hundred, so a list always has a number
     listLimits: { photos: Math.min(limit === Infinity ? 200 : limit, photoFrames(inv.template.layout)), ...askedLimits(current, form) },
     listHints: photoFramesHint(inv.template.layout),
+    /*
+     * The real frame behind every picture this part asks for, keyed the way
+     * the design keys them: `section.field`, or `section.list.field` for a
+     * picture inside a list row. It is what lets the form show a customer
+     * the cut their photograph is going into and let them move it there —
+     * "atleast the customer could have the chance to move the photo up and
+     * down, left to right, to fit it in the frames".
+     */
+    frames: framesFor(current, form),
     lookKey: content.theme?.lookKey ?? '',
     tier: inv.tier,
     status: inv.status,

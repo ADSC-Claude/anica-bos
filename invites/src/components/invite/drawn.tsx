@@ -12,6 +12,7 @@ import {
 import { LazyVideo, LazyLottie } from './client';
 import { Moment } from './moments';
 import { MOMENT_BY_KEY, momentHint, triggerOf, type MomentKey, aspectOf } from '@/lib/moments';
+import { cropBeside } from '@/lib/photo-crop';
 
 /**
  * A page drawn from the design's document.
@@ -491,6 +492,16 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
   if (!url && el.hidden !== 'never' && !read.edit) return null;
   const alt = el.alt ? valueAt(read.content, el.alt) : '';
+  /*
+   * Whose window this frame shows.
+   *
+   * The design's own, where the designer cropped a piece of her artwork —
+   * that is a decision about the drawing and the family cannot move it. The
+   * family's own everywhere else, because the frame is holding *their*
+   * photograph and only they know where the face is. Neither, and the frame
+   * shows the middle of the file the way it always has.
+   */
+  const crop = el.crop ?? ('asset' in el.bind ? undefined : cropBeside(read.content, el.bind));
   // a shape other than square, a cut, a card and a window on the source: each
   // one says nothing at all when it is not set, which is why the two designs
   // that carry none of them serve the markup they always served
@@ -503,7 +514,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !url ? '' : undefined}
       data-own={'asset' in el.bind ? '' : undefined}
-      data-crop={el.crop ? '' : undefined}
+      data-crop={crop ? '' : undefined}
       data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
       data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
       {...opensAttrs(el)}
@@ -511,7 +522,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
     >
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
-        ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" style={el.crop ? cropStyle(el.crop) as CSSProperties : undefined} />
+        ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" style={crop ? cropStyle(crop) as CSSProperties : undefined} />
         : <figcaption className="inv-bb-ask">{read.edit!.label(el)}</figcaption>}
     </figure>
   );
@@ -519,7 +530,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
   return (
     <>
       <div className="inv-bb-ghost" aria-hidden style={{ ...elementStyle(el, grow), ...photoStyle(el) } as CSSProperties}>
-        <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt="" style={(el.crop ? cropStyle(el.crop) : { width: '100%', height: '100%' }) as CSSProperties} />
+        <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt="" style={(crop ? cropStyle(crop) : { width: '100%', height: '100%' }) as CSSProperties} />
       </div>
       {figure}
     </>

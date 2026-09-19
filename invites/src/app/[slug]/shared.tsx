@@ -13,7 +13,7 @@ import { str, eventInstant, anchorOf } from '@/lib/sections';
 import { formatDate } from '@/lib/datetime';
 import { Invitation, type GuestForPage } from '@/components/invite/renderer';
 import { ScrollTo } from '@/components/invite/scroll-to';
-import { documentOf } from '@/lib/design';
+import { documentOf, pageOfSection } from '@/lib/design';
 import { sampleContent, isSample } from '@/lib/samples';
 
 /**
@@ -154,7 +154,7 @@ export async function InvitationPage({ slug, token, print = false, wrongPassword
   return (
     <>
       <Invitation invitation={canvas} guest={guest} preview={!live} print={print} bare={bare && previewer} only={studio ? only : undefined} screen={screenPx(screen)} sets={await fontBook()} businessName={s['business.name']} />
-      {bare && previewer && at && <ScrollTo id={anchorOf(at)} />}
+      {bare && previewer && at && <ScrollTo id={anchorOf(at)} page={pageOfSection(documentOf(shown.template), at)?.key} />}
     </>
   );
 }

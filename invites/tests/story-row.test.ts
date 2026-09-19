@@ -163,8 +163,12 @@ test('the title is white on her plate and the line sits under it', () => {
 
   assert.equal(head.lines[0].color, 'surface', 'the title is white, as she asked');
   assert.equal(head.x, PLATE.cx, 'and centred on the plate, which is not centred on the page');
-  // the box the capitals are set in, head to foot, against the plate's own
-  const foot = head.y! + (head.lines[0].size * 1.25) / 1.7778;
+  // the box the capitals are set in, head to foot, against the plate's own.
+  // Both boxes set a size of their own rather than taking the role's.
+  const capsSize = head.lines[0].size!;
+  const lineSize = line.lines[0].size!;
+  assert.ok(capsSize > 0 && lineSize > 0, 'both are set at a size of their own');
+  const foot = head.y! + (capsSize * 1.25) / 1.7778;
   assert.ok(head.y! >= PLATE.top - 0.6 && foot <= PLATE.foot + 0.6,
     `the title runs ${head.y!.toFixed(2)}–${foot.toFixed(2)} and the plate ${PLATE.top}–${PLATE.foot}`);
 
@@ -174,6 +178,6 @@ test('the title is white on her plate and the line sits under it', () => {
   assert.ok(gap > 0.4, 'the line clears the plate');
   assert.ok(gap < 1.8, `the line is ${gap.toFixed(2)}% below the plate, so the two read as one title`);
   // it must still clear the first milestone's cloud
-  assert.ok(line.y! + (line.lines[0].size * 1.25 * 2) / 1.7778 < STORY_CLOUDS[0]!.top,
+  assert.ok(line.y! + (lineSize * 1.25 * 2) / 1.7778 < STORY_CLOUDS[0]!.top,
     'even wrapped to two lines it stays off the first cloud');
 });

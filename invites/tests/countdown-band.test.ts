@@ -47,7 +47,10 @@ test('her line stays where she drew it, at the foot of the clear window', () => 
   // three per cent of the height, which is why the conversion is TALL and
   // not the 1.7778 the tall pages use.
   assert.ok(line.y! > 60, 'the line is low on the band, as she drew it');
-  const foot = line.y! + (line.lines[0]!.size * 1.25) / TALL;
+  // a line takes its role's size when it sets none, and this one sets its own
+  const size = line.lines[0]!.size!;
+  assert.ok(size > 0, 'her line is set at a size of its own');
+  const foot = line.y! + (size * 1.25) / TALL;
   assert.ok(foot <= CLEAR.foot * 100 + 2, `the line ends at ${foot.toFixed(1)}%, inside her clear sky`);
   // the counter and the line are one block, and it is the block that is
   // centred: it runs from `headPad` to the line's foot, and that span sits

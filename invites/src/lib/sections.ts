@@ -812,7 +812,21 @@ const SECTION_DEFS: SectionDef[] = [
       if (occasion === 'CHRISTENING' || occasion === 'BABY_SHOWER' || occasion === 'COMMUNION') {
         return [
           line,
-          list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6 }),
+          /*
+           * When, what, and a few words — in the order the page prints them.
+           *
+           * The date was drawn all along and never asked for: the design
+           * hangs every milestone on its own dated line and the christening
+           * form offered only a title and a sentence, so the line came out
+           * empty on a page whose whole shape is a dated timeline. The
+           * wedding form has asked for it since the beginning.
+           */
+          list('timeline', 'Milestones', [
+            text('date', 'When', { placeholder: 'e.g. November 26, 2025' }),
+            text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }),
+            textarea('text', 'A few words about it', { placeholder: 'e.g. It all started with a prayer.' }),
+            image('photo', 'Photo in its frame'),
+          ], { addLabel: 'Add a milestone', max: 6 }),
         ];
       }
       return [
@@ -1127,7 +1141,10 @@ export const FIT: Record<string, number> = {
   'rsvp.policyText': 240, 'rsvp.note': 240, 'rsvp.contactPhone': 30, 'rsvp.reminderText': 300, 'rsvp.mealChoices.label': 30,
   // the story: a christening's milestones sit in drawn frames, a wedding's run down a timeline
   'story.line': 80, 'story.howWeMet': 600, 'story.proposal': 600, 
-  'story.timeline.title': 28, 'story.timeline.text': 70, 'story.timeline.date': 24,
+  // A milestone's few words: three lines of the christening's column, which
+  // is what the rebuilt row has room for now the photograph is stacked above
+  // the date rather than sitting across the row above's sentence.
+  'story.timeline.title': 28, 'story.timeline.text': 130, 'story.timeline.date': 18,
   // photos
   'gallery.line': 80, 'gallery.note': 90, 'gallery.months.label': 20, 'gallery.little.caption': 40, 'gallery.videoTitle': 40, 'gallery.close': 60, 'gallery.photos.caption': 40,
   'moment.line1': 40, 'moment.line2': 40, 'moment.line3': 40,

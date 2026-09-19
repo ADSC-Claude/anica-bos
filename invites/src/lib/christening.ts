@@ -358,6 +358,74 @@ const ROWS = (
 ]);
 
 /**
+ * A milestone, stacked: the photograph, then the date, the title and a few
+ * words under it — all in the one column, all on one side of the spine.
+ *
+ * The photographs used to hang opposite their own row, which put each one in
+ * the *neighbouring* row's column: the second milestone's picture sat across
+ * the first milestone's sentence and printed over it. "The photo on the upper
+ * left is blocking the message" — and it was, from the first line down.
+ *
+ * Stacking is the fix, and it buys the room the words were short of as well.
+ * A row now owns a clean band of its own column, from its picture down to the
+ * next picture in that column: thirteen per cent of the page against the four
+ * it had, which is three lines of description rather than none.
+ *
+ * The geometry, all in shares of the page: the date keeps the baseline she
+ * measured and the picture is hung above it — half its own height plus the
+ * date's ascent and a little air — so moving the picture's size moves nothing
+ * else. The columns widen from 30 to 34 because a real date ("November 26,
+ * 2025") would not fit in 30 and wrapped onto the title.
+ */
+const STORY_COL = 34;
+/** Air between the foot of the picture and the cap of the date, in shares of the page's height. */
+const PHOTO_AIR = 2.8;
+/** The photograph's width, as a share of the page's width. */
+const STORY_PHOTO = 21;
+/** The story page's height over its width, so a width can be said as a height. */
+const RATIO = 1.7778;
+/**
+ * The letters a milestone's description holds: three lines of this column.
+ *
+ * Measured on the rebuilt page rather than guessed — a line of this face at
+ * this size takes about thirty-five characters in a column 34 wide, and three
+ * lines is what clears the next picture even when the title takes two.
+ */
+const STORY_WORDS = 130;
+
+const STORY_ROWS = (
+  S: ReturnType<typeof sheet>,
+  rows: Array<{ left: number; date: number; title: number; text: number }>,
+): Element[] => rows.flatMap((row, i) => {
+  const cx = row.left + STORY_COL / 2;
+  // the picture's left edge on the words' left edge, not centred in the
+  // column: a narrower thing centred over wider words reads as indented
+  const px = row.left + STORY_PHOTO / 2;
+  // a square photograph as tall as it is wide; `w` is a share of the page's
+  // width and `y` a share of its height, so the half-height converts
+  const half = STORY_PHOTO / 2 / RATIO;
+  const photo: PhotoEl = {
+    id: `story-photo-${i + 1}`, kind: 'photo',
+    x: px, y: row.date - PHOTO_AIR - half, w: STORY_PHOTO, aspect: 1, anchor: 'centre',
+    rotate: i % 2 === 0 ? 2.5 : -2.5, frame: 'thin',
+    bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
+    alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
+  };
+  return [
+    photo,
+    // smaller than the 4.5 she drew, so eighteen letters of date stay on one
+    // line in this column and can never wrap onto the title below
+    S.one(`story-${i + 1}-when`, { base: row.date, size: 4.1, face: 'script', cx, w: STORY_COL, align: 'left', hide: true, room: 18 },
+      bind('story', 'timeline', { index: i, sub: 'date' })),
+    S.mixed(`story-${i + 1}-what`, { base: row.title, size: pt(29.64), cx, w: STORY_COL, align: 'left', hide: true, room: 28 }, [
+      { caps: true, src: [bind('story', 'timeline', { index: i, sub: 'title' })] },
+      { size: pt(18.77), lead: 1.35, space: ROW_GAP, room: STORY_WORDS,
+        src: [bind('story', 'timeline', { index: i, sub: 'text' })] },
+    ]),
+  ];
+});
+
+/**
  * Sixteen pages: seven in the column, nine in three booklets.
  *
  * The order is hers. `booklet` is the one field that takes a page off the
@@ -595,39 +663,22 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       STORY.one('story-line', { base: 18.267, size: pt(30), color: 'surface', face: 'display', weight: 700, cx: 50.22, w: 64, room: 46, mark: 'accent' },
         bind('story', 'line'), { word: 'story' }),
       /*
-       * Her four milestones, hung off the drawn spine: the words on one side
-       * of it, a photograph on the other.
+       * Her four milestones, hung off the drawn spine, one to a dot: the
+       * photograph, then the date, the title and the words, all stacked in
+       * the one column and alternating sides as the page reads down.
        *
-       * The date is hers and it is back — it was dropped in the first build
-       * and it is the line the row hangs on. Three lines, three baselines:
-       * she set the date 2.63 under nothing, the title 2.63 under the date
-       * and the sentence 2.98 under the title, and three boxes is the only
-       * way to keep three different gaps.
-       *
-       * The photographs are ours rather than hers — she drew the spine and
-       * its four dots and left both sides of it empty, and asked for frames
-       * afterwards. `story.timeline[].photo` already existed on the form;
-       * the question was being asked and nothing was drawing the answer.
+       * The date is hers and it is back — it was dropped in the first build,
+       * drawn all along and never asked for. She set the date 2.63 under
+       * nothing, the title 2.63 under the date and the sentence 2.98 under
+       * the title; those three baselines are kept, and only the column's
+       * width and the photograph's place have moved. See STORY_ROWS.
        */
-      ...ROWS(STORY, 'story', 'story', 'timeline', 'date', [
+      ...STORY_ROWS(STORY, [
         { left: 6.10, date: 36.899, title: 39.524, text: 42.499 },
         { left: 59.84, date: 51.231, title: 53.856, text: 56.831 },
         { left: 6.10, date: 66.040, title: 68.665, text: 71.640 },
         { left: 59.84, date: 80.873, title: 83.498, text: 86.473 },
       ]),
-      // on the middle of its own row — halfway between her date's baseline
-      // and her sentence's — rather than under it, so the picture and the
-      // words read as one moment
-      ...[
-        { i: 0, y: 39.7, left: true }, { i: 1, y: 54.0, left: false },
-        { i: 2, y: 68.8, left: true }, { i: 3, y: 83.7, left: false },
-      ].map(({ i, y, left }): PhotoEl => ({
-        id: `story-photo-${i + 1}`, kind: 'photo',
-        x: left ? 72 : 26, y, w: 26, aspect: 1, anchor: 'centre',
-        rotate: left ? 2.5 : -2.5, frame: 'thin',
-        bind: { section: 'story', field: 'timeline', index: i, sub: 'photo' },
-        alt: { section: 'story', field: 'timeline', index: i, sub: 'title' },
-      })),
     ],
   },
   {

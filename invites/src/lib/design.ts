@@ -874,6 +874,25 @@ type Base = {
    * nothing leaves that element hidden for good. The checklist catches it.
    */
   taps?: string;
+  /**
+   * Draw this only when an answer says so.
+   *
+   * The one thing a drawn page has never been able to do is branch, and a
+   * page sometimes has to. The christening's gift note is the case that
+   * forced it: a family who sends a QR gets the QR with their name and
+   * number under it, and a family who sends a bank account gets the account
+   * *in the QR's place* — not under a square of empty artwork. Two layouts
+   * of one page, chosen by one answer.
+   *
+   * `is` lists the values that draw it. `filled` draws it when the answer
+   * has something in it (or, false, when it has not). Both given, both must
+   * hold.
+   *
+   * This is not `hidden: 'whenEmpty'`, which asks about the element's own
+   * words. This asks about an answer somewhere else on the form, which is
+   * what a layout decision is made of.
+   */
+  when?: { section: string; field: string; is?: string[]; filled?: boolean };
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
   /**
@@ -1375,6 +1394,7 @@ const zBase = {
   }).strict().optional(),
   go: z.object({ to: z.enum(['calendar', 'maps', 'waze']), of: z.string().max(40).optional() }).strict().optional(),
   taps: z.string().max(41).optional(),
+  when: z.object({ section: z.string().max(40), field: z.string().max(40), is: z.array(z.string().max(60)).max(12).optional(), filled: z.boolean().optional() }).strict().optional(),
   attachTo: z.string().max(41).optional(),
   opens: z.string().regex(KEY).optional(),
 };
@@ -2722,6 +2742,23 @@ export function valueAt(content: Record<string, unknown> | undefined, ref: Field
   const row = list[ref.index];
   if (!row) return '';
   return said(text(ref.sub ? row[ref.sub] : row.value), ref.show);
+}
+
+/**
+ * Whether an element's `when` is satisfied by these answers.
+ *
+ * Absent, it always is: an element that asks no question is always drawn.
+ * The studio and the checklist read this too, so a box hidden from a guest
+ * is a box the checklist does not ask the customer to fill.
+ */
+export function shows(el: Element, content: Record<string, unknown> | undefined): boolean {
+  const w = el.when;
+  if (!w) return true;
+  const data = isRecord(content?.[w.section]) ? (content![w.section] as Rowish) : undefined;
+  const value = text(data?.[w.field]);
+  if (w.is && !w.is.includes(value)) return false;
+  if (w.filled !== undefined && Boolean(value) !== w.filled) return false;
+  return true;
 }
 
 /**

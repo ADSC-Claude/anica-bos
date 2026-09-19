@@ -6,7 +6,7 @@ import { imageUrl, IMAGE } from '@/lib/images';
 import { mapsHref, wazeHref } from '@/lib/places';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, floatAt, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture, canOpen,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture, canOpen, shows,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
@@ -85,7 +85,7 @@ export function DrawnPage({ page, content, look, lang, occasion, edit, parts, pa
   const grow = page.grow ? pageRatio(page) : undefined;
   return (
     <section id={page.key} className={`inv-section inv-bb-art inv-bb-${page.key}`}>
-      {(page.elements ?? []).map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
+      {(page.elements ?? []).filter((el) => read.edit || shows(el, content)).map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
     </section>
   );
 }

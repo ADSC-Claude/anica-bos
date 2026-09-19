@@ -135,6 +135,8 @@ type Set = {
   after?: number;
   /** the id of the element a tap here plays */
   taps?: string;
+  /** drawn only when an answer says so */
+  when?: { section: string; field: string; is?: string[]; filled?: boolean };
   /** what a tap on it does, where it leaves the invitation */
   go?: { to: 'calendar' | 'maps' | 'waze'; of?: string };
 };
@@ -171,6 +173,7 @@ const sheet = (ratio: number) => {
       ...(s.rule ? { rule: true as const } : {}),
       ...(s.after ? { motion: { enter: 'fade' as const, delay: s.after } } : {}),
       ...(s.taps ? { taps: s.taps } : {}),
+      ...(s.when ? { when: s.when } : {}),
       ...(s.go ? { go: s.go } : {}),
       lines,
     };
@@ -382,7 +385,27 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * in the ground.
        */
       piece('hl-card', '/christening/parts/envelope-card.webp',
-        { cx: 35.84, cy: 19.73, w: 44.91, aspect: 0.3457, turn: -9.36 }, { motion: { enter: 'slide' } }),
+        { cx: 35.84, cy: 19.73, w: 44.91, aspect: 0.3457, turn: -9.36, z: 1 }, { motion: { enter: 'slide' } }),
+      /*
+       * The flap, and the seal on its point, in front of the card.
+       *
+       * Her envelope is a front-flap one: the flap is folded *down* over the
+       * body with the wax seal at its point, and the card stands up behind
+       * it. So the mouth — the straight line the card slides through — runs
+       * behind the flap, and in the middle of the envelope it is a long way
+       * above the flap's own edge. Clipping the card at the mouth alone made
+       * it appear out of nothing halfway up the white, which is what read as
+       * "it came from the middle part".
+       *
+       * With the flap in front, the strip between the mouth and the flap's
+       * diagonal is covered, so the card is only ever seen once it is past
+       * the flap's edge — which by the seal is exactly where a card comes
+       * out of an envelope.
+       */
+      piece('hl-flap', '/christening/parts/envelope-pocket.webp',
+        { cx: 41.58, cy: 33.12, w: 50.46, aspect: 0.6614, turn: -9.07, z: 2 }),
+      piece('hl-seal', '/christening/parts/envelope-seal.webp',
+        { cx: 41.64, cy: 31.91, w: 8.52, aspect: 1.0026, z: 3 }),
       HUB.one('hl-details', { after: 1100, base: 18.220, size: pt(20), cx: 36.33, w: 40, turn: -8.8 }, say('The Details')),
       HUB.one('hl-of', { after: 1100, base: 21.395, size: pt(23), cx: 37.54, w: 44, turn: -8.7 }, say('The Christening of')),
       HUB.one('hl-name', { after: 1100, base: 24.531, size: 5.25, color: 'accent', face: 'names', role: 'script', cx: 38.93, w: 48, turn: -8.3, room: 20 },
@@ -496,9 +519,12 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         { left: 6.10, date: 66.040, title: 68.665, text: 71.640 },
         { left: 59.84, date: 80.873, title: 83.498, text: 86.473 },
       ]),
+      // on the middle of its own row — halfway between her date's baseline
+      // and her sentence's — rather than under it, so the picture and the
+      // words read as one moment
       ...[
-        { i: 0, y: 41.5, left: true }, { i: 1, y: 55.9, left: false },
-        { i: 2, y: 70.7, left: true }, { i: 3, y: 85.5, left: false },
+        { i: 0, y: 39.7, left: true }, { i: 1, y: 54.0, left: false },
+        { i: 2, y: 68.8, left: true }, { i: 3, y: 83.7, left: false },
       ].map(({ i, y, left }): PhotoEl => ({
         id: `story-photo-${i + 1}`, kind: 'photo',
         x: left ? 72 : 26, y, w: 26, aspect: 1, anchor: 'centre',
@@ -617,14 +643,22 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    * a heading, the attire, and her palette note under the drawn swatches.
    */
   {
-    key: 'dresscode', label: { en: 'Dress Code' }, sections: ['dressCode'], seam: 0, booklet: 'details', drawn: true,
-    ground: ground('dresscode', 1.7778),
+    /*
+     * Her page is a white card and nothing else — she drew the frame and
+     * left the inside for us. So the heading is hers and the rest is the
+     * section's own: the figures in the colours the family picked, the
+     * palette with each shade named, and the kindly-avoid list drawn
+     * crossed out. `live` is what lets a drawn page carry them (see
+     * PageSpec.live); they cannot be placed by hand because how many
+     * colours and how many things to avoid is the family's answer.
+     */
+    key: 'dresscode', label: { en: 'Dress Code' }, sections: ['dressCode'], seam: 0, booklet: 'details',
+    drawn: true, grow: true, live: true, headPad: 26,
+    ground: ground('dresscode', 1.7778, true),
     elements: [
+      // the heading is hers; the line under it is the section's, written from
+      // the attire the family ticked — two of them was one of them wrong
       DRESS.one('dress-head', { base: 11.5, size: pt(46), role: 'title' }, { word: 'title:dressCode' }, say('DRESS CODE')),
-      DRESS.one('dress-what', { base: 16.4, size: pt(30), color: 'accent', face: 'display', weight: 700 },
-        bind('dressCode', 'attireText'), say('SMART CASUAL')),
-      DRESS.one('dress-note', { base: 89.5, size: pt(22), w: 70, lead: 1.35, hide: true },
-        bind('dressCode', 'paletteNote'), { word: 'dressNote' }),
     ],
   },
   {
@@ -668,18 +702,44 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        */
       GIFT.one('gift-pay', { base: 52.833, size: pt(30), face: 'display', weight: 700 },
         say('SEND A GIFT')),
-      GIFT.one('gift-pay-who', { base: 86.224, size: pt(35), hide: true, room: 40 },
-        bind('gift', 'bankAccountName'), bind('gift', 'gcashName')),
-      GIFT.one('gift-pay-bank', { base: 90.863, size: pt(30), hide: true, room: 40 },
-        bind('gift', 'bankName')),
-      GIFT.one('gift-pay-no', { base: 94.9, size: pt(35), hide: true, room: 34 },
-        bind('gift', 'bankAccountNumber'), bind('gift', 'gcashNumber')),
+      /*
+       * Two layouts of one page, and the answer that picks between them.
+       *
+       * A family who sends a QR gets the QR where she drew one, with their
+       * name and number under it at her baselines. A family who sends a bank
+       * account gets the three lines *in the QR's place* — because a square
+       * of empty artwork with the account printed below it is a hole in the
+       * page, and it is what she asked to have gone.
+       *
+       * The QR itself is the family's own upload now, not her placeholder:
+       * that came out of the ground with the words (`drops.json`), so a page
+       * with nothing to scan has nothing drawn on it.
+       */
+      { id: 'gift-qr', kind: 'photo', bind: { section: 'gift', field: 'gcashQr' },
+        x: 49.95, y: 68.08, w: 27.31, aspect: 1, anchor: 'centre',
+        when: { section: 'gift', field: 'payBy', is: ['gcash'] } },
+      ...([
+        // under her QR, where she drew them
+        { at: 'gcash' as const, who: 86.224, bank: 90.863, no: 94.9 },
+        // in the QR's own place, where there is no QR to sit under
+        { at: 'bank' as const, who: 63.5, bank: 69.4, no: 75.3 },
+      ].flatMap(({ at, who, bank, no }) => {
+        const when = { section: 'gift', field: 'payBy', is: at === 'gcash' ? ['gcash'] : ['bank', 'none'] };
+        return [
+          GIFT.one(`gift-${at}-who`, { base: who, size: pt(35), hide: true, room: 40, when },
+            bind('gift', 'bankAccountName'), bind('gift', 'gcashName')),
+          GIFT.one(`gift-${at}-bank`, { base: bank, size: pt(30), hide: true, room: 40, when },
+            bind('gift', 'bankName')),
+          GIFT.one(`gift-${at}-no`, { base: no, size: pt(35), hide: true, room: 34, when },
+            bind('gift', 'bankAccountNumber'), bind('gift', 'gcashNumber')),
+        ];
+      })),
     ],
   },
 
   // ──────────────── behind the sealed envelope: the RSVP ────────────────
   {
-    key: 'rsvp', label: { en: 'RSVP' }, sections: ['rsvp'], seam: 0, booklet: 'rsvp', drawn: true, grow: true, live: true, headPad: 52,
+    key: 'rsvp', label: { en: 'RSVP' }, sections: ['rsvp'], seam: 0, booklet: 'rsvp', drawn: true, grow: true, live: true, headPad: 30,
     ground: ground('rsvp', 1.7778, true),
     elements: [
       // four letters on an arc, each turned its own way, because that is how

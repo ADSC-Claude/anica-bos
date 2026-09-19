@@ -72,6 +72,23 @@ export type TemplateSeed = {
   design?: DesignDoc;
   /** Kept for the invitations on it, but not on sale. */
   retired?: boolean;
+  /**
+   * The code owns this design's document, so a sync overwrites whatever is in
+   * the row.
+   *
+   * The default is the opposite, and deliberately: a document the studio
+   * wrote into a row is the owner's work and a catalogue sync must never
+   * flatten it. But a design still being *built* in this file — the
+   * christening is, page by page — has the opposite need. Its row holds a
+   * snapshot the catalogue itself put there, nobody has touched it in the
+   * studio, and leaving it alone means every fix stays on this branch and
+   * never reaches the page.
+   *
+   * Take it off once the studio becomes the place that design is edited.
+   * Until then a sync is how it ships, and the flag is what says so out loud
+   * rather than a surprise in the diff.
+   */
+  owns?: boolean;
 };
 
 export const TEMPLATES: TemplateSeed[] = [
@@ -133,7 +150,7 @@ export const TEMPLATES: TemplateSeed[] = [
      * in `words` below, which is the other half of what a look would have
      * given it, so there is nothing left for one to do.
      */
-    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), featured: true, retired: true,
+    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), featured: true, retired: true, owns: true,
     description: 'Clouds, a paper bow and a desk of small things to open. Sixteen pages for a christening, seven to scroll and nine to find.',
     thumb: '/christening/cover.webp', demo: 'lucas-andrei-christening',
     design: builtinDesign('christening')!,

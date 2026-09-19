@@ -7,8 +7,8 @@ import { PASS_LOOKS } from './pass';
 import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
-  type Lang, type Preset } from './copy';
-import { suggestionsFor } from './suggestions';
+  type Lang, type Preset, type RowStarter } from './copy';
+import { suggestionsFor, faqStarters } from './suggestions';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
 import { parseStart } from './song';
@@ -82,6 +82,20 @@ export type Field = {
    * not need three suggestions on each.
    */
   examples?: Preset[];
+  /**
+   * list: ready-made *rows* offered above the list, one tap to add and then
+   * edit or remove.
+   *
+   * The same idea as `examples` and for the same reason — a blank box is the
+   * hardest thing to fill in — but a row is more than one writing and both
+   * halves have to arrive together. The FAQ is the case: offering the
+   * question alone would leave the answer, which is the harder half, empty.
+   * "the one they can fill in own their own if they think the FAQ we have
+   * given is enough, or they could edit out the questions and answers as
+   * well that we gave beside that they can create their own FAQ" — so they
+   * are added as ordinary rows, editable and removable like any other.
+   */
+  starters?: RowStarter[];
   /** list */
   item?: Field[];
   addLabel?: string;
@@ -499,7 +513,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Countdown',
     description: 'Counts down to the date and time on the cover.',
     minTier: 'BASIC',
-    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day', staff: true })],
+    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Line under the countdown', { placeholder: 'Counting down to the big day', hint: "Blank keeps the design's own line." })],
   },
   {
     /*
@@ -733,7 +747,7 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { MEMORIAL: 'In lieu of flowers', KIDS_BIRTHDAY: 'Gift ideas' },
     fields: () => [
       select('preset', 'Preset', GIFT_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: GIFT_PRESETS, presetTarget: 'text' }),
-      textarea('text', 'Gift note', { staff: true }),
+      textarea('text', 'Gift note', { hint: 'Pick a wording above to start from, then change it to sound like you.' }),
       /**
        * A QR code or an account, and not both by accident.
        *
@@ -929,7 +943,12 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Paalala',
     description: 'Parking, kids, rain plan, shuttle, hashtag reminders.',
     minTier: 'STANDARD',
-    fields: () => [list('items', 'Questions', [text('q', 'Question', { required: true }), textarea('a', 'Answer', { required: true })], { addLabel: 'Add a question', max: 20 })],
+    fields: (occasion) => [list('items', 'Questions', [text('q', 'Question', { required: true }), textarea('a', 'Answer', { required: true })], {
+      addLabel: 'Add a question',
+      max: 20,
+      starters: faqStarters(occasion),
+      hint: 'Tap a question to add it, then change the answer to yours. Remove any you do not want, and add your own.',
+    })],
   },
   {
     key: 'moment',
@@ -1002,7 +1021,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Pagbati',
     description: 'A well-wishes wall guests can write on. You approve each message.',
     minTier: 'COMPLETE',
-    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple', staff: true }), toggle('moderated', 'Approve messages before they show')],
+    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple', hint: "What a guest is asked. Blank keeps the design's own words." }), toggle('moderated', 'Approve messages before they show')],
   },
   {
     key: 'photos',
@@ -1021,7 +1040,7 @@ const SECTION_DEFS: SectionDef[] = [
     feature: 'photoSharing',
     fields: () => [
       toggle('enabled', 'Let guests add photos'),
-      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', staff: true }),
+      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', hint: "What a guest is asked. Blank keeps the design's own words." }),
       toggle('moderated', 'Approve photos before they show'),
     ],
   },
@@ -1047,7 +1066,7 @@ const SECTION_DEFS: SectionDef[] = [
       ...(occasion === 'DEBUT'
         ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true })]
         : []),
-      textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
+      textarea('message', 'Closing message', { hint: "Your own thank-you. Blank keeps the design's." }),
       // a surprise a guest uncovers, where a design hides one: under a scratch card, behind a code
       textarea('surprise', 'A surprise for your guests', { staff: true, byDesign: true, placeholder: 'e.g. Look under your seat at the reception — there is a little something from us.', hint: 'Hidden on the page until a guest uncovers it.' }),
       text('signature', 'Signed', { placeholder: 'Juan & Maria' }),

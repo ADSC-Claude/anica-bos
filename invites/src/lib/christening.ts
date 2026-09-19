@@ -452,13 +452,29 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       // where it was asked before, and is still read for anything typed then
       COVER.one('cover-family', { base: 48.185, size: pt(40), color: 'accent', face: 'display', weight: 700, room: 28 },
         bind('cover', 'childLast'), bind('parents', 'familyName')),
-      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68, caps: true },
+      /*
+       * The date, the time and the church, printed as they were typed.
+       *
+       * She set all three in capitals in Canva and the design followed her,
+       * which is right for a word the design writes itself and wrong for a
+       * word somebody else types: "dont make all the words in dates and
+       * ceremony venue all caps. only the one they inserted in the form,
+       * like which one is in the uppercase which one is not". A family who
+       * writes "St. Gabriel the Archangel Parish Church" gets their own
+       * capitals; one who writes it shouting still gets theirs.
+       *
+       * And the church has room to be two lines now, not three. Her box was
+       * 46 wide because her own sample broke in two there; a real parish
+       * name is longer and went to three, which is one line more than the
+       * cover has between the time above it and the camera below. It runs
+       * to 74 — the width of the cover's other writings — still centred on
+       * the middle she measured.
+       */
+      COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68 },
         bind('cover', 'date', { show: 'date' })),
-      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68, caps: true },
+      COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68 },
         bind('cover', 'time', { show: 'time' })),
-      // her venue runs to two lines 1.20 of its size apart; the box is wide
-      // enough to break in the same place and no wider
-      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 46, lead: 1.2, room: 40, caps: true },
+      COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 74, lead: 1.2, room: 56 },
         bind('ceremony', 'venue')),
       COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print' },
         say('CLICK HERE')),

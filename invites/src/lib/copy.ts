@@ -270,6 +270,16 @@ export function t(lang: Lang, key: PhraseKey, vars: Record<string, string | numb
 /** The default copy blocks the builder offers. Every one is editable. */
 export type Preset = { key: string; label: string; en: string; tl: string };
 
+/**
+ * A ready-made *row* of a list, the way `Preset` is a ready-made line.
+ *
+ * A question and its answer arrive together — offering the question alone
+ * would leave the harder half of the box empty — so a starter carries a
+ * word for every writing in the row, keyed by the field it fills. The
+ * label is what the chip says.
+ */
+export type RowStarter = { key: string; label: string; row: Record<string, { en: string; tl: string }> };
+
 export const INTRO_PRESETS: Preset[] = [
   {
     key: 'families',

@@ -1653,8 +1653,23 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the page instead, and a little smaller than they were, so the four cells
    sit inside the strip at every width. Only a drawn page — a design whose
    countdown is a section in the scroll keeps the shared size. */
-.inv-page[data-drawn] .inv-count b { font-size: 6.1cqw; }
-.inv-page[data-drawn] .inv-count span { font-size: 1.82cqw; }
+.inv-page[data-drawn] .inv-count b { font-size: 4.4cqw; }
+.inv-page[data-drawn] .inv-count span { font-size: 1.42cqw; }
+/*
+ * And the four cells sit in the clear sky between her clouds.
+ *
+ * The width was a fixed 22rem inside a page scaled by its own width, so the
+ * same four cells were one size on a phone and another on a laptop; on the
+ * christening's band they ran from edge to edge and put DAYS on the cloud at
+ * one end and SECONDS on the cloud at the other. Her artwork leaves about
+ * half the width clear at the height the numbers sit, so that is what they
+ * are given: a share of the page, and small enough to read inside it.
+ *
+ * "the countdown isnt also in the center and i think its still big for the
+ * size of the pages" — it was centred on the page all along; what it was not
+ * inside was the gap she drew for it.
+ */
+.inv-page[data-drawn] .inv-count { max-width: 52cqw; }
 
 
 /* --- social brand row --- */

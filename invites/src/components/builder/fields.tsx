@@ -877,6 +877,45 @@ function PersonInput({ field, value, onChange }: { field: Field; value: Person; 
  * fill for a customer: an encoder working through twenty boxes does not need
  * three suggestions on each of them.
  */
+/**
+ * Ready-made rows offered above a list, one tap to add and then edit.
+ *
+ * The same idea as `Examples` and for the same reason, but a row is more
+ * than one writing: the FAQ's question and its answer arrive together,
+ * because offering the question alone leaves the harder half empty. One
+ * already added is not offered again — a list of six questions with the
+ * same six still on the chips reads as though the tap did nothing.
+ */
+function Starters({ field, lang, value, max, onAdd }: {
+  field: Field;
+  lang: Lang;
+  value: Record<string, unknown>[];
+  max: number;
+  onAdd: (row: Record<string, string>) => void;
+}) {
+  if (!field.starters?.length || value.length >= max) return null;
+  const said = new Set(value.map((r) => String(r[field.item?.[0]?.key ?? 'q'] ?? '').trim().toLowerCase()).filter(Boolean));
+  const left = field.starters.filter((s) => !said.has((lang === 'tl' ? s.row[field.item?.[0]?.key ?? 'q']?.tl : s.row[field.item?.[0]?.key ?? 'q']?.en ?? '').trim().toLowerCase()));
+  if (!left.length) return null;
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] text-[color:var(--color-ink-500)]">Need a starting point? Tap one and edit it.</p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {left.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            className="btn btn-secondary btn-sm max-w-full whitespace-normal text-left text-[11px] leading-snug"
+            onClick={() => onAdd(Object.fromEntries(Object.entries(s.row).map(([k, w]) => [k, lang === 'tl' ? w.tl : w.en])))}
+          >
+            + {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Examples({ field, lang, onUse }: { field: Field; lang: Lang; onUse: (v: string) => void }) {
   if (!field.examples?.length) return null;
   return (
@@ -1061,6 +1100,7 @@ function ListInput({ field, value, onChange, lang, invitationId, limit, frames }
           </div>
         </div>
       )}
+      <Starters field={field} lang={lang} value={value} max={max} onAdd={(row) => onChange([...value, { ...blank(), ...row }])} />
       {!arranging && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {value.length < max ? (

@@ -15,7 +15,20 @@
  */
 import wardrobe from './wardrobe.json';
 
-export type Drawing = { id: string; group: 'gents' | 'ladies' | 'girls' | 'boys'; kind: string; w: number; h: number; /** a print: offered after the plain ones of its kind */ print?: boolean };
+export type Drawing = {
+  id: string; group: 'gents' | 'ladies' | 'girls' | 'boys'; kind: string; w: number; h: number;
+  /** a print: offered after the plain ones of its kind */ print?: boolean;
+  /**
+   * How much of the figure the picked colour reaches, as a share of the drawing —
+   * measured at the cut and kept here as the wardrobe's own record. "The colors
+   * of the clothes are not fully coated": the shirts used to stand at 0.47 to
+   * 0.65, because their trousers had been cut into the layer that keeps its
+   * colour. A whole outfit is one garment now, so the only parts left out are
+   * the ones that are not the garment: the white shirt and tie inside a coat,
+   * a bow tie, the shirt sleeves under a boy's waistcoat, a leg through a slit.
+   */
+  coat?: number;
+};
 export const WARDROBE = wardrobe as Drawing[];
 
 /** The kinds each attire item calls for, best first. Items that are not an outfit (a tie, shoes) call for none. */

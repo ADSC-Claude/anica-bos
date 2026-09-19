@@ -1760,8 +1760,12 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* the few colours under a line of writing — the ninongs', the entourage's —
    rather than the motif's own row: they sit under their words and follow
    them, so they are not a block of their own and not as wide */
-.inv-swatches-few { display: flex; gap: 0.5rem 0.45rem; margin-top: 0.45rem; max-width: 100%; }
-.inv-swatches-few .inv-swatch-item { width: 2.9rem; }
+.inv-swatches-few { display: flex; flex-wrap: nowrap; justify-content: center; gap: 0.5rem 0.3rem; margin-top: 0.45rem; max-width: 100%; }
+/* two, three or four of them still sit in one line of half a page: the dots
+   share what the column has and shrink together, rather than one of them
+   dropping onto a line of its own and pushing the thank-you off the card */
+.inv-swatches-few .inv-swatch-item { flex: 1 1 0; min-width: 0; width: auto; max-width: 2.9rem; }
+.inv-swatches-few .inv-swatch { width: 100%; height: auto; aspect-ratio: 1; }
 .inv-swatches-few .inv-swatch-name { font-size: 0.46rem; }
 /* a swatch and its name: four to a row, the name in the small caps of the page */
 .inv-swatch-item { display: flex; flex-direction: column; align-items: center; gap: 0.32rem; width: 4.2rem; }

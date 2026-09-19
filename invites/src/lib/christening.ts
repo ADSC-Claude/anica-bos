@@ -610,13 +610,19 @@ export const CHRISTENING_PAGES: PageSpec[] = [
      * the live rule, the way every live page's heading is, because the design
      * has already written it.
      *
-     * `headPad` is small and the page grows. The counter is set in rem rather
-     * than in the page's own units — it is the app's furniture, not her
-     * artwork — so no single gap can hold at every width; four is the value
-     * that keeps it clear of her line on a phone and still looks deliberate
-     * on a laptop.
+     * `headPad` is where the counter starts, and it is measured off her
+     * clouds rather than guessed.
+     *
+     * "make the countdown in the center not at the top. always make sure of
+     * this." It was at the top: four put the numbers 12% of the way down a
+     * page whose middle column is clouded until 28% and clear from there to
+     * 80%, so DAYS and SECONDS were printed half over the cloud at either
+     * shoulder. Nine is 28% of the page's height (0.28 × 32.41cqw), which
+     * starts the counter on the first clear row; the numbers then run to
+     * about 60% and her line to 81%, so the whole thing is centred on the
+     * band of sky she drew for it, not on the page.
      */
-    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true, live: true, grow: true, headPad: 4,
+    key: 'countdown', label: { en: 'Countdown' }, sections: ['countdown'], seam: 0, drawn: true, live: true, grow: true, headPad: 9,
     ground: ground('countdown', 0.3241, true),
     elements: [
       COUNTDOWN.one('countdown-line', { base: 76.804, size: 3.87, color: 'accent', face: 'names', role: 'script', w: 62, room: 34 },
@@ -880,11 +886,24 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * to one, and the line the family writes moves down to the clear sky
        * between the plate and the filmstrip.
        */
-      STORY.one('story-head', { base: 18.45, size: 4.0, face: 'display', weight: 700, cx: 50.19, w: 40, room: 22, caps: true },
+      STORY.one('story-head', { base: 18.45, size: 4.0, color: 'surface', face: 'display', weight: 700, cx: 50.19, w: 40, room: 22, caps: true },
         { word: 'title:story' }, say('Our Story')),
-      // ink, not the accent: the accent is her peach and the bow's tail is
-      // behind these words, which made them all but invisible
-      STORY.one('story-line', { base: 24.2, size: pt(26), face: 'names', role: 'script', cx: 50.19, w: 72, room: 46 },
+      /*
+       * White on the plate, and the line up against it.
+       *
+       * "Our Story should be there, the writings below it should be place
+       * there, then the Our story is white font at the top of it. check our
+       * previous look." The previous look was white on a blue banner; the
+       * plate she drew now is tan (#E7B181), so white on it is faint — about
+       * 1.9 to 1 where the ink it replaces was 4.3. It is her title and her
+       * artwork, so it is set the way she asked; if it reads pale to her the
+       * way back is one word, `color`.
+       *
+       * And the line no longer floats three per cent below the plate in open
+       * sky: at 21.9 its head is 20.4, a shade under the plate's foot at
+       * 19.27, so the two read as one title.
+       */
+      STORY.one('story-line', { base: 21.9, size: pt(26), face: 'names', role: 'script', cx: 50.19, w: 72, room: 46 },
         bind('story', 'line'), { word: 'story' }),
       /*
        * Her four milestones: the photograph in its window on the filmstrip,

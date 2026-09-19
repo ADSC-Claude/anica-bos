@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStart, formatStart, youtubeId, youtubeEmbed, START_MAX } from '../src/lib/song';
+import { parseStart, formatStart, youtubeId, youtubeEmbed, looped, START_MAX } from '../src/lib/song';
 
 test('the start of a song reads minutes and seconds, or seconds, and nothing else', () => {
   assert.equal(parseStart('1:05'), 65);
@@ -36,4 +36,26 @@ test('a YouTube link in any of its forms names the video, and the player starts 
   assert.equal(youtubeEmbed(id, 65).src, `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0&start=65`);
   assert.equal(youtubeEmbed(id).src, `https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0`);
   assert.ok(youtubeEmbed(id).poster.includes(id));
+});
+
+/**
+ * "if you noticed that the guest is still in the invitation and the music
+ * ends, it should repeat the song again."
+ *
+ * The repeat is the audio element's own `loop`, which returns the song to 0
+ * and knows nothing about the point the invitation starts it at. This is how
+ * the player notices that turn: the clock has gone backwards past the start
+ * point, which nothing else can do — a guest is given a play button and no
+ * scrubber.
+ */
+test('a song that has come round again is taken back to its start point', () => {
+  // six seconds of intro, which is what her christening skips
+  assert.equal(looped(0, 6), true, 'the loop put it back at the very beginning');
+  assert.equal(looped(0.4, 6), true, 'or a moment past it, the wrap having been announced late');
+  assert.equal(looped(5.6, 6), false, 'but not within the slack: that is the seek arriving, not a wrap');
+  assert.equal(looped(6, 6), false, 'nor standing on the start point');
+  assert.equal(looped(180, 6), false, 'nor playing on through the song');
+  // a song with no intro to skip loops on its own and is never touched
+  assert.equal(looped(0, 0), false);
+  assert.equal(looped(120, 0), false);
 });

@@ -375,7 +375,18 @@ const COVER_COMMON = (occasion: Occasion): Field[] => [
           // Staff-only openings are left out: the cinematic one is artwork
           // somebody has to make, so it is attached to an order, never picked.
           OPENINGS.filter((o) => !o.staffOnly).map((o) => ({ value: o.key, label: o.name, ...(o.minTier === 'BASIC' ? {} : { lockedTier: o.minTier }) })),
-          { hint: 'The short moving scene before the invitation. Guests tap once to open it.' },
+          {
+            /*
+             * Where the photographs come from, said here because nowhere else
+             * says it: "where should i upload the photo in the polaroid that
+             * pulls out? im not sure where to upload it in the cover form."
+             * There is no box of its own — `openingProps` reads the cover
+             * photo and then the gallery — and an opening that asks for three
+             * of them with no visible question is a dead end. Named from the
+             * catalogue so the sentence cannot go stale when one is added.
+             */
+            hint: `The short moving scene before the invitation. Guests tap once to open it. The ones that hold photographs — ${OPENINGS.filter((o) => !o.staffOnly && o.photos > 0).map((o) => o.name).join(', ')} — have no upload of their own: they use your cover photo, then your Baby photos.`,
+          },
         ),
         select('openingSpeed', 'How fast it opens', [{ value: '', label: 'Normal' }, { value: 'slow', label: 'Slow — ceremonial' }, { value: 'fast', label: 'Fast — a flick' }], { hint: 'The same opening at its own pace.' }),
         select('openingTrigger', 'How a guest opens it', [{ value: '', label: 'As the opening is made to be' }, { value: 'tap', label: 'Tap' }, { value: 'swipe', label: 'Swipe' }, { value: 'hold', label: 'Press and hold' }], { hint: 'Where the opening takes it: the ribbon can be pulled or tapped, the curtains swiped apart or tapped.' }),

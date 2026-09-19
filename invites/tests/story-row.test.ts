@@ -144,3 +144,36 @@ test('the form lets in exactly what the cloud holds', () => {
   assert.ok(words.room! >= FIT['story.timeline.text'], 'the drawn box holds at least what the form accepts');
   assert.ok(lines[0].room! <= FIT['story.timeline.date'], 'and the date line is no more generous than the form');
 });
+
+/**
+ * The title and the line under it, on the plate she drew.
+ *
+ * "Our Story should be there, the writings below it should be place there,
+ * then the Our story is white font at the top of it. check our previous
+ * look." The previous look set both in white, because the artwork behind
+ * them then was a blue banner. The page she redrew has a tan plate — a flat
+ * #E7B181 from 16.15% to 19.27% of the page, centred on x 50.19 — and the
+ * title goes on it in white, the way she asked, with her line brought up to
+ * the plate's foot instead of floating three per cent below it in open sky.
+ */
+test('the title is white on her plate and the line sits under it', () => {
+  const head = text.find((e) => e.id === 'story-head')!;
+  const line = text.find((e) => e.id === 'story-line')!;
+  const PLATE = { top: 16.15, foot: 19.27, cx: 50.19 };
+
+  assert.equal(head.lines[0].color, 'surface', 'the title is white, as she asked');
+  assert.equal(head.x, PLATE.cx, 'and centred on the plate, which is not centred on the page');
+  // the box the capitals are set in, head to foot, against the plate's own
+  const foot = head.y! + (head.lines[0].size * 1.25) / 1.7778;
+  assert.ok(head.y! >= PLATE.top - 0.6 && foot <= PLATE.foot + 0.6,
+    `the title runs ${head.y!.toFixed(2)}–${foot.toFixed(2)} and the plate ${PLATE.top}–${PLATE.foot}`);
+
+  // and the line is up against the plate, not adrift under it
+  assert.equal(line.x, PLATE.cx, 'the line hangs from the same centre as the title');
+  const gap = line.y! - PLATE.foot;
+  assert.ok(gap > 0.4, 'the line clears the plate');
+  assert.ok(gap < 1.8, `the line is ${gap.toFixed(2)}% below the plate, so the two read as one title`);
+  // it must still clear the first milestone's cloud
+  assert.ok(line.y! + (line.lines[0].size * 1.25 * 2) / 1.7778 < STORY_CLOUDS[0]!.top,
+    'even wrapped to two lines it stays off the first cloud');
+});

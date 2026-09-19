@@ -376,7 +376,18 @@ const SECTION_DEFS: SectionDef[] = [
         case 'CHRISTENING':
         case 'COMMUNION':
           return [
-            text('childFull', "Child's full name", { required: true }),
+            /*
+             * The given names and the surname are two questions, because the
+             * cover sets them at two sizes: the given names large in script,
+             * the surname small and bold on the line beneath. Asked as one
+             * "full name" they came back as one string, and the whole of it
+             * went into the big line and ran out of its space.
+             *
+             * `childFull` keeps its key — it is what every invitation already
+             * written is stored under — and only its question changed.
+             */
+            text('childFull', "Child's first and middle name", { required: true, placeholder: 'e.g. Lucas Andrei', hint: 'The given names only. These are set large, in script.' }),
+            text('childLast', 'Surname, as it should read', { placeholder: 'e.g. Reyes - Cruz', hint: 'Set smaller under the given names. Type it the way the family writes it — hyphen or no hyphen, one surname or two.' }),
             text('childNick', 'Nickname'),
             date('birthDate', 'Date of birth'),
             toggle('combined', occasion === 'CHRISTENING' ? 'Also a 1st birthday celebration' : 'Also a family celebration'),
@@ -526,20 +537,20 @@ const SECTION_DEFS: SectionDef[] = [
           person('father', two ? 'Her father' : 'Father'),
           person('mother', two ? 'Her mother' : 'Mother'),
           ...(two ? [person('father2', 'His father'), person('mother2', 'His mother')] : []),
-          /**
-           * The surnames as one line, under the child's name on a cover.
+          /*
+           * The surname that goes under the child's name on a cover used to
+           * be asked here, as `familyName`. It is asked on the Cover now,
+           * beside the given names it is set against (`cover.childLast`),
+           * because a name split over two lines is one question, not two
+           * questions two parts of the form apart — and asked here it was
+           * simply never found, so the cover printed the whole name at the
+           * size of the given names and overran its space.
            *
-           * It cannot be worked out from the two above. A Filipino name may
-           * carry a mother's maiden surname in the middle and a father's
-           * after it, some families hyphenate and some do not, and the order
-           * on a christening cover is the family's own choice — so a design
-           * that prints "Reyes - Cruz" has to be told those words rather
-           * than given two full names to guess from. Blank prints nothing,
-           * which is the right answer for a design that does not ask.
+           * The question is gone; the answers are not. Anything already
+           * typed here still reads out, because every line that wants the
+           * surname tries the cover's field first and falls back to this
+           * one. See `given()` in design.ts.
            */
-          ...(occasion === 'CHRISTENING' || occasion === 'COMMUNION'
-            ? [text('familyName', 'Family name, as it should read', { placeholder: 'e.g. Reyes - Cruz', hint: 'Printed under the child’s name on designs that carry a line for it.' })]
-            : []),
           text('note', 'Note', { wide: true, placeholder: 'e.g. together with Lolo and Lola' }),
         ];
       }
@@ -1089,6 +1100,8 @@ export const FIT: Record<string, number> = {
   // the cover: names are the largest type on the page
   'cover.brideFirst': 24, 'cover.groomFirst': 24, 'cover.celebrantFirst': 24, 'cover.partnerA': 24, 'cover.partnerB': 24,
   'cover.brideFull': 48, 'cover.groomFull': 48, 'cover.celebrantFull': 48, 'cover.childFull': 48, 'cover.honoree': 48, 'cover.name': 48,
+  // the surname sits on its own line under the given names, set small
+  'cover.childLast': 28,
   'cover.brideNick': 20, 'cover.groomNick': 20, 'cover.nickname': 20, 'cover.childNick': 20,
   'cover.monogram': 6, 'cover.theme': 60, 'cover.momName': 40, 'cover.dadName': 40,
   'cover.achievement': 80, 'cover.company': 60, 'cover.eventName': 60, 'cover.tagline': 80, 'cover.groupName': 60,

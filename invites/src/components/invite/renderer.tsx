@@ -176,10 +176,17 @@ function heroCopy(occasion: Occasion, cover: SectionData | undefined, lang: Lang
     }
     case 'DEBUT':
       return { eyebrow: lang === 'tl' ? 'Ang ika-18 kaarawan ni' : 'The 18th birthday of', names: [s('celebrantFirst') || 'Debutante'], sub: [s('celebrantFull'), s('theme')].filter(Boolean).join(' · '), intro: introRaw };
-    case 'CHRISTENING':
-      return { eyebrow: bool(cover, 'combined') ? (lang === 'tl' ? 'Binyag at Unang Kaarawan ni' : 'The Christening & 1st Birthday of') : lang === 'tl' ? 'Ang Binyag ni' : 'The Christening of', names: [s('childNick') || s('childFull') || 'Baby'], sub: s('childNick') ? s('childFull') : s('theme'), intro: introRaw };
-    case 'COMMUNION':
-      return { eyebrow: lang === 'tl' ? 'Ang Unang Komunyon ni' : 'The First Holy Communion of', names: [s('childNick') || s('childFull') || 'Child'], sub: s('childNick') ? s('childFull') : '', intro: introRaw };
+    // the form asks for the given names and the surname apart, because a
+    // drawn cover sets them at two sizes; a scrolled cover has one line for
+    // the name, so it puts them back together
+    case 'CHRISTENING': {
+      const whole = [s('childFull'), s('childLast')].filter(Boolean).join(' ');
+      return { eyebrow: bool(cover, 'combined') ? (lang === 'tl' ? 'Binyag at Unang Kaarawan ni' : 'The Christening & 1st Birthday of') : lang === 'tl' ? 'Ang Binyag ni' : 'The Christening of', names: [s('childNick') || whole || 'Baby'], sub: s('childNick') ? whole : s('theme'), intro: introRaw };
+    }
+    case 'COMMUNION': {
+      const whole = [s('childFull'), s('childLast')].filter(Boolean).join(' ');
+      return { eyebrow: lang === 'tl' ? 'Ang Unang Komunyon ni' : 'The First Holy Communion of', names: [s('childNick') || whole || 'Child'], sub: s('childNick') ? whole : '', intro: introRaw };
+    }
     case 'KIDS_BIRTHDAY':
     case 'MILESTONE_BIRTHDAY': {
       const age = num(cover, 'age');

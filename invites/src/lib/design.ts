@@ -2881,15 +2881,31 @@ function personLine(row: Rowish, lang: Lang): string {
 }
 
 /**
+ * The surname to set under a child's given names, wherever it was typed.
+ *
+ * It is asked on the cover now, beside the given names it belongs to
+ * (`cover.childLast`). It used to be asked in the Parents part, as
+ * `familyName` — so anything written before the question moved is still
+ * read out from there, and no invitation loses a line it already had.
+ */
+function surname(content: Record<string, unknown> | undefined): string {
+  const cover = isRecord(content?.cover) ? (content!.cover as Rowish) : undefined;
+  const parents = isRecord(content?.parents) ? (content!.parents as Rowish) : undefined;
+  return text(cover?.childLast) || text(parents?.familyName);
+}
+
+/**
  * A child's given names: the whole name with the family name taken off the end.
  *
  * Her cover sets the given names large in script and the family name small
- * and bold on the line under it — two slots, and the form already asks for
- * both (`cover.childFull`, and `parents.familyName`, whose hint says it is
- * "printed under the child's name on designs that carry a line for it"). A
- * family types the child's name once and in full, so the big line has to drop
- * the part the small line is about to say, or the cover reads "Lucas Andrei
- * Reyes - Cruz" with "Reyes - Cruz" again beneath it.
+ * and bold on the line under it — two slots, and the form asks for both, one
+ * under the other (`cover.childFull` and `cover.childLast`). The big line
+ * takes only the given names.
+ *
+ * The taking-off is still done, for the family who types the child's name
+ * once and in full anyway, and for every invitation written while the cover
+ * asked for a "full name". Without it the cover reads "Lucas Andrei Reyes -
+ * Cruz" with "Reyes - Cruz" again beneath it.
  *
  * Only off the end, and only when it is really there. The comparison ignores
  * everything but letters and digits, so "Reyes - Cruz", "Reyes-Cruz" and
@@ -2899,10 +2915,8 @@ function personLine(row: Rowish, lang: Lang): string {
  * given names, and for a child who does not carry that family name at all.
  */
 function given(full: string, content: Record<string, unknown> | undefined): string {
-  const parents = isRecord(content?.parents) ? (content!.parents as Rowish) : undefined;
-  const family = text(parents?.familyName);
   const bare = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '');
-  const tail = bare(family);
+  const tail = bare(surname(content));
   if (!full || !tail) return full;
   const words = full.trim().split(/\s+/);
   for (let i = words.length - 1; i >= 1; i--) {

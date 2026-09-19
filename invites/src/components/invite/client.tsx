@@ -1910,7 +1910,32 @@ export function Motion() {
  * anything genuinely interactive lying on top keeps the press; only when the
  * press hit nothing at all do we look down through the stack, topmost first,
  * for the object underneath.
+ *
+ * And the walk stops at the first thing that plainly owns the press in its
+ * own right, which is what OWNED is for. Without that it reaches *past* a
+ * link: OPEN IN GOOGLE MAPS sits on the venue page, the venue page sits in
+ * a booklet laid over the hub, and a hub card lies at the same coordinates
+ * underneath it. The press went to the card — the same booklet re-opened,
+ * the link's default was cancelled — so both map buttons looked alive,
+ * showed the hand cursor, and did nothing at all.
  */
+const OWNED = 'a[href], button, input, select, textarea, label, video, [data-go], [data-taps], [data-music], [data-back], [data-opens]';
+
+/**
+ * The rule itself, over a stack of elements topmost first. Exported so the
+ * tests can hold it: it is short, it is easy to read as redundant, and
+ * taking the second half out is exactly the bug above.
+ */
+export function ownerOfPress(stack: Iterable<Element>, selector: string): HTMLElement | null {
+  for (const node of stack) {
+    const hit = node.closest?.(selector);
+    if (hit) return hit as HTMLElement;
+    // something else owns this press: it is not ours to take from underneath
+    if (node.closest?.(OWNED)) return null;
+  }
+  return null;
+}
+
 function pressed(e: Event, selector: string): HTMLElement | null {
   const direct = (e.target as Element | null)?.closest?.(selector);
   if (direct) return direct as HTMLElement;
@@ -1919,11 +1944,7 @@ function pressed(e: Event, selector: string): HTMLElement | null {
   const { clientX = 0, clientY = 0 } = e as Event & { clientX?: number; clientY?: number };
   // a keyboard-driven click carries no coordinates, and `closest` covers it
   if (!clientX && !clientY) return null;
-  for (const node of document.elementsFromPoint(clientX, clientY)) {
-    const hit = node.closest?.(selector);
-    if (hit) return hit as HTMLElement;
-  }
-  return null;
+  return ownerOfPress(document.elementsFromPoint(clientX, clientY), selector);
 }
 
 /**

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import { Shell, PageGround } from '../../src/components/invite/client';
+import { Shell, PageGround, ownerOfPress } from '../../src/components/invite/client';
 
 /**
  * The closed screen, as the server sends it — which is the only version a
@@ -69,4 +69,45 @@ test('a column that is never laid by number does not ask for the strip', () => {
     createElement(PageGround, { ratio: 0, order: [], last: 0, backgrounds: ['/capiz/bg-1.webp', '/capiz/bg-2.webp'] }),
   );
   assert.doesNotMatch(html, /bg-1\.webp/);
+});
+
+/**
+ * A press, when things are drawn on top of one another.
+ *
+ * A drawn page places every element by coordinates, and a booklet is laid
+ * over the hub, so what is under the pointer is a stack rather than one
+ * thing. The walk down that stack must stop at the first object that owns
+ * the press in its own right — otherwise it reaches *past* a link and hands
+ * the press to whatever lies behind, which is what left OPEN IN GOOGLE MAPS
+ * and OPEN IN WAZE looking alive and doing nothing.
+ */
+const node = (...matches: string[]): Element =>
+  ({ closest: (sel: string) => (matches.some((m) => sel.includes(m)) ? ({} as Element) : null) }) as Element;
+
+test('a press goes to the object under the pointer when nothing above claims it', () => {
+  // decoration, then the hub card beneath it: the card gets the press
+  const stack = [node(), node('[data-opens]')];
+  assert.ok(ownerOfPress(stack, '[data-opens]'));
+});
+
+test('a press is never taken from a link lying over the thing underneath', () => {
+  // the venue page's OPEN IN WAZE, with a hub card at the same place behind it
+  const stack = [node('[data-go]', 'a[href]'), node('[data-opens]')];
+  assert.equal(ownerOfPress(stack, '[data-opens]'), null);
+});
+
+test('the same holds for a tap the design drew, and for the song', () => {
+  assert.equal(ownerOfPress([node('[data-music]'), node('[data-opens]')], '[data-opens]'), null);
+  assert.equal(ownerOfPress([node('button'), node('[data-taps]')], '[data-taps]'), null);
+});
+
+test('an object claims its own press before anything else is considered', () => {
+  // the opener is itself in the owned list: matching the selector comes first
+  assert.ok(ownerOfPress([node('[data-opens]')], '[data-opens]'));
+  assert.ok(ownerOfPress([node('[data-taps]')], '[data-taps]'));
+});
+
+test('nothing under the pointer is nothing pressed', () => {
+  assert.equal(ownerOfPress([], '[data-opens]'), null);
+  assert.equal(ownerOfPress([node(), node()], '[data-opens]'), null);
 });

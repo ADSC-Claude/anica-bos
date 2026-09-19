@@ -3,9 +3,10 @@ import { t, type Lang } from '@/lib/copy';
 import type { Occasion } from '@prisma/client';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
 import { imageUrl, IMAGE } from '@/lib/images';
+import { mapsHref, wazeHref } from '@/lib/places';
 import {
   elementStyle, photoStyle, cropStyle, shapeStyle, lineText, valueAt, pageRatio, floatShape, floatAt, BLOCK_CLASS, LINE_CLASS, LINE_TAG,
-  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture, canOpen,
+  decorStyle, decorOver, flowFloats, flowDecor, motionOf, isPicture, canOpen, shows,
   type PageSpec, type Element, type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type AnimEl, type Line, type WordKey, type FieldRef, type MomentEl
 } from '@/lib/design';
 import { LazyVideo, LazyLottie } from './client';
@@ -61,11 +62,14 @@ export type EditView = {
  * holding `{word: 'invitation'}` on a christening must not read "Join us as
  * we say I do!". Without one, a look answers as written.
  */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean): Read {
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean, path?: string, held?: Set<string>, song?: boolean): Read {
   return {
     content,
     lang,
     edit,
+    path,
+    held,
+    hasSong: song,
     parts,
     onArt,
     word: (key: WordKey) => (key.startsWith('title:') ? lookTitle(look, lang, key.slice(6) as TitleKey, occasion) : lookLine(look, lang, key as LineKey, occasion)) ?? '',
@@ -73,15 +77,19 @@ function reader(content: Record<string, unknown>, look: Look | undefined, lang: 
   };
 }
 
-export function DrawnPage({ page, content, look, lang, occasion, edit, parts }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string> }) {
+export function DrawnPage({ page, content, look, lang, occasion, edit, parts, path, song }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string>; path?: string; song?: boolean }) {
   // a page whose own background is a picture: a moment on it stands on the page, not on a studio card
-  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)));
+  const held = new Set((page.elements ?? []).map((el) => el.taps).filter(Boolean) as string[]);
+  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)), path, held, song);
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
   return (
     <section id={page.key} className={`inv-section inv-bb-art inv-bb-${page.key}`}>
-      {(page.elements ?? []).map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
+      {(page.elements ?? [])
+        // a control for a song this invitation has not got is a dead button
+        .filter((el) => read.edit || (shows(el, content) && (!el.song || read.hasSong)))
+        .map((el) => <Fragment key={el.id}>{draw(el, read, grow)}</Fragment>)}
     </section>
   );
 }
@@ -99,6 +107,19 @@ type Read = Parameters<typeof lineText>[1] & {
    * page itself instead — the cut-out object and its shadow are the scene.
    */
   onArt?: boolean;
+  /** the invitation's own path, so an ADD TO CALENDAR button can point at its .ics */
+  path?: string;
+  /**
+   * The elements on this page that some other element's `taps` names.
+   *
+   * They hold: their arrival does not play when they scroll into view, it
+   * plays when the guest taps the thing that names them. Collected once per
+   * page rather than asked per element, because an element cannot see its
+   * siblings and this is a fact about the page.
+   */
+  held?: Set<string>;
+  /** whether this invitation actually has a song to play, for a `song` control */
+  hasSong?: boolean;
 };
 
 /**
@@ -230,6 +251,66 @@ export function FlowDecor({ page, content, look, lang, occasion, layer, edit }: 
 function opensAttrs(el: Element): Record<string, string | undefined> | undefined {
   if (!canOpen(el)) return undefined;
   return { 'data-opens': el.opens, 'aria-hidden': undefined };
+}
+
+/**
+ * The pair that makes one thing start another: `data-taps` on the thing a
+ * guest aims at, `data-tap-id` on the thing that moves, and `data-hold` to
+ * keep the second one from arriving on its own when the page scrolls past.
+ *
+ * The tapped element is given a button's manners — a role, a tab stop — so
+ * a guest on a keyboard or a screen reader reaches it the same way.
+ */
+function tapAttrs(el: Element, read: Read): Record<string, string | number | undefined> {
+  const out: Record<string, string | number | undefined> = {};
+  if (el.taps) { out['data-taps'] = el.taps; out.role = 'button'; out.tabIndex = 0; }
+  if (read.held?.has(el.id)) { out['data-tap-id'] = el.id; out['data-hold'] = ''; }
+  // the song's own control, wherever the design drew it: the Shell listens
+  // for this across the whole invitation, because the player lives there
+  if (el.song) { out['data-music'] = ''; out.role = 'button'; out.tabIndex = 0; }
+  return out;
+}
+
+/**
+ * Where a tap on this element takes the guest, where it takes them off the
+ * page: their calendar, Google Maps, Waze.
+ *
+ * Nothing to point at gives nothing back, and `Leaves` then draws the
+ * element plainly rather than as a link — which is the same rule an empty
+ * box of words follows, and it is the one that stops a christening with no
+ * reception address carrying a dead OPEN IN WAZE.
+ */
+function goHref(el: Element, read: Read): string {
+  const go = el.go;
+  if (!go) return '';
+  if (go.to === 'calendar') return read.path ? `${read.path}/calendar.ics` : '';
+  const place = read.content[go.of ?? 'ceremony'] as Parameters<typeof mapsHref>[0];
+  return go.to === 'maps' ? mapsHref(place) : wazeHref(place);
+}
+
+/**
+ * The element *is* the link, rather than sitting inside one.
+ *
+ * A wrapper was the obvious shape and it is the wrong one: every rule that
+ * places a drawn element is written `.inv-bb-art > .inv-bb-text`, a direct
+ * child, so an anchor in between takes the placement away and the button
+ * lands at the top left of the page. So the tag changes instead — the same
+ * class, the same box, the same one child of the section — and the whole
+ * element is what a guest taps.
+ *
+ * Nothing to point at gives nothing back, and the element is then drawn as
+ * itself: the same rule an empty box of words follows, and the one that
+ * stops a christening with no reception address carrying a dead OPEN IN
+ * WAZE.
+ */
+function goProps(el: Element, read: Read): { tag: 'a'; props: Record<string, string> } | { tag: undefined; props: Record<string, never> } {
+  const href = goHref(el, read);
+  if (!href) return { tag: undefined, props: {} };
+  const away = el.go!.to !== 'calendar';
+  return {
+    tag: 'a',
+    props: { href, 'data-go': el.go!.to, ...(away ? { target: '_blank', rel: 'noopener' } : { download: '' }) },
+  };
 }
 
 function draw(el: Element, read: Read, grow?: number, deco?: boolean) {
@@ -371,6 +452,7 @@ function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
       data-empty={read.edit && !el.url ? '' : undefined}
       {...opensAttrs(el)}
+      {...tapAttrs(el, read)}
     >
       {read.edit && el.url && read.edit.playing === el.id
         // the one she has picked plays, muted and looping, so she can see what it looks like where it is
@@ -392,8 +474,9 @@ function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: numbe
   return (
     <div
       className="inv-bb-shape"
-      aria-hidden
+      aria-hidden={el.taps ? undefined : true}
       {...opensAttrs(el)}
+      {...tapAttrs(el, read)}
       data-shape={el.shape}
       style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el), ...motionOf(el).vars } as CSSProperties}
       {...motionOf(el).attrs}
@@ -424,6 +507,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
       data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
       data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
       {...opensAttrs(el)}
+      {...tapAttrs(el, read)}
     >
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
@@ -447,6 +531,25 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
  * line under it, or a milestone's name with its sentence. An empty line is
  * dropped; a block whose every line is empty draws nothing.
  */
+/**
+ * The mark on a button, drawn from where it goes: a pin for either map, a
+ * calendar for the date. Drawn here rather than taken from the renderer's
+ * set because a drawn page is mounted in the browser by the studio and
+ * nothing server-only may be on the path — the same reason places.ts is
+ * where it is. It scales with the label, so it stays the right size at any
+ * width the design sets.
+ */
+function GoMark({ to }: { to: NonNullable<TextEl['go']>['to'] }) {
+  const d = to === 'calendar'
+    ? 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4M8 14h2M12 14h2M16 14h1'
+    : 'M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11zM12 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z';
+  return (
+    <svg className="inv-bb-btn-mark" viewBox="0 0 24 24" aria-hidden focusable="false">
+      <path d={d} />
+    </svg>
+  );
+}
+
 function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number; deco?: boolean }) {
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
@@ -464,18 +567,36 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
     // the column and both follow the palette into night.
     ...(el.backing && el.backing !== 'none' ? { 'data-backing': el.backing } : {}),
     ...opensAttrs(el),
+    ...tapAttrs(el, read),
   };
   // the caption is the paragraph itself, the way the polaroid's strip is written
   if (el.block === 'caption') {
     const own = { ...style, ...(el.face ? { fontFamily: `var(--inv-${el.face})` } : {}), ...(el.size ? { fontSize: `${el.size}cqw` } : {}) };
-    return <p className={cls} style={own} {...mark}>{texts.find(Boolean) || (read.edit ? read.edit.label(el) : '')}</p>;
+    const goCap = goProps(el, read);
+    const words = texts.find(Boolean) || (read.edit ? read.edit.label(el) : '');
+    if (goCap.tag) return <a className={cls} style={own} {...mark} {...goCap.props}>{words}</a>;
+    return <p className={cls} style={own} {...mark}>{words}</p>;
   }
   const body = blank && read.edit
     ? <p className="inv-bb-ask">{read.edit.label(el)}</p>
-    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} face={el.face} size={el.size} /> : null));
+    : el.lines.map((line, i) => (texts[i] ? <LineText key={i} line={line} text={texts[i]} face={el.face} size={el.size} leading={el.leading} highlight={el.highlight} /> : null));
   if (el.block === 'head') return <header className={cls} style={style} {...mark}>{body}</header>;
+  const go = goProps(el, read);
+  // a box she asked to be drawn as a button: the pill, and the mark of
+  // where it goes beside the label. Only where it goes somewhere — see
+  // TextEl.button — so the studio shows an unbound one as plain words.
+  if (go.tag && el.button) {
+    return (
+      <a className={`${cls} inv-bb-btn`} style={style} {...mark} {...go.props}>
+        <GoMark to={el.go!.to} />
+        <span>{body}</span>
+      </a>
+    );
+  }
+  if (go.tag) return <a className={cls} style={style} {...mark} {...go.props}>{body}</a>;
   return <div className={cls} style={style} {...mark}>{body}</div>;
 }
+
 
 /**
  * One line inside a block.
@@ -486,16 +607,37 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
  * setting would do nothing at all. The line's own size still wins over the
  * block's, because she set that one last and more precisely.
  */
-function LineText({ line, text, face, size }: { line: Line; text: string; face?: TextEl['face']; size?: number }) {
+function LineText({ line, text, face, size, leading, highlight }: { line: Line; text: string; face?: TextEl['face']; size?: number; leading?: number; highlight?: TextEl['highlight'] }) {
   const Tag = LINE_TAG[line.role];
   const cls = LINE_CLASS[line.role];
   const style: CSSProperties = {};
   if (face) style.fontFamily = `var(--inv-${face})`;
   if (line.align) style.textAlign = line.align;
   if (line.size ?? size) style.fontSize = `${line.size ?? size}cqw`;
+  // the box's leading has to be set on the line, not left to be inherited:
+  // every role class carries a line-height of its own, and a class beats
+  // inheritance, so a box that only set it on the wrapper set nothing
+  if ((line.leading ?? leading) !== undefined) style.lineHeight = line.leading ?? leading;
+  // air above this line, where the box holds two writings her own gap apart
+  if (line.space !== undefined) style.marginTop = `${line.space}cqw`;
+  if (line.caps) style.textTransform = 'uppercase';
+  // a whole list in one line's worth of markup: the newlines valueAt joined
+  // it with are the line breaks, and the box's leading spaces them
+  if (text.includes('\n')) style.whiteSpace = 'pre-line';
   if (line.color) style.color = `var(--inv-${line.color})`;
   const styled = Object.keys(style).length ? style : undefined;
-  return <Tag className={cls || undefined} style={styled}>{text}</Tag>;
+  /*
+   * Her highlight goes on a span inside the line, not on the line itself.
+   * It is an inline background, so it hugs the words rather than the box
+   * and `box-decoration-break: clone` gives every line of a wrapped answer
+   * a pill of its own — which is what Canva draws and what a baked one
+   * cannot do. Inline padding leaves the line box alone, so the baselines
+   * the page was fitted to do not move.
+   */
+  const body = highlight
+    ? <span className="inv-bb-hl" style={{ background: `var(--inv-${highlight})` }}>{text}</span>
+    : text;
+  return <Tag className={cls || undefined} style={styled}>{body}</Tag>;
 }
 
 /** The face, size, weight and letter-spacing the studio set on a whole block. */
@@ -505,6 +647,11 @@ function blockType(el: TextEl): CSSProperties {
   if (el.size) style.fontSize = `${el.size}cqw`;
   if (el.weight) style.fontWeight = el.weight;
   if (el.tracking !== undefined) style.letterSpacing = `${el.tracking}em`;
+  // her own leading, where she set one: unitless, so it follows the size
+  if (el.leading !== undefined) style.lineHeight = el.leading;
+  if (el.rule) { style.textDecoration = 'underline'; style.textUnderlineOffset = '0.22em'; }
+  // inherited, so the lines inside the box take it without being told
+  if (el.caps) style.textTransform = 'uppercase';
   return style;
 }
 

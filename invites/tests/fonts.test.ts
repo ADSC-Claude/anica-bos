@@ -54,8 +54,13 @@ test("a family the set loads but never names survives as one it also loads", () 
   const capiz = setOf('capiz');
   assert.deepEqual([...capiz.alsoKeys].sort(), ['cinzel', 'pinyon-script']);
   assert.deepEqual([...fontsOf(capiz, faces)!.load.map((e) => e.split(':')[0])].sort(), ['Cinzel', 'Cormorant Garamond', 'Pinyon Script']);
-  // and it is the only set that needs it
-  assert.deepEqual(book.sets.filter((s) => s.alsoKeys.length).map((s) => s.key), ['capiz']);
+  // The christening needs it too, and for a different reason: Jost sets its
+  // section headings, Inter and Montserrat its small print, none of which is
+  // the display, body, names or script face.
+  const chr = setOf('abhaya-parisienne');
+  assert.deepEqual([...chr.alsoKeys].sort(), ['inter', 'jost', 'montserrat']);
+  // and those two are the only sets that need it
+  assert.deepEqual(book.sets.filter((s) => s.alsoKeys.length).map((s) => s.key).sort(), ['abhaya-parisienne', 'capiz']);
 });
 
 test('merging weights keeps every weight both specs asked for', () => {

@@ -60,7 +60,12 @@ export type LineKey =
 export type TitleKey = 'story' | 'parents' | 'invitation' | 'entourage' | 'sponsors' | 'gallery' | 'venue' | 'getting' | 'dressCode' | 'gift' | 'program' | 'social' | 'guestbook' | 'photos' | 'rsvp' | 'contact';
 
 export type Look = {
-  key: LookKey;
+  /**
+   * '' for `NO_LOOK` — a design that writes its own words and names no look.
+   * `[data-look]` is matched exactly in the stylesheet, so a blank key styles
+   * nothing, which is what a design with no look should get.
+   */
+  key: LookKey | '';
   name: string;
   /** One line for the picker. */
   tagline: string;
@@ -82,10 +87,40 @@ export type Look = {
   own?: { lines?: Partial<Record<Lang, LineKey[]>>; titles?: Partial<Record<Lang, TitleKey[]>> };
 };
 
+/**
+ * A look with no look in it: the shelf a design's own words stand on when the
+ * design names no look.
+ *
+ * `withWords` folds a design's wording into a look, and a design without one
+ * had nowhere to put it — so it returned the undefined it was given and every
+ * fixed writing fell through to the occasion's stock line. The christening is
+ * exactly that design: it withholds a look deliberately, because naming one
+ * would throw its own faces away (`resolveTheme` ends with `fonts = set.fonts`),
+ * and the price was that "Mom and Dad love you!" came out as the occasion's
+ * "The little moments we never want to forget."
+ *
+ * Everything here is inert. No key, so the stylesheet matches nothing; the
+ * ampersand, which is what `look?.joiner ?? '&'` already gave; no lines and no
+ * titles, so every key the design does not write still falls through to the
+ * occasion exactly as it did before. The fonts are never read off this object
+ * — a design's faces come from its own pairing, through `resolveTheme` — and
+ * are the app's own so the field is not a lie.
+ */
+export const NO_LOOK: Look = {
+  key: '', name: '', tagline: '', joiner: '&',
+  fonts: { display: 'Georgia, serif', body: 'Georgia, serif', load: [] },
+  titles: {}, lines: {} as Record<LineKey, Line>,
+};
+
 const CORMORANT = "'Cormorant Garamond', 'Hoefler Text', Georgia, serif";
 const CORMORANT_LOAD = 'Cormorant Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500';
 
-export const LOOKS: Look[] = [
+/**
+ * The catalogue's five. Narrower than `Look` by its key: every look listed
+ * here is one a customer can pick, so it is named, and `LOOK_MIN_TIER` and
+ * the fonts book can index it. Only `NO_LOOK` has the blank.
+ */
+export const LOOKS: (Look & { key: LookKey })[] = [
   {
     key: 'heritage',
     name: 'Heritage',
@@ -105,7 +140,7 @@ export const LOOKS: Look[] = [
       program: { en: 'Program', tl: 'Programa' },
       social: { en: 'Snap and Share', tl: 'Kuha at I-share' },
       guestbook: { en: 'Guestbook', tl: 'Guestbook' },
-      photos: { en: 'Post Event Photos', tl: 'Mga Larawan Pagkatapos' },
+      photos: { en: 'Photos From The Day', tl: 'Mga Larawan Ngayong Araw' },
       rsvp: { en: 'RSVP', tl: 'RSVP' },
       contact: { en: 'Need Assistance?', tl: 'May Tanong?' },
     },
@@ -441,7 +476,7 @@ export const BASE_LOOK: LookKey = 'modern';
  * The looks this package may pick, the ones it already had first. Basic has
  * one — the font style it is set in, with nothing to choose.
  */
-export function looksFor(tier: Tier): Look[] {
+export function looksFor(tier: Tier): (Look & { key: LookKey })[] {
   return LOOKS.filter((l) => tierAtLeast(tier, LOOK_MIN_TIER[l.key])).sort(
     (a, b) => RANK[LOOK_MIN_TIER[a.key]] - RANK[LOOK_MIN_TIER[b.key]] || LOOKS.indexOf(a) - LOOKS.indexOf(b),
   );

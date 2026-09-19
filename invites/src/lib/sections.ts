@@ -170,6 +170,22 @@ export type SectionDef = {
    */
   feature?: FeatureKey;
   labelFor?: Partial<Record<Occasion, string>>;
+  /**
+   * The switch is the whole answer: there is nothing for the customer to
+   * write, because what goes on the page is written later by their guests.
+   *
+   * Only the guestbook and the shared album. Both are a toggle, a toggle and
+   * a prompt the staff write — so a customer's single act is ticking the
+   * box, and `sectionFilled` counted them unfinished for ever afterwards,
+   * because it skips toggles and everything else was `staff: true`. The
+   * checklist nagged about a part that was done.
+   *
+   * It is a flag and not a rule inferred from the fields, because the same
+   * shape means something different elsewhere: the countdown's label is
+   * staff-only too, but a countdown is a line the design writes, not a wall
+   * the guests fill, and switching it on is not the same as finishing it.
+   */
+  switchIsEnough?: true;
   /** Built, but not offered yet: not in the builder, not on the page. */
   hidden?: true;
   /**
@@ -510,6 +526,20 @@ const SECTION_DEFS: SectionDef[] = [
           person('father', two ? 'Her father' : 'Father'),
           person('mother', two ? 'Her mother' : 'Mother'),
           ...(two ? [person('father2', 'His father'), person('mother2', 'His mother')] : []),
+          /**
+           * The surnames as one line, under the child's name on a cover.
+           *
+           * It cannot be worked out from the two above. A Filipino name may
+           * carry a mother's maiden surname in the middle and a father's
+           * after it, some families hyphenate and some do not, and the order
+           * on a christening cover is the family's own choice — so a design
+           * that prints "Reyes - Cruz" has to be told those words rather
+           * than given two full names to guess from. Blank prints nothing,
+           * which is the right answer for a design that does not ask.
+           */
+          ...(occasion === 'CHRISTENING' || occasion === 'COMMUNION'
+            ? [text('familyName', 'Family name, as it should read', { placeholder: 'e.g. Reyes - Cruz', hint: 'Printed under the child’s name on designs that carry a line for it.' })]
+            : []),
           text('note', 'Note', { wide: true, placeholder: 'e.g. together with Lolo and Lola' }),
         ];
       }
@@ -675,10 +705,26 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [
       select('preset', 'Preset', GIFT_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: GIFT_PRESETS, presetTarget: 'text' }),
       textarea('text', 'Gift note', { staff: true }),
+      /**
+       * A QR code or an account, and not both by accident.
+       *
+       * Every gift page carried a QR slot whether or not the family had one,
+       * so a family who banks rather than GCashes was left with an empty
+       * frame on the page and no obvious place to write an account number.
+       * They pick, and the page draws what they picked: the QR and nothing
+       * else, or the three lines and no QR at all.
+       */
+      select('payBy', 'How guests send a gift', [
+        { value: 'gcash', label: 'GCash / Maya QR' },
+        { value: 'bank', label: 'Bank account (name, bank, number)' },
+        { value: 'none', label: 'Neither — presence is the gift' },
+      ]),
       text('gcashName', 'GCash name'),
       text('gcashNumber', 'GCash number', { placeholder: '0917 000 0000' }),
-      image('gcashQr', 'GCash / Maya QR', { hint: 'A screenshot of your QR from the app.' }),
-      textarea('bankDetails', 'Bank details', { placeholder: 'BPI · Juan Dela Cruz · 0000 0000 00' }),
+      image('gcashQr', 'GCash / Maya QR', { hint: 'A screenshot of your QR from the app. Not shown when you have chosen a bank account above.' }),
+      text('bankAccountName', 'Account name', { placeholder: 'e.g. Juan Carlos Dela Cruz' }),
+      text('bankName', 'Bank', { placeholder: 'e.g. BPI' }),
+      text('bankAccountNumber', 'Account number', { placeholder: '0000 0000 00' }),
       list('registry', 'Registry links', [text('label', 'Label', { required: true }), url('url', 'Link', { required: true })], { addLabel: 'Add a link', max: 5 }),
     ],
   },
@@ -908,6 +954,7 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'guestbook',
+    switchIsEnough: true,
     label: 'Guestbook',
     tl: 'Mga Pagbati',
     description: 'A well-wishes wall guests can write on. You approve each message.',
@@ -916,6 +963,7 @@ const SECTION_DEFS: SectionDef[] = [
   },
   {
     key: 'photos',
+    switchIsEnough: true,
     label: 'Guest photos',
     labelFor: { CHRISTENING: 'Post-event photos' },
     tl: 'Mga Larawan ng Bisita',
@@ -1640,6 +1688,8 @@ export function sectionFilled(key: SectionKey, occasion: Occasion, data: Section
   const fields = fieldsFor(key, occasion);
   const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
   if (meaningful.length === 0) return true;
+  // the guestbook and the album: ticking the switch is the whole of it
+  if (SECTION_BY_KEY[key]?.switchIsEnough) return data.enabled === true;
   return meaningful.some((f) => {
     const v = data[f.key];
     if (Array.isArray(v)) return v.length > 0;

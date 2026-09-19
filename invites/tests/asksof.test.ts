@@ -31,8 +31,10 @@ test('nothing is asked for until she marks something', () => {
 
 test('a marked frame becomes a question, named where a customer would look for it', () => {
   const asks = asksOf(marked(), 'CHRISTENING');
-  assert.equal(asks.length, 3);
-  const [photo, words, first] = asks;
+  // four, not three: `story-label-3` is one box holding two questions — the
+  // milestone's title and the sentence under it — and both are asked for
+  assert.equal(asks.length, 4);
+  const [photo, words, sentence, first] = asks;
   assert.equal(photo.id, 'story-photo-3');
   assert.equal(photo.page, 'story');
   assert.equal(photo.kind, 'photo');
@@ -44,11 +46,16 @@ test('a marked frame becomes a question, named where a customer would look for i
   assert.equal(words.kind, 'text');
   assert.equal(words.room, 24);
   assert.equal(words.shape, undefined);
+  assert.deepEqual(words.ref, { section: 'story', field: 'timeline', index: 2, sub: 'title' });
+
+  // the second line of the same box, which reading only the first binding lost
+  assert.equal(sentence.id, 'story-label-3');
+  assert.deepEqual(sentence.ref, { section: 'story', field: 'timeline', index: 2, sub: 'text' });
 
   assert.equal(first.id, 'photos-photo-1');
   assert.equal(first.ifEmpty, 'leave');
   // the pages run in order, and so does the list
-  assert.deepEqual(asks.map((a) => a.page), ['story', 'story', 'baby-photos']);
+  assert.deepEqual(asks.map((a) => a.page), ['story', 'story', 'story', 'baby-photos']);
 });
 
 /** A square frame is not a portrait, and a customer should be told which. */
@@ -98,7 +105,7 @@ test('two boxes asking the same field agree on the smaller', () => {
 test('the counts are what the publish line quotes', () => {
   const c = askCounts(asksOf(marked(), 'CHRISTENING'));
   assert.equal(c.photos, 2);
-  assert.equal(c.writings, 1);
+  assert.equal(c.writings, 2);
   assert.equal(c.orphans, 0);
 });
 

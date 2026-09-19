@@ -71,11 +71,33 @@ export const CUT_GUIDANCE: Record<'circle' | 'arch', string> = {
   arch: 'It is cut to an arch, rounded right across the top, so nothing that matters goes in the top corners.',
 };
 
-const refOf = (el: Element): FieldRef | undefined => {
-  if (el.kind === 'photo') return 'asset' in el.bind ? undefined : el.bind;
-  if (el.kind !== 'text') return undefined;
-  for (const line of el.lines) for (const s of line.sources) if ('bind' in s) return s.bind;
-  return undefined;
+/**
+ * Every question one element puts, with the room the box leaves for each.
+ *
+ * A box is not one question. The christening's programme row holds the
+ * title and the sentence under it in one box, because the sentence has to
+ * follow the title down when the title runs to two lines; the assistance
+ * page holds a name over a phone number. Reading only the first binding
+ * lost the second question altogether — off the checklist, off the encoder's
+ * sheet, and out of `roomFor`, so the form asked for more letters than the
+ * box holds and nobody was told.
+ *
+ * The room is the line's own where it has one, because two lines of one box
+ * are two different sizes and hold two different numbers of letters.
+ */
+const refsOf = (el: Element): Array<{ ref: FieldRef; room?: number }> => {
+  if (el.kind === 'photo') return 'asset' in el.bind ? [] : [{ ref: el.bind }];
+  if (el.kind !== 'text') return [];
+  const out: Array<{ ref: FieldRef; room?: number }> = [];
+  for (const line of el.lines) {
+    for (const s of line.sources) {
+      if (!('bind' in s)) continue;
+      const room = line.room ?? el.room;
+      out.push({ ref: s.bind, ...(room ? { room } : {}) });
+      break;
+    }
+  }
+  return out;
 };
 
 /**
@@ -128,29 +150,29 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
         continue;
       }
       if (el.kind !== 'photo' && el.kind !== 'text') continue;
-      const ref = refOf(el);
-      if (!ref) continue;
-      const field = fieldOf(ref, occasion);
-      const of = lists.get(`${ref.section}.${ref.field}`);
-      const place = ref.index === undefined ? '' : of && of > 1 ? ` (${ref.index + 1} of ${of})` : ` ${ref.index + 1}`;
-      const what = field?.label ?? ref.sub ?? ref.field;
-      const shape = el.kind === 'photo' ? shapeOf((el as PhotoEl).aspect) : undefined;
-      const cut = el.kind === 'photo' ? (el as PhotoEl).mask : undefined;
-      const guidance = shape
-        ? cut && cut !== 'none' ? `${SHAPE_GUIDANCE[shape]} ${CUT_GUIDANCE[cut]}` : SHAPE_GUIDANCE[shape]
-        : undefined;
-      out.push({
-        id: el.id,
-        page: page.key,
-        kind: el.kind,
-        ref,
-        field: field?.key,
-        label: `${sectionLabel(ref.section as SectionKey, occasion)} — ${what}${place}`,
-        ...(shape ? { shape, guidance } : {}),
-        ...(el.kind === 'text' && (el as TextEl).room ? { room: (el as TextEl).room } : {}),
-        ...(el.ifEmpty ? { ifEmpty: el.ifEmpty } : {}),
-        ...(field ? {} : { orphan: true }),
-      });
+      for (const { ref, room } of refsOf(el)) {
+        const field = fieldOf(ref, occasion);
+        const of = lists.get(`${ref.section}.${ref.field}`);
+        const place = ref.index === undefined ? '' : of && of > 1 ? ` (${ref.index + 1} of ${of})` : ` ${ref.index + 1}`;
+        const what = field?.label ?? ref.sub ?? ref.field;
+        const shape = el.kind === 'photo' ? shapeOf((el as PhotoEl).aspect) : undefined;
+        const cut = el.kind === 'photo' ? (el as PhotoEl).mask : undefined;
+        const guidance = shape
+          ? cut && cut !== 'none' ? `${SHAPE_GUIDANCE[shape]} ${CUT_GUIDANCE[cut]}` : SHAPE_GUIDANCE[shape]
+          : undefined;
+        out.push({
+          id: el.id,
+          page: page.key,
+          kind: el.kind,
+          ref,
+          field: field?.key,
+          label: `${sectionLabel(ref.section as SectionKey, occasion)} — ${what}${place}`,
+          ...(shape ? { shape, guidance } : {}),
+          ...(el.kind === 'text' && room ? { room } : {}),
+          ...(el.ifEmpty ? { ifEmpty: el.ifEmpty } : {}),
+          ...(field ? {} : { orphan: true }),
+        });
+      }
     }
   }
   return out;

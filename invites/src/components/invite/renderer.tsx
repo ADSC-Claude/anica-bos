@@ -17,8 +17,9 @@ import { qrSvg, qrColours, qrOnPhoto, paperColours } from '@/lib/qr';
 import { passLookFrom, type PassLook } from '@/lib/pass';
 import { invitationUrl, invitationPath } from '@/lib/app-url';
 import { PHOTO_MAX_LABEL } from '@/lib/album';
+import { SHOW_MESSAGES, SHOW_PHOTOS } from '@/lib/showlist';
 import { Shell, Countdown, RsvpForm, GuestbookForm, GuestPhotoForm, PrintButton, VideoFacade, PageGround, Pinned, ModeToggle, PeekControls, Contents, Motion, Hub } from './client';
-import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
+import { wordsOf, artOf, withWords, CAPIZ_DEFAULT_ART, BABYBLUE_GROUNDS, documentOf, builtinDesign, pageRatio, peekEndPage, isPicture, coverOf, coverStyle, offeredSections, flowFloats, flowDecor, outsideOf, bleeds, runOf, groundKind, screensOf, sizeOf, PHONE_WINDOW, sectionDress, designVars, TITLE_KEYS, titleWord, reachablePages, bookletsOf, pageOfSection, stdPage, sheetRules, type PictureGround, type CoverSpec, type PageSpec, type SectionStyle, type Source, type WordKey, pinOf } from '@/lib/design';
 import { extraSectionsOf } from '@/lib/parts';
 import { DrawnPage, FlowFloats, FlowDecor } from './drawn';
 import { Drawn } from './figures';
@@ -27,6 +28,7 @@ import { pickDrawings, wearable, figureHeight, type Drawing } from '@/lib/attire
 import { swatchByHex, swatchStyle, swatchHex } from '@/lib/palette';
 import { parseStart, youtubeId, youtubeEmbed } from '@/lib/song';
 import { imageUrl, IMAGE } from '@/lib/images';
+import { mapsHref, wazeHref } from '@/lib/places';
 
 /**
  * The invitation, rendered on the server from its JSON. The template decides
@@ -94,19 +96,6 @@ function nonEmpty(s: string): boolean {
   return s.trim() !== '';
 }
 
-function mapsHref(data: SectionData | undefined): string {
-  const given = str(data, 'mapsUrl');
-  if (given) return given;
-  const q = [str(data, 'venue'), str(data, 'address')].filter(Boolean).join(', ');
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : '';
-}
-
-function wazeHref(data: SectionData | undefined): string {
-  const given = str(data, 'wazeUrl');
-  if (given) return given;
-  const q = [str(data, 'venue'), str(data, 'address')].filter(Boolean).join(', ');
-  return q ? `https://waze.com/ul?q=${encodeURIComponent(q)}&navigate=yes` : '';
-}
 
 function videoEmbed(url: string): { src: string; poster?: string } | null {
   const yt = youtubeId(url);
@@ -917,12 +906,27 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
 
 function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionData; lang: Lang; title: string; tagline?: string; format?: boolean; thanks?: string }) {
   const registry = rows<{ label: string; url: string }>(data, 'registry');
-  const qr = str(data, 'gcashQr');
+  /*
+   * A QR or an account, by the family's own choice (gift.payBy).
+   *
+   * Blank means the choice was never made, which is every invitation built
+   * before it existed — so blank behaves exactly as it always did: the QR
+   * and the GCash lines, drawn when there is something to draw. Only a
+   * family who has actively picked "bank" loses the QR, which is what
+   * picking it means.
+   */
+  const payBy = str(data, 'payBy');
+  const qr = payBy === 'bank' || payBy === 'none' ? '' : str(data, 'gcashQr');
+  const showGcash = payBy !== 'bank' && payBy !== 'none';
+  const bankName = str(data, 'bankName');
+  const bankWho = str(data, 'bankAccountName');
+  const bankNo = str(data, 'bankAccountNumber');
+  const hasBank = Boolean(bankName || bankWho || bankNo);
   return (
     <Section id="gift" title={title} tagline={tagline}>
       {format && <Ico name="gift" className="inv-ico-lg" />}
       {str(data, 'text') && <p className="mx-auto max-w-md whitespace-pre-line text-center" {...w('gift.text', [{ bind: { section: 'gift', field: 'text' } }])}>{str(data, 'text')}</p>}
-      {(qr || str(data, 'gcashNumber')) && (
+      {showGcash && (qr || str(data, 'gcashNumber')) && (
         <div className="inv-card mt-5 text-center">
           <p className="inv-eyebrow" {...w('gift.gcashLabel', [{ copy: 'gift.gcash' }])}>{t(lang, 'gift.gcash')}</p>
           {/*
@@ -936,7 +940,21 @@ function Gift({ data, lang, title, tagline, format, thanks }: { data: SectionDat
           {str(data, 'gcashNumber') && <p className="tabular-nums" {...w('gift.gcashNumber', [{ bind: { section: 'gift', field: 'gcashNumber' } }])}>{str(data, 'gcashNumber')}</p>}
         </div>
       )}
-      {str(data, 'bankDetails') && (
+      {hasBank && (
+        <div className="inv-card mt-3 text-center">
+          <p className="inv-eyebrow" {...w('gift.bankLabel', [{ copy: 'gift.bank' }])}>{t(lang, 'gift.bank')}</p>
+          {bankWho && <p className="font-semibold" {...w('gift.bankAccountName', [{ bind: { section: 'gift', field: 'bankAccountName' } }])}>{bankWho}</p>}
+          {bankName && <p className="text-sm" {...w('gift.bankName', [{ bind: { section: 'gift', field: 'bankName' } }])}>{bankName}</p>}
+          {bankNo && <p className="text-sm tabular-nums" {...w('gift.bankAccountNumber', [{ bind: { section: 'gift', field: 'bankAccountNumber' } }])}>{bankNo}</p>}
+        </div>
+      )}
+      {/*
+        The one free-text line the three fields above replaced. Nothing asks
+        for it any more, but invitations written before they existed carry
+        it, and a family's account number disappearing off their live page
+        because we tidied a form is not a trade worth making.
+      */}
+      {!hasBank && str(data, 'bankDetails') && (
         <div className="inv-card mt-3 text-center">
           <p className="inv-eyebrow" {...w('gift.bankLabel', [{ copy: 'gift.bank' }])}>{t(lang, 'gift.bank')}</p>
           <p className="whitespace-pre-line text-sm" {...w('gift.bankDetails', [{ bind: { section: 'gift', field: 'bankDetails' } }])}>{str(data, 'bankDetails')}</p>
@@ -1448,30 +1466,47 @@ function GuestPhotos({
   format?: boolean;
   intro?: string;
 }) {
+  /*
+   * Nine cells, drawn whether or not there are nine photographs.
+   *
+   * A grid that springs into existence when the first photograph lands reads
+   * as a page that was broken until somebody fixed it, and an empty section
+   * with one apologetic line reads as a feature nobody used. Nine frames
+   * standing empty read as an album waiting to be filled — which is what it
+   * is, and which is the whole invitation to add to it.
+   *
+   * The newest nine, and the tenth pushes the oldest off the wall. Nothing is
+   * lost by that: the count underneath says how many are behind, and every one
+   * of them is in the couple's Photos tab and in the download. See showlist.ts.
+   */
   const photos = inv.media;
+  const more = Math.max(0, inv.kept.photos - photos.length);
+  const blanks = print ? 0 : Math.max(0, SHOW_PHOTOS - photos.length);
   if (!photos.length && print) return null;
   return (
     <Section id="guest-photos" title={title ?? t(lang, 'photos.title')} tagline={tagline}>
       {format && <Ico name="upload" className="inv-ico-lg" />}
       {format && intro && <p className="mx-auto mb-4 max-w-sm text-center">{intro}</p>}
-      {photos.length > 0 ? (
-        <div className="inv-gallery">
-          {photos.map((m) => (
-            <figure key={m.id}>
-              <img src={imageUrl(m.url, IMAGE.grid)} alt={m.caption || ''} loading="lazy" />
-              {(m.caption || m.uploadedBy) && (
-                <figcaption className="inv-muted mt-1 text-center text-xs">
-                  {m.caption}
-                  {m.caption && m.uploadedBy ? ' — ' : ''}
-                  {m.uploadedBy}
-                </figcaption>
-              )}
-            </figure>
-          ))}
-        </div>
-      ) : (
-        <p className="inv-muted mb-4 text-center text-sm">{t(lang, 'photos.empty')}</p>
-      )}
+      <div className="inv-wall-grid">
+        {photos.map((m) => (
+          <figure key={m.id} className="inv-wall-cell">
+            <img src={imageUrl(m.url, IMAGE.grid)} alt={m.caption || ''} loading="lazy" />
+            {(m.caption || m.uploadedBy) && (
+              <figcaption>
+                {m.caption}
+                {m.caption && m.uploadedBy ? ' — ' : ''}
+                {m.uploadedBy}
+              </figcaption>
+            )}
+          </figure>
+        ))}
+        {Array.from({ length: blanks }, (_, i) => (
+          <div key={`slot-${i}`} className="inv-slot inv-slot-photo" {...(i === 0 ? {} : { 'aria-hidden': true })}>
+            {i === 0 && <span>{t(lang, 'photos.slot')}</span>}
+          </div>
+        ))}
+      </div>
+      {more > 0 && <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'photos.more', { n: more })}</p>}
       {!print && (
         <div className="mt-5">
           <p className="mb-3 text-center">{str(data, 'prompt') || t(lang, 'photos.prompt')}</p>
@@ -1503,18 +1538,33 @@ function GuestPhotos({
 
 function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: PublicInvitation; data: SectionData; lang: Lang; hostsNoun: string; slug: string; tagline?: string; title?: string }) {
   if (!bool(data, 'enabled')) return null;
+  /*
+   * Three on the wall, and the fourth message takes the oldest one's place.
+   *
+   * Same reasoning as the photographs above, and the same promise underneath:
+   * what leaves the wall is still in the book. Three empty cards stand where
+   * the messages will go, so the section has its shape from the first look
+   * rather than appearing once a stranger has written something.
+   */
+  const notes = inv.guestbook;
+  const more = Math.max(0, inv.kept.messages - notes.length);
+  const blanks = Math.max(0, SHOW_MESSAGES - notes.length);
   return (
     <Section id="guestbook" title={title ?? t(lang, 'guestbook.title')} tagline={tagline}>
-      {inv.guestbook.length > 0 && (
-        <ul className="mb-5 space-y-2">
-          {inv.guestbook.map((g) => (
-            <li key={g.id} className="inv-card">
-              <p className="whitespace-pre-line text-sm">{g.message}</p>
-              <p className="inv-muted mt-1 text-xs">— {g.name}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul className="mb-2 space-y-2">
+        {notes.map((g) => (
+          <li key={g.id} className="inv-card">
+            <p className="whitespace-pre-line text-sm">{g.message}</p>
+            <p className="inv-muted mt-1 text-xs">— {g.name}</p>
+          </li>
+        ))}
+        {Array.from({ length: blanks }, (_, i) => (
+          <li key={`slot-${i}`} className="inv-slot inv-slot-note" {...(i === 0 && !notes.length ? {} : { 'aria-hidden': true })}>
+            {i === 0 && !notes.length && <span>{t(lang, 'guestbook.first')}</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="inv-muted mb-5 text-center text-xs">{more > 0 ? t(lang, 'guestbook.more', { n: more }) : '\u00a0'}</p>
       <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'rsvp.thanks') }} />
     </Section>
   );
@@ -1849,6 +1899,17 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
   const musicUrl = visible('music') ? str(content.music, 'url') : '';
   const hashtag = str(content.social, 'hashtag');
   const rsvpVisible = visible('rsvp');
+  /*
+   * The booklet the RSVP is behind, where a design puts it behind one.
+   *
+   * The floating RSVP button is an anchor to `#rsvp`, and on the christening
+   * that anchor is inside a shut booklet — so the one button a guest is
+   * most likely to press did nothing at all. Naming the booklet makes the
+   * hub open it on the way (`Hub`, client.tsx), and the anchor is still
+   * there underneath for a guest with no script, whose booklet pages are
+   * all in the column anyway.
+   */
+  const rsvpBooklet = pageOfSection(doc, 'rsvp')?.booklet;
 
   /**
    * What the opening shows. Printing skips it, and so does a design that
@@ -2091,7 +2152,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
-    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
+    const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; live?: boolean; top?: number; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
       const dress = sectionDress(o.dress);
@@ -2111,6 +2172,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           data-foot={o.foot !== undefined ? '' : undefined}
           data-head={o.head !== undefined ? '' : undefined}
           data-drawn={o.drawn ? '' : undefined}
+          data-live={o.live ? '' : undefined}
           data-grow={o.grow ? '' : undefined}
           data-ground={o.colour}
           // the colour beside the page on a laptop, a role or a colour: PageGround lays the band on the stage
@@ -2128,6 +2190,8 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
             ...(o.head !== undefined ? { ['--page-head' as string]: o.head } : {}),
+            // where the working part of a live page starts, under the art
+            ...(o.live && o.top !== undefined ? { ['--live-top' as string]: `${o.top}cqw` } : {}),
             ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
             ...(o.size !== undefined ? { ['--page-size' as string]: o.size } : {}),
             ...(o.colour && !o.pin ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
@@ -2206,8 +2270,22 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // the photographs page goes when a package has no gallery. One that
         // names none depends on nothing — it is the design's own page, a
         // picture and some words — so it is always drawn.
+        // A drawn page that also has to *work*: the RSVP's form, the pairs a
+        // guest opens on Good to know. The art is drawn as usual and the
+        // section's own markup follows under it, with the heading the section
+        // would draw hidden, because the design has drawn one already.
+        const working = spec.drawn && spec.live
+          ? spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]
+          : [];
         const parts = spec.drawn
-          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k)) ? [<DrawnPage key={spec.key} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} />] : [])
+          ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k))
+              // `-art`, not the page's own key: on a `live` page the section's
+              // node follows in the same list and is keyed by the section it
+              // renders, which for the FAQ and the RSVP is the page's key
+              // exactly. Two children with one key is React's to resolve, and
+              // it resolves it by dropping one of them.
+              ? [<DrawnPage key={`${spec.key}-art`} page={spec} content={content as Record<string, unknown>} look={look} lang={lang} occasion={occasion} parts={ownParts} path={invitationPath(inv.slug)} song={Boolean(musicUrl)} />, ...working]
+              : [])
           : flowBody(spec, spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]);
         spec.sections.forEach((k) => placed.add(k));
         const colour = spec.ground && !isPicture(spec.ground) ? spec.ground.color : undefined;
@@ -2219,7 +2297,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         const built = parts.length ? page(spec.key, parts, pin
           // no colour: a page on a pin is see-through, by night as by day
           ? { pin, foot: spec.footPad, head: spec.headPad, dress: spec.sectionStyle, min: screensOf(spec), size: sizeOf(spec), off: spec.offFlow, booklet: spec.booklet }
-          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }) : null;
+          : { bg: own ? spec.key : head, run, colour, seam: spec.seam, foot: spec.footPad, head: spec.drawn ? undefined : spec.headPad, drawn: spec.drawn, live: spec.drawn && spec.live, top: spec.headPad, grow: spec.drawn && spec.grow, ratio: spec.drawn ? pageRatio(spec) : undefined, dress: spec.drawn ? undefined : spec.sectionStyle, outside: outsideOf(spec), min: screensOf(spec), size: sizeOf(spec), bleed: own && bleeds(spec) ? true : undefined, off: spec.drawn ? undefined : spec.offFlow, booklet: spec.booklet }) : null;
         // A booklet's pages are gathered rather than laid in the column, and
         // put after it below. The studio asking for one page by key wants it
         // on the canvas wherever it lives, so `only` gathers nothing.
@@ -2247,6 +2325,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
       if (!inside?.length) continue;
       out.push(
         <div key={`booklet-${b.key}`} id={`booklet-${b.key}`} className="inv-booklet" data-booklet={b.key} data-label={b.pages[0]?.label?.en || b.key.replace(/-/g, ' ')}>
+          {/*
+            A booklet's own ground layer. The pass that lays the backgrounds
+            (PageGround) works one surface at a time, and a booklet is a
+            surface: its pages start at its own top rather than at the
+            column's, so their pictures cannot be laid into the column's
+            layer. Without this the nine pages behind the hub came up bare.
+          */}
+          <div className="inv-ground" aria-hidden="true" />
           <button type="button" className="inv-booklet-back" data-back="">{lang === 'tl' ? 'Bumalik' : 'Back'}</button>
           {inside}
         </div>,
@@ -2481,7 +2567,12 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         </footer>
         )}
         {rsvpVisible && !print && !peek && !only && (
-          <a href="#rsvp" className="inv-btn inv-sticky no-print">{t(lang, 'nav.rsvp')}</a>
+          <a
+            href="#rsvp"
+            className="inv-btn inv-sticky no-print"
+            aria-label={t(lang, 'nav.rsvp')}
+            {...(rsvpBooklet ? { 'data-opens': rsvpBooklet } : {})}
+          >{t(lang, 'nav.rsvp')}</a>
         )}
       </Shell>
     </div>

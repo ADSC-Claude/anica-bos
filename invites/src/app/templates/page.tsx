@@ -41,6 +41,16 @@ export default async function TemplatesPage() {
         <p className="mt-3 max-w-2xl text-[color:var(--color-ink-700)]">
           <b>Day and night.</b> Every design reads both ways. You choose which one your invitation opens in, or let it follow your guest&apos;s own clock — evening after six — and your guest can switch with the moon in the corner while they read. Their phone remembers how they left it.
         </p>
+        {/* One design is on sale while the rest of the set is drawn, and a
+            gallery of one needs to say why — otherwise it reads as a shop
+            with nothing in it. It is written to be true whatever the count
+            becomes: the moment a second design is published this still
+            reads correctly, and it can come out then. */}
+        {templates.length <= 1 && (
+          <p className="mt-3 max-w-2xl text-[color:var(--color-ink-700)]">
+            <b>More are on the way.</b> We are drawing a design for every occasion we cover — weddings, debuts, birthdays and more christenings. Tell us what you are celebrating and we will show you what is close.
+          </p>
+        )}
         {occasions.length > 0 && (
           <section className="mt-8">
             <h2 className="display text-2xl">Browse by occasion</h2>

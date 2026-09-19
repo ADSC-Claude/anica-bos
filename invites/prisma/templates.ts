@@ -17,14 +17,23 @@ import { premiumOpeningsFor } from '../src/lib/premium-openings';
  * it keep rendering, but it is unpublished: off the shop floor, out of the
  * checkout, gone from the gallery.
  *
- * **Nothing is on sale at the moment.** Both shipped designs are retired
- * while the new Canva-sourced ones are made, because two designs built the
- * old way, sitting in the gallery beside the new ones, are two designs to
- * keep explaining and to keep confusing ourselves with. Retired is not
- * deleted and is meant to be undone: the row stays, the document stays, the
- * artwork stays, the demo keeps rendering, and taking the word off this list
- * and running `scripts/sync-templates.ts` puts either of them back on the
- * shop floor exactly as it was.
+ * **One design is on sale: the christening.** It is the standard from now
+ * on — the first drawn as artwork first and wired second — and the owner
+ * asked for it to stand alone while the rest of the set is made, so the
+ * gallery says plainly that more are coming.
+ *
+ * The two built the old way stay retired. Retired is not deleted and is
+ * meant to be undone: the row stays, the document stays, the artwork stays,
+ * the demo keeps rendering, and taking the word off this list and running
+ * `scripts/sync-templates.ts` puts either of them back on the shop floor
+ * exactly as it was.
+ *
+ * One catch, and it is the one that bites: the sync can take a design *off*
+ * the shop floor but never put one back (`scripts/sync-templates.ts`, where
+ * `published` is only in the payload for a retired design — so that staff
+ * unpublishing a live design in the admin is never undone by a deploy).
+ * Un-retiring a row here is half the job; the other half is publishing it
+ * in the admin, or by hand.
  */
 const pal = (key: string) => PALETTE_PRESETS.find((p) => p.key === key)!.palette;
 const fonts = (key: string) => FONT_PRESETS.find((f) => f.key === key)!.fonts;
@@ -72,6 +81,23 @@ export type TemplateSeed = {
   design?: DesignDoc;
   /** Kept for the invitations on it, but not on sale. */
   retired?: boolean;
+  /**
+   * The code owns this design's document, so a sync overwrites whatever is in
+   * the row.
+   *
+   * The default is the opposite, and deliberately: a document the studio
+   * wrote into a row is the owner's work and a catalogue sync must never
+   * flatten it. But a design still being *built* in this file — the
+   * christening is, page by page — has the opposite need. Its row holds a
+   * snapshot the catalogue itself put there, nobody has touched it in the
+   * studio, and leaving it alone means every fix stays on this branch and
+   * never reaches the page.
+   *
+   * Take it off once the studio becomes the place that design is edited.
+   * Until then a sync is how it ships, and the flag is what says so out loud
+   * rather than a surprise in the diff.
+   */
+  owns?: boolean;
 };
 
 export const TEMPLATES: TemplateSeed[] = [
@@ -108,6 +134,67 @@ export const TEMPLATES: TemplateSeed[] = [
         countdown: 'Bilang ng araw bago ang binyag...', contactNote: 'Para sa anumang tanong, huwag mag-atubiling magtanong.',
         closing: 'Kita-kits! ♡', closingMessage: 'Salamat sa pagiging bahagi ng biyayang ito. Hindi na kami makapaghintay na makipagdiwang sa inyo.',
         photos: 'I-share ang mga kuha mo!', photosIntro: 'I-upload ang inyong mga larawan mula sa binyag.',
+      },
+    },
+  },
+  /**
+   * The christening on her own sixteen Canva pages: the first design drawn
+   * as artwork first and wired second. Seven pages scroll; nine sit behind
+   * the Highlights page in three booklets a guest opens by tapping the
+   * envelope, the oval and the sealed RSVP.
+   *
+   * On sale, and the only one: the standard template from here on. The
+   * grounds, the hub, the words and both pull-out gestures her brief asks
+   * for are in — the print out of the instant camera, the card out of the
+   * envelope — and every control a guest presses has been pressed.
+   */
+  {
+    slug: 'christening', name: 'Baby Blue Christening', occasion: 'CHRISTENING', minTier: 'STANDARD', premium: false,
+    layout: 'christening', collection: 'babyblue', opening: 'universal',
+    /*
+     * No `look`. A look is a palette and a pairing, and `resolveTheme` ends
+     * with `if (set) fonts = set.fonts` — so naming one here would throw the
+     * christening's own faces away and set the whole design in the look's.
+     * It did: every page came out in Lora. The design carries its own words
+     * in `words` below, which is the other half of what a look would have
+     * given it, so there is nothing left for one to do.
+     */
+    palette: pal('christening'), fonts: fonts('abhaya-parisienne'), featured: true, owns: true,
+    description: 'Clouds, a paper bow and a desk of small things to open. Sixteen pages for a christening, seven to scroll and nine to find.',
+    thumb: '/christening/cover.webp', demo: 'lucas-andrei-christening',
+    design: builtinDesign('christening')!,
+    words: {
+      en: {
+        cover: 'Christening',
+        'title:story': 'Our Story', 'title:invitation': 'CEREMONY', 'title:sponsors': 'GODPARENTS',
+        'title:gallery': 'Baby Photos', 'title:venue': 'RECEPTION', 'title:dressCode': 'DRESS CODE',
+        'title:gift': 'GIFT NOTE', 'title:program': 'Program', 'title:social': 'SHARE THE JOY',
+        'title:rsvp': 'RSVP', 'title:contact': 'QUESTIONS?',
+        story: 'A little prayer, a big answer.',
+        invitation: 'Join us as we welcome our little one into God’s family',
+        galleryNote: 'Mom and Dad love you!', galleryClose: 'You are our greatest blessing!',
+        countdown: 'before the big day',
+        dressNote: 'Any shade of blue for our guests; cream to beige for the ninongs and ninangs.',
+        contactNote: 'Or message us on Messenger.',
+        closing: 'SEE YOU THERE!',
+        closingMessage: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.',
+        giftThanks: 'Our little one is growing fast! If you’d like to bring a gift, clothes or shoes for a 1-year-old, or a monetary gift for their savings, would be greatly appreciated.',
+      },
+      tl: {
+        cover: 'Binyag',
+        'title:story': 'Ang Aming Kuwento', 'title:invitation': 'SEREMONYA', 'title:sponsors': 'NINONG AT NINANG',
+        'title:gallery': 'Mga Larawan ni Baby', 'title:venue': 'SALU-SALO', 'title:dressCode': 'DRESS CODE',
+        'title:gift': 'TUNGKOL SA REGALO', 'title:program': 'Programa', 'title:social': 'I-SHARE ANG SAYA',
+        'title:rsvp': 'RSVP', 'title:contact': 'MAY TANONG?',
+        story: 'Isang munting dasal, isang malaking sagot.',
+        invitation: 'Samahan kami sa pagtanggap ng aming anak sa pamilya ng Diyos',
+        galleryNote: 'Mahal ka nina Mama at Papa!', galleryClose: 'Ikaw ang aming pinakamalaking biyaya!',
+        countdown: 'bago ang malaking araw',
+        dressNote: 'Anumang kulay asul para sa mga bisita; cream hanggang beige para sa mga ninong at ninang.',
+        contactNote: 'O mag-message sa amin sa Messenger.',
+        closing: 'KITA-KITS!',
+        closingMessage: 'Salamat sa pagiging bahagi ng biyayang ito. Hindi na kami makapaghintay na makipagdiwang sa inyo.',
+        giftThanks: 'Mabilis lumaki ang aming munting anak! Kung nais ninyong magdala ng regalo, damit o sapatos para sa 1-taong-gulang, o salapi para sa kanyang ipon, labis naming ikagagalak.',
       },
     },
   },

@@ -217,7 +217,7 @@ async function main() {
     brideFather: { title: 'Engr.', name: 'Roberto A. Santos', deceased: false }, brideMother: { title: 'Mrs.', name: 'Carmen L. Santos', deceased: false }, brideNote: '',
     groomFather: { title: 'Mr.', name: 'Antonio B. Dela Cruz', deceased: true }, groomMother: { title: 'Dr.', name: 'Teresita R. Dela Cruz', deceased: false }, groomNote: '',
   });
-  Object.assign(content.ceremony!, { type: 'catholic', venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dateKey, time: '14:00', seatedBy: '1:30 PM', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-agustin', 1200, 800), note: 'The church is air-conditioned. Please arrive early — Intramuros traffic is real.' });
+  Object.assign(content.ceremony!, { type: 'catholic', venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dateKey, time: '14:00', seatedBy: '1:30 PM', mapsUrl: '', wazeUrl: '', photo: pic('san-agustin', 1200, 800), note: 'The church is air-conditioned. Please arrive early — Intramuros traffic is real.' });
   Object.assign(content.reception!, { venue: 'The Manila Hotel — Fiesta Pavilion', address: 'One Rizal Park, Ermita, Manila', time: '17:30', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the hotel. A shuttle leaves the church at 4:15 PM.', photo: pic('manila-hotel', 1200, 800), note: '' });
   Object.assign(content.entourage!, {
     brideParents: [{ name: 'Engr. Roberto A. Santos' }, { name: 'Mrs. Carmen L. Santos' }],
@@ -240,7 +240,7 @@ async function main() {
   });
   Object.assign(content.dressCode!, { attire: 'formal', attireText: 'We kindly encourage our guests to wear elegant formal attire.', gentsColors: ['soft-black', 'camel', 'olive', 'sand'].map(swatchHex), gentsItems: ['suit', 'coat', 'longSleeves'], gentsNote: 'Tie is optional.', ladiesColors: ['champagne-gold', 'sage', 'dusty-rose', 'caramel', 'mocha'].map(swatchHex), ladiesItems: ['longGown', 'cocktail', 'separates'], ladiesNote: 'We encourage earthy, neutral and muted tones.', colors: ['champagne', 'taupe', 'dusty-rose', 'sage', 'olive', 'mocha', 'caramel', 'chocolate'].map(swatchHex), paletteNote: 'You may choose from this palette or similar shades.', avoid: ['white', 'bright', 'casual', 'sports', 'slippers', 'prints'], sponsorsAttire: 'Champagne gown / Barong Tagalog', entourageAttire: 'Sage green', note: '' });
   Object.assign(content.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Maria S.', gcashNumber: '0917 123 4567', gcashQr: pic('gcash-qr', 400, 400), bankDetails: 'BPI · Juan Carlos Dela Cruz · 1234 5678 90', registry: [] });
-  Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
+  Object.assign(content.rsvp!, { deadline: rsvpBy, showSeats: true, collectAttendees: true, askDietary: true, mealChoices: [{ label: 'Beef' }, { label: 'Chicken' }, { label: 'Fish' }, { label: 'Vegetarian' }], policy: 'adultsOnly', policyText: POLICY_PRESETS[0].en, notePreset: 'custom', note: 'Kindly confirm your attendance on or before {date}.', contactPhone: '0917 123 4567', reminderText: 'Hi {name}! Please RSVP for Juan & Maria’s wedding here: {link}' });
   Object.assign(content.story!, {
     photo: pic('story-snapshot', 900, 900),
     caption: 'Sagada, before the sunrise crowd',
@@ -254,7 +254,15 @@ async function main() {
   Object.assign(content.travel!, { hotels: [{ name: 'The Manila Hotel', address: 'One Rizal Park, Ermita', note: 'Use code JMWEDDING for the group rate', url: 'https://www.manila-hotel.com.ph' }, { name: 'Bayleaf Intramuros', address: 'Muralla St, Intramuros', note: 'Walking distance to the church', url: '' }], directions: 'From NAIA: Skyway to Roxas Blvd, exit at Rizal Park. About 40 minutes without traffic — allow 90.', tips: 'Grab and taxis are reliable in the area. The LRT-1 UN Avenue station is a 10-minute walk from both venues.' });
   Object.assign(content.social!, { hashtag: '#JuanAndMariaSayIDo', instagram: '@juanandmaria', tiktok: '@juanandmaria', facebook: 'juanandmaria', unplugged: true, unpluggedText: UNPLUGGED_PRESET.en });
   Object.assign(content.contact!, { name: 'Maria', phone: '0917 123 4567', name2: 'Juan', phone2: '0918 765 4321', email: '', messenger: 'https://m.me/juanandmaria', chatNote: 'Or message us on Viber / WhatsApp.', registrationNote: '' });
-  Object.assign(content.music!, { song: 'Ikaw — Yeng Constantino', start: 65, url: '' });
+  /*
+   * The demos carry a song, because a button nobody can hear is a button
+   * nobody can check. It is written rather than licensed — plain sine
+   * partials with a struck-bell decay, `scripts/make-music-box.py` — so a
+   * public repository is not carrying somebody's recording. A real family
+   * uploads their own and it plays in its place; `start` is 0 because this
+   * one has no intro to skip.
+   */
+  Object.assign(content.music!, { song: 'Music box (placeholder for the demo)', start: 0, url: '/demo/music-box.mp3' });
   Object.assign(content.guestbook!, { enabled: true, prompt: 'Leave a message for Juan & Maria', moderated: true });
   Object.assign(content.photos!, { enabled: true, prompt: 'Share your photos from the day — we will add them here', moderated: true });
   Object.assign(content.closing!, { message: 'Salamat for being part of our story. We cannot wait to celebrate with you.', signature: 'Juan & Maria', photo: pic('closing', 1200, 900), surprise: 'Look under your seat at the reception — there is a little something from us. Open it at the toast.' });
@@ -294,14 +302,56 @@ async function main() {
     await prisma.rsvp.create({ data: { invitationId: demo.id, guestId: guests[gi].id, name: guests[gi].name, response, seats, attendees: [...attendees] as never, mealChoice: meal, message: response === 'ACCEPT' ? 'See you there! Congrats!' : 'So sorry, we will be abroad. Love you both!', createdAt: addDays(new Date(), -10 + gi) } });
   }
   await prisma.rsvp.create({ data: { invitationId: demo.id, name: 'Tita Baby Reyes', response: 'ACCEPT', seats: 3, attendees: ['Baby Reyes', 'Boy Reyes', 'Ate Jing'] as never, mealChoice: 'Beef', message: 'Excited na kami!', phone: '0918 111 2222' } });
+  /*
+   * A wall with something on it.
+   *
+   * Both of these used to seed two approved rows and one waiting, which was
+   * enough to prove the feature worked and not enough to show what it looks
+   * like in use. The page shows the newest three messages and the newest nine
+   * photographs (showlist.ts), so a demo with two of each never draws a full
+   * wall and never draws the line that says how many are behind it — the two
+   * things anyone looking at the demo is trying to see. Twelve and eight, so
+   * both walls are full and both have a remainder.
+   *
+   * `minutes` walks the timestamps backwards from an hour ago: newest first is
+   * the whole point of the showlist, and rows written in one tick sort
+   * arbitrarily.
+   */
+  const anHourAgo = addDays(new Date(), 0).getTime() - 60 * 60 * 1000;
+  const minutes = (i: number) => new Date(anHourAgo + i * 4 * 60 * 1000);
+  const guestShots: [string, string, boolean][] = [
+    ['Grabe ang ganda ng church!', 'Tita Baby', true],
+    ['First dance 🥹', 'Camille', true],
+    ['The whole barkada', 'Paolo', true],
+    ['Sabado ng gabi', 'Rina', true],
+    ['Lola and Lolo', 'Jomar', true],
+    ['Cake time!', 'Cecil', true],
+    ['Photobooth queue', 'Ben', true],
+    ['The entourage', 'Malou', true],
+    ['Sunset sa garden', 'Dex', true],
+    ['Kids table chaos', 'Ana', true],
+    ['The toast', 'Kim', true],
+    ['Last song', 'Vic', true],
+    ['Blurry but happy', 'Anonymous', false],
+  ];
   await prisma.media.createMany({
-    data: [
-      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-1', 900, 900), storagePath: 'seed/guest-photo-1.jpg', contentType: 'image/jpeg', caption: 'Grabe ang ganda ng church!', uploadedBy: 'Tita Baby', approved: true, sortOrder: 0 },
-      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-2', 900, 900), storagePath: 'seed/guest-photo-2.jpg', contentType: 'image/jpeg', caption: 'First dance 🥹', uploadedBy: 'Camille', approved: true, sortOrder: 1 },
-      { invitationId: demo.id, kind: 'GUEST_PHOTO', url: pic('guest-photo-3', 900, 900), storagePath: 'seed/guest-photo-3.jpg', contentType: 'image/jpeg', caption: 'The whole barkada', uploadedBy: 'Paolo', approved: false, sortOrder: 2 },
-    ],
+    data: guestShots.map(([caption, uploadedBy, approved], i) => ({
+      invitationId: demo.id, kind: 'GUEST_PHOTO' as const,
+      url: pic(`guest-photo-${i + 1}`, 900, 900), storagePath: `seed/guest-photo-${i + 1}.jpg`, contentType: 'image/jpeg',
+      caption, uploadedBy, approved, sortOrder: i, createdAt: minutes(i),
+    })),
   });
-  await prisma.guestbookEntry.createMany({ data: [{ invitationId: demo.id, name: 'Tita Baby', message: 'Finally! Ang tagal naming hinintay ito. Congratulations, Juan and Maria!', approved: true }, { invitationId: demo.id, name: 'Camille', message: 'From taho to “I do” — so proud of you two. ❤️', approved: true }, { invitationId: demo.id, name: 'Anonymous', message: 'Best wishes from the office!', approved: false }] });
+  const wishes: [string, string, boolean][] = [
+    ['Tita Baby', 'Finally! Ang tagal naming hinintay ito. Congratulations, Juan and Maria!', true],
+    ['Camille', 'From taho to “I do” — so proud of you two. ❤️', true],
+    ['Kuya Ben', 'Wishing you a lifetime of Sunday breakfasts together.', true],
+    ['Rina', 'Ang ganda ng lahat! Salamat sa invite.', true],
+    ['Jomar', 'From the college barkada — sobrang saya para sa inyo.', true],
+    ['Anonymous', 'Best wishes from the office!', false],
+  ];
+  await prisma.guestbookEntry.createMany({
+    data: wishes.map(([name, message, approved], i) => ({ invitationId: demo.id, name, message, approved, createdAt: minutes(i) })),
+  });
   await prisma.invitationView.createMany({ data: Array.from({ length: 14 }, (_, i) => ({ invitationId: demo.id, day: new Date(addDays(new Date(), -i).toISOString().slice(0, 10)), count: 10 + ((i * 7) % 40) })) });
 
   // --- a christening Done-For-You job on Baby Blue, the client's form in -------
@@ -316,7 +366,7 @@ async function main() {
     const c: Content = defaultContent('CHRISTENING', 'en');
     const intake: Content = {
       cover: { childFull: 'Amara Sofia Reyes', childNick: 'Amara', birthDate: addDays(new Date(), -80).toISOString().slice(0, 10), date: dayKey, time: '09:30', introPreset: 'simple', intro: 'With grateful hearts, Paolo and Denise invite you to the christening of their daughter.' },
-      ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: 'https://maps.app.goo.gl/9x3b1QhF2kJmTq8s7', note: 'Kindly be seated by 9:15 AM.' },
+      ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: '', note: 'Kindly be seated by 9:15 AM.' },
       reception: { venue: 'Ilustrado Restaurant', address: '744 Calle Real del Palacio, Intramuros, Manila', time: '11:30', parkingNote: 'Parking along Calle Real.' },
       sponsors: { ninongs: ['Mr. Rafael Reyes', 'Engr. Marco dela Cruz', 'Dr. Adrian Lim', 'Mr. Joseph Tan'].map((name) => ({ name })), ninangs: ['Mrs. Patricia Reyes', 'Ms. Camille dela Cruz', 'Dr. Andrea Lim', 'Ms. Bianca Tan'].map((name) => ({ name })) },
       story: { timeline: [['The Prayer', 'We asked, and we waited.'], ['The Wait', 'Nine months of hope.'], ['The Answer', 'She came on a Sunday morning.'], ['The Preparation', 'Tiny dresses, big dreams.'], ['The Arrival', 'Home at last.'], ['Our Greatest Blessing', 'You are so loved, Amara.']].map(([title, text], i) => ({ title, text, photo: pic(`amara-story-${i + 1}`, 800, 800) })) },
@@ -343,37 +393,64 @@ async function main() {
     });
   }
 
-  // --- the christening demo: Lucas Andrei, on Baby Blue ------------------------
-  // The design's two drawn pages filled: six milestones with their photographs,
-  // six baby photographs (four in the frames, two on the page after), and every
-  // other page the Signature package carries.
+  // --- the christening demo: Lucas Andrei, on Baby Blue Christening ------------
+  // The design's drawn pages filled: the milestones with their dates and
+  // photographs, the baby photographs in her frames, the questions on Good to
+  // know, and every other page the Signature package carries.
+  //
+  // On `christening`, not `baby-blue`. The catalogue names this invitation as
+  // the christening design's demo (`demo: 'lucas-andrei-christening'`), so a
+  // demo standing on the *older* design pointed the gallery and the template
+  // preview at one design and drew another — and a seeded database showed the
+  // sixteen pages nowhere at all.
   {
-    const babyBlue = bySlug('baby-blue');
+    const christening = bySlug('christening');
     const day = addDays(new Date(), 60);
     const dayKey = day.toISOString().slice(0, 10);
     const c: Content = defaultContent('CHRISTENING', 'en');
     Object.assign(c.cover!, {
-      childFull: 'Lucas Andrei Villanueva', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
+      // her own sample, so the demo reads the way her file does: the given
+      // names large in script, the family name small and bold on the line
+      // under them (parents.familyName, below)
+      childFull: 'Lucas Andrei Reyes - Cruz', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
       date: dayKey, time: '10:00', introPreset: 'simple', intro: 'With hearts full of gratitude, Paolo and Denise invite you to the christening of their son.',
       coverPhoto: pic('lucas-cover', 900, 1200), opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
     });
     Object.assign(c.countdown!, { enabled: true, label: '' });
+    // her hub draws CLICK FOR MUSIC around a record, and it plays this
+    Object.assign(c.music!, { song: 'Music box (placeholder for the demo)', start: 0, url: '/demo/music-box.mp3' });
     // the parents, so a christening design has a page of them to be drawn against
     Object.assign(c.parents!, {
-      father: { title: 'Mr.', name: 'Paolo M. Villanueva', deceased: false },
-      mother: { title: 'Mrs.', name: 'Denise A. Villanueva', deceased: false },
+      father: { title: '', name: 'Paolo Cruz', deceased: false },
+      mother: { title: '', name: 'Denise Reyes', deceased: false },
       note: 'Together with Lolo Ernesto and Lola Remedios',
+      familyName: 'Reyes - Cruz',
     });
-    Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: 'https://maps.app.goo.gl/2r5sQx1Wv4C9aZkY9', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
+    Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: '', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
     Object.assign(c.reception!, { venue: 'Blue Leaf Cosmopolitan', address: '30th St cor. 8th Ave, Bonifacio Global City, Taguig', time: '12:00', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the venue.', photo: pic('blue-leaf', 1200, 800), note: '' });
     Object.assign(c.sponsors!, {
       ninongs: ['Mr. Rafael Villanueva', 'Engr. Marco Santos', 'Dr. Adrian Lim', 'Atty. Carlo Reyes', 'Mr. Joseph Tan', 'Mr. Miguel Garcia'].map((name) => ({ name })),
       ninangs: ['Mrs. Patricia Villanueva', 'Ms. Camille Santos', 'Dr. Andrea Lim', 'Mrs. Nicole Reyes', 'Ms. Bianca Tan', 'Mrs. Erika Garcia'].map((name) => ({ name })),
     });
     Object.assign(c.dressCode!, { colors: ['powder-blue', 'sky-blue', 'white', 'ivory', 'dusty-blue'].map(swatchHex), paletteNote: 'Soft blues and whites, or anything close.' });
-    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, gcashName: 'Denise V.', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankDetails: '', registry: [] });
+    Object.assign(c.gift!, { preset: 'presence', text: GIFT_PRESETS[0].en, payBy: 'bank', gcashName: 'Denise Reyes', gcashNumber: '0917 555 0142', gcashQr: pic('gcash-lucas', 400, 400), bankAccountName: 'Denise Reyes', bankName: 'BPI', bankAccountNumber: '1234 5678 90', bankDetails: '', registry: [] });
     Object.assign(c.rsvp!, { deadline: addDays(day, -14).toISOString().slice(0, 10), showSeats: true, collectAttendees: true, askDietary: false, mealChoices: [], policy: 'none', policyText: '', notePreset: 'reserved', note: RSVP_NOTE_PRESETS[0].en, contactPhone: '0917 555 0142', reminderText: '' });
-    Object.assign(c.story!, { line: '', timeline: (c.story!.timeline as { title: string; text: string }[]).map((m, i) => ({ ...m, photo: pic(`lucas-story-${i + 1}`, 800, 800) })) });
+    // the date on every milestone: her drawn row is Date, Title, Description,
+    // and a row with no date reads as a caption rather than a moment
+    Object.assign(c.story!, {
+      line: 'A little prayer, a big answer.',
+      timeline: (c.story!.timeline as { title: string; text: string }[]).map((m, i) => ({
+        ...m, date: ['March 2025', 'June 2025', 'October 2025', 'This month'][i] ?? '',
+        photo: pic(`lucas-story-${i + 1}`, 800, 800),
+      })),
+    });
+    // the questions the design's Good to know page draws
+    Object.assign(c.faq!, { items: [
+      { q: 'Are children welcome?', a: 'Yes — the little ones are part of the day. There are games and giveaways for them after lunch.' },
+      { q: 'Is there parking?', a: 'Free parking at Blue Leaf Cosmopolitan, and street parking around the church.' },
+      { q: 'What time should we arrive?', a: 'Please be seated by 9:45 AM. The Mass starts on the dot at 10:00.' },
+      { q: 'Can we post photos?', a: 'Please do — tag them #LucasAndreiIsBlessed so we can find them all.' },
+    ] });
     // four frames on the drawn page, each with a word on its polaroid
     Object.assign(c.gallery!, { line: '', photos: ['One month old', 'First smile', 'Sunday best', 'With Lola'].map((caption, i) => ({ url: pic(`lucas-baby-${i + 1}`, 900, 900), caption })), note: '', videoUrl: '', videoTitle: '', close: '' });
     Object.assign(c.program!, { items: [{ time: '10:00 AM', title: 'Christening Mass', note: 'Santuario de San Antonio Parish' }, { time: '12:00 PM', title: 'Lunch reception', note: 'Blue Leaf Cosmopolitan' }, { time: '1:30 PM', title: 'Cake and photos', note: 'With the ninongs and ninangs' }, { time: '2:30 PM', title: 'Games and giveaways', note: 'For the little guests' }], activities: '' });
@@ -384,7 +461,7 @@ async function main() {
     Object.assign(c.closing!, { message: 'Thank you for being part of this blessing. We cannot wait to celebrate with you.', signature: 'Paolo, Denise & Lucas', photo: '' });
     const lucas = await prisma.invitation.create({
       data: {
-        userId: maria.id, templateId: babyBlue.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
+        userId: maria.id, templateId: christening.id, occasion: 'CHRISTENING', tier: 'COMPLETE', title: "Lucas Andrei's Christening", slug: 'lucas-andrei-christening', status: 'PUBLISHED', privacy: 'PUBLIC',
         content: c as never, eventAt: day, expiresAt: addDays(day, 365), rsvpDeadline: addDays(day, -14), publishedAt: addDays(new Date(), -5), editsAllowed: 6, ogImageUrl: '',
         // The theme's own premium opening: the blue bow unties and the ribbons sweep aside.
         premiumOpening: true, premiumOpeningKey: 'baby-blue-bow',

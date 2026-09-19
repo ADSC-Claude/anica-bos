@@ -7,7 +7,7 @@ import {
   starterDesign, studioDoc, sliceHeights, fillPageWithClip, drawnSections, offeredSections, floatShape, floatAt,
   invitationPages, bookletsOf, reachablePages, stdPage, sheetRules, SHEET_SIZES,
   flowFloats, flowDecor, decorOver, decorStyle, outsideOf, bleeds, runOf, pinOf, groundKind, kindOfShape, screensOf, sizeOf, sizeToFit, TITLE_ON, LINE_ON, wordsFor, sectionDress, designVars, APP_NIGHT, motionOf, moves,
-  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW,
+  BABYBLUE_PAGES, BABYBLUE_GROUNDS, CAPIZ_PAGES, isPicture, LEGIBLE_CQW, shows,
   type PhotoEl, type TextEl, type ShapeEl, type VideoEl, type PageSpec, type Element, type DesignDoc,
 } from '../src/lib/design';
 import { sectionAnchor } from '../src/lib/anchors';
@@ -310,6 +310,70 @@ test('valueAt: skipEmpty counts the rows that are filled, and nothing else does'
   assert.equal(valueAt(content, { section: 'story', field: 'line' }), 'A line');
   assert.equal(valueAt(content, { section: 'nope', field: 'line' }), '');
   assert.equal(valueAt(undefined, { section: 'story', field: 'line' }), '');
+});
+
+/**
+ * Her CLICK FOR MUSIC is a control, and a control for a song this family
+ * has not uploaded is a dead button.
+ *
+ * The record on the hub was a picture and nothing else: it pulsed, a guest
+ * pressed it, and the invitation did not make a sound. `song` says a tap
+ * here works the player; the renderer leaves the element out when there is
+ * no song, the same rule an OPEN IN WAZE with no address follows.
+ */
+test('the christening hub carries the song control on her record', () => {
+  const doc = builtinDesign('christening')!;
+  const hub = doc.pages.find((p) => p.key === 'highlights')!;
+  const controls = (hub.elements ?? []).filter((el) => el.song);
+  assert.equal(controls.length, 1, 'one control, on the record');
+  assert.equal(controls[0].id, 'hl-music');
+
+  // and nothing else in the design claims to be one
+  const all = doc.pages.flatMap((p) => (p.elements ?? []).filter((el) => el.song));
+  assert.deepEqual(all.map((el) => el.id), ['hl-music']);
+});
+
+/**
+ * A person is three answers in one box, and a drawn page that binds one has
+ * to write the line rather than the object.
+ *
+ * The christening's PARENTS row was printing nothing at all: the form keeps
+ * `parents.father` as `{ title, name, deceased }`, and a record read as a
+ * string is empty. The words have to be the scrolled renderer's, down to the
+ * late marker, or one invitation says two different things about a family.
+ */
+test('valueAt: a bound person is the line the renderer writes', () => {
+  const content = {
+    parents: {
+      father: { title: '', name: 'Paolo Cruz', deceased: false },
+      mother: { title: 'Dra.', name: 'Denise Reyes', deceased: false },
+      lolo: { title: '', name: 'Ernesto Cruz', deceased: true },
+      blank: { title: 'Mr.', name: '', deceased: false },
+    },
+  };
+  assert.equal(valueAt(content, { section: 'parents', field: 'father' }), 'Paolo Cruz');
+  assert.equal(valueAt(content, { section: 'parents', field: 'mother' }), 'Dra. Denise Reyes');
+  assert.equal(valueAt(content, { section: 'parents', field: 'lolo' }), 'the late Ernesto Cruz \u2020');
+  assert.equal(valueAt(content, { section: 'parents', field: 'lolo' }, 'tl'), 'yumaong Ernesto Cruz \u2020');
+  // a person with no name is nothing, so the box hides rather than printing a title
+  assert.equal(valueAt(content, { section: 'parents', field: 'blank' }), '');
+});
+
+/**
+ * `show: 'weekday'` is the weekday on its own.
+ *
+ * Her invitation page sets SATURDAY over OCTOBER 28, 2028 — two boxes off
+ * the one stored date — and a `weekday` that carried the whole date printed
+ * the date twice, once under itself.
+ */
+test('valueAt: weekday is the word, date is the date', () => {
+  const content = { ceremony: { date: '2028-10-28', time: '08:30' } };
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'date', show: 'weekday' }), 'Saturday');
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'date', show: 'date' }), 'October 28, 2028');
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'date', show: 'dateShort' }), 'Oct 28, 2028');
+  assert.equal(valueAt(content, { section: 'ceremony', field: 'time', show: 'time' }), '8:30 AM');
+  // a half-typed date is handed back as typed rather than blanked
+  assert.equal(valueAt({ ceremony: { date: '2028-10' } }, { section: 'ceremony', field: 'date', show: 'weekday' }), '2028-10');
 });
 
 /** A preview scrolls to the block a section is drawn in; on a drawn page that is the page. */
@@ -1865,4 +1929,34 @@ test('a ground that runs on, and a pin, both stop at a booklet', () => {
   };
   assert.equal(pinOf(pinned).get('next'), 'tall');
   assert.equal(pinOf(pinned).get('behind'), undefined, 'a pin does not stand behind a booklet it cannot be on screen with');
+});
+
+/*
+ * The gift page's two layouts have to cover every answer, blank included.
+ *
+ * `when` hides an element whose answer does not match, so a value that is in
+ * neither list draws neither the QR nor the account — a page with a heading
+ * and a hole under it. Blank is not a hypothetical: it is every invitation
+ * saved before the question existed, and every one whose owner has not
+ * reached it yet.
+ */
+test('the christening gift page draws one layout for every pay-by answer', () => {
+  const doc = builtinDesign('christening')!;
+  const page = doc.pages.find((p) => p.key === 'gift-note')!;
+  const elements = page.elements ?? [];
+  const branching = elements.filter((el) => el.when?.field === 'payBy');
+  assert.ok(branching.length >= 2, 'the page branches on the answer');
+
+  for (const answer of ['', 'gcash', 'bank', 'none']) {
+    const content = { gift: { payBy: answer } };
+    const on = branching.filter((el) => shows(el, content));
+    assert.ok(on.length > 0, `"${answer || '(blank)'}" draws something`);
+    // one layout, never both: the QR sits where the account lines would go
+    const qr = on.some((el) => el.id === 'gift-qr');
+    const inItsPlace = on.some((el) => el.id.startsWith('gift-bank-'));
+    assert.ok(!(qr && inItsPlace), `"${answer || '(blank)'}" draws one layout, not both`);
+  }
+
+  assert.ok(shows(elements.find((el) => el.id === 'gift-qr')!, { gift: {} }),
+    'no answer at all is the QR page, as the scrolled one has always been');
 });

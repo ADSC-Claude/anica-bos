@@ -1625,6 +1625,16 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-card] .inv-count b { font-size: 2rem; font-weight: 400; color: var(--inv-ink); }
 .inv[data-paged] .inv-count span,
 .inv[data-card] .inv-count span { font-family: var(--inv-display); font-size: 0.6rem; letter-spacing: 0.22em; color: var(--inv-ink); opacity: 0.75; }
+/* A countdown on a page the design drew.
+   The shared rule above sets the numbers in rem, which is a fixed size inside a
+   page that is scaled by its own width: on her christening the band drawn
+   for the countdown is a narrow strip and the numbers crowded it. Cut to
+   the page instead, and a little smaller than they were, so the four cells
+   sit inside the strip at every width. Only a drawn page — a design whose
+   countdown is a section in the scroll keeps the shared size. */
+.inv-page[data-drawn] .inv-count b { font-size: 6.1cqw; }
+.inv-page[data-drawn] .inv-count span { font-size: 1.82cqw; }
+
 
 /* --- social brand row --- */
 .inv-brand { display: flex; justify-content: center; gap: 1.6rem; margin-top: 1.1rem; }
@@ -1867,8 +1877,18 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * are placed on it absolutely. The two rules under this one are the same
  * thing written by hand for Baby Blue, which carries no document — they stay
  * so that nothing about the original can move.
+ *
+ * `min-height: 0` is doing real work, and it is worth saying which. The
+ * rules further up name a page by its key — Capiz's cover asks for
+ * `--capiz-bg`, 264.5vw — and a key is not a design: any page called `cover`
+ * takes it. Padding is already cleared here, so nobody noticed; a min-height
+ * is not, and on a page with an aspect-ratio a min-height does not make the
+ * page taller, it makes it WIDER. The christening's cover came out 580px
+ * across in a 390px column, every word on it a third too big, and the page
+ * hanging off the side of the phone. Anything placed by hand takes its size
+ * from its ground and from nothing else.
  */
-.inv[data-doc] .inv-page[data-drawn] { aspect-ratio: 1 / var(--page-ratio, 1.777); padding: 0; display: block; container-type: inline-size; }
+.inv[data-doc] .inv-page[data-drawn] { aspect-ratio: 1 / var(--page-ratio, 1.777); padding: 0; min-height: 0; display: block; container-type: inline-size; }
 /*
   A drawn page that grows. Its ground's proportion becomes a floor rather
   than a measurement, so a customer's long sentence pushes the page down
@@ -2072,6 +2092,33 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    the page is passed an `edit` view, which a guest never is. It takes the
    frame's own placement, so it lands on the frame exactly, turn and all,
    with no second set of geometry to keep in step. */
+/*
+ * A drawn page's decoration does not eat the taps meant for what is under it.
+ *
+ * Every element on a drawn page is a sibling: the shape a guest taps, the
+ * photograph lying on it, the line of script written across it. They are
+ * placed by coordinates, so they overlap by design — her envelope is a
+ * transparent tap target with the card's picture and "The Christening of"
+ * sitting on top of it, and the hub's handler reads
+ * `event.target.closest('[data-opens]')`. `closest` walks *up*, and the
+ * script is not inside the shape; it is beside it. So the tap landed on the
+ * writing, found no opener above it, and nothing happened — on all three of
+ * her objects at once. The cursor was wrong too: an I-beam over the one
+ * thing on the page a guest is meant to press.
+ *
+ * So the decoration is transparent to the pointer and the things that are
+ * *for* pressing are not. Which is also the honest description of a drawn
+ * page: it is a picture with a few live objects on it.
+ */
+.inv-bb-art > * { pointer-events: none; }
+.inv-bb-art > [data-opens],
+.inv-bb-art > [data-taps],
+.inv-bb-art > [data-music],
+.inv-bb-art > [data-go],
+.inv-bb-art > [data-back],
+.inv-bb-art > a,
+.inv-bb-art > button,
+.inv-bb-art > video { pointer-events: auto; }
 .inv-bb-art > .inv-bb-ghost { position: absolute; aspect-ratio: 1; margin: 0; overflow: visible; pointer-events: none; opacity: 0.34; }
 .inv-bb-ghost img { position: absolute; display: block; max-width: none; object-fit: cover; }
 /* A shape: a card behind some words, a rule across the page, a dot. A div
@@ -2115,6 +2162,61 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    cqw so they scale with the type rather than with the screen. */
 .inv-bb-art [data-backing='shadow'] { text-shadow: 0 0.16cqw 0.55cqw var(--inv-surface), 0 0 1cqw var(--inv-surface); }
 .inv-bb-art [data-backing='scrim'] { padding: 0.9cqw 1.6cqw; background: color-mix(in srgb, var(--inv-surface) 70%, transparent); border-radius: 0.9cqw; }
+/*
+ * A designer's own text highlight — the coloured pill Canva puts behind a
+ * line of type. Inline, so it takes the shape of the words on every line
+ * of a wrapped answer instead of the shape of the box; in ems, so it holds
+ * its proportion at every size; and the vertical padding is inline padding,
+ * which does not grow the line box, so a highlighted writing sits on the
+ * same baseline as an unhighlighted one.
+ */
+.inv-bb-art .inv-bb-hl {
+  border-radius: 0.4em;
+  padding: 0.19em 0.5em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+/* A box the design asked to be drawn as a button (TextEl.button).
+   A pill in the surface colour with the mark of where it goes beside the
+   label — what she drew, and what these three actually are: not writing a
+   guest reads but a thing a guest presses. Everything is in em so the pill
+   is cut to whatever size the design gave the words, at any page width, and
+   the colours are roles so the pill follows the palette into night. */
+.inv-bb-art .inv-bb-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  padding: 0.72em 1.1em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--inv-surface) 88%, transparent);
+  color: var(--inv-ink);
+  box-shadow: 0 0.12em 0.5em rgb(0 0 0 / 0.07);
+  text-decoration: none;
+  transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+/* the underline is the other treatment for the same idea: never both */
+.inv-bb-art .inv-bb-btn .t,
+.inv-bb-art .inv-bb-btn .x { text-decoration: none; }
+.inv-bb-art .inv-bb-btn:hover {
+  background: var(--inv-surface);
+  box-shadow: 0 0.2em 0.7em rgb(0 0 0 / 0.11);
+}
+.inv-bb-art .inv-bb-btn:active { transform: translateY(0.06em); }
+.inv-bb-btn-mark {
+  flex: none;
+  width: 1.32em;
+  height: 1.32em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-bb-art .inv-bb-btn { transition: none; }
+  .inv-bb-art .inv-bb-btn:active { transform: none; }
+}
 .inv[data-paged] .inv-bb-art > .inv-bb-label { position: absolute; text-align: center; }
 .inv-bb-label .t { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.24em; text-indent: 0.24em; font-size: 2.05cqw; line-height: 1.5; color: var(--inv-ink); }
 .inv-bb-label .x { font-family: var(--inv-body); font-size: 2.35cqw; line-height: 1.4; color: var(--inv-ink); margin-top: 0.9cqw; }
@@ -2207,12 +2309,59 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   letter-spacing: 0.24em;
   font-size: 0.7rem;
 }
-.inv-open[data-open='true'] .inv-open-hint,
-.inv-open[data-tapped='true'] .inv-open-hint {
+.inv-open[data-open='true'] .inv-open-hint:not(.inv-open-wait),
+.inv-open[data-tapped='true'] .inv-open-hint:not(.inv-open-wait) {
   animation: none;
   opacity: 0;
   transition: opacity 250ms ease;
 }
+/* The closed screen is drawn by the server on a poster, so it looks entirely
+   finished while the script that opens it is still coming down — on a phone
+   connection that gap runs to whole seconds. It must not ask for a tap it
+   cannot answer in that time, so the hint waits for `data-ready`, which is
+   set the instant React is on the element and nowhere else. A tap made
+   before then is not lost either: EARLY_TAP notes it on the overlay and the
+   invitation opens the moment it can. */
+.inv-open:not([data-ready]) .inv-open-hint:not(.inv-open-wait) {
+  animation: none;
+  opacity: 0;
+}
+.inv-open[data-ready] .inv-open-hint:not(.inv-open-wait) {
+  transition: opacity 400ms ease;
+}
+/* Tapped, and the clip has not come up yet. Three quiet dots where the hint
+   was, held back a beat so a clip that is ready never shows them: with the
+   hint gone and the poster still, the screen otherwise reads as frozen for
+   as long as the file takes. */
+/* It carries .inv-open-hint as well as its own class, which is not a trick:
+   it wants the hint's place on the screen and the hint's colour, and every
+   clip sets that colour on its own artwork. Sharing the class is what keeps
+   the two in step instead of a copy of each rule that goes stale. */
+.inv-open-wait {
+  display: flex;
+  gap: 0.42rem;
+  align-items: center;
+  animation: none;
+  opacity: 0;
+  pointer-events: none;
+}
+.inv-open[data-tapped='true'][data-open='false'] .inv-open-wait,
+/* and for a tap that landed before the page could answer it: EARLY_TAP sets
+   this, so the guest sees the mark straight away rather than a dead screen */
+.inv-open[data-waiting]:not([data-ready]) .inv-open-wait {
+  animation: inv-wait-in 300ms ease 700ms forwards;
+}
+.inv-open-wait i {
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 50%;
+  background: currentColor;
+  animation: inv-wait 1.1s ease-in-out infinite;
+}
+.inv-open-wait i:nth-child(2) { animation-delay: 0.15s; }
+.inv-open-wait i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes inv-wait-in { to { opacity: 1; } }
+@keyframes inv-wait { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 @keyframes inv-pulse {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
@@ -2649,6 +2798,71 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   aspect-ratio: 4 / 3;
 }
 
+/*
+ * The guest wall — the messages and the photographs guests add on the day.
+ *
+ * Three by three, and the cells are drawn whether or not there is anything to
+ * put in them. An empty section that appears only once a stranger has used it
+ * is a section the couple never sees working and never trusts; nine standing
+ * frames are an album waiting, and the first of them says so.
+ *
+ * The caption sits *on* the photograph rather than under it. Under it, a cell
+ * with a caption is taller than a cell without and the grid goes ragged; over
+ * it, every cell is the same square and the row lines up. One line, clipped:
+ * a small square is no place for a paragraph.
+ */
+.inv-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.inv-wall-cell {
+  position: relative;
+}
+.inv-wall-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  display: block;
+}
+.inv-wall-cell figcaption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 0.6rem 0.4rem 0.3rem;
+  border-radius: 0 0 0.75rem 0.75rem;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), transparent);
+  color: #fff;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A cell with nothing in it yet: the frame, and on the first one the ask. */
+.inv-slot {
+  border: 1px dashed color-mix(in srgb, var(--inv-accent2) 65%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--inv-surface) 55%, transparent);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.5rem;
+}
+.inv-slot > span {
+  color: var(--inv-muted);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+.inv-slot-photo {
+  aspect-ratio: 1;
+}
+.inv-slot-note {
+  min-height: 3.75rem;
+}
+
 .inv-timeline {
   border-left: 2px solid var(--inv-accent2);
   margin-left: 0.5rem;
@@ -2710,8 +2924,15 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   .inv-open-hint,
   .inv-open-copy,
   .inv-open-panel,
-  .inv-open-curve path {
+  .inv-open-curve path,
+  .inv-open-wait i {
     animation: none;
+  }
+  /* the mark that the tap was heard still shows, it simply does not pulse */
+  .inv-open[data-tapped='true'][data-open='false'] .inv-open-wait,
+  .inv-open[data-waiting]:not([data-ready]) .inv-open-wait {
+    animation: none;
+    opacity: 1;
   }
   .inv-open-drape,
   .inv-open-panel,
@@ -2921,6 +3142,55 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv[data-motion] [data-enter] { opacity: 0; }
 .inv[data-motion] [data-enter='rise'] { translate: 0 14px; }
 .inv[data-motion] [data-enter='drift'] { translate: -18px 0; }
+/* `slide`: the thing inside the frame starts a whole height below it and
+   rises into place, while the frame itself stays where it is and clips.
+
+   That is the difference between this and `rise`, and it is the whole point:
+   a frame clips (`.inv-bb-slot` has `overflow: hidden`), so what is below it
+   cannot be seen at all, and what a guest watches is an object being drawn
+   out of a slot — the print out of the camera, the card out of the envelope.
+   Moving the frame would carry the clip with it and show the object lying
+   across whatever is underneath.
+
+   So the frame is fully opaque throughout and only the picture moves. The
+   travel is the picture's own height rather than a distance, which is what
+   keeps it out of sight whatever size the page is. */
+.inv[data-motion] figure[data-enter='slide'] { opacity: 1; }
+.inv[data-motion] figure[data-enter='slide'] > img { translate: 0 100%; }
+.inv[data-motion] figure[data-enter='slide'][data-in] > img {
+  translate: 0 0;
+  transition: translate 1250ms cubic-bezier(0.16, 0.84, 0.3, 1);
+  transition-delay: var(--motion-delay, 0ms);
+}
+/* anything else that asks for it gets the plain long rise */
+.inv[data-motion] :not(figure)[data-enter='slide'] { translate: 0 14cqw; }
+.inv[data-motion] :not(figure)[data-enter='slide'][data-in] {
+  opacity: 1; translate: 0 0;
+  transition: opacity 500ms ease, translate 1250ms cubic-bezier(0.16, 0.84, 0.3, 1);
+  transition-delay: var(--motion-delay, 0ms);
+}
+/* A held element waits out of sight for the tap that releases it.
+
+   Not behind `data-motion`, and that is the point. Holding is not
+   decoration: the print inside the camera is the whole surprise, and a
+   guest whose phone asks for less motion was being shown it before they
+   touched anything — the slide is an animation and was rightly off, but so
+   was the hiding, which is not. `visibility` rather than `opacity` so it
+   costs the layout nothing, and the element becomes plainly visible the
+   moment the script takes the attribute off: an arrival without an
+   animation, which is exactly what less motion should mean.
+
+   It is in the stylesheet unconditionally and the script removes it, which
+   is the opposite way round from every other rule here. That is safe only
+   because a held element is, by definition, one no guest can reach without
+   JavaScript — the tap that would release it needs the script too. The
+   printed page is the one place with neither, and it reveals them below. */
+.inv [data-hold] { visibility: hidden; }
+
+/* What a guest is meant to tap looks tappable and answers a keyboard. */
+.inv [data-taps], .inv [data-music] { cursor: pointer; }
+.inv [data-music]:focus-visible,
+.inv [data-taps]:focus-visible { outline: 2px solid var(--inv-accent, currentColor); outline-offset: 0.4cqw; border-radius: 0.6cqw; }
 .inv[data-motion] [data-enter][data-in] {
   opacity: 1;
   translate: 0 0;
@@ -2935,17 +3205,70 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   animation: inv-sway 7.5s ease-in-out infinite;
   animation-delay: calc(var(--motion-delay, 0ms) + 800ms);
 }
+/* `flicker`: the pulse a lit sign has. Never all the way out — the lowest it
+   goes is still readable, because these are the words that tell a guest where
+   to tap and a word that disappears is a door they never find. The beat is
+   uneven on purpose; an even one reads as a fault rather than an invitation. */
+.inv[data-motion] [data-idle='flicker'][data-in] {
+  animation: inv-flicker 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--motion-delay, 0ms) + 600ms);
+}
 @keyframes inv-float {
   0%, 100% { translate: 0 0; }
   50% { translate: 0 -7px; }
+}
+@keyframes inv-flicker {
+  0%, 44%, 100% { opacity: 1; }
+  52% { opacity: 0.38; }
+  58% { opacity: 0.95; }
+  64% { opacity: 0.5; }
+  72% { opacity: 1; }
 }
 @keyframes inv-sway {
   0%, 100% { rotate: -1.1deg; }
   50% { rotate: 1.1deg; }
 }
-/* Paper does not move, and a page being printed is paper. */
+/* ---------------------------------------------------------------------------
+   A drawn page that also works: the RSVP's form, Good to know's questions.
+
+   The art is placed as usual and the section's own markup follows it in the
+   flow, so the page grows with however long the form or the list turns out
+   to be. Two things have to give way for that: the page stops being a fixed
+   shape, and the section's own heading goes — the design has already drawn
+   one, in her hand, and two headings is one of them being wrong.
+   --------------------------------------------------------------------------- */
+.inv[data-paged] .inv-page[data-live] { display: flow-root; }
+/* The art is a backdrop over the whole page, however tall the page turns
+   out; the section starts below whatever the art has words on (`--live-top`,
+   the design's own `headPad`) and the page grows from there. The ground goes
+   with it, which is why a live page's picture is cut into head, band and
+   foot: her banner is in the head and stays the shape she drew it. */
+.inv[data-paged] .inv-page[data-live] > .inv-bb-art { position: absolute; inset: 0; }
+.inv[data-paged] .inv-page[data-live] > .inv-section:not(.inv-bb-art) {
+  position: relative; z-index: 1; padding-top: var(--live-top, 0);
+}
+.inv[data-paged] .inv-page[data-live] > .inv-section:not(.inv-bb-art) > :is(.inv-eyebrow, .inv-title, .inv-tagline):first-child { display: none; }
+
+/* ---------------------------------------------------------------------------
+   A drawn element that goes somewhere: the calendar, Google Maps, Waze.
+
+   The element itself is the anchor — same class, same box — rather than
+   sitting inside one, because every rule that places a drawn element is
+   written as a direct child of the section and a wrapper would take the
+   placement away. So there is almost nothing to say here: it inherits its
+   colour from the design rather than taking a link's, and it shows a focus
+   ring for a guest on a keyboard.
+   --------------------------------------------------------------------------- */
+.inv [data-go] { color: inherit; cursor: pointer; }
+.inv [data-go]:focus-visible { outline: 2px solid var(--inv-accent, currentColor); outline-offset: 0.4cqw; }
+
+/* Paper does not move, and a page being printed is paper. Nothing can be
+   tapped on paper either, so what a tap was holding back is simply there:
+   the print in the camera, the card out of the envelope. */
 @media print {
+  .inv [data-enter] > img, .inv [data-idle] > img { translate: none !important; }
   .inv [data-enter], .inv [data-idle] { opacity: 1 !important; translate: none !important; rotate: none !important; animation: none !important; transition: none !important; }
+  .inv [data-hold] { visibility: visible !important; }
 }
 
 /* ---------------------------------------------------------------------------

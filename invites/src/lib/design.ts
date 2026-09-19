@@ -1,14 +1,15 @@
 import { z } from 'zod';
 import type { Occasion } from '@prisma/client';
 import { t, type Lang } from './copy';
-import { formatDate, formatTime, parseDateKey } from './datetime';
-import { LOOKS, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
+import { formatDate, formatTime, formatWeekday, parseDateKey } from './datetime';
+import { LOOKS, NO_LOOK, lookTitle, type Look, type LineKey, type TitleKey } from './looks';
 import { MOMENT_KEYS, type MomentKey, type Trigger as MomentTrigger, type Speed as MomentSpeed } from './moments';
-import { OCCASION_SECTIONS, sectionLabel, sectionOrder, type SectionKey } from './sections';
+import { OCCASION_SECTIONS, formatPerson, sectionLabel, sectionOrder, type Person, type SectionKey } from './sections';
 import {
   STORY_SLOTS, STORY_LABELS, STORY_HEAD, PHOTO_SLOTS, PHOTO_HEAD, PHOTO_STRIP, PHOTO_ASPECT,
   type Slot,
 } from './babyblue';
+import { CHRISTENING_PAGES, CHRISTENING_PAPER, CHRISTENING_SURROUND } from './christening';
 
 /**
  * What a design's encoder can change without a release: the words it writes
@@ -231,11 +232,19 @@ export function artOf(raw: unknown): DesignArt {
  * design gives in a language replaces the look's in that language, the rest
  * stands. The heading keys and the line keys are distinct sets, so one flat
  * block per language serves both.
+ *
+ * A design with no look still has words. It used to lose them here — the
+ * function was handed `undefined` and gave it straight back — so a design
+ * that withholds a look on purpose, as the christening does to keep its own
+ * faces, had every one of its fixed writings fall through to the occasion's
+ * stock line. `NO_LOOK` is the empty shelf those words stand on; a design
+ * with neither a look nor words of its own still gets nothing, which is what
+ * it asked for.
  */
 export function withWords(look: Look | undefined, words: DesignWords): Look | undefined {
-  if (!look) return look;
   const langs = Object.keys(words) as Lang[];
   if (!langs.length) return look;
+  look = look ?? NO_LOOK;
   const lines = { ...look.lines };
   const titles = { ...look.titles };
   /*
@@ -666,6 +675,26 @@ export type PageSpec = {
    */
   offFlow?: string[];
   /**
+   * A drawn page that also carries its sections' own working parts.
+   *
+   * A drawn page places everything by hand, which is exactly right for a
+   * page of words and pictures and exactly wrong for a page a guest has to
+   * *use*. The christening's RSVP page is her banner with four letters on
+   * it and then a form; its Good to know page is a heading and then however
+   * many questions the family wrote. Neither can be drawn, because neither
+   * is known until a guest is looking at it.
+   *
+   * So: the art is drawn as usual, and the section's own markup — the form,
+   * the pairs a guest opens — follows underneath it. The section's heading
+   * is hidden, because the design has already drawn one; everything else is
+   * the section's as it always was, with the same fields and the same
+   * script behind them.
+   *
+   * A page that sets this must also `grow`, since how far the form runs is
+   * not something a ratio can say.
+   */
+  live?: true;
+  /**
    * The booklet this page belongs to, which takes it off the invitation's
    * flow.
    *
@@ -818,7 +847,74 @@ type Base = {
    * off entirely without JavaScript — see `.inv[data-motion]` in globals.css
    * for why that is the safe way round rather than the timid one.
    */
-  motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift'; idle?: 'none' | 'float' | 'sway'; delay?: number };
+  motion?: { enter?: 'none' | 'fade' | 'rise' | 'drift' | 'slide'; idle?: 'none' | 'float' | 'sway' | 'flicker'; delay?: number };
+  /**
+   * What a tap here does, where what it does is leave the invitation.
+   *
+   * Three things a guest does with a phone and cannot do with a picture of a
+   * button: put the day in their calendar, and open the place in Google Maps
+   * or in Waze. She drew all three as buttons — ADD TO CALENDAR on the
+   * invitation, OPEN IN GOOGLE MAPS and OPEN IN WAZE under each of the two
+   * venues — and a drawn button that does nothing is worse than no button,
+   * because a guest taps it and decides the invitation is broken.
+   *
+   * `of` names the section whose venue and address the map uses, so one
+   * page can carry a pair for the church and a pair for the reception. The
+   * calendar ignores it: an invitation has one day.
+   *
+   * The link is built from what the family typed (see src/lib/places.ts):
+   * their own pasted pin where they gave one, a search for the name and the
+   * address where they did not. Nothing to point at and the button is not
+   * drawn at all, the same as an empty box of words.
+   */
+  go?: { to: 'calendar' | 'maps' | 'waze'; of?: string };
+  /**
+   * The id of another element on this page whose arrival a tap here plays.
+   *
+   * `opens` is a tap that goes somewhere; this is a tap that *starts*
+   * something where it stands. It exists because the thing a guest aims at
+   * and the thing that moves are rarely the same object: on the christening
+   * cover the words say CLICK HERE under the camera, and what moves is the
+   * print coming out of the slot above it. Two elements, one gesture.
+   *
+   * An element named by one of these does not arrive on its own — it waits,
+   * however far down the page a guest has scrolled — so a name that matches
+   * nothing leaves that element hidden for good. The checklist catches it.
+   */
+  taps?: string;
+  /**
+   * A tap here starts or stops the invitation's song.
+   *
+   * Her christening draws CLICK FOR MUSIC around the rim of a record, and
+   * a guest who presses it expects the record to play. The app has always
+   * had the song — it starts when the envelope is opened and the floating
+   * ♫ button pauses it — but her own words were a picture of a button and
+   * nothing more, which is the one thing worse than no button at all.
+   *
+   * It is not drawn when the invitation has no song, the same rule `go`
+   * follows for a map with no address: a design may always ask for the
+   * control, and a family who uploaded no music never sees a dead one.
+   */
+  song?: true;
+  /**
+   * Draw this only when an answer says so.
+   *
+   * The one thing a drawn page has never been able to do is branch, and a
+   * page sometimes has to. The christening's gift note is the case that
+   * forced it: a family who sends a QR gets the QR with their name and
+   * number under it, and a family who sends a bank account gets the account
+   * *in the QR's place* — not under a square of empty artwork. Two layouts
+   * of one page, chosen by one answer.
+   *
+   * `is` lists the values that draw it. `filled` draws it when the answer
+   * has something in it (or, false, when it has not). Both given, both must
+   * hold.
+   *
+   * This is not `hidden: 'whenEmpty'`, which asks about the element's own
+   * words. This asks about an answer somewhere else on the form, which is
+   * what a layout decision is made of.
+   */
+  when?: { section: string; field: string; is?: string[]; filled?: boolean };
   /** the id of another element this one follows when that element is moved */
   attachTo?: string;
   /**
@@ -868,7 +964,7 @@ export type FieldRef = {
    * the same way. Absent, the value is read out exactly as it is stored,
    * which is right for every other field.
    */
-  show?: 'date' | 'dateShort' | 'weekday' | 'time';
+  show?: 'date' | 'dateShort' | 'weekday' | 'time' | 'given';
 };
 
 /** One text source. A line tries its sources in order and shows the first that has something. */
@@ -886,7 +982,34 @@ export type Line = {
   align?: 'left' | 'center' | 'right';
   /** in cqw, so it scales with the column; blank means the role's own size */
   size?: number;
-  color?: 'ink' | 'muted' | 'accent' | 'accent2';
+  /** `surface` is the white a design writes over its own dark pictures */
+  color?: 'ink' | 'muted' | 'accent' | 'accent2' | 'surface';
+  /**
+   * This line's own line-height, where the box's is not right for it.
+   *
+   * A box that mixes sizes mixes leadings too: the programme's title is set
+   * tight and the sentence under it open, and one number on the box cannot
+   * be both. Blank takes the box's.
+   */
+  leading?: number;
+  /**
+   * Air above this line, in cqw.
+   *
+   * What holds two writings apart *and lets them flow*. A drawn page places
+   * every box at a baseline the designer measured, which is right until an
+   * answer is longer than her sample: her programme reads TITLE over one
+   * line of description, and a real "Christening Mass" takes two lines and
+   * lands on top of the sentence below it. Putting both in one box makes
+   * the sentence follow the title down — and then the gap she drew between
+   * them has to be said as a gap rather than as a second baseline, because
+   * a leading wide enough to carry it would also push the sentence's own
+   * lines that far apart.
+   */
+  space?: number;
+  /** the letters this line holds, where it differs from the box's own `room` */
+  room?: number;
+  /** this line set in capitals, where the box as a whole is not */
+  caps?: true;
 };
 
 export type PhotoEl = Base & {
@@ -930,6 +1053,72 @@ export type TextEl = Base & {
   size?: number;
   weight?: number;
   tracking?: number;
+  /**
+   * The distance from one line of this box to the next, as a multiple of the
+   * size — what a typesetter calls leading and CSS calls line-height.
+   *
+   * Here because a design drawn elsewhere sets its own. Canva lets a designer
+   * pull the lines of a paragraph together or push them apart, and the
+   * christening's does: her date sits 0.99 of its own size under the line
+   * above it and her venue 1.20, where the stylesheet's own leading is
+   * neither. Without this the two lines of an address arrive in the right
+   * place and the wrong distance apart, which is the fault that reads as
+   * "the spaces between them, some is too far, some is too tight".
+   *
+   * Unitless, so each line of a box that mixes sizes gets its own.
+   */
+  leading?: number;
+  /**
+   * A line under the words, the way a printed design marks the ones you act
+   * on. She drew one under every CLICK HERE and under OPEN IN GOOGLE MAPS
+   * and OPEN IN WAZE; the grounds script takes her rules off with the words
+   * so the live one is not doubled, and this puts it back where it belongs
+   * — on the writing, so it follows the words when a longer answer wraps.
+   */
+  rule?: true;
+  /**
+   * Canva's text highlight: a coloured pill behind the words themselves.
+   *
+   * Not `backing`, which is about reading words over a busy picture. This
+   * is a thing a designer drew on purpose — her Our Story tagline is white
+   * on a tan pill, and her two venue names are tan on white ones.
+   *
+   * It has to be live rather than left in the artwork. Canva bakes the
+   * pill at the shape of *her sample words*, so the ceremony's came out as
+   * a wide lobe with a narrow one under it, cut for "SANTUARIO DE SAN
+   * ANTONIO" over "PARISH" — and a family whose church fits on one line
+   * got the lower lobe with nothing on it. Drawn here it takes the shape
+   * of whatever they typed, on every line of it
+   * (`scripts/christening-cuts.json` is where the baked ones come off).
+   */
+  highlight?: 'ink' | 'muted' | 'accent' | 'accent2' | 'surface';
+  /**
+   * The words set in capitals, however the family typed them.
+   *
+   * A design decides this, not the person filling the form: her invitation
+   * page reads SATURDAY over OCTOBER 28, 2028 and SANTUARIO DE SAN ANTONIO
+   * PARISH, and a family types "Santuario de San Antonio Parish" because
+   * that is how a church is written. Canva keeps it as a setting on the box
+   * for the same reason, and `text-transform` leaves the stored answer
+   * alone — so what a customer sees in the form is still their own words.
+   */
+  caps?: true;
+  /**
+   * The words drawn as a button rather than set as a line of type.
+   *
+   * A pill in the surface colour with the mark of where it goes beside the
+   * label — a pin for a map, a calendar for the date. Only for a box that
+   * carries `go`, because the mark comes from where it goes and a pill
+   * with nothing behind it is a lie.
+   *
+   * Her christening asks for it and it is the honest shape for these
+   * three: ADD TO CALENDAR, OPEN IN GOOGLE MAPS and OPEN IN WAZE are not
+   * writing a guest reads, they are things a guest presses, and set as
+   * small underlined type they read as a footnote. `rule` is the other
+   * treatment for the same idea — a line under the words, which is what a
+   * printed design does — and a box takes one or the other.
+   */
+  button?: true;
   /** the letters this box holds, measured from the box and the face: the form's cap for what it asks */
   room?: number;
   /** the design's own line is offered to the customer as an example under their box */
@@ -1260,7 +1449,7 @@ const zFieldRef = z.object({
   section: z.string().regex(FIELD), field: z.string().regex(FIELD),
   index: z.number().int().min(0).max(199).optional(), sub: z.string().regex(FIELD).optional(),
   skipEmpty: z.string().regex(FIELD).optional(),
-  show: z.enum(['date', 'dateShort', 'weekday', 'time']).optional(),
+  show: z.enum(['date', 'dateShort', 'weekday', 'time', 'given']).optional(),
 }).strict();
 const zSource = z.union([
   z.object({ bind: zFieldRef }).strict(),
@@ -1273,7 +1462,11 @@ const zLine = z.object({
   sources: z.array(zSource).min(1).max(6),
   align: z.enum(['left', 'center', 'right']).optional(),
   size: z.number().positive().max(40).optional(),
-  color: z.enum(['ink', 'muted', 'accent', 'accent2']).optional(),
+  color: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
+  leading: z.number().min(0.6).max(3).optional(),
+  space: z.number().min(0).max(40).optional(),
+  room: z.number().int().min(1).max(2000).optional(),
+  caps: z.literal(true).optional(),
 }).strict();
 
 const zBase = {
@@ -1290,10 +1483,14 @@ const zBase = {
   ask: z.boolean().optional(),
   ifEmpty: z.union([z.object({ piece: z.string().max(80) }).strict(), z.literal('leave')]).optional(),
   motion: z.object({
-    enter: z.enum(['none', 'fade', 'rise', 'drift']).optional(),
-    idle: z.enum(['none', 'float', 'sway']).optional(),
+    enter: z.enum(['none', 'fade', 'rise', 'drift', 'slide']).optional(),
+    idle: z.enum(['none', 'float', 'sway', 'flicker']).optional(),
     delay: z.number().min(0).max(2000).optional(),
   }).strict().optional(),
+  go: z.object({ to: z.enum(['calendar', 'maps', 'waze']), of: z.string().max(40).optional() }).strict().optional(),
+  taps: z.string().max(41).optional(),
+  song: z.literal(true).optional(),
+  when: z.object({ section: z.string().max(40), field: z.string().max(40), is: z.array(z.string().max(60)).max(12).optional(), filled: z.boolean().optional() }).strict().optional(),
   attachTo: z.string().max(41).optional(),
   opens: z.string().regex(KEY).optional(),
 };
@@ -1316,6 +1513,11 @@ const zElement = z.union([
     size: z.number().positive().max(40).optional(),
     weight: z.number().int().min(100).max(900).optional(),
     tracking: z.number().min(-0.05).max(0.4).optional(),
+    leading: z.number().min(0.6).max(3).optional(),
+    rule: z.literal(true).optional(),
+    button: z.literal(true).optional(),
+    highlight: z.enum(['ink', 'muted', 'accent', 'accent2', 'surface']).optional(),
+    caps: z.literal(true).optional(),
     room: z.number().int().min(1).max(2000).optional(),
     offerLine: z.boolean().optional(),
     lifted: z.string().max(80).optional(),
@@ -1341,7 +1543,7 @@ const zPage = z.object({
   ground: zGround.optional(),
   seam: z.number().min(0).max(1).optional(),
   footPad: z.number().min(0).max(12).optional(),
-  headPad: z.number().min(0).max(12).optional(),
+  headPad: z.number().min(0).max(200).optional(),
   drawn: z.literal(true).optional(),
   grow: z.literal(true).optional(),
   peekEnd: z.literal(true).optional(),
@@ -1351,6 +1553,7 @@ const zPage = z.object({
   minScreens: z.number().min(0.3).max(6).optional(),
   size: z.number().min(0.3).max(2).optional(),
   offFlow: z.array(z.string().max(80)).max(80).optional(),
+  live: z.literal(true).optional(),
   booklet: z.string().regex(KEY).optional(),
   only: z.literal('std').optional(),
   cover: z.object({
@@ -1721,7 +1924,23 @@ export function templateGround(t: { design?: unknown; layout?: string }): string
 export function builtinDesign(layout: string): DesignDoc | null {
   if (layout === 'babyblue') return babyblueDesign();
   if (layout === 'capiz') return capizDesign();
+  if (layout === 'christening') return christeningDesign();
   return null;
+}
+
+/**
+ * The christening on her sixteen Canva grounds: seven pages in the column
+ * and nine in three booklets behind the Highlights page. The pages are data
+ * (`src/lib/christening.ts`) because every place on them is a fraction read
+ * off her PDF, and a list of measurements belongs in a file of its own.
+ */
+function christeningDesign(): DesignDoc {
+  return {
+    v: 1,
+    pages: CHRISTENING_PAGES.map((p) => ({ ...p })),
+    paper: CHRISTENING_PAPER,
+    surround: CHRISTENING_SURROUND,
+  };
 }
 
 /**
@@ -2593,17 +2812,103 @@ const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'n
  * place among the rows that have that field filled, which is how the
  * photographs page counts and why a frame and its caption agree.
  */
-export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef): string {
+export function valueAt(content: Record<string, unknown> | undefined, ref: FieldRef, lang: Lang = 'en'): string {
   const data = isRecord(content?.[ref.section]) ? (content![ref.section] as Rowish) : undefined;
   if (!data) return '';
-  if (ref.index === undefined) return said(text(data[ref.field]), ref.show);
+  if (ref.show === 'given' && ref.index === undefined) return given(text(data[ref.field]), content);
+  if (ref.index === undefined) {
+    /*
+     * A whole list in one box, one name a line.
+     *
+     * A design that draws a list it did not write cannot know how long it
+     * is: the christening's page has two columns of godparents, and a
+     * family may bring three or twelve. Naming a `sub` without an `index`
+     * asks for all of them — the box places the first line and the rest
+     * follow at the box's own leading, and the page grows.
+     *
+     * A row with nothing in it is dropped rather than left as a gap, which
+     * is what an empty row in a form usually is.
+     */
+    const whole = data[ref.field];
+    if (Array.isArray(whole) && ref.sub) {
+      return whole.filter(isRecord).map((r) => said(text((r as Rowish)[ref.sub!]), ref.show)).filter(Boolean).join('\n');
+    }
+    /*
+     * A person is three answers in one box — a title, a name, and whether
+     * they have passed — and a design that binds one wants the line the
+     * scrolled renderer writes, not the object. The christening's PARENTS
+     * row is the case: `parents.father` bound plainly was printing nothing
+     * at all, because a record is not a string.
+     */
+    if (isRecord(whole) && 'name' in whole) return personLine(whole, lang);
+    return said(text(whole), ref.show);
+  }
   const raw = data[ref.field];
   if (!Array.isArray(raw)) return '';
   const all = raw.filter(isRecord) as Rowish[];
   const list = ref.skipEmpty ? all.filter((r) => text(r[ref.skipEmpty!])) : all;
   const row = list[ref.index];
   if (!row) return '';
+  if (!ref.sub && 'name' in row) return personLine(row, lang);
   return said(text(ref.sub ? row[ref.sub] : row.value), ref.show);
+}
+
+/**
+ * Whether an element's `when` is satisfied by these answers.
+ *
+ * Absent, it always is: an element that asks no question is always drawn.
+ * The studio and the checklist read this too, so a box hidden from a guest
+ * is a box the checklist does not ask the customer to fill.
+ */
+export function shows(el: Element, content: Record<string, unknown> | undefined): boolean {
+  const w = el.when;
+  if (!w) return true;
+  const data = isRecord(content?.[w.section]) ? (content![w.section] as Rowish) : undefined;
+  const value = text(data?.[w.field]);
+  if (w.is && !w.is.includes(value)) return false;
+  if (w.filled !== undefined && Boolean(value) !== w.filled) return false;
+  return true;
+}
+
+/**
+ * A stored person as one line: "Mr. Paolo Cruz", "the late Denise Reyes †".
+ *
+ * The same words the scrolled renderer writes, out of the same helper, so a
+ * drawn page and a scrolled one never disagree about a family's own names.
+ */
+function personLine(row: Rowish, lang: Lang): string {
+  return formatPerson({ title: '', name: '', deceased: false, ...(row as Partial<Person>) }, t(lang, 'parents.late'));
+}
+
+/**
+ * A child's given names: the whole name with the family name taken off the end.
+ *
+ * Her cover sets the given names large in script and the family name small
+ * and bold on the line under it — two slots, and the form already asks for
+ * both (`cover.childFull`, and `parents.familyName`, whose hint says it is
+ * "printed under the child's name on designs that carry a line for it"). A
+ * family types the child's name once and in full, so the big line has to drop
+ * the part the small line is about to say, or the cover reads "Lucas Andrei
+ * Reyes - Cruz" with "Reyes - Cruz" again beneath it.
+ *
+ * Only off the end, and only when it is really there. The comparison ignores
+ * everything but letters and digits, so "Reyes - Cruz", "Reyes-Cruz" and
+ * "reyes cruz" are one ending; and it walks back a word at a time, because a
+ * Filipino family name is as often two words as one. A name that does not end
+ * with the family name is left whole — right for a family who typed only the
+ * given names, and for a child who does not carry that family name at all.
+ */
+function given(full: string, content: Record<string, unknown> | undefined): string {
+  const parents = isRecord(content?.parents) ? (content!.parents as Rowish) : undefined;
+  const family = text(parents?.familyName);
+  const bare = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const tail = bare(family);
+  if (!full || !tail) return full;
+  const words = full.trim().split(/\s+/);
+  for (let i = words.length - 1; i >= 1; i--) {
+    if (bare(words.slice(i).join(' ')) === tail) return words.slice(0, i).join(' ');
+  }
+  return full;
 }
 
 /**
@@ -2619,7 +2924,11 @@ function said(value: string, show: FieldRef['show']): string {
   if (show === 'time') return formatTime(value) || value;
   const when = parseDateKey(value);
   if (!when) return value;
-  return formatDate(when, show === 'dateShort' ? 'short' : show === 'weekday' ? 'weekday' : 'long') || value;
+  // `weekday` is the word on its own — the christening sets SATURDAY over
+  // OCTOBER 28, 2028, two boxes, and a `weekday` that carried the date too
+  // would print the date twice
+  if (show === 'weekday') return formatWeekday(when) || value;
+  return formatDate(when, show === 'dateShort' ? 'short' : 'long') || value;
 }
 
 /**
@@ -2857,7 +3166,7 @@ export type WordReader = (key: WordKey) => string;
 export function lineText(sources: Source[], read: { content?: Record<string, unknown>; word: WordReader; copy: (key: string) => string; lang: Lang }): string {
   for (const s of sources) {
     let v = '';
-    if ('bind' in s) v = valueAt(read.content, s.bind);
+    if ('bind' in s) v = valueAt(read.content, s.bind, read.lang);
     else if ('word' in s) v = read.word(s.word);
     else if ('copy' in s) v = read.copy(s.copy);
     else v = (read.lang === 'tl' ? s.fixed.tl ?? s.fixed.en : s.fixed.en) ?? '';

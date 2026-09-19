@@ -315,6 +315,26 @@ export async function guestsCsv(invitation: { id: string; slug: string }): Promi
   );
 }
 
+/**
+ * The guestbook as a spreadsheet.
+ *
+ * The wall is the only thing guests write that the family could not keep.
+ * The RSVPs export, the guest list exports, the shared album downloads —
+ * and the messages, which are the part people actually want afterwards,
+ * could only be read on a web page for as long as the invitation was up.
+ *
+ * Everything is here, waiting messages included, with a column saying which
+ * is which: a message held back for approval is still a message somebody
+ * wrote, and deciding what to do with it is the family's, not ours.
+ */
+export async function guestbookCsv(invitationId: string): Promise<string> {
+  const entries = await prisma.guestbookEntry.findMany({ where: { invitationId }, orderBy: { createdAt: 'asc' } });
+  return toCsv(
+    ['Name', 'Message', 'Shown on the page', 'Written at'],
+    entries.map((e) => [e.name, e.message, e.approved ? 'Yes' : 'Waiting for approval', formatDateTime(e.createdAt)]),
+  );
+}
+
 export async function rsvpsCsv(invitationId: string): Promise<string> {
   const rsvps = await prisma.rsvp.findMany({ where: { invitationId }, include: { guest: true }, orderBy: { createdAt: 'desc' } });
   return toCsv(

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { preload } from 'react-dom';
 import { plateChars } from '@/lib/openings';
 import { Scene, useMomentGesture } from './moments';
 import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
@@ -16,8 +17,15 @@ import type { Attendee } from '@/lib/attendees';
  */
 
 // ---------------------------------------------------------------------------
-// The opening + music. One component, because the tap that opens the
-// invitation is the user gesture that lets audio play on a phone.
+// The opening + music. One component, because the player has to outlive the
+// overlay: the song is started from a control — the floating ♫, or the one
+// the design drew, like her record's CLICK FOR MUSIC — and goes on playing
+// down the whole invitation.
+//
+// Nothing starts the song by itself. A guest who never presses anything
+// never hears it, which is what she asked for and what a phone in a quiet
+// room deserves. The file is fetched ahead of the press all the same (see
+// `warm`), so pressing it plays rather than waits.
 //
 // Every opening is the same overlay with a different stage inside it and a
 // different exit in CSS. Nothing here downloads a video: the couple's own
@@ -62,7 +70,7 @@ export type OpeningProps = {
 /** The scene an opening plays, where it is one of the moments' — the envelope and the seal are, since #174. */
 const SCENE_OF: Partial<Record<string, MomentKey>> = { envelope: 'envelope', seal: 'seal', ribbon: 'ribbon', doors: 'doors', capiz: 'capiz', letter: 'letter' };
 
-function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
+function Stage({ style, monogram, photos, video, poster, videoRef, parts, warm }: {
   style: string;
   monogram: string;
   photos: string[];
@@ -70,12 +78,17 @@ function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
   video: string;
   poster: string;
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  /** the page has landed, so the clip may fetch itself ahead of the tap */
+  warm?: boolean;
 }) {
   switch (style) {
     case 'cinematic':
       // The poster carries the whole closed screen, so the guest sees the
-      // artwork immediately and the clip is only fetched when they tap —
-      // preload="none" is what keeps the first paint free of it.
+      // artwork immediately and nothing of the clip is fetched for the first
+      // paint. It is warmed as soon as the page is interactive rather than
+      // on the tap: two megabytes asked for on the tap meant eight seconds of
+      // a still poster with the hint already gone, which is what looked
+      // broken.
       return (
         <video
           ref={videoRef}
@@ -84,7 +97,7 @@ function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
           poster={poster}
           muted
           playsInline
-          preload="none"
+          preload={warm ? 'auto' : 'none'}
           aria-hidden
         />
       );
@@ -132,6 +145,31 @@ function Stage({ style, monogram, photos, video, poster, videoRef, parts }: {
  * JavaScript off would be left tapping a screen that never opens.
  */
 const NO_JS = '.inv-open{display:none !important}';
+
+/**
+ * The one piece of script that has to be in the markup rather than in the
+ * bundle: it has to be running before the bundle is.
+ *
+ * It notes a tap made on the closed screen while the page is still arriving
+ * and leaves it on the element. Shell reads it the moment it mounts and
+ * opens on it, so a guest who tapped early is answered rather than ignored.
+ * It takes the first tap and no more — after that React's own handler is on
+ * the element and does the work — and it finds its own overlay by taking the
+ * last one in the document, which is the one the parser has just reached.
+ *
+ * Being inline, it runs only once the stylesheet has arrived: the parser
+ * holds a script behind a pending sheet. That is the right boundary rather
+ * than a gap to close, because the sheet is also what makes the closed
+ * screen look finished. Before it lands the page is plainly still
+ * assembling and nobody mistakes it for an invitation that will not open;
+ * after it, every tap is caught. Measured on a phone connection: the sheet
+ * at 1.6s, this listening from the same instant, React on the element at
+ * 2.0s.
+ */
+const EARLY_TAP = `(function(){var l=document.querySelectorAll('.inv-open'),e=l[l.length-1];if(!e)return;` +
+  `var w=function(){e.setAttribute('data-waiting','')};` +
+  `e.addEventListener('pointerdown',w,{capture:true,once:true});` +
+  `e.addEventListener('keydown',function(v){if(v.key==='Enter'||v.key===' ')w()},{capture:true,once:true})})()`;
 
 /** Seconds before a clip's end at which its card is out and the words come up on it. */
 const CARD_WORDS_AT = 0.9;
@@ -182,6 +220,43 @@ export function Shell({
   const trigger: Trigger = sceneDef && opening.trigger && sceneDef.triggers.includes(opening.trigger) ? opening.trigger : sceneDef?.triggers[0] ?? 'tap';
   const speed: Speed = opening.speed ?? 'normal';
   const [playing, setPlaying] = useState(false);
+  /*
+   * Whether the closed screen can answer a tap yet.
+   *
+   * It is drawn by the server on a poster, so it looks entirely finished
+   * while the script that opens it is still coming down — on a phone
+   * connection that gap was measured at more than twenty seconds. A guest
+   * who tapped in it got nothing back at all: no movement, no sign it had
+   * heard, so they tapped again and decided the invitation was broken.
+   *
+   * Two things follow from this flag. The hint is held back until the tap
+   * will work, so it never asks for one that goes nowhere; and EARLY_TAP
+   * below writes any tap made before then onto the overlay, which the
+   * effect under revealNow reads on mount and opens straight away. The tap
+   * is never lost, only answered late.
+   */
+  const [ready, setReady] = useState(false);
+  const overlay = useRef<HTMLDivElement | null>(null);
+  /*
+   * Whether the song and the clip may start fetching themselves.
+   *
+   * Both were preload="none", which is right for the first screen — the
+   * closed screen is a poster and neither file has any part in drawing it —
+   * and wrong for everything after. The tap reached an empty audio element
+   * and an empty video element: the song only began to arrive once play()
+   * had been called on it, and behind a two-megabyte clip on a phone
+   * connection nothing was heard for long enough that the guest gave up and
+   * found the design's own CLICK FOR MUSIC further down instead. That is
+   * exactly what she reported — the song starting at the disc and not at
+   * the opening — and the same wait is why the clip felt broken.
+   *
+   * The closed screen exists to buy this time. Both are warmed the moment
+   * the page can answer a tap at all, which is after the first paint and
+   * after the papers have been asked for in the head, so the artwork keeps
+   * the bandwidth it needs and the tap, whenever it comes, has something
+   * ready to play.
+   */
+  const [warm, setWarm] = useState(false);
   const audio = useRef<HTMLAudioElement | null>(null);
   const clip = useRef<HTMLVideoElement | null>(null);
   // The tap has landed: the hint goes, whatever the clip is still doing.
@@ -250,9 +325,33 @@ export function Shell({
     } else void play();
   }, [playing, play]);
 
+  /*
+   * A control the *design* drew, anywhere on the invitation.
+   *
+   * Her christening sets CLICK FOR MUSIC around the rim of a record on the
+   * hub, and that picture has to work the same button the floating ♫ does.
+   * It is delegated from the document rather than wired per element,
+   * because the player is here and the record is drawn several components
+   * away, inside a page inside a booklet.
+   */
   useEffect(() => {
-    if (!closed && music) void play();
-  }, [closed, music, play]);
+    if (!music) return;
+    const onClick = (e: Event) => {
+      if ((e.target as Element | null)?.closest?.('[data-music]')) toggle();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (!(e.target as Element | null)?.closest?.('[data-music]')) return;
+      e.preventDefault();
+      toggle();
+    };
+    document.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [music, toggle]);
 
   // The page behind must not scroll under the overlay — on a phone a stray
   // swipe would otherwise scroll the invitation past the opening unseen.
@@ -270,8 +369,9 @@ export function Shell({
    * on a timer; the cinematic one instead plays its clip and leaves when the
    * clip ends, because the reveal *is* the clip.
    *
-   * The tap is also what makes both of these work at all on a phone: playing
-   * video or audio without a user gesture is blocked, and this is the gesture.
+   * The tap is also what makes the clip play at all on a phone: video
+   * without a user gesture is blocked, and this is the gesture. The song is
+   * not started here — it waits for its own control to be pressed.
    */
   const gesture = useMomentGesture({ trigger, speed, duration: sceneDef?.duration ?? 1200, swipe: sceneDef?.swipe, disabled: open, onOpen: () => revealNow() });
   const reveal = () => {
@@ -281,7 +381,7 @@ export function Shell({
   const revealNow = () => {
     if (tapped) return;
     setTapped(true);
-    if (music) void play();
+    // the song is not started here: it waits for a control to be pressed
     const video = clip.current;
     if (opening.style !== 'cinematic' || !video) {
       setOpen(true);
@@ -360,16 +460,43 @@ export function Shell({
     void video.play().catch(close);
   };
 
+  /*
+   * The page is ready, and a tap that came in before it was is answered now.
+   *
+   * This runs once, on mount, which is the first instant the closed screen
+   * can do anything at all. Nothing else in the component may set `ready`:
+   * it means precisely "React is on this element", and the hint's honesty
+   * rests on that.
+   */
+  useEffect(() => {
+    setReady(true);
+    // and the song and the clip may start fetching themselves: see `warm`.
+    // Mount, not the load event — that one waits for every picture on the
+    // page, which is long after the guest has tapped.
+    setWarm(true);
+    if (overlay.current?.hasAttribute('data-waiting')) revealNow();
+    // once, on mount: revealNow reads nothing that has changed by then
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       {closed && (
         <>
           <noscript><style>{NO_JS}</style></noscript>
           <div
+            ref={overlay}
+            /* EARLY_TAP writes data-waiting onto this element before React
+               reaches it, which is the whole point of it and is exactly what
+               this flag is for. Nothing else here can drift: every other
+               attribute below comes from state that starts at the value the
+               server rendered. */
+            suppressHydrationWarning
             className="inv-open"
             data-style={opening.style}
             data-clip={opening.clip || undefined}
             data-open={open}
+            data-ready={ready ? '' : undefined}
             data-state={open || tapped ? 'open' : 'closed'}
             data-trigger={trigger}
             data-dragging={gesture.dragging ? '' : undefined}
@@ -388,7 +515,7 @@ export function Shell({
             onPointerCancel={gesture.handlers.onPointerCancel}
           >
             <div className="inv-open-stage">
-              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} parts={opening.parts} />
+              <Stage style={opening.style} monogram={opening.monogram} photos={opening.photos} video={opening.video} poster={opening.poster} videoRef={clip} parts={opening.parts} warm={warm} />
             </div>
             {/* the card the words go on when the clip could not play */}
             {opening.words && <div className="inv-open-still" data-show={still} aria-hidden />}
@@ -410,7 +537,13 @@ export function Shell({
               {opening.date && <p className="inv-open-date">{opening.date}</p>}
             </div>
             <p className="inv-open-hint">{opening.hint}</p>
+            {/* the tap was heard and the clip is still coming: a hint in
+                everything but what it says, so it takes the hint's place and
+                the clip's own colour — see .inv-open-wait */}
+            <p className="inv-open-hint inv-open-wait" aria-hidden><i /><i /><i /></p>
           </div>
+          {/* it has to be running before the bundle is: see EARLY_TAP */}
+          <script dangerouslySetInnerHTML={{ __html: EARLY_TAP }} />
         </>
       )}
       {music && (
@@ -419,7 +552,7 @@ export function Shell({
           <audio
             ref={audio}
             src={music}
-            preload="none"
+            preload={warm ? 'auto' : 'none'}
             onLoadedMetadata={settle}
             onCanPlay={settle}
             onProgress={settle}
@@ -1137,17 +1270,72 @@ export function Pinned({ pins, phoneWindow = 639 }: {
  */
 type Ground = { url: string; ratio: number; top: string; bottom: string; slices?: { top: string; foot: string; mid: string }; night?: string; runsOn?: number };
 export function PageGround({ ratio, order, last, backgrounds, night, grounds, seam: seamShare = 0.24 }: { ratio: number; order: number[]; last: number; backgrounds: string[]; night?: string[]; grounds?: Record<string, Ground>; seam?: number }) {
+  /*
+   * Ask for the papers before anything else on the page does.
+   *
+   * The pass below cannot run until the script has come down and React has
+   * hydrated, so until now the design's own artwork — the thing the page
+   * *is* — was the last file to be asked for. Every decoration in the
+   * markup, including the ones inside a closed booklet, went first. On a
+   * phone connection that measured fifteen seconds of pages with nothing
+   * behind the words, which is what she meant by pages that look broken
+   * while they load.
+   *
+   * Asking here puts a <link rel="preload"> in the head, rendered with the
+   * document, so the papers are in flight from the first byte and ahead of
+   * every picture in the body. They are small — the whole christening set
+   * is under 600 KB — and nothing about the layout below changes: the pass
+   * still measures and lays them, it just finds them already arrived.
+   */
+  for (const g of Object.values(grounds ?? {})) if (g.url) preload(g.url, { as: 'image' });
+  // A column laid by number (Capiz) has no page keys, so its first two
+  // backgrounds are asked for instead: the two the guest lands on. The rest
+  // are far enough down the scroll to arrive in their own time. Only where
+  // that column is actually laid — a document of another layout is handed
+  // the strip as a fallback it never uses, and ratio 0 is how it says so.
+  if (ratio > 0) for (const url of backgrounds.slice(0, 2)) if (url) preload(url, { as: 'image' });
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     const inv = ref.current?.closest<HTMLElement>('.inv');
-    const ground = inv?.querySelector<HTMLElement>('.inv-ground');
-    if (!inv || !ground) return;
-    const pages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
+    if (!inv) return;
+    const allPages = Array.from(inv.querySelectorAll<HTMLElement>('.inv-page'));
+    /*
+     * One run per surface, and a booklet is a surface.
+     *
+     * This was written when an invitation was one column, so it took `.inv`,
+     * every page in it and the one ground layer, and laid the papers down
+     * that single scroll. A booklet broke it quietly: its pages were still
+     * found by the query, so their papers were positioned against the
+     * column's top — inside a layer only as tall as the column — and the
+     * pages themselves, which sit after it, came up bare. Sixteen grounds in
+     * the markup, nine of them nowhere near the pages they belonged to.
+     *
+     * So the surfaces are gathered first: the column with the pages that are
+     * not in a booklet, then each booklet with its own layer and its own
+     * pages. Every measurement below is against the surface rather than the
+     * invitation, which is what makes a booklet's first page start at zero
+     * the way the cover does.
+     *
+     * A closed booklet measures nothing, and that is the right answer rather
+     * than a problem to work around: it lays nothing, and the ResizeObserver
+     * below — which watches every page, booklet pages included — runs the
+     * pass again the moment one opens and has a size.
+     */
+    const booklets = Array.from(inv.querySelectorAll<HTMLElement>('.inv-booklet'));
+    const surfaces: { box: HTMLElement; ground: HTMLElement; pages: HTMLElement[]; column: boolean }[] = [];
+    const column = inv.querySelector<HTMLElement>(':scope > .inv-ground');
+    if (column) surfaces.push({ box: inv, ground: column, pages: allPages.filter((p) => !p.closest('.inv-booklet')), column: true });
+    for (const b of booklets) {
+      const g = b.querySelector<HTMLElement>(':scope > .inv-ground');
+      if (g) surfaces.push({ box: b, ground: g, pages: Array.from(b.querySelectorAll<HTMLElement>('.inv-page')), column: false });
+    }
+    if (!surfaces.length) return;
     let frame = 0;
-    const lay = () => {
-      const width = inv.clientWidth;
+    const lay = () => { for (const s of surfaces) layOne(s.box, s.ground, s.pages, s.column); };
+    const layOne = (surface: HTMLElement, ground: HTMLElement, pages: HTMLElement[], isColumn: boolean) => {
+      const width = surface.clientWidth;
       if (!width || !pages.length) return;
-      const invTop = inv.getBoundingClientRect().top;
+      const invTop = surface.getBoundingClientRect().top;
       // how far the ground before dissolves into this page: the layout's share
       // of the width, or the page's own (a drawn page keeps its top clear)
       const seamOf = (p: HTMLElement) => Math.round(width * (p.dataset.seam ? Number(p.dataset.seam) : seamShare));
@@ -1298,7 +1486,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
         const out = final ? 0 : segs[i + 1].above + segs[i + 1].below;
         const top = first ? s.top : s.top - half;
         // the last paper runs to the column's foot — unless the pages there sit on a pinned picture
-        const bottom = final ? (tailPinned ? s.top + s.height : inv.scrollHeight) : s.top + s.height + nextHalf;
+        const bottom = final ? (tailPinned ? s.top + s.height : surface.scrollHeight) : s.top + s.height + nextHalf;
         const box = bottom - top;
         const z = 2 * (segs.length - i);
         const g = s.own;
@@ -1397,6 +1585,17 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
           else stage.style.removeProperty('--inv-outside');
         }
       }
+      /*
+       * A booklet scrolls inside itself, so its ground cannot simply be
+       * `inset: 0` like the column's: that is the height of what is on
+       * screen, and the layer clips its own overflow, so every paper below
+       * the fold would be cut off. The pass has the real number, so it says
+       * it. The column keeps the stylesheet's inset, where it is right.
+       */
+      if (!isColumn) {
+        ground.style.bottom = 'auto';
+        ground.style.height = `${surface.scrollHeight}px`;
+      }
       while (ground.children.length > papers.length) ground.lastElementChild?.remove();
       papers.forEach((pp, i) => {
         let el = ground.children[i] as HTMLElement | undefined;
@@ -1429,7 +1628,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
        * along as a copy of its own frame. Nothing is drawn where the stage
        * is the column.
        */
-      if (stage && stageW > width + 1) {
+      if (isColumn && stage && stageW > width + 1) {
         const bleeding = papers.filter((pp) => pp.bleed);
         const bands = [...stage.querySelectorAll<HTMLElement>(':scope > .inv-beside')];
         while (bands.length > bleeding.length) bands.pop()?.remove();
@@ -1465,7 +1664,7 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
             band.appendChild(copy);
           } else if (!clip && had) band.replaceChildren();
         });
-      } else if (stage) {
+      } else if (isColumn && stage) {
         for (const band of stage.querySelectorAll(':scope > .inv-beside')) band.remove();
       }
       const papersDrawn = [...ground.children] as HTMLElement[];
@@ -1475,7 +1674,8 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
     queue();
     const ro = new ResizeObserver(queue);
     ro.observe(inv);
-    for (const p of pages) ro.observe(p);
+    for (const b of booklets) ro.observe(b);
+    for (const p of allPages) ro.observe(p);
     // day to night and back: the papers change
     const mo = new MutationObserver(queue);
     mo.observe(inv, { attributes: true, attributeFilter: ['data-mode'] });
@@ -1610,6 +1810,17 @@ export function PeekControls({ href, backLabel, closeLabel }: { href: string; ba
  * The same three questions as a clip — reduced motion, saveData, in view —
  * because they are the same question: this is motion, and a guest who has
  * said no to a clip has not said yes to a floating photograph.
+ *
+ * A *held* element is the exception, and it has to be, because holding is
+ * not decoration. The print inside the camera is the surprise the tap is
+ * for: it is hidden by `data-hold` in the stylesheet, unconditionally, and
+ * released here. So the two halves are split — the tap is wired for every
+ * guest, and only the arrivals and the idling wait on `data-motion`.
+ * Leaving the release behind the motion check meant a guest who has asked
+ * their phone for less motion got the worst of both: the print sitting in
+ * the camera before they touched anything, and a CLICK HERE that did
+ * nothing when they did. Less motion means no *animation*; it does not mean
+ * every surprise spoiled.
  */
 export function Motion() {
   useEffect(() => {
@@ -1617,8 +1828,8 @@ export function Motion() {
     if (!root) return;
     const save = (navigator as { connection?: { saveData?: boolean } }).connection?.saveData === true;
     const still = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
-    if (save || still) return;
-    root.setAttribute('data-motion', '');
+    const moving = !save && !still;
+    if (moving) root.setAttribute('data-motion', '');
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
@@ -1631,13 +1842,113 @@ export function Motion() {
       // otherwise have to be half read before it began
       { threshold: 0.1 },
     );
-    for (const el of root.querySelectorAll('[data-enter], [data-idle]')) io.observe(el);
+    // an element some other one taps does not arrive on its own: it waits,
+    // however far a guest scrolls, until the thing that names it is tapped
+    if (moving) {
+      for (const el of root.querySelectorAll('[data-enter], [data-idle]')) {
+        if (el.hasAttribute('data-hold')) continue;
+        io.observe(el);
+      }
+    }
+    /*
+     * One thing starting another: the print out of the camera when a guest
+     * taps CLICK HERE under it.
+     *
+     * Delegated from the root and matched inside the tapped element's own
+     * page, so two pages may each carry a pair with the same names and
+     * neither reaches the other. Releasing is one-way and once: the print
+     * comes out and stays out, which is what the object itself would do.
+     */
+    const play = (from: Element) => {
+      const name = from.getAttribute('data-taps');
+      if (!name) return;
+      const page = from.closest('.inv-page, .inv-section') ?? root;
+      for (const el of page.querySelectorAll(`[data-tap-id="${CSS.escape(name)}"]`)) {
+        el.removeAttribute('data-hold');
+        /*
+         * Two steps, a frame apart. `data-hold` hides the element outright,
+         * and a transition needs one painted frame at its starting place to
+         * transition *from* — set both in the same tick and the browser has
+         * nothing to interpolate, so the print appears rather than rising.
+         * For a guest who asked for less motion there is no transition to
+         * spoil and the second step simply finishes the job.
+         */
+        requestAnimationFrame(() => el.setAttribute('data-in', ''));
+      }
+      from.setAttribute('data-tapped', '');
+    };
+    const onTap = (e: Event) => {
+      const from = pressed(e, '[data-taps]');
+      if (from) play(from);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const from = (e.target as Element | null)?.closest?.('[data-taps]');
+      if (!from) return;
+      e.preventDefault();
+      play(from);
+    };
+    root.addEventListener('click', onTap);
+    root.addEventListener('keydown', onKey as EventListener);
     return () => {
       io.disconnect();
+      root.removeEventListener('click', onTap);
+      root.removeEventListener('keydown', onKey as EventListener);
       root.removeAttribute('data-motion');
     };
   }, []);
   return null;
+}
+
+/**
+ * What a guest actually pressed, when the thing on top is not the thing that
+ * matters.
+ *
+ * A drawn page places every element by coordinates, so they overlap on
+ * purpose — the envelope a guest taps carries the card's picture and a line
+ * of script *on top of it*, as siblings rather than as children. An ordinary
+ * `event.target.closest(...)` walks up from whatever was topmost and never
+ * reaches sideways, so the tap dies on the decoration. The stylesheet makes
+ * that decoration transparent to the pointer, which fixes it and fixes the
+ * cursor with it; this is the second lock. `closest` still answers first, so
+ * anything genuinely interactive lying on top keeps the press; only when the
+ * press hit nothing at all do we look down through the stack, topmost first,
+ * for the object underneath.
+ *
+ * And the walk stops at the first thing that plainly owns the press in its
+ * own right, which is what OWNED is for. Without that it reaches *past* a
+ * link: OPEN IN GOOGLE MAPS sits on the venue page, the venue page sits in
+ * a booklet laid over the hub, and a hub card lies at the same coordinates
+ * underneath it. The press went to the card — the same booklet re-opened,
+ * the link's default was cancelled — so both map buttons looked alive,
+ * showed the hand cursor, and did nothing at all.
+ */
+const OWNED = 'a[href], button, input, select, textarea, label, video, [data-go], [data-taps], [data-music], [data-back], [data-opens]';
+
+/**
+ * The rule itself, over a stack of elements topmost first. Exported so the
+ * tests can hold it: it is short, it is easy to read as redundant, and
+ * taking the second half out is exactly the bug above.
+ */
+export function ownerOfPress(stack: Iterable<Element>, selector: string): HTMLElement | null {
+  for (const node of stack) {
+    const hit = node.closest?.(selector);
+    if (hit) return hit as HTMLElement;
+    // something else owns this press: it is not ours to take from underneath
+    if (node.closest?.(OWNED)) return null;
+  }
+  return null;
+}
+
+function pressed(e: Event, selector: string): HTMLElement | null {
+  const direct = (e.target as Element | null)?.closest?.(selector);
+  if (direct) return direct as HTMLElement;
+  // structural, not `MouseEvent`: in a .tsx file that name is React's
+  // synthetic one, and this is a native listener
+  const { clientX = 0, clientY = 0 } = e as Event & { clientX?: number; clientY?: number };
+  // a keyboard-driven click carries no coordinates, and `closest` covers it
+  if (!clientX && !clientY) return null;
+  return ownerOfPress(document.elementsFromPoint(clientX, clientY), selector);
 }
 
 /**
@@ -1712,6 +2023,20 @@ export function Hub() {
       from = el;
       history.pushState({ invBooklet: key }, '');
       show(key);
+      /*
+       * An opener that is also a link lands on the place it names.
+       *
+       * The floating RSVP button is the case: it says `#rsvp` and the RSVP
+       * is inside a booklet, so opening the booklet is only half the
+       * journey — a booklet of several pages would open at its first one
+       * and leave the guest to find the form. The href is the target and
+       * the booklet is the door; an opener that is not a link names no
+       * place and simply opens, which is every other object on the hub.
+       */
+      const href = el.getAttribute('href');
+      if (href && href.startsWith('#') && href.length > 1) {
+        booklets.get(key)?.querySelector(`#${CSS.escape(href.slice(1))}`)?.scrollIntoView({ block: 'start' });
+      }
     };
 
     const onPop = () => {
@@ -1723,7 +2048,7 @@ export function Hub() {
       const t = e.target as HTMLElement | null;
       if (!t) return;
       if (t.closest('[data-back]')) { history.back(); return; }
-      const opener = t.closest<HTMLElement>('[data-opens]');
+      const opener = pressed(e, '[data-opens]');
       if (opener && openers.includes(opener)) { e.preventDefault(); open(opener); }
     };
 

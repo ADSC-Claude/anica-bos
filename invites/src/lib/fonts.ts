@@ -376,6 +376,7 @@ export const PRESET_VOICE: Record<string, LookKey> = {
   'alex-brush-sanchez': 'romance',
   'bodoni-muellerhoff': 'editorial',
   'abhaya-parisienne': 'romance',
+  'abhaya-italianno': 'romance',
   'abhaya-petit-formal': 'romance',
   'abhaya-imperial': 'romance',
   'abhaya-sacramento': 'romance',

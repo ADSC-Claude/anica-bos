@@ -39,12 +39,15 @@ async function main() {
       // unpublished a live design in the admin, a sync must not put it back
       // on the shop floor; a retired one comes off it.
       const { published, design, ...rest } = data;
-      // a document the studio wrote into this row is hers and stays; the catalogue's goes only into an empty column
-      const own = found.design && typeof found.design === 'object' && Object.keys(found.design as object).length > 0;
+      // A document the studio wrote into this row is hers and stays; the
+      // catalogue's goes only into an empty column — unless the catalogue
+      // says it owns this one (`owns`), which is how a design still being
+      // built in code reaches the page at all. See TemplateSeed.owns.
+      const own = !t.owns && found.design && typeof found.design === 'object' && Object.keys(found.design as object).length > 0;
       const payload = own ? rest : { ...rest, design };
       if (!dry) await prisma.template.update({ where: { slug: t.slug }, data: t.retired ? { ...payload, published } : payload });
       updated++;
-      console.info(`  ${t.retired ? 'retired ' : 'updated '} ${t.slug.padEnd(20)} ${t.name}${own ? ' (its own document kept)' : ''}`);
+      console.info(`  ${t.retired ? 'retired ' : 'updated '} ${t.slug.padEnd(20)} ${t.name}${own ? ' (its own document kept)' : t.owns ? ' (design refreshed from the catalogue)' : ''}`);
     } else {
       if (!dry) await prisma.template.create({ data });
       created++;

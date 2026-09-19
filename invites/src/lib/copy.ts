@@ -175,7 +175,7 @@ const PHRASES = {
   'guestbook.prompt': { en: 'Leave a message for {hosts}', tl: 'Mag-iwan ng mensahe para sa {hosts}' },
   'guestbook.submit': { en: 'Post my wish', tl: 'I-post' },
   'guestbook.pending': { en: 'Thank you! Your message will appear once the hosts approve it.', tl: 'Salamat! Lalabas ang mensahe mo pagka-approve ng mga host.' },
-  'photos.title': { en: 'Photos from Our Guests', tl: 'Mga Larawan Mula sa Bisita' },
+  'photos.title': { en: 'Photos From The Day', tl: 'Mga Larawan Ngayong Araw' },
   'photos.prompt': { en: 'Share your photos from the day', tl: 'I-share ang mga litrato mo ngayong araw' },
   'photos.choose': { en: 'Choose your photos', tl: 'Pumili ng mga larawan' },
   'photos.caption': { en: 'Caption (optional)', tl: 'Caption (opsyonal)' },
@@ -195,7 +195,11 @@ const PHRASES = {
   // test — copy about a limit that has drifted from the limit is worse than no
   // copy at all.
   'photos.accepts': { en: 'Photos only, not video — JPEG, PNG or WebP, up to {max} each.', tl: 'Mga larawan lang, hindi video — JPEG, PNG o WebP, hanggang {max} bawat isa.' },
-  'photos.empty': { en: 'No photos yet — be the first.', tl: 'Wala pang larawan — mauna ka.' },
+  // The showlist says so itself: what left the wall is still in the album.
+  'photos.slot': { en: 'Add yours', tl: 'Idagdag ang iyo' },
+  'photos.more': { en: 'and {n} more in the album', tl: 'at {n} pa sa album' },
+  'guestbook.first': { en: 'Be the first to write', tl: 'Ikaw ang mauna' },
+  'guestbook.more': { en: 'and {n} more in the book', tl: 'at {n} pa sa aklat' },
   'seating.title': { en: 'Your table', tl: 'Ang inyong mesa' },
   'closing.title': { en: 'See you there', tl: 'Kita-kits' },
   'envelope.open': { en: 'Tap to open', tl: 'I-tap para buksan' },

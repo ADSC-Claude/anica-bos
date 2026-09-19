@@ -1007,7 +1007,22 @@ export type Source =
   | { bind: FieldRef }
   | { word: WordKey }
   | { copy: string }
-  | { fixed: { en: string; tl?: string } };
+  /**
+   * A writing of the design's own, and — with `fill` — the answer to one
+   * question set inside it.
+   *
+   * The sources of a line are fallbacks, not pieces: the first one with
+   * something to say is the line. That is right for "her words, or the
+   * design's", and wrong for a sentence the design wrote *about* the family:
+   * "A line for Lucas to read one day" is one line with a name in the middle
+   * of it, and neither a fixed writing nor a bound field is that on its own.
+   *
+   * So `fill` names the question, and every `{…}` in the writing is replaced
+   * by its answer. With no answer there is no sentence — a line reading "A
+   * line for  to read one day" is worse than the next source down, so the
+   * source yields nothing and the fallback after it has its turn.
+   */
+  | { fixed: { en: string; tl?: string }; fill?: FieldRef };
 
 export type LineRole = 'title' | 'sub' | 'eyebrow' | 'script' | 'label-title' | 'label-text' | 'caption' | 'body';
 
@@ -1501,7 +1516,7 @@ const zSource = z.union([
   z.object({ bind: zFieldRef }).strict(),
   z.object({ word: z.string().max(60) }).strict(),
   z.object({ copy: z.string().max(60) }).strict(),
-  z.object({ fixed: z.object({ en: z.string().max(600), tl: z.string().max(600).optional() }).strict() }).strict(),
+  z.object({ fixed: z.object({ en: z.string().max(600), tl: z.string().max(600).optional() }).strict(), fill: zFieldRef.optional() }).strict(),
 ]);
 const zLine = z.object({
   role: z.enum(['title', 'sub', 'eyebrow', 'script', 'label-title', 'label-text', 'caption', 'body']),
@@ -3263,7 +3278,14 @@ export function lineText(sources: Source[], read: { content?: Record<string, unk
     if ('bind' in s) v = valueAt(read.content, s.bind, read.lang);
     else if ('word' in s) v = read.word(s.word);
     else if ('copy' in s) v = read.copy(s.copy);
-    else v = (read.lang === 'tl' ? s.fixed.tl ?? s.fixed.en : s.fixed.en) ?? '';
+    else {
+      v = (read.lang === 'tl' ? s.fixed.tl ?? s.fixed.en : s.fixed.en) ?? '';
+      // a sentence with a question set in it: no answer, no sentence
+      if (v && s.fill) {
+        const answer = valueAt(read.content, s.fill, read.lang);
+        v = answer ? v.replace(/\{[^{}]*\}/g, answer) : '';
+      }
+    }
     if (v) return v;
   }
   return '';

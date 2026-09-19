@@ -22,7 +22,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CHRISTENING_PAGES } from '../src/lib/christening';
 import { SHOW_MESSAGES } from '../src/lib/showlist';
-import type { PhotoEl, PictureGround, TextEl } from '../src/lib/design';
+import type { PhotoEl, PictureGround, Source, TextEl } from '../src/lib/design';
+
+/** the one source shape this file asks about: a writing of the design's own */
+const written = (s: Source) => ('fixed' in s ? s : undefined);
 
 const RATIO = 1.7778;
 /** her height as a share of her width, so a share of the page's height becomes cqw */
@@ -45,28 +48,44 @@ test('both pages carry the part they are drawn for, and grow with it', () => {
   }
 });
 
-test('the guestbook’s words clear her torn edge, and her baby clears the form', () => {
-  const head = (guestbook.elements ?? []).find((e): e is TextEl => e.id === 'gb-head')!;
+test('the guestbook carries her own two writings, above her icon and below it', () => {
+  const [head, line] = ['gb-head', 'gb-line'].map((id) => (guestbook.elements ?? []).find((e): e is TextEl => e.id === id)!);
   /*
-   * Her header is a torn strip of tan paper, and the tear is ragged: the tan
-   * reaches 20.63% of the page down at its deepest and gives up at 16.82% at
-   * its shallowest. The title's baseline is 15.4% and its capitals stand
-   * about 0.7 of the size above it — 1.94% of the page — so the words run
-   * from 13.5% to 15.4%, inside the shallowest part of the tear.
-   *
-   * Above them is her heart-in-a-speech-bubble, which ends at 11.51%.
+   * Off `NEW Guestbook.pdf`, the version of the page with her writings on it:
+   * LEAVE A MESSAGE in tracked capitals, her heart-in-a-speech-bubble, and
+   * the line under it. The icon on that file sits a little lower than on the
+   * clean one she sent to ship (8.13–12.14% against 7.50–11.51%), so both
+   * writings are placed off the icon and not off her page — the capitals
+   * 2.04% above its head, the line 2.03% below its foot.
    */
-  assert.equal(head.y, 13.06, 'the title sits between her icon and the tear');
-  assert.ok(head.y > 11.51, 'the box starts below the icon she drew');
-  assert.ok(head.y < 16.82, 'and the words are above the shallowest point of the tear');
-  // and the form starts below the tear at its deepest
-  assert.ok((guestbook.headPad ?? 0) > cqw(20.63), 'the form clears the tear at its deepest');
+  assert.equal(written(head.lines[0]!.sources.at(-1)!)?.fixed.en, 'LEAVE A MESSAGE');
+  assert.equal(head.lines[0]!.role, 'eyebrow', 'her capitals are tracked, not a bold title');
+  assert.ok(head.y + cqw(0) < 7.50, 'the capitals are above the icon');
+  assert.ok(line.y > 11.51 - 1, 'and the line is below it');
   /*
+   * "A line for Lucas to read one day": one writing with the answer to one
+   * question set inside it, not a fixed line and a bound field side by side,
+   * because a line's sources are fallbacks and the second would never show.
+   */
+  const personal = written(line.lines[0]!.sources[0]!)!;
+  assert.equal(personal.fixed.en, 'A line for {name} to read one day');
+  assert.deepEqual(personal.fill, { section: 'cover', field: 'childFull', show: 'given' });
+  assert.ok(line.lines[0]!.sources.length > 1, 'and a plainer sentence for a cover with no name on it yet');
+
+  // both are above the tear, which is ragged: the tan reaches 20.63% of the
+  // page down at its deepest and gives up at 16.82% at its shallowest
+  assert.ok(line.y < 16.82, 'her writings are on the paper, not over the tear');
+  assert.ok((guestbook.headPad ?? 0) > cqw(20.63), 'and the messages start below the tear at its deepest');
+  /*
+   * "make sure its in the center so the baby below can be seen while they are
+   * writing the message because the photo is cute."
+   *
    * The baby's head starts 82.5% of the way down, which is 336px of her 1920
    * above the foot — 31.1cqw. `footPad` is counted in elevenths of the page's
-   * width (`--page-foot × 11cqw`), so 3 is 33cqw and the form stops above her.
+   * width (`--page-foot × 11cqw`), so this leaves a clear band of her sky
+   * between the last thing a guest types and the top of the baby's head.
    */
-  assert.ok((guestbook.footPad ?? 0) * 11 > 31.1, 'and stops above the baby at the foot');
+  assert.ok((guestbook.footPad ?? 0) * 11 > 31.1 + 15, 'the baby is seen whole while a guest writes');
 });
 
 test('the guestbook page is the wall the showlist already describes', () => {
@@ -76,7 +95,7 @@ test('the guestbook page is the wall the showlist already describes', () => {
   // refreshes everytime the guest messages, only if the customer doesnt have
   // restriction in approvals."
   assert.equal(SHOW_MESSAGES, 3);
-  assert.equal((guestbook.elements ?? []).length, 1, 'the page draws its heading and leaves the rest to the section');
+  assert.equal((guestbook.elements ?? []).length, 2, 'the page draws her two writings and leaves the rest to the section');
 });
 
 test('the post asks for one photograph at a time, with the note under it', () => {

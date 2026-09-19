@@ -752,12 +752,34 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    */
   {
     key: 'guestbook', label: { en: 'Guestbook' }, sections: ['guestbook'], seam: 0,
-    drawn: true, grow: true, live: true, headPad: 40, footPad: 3,
+    drawn: true, grow: true, live: true, headPad: 48, footPad: 5,
     ground: ground('guestbook', 1.7778, true),
     elements: [
-      // under her heart-in-a-speech-bubble, which sits at 7.5–11.5% dead centre
-      GUESTBOOK.one('gb-head', { base: 15.4, size: pt(40), face: 'display', weight: 700, cx: 50, w: 74, room: 24, caps: true },
-        { word: 'title:guestbook' }, say('GUESTBOOK')),
+      /*
+       * Her own two writings, off `NEW Guestbook.pdf`: LEAVE A MESSAGE in
+       * tracked capitals above her heart-in-a-speech-bubble, and the line
+       * under it. The icon is at 7.50–11.51% on the clean file she sent, a
+       * little above where it sits on the written one, so both are placed
+       * off the icon rather than off her page: the capitals 2.04% of the
+       * page above its head, the line 2.03% below its foot.
+       *
+       * The design's own words and not the look's. Every look has a word for
+       * a guestbook — "Well Wishes", "Your Words" — and any of them would be
+       * fine on a page that had not been drawn. This one has: she set these
+       * words in this artwork, in this hand, over her own icon.
+       */
+      GUESTBOOK.one('gb-head', { base: 5.46, size: pt(25), role: 'eyebrow', cx: 50, w: 74, room: 22, caps: true },
+        say('LEAVE A MESSAGE')),
+      /*
+       * "A line for Lucas to read one day" — the baby's own name, in the
+       * middle of a sentence she wrote. A line's sources are fallbacks and
+       * not pieces, so this is one writing with the question set inside it
+       * (`fill`), and the plainer sentence under it for an invitation whose
+       * cover has no name typed yet.
+       */
+      GUESTBOOK.one('gb-line', { base: 13.54, size: pt(30), face: 'names', role: 'script', cx: 50, w: 86, room: 46 },
+        { fixed: { en: 'A line for {name} to read one day' }, fill: { section: 'cover', field: 'childFull', show: 'given' } },
+        say('A line for the little one to read one day')),
     ],
   },
   /**

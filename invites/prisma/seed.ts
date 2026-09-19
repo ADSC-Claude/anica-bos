@@ -365,7 +365,7 @@ async function main() {
     const dayKey = day.toISOString().slice(0, 10);
     const c: Content = defaultContent('CHRISTENING', 'en');
     const intake: Content = {
-      cover: { childFull: 'Amara Sofia Reyes', childNick: 'Amara', birthDate: addDays(new Date(), -80).toISOString().slice(0, 10), date: dayKey, time: '09:30', introPreset: 'simple', intro: 'With grateful hearts, Paolo and Denise invite you to the christening of their daughter.' },
+      cover: { childFull: 'Amara Sofia', childLast: 'Reyes', childNick: 'Amara', birthDate: addDays(new Date(), -80).toISOString().slice(0, 10), date: dayKey, time: '09:30', introPreset: 'simple', intro: 'With grateful hearts, Paolo and Denise invite you to the christening of their daughter.' },
       ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: '', note: 'Kindly be seated by 9:15 AM.' },
       reception: { venue: 'Ilustrado Restaurant', address: '744 Calle Real del Palacio, Intramuros, Manila', time: '11:30', parkingNote: 'Parking along Calle Real.' },
       sponsors: { ninongs: ['Mr. Rafael Reyes', 'Engr. Marco dela Cruz', 'Dr. Adrian Lim', 'Mr. Joseph Tan'].map((name) => ({ name })), ninangs: ['Mrs. Patricia Reyes', 'Ms. Camille dela Cruz', 'Dr. Andrea Lim', 'Ms. Bianca Tan'].map((name) => ({ name })) },
@@ -410,9 +410,9 @@ async function main() {
     const c: Content = defaultContent('CHRISTENING', 'en');
     Object.assign(c.cover!, {
       // her own sample, so the demo reads the way her file does: the given
-      // names large in script, the family name small and bold on the line
-      // under them (parents.familyName, below)
-      childFull: 'Lucas Andrei Reyes - Cruz', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
+      // names large in script, the surname small and bold on the line under
+      // them — two answers, because they are set at two sizes
+      childFull: 'Lucas Andrei', childLast: 'Reyes - Cruz', childNick: 'Lucas', birthDate: addDays(new Date(), -100).toISOString().slice(0, 10), combined: false, theme: '',
       date: dayKey, time: '10:00', introPreset: 'simple', intro: 'With hearts full of gratitude, Paolo and Denise invite you to the christening of their son.',
       coverPhoto: pic('lucas-cover', 900, 1200), opening: 'universal', openingLine: '', openingLine2: '', verse: '', verseRef: '', interlude2: '',
     });
@@ -424,7 +424,6 @@ async function main() {
       father: { title: '', name: 'Paolo Cruz', deceased: false },
       mother: { title: '', name: 'Denise Reyes', deceased: false },
       note: 'Together with Lolo Ernesto and Lola Remedios',
-      familyName: 'Reyes - Cruz',
     });
     Object.assign(c.ceremony!, { venue: 'Santuario de San Antonio Parish', address: 'McKinley Rd, Forbes Park, Makati', date: dayKey, time: '10:00', mapsUrl: '', wazeUrl: '', photo: pic('san-antonio', 1200, 800), note: 'Kindly be seated by 9:45 AM — the Mass starts on the dot.' });
     Object.assign(c.reception!, { venue: 'Blue Leaf Cosmopolitan', address: '30th St cor. 8th Ave, Bonifacio Global City, Taguig', time: '12:00', mapsUrl: '', wazeUrl: '', parkingNote: 'Free parking at the venue.', photo: pic('blue-leaf', 1200, 800), note: '' });

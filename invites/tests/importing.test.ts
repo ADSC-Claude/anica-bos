@@ -201,7 +201,7 @@ test('two names joined are never wired to one of them', () => {
 
 test('a placeholder is wired to the question, the heading or the app’s own words', () => {
   const offers: Offer[] = [
-    { key: 'cover|childFull|', section: 'cover', field: 'childFull', label: "Child's full name" },
+    { key: 'cover|childFull|', section: 'cover', field: 'childFull', label: "Child's first and middle name" },
     { key: 'ceremony|date|', section: 'ceremony', field: 'date', label: 'Date' },
     { key: 'ceremony|time|', section: 'ceremony', field: 'time', label: 'Time' },
     { key: 'gift|gcashName|', section: 'gift', field: 'gcashName', label: 'GCash name' },

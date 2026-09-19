@@ -380,8 +380,10 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       COVER.one('cover-of', { base: 27.225, size: pt(30), color: 'accent', face: 'display', weight: 700, cx: 51.34 }, say('of our son')),
       COVER.one('cover-name', { base: 45.455, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
         bind('cover', 'childFull', { show: 'given' })),
+      // the surname is the cover's own question now; parents.familyName is
+      // where it was asked before, and is still read for anything typed then
       COVER.one('cover-family', { base: 48.185, size: pt(40), color: 'accent', face: 'display', weight: 700, room: 28 },
-        bind('parents', 'familyName')),
+        bind('cover', 'childLast'), bind('parents', 'familyName')),
       COVER.one('cover-date', { base: 60.880, size: pt(35), color: 'accent', cx: 50.68, caps: true },
         bind('cover', 'date', { show: 'date' })),
       COVER.one('cover-time', { base: 63.276, size: pt(35), color: 'accent', cx: 50.68, caps: true },
@@ -701,7 +703,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       INVITE.one('inv-name', { base: 38.356, size: 10.32, face: 'names', role: 'script', cx: 50.84, w: 88, room: 17 },
         bind('cover', 'childFull', { show: 'given' })),
       INVITE.one('inv-family', { base: 40.562, size: pt(25), face: 'display', weight: 700, cx: 49.93, room: 28, caps: true },
-        bind('parents', 'familyName')),
+        bind('cover', 'childLast'), bind('parents', 'familyName')),
       INVITE.one('inv-parents', { base: 46.815, size: pt(30), face: 'display', weight: 700, cx: 50.16 }, say('P A R E N T S')),
       INVITE.one('inv-dad', { base: 49.266, size: pt(25), cx: 29.90, w: 28 }, bind('parents', 'father')),
       INVITE.one('inv-mum', { base: 49.333, size: pt(25), cx: 70.41, w: 28 }, bind('parents', 'mother')),

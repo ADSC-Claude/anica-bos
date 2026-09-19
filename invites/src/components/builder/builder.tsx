@@ -17,6 +17,7 @@ import { Notice } from '@/components/ui';
 import { GetStarted, type SendToUs } from '@/components/account/checklist';
 import type { Welcome } from '@/lib/welcome';
 import { PhonePreview } from '@/components/account/phone';
+import { typedBeforeReady } from '@/lib/early-typing';
 
 export type { BuilderSection };
 
@@ -135,6 +136,9 @@ export function Builder({
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
   const [error, setError] = useState('');
+  // false until the form is running: "Auto-save on" is a promise, and before
+  // this is true it is not one the form can keep
+  const [ready, setReady] = useState(false);
   // bumped after every save that landed, and the phone reloads on it
   const [version, setVersion] = useState(0);
   const [done, setDone] = useState<SectionKey[]>(doneInitial);
@@ -230,6 +234,35 @@ export function Builder({
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), SAVE_AFTER_MS);
   }
+
+  /*
+   * Everything typed before the form was listening.
+   *
+   * The boxes are sent from the server ready to use: they are on the screen,
+   * and they take keystrokes, some time before the script that hears them
+   * has arrived and run. On a laptop on good wifi that gap is a blink. On a
+   * phone on mobile data it is seconds — measured at nearly four on a slow
+   * line — and a customer typing inside it watches their words appear in the
+   * box and go nowhere. The box holds them. Nothing else hears them. The
+   * line under the form still says "Auto-save on", and the answer was never
+   * written down.
+   *
+   * So the first thing the form does once it is running is read the boxes
+   * back. Anything that does not match what the server rendered was typed in
+   * the gap, and is taken as an answer and saved like any other. Nothing is
+   * lost and nothing is asked twice.
+   *
+   * It runs on mount only. React has attached to the boxes by then but has
+   * not re-rendered them, so what is in them is still what was typed. Every
+   * later mount — a step to another part, which remounts this form — finds
+   * the boxes exactly as it rendered them, and takes nothing.
+   */
+  useEffect(() => {
+    setReady(true);
+    const typed = typedBeforeReady(fields, initial, (id) => document.getElementById(id) as HTMLInputElement | null);
+    if (Object.keys(typed).length) change({ ...initial, ...typed });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // The half-second between the last keystroke and the save: leaving the
   // page in it would lose the keystroke, so the browser asks first — and a
@@ -408,8 +441,12 @@ export function Builder({
               ) : (
                 <span className="text-[color:var(--ok)]">Saved {savedAt.toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit' })}</span>
               )
-            ) : (
+            ) : ready ? (
               <span className="text-[color:var(--color-ink-500)]">Auto-save on</span>
+            ) : (
+              // the seconds before the form is listening: say so rather than
+              // promise a save it cannot yet make
+              <span className="text-[color:var(--color-ink-500)]" suppressHydrationWarning>Getting ready…</span>
             )}
           </span>
         </div>

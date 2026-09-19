@@ -203,6 +203,7 @@ const PHRASES = {
   // The showlist says so itself: what left the wall is still in the album.
   'photos.slot': { en: 'Add yours', tl: 'Idagdag ang iyo' },
   'photos.more': { en: 'and {n} more in the album', tl: 'at {n} pa sa album' },
+  'photos.swipe': { en: 'Swipe to see the rest', tl: 'Mag-swipe para makita ang iba' },
   'guestbook.first': { en: 'Be the first to write', tl: 'Ikaw ang mauna' },
   'guestbook.more': { en: 'and {n} more in the book', tl: 'at {n} pa sa aklat' },
   'seating.title': { en: 'Your table', tl: 'Ang inyong mesa' },

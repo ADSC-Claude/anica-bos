@@ -1491,6 +1491,7 @@ function GuestPhotos({
   title,
   format,
   intro,
+  swipe,
 }: {
   inv: PublicInvitation;
   data: SectionData;
@@ -1502,6 +1503,8 @@ function GuestPhotos({
   title?: string;
   format?: boolean;
   intro?: string;
+  /** one photograph at a time, swiped sideways, because the page it is on has room for one */
+  swipe?: boolean;
 }) {
   /*
    * Nine cells, drawn whether or not there are nine photographs.
@@ -1524,7 +1527,7 @@ function GuestPhotos({
     <Section id="guest-photos" title={title ?? t(lang, 'photos.title')} tagline={tagline}>
       {format && <Ico name="upload" className="inv-ico-lg" />}
       {format && intro && <p className="mx-auto mb-4 max-w-sm text-center">{intro}</p>}
-      <div className="inv-wall-grid">
+      <div className={swipe ? 'inv-wall-grid is-strip' : 'inv-wall-grid'}>
         {photos.map((m) => (
           <figure key={m.id} className="inv-wall-cell">
             <img src={imageUrl(m.url, IMAGE.grid)} alt={m.caption || ''} loading="lazy" />
@@ -1543,6 +1546,12 @@ function GuestPhotos({
           </div>
         ))}
       </div>
+      {/*
+        * "just put a note to swipe so they can see other photos". Only where
+        * there is another photograph to reach: with one on the wall, or none,
+        * a note telling a guest to swipe is a note about nothing.
+        */}
+      {swipe && photos.length > 1 && <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'photos.swipe')}</p>}
       {more > 0 && <p className="inv-muted mt-2 text-center text-xs">{t(lang, 'photos.more', { n: more })}</p>}
       {!print && (
         <div className="mt-5">
@@ -2344,8 +2353,11 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         // guest opens on Good to know. The art is drawn as usual and the
         // section's own markup follows under it, with the heading the section
         // would draw hidden, because the design has drawn one already.
+        // built again for this page rather than taken from the map: a live
+        // page's section sits inside the page's own artwork, so the page gets
+        // to say how the part is laid out in it (`PageSpec.wall`).
         const working = spec.drawn && spec.live
-          ? spec.sections.map((k) => (k === 'gallery-video' ? babyMore : drawn.get(k))).filter(Boolean) as ReactNode[]
+          ? spec.sections.map((k) => (k === 'gallery-video' ? babyMore : section(k as SectionKey, spec))).filter(Boolean) as ReactNode[]
           : [];
         const parts = spec.drawn
           ? (spec.sections.length === 0 || spec.sections.some((k) => drawn.has(k))
@@ -2462,7 +2474,14 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
     }
     return out;
   }
-  function section(key: SectionKey) {
+  /*
+   * `page` is the page this node is being built for, and only a `live` page
+   * passes one: the section's markup is going inside that page's artwork, so
+   * the page may say how it wants the part laid out (`PageSpec.wall`). Every
+   * other caller asks for the part on its own and gets the part as it always
+   * was.
+   */
+  function section(key: SectionKey, page?: PageSpec) {
     if (!visible(key)) return null;
     const data = content[key] ?? {};
     switch (key) {
@@ -2568,7 +2587,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
         return !bool(data, 'enabled') ? null : <Guestbook key={key} inv={inv} data={data} lang={lang} hostsNoun={hostsNoun} slug={inv.slug} tagline={line('guestbook')} title={lookTitle(look, lang, 'guestbook')} />;
       case 'photos':
         return entitled(inv, 'photoSharing') ? (
-          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} />
+          <GuestPhotos key={key} inv={inv} data={data} lang={lang} slug={inv.slug} token={guest?.token} print={print} tagline={line('photos')} title={lookTitle(look, lang, 'photos')} format={format} intro={line('photosIntro')} swipe={page?.wall === 'swipe'} />
         ) : null;
       case 'closing':
         return <Closing key={key} data={data} lang={lang} hashtag={hashtag} tagline={str(data, 'line') || line('closing')} message={line('closingMessage')} names={format ? names : undefined} date={format ? dottedDate(coverDate) : undefined} />;

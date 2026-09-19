@@ -880,12 +880,29 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         { word: 'title:sponsors' }, say('GODPARENTS')),
       GODPARENTS.one('gp-ninongs-head', { base: 32.722, size: pt(32.78), color: 'muted', cx: 27.43, w: 30 }, say('NINONGS')),
       GODPARENTS.one('gp-ninangs-head', { base: 32.916, size: pt(32.78), color: 'muted', cx: 72.44, w: 30 }, say('NINANGS')),
-      // one box a column, not one a name: she drew nine rows and a customer
-      // may bring three or twelve, so the list sets itself and the page grows
-      // at the 1.32 leading she put between her rows
-      GODPARENTS.one('gp-ninongs', { base: 37.052, size: pt(28.10), cx: 27.35, w: 30, lead: 1.32 },
+      /*
+       * One box a column, not one a name: she drew nine rows and a customer
+       * may bring three or twelve, so the list sets itself and the page grows
+       * at the 1.32 leading she put between her rows.
+       *
+       * And a name is one line. "make the God Parents name only in one line,
+       * its occupying the whole space" — her column held 8.65 em and her own
+       * longest ninang, Maria Victoria German-Tan, measures 11.14 em in Abhaya
+       * Libre, so two names in three folded and ten names became eighteen
+       * lines down a page that then grew to hold them.
+       *
+       * Two things were wrong and only one of them was the size. The box was
+       * 30% of the page with 14% of plain paper sitting unused between the
+       * columns; since the names are centred, widening the box moves nothing
+       * on the page — it only stops the fold. So the box is 38% and the type
+       * comes down from pt(28.10) to pt(23), which is 13.38 em: twenty-eight
+       * characters of the widest sort of name (0.4684 em a character,
+       * measured over hyphenated married surnames, which are the widest),
+       * and that is what the form now accepts.
+       */
+      GODPARENTS.one('gp-ninongs', { base: 37.052, size: pt(23), cx: 27.35, w: 38, lead: 1.32 },
         bind('sponsors', 'ninongs', { sub: 'name' })),
-      GODPARENTS.one('gp-ninangs', { base: 37.052, size: pt(28.10), cx: 71.67, w: 30, lead: 1.32 },
+      GODPARENTS.one('gp-ninangs', { base: 37.052, size: pt(23), cx: 71.67, w: 38, lead: 1.32 },
         bind('sponsors', 'ninangs', { sub: 'name' })),
     ],
   },

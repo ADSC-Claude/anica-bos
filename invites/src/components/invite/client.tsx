@@ -1681,6 +1681,29 @@ export function PageGround({ ratio, order, last, backgrounds, night, grounds, se
     mo.observe(inv, { attributes: true, attributeFilter: ['data-mode'] });
     window.addEventListener('load', queue);
     document.fonts?.ready.then(queue).catch(() => {});
+    /*
+     * And tell whoever is holding this page in a frame that it has settled.
+     *
+     * The builder's phone keeps two frames and swaps them, and it used to
+     * swap on `load` — which fires before the fonts are ready and before a
+     * single paper is down, so the customer watched the backgrounds arrive
+     * over words she had already started reading. This says the true moment:
+     * the fonts have resolved, the page has loaded, and `lay` has run since.
+     * A frame that hears nothing shows the page anyway on its own clock.
+     */
+    let told = false;
+    const tell = () => {
+      if (told) return;
+      told = true;
+      if (window.parent === window) return;
+      try { window.parent.postMessage({ inv: 'settled' }, window.location.origin); } catch { /* not ours to reach */ }
+    };
+    const loaded = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise<void>((go) => window.addEventListener('load', () => go(), { once: true }));
+    void Promise.all([document.fonts?.ready ?? Promise.resolve(), loaded])
+      .then(() => { queue(); requestAnimationFrame(() => requestAnimationFrame(tell)); })
+      .catch(() => tell());
     return () => { cancelAnimationFrame(frame); ro.disconnect(); mo.disconnect(); window.removeEventListener('load', queue); };
   }, [ratio, order, last, backgrounds, night, grounds, seamShare]);
   return <span ref={ref} hidden />;

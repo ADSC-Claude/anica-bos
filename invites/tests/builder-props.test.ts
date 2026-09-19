@@ -76,9 +76,16 @@ test('the window is carried as strings, and only where there is a date', () => {
   assert.equal(far.closesAt, '2099-11-21T06:00:00.000Z');
   assert.equal(far.finalAt, '2099-11-28T06:00:00.000Z');
   assert.equal(far.closed, false);
+  // The window binds an invitation the customer has handed over, not one
+  // they are still building — a date long past does not lock a draft.
   const past = builderPropsFor('CUSTOMER', inv({ eventAt: new Date('2020-12-12T06:00:00Z') })).window!;
-  assert.equal(past.closed, true);
+  assert.equal(past.closed, false, 'still being built, so still open');
   assert.equal(typeof past.closesAt, 'string');
+  const over = builderPropsFor('CUSTOMER', inv({
+    eventAt: new Date('2020-12-12T06:00:00Z'),
+    content: { progress: { completedAt: '2020-01-01T00:00:00.000Z' } },
+  })).window!;
+  assert.equal(over.closed, true, 'marked complete and past the date, so closed');
 });
 
 test('the part’s value is laid over an empty form, so every box has something to hold', () => {

@@ -37,7 +37,7 @@ import { fontBook } from './font-book';
 import { hasPremiumOpening } from './openings';
 import { premiumOpeningAllowed } from './premium-openings';
 import { invitationPath } from './app-url';
-import { changeWindow, withDone, formComplete, doneSections, liveEditable, LIVE_LOCK, windowLock, type Progress } from './progress';
+import { changeWindow, handedOver, withDone, formComplete, doneSections, liveEditable, LIVE_LOCK, windowLock, type Progress } from './progress';
 import { revisionsToDrop } from './revision-keep';
 import { documentOf } from './design';
 import { designForm, askedFields, designMedia } from './asks';
@@ -57,12 +57,16 @@ export type ThemeOverride = { paletteKey?: string; palette?: Partial<Palette>; f
 export type StoredContent = Content & { theme?: ThemeOverride; progress?: Progress };
 
 /**
- * Three weeks before the event the invitation closes to the couple's changes
- * and passes to our team for the final touches. Staff are never locked out.
+ * Three weeks before the event an invitation that is **with our team** closes
+ * to the couple's changes for the final touches. Staff are never locked out.
+ *
+ * With our team means the customer has marked every part Done. A draft they
+ * are still building never closes, however near the day is: see the note on
+ * changeWindow for the trap that rule replaced.
  */
-export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null }) {
+export function assertOpenForChanges(user: SessionUser, invitation: { eventAt: Date | null; content: unknown }) {
   if (user.role !== 'CUSTOMER') return;
-  const w = changeWindow(invitation.eventAt);
+  const w = changeWindow(invitation.eventAt, new Date(), handedOver(contentOf(invitation.content).progress));
   if (w?.closed) throw new HttpError(403, windowLock(w));
 }
 

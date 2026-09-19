@@ -1203,7 +1203,10 @@ export const FIT: Record<string, number> = {
   'entourage.secondarySponsors.first': 40, 'entourage.secondarySponsors.second': 40, 'entourage.secondarySponsors.roleOther': 24,
   'entourage.principalSponsors.ninong': 48, 'entourage.principalSponsors.ninang': 48,
   'entourage.bestMen.name': 48, 'entourage.honors.name': 48,
-  'sponsors.ninongs.name': 48, 'sponsors.ninangs.name': 48, 'sponsors.blessing': 240,
+  // 28, because that is one line of the christening's Godparents column and a
+  // name that folds onto two turns ten ninongs into eighteen lines. Nothing in
+  // the live database is over 22.
+  'sponsors.ninongs.name': 28, 'sponsors.ninangs.name': 28, 'sponsors.blessing': 240,
   'eighteen.treasures.item': 40, 'eighteen.treasures.relation': 40,
   // dress code: lines under a heading, notes under the figures and the palette
   'dressCode.attireText': 90, 'dressCode.gentsNote': 120, 'dressCode.ladiesNote': 120, 'dressCode.paletteNote': 100,

@@ -145,6 +145,9 @@ export function Builder({
   // bumped after every save that landed, and the phone reloads on it
   const [version, setVersion] = useState(0);
   const [done, setDone] = useState<SectionKey[]>(doneInitial);
+  // what the marks were when we last heard: a save that does not move them
+  // has nothing for the server-rendered half of this page to say (see flush)
+  const doneRef = useRef<SectionKey[]>(doneInitial);
   const [sheet, setSheet] = useState(false);
   // The opening (the envelope, the clip) plays on the phone only when asked
   // for: it is the guest's first moment, and worth a look, but a form that
@@ -167,7 +170,7 @@ export function Builder({
   // Inside the studio the host re-asks for the marks after a save on another
   // part; the tab never hands new ones to a mounted form, so it is unchanged.
   useEffect(() => {
-    if (embed) setDone(doneInitial);
+    if (embed) { setDone(doneInitial); doneRef.current = doneInitial; }
   }, [embed, doneInitial]);
 
   const total = sections.filter((s) => s.unlocked).length;
@@ -214,13 +217,25 @@ export function Builder({
       setError(res.error);
       onError?.(res.error);
     } else {
-      setDone(res.data.done);
+      /*
+       * The server-rendered half of this page — the Get-started list, the
+       * progress, what is still empty — only moves when a part is ticked
+       * done or un-ticked. It was being re-fetched and re-reconciled after
+       * every auto-save instead, which is every time the customer stops
+       * typing for seven tenths of a second: twenty-one parts of form
+       * rebuilt under her hands while she was still filling one in. That is
+       * the lag. The marks decide now.
+       */
+      const marks = res.data.done;
+      const moved = marks.length !== doneRef.current.length || marks.some((k, i) => k !== doneRef.current[i]);
+      doneRef.current = marks;
+      setDone(marks);
       setNotes(res.data.issues.map((i) => `${labelOf(i.path)} — ${i.message}`));
       setSavedAt(new Date());
       if (latest.current === v && !again.current) setSave('saved');
       setVersion((k) => k + 1);
       onSavedRef.current?.(current, v, res.data);
-      if (!embed) router.refresh();
+      if (!embed && moved) router.refresh();
     }
     if (again.current) {
       const queued = again.current;

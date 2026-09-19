@@ -748,11 +748,15 @@ export const CHRISTENING_PAGES: PageSpec[] = [
    * the page, because a stretched heart is an egg.
    *
    * `headPad` clears the torn edge at its deepest (20.63% of the page, 36.7cqw)
-   * and `footPad` clears the baby, whose head starts 31.1cqw above the foot.
+   * and then some, because she asked for the writings lowered. `footPad` is
+   * 33cqw against the baby's 31.1: she peeks in right under the box a guest
+   * types in, part of the same frame — "i just want in a frame of leaving a
+   * message, it can be seen" — and not held off in a band of sky of her own,
+   * which read as two things instead of one ("dont do that its separated").
    */
   {
     key: 'guestbook', label: { en: 'Guestbook' }, sections: ['guestbook'], seam: 0,
-    drawn: true, grow: true, live: true, headPad: 48, footPad: 5,
+    drawn: true, grow: true, live: true, headPad: 48, footPad: 3,
     ground: ground('guestbook', 1.7778, true),
     elements: [
       /*

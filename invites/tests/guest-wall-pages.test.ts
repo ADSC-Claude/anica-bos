@@ -77,15 +77,21 @@ test('the guestbook carries her own two writings, above her icon and below it', 
   assert.ok(line.y < 16.82, 'her writings are on the paper, not over the tear');
   assert.ok((guestbook.headPad ?? 0) > cqw(20.63), 'and the messages start below the tear at its deepest');
   /*
-   * "make sure its in the center so the baby below can be seen while they are
-   * writing the message because the photo is cute."
+   * "i just want in a frame of leaving a message, it can be seen."
    *
    * The baby's head starts 82.5% of the way down, which is 336px of her 1920
    * above the foot — 31.1cqw. `footPad` is counted in elevenths of the page's
-   * width (`--page-foot × 11cqw`), so this leaves a clear band of her sky
-   * between the last thing a guest types and the top of the baby's head.
+   * width (`--page-foot × 11cqw`), so 3 is 33cqw: she begins just under the
+   * box a guest types in, in the same frame as it.
+   *
+   * Both bounds matter, and the upper one is the one that was got wrong. Too
+   * little and the form is written over her; too much and she is a picture in
+   * a band of sky of her own, below the thing a guest is doing rather than
+   * part of it — "dont do that its separated".
    */
-  assert.ok((guestbook.footPad ?? 0) * 11 > 31.1 + 15, 'the baby is seen whole while a guest writes');
+  const foot = (guestbook.footPad ?? 0) * 11;
+  assert.ok(foot > 31.1, 'nothing is typed over the baby');
+  assert.ok(foot < 31.1 + 8, 'and she peeks into the frame a guest writes in, not a band of her own');
 });
 
 test('the guestbook page is the wall the showlist already describes', () => {

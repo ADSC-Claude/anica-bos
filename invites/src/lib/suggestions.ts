@@ -1,5 +1,5 @@
 import type { Occasion } from '@prisma/client';
-import type { Preset } from './copy';
+import type { Preset, RowStarter } from './copy';
 
 /**
  * Ready-made wording for every writing box a customer fills, in the
@@ -259,4 +259,114 @@ export function suggestionsFor(path: string, occasion: Occasion): Preset[] | und
   if (!box) return undefined;
   if (box.every) return EVERY[box.every];
   return box.family ? BY_FAMILY[familyOf(occasion)][box.family] : undefined;
+}
+
+/**
+ * The questions a guest actually asks, with an answer already written.
+ *
+ * The FAQ was the one list on the form with nothing offered at all — an
+ * empty box headed "Questions" and a customer left to invent both halves of
+ * six of them. Meanwhile the christening's Good to know page printed four
+ * questions of the design's own, which is how a page came to show questions
+ * the form had never been given: the words were the artwork's, not theirs.
+ *
+ * These are theirs. One tap adds the pair as an ordinary row, to edit, to
+ * reword or to remove, with their own questions beside it.
+ *
+ * The answers are written to be edited rather than used as they stand —
+ * every one names a thing the family has to fill in (a time, a place, a
+ * yes or a no), because an answer nobody has to touch is an answer nobody
+ * reads before publishing.
+ */
+const FAQ: Record<Family, RowStarter[]> = {
+  child: [
+    { key: 'children', label: 'Are children welcome?', row: {
+      q: { en: 'Are children welcome?', tl: 'Puwede bang magsama ng mga bata?' },
+      a: { en: 'Yes — the little ones are part of the day. There are games and giveaways for them after lunch.', tl: 'Opo — kasama ang mga bata sa araw na ito. May laro at giveaways para sa kanila pagkatapos ng tanghalian.' } } },
+    { key: 'parking', label: 'Is there parking?', row: {
+      q: { en: 'Is there parking?', tl: 'May paradahan po ba?' },
+      a: { en: 'Yes, free parking at the venue, and street parking around the church.', tl: 'Opo, libreng paradahan sa venue, at may paradahan din sa tabi ng simbahan.' } } },
+    { key: 'arrive', label: 'What time should we arrive?', row: {
+      q: { en: 'What time should we arrive?', tl: 'Anong oras po kami dapat dumating?' },
+      a: { en: 'Please be seated by 9:45 AM. The Mass starts on the dot.', tl: 'Mangyaring maupo na bago mag-9:45 AM. Magsisimula ang Misa nang eksakto.' } } },
+    { key: 'photos', label: 'Can we post photos?', row: {
+      q: { en: 'Can we post photos?', tl: 'Puwede po bang mag-post ng litrato?' },
+      a: { en: 'Please do — use our hashtag so we can find them all.', tl: 'Opo — gamitin lang po ang aming hashtag para makita namin lahat.' } } },
+    { key: 'gift', label: 'What should we bring?', row: {
+      q: { en: 'What should we bring?', tl: 'Ano po ang dapat naming dalhin?' },
+      a: { en: 'Nothing but yourselves. Your presence is the gift we are asking for.', tl: 'Kayo lang po. Ang pagdalo ninyo ang regalong hinihiling namin.' } } },
+    { key: 'long', label: 'How long will it be?', row: {
+      q: { en: 'How long will it be?', tl: 'Gaano po katagal?' },
+      a: { en: 'The Mass runs about an hour, and lunch follows until around 2 PM.', tl: 'Mga isang oras ang Misa, at susunod ang tanghalian hanggang mga 2 PM.' } } },
+  ],
+  couple: [
+    { key: 'children', label: 'Are children welcome?', row: {
+      q: { en: 'Are children welcome?', tl: 'Puwede bang magsama ng mga bata?' },
+      a: { en: 'We love your little ones, but we have chosen an adults-only celebration.', tl: 'Mahal namin ang inyong mga anak, ngunit adults-only po ang aming pagdiriwang.' } } },
+    { key: 'plusone', label: 'Can I bring someone?', row: {
+      q: { en: 'Can I bring someone?', tl: 'Puwede po ba akong magsama?' },
+      a: { en: 'Your invitation says how many seats are reserved for you. Do let us know either way.', tl: 'Nakasaad sa inyong imbitasyon kung ilang upuan ang nakalaan. Pakisabi lang po sa amin.' } } },
+    { key: 'parking', label: 'Is there parking?', row: {
+      q: { en: 'Is there parking?', tl: 'May paradahan po ba?' },
+      a: { en: 'Yes, free parking at the reception venue and beside the church.', tl: 'Opo, libreng paradahan sa reception venue at sa tabi ng simbahan.' } } },
+    { key: 'arrive', label: 'What time should we arrive?', row: {
+      q: { en: 'What time should we arrive?', tl: 'Anong oras po kami dapat dumating?' },
+      a: { en: 'Please be seated thirty minutes before the ceremony begins.', tl: 'Mangyaring maupo na tatlumpung minuto bago magsimula ang seremonya.' } } },
+    { key: 'photos', label: 'Can we post photos?', row: {
+      q: { en: 'Can we post photos?', tl: 'Puwede po bang mag-post ng litrato?' },
+      a: { en: 'After the ceremony, please — and use our hashtag so we can find them.', tl: 'Pagkatapos po ng seremonya — at gamitin ang aming hashtag para makita namin.' } } },
+    { key: 'rain', label: 'What if it rains?', row: {
+      q: { en: 'What if it rains?', tl: 'Paano kung umulan?' },
+      a: { en: 'The reception moves indoors. Nothing else changes.', tl: 'Ilipat sa loob ang reception. Wala nang ibang magbabago.' } } },
+  ],
+  party: [
+    { key: 'parking', label: 'Is there parking?', row: {
+      q: { en: 'Is there parking?', tl: 'May paradahan po ba?' },
+      a: { en: 'Yes, free parking at the venue.', tl: 'Opo, libreng paradahan sa venue.' } } },
+    { key: 'arrive', label: 'What time should we arrive?', row: {
+      q: { en: 'What time should we arrive?', tl: 'Anong oras po kami dapat dumating?' },
+      a: { en: 'Any time from the hour on the invitation — the programme starts thirty minutes later.', tl: 'Kahit anong oras mula sa nakasaad sa imbitasyon — magsisimula ang programa makalipas ang tatlumpung minuto.' } } },
+    { key: 'children', label: 'Are children welcome?', row: {
+      q: { en: 'Are children welcome?', tl: 'Puwede bang magsama ng mga bata?' },
+      a: { en: 'Yes, bring them along.', tl: 'Opo, isama ninyo po sila.' } } },
+    { key: 'gift', label: 'What should we bring?', row: {
+      q: { en: 'What should we bring?', tl: 'Ano po ang dapat naming dalhin?' },
+      a: { en: 'Nothing but yourselves.', tl: 'Kayo lang po.' } } },
+    { key: 'photos', label: 'Can we post photos?', row: {
+      q: { en: 'Can we post photos?', tl: 'Puwede po bang mag-post ng litrato?' },
+      a: { en: 'Please do — use our hashtag so we can find them all.', tl: 'Opo — gamitin lang po ang aming hashtag para makita namin lahat.' } } },
+  ],
+  corporate: [
+    { key: 'register', label: 'Do I need to register?', row: {
+      q: { en: 'Do I need to register?', tl: 'Kailangan po bang magparehistro?' },
+      a: { en: 'Yes — confirm through the link on this invitation so we can print your badge.', tl: 'Opo — kumpirmahin sa link sa imbitasyong ito para maihanda ang inyong badge.' } } },
+    { key: 'parking', label: 'Is there parking?', row: {
+      q: { en: 'Is there parking?', tl: 'May paradahan po ba?' },
+      a: { en: 'Yes, validated parking at the venue. Bring your ticket to the registration desk.', tl: 'Opo, validated parking sa venue. Dalhin ang inyong ticket sa registration desk.' } } },
+    { key: 'dress', label: 'What is the dress code?', row: {
+      q: { en: 'What is the dress code?', tl: 'Ano po ang dress code?' },
+      a: { en: 'Business attire.', tl: 'Business attire po.' } } },
+    { key: 'meals', label: 'Are meals provided?', row: {
+      q: { en: 'Are meals provided?', tl: 'May pagkain po ba?' },
+      a: { en: 'Yes, lunch and two coffee breaks. Tell us about any dietary needs when you register.', tl: 'Opo, tanghalian at dalawang coffee break. Sabihin lang po ang anumang dietary needs kapag nagparehistro.' } } },
+  ],
+  memorial: [
+    { key: 'flowers', label: 'May we send flowers?', row: {
+      q: { en: 'May we send flowers?', tl: 'Puwede po bang magpadala ng bulaklak?' },
+      a: { en: 'Flowers may be sent to the chapel. The family is also grateful for Mass offerings.', tl: 'Maaaring ipadala ang bulaklak sa kapilya. Nagpapasalamat din ang pamilya sa mga Misa.' } } },
+    { key: 'parking', label: 'Is there parking?', row: {
+      q: { en: 'Is there parking?', tl: 'May paradahan po ba?' },
+      a: { en: 'Yes, parking at the chapel and along the street beside it.', tl: 'Opo, may paradahan sa kapilya at sa kalye sa tabi nito.' } } },
+    { key: 'times', label: 'When may we visit?', row: {
+      q: { en: 'When may we visit?', tl: 'Kailan po kami puwedeng dumalaw?' },
+      a: { en: 'The chapel is open from morning until late evening each day.', tl: 'Bukas ang kapilya mula umaga hanggang gabi araw-araw.' } } },
+    { key: 'dress', label: 'What should we wear?', row: {
+      q: { en: 'What should we wear?', tl: 'Ano po ang dapat naming isuot?' },
+      a: { en: 'Anything simple and respectful. There is no required colour.', tl: 'Kahit simple at magalang lang po. Walang itinakdang kulay.' } } },
+  ],
+};
+
+/** The ready-made questions for this occasion, for the FAQ list to offer. */
+export function faqStarters(occasion: Occasion): RowStarter[] {
+  return FAQ[familyOf(occasion)];
 }

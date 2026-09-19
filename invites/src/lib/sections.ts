@@ -7,11 +7,12 @@ import { PASS_LOOKS } from './pass';
 import { PHOTOS_AT_ONCE, PHOTO_MAX_LABEL } from './album';
 import { GIFT_PRESETS, INTRO_PRESETS, POLICY_PRESETS, RSVP_NOTE_PRESETS, UNPLUGGED_PRESET, TITLES,
   PARENTS_MESSAGE_EXAMPLES, SPONSORS_BLESSING_EXAMPLES, DEDICATION_EXAMPLES, DEBUTANTE_NOTE_EXAMPLES, HOW_WE_MET_EXAMPLES, PROPOSAL_EXAMPLES,
-  type Lang, type Preset } from './copy';
-import { suggestionsFor } from './suggestions';
+  type Lang, type Preset, type RowStarter } from './copy';
+import { suggestionsFor, faqStarters } from './suggestions';
 import { OPENINGS } from './openings';
 import { BACKDROPS } from './backdrops';
 import { parseStart } from './song';
+import { cropKeyOf, readCrop, placeCrop } from './photo-crop';
 
 /**
  * The shape of an invitation, section by section.
@@ -81,6 +82,20 @@ export type Field = {
    * not need three suggestions on each.
    */
   examples?: Preset[];
+  /**
+   * list: ready-made *rows* offered above the list, one tap to add and then
+   * edit or remove.
+   *
+   * The same idea as `examples` and for the same reason — a blank box is the
+   * hardest thing to fill in — but a row is more than one writing and both
+   * halves have to arrive together. The FAQ is the case: offering the
+   * question alone would leave the answer, which is the harder half, empty.
+   * "the one they can fill in own their own if they think the FAQ we have
+   * given is enough, or they could edit out the questions and answers as
+   * well that we gave beside that they can create their own FAQ" — so they
+   * are added as ordinary rows, editable and removable like any other.
+   */
+  starters?: RowStarter[];
   /** list */
   item?: Field[];
   addLabel?: string;
@@ -103,6 +118,23 @@ export type Field = {
    * design would be a worse form for everybody.
    */
   byDesign?: true;
+  /**
+   * On the form as it always was, and taken away by a design that has no
+   * place for it.
+   *
+   * The difference from `byDesign`: that one is a box nobody has ever been
+   * shown, which a design can add — the picture every part can carry. This
+   * one is a box every form has always had, which a design can remove. A
+   * christening drawn page by page prints no video and no month-by-month
+   * year, and asking for them is asking a customer to fill in something
+   * that goes nowhere: "it should detect only whats the template is
+   * needing and it should vary per template right?"
+   *
+   * A design that binds nothing at all is not judged to have no place for
+   * anything — it is judged to be a design nobody has drawn yet, and the
+   * form stays as it was.
+   */
+  ifDrawn?: true;
   /** swatches: offer the palette's presets — four colours that go together, in one tap */
   sets?: boolean;
   /** checks: the sibling field whose values decide which options (by their 'when') are offered */
@@ -242,6 +274,9 @@ const list = (key: string, label: string, item: Field[], extra: Partial<Field> =
 /** A row of things to tick; stored as the ticked values, in the options' order. */
 const checks = (key: string, label: string, options: Option[], extra: Partial<Field> = {}): Field => ({ key, label, type: 'checks', options, wide: true, ...extra });
 const attireOptions = (items: AttireItem[]): Option[] => items.map((i) => ({ value: i.value, label: i.en, ...(i.for ? { when: i.for } : {}) }));
+/** The occasions whose people standing up are the ninongs and the ninangs. */
+const christening = (occasion: Occasion): boolean => occasion === 'CHRISTENING' || occasion === 'COMMUNION' || occasion === 'BABY_SHOWER';
+
 const names = (key: string, label: string, extra: Partial<Field> = {}): Field => list(key, label, [text('name', 'Name', { required: true })], { addLabel: 'Add a name', ...extra });
 
 /**
@@ -481,7 +516,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Countdown',
     description: 'Counts down to the date and time on the cover.',
     minTier: 'BASIC',
-    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Label', { placeholder: 'Counting down to the big day', staff: true })],
+    fields: () => [toggle('enabled', 'Show the countdown'), text('label', 'Line under the countdown', { placeholder: 'Counting down to the big day', hint: "Blank keeps the design's own line." })],
   },
   {
     /*
@@ -701,8 +736,30 @@ const SECTION_DEFS: SectionDef[] = [
       { key: 'colors', label: 'Colour motif', type: 'swatches', min: MOTIF_MIN, max: MOTIF_MAX, sets: true, wide: true, hint: 'Four to eight colours from the palette — start from a set that goes together, or pick your own. Guests see them as the suggested palette, each with its name.' },
       text('paletteNote', 'Note under the palette', { placeholder: 'e.g. You may choose from this palette or similar shades.', staff: true }),
       checks('avoid', 'Kindly avoid', attireOptions(avoidItems(occasion)), { max: AVOID_MAX, fold: true, hint: 'Up to six, from everything guests are ever asked to leave at home. Each one is drawn crossed out on the page.' }),
-      text('sponsorsAttire', 'Principal sponsors', { placeholder: 'e.g. Champagne gown / Barong Tagalog' }),
-      text('entourageAttire', 'Entourage', { placeholder: 'e.g. Sage green' }),
+      /*
+       * The ninongs and ninangs, and everybody else standing up.
+       *
+       * They were a line of writing each and nothing more, while the guests
+       * got a palette to pick from: "can we do like a picker color for
+       * ninong and ninangs, sponsors etc, beside the words cream to beige
+       * smart casual, or cream barong or pastel gown as reference, we can
+       * just show the list of colors they could choose from. atleast an
+       * idea of the colors for them."
+       *
+       * So each gets colours beside its words, from the same palette the
+       * rest of the page picks from, and the page draws them as named
+       * swatches under the line. The words stay: "Cream to Beige Smart
+       * Casual" says something a colour cannot, and three swatches say
+       * something the words cannot.
+       *
+       * Named for the occasion, because "Principal sponsors" is wedding
+       * vocabulary and the people at a christening are the ninongs and the
+       * ninangs.
+       */
+      text('sponsorsAttire', christening(occasion) ? 'Ninongs & Ninangs' : 'Principal sponsors', { placeholder: christening(occasion) ? 'e.g. Cream to Beige Smart Casual' : 'e.g. Champagne gown / Barong Tagalog' }),
+      { key: 'sponsorsColors', label: christening(occasion) ? 'Colours for the ninongs & ninangs' : 'Colours for the principal sponsors', type: 'swatches', max: 4, hint: 'Up to four, from the palette. Shown under the line above, so they can see the shades as well as read them.' },
+      text('entourageAttire', christening(occasion) ? 'Everyone else standing up' : 'Entourage', { placeholder: 'e.g. Sage green' }),
+      { key: 'entourageColors', label: christening(occasion) ? 'Colours for them' : 'Colours for the entourage', type: 'swatches', max: 4, hint: 'Up to four, the same way.' },
       textarea('note', 'Note'),
     ],
   },
@@ -715,7 +772,7 @@ const SECTION_DEFS: SectionDef[] = [
     labelFor: { MEMORIAL: 'In lieu of flowers', KIDS_BIRTHDAY: 'Gift ideas' },
     fields: () => [
       select('preset', 'Preset', GIFT_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: GIFT_PRESETS, presetTarget: 'text' }),
-      textarea('text', 'Gift note', { staff: true }),
+      textarea('text', 'Gift note', { hint: 'Pick a wording above to start from, then change it to sound like you.' }),
       /**
        * A QR code or an account, and not both by accident.
        *
@@ -812,7 +869,21 @@ const SECTION_DEFS: SectionDef[] = [
       if (occasion === 'CHRISTENING' || occasion === 'BABY_SHOWER' || occasion === 'COMMUNION') {
         return [
           line,
-          list('timeline', 'Milestones', [text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }), text('text', 'A line under it', { placeholder: 'e.g. It all started with a prayer.' }), image('photo', 'Photo in its frame')], { addLabel: 'Add a milestone', max: 6 }),
+          /*
+           * When, what, and a few words — in the order the page prints them.
+           *
+           * The date was drawn all along and never asked for: the design
+           * hangs every milestone on its own dated line and the christening
+           * form offered only a title and a sentence, so the line came out
+           * empty on a page whose whole shape is a dated timeline. The
+           * wedding form has asked for it since the beginning.
+           */
+          list('timeline', 'Milestones', [
+            text('date', 'When', { placeholder: 'e.g. November 26, 2025' }),
+            text('title', 'Milestone', { required: true, placeholder: 'e.g. The Prayer' }),
+            textarea('text', 'A few words about it', { placeholder: 'e.g. It all started with a prayer.' }),
+            image('photo', 'Photo in its frame'),
+          ], { addLabel: 'Add a milestone', max: 6 }),
         ];
       }
       return [
@@ -852,11 +923,11 @@ const SECTION_DEFS: SectionDef[] = [
        * has nowhere to go but a scrolling heap. The extras section at the end
        * of the form takes the rest, for us to place if a page has room.
        */
-      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption')], { addLabel: 'Add a photo', max: 12 }),
+      list('photos', 'Photos', [image('url', 'Photo', { required: true }), text('caption', 'Caption', { ifDrawn: true })], { addLabel: 'Add a photo', max: 12 }),
       // A baby's first year, one photograph a month, as a christening or a
       // first birthday card runs it.
       ...(occasion === 'CHRISTENING' || occasion === 'KIDS_BIRTHDAY'
-        ? [list('months', 'Month by month', [text('label', 'Which month', { required: true, placeholder: 'e.g. 1 month' }), image('url', 'Photo', { required: true })], { addLabel: 'Add a month', max: 12, hint: 'Up to twelve — the first year, one photo a month. Designs with a month-by-month page use these.' })]
+        ? [list('months', 'Month by month', [text('label', 'Which month', { required: true, placeholder: 'e.g. 1 month' }), image('url', 'Photo', { required: true })], { addLabel: 'Add a month', max: 12, ifDrawn: true, hint: 'Up to twelve — the first year, one photo a month.' })]
         : []),
       // Two childhood photographs side by side, the way a printed card runs
       // them: the couple as children, or the debutante alone. A design draws
@@ -865,15 +936,15 @@ const SECTION_DEFS: SectionDef[] = [
       // block and a pair of pictures asked for in a section that does not
       // exist is a pair of pictures nobody is ever asked for.
       ...(occasion === 'WEDDING' || occasion === 'DEBUT'
-        ? [list('little', occasion === 'WEDDING' ? 'When we were little' : 'When I was little', [image('url', 'Photo', { required: true }), text('caption', 'Whose it is', { placeholder: occasion === 'WEDDING' ? 'e.g. Maria, 4 years old' : 'e.g. 3 years old' })], { addLabel: 'Add a childhood photo', max: 2, hint: occasion === 'WEDDING' ? 'Two: one of each of you.' : 'Up to two.' })]
+        ? [list('little', occasion === 'WEDDING' ? 'When we were little' : 'When I was little', [image('url', 'Photo', { required: true }), text('caption', 'Whose it is', { placeholder: occasion === 'WEDDING' ? 'e.g. Maria, 4 years old' : 'e.g. 3 years old' })], { addLabel: 'Add a childhood photo', max: 2, ifDrawn: true, hint: occasion === 'WEDDING' ? 'Two: one of each of you.' : 'Up to two.' })]
         : []),
-      image('familyPhoto', 'A family photo'),
-      image('parentsPhoto', "A photo of the parents"),
+      image('familyPhoto', 'A family photo', { ifDrawn: true }),
+      image('parentsPhoto', 'A photo of the parents', { ifDrawn: true }),
       text('note', 'Line between the large photo and the arches', { placeholder: 'e.g. These are the moments that reminded us — it has always been you.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
-      url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
+      url('videoUrl', `Video link (${TIER_LABELS.COMPLETE} package)`, { ifDrawn: true, hint: 'YouTube, Vimeo or a public Facebook video link. It plays on the page behind its own still.' }),
       // A second clip, for a spoken message rather than a montage: a
       // grandparent who cannot travel, a maid of honour's greeting.
-      url('messageVideoUrl', 'A message video link', { hint: 'A second clip, for a spoken message. Same links: YouTube, Vimeo or a public Facebook video.' }),
+      url('messageVideoUrl', 'A message video link', { ifDrawn: true, hint: 'A second clip, for a spoken message. Same links: YouTube, Vimeo or a public Facebook video.' }),
       text('videoTitle', 'Title written over the video', { placeholder: 'e.g. Our story in motion', hint: "Blank keeps the design's own line.", staff: true }),
       text('close', 'The last word on the page', { placeholder: 'e.g. Some love stories deserve to be seen.', hint: "Blank keeps the design's own line.", wide: true, staff: true }),
     ],
@@ -897,7 +968,12 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Paalala',
     description: 'Parking, kids, rain plan, shuttle, hashtag reminders.',
     minTier: 'STANDARD',
-    fields: () => [list('items', 'Questions', [text('q', 'Question', { required: true }), textarea('a', 'Answer', { required: true })], { addLabel: 'Add a question', max: 20 })],
+    fields: (occasion) => [list('items', 'Questions', [text('q', 'Question', { required: true }), textarea('a', 'Answer', { required: true })], {
+      addLabel: 'Add a question',
+      max: 20,
+      starters: faqStarters(occasion),
+      hint: 'Tap a question to add it, then change the answer to yours. Remove any you do not want, and add your own.',
+    })],
   },
   {
     key: 'moment',
@@ -970,7 +1046,7 @@ const SECTION_DEFS: SectionDef[] = [
     tl: 'Mga Pagbati',
     description: 'A well-wishes wall guests can write on. You approve each message.',
     minTier: 'COMPLETE',
-    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple', staff: true }), toggle('moderated', 'Approve messages before they show')],
+    fields: () => [toggle('enabled', 'Show the guestbook'), text('prompt', 'Prompt', { placeholder: 'Leave a message for the couple', hint: "What a guest is asked. Blank keeps the design's own words." }), toggle('moderated', 'Approve messages before they show')],
   },
   {
     key: 'photos',
@@ -989,7 +1065,7 @@ const SECTION_DEFS: SectionDef[] = [
     feature: 'photoSharing',
     fields: () => [
       toggle('enabled', 'Let guests add photos'),
-      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', staff: true }),
+      text('prompt', 'Prompt', { placeholder: 'Share your photos from the day', hint: "What a guest is asked. Blank keeps the design's own words." }),
       toggle('moderated', 'Approve photos before they show'),
     ],
   },
@@ -1015,7 +1091,7 @@ const SECTION_DEFS: SectionDef[] = [
       ...(occasion === 'DEBUT'
         ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true })]
         : []),
-      textarea('message', 'Closing message', { hint: "Blank keeps the design's own thank-you.", staff: true }),
+      textarea('message', 'Closing message', { hint: "Your own thank-you. Blank keeps the design's." }),
       // a surprise a guest uncovers, where a design hides one: under a scratch card, behind a code
       textarea('surprise', 'A surprise for your guests', { staff: true, byDesign: true, placeholder: 'e.g. Look under your seat at the reception — there is a little something from us.', hint: 'Hidden on the page until a guest uncovers it.' }),
       text('signature', 'Signed', { placeholder: 'Juan & Maria' }),
@@ -1127,7 +1203,10 @@ export const FIT: Record<string, number> = {
   'rsvp.policyText': 240, 'rsvp.note': 240, 'rsvp.contactPhone': 30, 'rsvp.reminderText': 300, 'rsvp.mealChoices.label': 30,
   // the story: a christening's milestones sit in drawn frames, a wedding's run down a timeline
   'story.line': 80, 'story.howWeMet': 600, 'story.proposal': 600, 
-  'story.timeline.title': 28, 'story.timeline.text': 70, 'story.timeline.date': 24,
+  // A milestone's few words: three lines of the christening's column, which
+  // is what the rebuilt row has room for now the photograph is stacked above
+  // the date rather than sitting across the row above's sentence.
+  'story.timeline.title': 28, 'story.timeline.text': 130, 'story.timeline.date': 18,
   // photos
   'gallery.line': 80, 'gallery.note': 90, 'gallery.months.label': 20, 'gallery.little.caption': 40, 'gallery.videoTitle': 40, 'gallery.close': 60, 'gallery.photos.caption': 40,
   'moment.line1': 40, 'moment.line2': 40, 'moment.line3': 40,
@@ -1607,6 +1686,7 @@ function cleanField(field: Field, raw: unknown, path: string, issues: Issue[]): 
         const obj = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>;
         const out: Record<string, unknown> = {};
         for (const sub of field.item ?? []) out[sub.key] = cleanField(sub, obj[sub.key], `${path}[${i}].${sub.key}`, issues);
+        keepCrops(field.item ?? [], obj, out);
         return out;
       });
       // Drop rows where every required sub-field is blank — an empty row is a
@@ -1629,7 +1709,30 @@ export function cleanSection(fields: Field[], raw: unknown): { data: SectionData
   const issues: Issue[] = [];
   const data: SectionData = {};
   for (const f of fields) data[f.key] = cleanField(f, obj[f.key], f.key, issues);
+  keepCrops(fields, obj, data as Record<string, unknown>);
   return { data, issues };
+}
+
+/**
+ * A picture's window travels with the picture.
+ *
+ * `cleanSection` keeps what the fields describe and drops the rest, which
+ * is what stops a browser writing whatever it likes into the content — and
+ * it would drop a crop, because a crop is not a question anybody is asked.
+ * So every `image` field is followed by its own `<key>Crop`, cleaned here
+ * rather than declared as a field: it is part of the picture's answer, not
+ * a second answer, and a customer never sees it as a box of its own.
+ *
+ * Written only when it is a real window. An absent crop is the picture as
+ * the frame has always shown it, so there is nothing to store for one.
+ */
+function keepCrops(fields: Field[], from: Record<string, unknown>, into: Record<string, unknown>): void {
+  for (const f of fields) {
+    if (f.type !== 'image') continue;
+    const key = cropKeyOf(f.key);
+    const crop = readCrop(from[key]);
+    if (crop) into[key] = placeCrop(crop);
+  }
 }
 
 /** What stops an invitation from being published. */
@@ -1695,16 +1798,55 @@ export function publishProblems(occasion: Occasion, content: Content): string[] 
   return problems;
 }
 
-/** Roughly, has the customer touched this section? Drives the progress bar. */
+/**
+ * Roughly, has the customer touched this section? Drives the progress bar,
+ * and decides whether the page is on the invitation at all.
+ *
+ * Only what a *customer* answered counts. A fixed writing is ours — it
+ * arrives with the look, filled in, on every invitation ever made — so
+ * counting it made every part look touched the moment it existed. The
+ * christening's Share the joy page is the case she found: a heading, a
+ * camera and an empty band, on a family who never wrote a hashtag, because
+ * the unplugged wording had a default and the switch for it was off.
+ *
+ * "when they opt not to fill the hashtag, the pages shouldnt appear right?"
+ * Right — and now they do not.
+ */
 export function sectionFilled(key: SectionKey, occasion: Occasion, data: SectionData | undefined): boolean {
   if (!data) return false;
   const fields = fieldsFor(key, occasion);
-  const meaningful = fields.filter((f) => f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
+  const meaningful = fields.filter((f) => !f.staff && f.type !== 'toggle' && f.type !== 'select' && f.type !== 'styles');
   if (meaningful.length === 0) return true;
   // the guestbook and the album: ticking the switch is the whole of it
   if (SECTION_BY_KEY[key]?.switchIsEnough) return data.enabled === true;
   return meaningful.some((f) => {
     const v = data[f.key];
+    if (Array.isArray(v)) return v.length > 0;
+    if (v && typeof v === 'object') return Boolean((v as Person).name);
+    return v !== '' && v !== null && v !== undefined;
+  });
+}
+
+/**
+ * Has anything been written into the boxes on this form?
+ *
+ * `sectionFilled` asks the same question of a whole occasion's fields;
+ * this asks it of the fields actually on the screen, which is what a Done
+ * tick is claiming. The two differ where a design has taken boxes away.
+ *
+ * What it is for: she ticked Ninongs & Ninangs done with both lists empty
+ * and the Godparents page came out blank — "the GodParents havent been
+ * filled up while ive done inserting the details". Every auto-save of that
+ * invitation has both lists empty, so nothing was lost; the trap is that a
+ * part can be marked finished while it is still empty, and nothing says so
+ * until the page prints nothing.
+ */
+export function answered(fields: Field[], data: SectionData | undefined): boolean {
+  if (!data) return false;
+  return fields.some((f) => {
+    if (f.staff || f.type === 'select' || f.type === 'styles') return false;
+    const v = data[f.key];
+    if (f.type === 'toggle') return v === true;
     if (Array.isArray(v)) return v.length > 0;
     if (v && typeof v === 'object') return Boolean((v as Person).name);
     return v !== '' && v !== null && v !== undefined;

@@ -369,7 +369,15 @@ async function main() {
       ceremony: { venue: 'San Agustin Church', address: 'General Luna St, Intramuros, Manila', date: dayKey, time: '09:30', mapsUrl: '', note: 'Kindly be seated by 9:15 AM.' },
       reception: { venue: 'Ilustrado Restaurant', address: '744 Calle Real del Palacio, Intramuros, Manila', time: '11:30', parkingNote: 'Parking along Calle Real.' },
       sponsors: { ninongs: ['Mr. Rafael Reyes', 'Engr. Marco dela Cruz', 'Dr. Adrian Lim', 'Mr. Joseph Tan'].map((name) => ({ name })), ninangs: ['Mrs. Patricia Reyes', 'Ms. Camille dela Cruz', 'Dr. Andrea Lim', 'Ms. Bianca Tan'].map((name) => ({ name })) },
-      story: { timeline: [['The Prayer', 'We asked, and we waited.'], ['The Wait', 'Nine months of hope.'], ['The Answer', 'She came on a Sunday morning.'], ['The Preparation', 'Tiny dresses, big dreams.'], ['The Arrival', 'Home at last.'], ['Our Greatest Blessing', 'You are so loved, Amara.']].map(([title, text], i) => ({ title, text, photo: pic(`amara-story-${i + 1}`, 800, 800) })) },
+      // four milestones, because four is what her spine has dots for, and a
+      // date on each: the row is drawn Date, Title, Description, and a
+      // milestone with no date reads as a caption rather than a moment
+      story: { timeline: ([
+        ['March 2025', 'The Prayer', 'We asked, and we waited, and we kept asking.'],
+        ['June 2025', 'The Answer', 'Two lines on a Tuesday morning, and neither of us could speak.'],
+        ['December 2025', 'The Wait', 'Tiny dresses, a room painted twice, and a name we said out loud every night.'],
+        ['January 2026', 'Home At Last', 'You came on a Sunday, and the house has not been quiet since.'],
+      ] as const).map(([date, title, text], i) => ({ date, title, text, photo: pic(`amara-story-${i + 1}`, 800, 800) })) },
       gallery: { photos: ['Day one', 'First bath', 'Sunday dress', 'With Lolo'].map((caption, i) => ({ url: pic(`amara-baby-${i + 1}`, 900, 900), caption })) },
       dressCode: { attire: ['smartCasual'], colors: ['powder-blue', 'white', 'ivory'].map(swatchHex), paletteNote: 'Blues and whites, please.' },
       rsvp: { deadline: addDays(day, -14).toISOString().slice(0, 10), contactPhone: '0917 555 0188' },

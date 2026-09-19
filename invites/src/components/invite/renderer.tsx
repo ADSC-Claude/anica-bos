@@ -820,12 +820,42 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
       </span>
     );
   });
-  const sponsors = (str(data, 'sponsorsAttire') || str(data, 'entourageAttire')) ? (
-    <div className="inv-two inv-attire text-sm">
-      {str(data, 'sponsorsAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.sponsors')}</span>{str(data, 'sponsorsAttire')}</p>}
-      {str(data, 'entourageAttire') && <p><span className="inv-eyebrow block">{t(lang, 'dressCode.entourage')}</span>{str(data, 'entourageAttire')}</p>}
-    </div>
+  /*
+   * The ninongs and ninangs, and the entourage: their words and their
+   * colours.
+   *
+   * The guests have had a palette to look at since the page was built and
+   * these two had a line of writing each — "atleast an idea of the colors
+   * for them". The colours are drawn the same way the motif is, named, so
+   * a ninong reading "Cream to Beige Smart Casual" can see which creams.
+   * Either half stands on its own: words with no colours, or colours with
+   * no words, each print what they have.
+   */
+  const ninongs = occasion === 'CHRISTENING' || occasion === 'COMMUNION' || occasion === 'BABY_SHOWER';
+  const standing = (key: 'sponsors' | 'entourage', words: string, colours: string[]) => (words || colours.length) ? (
+    <p key={key}>
+      <span className="inv-eyebrow block">{t(lang, key === 'sponsors' ? (ninongs ? 'dressCode.ninongs' : 'dressCode.sponsors') : ninongs ? 'dressCode.everyone' : 'dressCode.entourage')}</span>
+      {words}
+      {colours.length > 0 && (
+        <span className="inv-swatches inv-swatches-few">
+          {colours.map((c, i) => {
+            const s = swatchByHex(c);
+            return (
+              <span key={`${c}-${i}`} className="inv-swatch-item">
+                <span className="inv-swatch" style={{ background: swatchStyle(c, s?.metallic) }} title={s?.name ?? c} />
+                {s && <span className="inv-swatch-name">{s.name}</span>}
+              </span>
+            );
+          })}
+        </span>
+      )}
+    </p>
   ) : null;
+  const theirs = [
+    standing('sponsors', str(data, 'sponsorsAttire'), rows<string>(data, 'sponsorsColors')),
+    standing('entourage', str(data, 'entourageAttire'), rows<string>(data, 'entourageColors')),
+  ].filter(Boolean);
+  const sponsors = theirs.length ? <div className="inv-two inv-attire text-sm">{theirs}</div> : null;
   if (format) {
     return (
       <Section id="dress-code" title={heading} tagline={attire ? undefined : tagline} className="inv-dresscode">

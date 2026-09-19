@@ -85,12 +85,14 @@ test('a list is drawn row by row, each row saying which row it is', () => {
 
   // A photograph comes before the writings that caption it, so a caption is
   // never three screens from its picture, and the rows run 0, 0, 1, 1, 2, 2
-  // rather than every photograph and then every caption.
+  // rather than every photograph and then every caption. Three writings to a
+  // row on a christening, not two: a milestone is a date, a title and a few
+  // words about it.
   const timeline = (page.elements ?? []).flatMap((el) => {
     const bind = el.kind === 'photo' ? el.bind : el.kind === 'text' ? el.lines[0].sources.flatMap((s) => ('bind' in s ? [s.bind] : []))[0] : undefined;
     return bind && 'field' in bind && bind.field === 'timeline' ? [`${el.kind}${bind.index}`] : [];
   });
-  assert.deepEqual(timeline, ['photo0', 'text0', 'text0', 'photo1', 'text1', 'text1', 'photo2', 'text2', 'text2']);
+  assert.deepEqual(timeline, ['photo0', 'text0', 'text0', 'text0', 'photo1', 'text1', 'text1', 'text1', 'photo2', 'text2', 'text2', 'text2']);
 
   assert.ok(short.some((s) => s.includes('timeline')), 'and it says the customer may fill more rows than were drawn');
 });
@@ -145,13 +147,16 @@ test('the page it was drawn at is the page it comes back at', () => {
 
 test('a page with more than one column\u2019s worth puts them in two, and says it is close', () => {
   // Our Story on a christening is a heading, a line, a photograph and three
-  // rows of frame-and-two-writings: far more than one screen holds.
+  // rows of frame-and-three-writings: far more than one screen holds, and
+  // more than two columns hold comfortably either since the milestone gained
+  // its date — so it lays out in two and says it is close, which is the whole
+  // point of saying so.
   const { page, tight } = drawFromSection(flow('story', ['story']), 'CHRISTENING');
   const xs = [...new Set((page.elements ?? []).map((e) => e.x))].sort((a, b) => (a ?? 0) - (b ?? 0));
   assert.deepEqual(xs, [28, 72], 'two columns, the way Baby Blue runs its own Our Story');
   const ys = (page.elements ?? []).map((e) => e.y);
   assert.ok(Math.min(...ys) >= 8 && Math.max(...ys) <= 92, 'and still inside the page');
-  assert.equal(tight, false, 'and two columns were room enough here');
+  assert.equal(tight, true, 'and she is told they are set close, because the height is hers to change');
 
   // the frames are narrower for sharing the width, and none is wider than its half
   for (const el of page.elements ?? []) {

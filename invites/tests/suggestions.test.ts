@@ -45,7 +45,10 @@ test('names, numbers and boxes with their own examples are left alone', () => {
 });
 
 test('a staff box gets none: the look\u2019s line backs it, and the encoder is filling twenty at a time', () => {
-  for (const [section, key] of [['closing', 'message'], ['cover', 'verse'], ['dressCode', 'gentsNote']] as const) {
+  // closing.message was here and is not any more: a thank-you at the end of
+  // an invitation is the family speaking, so it is theirs and it carries
+  // chips like every other box of theirs
+  for (const [section, key] of [['closing', 'line'], ['cover', 'verse'], ['dressCode', 'gentsNote']] as const) {
     const f = fieldsFor(section, 'WEDDING').find((x) => x.key === key)!;
     assert.equal(f.staff, true, `${section}.${key} is ours`);
     assert.equal(f.examples, undefined, `${section}.${key} carries no chips`);

@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
+import { cropKeyOf, readCrop, placeCrop, type Crop } from '@/lib/photo-crop';
+import { cropStyle, cropWindow, cropAt } from '@/lib/design';
 import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
@@ -26,15 +28,21 @@ export type FieldsProps = {
   listLimits?: Record<string, number>;
   /** A list's hint from the design, where the page has a fixed number of frames. */
   listHints?: Record<string, string>;
+  /**
+   * The frame each picture goes into, keyed `photo` or `timeline.photo`.
+   * Where there is one, the picture's box lets the customer move and zoom
+   * the photograph inside the real cut instead of taking the middle of it.
+   */
+  frames?: Record<string, { aspect: number; cut?: 'circle' | 'arch' }>;
 };
 
-export function SectionFields({ fields, value, onChange, lang, invitationId, listLimits = {}, listHints = {} }: FieldsProps) {
+export function SectionFields({ fields, value, onChange, lang, invitationId, listLimits = {}, listHints = {}, frames = {} }: FieldsProps) {
   const set = (key: string, v: unknown) => onChange({ ...value, [key]: v });
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {fields.map((f) => (
         <div key={f.key} className={f.wide || f.type === 'textarea' || f.type === 'list' || f.type === 'colors' || f.type === 'swatches' || f.type === 'checks' || f.type === 'audio' ? 'sm:col-span-2' : ''}>
-          <FieldInput field={listHints[f.key] ? { ...f, hint: listHints[f.key] } : f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text, v) => onChange({ ...value, [f.key]: v, [target]: text })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} />
+          <FieldInput field={listHints[f.key] ? { ...f, hint: listHints[f.key] } : f} value={value[f.key]} onChange={(v) => set(f.key, v)} onPreset={(target, text, v) => onChange({ ...value, [f.key]: v, [target]: text })} onSibling={(key, v) => onChange({ ...value, [key]: v })} lang={lang} invitationId={invitationId} limit={listLimits[f.key]} sibling={value} frame={frames[f.key]} frames={frames} />
         </div>
       ))}
     </div>
@@ -75,20 +83,29 @@ function FieldInput({
   value,
   onChange,
   onPreset,
+  onSibling,
   lang,
   invitationId,
   limit,
   sibling,
+  frame,
+  frames,
 }: {
   field: Field;
   value: unknown;
   onChange: (v: unknown) => void;
   /** a preset picked: the choice and the sibling text it writes, in one change */
   onPreset: (target: string, text: string, v: string) => void;
+  /** a second key written beside this one — a picture's window, kept under `<key>Crop` */
+  onSibling: (key: string, v: unknown) => void;
   lang: Lang;
   invitationId: string;
   limit?: number;
   sibling: SectionData;
+  /** the frame this picture goes into, where the design draws one */
+  frame?: { aspect: number; cut?: 'circle' | 'arch' };
+  /** every frame in this part, so a list can hand each row's picture its own */
+  frames?: Record<string, { aspect: number; cut?: 'circle' | 'arch' }>;
 }) {
   const id = `f-${field.key}`;
   switch (field.type) {
@@ -168,9 +185,19 @@ function FieldInput({
         </div>
       );
     case 'image':
-      return <ImageInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
+      return (
+        <ImageInput
+          field={field}
+          value={String(value ?? '')}
+          onChange={(v) => onChange(v)}
+          invitationId={invitationId}
+          frame={frame}
+          crop={readCrop(sibling[cropKeyOf(field.key)])}
+          onCrop={(c) => onSibling(cropKeyOf(field.key), c)}
+        />
+      );
     case 'audio':
-      return <AudioInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} />;
+      return <AudioInput field={field} value={String(value ?? '')} onChange={(v) => onChange(v)} invitationId={invitationId} sibling={sibling} />;
     case 'offset':
       return <OffsetInput field={field} id={id} value={typeof value === 'number' ? value : null} onChange={onChange} />;
     case 'colors':
@@ -184,7 +211,7 @@ function FieldInput({
     case 'person':
       return <PersonInput field={field} value={(value ?? { title: '', name: '', deceased: false }) as Person} onChange={onChange} />;
     case 'list':
-      return <ListInput field={field} value={Array.isArray(value) ? (value as Record<string, unknown>[]) : []} onChange={onChange} lang={lang} invitationId={invitationId} limit={limit} />;
+      return <ListInput field={field} value={Array.isArray(value) ? (value as Record<string, unknown>[]) : []} onChange={onChange} lang={lang} invitationId={invitationId} limit={limit} frames={frames} />;
   }
 }
 
@@ -360,7 +387,36 @@ function PassThumb({ look, photo }: { look: string; ink: string; photo: string }
   );
 }
 
-function ImageInput({ field, value, onChange, invitationId }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string }) {
+/**
+ * A picture, and where it sits inside the frame the design drew for it.
+ *
+ * Without a frame this is what it always was: a file, or a link, and a
+ * thumbnail. With one it also shows the real cut — the same proportions and
+ * the same circle or arch the page will use — with the photograph inside it,
+ * draggable, and a slider that pulls it closer.
+ *
+ * Why it is needed: every frame shows the middle of the file, trimmed to the
+ * frame's shape, and a square frame given a portrait keeps the middle band
+ * and cuts the face off. "The photos are so zoom in that it doesnt show the
+ * photo really well, atleast the customer could have the chance to move the
+ * photo up and down, left to right, to fit it in the frames, also allow that
+ * it can be zoom in and zoom out."
+ *
+ * The window is written as the customer moves, not on a Done button, so the
+ * live preview beside the form redraws under their hand — which is the whole
+ * reason to do it here rather than in a dialogue. Nothing is re-encoded: the
+ * file that arrives is the file they uploaded, and the window is four
+ * numbers (see `lib/photo-crop.ts`).
+ */
+function ImageInput({ field, value, onChange, invitationId, frame, crop, onCrop }: {
+  field: Field;
+  value: string;
+  onChange: (v: string) => void;
+  invitationId: string;
+  frame?: { aspect: number; cut?: 'circle' | 'arch' };
+  crop?: Crop;
+  onCrop?: (v: Crop | undefined) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const input = useRef<HTMLInputElement>(null);
@@ -375,6 +431,9 @@ function ImageInput({ field, value, onChange, invitationId }: { field: Field; va
       const res = await fetch('/api/account/upload', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Upload failed.');
+      // a new picture starts in the middle of its frame, not where the last
+      // one happened to sit
+      onCrop?.(undefined);
       onChange(json.url);
     } catch (e) {
       setError((e as Error).message);
@@ -383,20 +442,154 @@ function ImageInput({ field, value, onChange, invitationId }: { field: Field; va
       if (input.current) input.current.value = '';
     }
   }
+  const clear = () => { onCrop?.(undefined); onChange(''); };
   return (
     <div>
       <Label field={field} />
       <div className="flex items-start gap-3">
-        {value ? <img src={value} alt="" className="h-20 w-20 rounded-lg border border-[color:var(--color-sand-200)] object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[color:var(--color-sand-300)] text-xs text-[color:var(--color-ink-500)]">No photo</div>}
+        {frame && value && onCrop
+          ? <CropBox url={value} frame={frame} crop={crop} onCrop={onCrop} />
+          : value
+            ? <img src={value} alt="" className="h-20 w-20 rounded-lg border border-[color:var(--color-sand-200)] object-cover" />
+            : <div className="flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[color:var(--color-sand-300)] text-xs text-[color:var(--color-ink-500)]">No photo</div>}
         <div className="min-w-0 flex-1 space-y-2">
           <input ref={input} type="file" accept="image/*" className="field max-w-full text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-          <input type="url" className="field text-xs" placeholder="…or paste an image link" value={value.startsWith('/uploads/') ? '' : value} onChange={(e) => onChange(e.target.value)} />
-          {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>Remove</button>}
+          <input type="url" className="field text-xs" placeholder="…or paste an image link" value={value.startsWith('/uploads/') ? '' : value} onChange={(e) => { onCrop?.(undefined); onChange(e.target.value); }} />
+          {value && <button type="button" className="btn btn-ghost btn-sm" onClick={clear}>Remove</button>}
           {busy && <p className="hint">Uploading…</p>}
           {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
         </div>
       </div>
       <Hint text={field.hint} />
+    </div>
+  );
+}
+
+/** How far in a picture can be pulled: any further and a phone photograph goes soft. */
+const ZOOM_MAX = 4;
+
+/**
+ * The real cut, with the photograph inside it and a hand on it.
+ *
+ * Drag moves the picture; the slider pulls it closer; Reset puts it back to
+ * the middle, which is exactly what every invitation shows today — so a
+ * customer who never touches it loses nothing, and one who touches it can
+ * always get back.
+ *
+ * The maths is the studio's, not a second copy of it: `cropWindow` turns a
+ * zoom and a centre into the window, clamped so the frame can never show a
+ * strip of nothing, and `cropAt` reads one back. The file's own width and
+ * height are what lock the window to the frame's shape, and the only place
+ * they are known is the picture the browser has loaded — so the box does
+ * nothing at all until `onLoad`.
+ */
+function CropBox({ url, frame, crop, onCrop }: {
+  url: string;
+  frame: { aspect: number; cut?: 'circle' | 'arch' };
+  crop?: Crop;
+  onCrop: (v: Crop | undefined) => void;
+}) {
+  const [size, setSize] = useState<{ nw: number; nh: number } | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ id: number; x: number; y: number; cx: number; cy: number } | null>(null);
+  const at = size && crop ? cropAt(crop, frame.aspect, size.nw, size.nh) : { zoom: 1, cx: 0.5, cy: 0.5 };
+
+  /*
+   * The file's own size, taken once.
+   *
+   * A ref runs on every render, and setting state from one unconditionally
+   * is a loop that React stops by throwing — which is what it did. It is
+   * still the place to take the size: a picture the browser already holds
+   * is `complete` before React attaches anything and `onLoad` never fires
+   * for it, so waiting for the event left the slider dead on every
+   * photograph a customer comes back to. Taken from both, written only
+   * when it is news.
+   */
+  const took = useCallback((img: HTMLImageElement | null) => {
+    if (!img?.naturalWidth || !img.naturalHeight) return;
+    setSize((was) => (was && was.nw === img.naturalWidth && was.nh === img.naturalHeight ? was : { nw: img.naturalWidth, nh: img.naturalHeight }));
+  }, []);
+
+  const put = useCallback((next: { zoom: number; cx: number; cy: number }) => {
+    if (!size) return;
+    const win = cropWindow({ aspect: frame.aspect, nw: size.nw, nh: size.nh, ...next });
+    const flat = placeCrop(win);
+    // the middle at zoom 1 is the picture as it has always been drawn, and
+    // an invitation carries nothing it does not need
+    onCrop(flat.w >= 0.9999 || flat.h >= 0.9999 ? undefined : flat);
+  }, [frame.aspect, onCrop, size]);
+
+  function down(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!size) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: at.cx, cy: at.cy };
+  }
+  function move(e: ReactPointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    const rect = box.current?.getBoundingClientRect();
+    if (!d || d.id !== e.pointerId || !rect || !size) return;
+    e.preventDefault();
+    /*
+     * A pixel dragged is a pixel the picture moves, which is a fraction of
+     * the *window* — so the further in it is zoomed the less of the file one
+     * pixel covers, and the picture keeps pace with the finger at every
+     * zoom. The window's own width and height are how much of the file the
+     * frame shows, which is what the box is that many pixels wide.
+     */
+    const win = cropWindow({ aspect: frame.aspect, nw: size.nw, nh: size.nh, zoom: at.zoom, cx: d.cx, cy: d.cy });
+    put({ zoom: at.zoom, cx: d.cx - ((e.clientX - d.x) / rect.width) * win.w, cy: d.cy - ((e.clientY - d.y) / rect.height) * win.h });
+  }
+  const up = () => { drag.current = null; };
+
+  const shown = size && crop ? cropStyle(crop) : { width: '100%', height: '100%', left: '0', top: '0' };
+  return (
+    <div className="w-32 shrink-0">
+      <div
+        ref={box}
+        className="relative w-full touch-none overflow-hidden border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-100)]"
+        style={{
+          aspectRatio: `1 / ${frame.aspect}`,
+          borderRadius: frame.cut === 'circle' ? '50%' : frame.cut === 'arch' ? '999px 999px 0.4rem 0.4rem' : '0.5rem',
+          cursor: size ? 'grab' : 'default',
+        }}
+        onPointerDown={down}
+        onPointerMove={move}
+        onPointerUp={up}
+        onPointerCancel={up}
+        role="presentation"
+      >
+        <img
+          src={url}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute max-w-none select-none"
+          style={shown as CSSProperties}
+          /*
+           * The size is taken on the ref as well as on load, because a
+           * picture the browser already holds is `complete` before React
+           * attaches anything and `onLoad` never fires for it — which left
+           * the slider disabled on every photograph already on the page,
+           * meaning every photograph a customer comes back to.
+           */
+          ref={took}
+          onLoad={(e) => took(e.currentTarget)}
+        />
+      </div>
+      <input
+        type="range"
+        className="mt-1.5 w-full"
+        min={1}
+        max={ZOOM_MAX}
+        step={0.02}
+        value={at.zoom}
+        disabled={!size}
+        aria-label="How close the photo sits in its frame"
+        onChange={(e) => put({ ...at, zoom: Number(e.target.value) })}
+      />
+      <div className="flex items-center justify-between text-[11px] text-[color:var(--color-ink-500)]">
+        <span>Drag to move</span>
+        {crop && <button type="button" className="underline" onClick={() => onCrop(undefined)}>Reset</button>}
+      </div>
     </div>
   );
 }
@@ -684,6 +877,45 @@ function PersonInput({ field, value, onChange }: { field: Field; value: Person; 
  * fill for a customer: an encoder working through twenty boxes does not need
  * three suggestions on each of them.
  */
+/**
+ * Ready-made rows offered above a list, one tap to add and then edit.
+ *
+ * The same idea as `Examples` and for the same reason, but a row is more
+ * than one writing: the FAQ's question and its answer arrive together,
+ * because offering the question alone leaves the harder half empty. One
+ * already added is not offered again — a list of six questions with the
+ * same six still on the chips reads as though the tap did nothing.
+ */
+function Starters({ field, lang, value, max, onAdd }: {
+  field: Field;
+  lang: Lang;
+  value: Record<string, unknown>[];
+  max: number;
+  onAdd: (row: Record<string, string>) => void;
+}) {
+  if (!field.starters?.length || value.length >= max) return null;
+  const said = new Set(value.map((r) => String(r[field.item?.[0]?.key ?? 'q'] ?? '').trim().toLowerCase()).filter(Boolean));
+  const left = field.starters.filter((s) => !said.has((lang === 'tl' ? s.row[field.item?.[0]?.key ?? 'q']?.tl : s.row[field.item?.[0]?.key ?? 'q']?.en ?? '').trim().toLowerCase()));
+  if (!left.length) return null;
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] text-[color:var(--color-ink-500)]">Need a starting point? Tap one and edit it.</p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {left.map((s) => (
+          <button
+            key={s.key}
+            type="button"
+            className="btn btn-secondary btn-sm max-w-full whitespace-normal text-left text-[11px] leading-snug"
+            onClick={() => onAdd(Object.fromEntries(Object.entries(s.row).map(([k, w]) => [k, lang === 'tl' ? w.tl : w.en])))}
+          >
+            + {s.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Examples({ field, lang, onUse }: { field: Field; lang: Lang; onUse: (v: string) => void }) {
   if (!field.examples?.length) return null;
   return (
@@ -784,7 +1016,7 @@ function ListSheet({ field, value, onChange, invitationId, max }: { field: Field
   );
 }
 
-function ListInput({ field, value, onChange, lang, invitationId, limit }: { field: Field; value: Record<string, unknown>[]; onChange: (v: unknown) => void; lang: Lang; invitationId: string; limit?: number }) {
+function ListInput({ field, value, onChange, lang, invitationId, limit, frames }: { field: Field; value: Record<string, unknown>[]; onChange: (v: unknown) => void; lang: Lang; invitationId: string; limit?: number; frames?: Record<string, { aspect: number; cut?: 'circle' | 'arch' }> }) {
   const item = field.item ?? [];
   const max = Math.min(field.max ?? 200, limit ?? 200);
   const blank = () => Object.fromEntries(item.map((f) => [f.key, f.type === 'toggle' ? false : '']));
@@ -843,7 +1075,7 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
               <div className="grid gap-2 sm:grid-cols-2">
                 {item.map((sub) => (
                   <div key={sub.key} className={sub.type === 'textarea' ? 'sm:col-span-2' : ''}>
-                    <FieldInput field={sub} value={row[sub.key]} onChange={(v) => update(i, { ...row, [sub.key]: v })} onPreset={(target, text, v) => update(i, { ...row, [sub.key]: v, [target]: text })} lang={lang} invitationId={invitationId} sibling={row} />
+                    <FieldInput field={sub} value={row[sub.key]} onChange={(v) => update(i, { ...row, [sub.key]: v })} onPreset={(target, text, v) => update(i, { ...row, [sub.key]: v, [target]: text })} onSibling={(key, v) => update(i, { ...row, [key]: v })} lang={lang} invitationId={invitationId} sibling={row} frame={frames?.[`${field.key}.${sub.key}`]} />
                   </div>
                 ))}
               </div>
@@ -868,6 +1100,7 @@ function ListInput({ field, value, onChange, lang, invitationId, limit }: { fiel
           </div>
         </div>
       )}
+      <Starters field={field} lang={lang} value={value} max={max} onAdd={(row) => onChange([...value, { ...blank(), ...row }])} />
       {!arranging && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {value.length < max ? (
@@ -976,7 +1209,7 @@ function Arrange({ field, item, value, onChange, onDone }: { field: Field; item:
  * has the server record it. Where there is no cloud storage (development)
  * the server says so and takes the file the ordinary way.
  */
-function AudioInput({ field, value, onChange, invitationId }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string }) {
+function AudioInput({ field, value, onChange, invitationId, sibling }: { field: Field; value: string; onChange: (v: string) => void; invitationId: string; sibling?: SectionData }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
@@ -1031,8 +1264,30 @@ function AudioInput({ field, value, onChange, invitationId }: { field: Field; va
         {error && <p className="hint text-[color:var(--bad)]">{error}</p>}
       </div>
       <Hint text={field.hint} />
+      <SongState named={String(sibling?.song ?? '')} file={value} start={typeof sibling?.start === 'number' ? sibling.start : 0} />
     </div>
   );
+}
+
+/**
+ * Whether this invitation has a song a page can actually play — said plainly,
+ * where the question is asked.
+ *
+ * The trap she fell into: she named a song with a YouTube link and set it to
+ * start at six seconds, and then "the CLICK FOR MUSIC is gone so weithout it
+ * people wont know theres a music in it… in preview, doesnt it play the song
+ * to atleast check if its working". It was gone because nothing could play:
+ * a page cannot stream from YouTube, so what plays is a file, and the file
+ * was not there yet. The control hides itself rather than offer a guest a
+ * button that does nothing — which is right, and silent, and told her
+ * nothing at all.
+ */
+function SongState({ named, file, start }: { named: string; file: string; start: number }) {
+  if (!named.trim() && !file) return null;
+  const at = `${Math.floor(start / 60)}:${String(start % 60).padStart(2, '0')}`;
+  return file
+    ? <p className="hint">The song is on the page. A guest taps the record to play it, and it starts at {at}.</p>
+    : <p className="hint text-[color:var(--warn)]">No file yet, so nothing plays and the music control is hidden — on the page and in the preview. Add the file above, or leave it with us and we will make it from the song you named.</p>;
 }
 
 /** PUT a file with a progress readout — fetch cannot report upload progress, XHR can. */

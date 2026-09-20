@@ -106,6 +106,26 @@ export type ReplySource = 'LINK' | 'PICKED' | 'TYPED' | 'MATCHED' | null | undef
  */
 export function wasVetted(reply: { guestId: string | null; source?: ReplySource }, personalLinks: boolean): boolean {
   if (!personalLinks) return false;
+  return cameFromLink(reply);
+}
+
+/**
+ * Whether this reply arrived through a personal link — the guest proving who
+ * they are with a token only they were sent.
+ *
+ * Split out of wasVetted() because two different questions were reading the
+ * same expression and one of them does not care about the entitlement. "Were
+ * these seats agreed?" needs `personalLinks`, because the cap lives behind it.
+ * "Does this reply already belong to a guest?" does not: a token reply belongs
+ * to that guest whatever the invitation is paying for, and offering to
+ * re-point it by hand would throw away the only evidence in the system for a
+ * guess. The RSVP list says "personal link" on exactly these rows; it must not
+ * also offer to undo them.
+ *
+ * A null source is a reply older than the column. It could only have got a
+ * `guestId` from a token, because there was no other way to get one.
+ */
+export function cameFromLink(reply: { guestId: string | null; source?: ReplySource }): boolean {
   return reply.source ? reply.source === 'LINK' : Boolean(reply.guestId);
 }
 

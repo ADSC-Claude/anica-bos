@@ -12,7 +12,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { matchesName, answeredFor, rankGuests, MIN_QUERY, MAX_MATCHES, type ReplyRow } from '../src/lib/guest-match';
+import { matchesName, answeredFor, rankGuests, claimedGuestIds, MIN_QUERY, MAX_MATCHES, type ReplyRow } from '../src/lib/guest-match';
 import { attendeesOf, type Attendee } from '../src/lib/attendees';
 import { fieldsFor } from '../src/lib/sections';
 
@@ -193,4 +193,63 @@ test('a nickname nobody shares offers nothing rather than a guess', () => {
 test('the shortlist is a shortlist', () => {
   const many = Array.from({ length: 40 }, (_, i) => ({ id: `g${i}`, name: `Maria Santos ${i}` }));
   assert.ok(rankGuests('Maria Santos', many).length <= 6, 'a page of names is not a shortlist');
+});
+
+/**
+ * One name on the list, claimed once.
+ *
+ * "now do the companion matching"
+ *
+ * A party of three is three rows on the couple's list and one reply, so every
+ * seat in that party can be joined to a row of its own. What must never happen
+ * is the same row joined twice: Lola Rosa on her daughter's reply and again on
+ * her son's is one person on the list and two places at the table, and the
+ * error would only surface at the caterer.
+ *
+ * The head of a party is recorded once even though the id sits in two columns,
+ * because `Rsvp.guestId` and `attendees[0].guestId` are one slot written
+ * together — see matchAttendee().
+ */
+const PARTY = [
+  {
+    id: 'r1',
+    name: 'Pedro German Jr.',
+    guestId: 'g2',
+    attendees: [
+      { name: 'Pedro German Jr.', guestId: 'g2' },
+      { name: 'Reina catherine buena', guestId: 'g3' },
+      { name: 'Baby Azriel' },
+    ],
+  },
+  { id: 'r2', name: 'Ma Luz Corporal', guestId: null, attendees: [{ name: 'Ma Luz Corporal' }] },
+];
+
+test('a name on the list is held by one seat, and the refusal can say whose', () => {
+  const held = claimedGuestIds(PARTY);
+  assert.deepEqual(held.get('g2'), { replyId: 'r1', index: 0, by: 'Pedro German Jr.' }, 'the head, once');
+  assert.deepEqual(held.get('g3'), { replyId: 'r1', index: 1, by: 'Pedro German Jr.' }, 'and his companion, by position');
+  assert.equal(held.has('g4'), false, 'a companion nobody matched holds nothing');
+  assert.equal(held.size, 2, 'an untagged reply and an untagged child claim no rows');
+});
+
+test('the head is one claim, not two, however the reply records it', () => {
+  // An older reply carries the id on the row but never got it onto the party.
+  const older = [{ id: 'r9', name: 'Ana Dela Cruz', guestId: 'g1', attendees: [{ name: 'Ana Dela Cruz' }] }];
+  const held = claimedGuestIds(older);
+  assert.deepEqual(held.get('g1'), { replyId: 'r9', index: 0, by: 'Ana Dela Cruz' });
+  // So re-matching that same head to that same row is not a clash with itself.
+  const claim = held.get('g1')!;
+  assert.ok(claim.replyId === 'r9' && claim.index === 0, 'same slot, no refusal');
+});
+
+test('two parties cannot both bring the same lola', () => {
+  const both = [
+    ...PARTY,
+    { id: 'r3', name: 'Abigail Ureta', guestId: null, attendees: [{ name: 'Abigail Ureta' }, { name: 'Lola Rosa', guestId: 'g5' }] },
+  ];
+  const held = claimedGuestIds(both);
+  assert.equal(held.get('g5')!.by, 'Abigail Ureta', 'the first press wins and is named');
+  // The second press is the one matchAttendee() refuses: same id, other slot.
+  const claim = held.get('g5')!;
+  assert.ok(!(claim.replyId === 'r1' && claim.index === 2), 'Pedro cannot claim her as well');
 });

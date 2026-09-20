@@ -14,7 +14,8 @@ import { contentOf } from './invitations';
 import { contactPatch, plainAddress } from './contacts';
 import { attendeesOf } from './attendees';
 import { realGuestIds } from './guest-picker';
-import { seatsHeld, awaitingDecision } from './seats';
+import { claimedGuestIds } from './guest-match';
+import { seatsHeld, awaitingDecision, cameFromLink } from './seats';
 import { invitationUrl } from './app-url';
 import { formatDate } from './datetime';
 
@@ -548,7 +549,7 @@ export async function submitGuestbook(input: z.infer<typeof guestbookSchema>, ip
 }
 
 /**
- * The couple saying that a typed reply is somebody on their list.
+ * The couple saying that somebody in a reply is somebody on their list.
  *
  * "there is a rsvp already for pedro, that what im referring to this tab, it
  * doesnt click to the list i have now"
@@ -559,6 +560,13 @@ export async function submitGuestbook(input: z.infer<typeof guestbookSchema>, ip
  * yet" while his acceptance sat on the RSVP tab attached to nobody. The
  * headcount was wrong twice over, in opposite directions.
  *
+ * The same is true of everyone he brought. Pedro's reply carried two
+ * companions typed by hand, "Reina catherine buena" and a child, and both of
+ * them are rows on the list as well — a party of three answers three rows or
+ * it answers one and leaves the couple chasing two ghosts. So this takes a
+ * position in the party rather than only the reply: 0 is the guest at the head
+ * of it, 1 and up are the people they are bringing.
+ *
  * Nothing matches automatically, and that is deliberate. Marking the wrong
  * lola as coming is worse than leaving a reply unattached, so rankGuests()
  * offers a shortlist and a person presses the button. What lands here is
@@ -568,53 +576,93 @@ export async function submitGuestbook(input: z.infer<typeof guestbookSchema>, ip
  * guest proving who they are nor the guest choosing off the list — it is the
  * couple's reading of it. Like PICKED it grants nothing: no allotment is
  * unlocked and the reply stays in the seat queue if it was there, because
- * agreeing who somebody is is not agreeing to their three seats.
+ * agreeing who somebody is is not agreeing to their three seats. A companion
+ * carries no source of its own; the reply's source says how the reply arrived,
+ * and a companion did not arrive separately.
  *
  * `guestId: null` unmatches, for the correction that follows a wrong press.
  */
-export async function matchReply(
+export async function matchAttendee(
   invitation: { id: string },
-  rsvpId: string,
-  guestId: string | null,
+  input: { rsvpId: string; index: number; guestId: string | null; who: string },
 ) {
+  const { rsvpId, index, guestId } = input;
   const reply = await prisma.rsvp.findFirst({
     where: { id: rsvpId, invitationId: invitation.id },
-    select: { id: true, name: true, attendees: true, source: true },
+    select: { id: true, name: true, attendees: true, source: true, guestId: true },
   });
   if (!reply) throw new HttpError(404, 'That reply is not on this invitation.');
 
   // A reply that came through a personal link is already the guest, by the
   // one piece of evidence this system has. Re-pointing it by hand would throw
-  // that away for a guess.
-  if (reply.source === 'LINK') throw new HttpError(400, 'That reply came through a personal link, so it already belongs to a guest.');
+  // that away for a guess. Only the head of it, though: who that guest
+  // brought is as unverified on a personal link as on any other reply, and
+  // those companions are exactly the ones worth joining to the list.
+  if (index === 0 && cameFromLink(reply)) {
+    throw new HttpError(400, 'That reply came through a personal link, so it already belongs to a guest.');
+  }
+
+  const party = attendeesOf(reply.attendees);
+  const person = party[index];
+  if (!person) throw new HttpError(404, 'That person is no longer on this reply.');
+  /*
+   * The party is addressed by position, and a position means nothing if the
+   * reply has been edited since the page was drawn. Cheap insurance against
+   * the one mistake that matters here: quietly marking somebody else's lola
+   * as attending because a row moved up by one.
+   */
+  if (person.name.trim().toLowerCase() !== input.who.trim().toLowerCase()) {
+    throw new HttpError(409, 'This reply has changed since the page loaded. Reload and try again.');
+  }
 
   if (guestId) {
-    const guest = await prisma.guest.findFirst({ where: { id: guestId, invitationId: invitation.id }, select: { id: true } });
+    const guest = await prisma.guest.findFirst({ where: { id: guestId, invitationId: invitation.id }, select: { id: true, name: true } });
     if (!guest) throw new HttpError(404, 'That name is not on this guest list.');
-    // One guest, one reply: a second reply pointed at the same row would
-    // count them twice on the seating chart and the headcount sheet.
-    const taken = await prisma.rsvp.findFirst({ where: { invitationId: invitation.id, guestId, NOT: { id: rsvpId } }, select: { name: true } });
-    if (taken) throw new HttpError(400, `That name is already matched to ${taken.name}'s reply.`);
+    /*
+     * One name on the list, one place at one table. The claim may already be
+     * held by another reply or by another seat in this same party, and both
+     * are the same mistake: two bodies where the list has one person. See
+     * claimedGuestIds().
+     */
+    const others = await prisma.rsvp.findMany({
+      where: { invitationId: invitation.id },
+      select: { id: true, name: true, guestId: true, attendees: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const claim = claimedGuestIds(others.map((r) => ({ ...r, attendees: attendeesOf(r.attendees) }))).get(guestId);
+    if (claim && !(claim.replyId === rsvpId && claim.index === index)) {
+      throw new HttpError(
+        400,
+        claim.replyId === rsvpId
+          ? `${guest.name} is already someone else on this reply.`
+          : claim.index === 0
+            ? `${guest.name} has already replied.`
+            : `${guest.name} is already on ${claim.by}'s reply.`,
+      );
+    }
   }
 
   /*
-   * The head of the party carries the id too.
+   * The head of the party carries the id in two places, and both are written
+   * together.
    *
    * answeredFor() reads a party out of the attendee list, and the couple's
    * guest list reads "replied" from it. Matching the reply without tagging
    * the person at the head of it would leave the guest list still saying "no
    * reply yet" for the very guest just matched.
    */
-  const party = attendeesOf(reply.attendees);
   const attendees = party.map((a, i) =>
-    i === 0
-      ? (guestId ? { ...a, guestId } : { name: a.name, relation: a.relation })
-      : a,
+    i === index ? (guestId ? { ...a, guestId } : { name: a.name, relation: a.relation }) : a,
   );
 
-  return prisma.rsvp.update({
+  const head = index === 0;
+  const updated = await prisma.rsvp.update({
     where: { id: reply.id },
-    data: { guestId, source: guestId ? 'MATCHED' : 'TYPED', attendees: attendees as never },
+    data: {
+      attendees: attendees as never,
+      ...(head ? { guestId, source: (guestId ? 'MATCHED' : 'TYPED') as 'MATCHED' | 'TYPED' } : {}),
+    },
     select: { id: true, name: true, guestId: true, source: true },
   });
+  return { ...updated, index, name: person.name };
 }

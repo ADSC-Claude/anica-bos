@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seatsHeld, replyState, headsArrived, arrivalLabel, replySeats, awaitingDecision, decided, wasVetted, sourceLabel, type ReplySource } from '../src/lib/seats';
+import { seatsHeld, replyState, headsArrived, arrivalLabel, replySeats, awaitingDecision, decided, wasVetted, cameFromLink, sourceLabel, type ReplySource } from '../src/lib/seats';
 
 test('a guest holds what they confirmed, or what was set aside until they say', () => {
   // Nobody has answered: the couple's allotment is the number to plan against.
@@ -203,4 +203,34 @@ test('the couple’s list says which of the two it was, and says nothing for the
   // An old reply keeps the caption it has always had.
   assert.equal(sourceLabel(reply(null)), 'personal link');
   assert.equal(sourceLabel(reply(null, null)), '');
+});
+
+/**
+ * "Did this reply arrive through a personal link?" — asked without reference
+ * to what the invitation is paying for.
+ *
+ * The two questions came apart when the RSVP list learnt to join a reply to a
+ * name by hand. A token reply already belongs to its guest whatever the tier,
+ * and the row says "personal link" in as many words; offering "Not them —
+ * undo" beside that caption would let one press throw away the only evidence
+ * in the system for a guess. So the matcher hides on exactly these rows, and
+ * matchAttendee() refuses them on the server for the same reason.
+ *
+ * wasVetted() is this plus the entitlement, because the seats cap is the one
+ * that lives behind it.
+ */
+test('a reply the guest proved with their own link is never re-pointed by hand', () => {
+  assert.equal(cameFromLink(reply('LINK')), true);
+  assert.equal(cameFromLink(reply('PICKED')), false, 'anyone could have tapped that name');
+  assert.equal(cameFromLink(reply('MATCHED')), false, 'that id is the couple’s own reading, and theirs to undo');
+  assert.equal(cameFromLink(reply('TYPED', null)), false);
+  assert.equal(cameFromLink(reply(null)), true, 'an old guestId could only have come from a token');
+  assert.equal(cameFromLink(reply(null, null)), false);
+});
+
+test('the entitlement is the seats question, not the belonging one', () => {
+  // A token reply on an invitation with no personal links: nobody capped
+  // those seats, and the reply still belongs to that guest.
+  assert.equal(wasVetted(reply('LINK'), false), false, 'no cap was ever applied');
+  assert.equal(cameFromLink(reply('LINK')), true, 'but the token is still who they are');
 });

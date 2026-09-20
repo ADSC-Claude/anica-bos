@@ -919,7 +919,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
           </div>
         )}
         {sponsors && <div className="inv-wear">{sponsors}</div>}
-        {str(data, 'note') && <p className="inv-wear-note whitespace-pre-line">{str(data, 'note')}</p>}
+        {str(data, 'note') && <p className="inv-wear-note inv-wear-close whitespace-pre-line">{str(data, 'note')}</p>}
         <p className="inv-eyebrow inv-rule-head inv-wear-thanks"><span>{t(lang, 'dressCode.thanks')}</span></p>
       </Section>
     );

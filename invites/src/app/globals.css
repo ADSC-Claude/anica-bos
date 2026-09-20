@@ -1960,6 +1960,37 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 .inv-avoid-ico::after { content: ''; position: absolute; left: 50%; top: -0.4rem; bottom: -0.4rem; width: 1.5px; margin-left: -0.75px; background: #a8433d; transform: rotate(45deg); }
 .inv-avoid-label { font-family: var(--inv-display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.52rem; line-height: 1.55; color: var(--inv-ink); }
 .inv-wear-thanks { margin-top: 1.7rem; margin-bottom: 0; }
+
+/*
+ * The dress code's own spacing, put back on a drawn page.
+ *
+ * "Put a space between the thank you and the cream to beige color suggestion
+ * even when theres a note written for the next invitations we will do, that
+ * should have a little space so its not crowded to look at."
+ *
+ * THANK YOU was not merely tight against the ninongs' creams; it was flush
+ * with them. Measured on her page: nought pixels between the two.
+ *
+ * `.inv[data-paged] p { margin: 0 }` is the cause. It resets every paragraph
+ * on a drawn page and out-specifies the plain class rules this block was
+ * written with, so the thank-you's 1.7rem, the notes' 0.35rem and the rule
+ * heads' 0.9rem under their words all came out at nought. What made it read
+ * as uneven rather than uniformly tight is that the blocks *around* them kept
+ * their air: `.inv-wear` is a div, and the reset only names `p`. So the
+ * sponsors had a clear 1.5rem above them and the thank-you under them had
+ * none at all.
+ *
+ * Put back here, scoped to the four classes that want it, rather than by
+ * loosening a reset every other page is built on.
+ */
+.inv[data-paged] .inv-rule-head { margin-bottom: 0.9rem; }
+.inv[data-paged] .inv-wear-note { margin-top: 0.35rem; }
+.inv[data-paged] .inv-wear-thanks { margin-top: 1.7rem; }
+/* The family's own closing note stands between the sponsors' colours and the
+   thank-you — a block between two blocks, so it takes a block's air above it
+   and not a caption's. This is the "even when theres a note written" half:
+   the crowding must not simply move down a line when somebody writes one. */
+.inv[data-paged] .inv-wear-close { margin-top: 1.35rem; }
 .inv[data-paged] .inv-attire { gap: 1rem; }
 .inv[data-paged] .inv-attire .inv-eyebrow { margin-bottom: 0.2rem; }
 

@@ -1083,6 +1083,38 @@ function CheckinPass({ url, passHref, lang, look, photo, ink, paper }: { url: st
   );
 }
 
+/**
+ * The line under the RSVP form: who to text, and why a guest would.
+ *
+ * "lets add a text below the rsvp form, a contact number, its either the
+ * couple/celebrants contact or the coordinator of the event is listed by the
+ * creator of the invitation for future changes like they can no longer attend."
+ *
+ * The form is a one-way door. It takes an answer, thanks the guest and closes
+ * over it, and a fortnight later somebody's lola is in hospital and there is
+ * nowhere on the page to say so. The family finds out by laying a seat.
+ *
+ * So the number that was already here for "I would rather text than fill in a
+ * form" is asked to do the second job too, in the same sentence — it is the
+ * same number, and a second paragraph under the form is a second thing to
+ * read on a page that wants to stay quiet.
+ *
+ * The sentence is split on `{number}` rather than interpolated, so the digits
+ * can be a tappable sms: link and still fall where each language puts them:
+ * English wants "text Tita Ana at 0917", Tagalog "i-text si Tita Ana sa 0917".
+ */
+function RsvpContact({ phone, who, lang }: { phone: string; who: string; lang: Lang }) {
+  const sentence = who ? t(lang, 'rsvp.textWho', { who }) : t(lang, 'rsvp.textOnly');
+  const [before, after = ''] = sentence.split('{number}');
+  return (
+    <p className="inv-muted mt-3 text-center text-sm">
+      {before}
+      <a href={`sms:${phone.replace(/\s/g, '')}`} className="underline">{phone}</a>
+      {after}
+    </p>
+  );
+}
+
 function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, tagline, title, ink, paper }: { inv: PublicInvitation; data: SectionData; lang: Lang; guest: GuestForPage | null | undefined; personal: boolean; hostsNoun: string; slug: string; token?: string; tagline?: string; title?: string; ink: { dark: string; light: string }; paper: { dark: string; paper: string } }) {
   // The code block sits in this section but is arranged in its own one now.
   // An invitation filled in before that keeps what it set here.
@@ -1171,11 +1203,7 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           }}
         />
       </div>
-      {str(data, 'contactPhone') && (
-        <p className="inv-muted mt-3 text-center text-sm">
-          {lang === 'tl' ? 'O mag-text sa' : 'Or text'} <a href={`sms:${str(data, 'contactPhone').replace(/\s/g, '')}`} className="underline">{str(data, 'contactPhone')}</a>
-        </p>
-      )}
+      {str(data, 'contactPhone') && <RsvpContact phone={str(data, 'contactPhone')} who={str(data, 'contactName')} lang={lang} />}
       {personal && guest && entitled(inv, 'checkin') && (
         <CheckinPass
           url={invitationUrl(slug, guest.token)}

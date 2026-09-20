@@ -134,7 +134,15 @@ test('a section with no heading of its own is not given one', () => {
  * other way round.
  */
 test('the page it was drawn at is the page it comes back at', () => {
-  const one: PageSpec = { key: 'rsvp', sections: ['rsvp'], ground: { color: 'bg', ratio: 1.777 } } as PageSpec;
+  /*
+   * Contact rather than RSVP, which this used to draw. RSVP gained a second
+   * writing under its form — who guests may text when their plans change —
+   * and eleven boxes no longer fit one column of a 16:9 page. Two columns is
+   * the right answer to that and a taller page is not, which is the very
+   * thing this test exists to hold; Contact is a section that still fits one,
+   * so the one-column half of it still has something to measure.
+   */
+  const one: PageSpec = { key: 'contact', sections: ['contact'], ground: { color: 'bg', ratio: 1.777 } } as PageSpec;
   const { page } = drawFromSection(one, 'WEDDING');
   assert.deepEqual(page.ground, one.ground, 'the ground is untouched, ratio and all');
 

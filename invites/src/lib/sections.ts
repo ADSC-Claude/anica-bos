@@ -888,7 +888,29 @@ const SECTION_DEFS: SectionDef[] = [
       select('notePreset', 'RSVP note', RSVP_NOTE_PRESETS.map((p) => ({ value: p.key, label: p.label })), { presets: RSVP_NOTE_PRESETS, presetTarget: 'note' }),
       textarea('note', 'RSVP note', { hint: '{n} becomes the reserved seats on a personal link; {date} the deadline.', staff: true }),
       ...(occasion === 'CORPORATE' ? [toggle('askDepartment', 'Ask for department / company')] : []),
-      text('contactPhone', 'RSVP by text', { placeholder: 'Mobile number guests can text instead' }),
+      /*
+       * Somebody to tell when the answer changes.
+       *
+       * "lets add a text below the rsvp form, a contact number, its either
+       * the couple/celebrants contact or the coordinator of the event is
+       * listed by the creator of the invitation for future changes like they
+       * can no longer attend."
+       *
+       * The form takes one answer and then closes over it. A guest whose
+       * plans change a week later has nowhere to say so, and the family lays
+       * a seat for somebody who already knew they could not come.
+       *
+       * The name is asked for separately because a bare number is a number:
+       * a guest will not text a stranger about a christening, and "Tita Ana,
+       * our coordinator" is who they are texting. It is optional — a family
+       * who wants only the digits shown gets a line that reads properly
+       * without a name.
+       */
+      text('contactName', 'Who guests can text', {
+        placeholder: 'e.g. Tita Ana, our coordinator',
+        hint: 'Shown under the RSVP form with the number below. Yours, or whoever is keeping the headcount.',
+      }),
+      text('contactPhone', 'Their mobile number', { placeholder: 'Mobile number guests can text instead of using the form, or if their plans change' }),
       textarea('reminderText', 'Reminder message', { hint: 'Used when RSVP reminders are sent from the guest list.', staff: true }),
     ],
   },
@@ -1276,7 +1298,10 @@ export const FIT: Record<string, number> = {
   'dressCode.sponsorsAttire': 90, 'dressCode.entourageAttire': 90, 'dressCode.note': 200,
   // gifts and RSVP
   'gift.text': 320, 'gift.gcashName': 40, 'gift.gcashNumber': 24, 'gift.bankDetails': 300, 'gift.registry.label': 40,
-  'rsvp.policyText': 240, 'rsvp.note': 240, 'rsvp.contactPhone': 30, 'rsvp.reminderText': 300, 'rsvp.mealChoices.label': 30,
+  // contactName sits inline with the number on one centred line under the
+  // form, so it is a name and a role and not a sentence: "Tita Ana, our
+  // coordinator" is 24.
+  'rsvp.policyText': 240, 'rsvp.note': 240, 'rsvp.contactName': 40, 'rsvp.contactPhone': 30, 'rsvp.reminderText': 300, 'rsvp.mealChoices.label': 30,
   // the story: a christening's milestones sit in drawn frames, a wedding's run down a timeline
   'story.line': 80, 'story.howWeMet': 600, 'story.proposal': 600, 
   // A milestone's few words: three lines of the christening's column, which

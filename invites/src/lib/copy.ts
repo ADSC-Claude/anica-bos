@@ -156,6 +156,27 @@ const PHRASES = {
   'rsvp.update': { en: 'Update my response', tl: 'I-update ang sagot' },
   'rsvp.thanks': { en: 'Thank you! Your response has been recorded.', tl: 'Maraming salamat! Natanggap na namin ang inyong sagot.' },
   'rsvp.closed': { en: 'RSVP has closed. Please message the hosts directly.', tl: 'Sarado na po ang RSVP. Paki-message na lang po ang mga host.' },
+  /*
+   * The line under the RSVP form: who to text, and the reason a guest most
+   * often needs to.
+   *
+   * "lets add a text below the rsvp form, a contact number, its either the
+   * couple/celebrants contact or the coordinator of the event is listed by
+   * the creator of the invitation for future changes like they can no longer
+   * attend."
+   *
+   * One line doing two jobs, because the number is the same for both: a
+   * guest who would rather text than fill a form, and a guest who already
+   * replied and whose plans have changed. The second is the one that was
+   * missing, and it is the one the family feels — a seat laid for somebody
+   * who knew a week ago that they could not come and had nowhere to say so.
+   *
+   * `{number}` is deliberately left unsubstituted: the renderer splits the
+   * sentence on it so the number can be a tappable sms: link and still sit
+   * where the grammar of each language puts it.
+   */
+  'rsvp.textWho': { en: 'Or text {who} at {number} — and please do if your plans change.', tl: 'O mag-text kay {who} sa {number} — at pakisabi po kung magbago ang plano ninyo.' },
+  'rsvp.textOnly': { en: 'Or text {number} — and please do if your plans change.', tl: 'O mag-text sa {number} — at pakisabi po kung magbago ang plano ninyo.' },
   'rsvp.seeYou': { en: 'We look forward to celebrating with you!', tl: 'Kita-kits po!' },
   'rsvp.sorry': { en: 'We will miss you. Thank you for letting us know.', tl: 'Mami-miss ka namin. Salamat sa pagpapaalam.' },
   'story.title': { en: 'Our Story', tl: 'Ang Aming Kuwento' },

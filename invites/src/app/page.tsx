@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getSettings } from '@/lib/settings';
 import { getSession } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { catalogue } from '@/lib/orders';
+import { catalogue, loadLaunch } from '@/lib/orders';
 import { OCCASIONS } from '@/lib/occasions';
 import { TIERS, TIER_LABELS, COMPARISON } from '@/lib/tiers';
 import { appUrl } from '@/lib/app-url';
@@ -58,10 +58,11 @@ const TESTIMONIALS = [
 export default async function Landing() {
   const s = await getSettings();
   if (s['site.comingSoon']) redirect('/coming-soon');
-  const [session, { packages, addOns }, templates] = await Promise.all([
+  const [session, { packages, addOns }, templates, launch] = await Promise.all([
     getSession(),
     catalogue(),
     prisma.template.findMany({ where: { published: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }] }),
+    loadLaunch(),
   ]);
   /*
    * The two landing photographs. Admin settings win, because the owner can
@@ -281,7 +282,7 @@ export default async function Landing() {
             <h2 className="ed-display ed-display-lg mt-6 text-center">Simple pricing, paid once</h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[color:var(--color-ink-700)]">Wedding pricing shown. Debut, christening and birthday packages follow the same three tiers; pick your occasion at checkout to see its price.</p>
             <div className="mt-8">
-              <Packages packages={weddingPackages.map((p) => ({ tier: p.tier, name: p.name, tagline: p.tagline, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds, linkValidityDays: p.linkValidityDays }))} addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))} />
+              <Packages packages={weddingPackages.map((p) => ({ tier: p.tier, name: p.name, tagline: p.tagline, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds, linkValidityDays: p.linkValidityDays }))} addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))} offer={launch.offer} />
             </div>
           </div>
         </section>

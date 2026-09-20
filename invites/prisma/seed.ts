@@ -18,6 +18,7 @@ import { guestToken, orderReference, paymentReference } from '../src/lib/codes';
 import { GIFT_PRESETS, RSVP_NOTE_PRESETS, POLICY_PRESETS, UNPLUGGED_PRESET } from '../src/lib/copy';
 import { addDays } from '../src/lib/datetime';
 import { ADDONS, SEED_ONLY_ADDONS } from '../src/lib/addon-catalogue';
+import { LAUNCH_CODE, LAUNCH_PERCENT, LAUNCH_SEATS } from '../src/lib/launch';
 
 const prisma = new PrismaClient({ datasourceUrl: resolveDatabaseUrl(process.env.DATABASE_URL) });
 
@@ -177,6 +178,10 @@ async function main() {
 
   await prisma.coupon.createMany({
     data: [
+      // the opening offer the packages quote and the checkout applies on its
+      // own (src/lib/launch.ts). No expiry: it ends when the twentieth seat
+      // goes, and the owner can end it sooner from Admin → Coupons.
+      { code: LAUNCH_CODE, type: 'PERCENT', value: LAUNCH_PERCENT, note: `First ${LAUNCH_SEATS} customers — applied automatically, no code`, usageLimit: LAUNCH_SEATS },
       { code: 'LAUNCH20', type: 'PERCENT', value: 20, note: 'Launch promo', expiresAt: addDays(new Date(), 90), usageLimit: 200 },
       { code: 'REFER500', type: 'FIXED', value: 50000, minSpendCents: 199900, note: 'Referral credit', usageLimit: 1000 },
       { code: 'EXPIRED10', type: 'PERCENT', value: 10, note: 'Old promo', expiresAt: addDays(new Date(), -1) },

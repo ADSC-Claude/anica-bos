@@ -8,10 +8,23 @@ import { offerPrice, offerHeadline, offerLeftLine, type LaunchOffer } from '@/li
 export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number; linkValidityDays: number };
 export type AddOnCard = { code: string; name: string; description: string; imageUrl: string; priceCents: number; quoted: boolean };
 
+/*
+ * What each package promises, in the customer's words.
+ *
+ * Basic and Standard are no longer sold — their Package rows are switched
+ * off, so `sold` leaves them out and these two lists go unread. They are
+ * kept rather than deleted because the decision lives in the database, and
+ * switching a row back on in Admin should bring its card back whole rather
+ * than blank.
+ *
+ * Signature used to say "Everything in Standard", which stopped meaning
+ * anything the moment Standard stopped existing. It now names what it
+ * carries.
+ */
 const HIGHLIGHTS: Record<Tier, string[]> = {
   BASIC: ['1 design from the Basic set, in its own colours', 'Set in the Modern font style', 'Cover, countdown, ceremony & reception with Maps + Waze', 'Dress code with motif swatches', '1 cover photo', 'Simple RSVP form — guests say which group they are from', 'We build it for you, with 2 rounds of changes before we publish', 'Link valid 30 days after the event'],
   STANDARD: ['Any template, 3 font styles to choose from', 'Everything in Basic', 'Entourage (ninong & ninang, sponsors, wedding party)', 'Our story, gift note with GCash QR, FAQ, hashtag', '5 to 7 photos + background music', 'RSVP dashboard, Excel export, printable headcount sheet · custom link', 'We build it for you, with 4 rounds of changes before we publish', 'Link valid 6 months after the event'],
-  COMPLETE: ['Signature-only designs, all 5 font styles', 'Everything in Standard', 'Meal choice on the RSVP, counted for your caterer', 'Auto-close RSVP on your deadline', 'Program, guestbook, 10 to 15 photos + video', 'Guest list manager with a personal link per guest', 'We build it for you, with 6 rounds of changes before we publish', 'Password option · link valid 1 year after the event'],
+  COMPLETE: ['Signature-only designs, all 5 font styles', 'Cover, countdown, ceremony and reception with Maps + Waze, dress code', 'Entourage, our story, gift note with GCash QR, FAQ, hashtag', 'RSVP dashboard, Excel export, printable headcount sheet · custom link', 'Meal choice on the RSVP, counted for your caterer', 'Auto-close RSVP on your deadline', 'Program, guestbook, 10 to 15 photos + video', 'Guest list manager with a personal link per guest', 'We build it for you, with 6 rounds of changes before we publish', 'Password option · link valid 1 year after the event'],
   LUXURY: ['Everything in Signature', 'Seating chart your guests can look themselves up on', 'QR check-in at the door on the day', 'Shared album your guests add photos to afterwards', 'Save the Date card included, not an add-on', 'E-mail confirmation to every guest who accepts, free', 'We build it for you, with 8 rounds of changes before we publish', '20 photos + video · link valid 1 year after the event'],
 };
 
@@ -28,6 +41,9 @@ export function Packages({ packages, addOns, offer }: { packages: PackageCard[];
   // null rather than false when there is nothing on, so every price below
   // falls back to the plain one without a second condition
   const off = offer && offer.left > 0 ? offer : null;
+  // only the tiers with a package on sale: a tier whose row is switched off
+  // in Admin is not a gap in the row, it is not there
+  const sold = TIERS.filter((t) => packages.some((x) => x.tier === t));
   return (
     <div>
       {off && (
@@ -40,8 +56,12 @@ export function Packages({ packages, addOns, offer }: { packages: PackageCard[];
       <p className="mb-6 text-center text-sm text-[color:var(--color-ink-500)]">
         Every package is built for you. You fill in a form, we encode and lay it out — {service.turnaround.toLowerCase()} — and you approve a preview before it goes live.
       </p>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {TIERS.map((t) => {
+      {/* The grid follows however many packages are actually on sale. Four
+          columns with two cards in them leaves half the row empty and reads
+          as something missing rather than as a choice of two; two cards take
+          two columns, centred, and look deliberate. */}
+      <div className={`mx-auto grid gap-4 sm:grid-cols-2 ${sold.length <= 2 ? 'max-w-3xl' : sold.length === 3 ? 'max-w-5xl xl:grid-cols-3' : 'xl:grid-cols-4'}`}>
+        {sold.map((t) => {
           const p = packages.find((x) => x.tier === t);
           if (!p) return null;
           const popular = t === 'STANDARD';

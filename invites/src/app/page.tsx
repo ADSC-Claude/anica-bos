@@ -280,7 +280,7 @@ export default async function Landing() {
           <div className="mx-auto max-w-6xl px-5">
             <span className="ed-eyebrow ed-eyebrow-ruled is-centred block text-center">Packages</span>
             <h2 className="ed-display ed-display-lg mt-6 text-center">Simple pricing, paid once</h2>
-            <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[color:var(--color-ink-700)]">Wedding pricing shown. Debut, christening and birthday packages follow the same three tiers; pick your occasion at checkout to see its price.</p>
+            <p className="mx-auto mt-2 max-w-xl text-center text-sm text-[color:var(--color-ink-700)]">Wedding pricing shown. Debut, christening and birthday follow the same packages; pick your occasion at checkout to see its price.</p>
             <div className="mt-8">
               <Packages packages={weddingPackages.map((p) => ({ tier: p.tier, name: p.name, tagline: p.tagline, priceCents: p.priceCents, dfyFeeCents: p.dfyFeeCents, conciergeFeeCents: p.conciergeFeeCents, revisionRounds: p.revisionRounds, linkValidityDays: p.linkValidityDays }))} addOns={addOns.map((a) => ({ code: a.code, name: a.name, description: a.description, imageUrl: a.imageUrl, priceCents: a.priceCents, quoted: a.quoted }))} offer={launch.offer} />
             </div>

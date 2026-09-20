@@ -147,3 +147,43 @@ export function rankGuests<T extends Rankable>(replyName: string, guests: readon
   scored.sort((a, b) => b.score - a.score || a.g.name.localeCompare(b.g.name));
   return scored.slice(0, limit).map((s) => s.g);
 }
+
+/**
+ * Who already holds each row on the guest list, and whereabouts.
+ *
+ * One name on the list is one person at one table eating one meal, so it may
+ * be claimed once — by the reply that is theirs, or by the one party that
+ * named them as a companion, never by both and never by two parties. Without
+ * this a well-meant press turns Lola Rosa into two bodies: her daughter's
+ * reply already carries her, and matching her into her son's reply as well
+ * makes answeredFor() see one row while the caterer lays two places.
+ *
+ * A slot is a reply and a position in its party. Position 0 is the guest
+ * themselves, and `Rsvp.guestId` and `attendees[0].guestId` are two records of
+ * that same slot rather than two claims — matchAttendee() writes both together
+ * for exactly that reason, so the head is recorded here once.
+ *
+ * First claim wins, and the order the replies arrive in is the order they were
+ * made. The point is not to arbitrate; it is to have something to name in the
+ * refusal, so the couple is told "Ana already has her on her reply" and can go
+ * and look.
+ */
+export type Claim = { replyId: string; index: number; by: string };
+
+export type ClaimRow = {
+  id: string;
+  name: string;
+  guestId?: string | null;
+  attendees: { name: string; guestId?: string }[];
+};
+
+export function claimedGuestIds(replies: readonly ClaimRow[]): Map<string, Claim> {
+  const out = new Map<string, Claim>();
+  for (const r of replies) {
+    if (r.guestId && !out.has(r.guestId)) out.set(r.guestId, { replyId: r.id, index: 0, by: r.name });
+    r.attendees.forEach((a, i) => {
+      if (a.guestId && !out.has(a.guestId)) out.set(a.guestId, { replyId: r.id, index: i, by: r.name });
+    });
+  }
+  return out;
+}

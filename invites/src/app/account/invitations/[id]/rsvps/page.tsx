@@ -9,8 +9,8 @@ import { formatDateTime } from '@/lib/datetime';
 import { replyIdentity } from '@/lib/names';
 import { PageHeader, Stat, Empty } from '@/components/ui';
 import { RsvpToggle } from './toggle';
-import { companionsOf, attendeeLine } from '@/lib/attendees';
-import { awaitingDecision, replySeats, sourceLabel, wasVetted, type ReplySource } from '@/lib/seats';
+import { attendeesOf, companionsOf, attendeeLine } from '@/lib/attendees';
+import { awaitingDecision, replySeats, sourceLabel, wasVetted, cameFromLink, type ReplySource } from '@/lib/seats';
 import { invitationUrl } from '@/lib/app-url';
 import { displayTitle, fieldsFor, bool } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
@@ -20,6 +20,7 @@ import { Decide } from './decide';
 import { Remove } from './remove';
 import { WhatGuestsSee } from './questions';
 import { MatchToGuest } from './match';
+import { claimedGuestIds } from '@/lib/guest-match';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +108,17 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   const guestNames = manager
     ? await prisma.guest.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true }, orderBy: { name: 'asc' } })
     : [];
+  // The couple's spelling, for a companion already joined to one of these rows.
+  const guestNameById = new Map(guestNames.map((g) => [g.id, g.name] as const));
+  /*
+   * Which rows on the list are already spoken for, and by whom. One name is
+   * one person at one table, so a matcher greys out the names another seat
+   * has claimed instead of offering a press the server will only refuse.
+   */
+  const takenBy = Object.fromEntries(
+    [...claimedGuestIds(rsvps.map((r) => ({ id: r.id, name: r.name, guestId: r.guestId, attendees: attendeesOf(r.attendees) })))]
+      .map(([guestId, claim]) => [guestId, claim.by]),
+  );
   const personalLinks = entitled(inv, 'rsvp.personalLinks');
   const vettedOf = (r: { guestId: string | null; source?: ReplySource }) => wasVetted(r, personalLinks);
   // The queue keeps a reply that was cut, rather than dropping it the moment
@@ -294,13 +306,19 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
                           department={r.department}
                           from={sourceLabel(r)}
                           match={
-                            r.source === 'LINK' ? null : (
+                            /* A reply the guest proved with their own link
+                               already belongs to somebody, and the row says so
+                               — an undo beside that caption would only lose
+                               the one piece of evidence there is. */
+                            cameFromLink(r) ? null : (
                               <MatchToGuest
                                 invitationId={inv.id}
                                 replyId={r.id}
-                                replyName={r.name}
+                                index={0}
+                                who={r.name}
                                 matchedName={r.guestId ? (r.guest?.name ?? '') : undefined}
                                 guests={guestNames}
+                                taken={takenBy}
                               />
                             )
                           }
@@ -320,8 +338,30 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
                     ) : '—'}
                   </td>
                   {/* Each companion with what they are to the guest, which is the
-                      part that decides whether they sit at the same table. */}
-                  <td className="text-xs">{companionsOf(r.attendees).map((a) => attendeeLine(a)).join(', ')}</td>
+                      part that decides whether they sit at the same table — and,
+                      under each one, the row on the guest list they are. A party
+                      of three answers three rows or it answers one and leaves
+                      the couple chasing two people who are already coming. */}
+                  <td className="text-xs">
+                    {companionsOf(r.attendees).length === 0 ? '' : (
+                      <ul className="grid gap-1.5">
+                        {companionsOf(r.attendees).map((a, i) => (
+                          <li key={`${i}-${a.name}`}>
+                            {attendeeLine(a)}
+                            <MatchToGuest
+                              invitationId={inv.id}
+                              replyId={r.id}
+                              index={i + 1}
+                              who={a.name}
+                              matchedName={a.guestId ? (guestNameById.get(a.guestId) ?? '') : undefined}
+                              guests={guestNames}
+                              taken={takenBy}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                   {dashboard && <><td>{r.mealChoice}</td><td className="text-xs">{r.dietary}</td></>}
                   <td className="max-w-xs text-xs">{r.message}</td>
                   <td className="text-xs">

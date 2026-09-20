@@ -12,7 +12,7 @@ import { addGuest, updateGuest, deleteGuest, importGuests, importGuestRows, save
 import { readXlsx, looksLikeXlsx } from '@/lib/xlsx';
 import { parseCsv } from '@/lib/csv';
 import { seatsHeld, replyState } from '@/lib/seats';
-import { decideSeats, messageGuest, deleteReply, matchReply } from '@/lib/rsvp';
+import { decideSeats, messageGuest, deleteReply, matchAttendee } from '@/lib/rsvp';
 import { saveIntake, requestRevision, approveJob, customerComment } from '@/lib/dfy';
 import { createUpgradeOrder } from '@/lib/orders';
 import { markAllRead, notifyStaff } from '@/lib/notifications';
@@ -195,16 +195,23 @@ export async function decideSeatsAction(invitationId: string, rsvpId: string, se
 }
 
 /**
- * The couple joining a typed reply to a name on their guest list, or undoing
- * that. See matchReply() for why nothing matches on its own.
+ * The couple joining somebody in a reply — the guest at the head of it or any
+ * of the people they are bringing — to a name on their guest list, or undoing
+ * that. `index` is the position in the party, 0 being the guest themselves;
+ * `who` is the name shown beside the button, and the server refuses the press
+ * if the reply has moved on since. See matchAttendee() for why nothing matches
+ * on its own.
  */
-export async function matchReplyAction(invitationId: string, rsvpId: string, guestId: string | null) {
+export async function matchReplyAction(
+  invitationId: string,
+  input: { rsvpId: string; index: number; guestId: string | null; who: string },
+) {
   const user = await requireUser();
   return action(async () => {
     const inv = await ownInvitation(user, invitationId);
-    const r = await matchReply(inv, rsvpId, guestId);
+    const r = await matchAttendee(inv, input);
     refresh(invitationId);
-    return { name: r.name, guestId: r.guestId };
+    return { name: r.name, guestId: r.guestId, index: r.index };
   });
 }
 

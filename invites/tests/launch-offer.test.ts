@@ -47,11 +47,29 @@ test('a row that is not a percentage is not shown as one', () => {
   assert.equal(launchOffer(row({ type: 'FIXED', value: 50_000 })), null);
 });
 
+test('the twenty per cent comes off the package, not the add-ons', () => {
+  // "Yes 20% is in packages only."
+  const extras = [{ code: 'SAVE_THE_DATE', name: 'Save the Date', priceCents: 50_000 }];
+  const q = quote({ pkg: PKG, serviceMode: 'DFY', addOns: extras, coupon: row(), couponOn: 'package' });
+  assert.equal(q.discountCents, 199_980, 'twenty per cent of the package alone');
+  assert.equal(q.totalCents, 999_900 + 50_000 - 199_980, 'the add-on is paid in full');
+
+  // and the card's number is that same package discount, so the two agree
+  assert.equal(offerPrice(PKG.priceCents, 20), PKG.priceCents - q.discountCents);
+});
+
+test('a code the customer brought still comes off the whole order', () => {
+  // only the opening offer is package-only; an ordinary coupon is unchanged
+  const extras = [{ code: 'SAVE_THE_DATE', name: 'Save the Date', priceCents: 50_000 }];
+  const q = quote({ pkg: PKG, serviceMode: 'DFY', addOns: extras, coupon: row({ code: 'FRIEND10', value: 10 }) });
+  assert.equal(q.discountCents, Math.round((999_900 + 50_000) * 0.1));
+});
+
 test('the price on the card is the price in the quote', () => {
   const shown = offerPrice(PKG.priceCents, launchOffer(row())!.percent);
   assert.equal(shown, 799_920, '₱9,999 less twenty per cent');
 
-  const charged = quote({ pkg: PKG, serviceMode: 'DFY', addOns: [], coupon: row() });
+  const charged = quote({ pkg: PKG, serviceMode: 'DFY', addOns: [], coupon: row(), couponOn: 'package' });
   assert.equal(charged.totalCents, shown, 'the checkout reaches the same number');
   assert.equal(charged.discountCents, 199_980);
 });

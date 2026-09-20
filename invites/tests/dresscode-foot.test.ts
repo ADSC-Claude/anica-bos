@@ -13,27 +13,37 @@
  * the post-event page had each had their section foot cut by hand, and this
  * page had not.
  *
- * The numbers below are read off `dresscode-foot.webp` (941×736, the bottom
- * 44% of her page): sampling every third pixel across each row against her
- * sky, nothing at all is drawn above 47.6cqw from the foot of the page, the
- * gypsophila at the right edge begins there, and the middle of the page —
- * where the words are — stays clear to 37cqw.
+ * The numbers below are read off `christening/dresscode-foot.webp`
+ * (1080×845, the bottom 44% of her page). It is the white card: sampling
+ * the middle 70% of each row, the card's inside is unbroken white down to
+ * row 709 of 845, which is 12.6cqw up from the foot of the page, and her
+ * clouds are below that.
+ *
+ * The first attempt at this read `babyblue/dresscode.webp` instead — the
+ * Baby Blue ground, a plain blue page with gypsophila in two corners, and
+ * nothing to do with her design. It gave 47.6cqw, so the reserve came out
+ * at four and left thirty-one of blank card under the last words. The file
+ * a page actually draws is the one named by its own `ground`, which for
+ * this design is under `/christening/`.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CHRISTENING_PAGES } from '../src/lib/christening';
 
-/** where her artwork begins, as a share of the page's width up from its foot */
-const ART = { anything: 47.6, inTheMiddle: 37.0 };
+/** the foot of her white card, as a share of the page's width up from the page's foot */
+const CARD_FOOT = 12.6;
+/** how much of the card is left clear under the last words: a line and a half */
+const MARGIN = { least: 4, most: 16 };
 
 const dresscode = CHRISTENING_PAGES.find((p) => p.key === 'dresscode')!;
 
-test('the dress code reserves the artwork at its foot and not a strip more', () => {
+test('the dress code stops its words inside the card, near its foot', () => {
   // `footPad` is counted in elevenths of the page's width (--page-foot × 11cqw)
   const foot = dresscode.footPad! * 11;
-  assert.ok(foot < ART.anything, `the reserve is ${foot}cqw and her artwork only reaches ${ART.anything}`);
-  assert.ok(foot > ART.inTheMiddle, `but it clears the middle, where the words are: ${foot}cqw against ${ART.inTheMiddle}`);
+  const margin = foot - CARD_FOOT;
+  assert.ok(margin > MARGIN.least, `the words stop ${margin.toFixed(1)}cqw above the card's edge, which is too tight`);
+  assert.ok(margin < MARGIN.most, `and ${margin.toFixed(1)}cqw is a hole, not a margin`);
 });
 
 test('a live page with a foot of its own does not also carry the section’s', () => {

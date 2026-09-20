@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { suggestionsFor, familyOf } from '../src/lib/suggestions';
-import { fieldsFor, type Field } from '../src/lib/sections';
+import { defaultContent, fieldsFor, type Field } from '../src/lib/sections';
 
 const boxes = (fields: Field[]) => fields.flatMap((f) => (f.type === 'list' ? (f.item ?? []).map((i) => ({ ...i, key: `${f.key}.${i.key}` })) : [f]));
 
@@ -52,5 +52,49 @@ test('a staff box gets none: the look\u2019s line backs it, and the encoder is f
     const f = fieldsFor(section, 'WEDDING').find((x) => x.key === key)!;
     assert.equal(f.staff, true, `${section}.${key} is ours`);
     assert.equal(f.examples, undefined, `${section}.${key} carries no chips`);
+  }
+});
+
+/**
+ * A chip is an offer, and blank is the answer that prints nothing.
+ *
+ * "Ohh its fine to retain the note since its like a reminder. So we can just
+ * leave it blank if we dont want to put any note or reminder for it."
+ *
+ * That is the distinction an earlier pass got wrong, taking the smart-casual
+ * chip away because the drawn page already says the attire. The three lines
+ * that came *off* the page were printed whether or not anybody asked for
+ * them — captions under the drawn figures, and a palette line falling back
+ * twice to wording nobody wrote. A chip is different in kind: it sits under
+ * an empty box and does nothing until somebody taps it.
+ *
+ * So the rule is not "no chip may repeat the page". The rule is that a
+ * family who writes nothing gets nothing, which is what these two hold: the
+ * examples are all there to be taken, and none of them has been written into
+ * a new invitation on the family's behalf.
+ */
+test('the dress code still offers its reminders, the smart casual one included', () => {
+  for (const occasion of ['CHRISTENING', 'KIDS_BIRTHDAY'] as const) {
+    const chips = suggestionsFor('dressCode.note', occasion) ?? [];
+    assert.ok(chips.some((c) => /smart casual/i.test(c.en)),
+      `${occasion}: the attire reminder is on offer again`);
+    assert.ok(chips.length >= 3, `${occasion}: and it is not the only one`);
+    for (const c of chips) assert.ok(c.en && c.tl, `${occasion}/${c.key}: both readings`);
+  }
+});
+
+test('no chip is written into an invitation for the family: every box starts empty', () => {
+  for (const occasion of ['CHRISTENING', 'WEDDING', 'KIDS_BIRTHDAY'] as const) {
+    const content = defaultContent(occasion) as Record<string, Record<string, unknown>>;
+    // Every customer box that offers examples starts blank. A chip that had
+    // been pre-taken would print on a page nobody had visited.
+    for (const section of ['dressCode', 'reception', 'closing'] as const) {
+      for (const f of fieldsFor(section, occasion)) {
+        if (!f.examples?.length || f.staff) continue;
+        const value = content[section]?.[f.key];
+        assert.ok(value === '' || value === undefined,
+          `${occasion}:${section}.${f.key} starts empty, not filled with an example — got ${JSON.stringify(value)}`);
+      }
+    }
   }
 });

@@ -115,6 +115,25 @@ const BY_FAMILY: Record<Family, Record<string, Preset[]>> = {
       p('kids', 'Kids are welcome', 'Kids are welcome — there is a play corner at the reception.', 'Welcome ang mga bata — may play corner sa reception.'),
       p('lunch', 'Lunch follows', 'Lunch follows right after the ceremony, at the venue below.', 'Kasunod agad ang tanghalian pagkatapos ng seremonya, sa venue sa ibaba.'),
     ],
+    /*
+     * The attire chip stays, and blank is how a family says nothing.
+     *
+     * It was taken out for one turn — "In the dress code still remove the
+     * 'smart casual, in the colours above etc' no need for that" — and put
+     * back the moment the ask was understood properly:
+     *
+     *   "Ohh its fine to retain the note since its like a reminder. So we can
+     *   just leave it blank if we dont want to put any note or reminder for
+     *   it."
+     *
+     * Which is the distinction the first pass missed. The three lines that
+     * came off the drawn page were printed *whether or not anybody asked for
+     * them* — captions under the figures, a palette line falling back twice
+     * to wording nobody wrote. That is what made them redundant. A chip is
+     * not printed by anybody: it sits under an empty box, and an empty box
+     * prints nothing. A family who wants the reminder taps it; a family who
+     * does not, leaves the box alone.
+     */
     dressNote: [
       p('smart', 'Smart casual', 'Smart casual, in the colours above if you like.', 'Smart casual, sa mga kulay sa itaas kung nais ninyo.'),
       p('outdoors', 'Dress light, it is outdoors', 'The party is outdoors — dress light and bring a hat for the little ones.', 'Sa labas ang party — magbihis nang magaan at magdala ng sumbrero para sa mga bata.'),

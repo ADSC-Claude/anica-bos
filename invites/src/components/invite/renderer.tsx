@@ -919,7 +919,7 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
           </div>
         )}
         {sponsors && <div className="inv-wear">{sponsors}</div>}
-        {str(data, 'note') && <p className="inv-wear-note whitespace-pre-line">{str(data, 'note')}</p>}
+        {str(data, 'note') && <p className="inv-wear-note inv-wear-close whitespace-pre-line">{str(data, 'note')}</p>}
         <p className="inv-eyebrow inv-rule-head inv-wear-thanks"><span>{t(lang, 'dressCode.thanks')}</span></p>
       </Section>
     );
@@ -1134,6 +1134,13 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           mealChoices={mealChoices}
           groups={groups}
           defaultGroup={personal && guest ? guest.groupName : ''}
+          pickFromList={Boolean((inv as { namePicker?: boolean }).namePicker)}
+          pickLabels={{
+            hint: t(lang, 'rsvp.pickHint'),
+            companionHint: t(lang, 'rsvp.pickHintCompanion'),
+            replied: t(lang, 'rsvp.pickReplied'),
+            none: t(lang, 'rsvp.pickNone'),
+          }}
           existing={existing}
           relations={RELATIONS.map((r) => ({ value: r, label: relationLabel(r, lang) }))}
           labels={{
@@ -1633,7 +1640,7 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: 
         ))}
       </ul>
       <p className="inv-muted mb-5 text-center text-xs">{more > 0 ? t(lang, 'guestbook.more', { n: more }) : '\u00a0'}</p>
-      <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'rsvp.thanks') }} />
+      <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'guestbook.thanks') }} />
     </Section>
   );
 }

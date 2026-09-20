@@ -5,6 +5,7 @@ import { HttpError } from './errors';
 import { slugify, randomCode } from './codes';
 import { hashPassword, verifyPassword, type SessionUser } from './auth';
 import {
+  bool,
   cleanSection,
   defaultContent,
   displayTitle,
@@ -601,10 +602,22 @@ export async function loadPublic(slug: string, opts: { preview?: boolean } = {})
     messages: invitation.guestbook.length,
     photos: invitation.media.length,
   });
+  /*
+   * Whether the RSVP form may offer the guest list back.
+   *
+   * Two things have to be true and they are checked in this order for a
+   * reason: the count is a query, and an invitation that never switched the
+   * picker on should not pay for it on every view. A family who switched it
+   * on and has not pasted their list yet gets a plain name box rather than a
+   * box promising a list that would answer nothing.
+   */
+  const namePicker =
+    bool(contentOf(invitation.content).rsvp, 'nameFromList') &&
+    (await prisma.guest.count({ where: { invitationId: invitation.id } })) > 0;
   if (invitation.status === 'PUBLISHED' && invitation.expiresAt && invitation.expiresAt.getTime() < Date.now() && !opts.preview) {
-    return { ...invitation, kept, expired: true as const };
+    return { ...invitation, kept, namePicker, expired: true as const };
   }
-  return { ...invitation, kept, expired: false as const };
+  return { ...invitation, kept, namePicker, expired: false as const };
 }
 
 /**

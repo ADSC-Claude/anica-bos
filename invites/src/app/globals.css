@@ -1184,20 +1184,27 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
  * and her clouds nowhere. Throttled to 400kbps that was still true past six
  * seconds.
  *
- * A drawn page's picture is exactly one page at the page's own ratio, so
- * `100% 100%` is the same rectangle the pass would have measured, and this
+ * A drawn page that cannot grow is exactly one page at the page's own
+ * ratio, so the picture laid across its width fills it exactly, and this
  * paints with the first frame. `--page-paper` is set on the page in the
  * markup (see `paper` in renderer.tsx), only where the pass is not needed;
  * the pass skips whatever carries it.
+ *
+ * `100% auto` rather than `100% 100%`, and the ground's own edge colour
+ * under it. The two are the same rectangle on a page of the right height,
+ * which is the only page that gets here — but they fail differently, and
+ * the way this failed was to stretch her artwork down a page that had
+ * grown. Given only its width the picture keeps its shape whatever the box
+ * does, and the edge colour fills any rounding under it.
  */
 .inv[data-paged] .inv-page[data-paper] {
-  background-image: var(--page-paper);
-  background-size: 100% 100%;
-  background-position: 50% 0;
-  background-repeat: no-repeat;
+  background-image: var(--page-paper), linear-gradient(var(--page-paper-edge, transparent), var(--page-paper-edge, transparent));
+  background-size: 100% auto, 100% 100%;
+  background-position: 50% 0, 50% 0;
+  background-repeat: no-repeat, no-repeat;
 }
 /* the same picture by night, where the design drew one */
-.inv[data-paged][data-mode='night'] .inv-page[data-paper] { background-image: var(--page-paper-night, var(--page-paper)); }
+.inv[data-paged][data-mode='night'] .inv-page[data-paper] { background-image: var(--page-paper-night, var(--page-paper)), linear-gradient(var(--page-paper-edge, transparent), var(--page-paper-edge, transparent)); }
 .inv[data-paged][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--inv-paper, #f2e8dc); }
 .inv[data-paged][data-mode='night'][data-pinned] .inv-page:not([data-pin]):not([data-bg]) { background-color: var(--night-paper, #1a1b26); }
 @media (prefers-reduced-motion: reduce) { .inv-pin { transition: none; } }

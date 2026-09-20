@@ -470,8 +470,9 @@ const ZOOM_MAX = 4;
 /*
  * How far out it can be pushed is not a constant: it is `cropFit`, the zoom
  * at which the whole photograph is inside the frame, and it depends on the
- * shapes of both. "always show the whole photo when uploaded, because there
- * is zoom in and out and draging of photo. let me handle it."
+ * shapes of both. A frame rests filled — "it can be squared but it needs
+ * more zoom in to fill the spaces" — and this is how a customer who wants
+ * all of a photograph seen gets there in one gesture.
  */
 
 /**
@@ -499,9 +500,10 @@ function CropBox({ url, frame, crop, onCrop }: {
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number; cx: number; cy: number } | null>(null);
   // as far out as the slider goes: the whole photograph inside the frame,
-  // which is also where a photograph nobody has touched rests
+  // with a band of frame on two sides. A frame rests filled, which is what
+  // the designer drew it around; this is where "show me all of it" lands.
   const fit = size ? cropFit(frame.aspect, size.nw, size.nh) : 1;
-  const at = size && crop ? cropAt(crop, frame.aspect, size.nw, size.nh) : { zoom: fit, cx: 0.5, cy: 0.5 };
+  const at = size && crop ? cropAt(crop, frame.aspect, size.nw, size.nh) : { zoom: 1, cx: 0.5, cy: 0.5 };
 
   /*
    * The file's own size, taken once.
@@ -523,14 +525,9 @@ function CropBox({ url, frame, crop, onCrop }: {
     if (!size) return;
     const win = cropWindow({ aspect: frame.aspect, nw: size.nw, nh: size.nh, ...next });
     const flat = placeCrop(win);
-    /*
-     * The whole picture in the middle is what a frame draws when it has
-     * been given no window at all, so that is the one arrangement worth
-     * nothing: an invitation carries no crop it does not need, and Reset
-     * has somewhere to go back to.
-     */
-    const resting = Math.abs(next.zoom - fit) < 0.001 && Math.abs(next.cx - 0.5) < 0.001 && Math.abs(next.cy - 0.5) < 0.001;
-    onCrop(resting ? undefined : flat);
+    // the middle at zoom 1 is the picture as it has always been drawn, and
+    // an invitation carries nothing it does not need
+    onCrop(flat.w >= 0.9999 || flat.h >= 0.9999 ? undefined : flat);
   }, [frame.aspect, onCrop, size]);
 
   function down(e: ReactPointerEvent<HTMLDivElement>) {
@@ -555,9 +552,8 @@ function CropBox({ url, frame, crop, onCrop }: {
   }
   const up = () => { drag.current = null; };
 
-  // untouched, the box shows what the page shows: the whole photograph,
-  // fitted, with the frame either side of it
-  const shown = size && crop ? cropStyle(crop) : { width: '100%', height: '100%', left: '0', top: '0', objectFit: 'contain' };
+  // untouched, the box shows what the page shows: the frame filled
+  const shown = size && crop ? cropStyle(crop) : { width: '100%', height: '100%', left: '0', top: '0', objectFit: 'cover' };
   return (
     <div className="w-32 shrink-0">
       <div

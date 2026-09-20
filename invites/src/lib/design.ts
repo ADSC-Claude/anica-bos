@@ -1092,6 +1092,22 @@ export type PhotoEl = Base & {
   /** the words read out to someone who cannot see the picture */
   alt?: FieldRef;
   crop?: { x: number; y: number; w: number; h: number };
+  /**
+   * Where inside this frame the picture sits, as shares of the frame's box.
+   *
+   * A frame is normally the picture. This is for the case where it is not:
+   * a photograph printed inside something the designer drew — her instax,
+   * whose white border and picture area came out of Canva as one file. The
+   * element takes the *print's* box and the picture is placed in the window
+   * within it, so the two are one object: they clip together, they are
+   * released together, and a slide out of the camera reveals the picture
+   * exactly as it reveals the border around it.
+   *
+   * Given its own small box instead, the photograph was clipped by that box
+   * rather than by the print's, and stayed out of sight for the first 30%
+   * of the travel — "it is still delayed, the photo is still delayed."
+   */
+  inset?: { x: number; y: number; w: number; h: number };
   frame?: 'none' | 'thin' | 'polaroid';
   mask?: 'none' | 'circle' | 'arch';
   /** a moving picture: never re-encoded, never sent through imageUrl() */
@@ -1607,6 +1623,7 @@ const zElement = z.union([
     bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
     alt: zFieldRef.optional(),
     crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
+    inset: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
     frame: z.enum(['none', 'thin', 'polaroid']).optional(),
     mask: z.enum(['none', 'circle', 'arch']).optional(),
     float: z.enum(['left', 'right']).optional(),

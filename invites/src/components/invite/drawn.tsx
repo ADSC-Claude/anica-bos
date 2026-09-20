@@ -1,4 +1,4 @@
-import { Fragment, type CSSProperties } from 'react';
+import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import { t, type Lang } from '@/lib/copy';
 import type { Occasion } from '@prisma/client';
 import { lookLine, lookTitle, type Look, type LineKey, type TitleKey } from '@/lib/looks';
@@ -542,6 +542,31 @@ function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: numbe
 }
 
 /** A photograph in its frame. An empty binding draws nothing, as today. */
+/**
+ * The window a picture sits in, where the frame is not the picture.
+ *
+ * Her instax came out of Canva as one file — white border and picture area
+ * together — so the element that holds the photograph is the *print*, and
+ * the photograph goes in the window inside it (`inset`). The wrapper is
+ * what carries the window's rectangle, so the picture fills it and the
+ * print's box does the clipping.
+ *
+ * That last part is the whole reason it exists. Clipped by its own small
+ * box, the photograph was out of sight for the first 30% of the slide out
+ * of the camera while the print around it was already showing; clipped by
+ * the print's box, the two are revealed by one edge, which is what they
+ * are — one object.
+ */
+function wrap(el: PhotoEl, img: ReactNode): ReactNode {
+  const w = el.inset;
+  if (!w) return img;
+  return (
+    <span className="inv-bb-win" style={{ left: `${w.x * 100}%`, top: `${w.y * 100}%`, width: `${w.w * 100}%`, height: `${w.h * 100}%` }}>
+      {img}
+    </span>
+  );
+}
+
 function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: number; deco?: boolean }) {
   const url = 'asset' in el.bind ? el.bind.asset : valueAt(read.content, el.bind);
   if (!url && el.hidden !== 'never' && !read.edit) return null;
@@ -569,6 +594,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
       data-empty={read.edit && !url ? '' : undefined}
       data-own={'asset' in el.bind ? '' : undefined}
       data-crop={crop ? '' : undefined}
+      data-win={el.inset ? '' : undefined}
       data-frame={el.frame && el.frame !== 'none' ? el.frame : undefined}
       data-mask={el.mask && el.mask !== 'none' ? el.mask : undefined}
       {...opensAttrs(el)}
@@ -576,7 +602,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
     >
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
-        ? <img
+        ? wrap(el, <img
             src={el.animated ? url : imageUrl(url, IMAGE.grid)}
             alt={alt}
             /*
@@ -594,7 +620,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
             loading={read.held?.has(el.tapAs ?? el.id) ? 'eager' : 'lazy'}
             fetchPriority={read.held?.has(el.tapAs ?? el.id) ? 'high' : undefined}
             style={crop ? cropStyle(crop) as CSSProperties : undefined}
-          />
+          />)
         : <figcaption className="inv-bb-ask">{read.edit!.label(el)}</figcaption>}
     </figure>
   );

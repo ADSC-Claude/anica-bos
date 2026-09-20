@@ -21,11 +21,35 @@ const str = (data: Place, key: 'venue' | 'address' | 'mapsUrl' | 'wazeUrl'): str
 
 const query = (data: Place): string => [str(data, 'venue'), str(data, 'address')].filter(Boolean).join(', ');
 
+/*
+ * A shortened Google link is a door to the app, not a page.
+ *
+ * "the google maps says unsupported links". Her pin was pasted as
+ * `maps.app.goo.gl/…`, which is what the Share button on the phone gives
+ * you — and which answers a phone by redirecting to the Maps *app*. A
+ * normal browser follows that happily. An in-app browser — Messenger's,
+ * which is how her guests open the invitation — is not allowed to hand a
+ * page over to another app, and says "unsupported link" instead.
+ *
+ * So a shortened link is not used as the button's target. The long form,
+ * `google.com/maps/search/?api=1&query=…`, is Google's own cross-platform
+ * URL: it is a real page, it renders inside any browser, and Google's page
+ * then offers the app to whoever has it. The pin is found by name and
+ * address, which for "St. Gabriel the Archangel Parish Church, San Gabriel,
+ * Santa Maria, Bulacan" is the same pin she shared.
+ *
+ * A pasted link that is already a full maps page is kept as it is: that is
+ * a page too, and it carries whatever she checked.
+ */
+const SHORTENED = /^https?:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|g\.co\/kgs|maps\.google\.com\/maps\?cid=)/i;
+
 export function mapsHref(data: Place): string {
   const given = str(data, 'mapsUrl');
-  if (given) return given;
+  if (given && !SHORTENED.test(given)) return given;
   const q = query(data);
-  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : '';
+  if (q) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+  // nothing to search for: her shortened link is better than no button
+  return given;
 }
 
 export function wazeHref(data: Place): string {

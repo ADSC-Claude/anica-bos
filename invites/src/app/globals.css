@@ -5467,3 +5467,53 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   .inv[data-hub] .inv-booklet[data-open] { display: block; position: static; animation: none; }
   .inv-booklet-back { display: none !important; }
 }
+
+/*
+ * The calendar chooser: where ADD TO CALENDAR lands.
+ *
+ * Deliberately plain and deliberately large. A guest arrives here from the
+ * invitation with one thing to do, usually one-handed, often on a cheap
+ * phone inside Messenger's browser — so: her page's colours, three targets
+ * a thumb cannot miss, and the date written out underneath in case none of
+ * the three is the calendar they keep.
+ */
+.inv-cal {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 2rem 1rem calc(2rem + env(safe-area-inset-bottom));
+  text-align: center;
+  background: var(--inv-paper, #e8f1fb);
+  color: var(--inv-ink, #2b4a6f);
+  font-family: var(--inv-body, ui-serif, Georgia, serif);
+}
+.inv-cal h1 {
+  margin: 0 0 0.25rem;
+  font-family: var(--inv-display, var(--inv-body, ui-serif, Georgia, serif));
+  font-size: clamp(1.5rem, 7vw, 2rem);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.inv-cal-what { margin: 0; font-size: 1.05rem; font-weight: 600; }
+.inv-cal-when { margin: 0; font-size: 1rem; }
+.inv-cal-where { margin: 0 0 0.5rem; font-size: 0.9rem; opacity: 0.8; }
+.inv-cal-btn {
+  display: block;
+  width: min(22rem, 100%);
+  margin-top: 0.75rem;
+  padding: 0.9rem 1.25rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.inv-cal-back { margin-top: 1.5rem; color: inherit; font-size: 0.9rem; opacity: 0.75; }

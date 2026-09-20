@@ -338,7 +338,9 @@ function rideVars(el: Element, read: Read): Record<string, string> {
 function goHref(el: Element, read: Read): string {
   const go = el.go;
   if (!go) return '';
-  if (go.to === 'calendar') return read.path ? `${read.path}/calendar.ics` : '';
+  // the chooser page, not the file: an in-app browser will not take a
+  // download, and that is where nearly every guest opens the invitation
+  if (go.to === 'calendar') return read.path ? `${read.path}/calendar` : '';
   const place = read.content[go.of ?? 'ceremony'] as Parameters<typeof mapsHref>[0];
   return go.to === 'maps' ? mapsHref(place) : wazeHref(place);
 }
@@ -361,10 +363,13 @@ function goHref(el: Element, read: Read): string {
 function goProps(el: Element, read: Read): { tag: 'a'; props: Record<string, string> } | { tag: undefined; props: Record<string, never> } {
   const href = goHref(el, read);
   if (!href) return { tag: undefined, props: {} };
+  // the calendar is a page of ours and opens in place, so the guest's Back
+  // is the invitation; a map is somebody else's and opens beside it. The
+  // `download` that used to be here is gone with the file it pointed at.
   const away = el.go!.to !== 'calendar';
   return {
     tag: 'a',
-    props: { href, 'data-go': el.go!.to, ...(away ? { target: '_blank', rel: 'noopener' } : { download: '' }) },
+    props: { href, 'data-go': el.go!.to, ...(away ? { target: '_blank', rel: 'noopener' } : {}) },
   };
 }
 

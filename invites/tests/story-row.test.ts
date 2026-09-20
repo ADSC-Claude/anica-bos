@@ -167,6 +167,13 @@ test('the title is white above the plate and her line is white on it', () => {
   const lineSize = line.lines[0].size!;
 
   assert.equal(head.lines[0].color, 'surface', 'the title is white');
+  /*
+   * And carries a shadow, because white on her tan plate is about 1.9 to 1:
+   * "put a shadow in Our Story because it doesnt pop up from the
+   * background." `drop` is the dark one — `shadow` is the pale halo that
+   * lifts dark writing, which under white letters would do nothing at all.
+   */
+  assert.equal(head.backing, 'drop', 'and is held off the plate by a dark shadow, not the pale halo');
   assert.equal(line.lines[0].color, 'surface', 'and so is the line on the plate');
   assert.equal(head.lines[0].caps, undefined, 'title case, the way she set it — not capitals');
 

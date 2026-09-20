@@ -2226,6 +2226,17 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    cqw so they scale with the type rather than with the screen. */
 .inv-bb-art [data-backing='shadow'] { text-shadow: 0 0.16cqw 0.55cqw var(--inv-surface), 0 0 1cqw var(--inv-surface); }
 .inv-bb-art [data-backing='scrim'] { padding: 0.9cqw 1.6cqw; background: color-mix(in srgb, var(--inv-surface) 70%, transparent); border-radius: 0.9cqw; }
+/* The other way round: pale writing on a ground too close to it in tone.
+   Her OUR STORY is white on a tan plate, about 1.9 to 1, and "it doesnt pop
+   up from the background." A soft shadow in the design's own ink under the
+   letters gives every stroke an edge to be read against without printing a
+   hard outline on artwork this delicate — one close shadow for the edge, one
+   wider and fainter for the lift. */
+.inv-bb-art [data-backing='drop'] {
+  text-shadow:
+    0 0.12cqw 0.3cqw color-mix(in srgb, var(--inv-ink) 55%, transparent),
+    0 0.3cqw 0.9cqw color-mix(in srgb, var(--inv-ink) 30%, transparent);
+}
 /*
  * A designer's own text highlight — the coloured pill Canva puts behind a
  * line of type. Inline, so it takes the shape of the words on every line

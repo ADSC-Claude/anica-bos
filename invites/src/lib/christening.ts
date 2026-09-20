@@ -134,6 +134,8 @@ type Set = {
   weight?: number;
   role?: LineRole;
   color?: Ink;
+  /** what holds it off the ground behind it, where its own colour will not */
+  backing?: TextEl['backing'];
   /** the middle of her line, as a share of the width; the default is the page's middle */
   cx?: number;
   /** the box, as a share of the width — hers plus the room a longer answer needs */
@@ -226,6 +228,7 @@ const sheet = (ratio: number) => {
       x: s.cx ?? 50, y: s.mid ?? at(s, lead), w: s.w ?? 88, anchor: s.mid !== undefined ? 'centre' : 'top',
       face: s.face ?? 'body', size: s.size, leading: lead,
       ...(s.weight ? { weight: s.weight } : {}),
+      ...(s.backing ? { backing: s.backing } : {}),
       ...(s.track !== undefined ? { tracking: s.track } : {}),
       ...(s.turn ? { rotate: s.turn } : {}),
       ...(s.z ? { z: s.z } : {}),
@@ -939,7 +942,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * her cap height cannot both be had; the width is what makes the
        * composition, so the width is what is matched.
        */
-      STORY.one('story-head', { base: 13.24, size: 10, color: 'surface', face: 'display', weight: 700, cx: 50.19, w: 72, room: 22 },
+      STORY.one('story-head', { base: 13.24, size: 10, color: 'surface', backing: 'drop', face: 'display', weight: 700, cx: 50.19, w: 72, room: 22 },
         { word: 'title:story' }, say('Our Story')),
       // on the plate (16.15%–19.27%), hung so the words sit on its middle
       STORY.one('story-line', { base: 18.12, size: pt(26), color: 'surface', face: 'names', role: 'script', cx: 50.19, w: 62, room: 46 },

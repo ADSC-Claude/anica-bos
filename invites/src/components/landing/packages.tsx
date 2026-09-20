@@ -95,22 +95,14 @@ export function Packages({ packages, offer }: { packages: PackageCard[]; offer?:
         })}
       </div>
       {/*
-        * No prices here but the package's own.
+        * No prices on this page but the packages' own.
         *
-        * "I think seeing too much payments after seeing the package will
-        * take the customers away." The add-ons used to be listed under the
-        * cards with a peso figure each, so somebody weighing a ₱4,800
-        * package met six more numbers before they had decided anything.
-        * They are offered at step 5 of the checkout instead, once a package
-        * is chosen and the extras are about *their* invitation rather than
-        * another sum to add up.
-        *
-        * One line, no figures, so nothing is hidden from a customer who
-        * wants to know what else exists.
+        * "Remove all the add ons etc in the front of the packages. So not
+        * too many prices to check." The extras were listed here with a peso
+        * figure each, then reduced to a line naming them, and now they are
+        * not on the page at all. They are offered at step 5 of the
+        * checkout, once a package is chosen.
         */}
-      <p className="mx-auto mt-6 max-w-xl text-center text-sm text-[color:var(--color-ink-500)]">
-        Optional extras — a Save the Date card, a shared album, seating, check-in at the door — are offered at checkout, once you have picked your package.
-      </p>
     </div>
   );
 }

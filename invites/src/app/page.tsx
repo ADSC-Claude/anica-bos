@@ -270,7 +270,7 @@ export default async function Landing() {
             <h2 className="ed-display ed-display-lg mt-6 text-center">Our designs</h2>
             <p className="mx-auto mt-2 max-w-2xl text-center text-[color:var(--color-ink-700)]">Each design is shown by its cover — the first page your guest sees. The pages under it are unveiled for our clients once they have chosen; the premium opening video is an add-on. More designs, for {OCCASIONS.filter((o) => o.phase === 1).map((o) => o.label.toLowerCase()).join(', ')} and beyond, are on the way.</p>
             <div className="mt-8">
-              <TemplateGallery compact templates={gallery} premiumPriceCents={addOns.find((a) => a.code === PREMIUM_OPENING_CODE && a.active)?.priceCents} />
+              <TemplateGallery compact templates={gallery} />
             </div>
           </div>
         </section>

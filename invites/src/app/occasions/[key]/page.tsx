@@ -89,7 +89,7 @@ export default async function OccasionPage({ params }: { params: Promise<{ key: 
               {c.templates.length} design{c.templates.length === 1 ? '' : 's'} · <Link href={`/collections/${c.key}`} className="underline">the whole collection</Link>
             </p>
             <div className="mt-5">
-              <TemplateGallery occasion={occasion} collection={c.key} templates={galleries[i]} premiumPriceCents={premium?.priceCents} />
+              <TemplateGallery occasion={occasion} collection={c.key} templates={galleries[i]} />
             </div>
           </section>
         ))}
@@ -98,7 +98,7 @@ export default async function OccasionPage({ params }: { params: Promise<{ key: 
           <section className="mt-12">
             <h2 className="display text-2xl">{categories.length > 0 ? 'More designs' : 'The designs'}</h2>
             <div className="mt-5">
-              <TemplateGallery occasion={occasion} collection="none" templates={looseGallery} premiumPriceCents={premium?.priceCents} />
+              <TemplateGallery occasion={occasion} collection="none" templates={looseGallery} />
             </div>
           </section>
         )}

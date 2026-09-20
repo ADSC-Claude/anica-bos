@@ -70,14 +70,14 @@ export default async function CollectionPage({ params }: { params: Promise<{ key
           <h2 className="display text-2xl">The opening</h2>
           <p className="mt-1 max-w-2xl text-[color:var(--color-ink-700)]">
             Every package opens with The Letter: a sealed envelope your guest taps once, a card that says you are invited, then the invitation underneath.
-            {withClip.length > 0 && ` The premium opening video, made for ${withClip.map((t) => t.name).join(' and ')}, is an add-on${premium ? ` at ${formatPesoShort(premium.priceCents)}` : ''} — a seal breaking, a card sliding out with your names on it.`}
+            {withClip.length > 0 && ` The premium opening video, made for ${withClip.map((t) => t.name).join(' and ')}, is an add-on — a seal breaking, a card sliding out with your names on it.`}
           </p>
         </section>
 
         <section className="mt-12">
           <h2 className="display text-2xl">The designs</h2>
           <div className="mt-5">
-            <TemplateGallery collection={key} templates={await galleryWithPeeks(templates)} premiumPriceCents={premium?.priceCents} />
+            <TemplateGallery collection={key} templates={await galleryWithPeeks(templates)} />
           </div>
           <ul className="mt-6 grid gap-2 sm:grid-cols-2">
             {templates.map((t) => (

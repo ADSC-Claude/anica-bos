@@ -167,6 +167,15 @@ type Set = {
   mark?: 'accent' | 'surface';
   /** the id of the element a tap here plays */
   taps?: string;
+  /**
+   * The booklet a tap here opens.
+   *
+   * The same thing a shape's `opens` does, on a box of words — because the
+   * words are what a guest reads and therefore what they aim at. Her three
+   * CLICK HEREs each sat a hair outside the rectangle that opened their
+   * booklet, so the instruction and the button were not the same object.
+   */
+  opens?: string;
   /** drawn only when an answer says so */
   when?: { section: string; field: string; is?: string[]; filled?: boolean };
   /** what a tap on it does, where it leaves the invitation */
@@ -241,6 +250,7 @@ const sheet = (ratio: number) => {
       ...(s.mark ? { highlight: s.mark } : {}),
       ...(s.after ? { motion: { enter: 'fade' as const, delay: s.after } } : {}),
       ...(s.taps ? { taps: s.taps } : {}),
+      ...(s.opens ? { opens: s.opens } : {}),
       ...(s.when ? { when: s.when } : {}),
       ...(s.go ? { go: s.go } : {}),
       lines,
@@ -781,14 +791,30 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       HUB.one('hl-date', { after: 1100, base: 27.134, size: pt(23), cx: 40.18, w: 40, turn: -8.0 },
         bind('cover', 'date', { show: 'dateShort' })),
       // on the envelope, so above it: the front is z 2 and this went under it
-      HUB.one('hl-details-click', { base: 37.826, size: pt(25), color: 'muted', cx: 43.16, w: 34, turn: -7.2, role: 'caption', blink: true, rule: true, z: 4 },
+      /*
+       * The words answer the tap themselves.
+       *
+       * "can you move the clickable area where it is near the CLICK HERE?"
+       *
+       * Each of these captions sat at the very bottom edge of the invisible
+       * rectangle that opens its booklet — The Details had 0.2 of a unit
+       * below it, RSVP 1.5, Our Story 2.3. The word was inside; its
+       * underline and the space a thumb actually lands on were not. So it
+       * read as a button and behaved like one only if you hit it exactly.
+       *
+       * `opens` sits on every element, not just a shape, so the caption can
+       * carry it. Nothing is moved and no rectangle is resized — which is
+       * what makes this safe on an invitation already sent out — the words
+       * simply now answer to the same booklet the artwork above them opens.
+       */
+      HUB.one('hl-details-click', { base: 37.826, size: pt(25), color: 'muted', cx: 43.16, w: 34, turn: -7.2, role: 'caption', blink: true, rule: true, z: 4, opens: 'details' },
         say('CLICK HERE')),
 
       opens('hl-open-rsvp', 'rsvp', { x: 52, y: 42, w: 36, h: 20 }),
       HUB.one('hl-kindly', { base: 49.222, size: pt(25), cx: 70.07, w: 26, turn: 10.0 }, say('Kindly')),
       // Loubag, in Abhaya Libre Bold: 38.85pt covers the 87.8pt she drew
       HUB.one('hl-rsvp', { base: 52.048, size: 4.8, cx: 69.43, w: 26, turn: 10.7, face: 'display', weight: 700 }, say('RSVP')),
-      HUB.one('hl-rsvp-click', { base: 60.493, size: pt(25), color: 'muted', cx: 66.04, w: 32, turn: 9.0, role: 'caption', blink: true, rule: true },
+      HUB.one('hl-rsvp-click', { base: 60.493, size: pt(25), color: 'muted', cx: 66.04, w: 32, turn: 9.0, role: 'caption', blink: true, rule: true, opens: 'rsvp' },
         say('CLICK HERE')),
 
       opens('hl-open-story', 'story', { x: 14, y: 44, w: 44, h: 30 }),
@@ -796,7 +822,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       // other down the oval, which is the whole of why it does not look stiff
       HUB.one('hl-our', { base: 61.590, size: 8.13, color: 'surface', face: 'script', role: 'script', cx: 35.51, w: 30, turn: -10.0 }, say('Our')),
       HUB.one('hl-story', { base: 65.975, size: 12.11, color: 'surface', face: 'script', role: 'script', cx: 36.59, w: 40, turn: -14.0 }, say('Story')),
-      HUB.one('hl-story-click', { base: 71.686, size: pt(30), color: 'muted', cx: 41.41, w: 34, turn: -12.8, role: 'caption', blink: true, rule: true },
+      HUB.one('hl-story-click', { base: 71.686, size: pt(30), color: 'muted', cx: 41.41, w: 34, turn: -12.8, role: 'caption', blink: true, rule: true, opens: 'story' },
         say('CLICK HERE')),
 
       // her CLICK FOR MUSIC is set around the rim of the disc, which no box of

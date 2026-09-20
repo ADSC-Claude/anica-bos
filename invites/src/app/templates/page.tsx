@@ -86,7 +86,7 @@ export default async function TemplatesPage() {
           </section>
         )}
         <div className="mt-8">
-          <TemplateGallery templates={await galleryWithPeeks(templates)} premiumPriceCents={premium?.priceCents} />
+          <TemplateGallery templates={await galleryWithPeeks(templates)} />
         </div>
       </main>
       <SiteFooter s={s} />

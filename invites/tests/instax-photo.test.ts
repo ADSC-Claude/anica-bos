@@ -39,28 +39,19 @@ test('the cover asks for a photograph and the instax is where it is printed', ()
 });
 
 test('the photograph lands in the window of the print, not over its border', () => {
-  // the print's box, in page units: x as a share of the width, y of the height
-  const pw = print.w!;                       // 23.70 of the page's width
-  const ph = pw * print.aspect!;             // its height, still in page-width units
-  const left = print.x! - pw / 2;
-  const top = print.y! * RATIO - ph / 2;     // cy is a share of the height; work in width units
-
-  const wantLeft = left + WINDOW.left * pw;
-  const wantRight = left + WINDOW.right * pw;
-  const wantTop = top + WINDOW.top * ph;
-  const wantFoot = top + WINDOW.foot * ph;
-
-  const gotLeft = photo.x! - photo.w! / 2;
-  const gotRight = photo.x! + photo.w! / 2;
-  const gotTop = photo.y! * RATIO - (photo.w! * photo.aspect!) / 2;
-  const gotFoot = photo.y! * RATIO + (photo.w! * photo.aspect!) / 2;
-
-  for (const [name, want, got] of [
-    ['left', wantLeft, gotLeft], ['right', wantRight, gotRight],
-    ['top', wantTop, gotTop], ['foot', wantFoot, gotFoot],
-  ] as const) {
-    assert.ok(Math.abs(want - got) < 0.25, `${name}: the window is at ${want.toFixed(2)} and the photograph at ${got.toFixed(2)}`);
+  /*
+   * The element is the print — same box, to the number — and the window is
+   * given inside it. That is what puts the two under one clip; see the
+   * third test.
+   */
+  for (const k of ['x', 'y', 'w', 'aspect'] as const) {
+    assert.equal(photo[k], print[k], `the photograph takes the print's ${k}`);
   }
+  const inset = photo.inset!;
+  assert.ok(Math.abs(inset.x - WINDOW.left) < 0.001, `the window starts at ${WINDOW.left} across the print`);
+  assert.ok(Math.abs(inset.y - WINDOW.top) < 0.001, `and at ${WINDOW.top} down it`);
+  assert.ok(Math.abs(inset.x + inset.w - WINDOW.right) < 0.001, `and ends at ${WINDOW.right}`);
+  assert.ok(Math.abs(inset.y + inset.h - WINDOW.foot) < 0.001, `and at ${WINDOW.foot}`);
   // her white border is the frame; a frame of ours would sit a card inside hers
   assert.equal(photo.frame, 'none');
 });
@@ -87,7 +78,23 @@ test('the photograph comes out of the camera with the print, on the one tap', ()
    */
   const ride = Number((print.w! * print.aspect!).toFixed(3));
   assert.equal(ridesOf(cover)?.get('cover-print'), ride);
-  assert.ok(Math.abs(ride - photo.w! * photo.aspect!) > 5, 'and the two heights really are far enough apart to see');
+  /*
+   * Travelling together was still not arriving together. A frame clips at
+   * its own box, and the photograph's box was the window — 18.98cqw of the
+   * print's 26.94 — so the picture stayed out of sight for the first 7.96
+   * of the 26.94, thirty percent of the slide, while her white border was
+   * already showing above it: "it is still delayed, the photo is still
+   * delayed."
+   *
+   * Sharing the print's box is what fixes it, and the arithmetic of the
+   * fix is this: the window's own height is what the rider would have
+   * travelled on its own, the print's is what it travels now, and the two
+   * differ by enough to see.
+   */
+  const window = ride * photo.inset!.h;
+  assert.ok(ride - window > 5, `the old clip cut ${(ride - window).toFixed(2)}cqw off the start of the travel`);
+  // and the box it clips by is the print's, to the number
+  assert.equal(photo.w! * photo.aspect!, print.w! * print.aspect!);
   // over her print, because her picture area is not cut out of the file
   assert.ok((photo.z ?? 0) > (print.z ?? 0), 'the photograph covers the placeholder she drew');
 });

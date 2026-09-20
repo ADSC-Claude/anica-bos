@@ -625,12 +625,24 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * not cut out, and it takes the cover photo: the one photograph this
        * design asks for and, until now, never printed anywhere.
        *
-       * `tapAs` is what makes the two one thing. The tap names the print;
-       * without it the frame would come out of the camera and leave the
-       * photograph behind.
+       * `tapAs` is what makes the two answer one tap. The tap names the
+       * print; without it the frame would come out of the camera and leave
+       * the photograph behind.
+       *
+       * And the box is the print's own, with the window given as an `inset`
+       * inside it, which is what makes them one *object* rather than two
+       * things released together. Given its own small box, the photograph
+       * was clipped by that box: it travelled the right distance, at the
+       * right speed, and still sat out of sight for the first 30% of the
+       * slide while her white border was already showing above it — "it is
+       * still delayed, the photo is still delayed." Sharing the print's box
+       * means sharing the print's clip, so one edge reveals both, the
+       * border first and the picture 1.2cqw behind it, which is how a print
+       * actually leaves a camera.
        */
       { id: 'cover-photo', kind: 'photo', bind: { section: 'cover', field: 'coverPhoto' },
-        x: 51.16, y: 77.83, w: 19.72, aspect: 0.9625, anchor: 'centre', frame: 'none', z: 2,
+        x: 51.39, y: 79.40, w: 23.70, aspect: 1.1367, anchor: 'centre', frame: 'none', z: 2,
+        inset: { x: 0.0742, y: 0.0447, w: 0.832, h: 0.7044 },
         tapAs: 'cover-print', motion: { enter: 'slide' } },
       { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
         anchor: 'centre', fill: 'transparent', taps: 'cover-print' },

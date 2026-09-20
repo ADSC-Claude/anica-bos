@@ -115,8 +115,20 @@ const BY_FAMILY: Record<Family, Record<string, Preset[]>> = {
       p('kids', 'Kids are welcome', 'Kids are welcome — there is a play corner at the reception.', 'Welcome ang mga bata — may play corner sa reception.'),
       p('lunch', 'Lunch follows', 'Lunch follows right after the ceremony, at the venue below.', 'Kasunod agad ang tanghalian pagkatapos ng seremonya, sa venue sa ibaba.'),
     ],
+    /*
+     * No chip offering the attire back to the family.
+     *
+     * "In the dress code still remove the 'smart casual, in the colours
+     * above etc' no need for that"
+     *
+     * 'Smart casual, in the colours above if you like.' was here, and it is
+     * the one sentence the drawn dress code page already says twice over: it
+     * is headed with the attire, it draws the clothes, and it names every
+     * swatch under the palette. A family who takes the chip ends up with a
+     * caption repeating the page. The two left say something the page cannot
+     * draw — the weather, and where everyone is coming from.
+     */
     dressNote: [
-      p('smart', 'Smart casual', 'Smart casual, in the colours above if you like.', 'Smart casual, sa mga kulay sa itaas kung nais ninyo.'),
       p('outdoors', 'Dress light, it is outdoors', 'The party is outdoors — dress light and bring a hat for the little ones.', 'Sa labas ang party — magbihis nang magaan at magdala ng sumbrero para sa mga bata.'),
       p('sunday', 'Sunday best', 'Sunday best, please — we are coming from the church.', 'Pang-Linggong bihis po — galing tayo sa simbahan.'),
     ],

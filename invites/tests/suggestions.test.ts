@@ -54,3 +54,29 @@ test('a staff box gets none: the look\u2019s line backs it, and the encoder is f
     assert.equal(f.examples, undefined, `${section}.${key} carries no chips`);
   }
 });
+
+/**
+ * The dress code page says the attire; a chip must not offer to say it again.
+ *
+ * "In the dress code still remove the 'smart casual, in the colours above
+ * etc' no need for that"
+ *
+ * Her christening's dress code page is headed with the attire, draws the
+ * clothes and names every swatch. A ready-made note repeating any of that
+ * is a fourth redundant line waiting to be tapped into place, after the
+ * three that were taken out of the page itself.
+ */
+test('no dress-code chip hands a family back what the page already shows', () => {
+  for (const occasion of ['CHRISTENING', 'KIDS_BIRTHDAY'] as const) {
+    const chips = suggestionsFor('dressCode.note', occasion) ?? [];
+    assert.ok(chips.length, `${occasion} still offers examples`);
+    for (const c of chips) {
+      for (const words of [c.en, c.tl]) {
+        assert.doesNotMatch(words, /colours above|colors above|kulay sa itaas/i,
+          `${occasion}/${c.key}: the palette is drawn and named on the page — "${words}"`);
+        assert.doesNotMatch(words, /^smart casual[,.]/i,
+          `${occasion}/${c.key}: the attire is the page's own heading — "${words}"`);
+      }
+    }
+  }
+});

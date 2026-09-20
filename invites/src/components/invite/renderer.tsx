@@ -2209,6 +2209,40 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
      * all; a colour named by its role follows the palette, and `data-ground`
      * is what lets the night rule turn the paper down with everything else.
      */
+    /**
+     * A drawn page's own artwork, painted from the markup.
+     *
+     * Every ground on this column is laid by `PageGround`, a pass that runs
+     * after hydration: it measures each page and puts a picture behind it.
+     * It has to, for a background that runs across several pages or is cut
+     * into head, band and foot. For the ordinary case it is a liability —
+     * "when will it be fix?" The pass cannot run until the script has come
+     * down, so on a slow line the pages arrive first and stand there bare:
+     * her photographs and her words on flat blue, no polaroid frames, no
+     * clouds. Throttled to 400kbps that lasted past six seconds, and her
+     * preview reloads on every save, which is why she kept catching it.
+     *
+     * A drawn page needs none of that. Its picture is exactly one page, at
+     * the page's own ratio, so `background-size: 100% 100%` is not a guess
+     * but the same rectangle the pass would have measured — and a CSS
+     * background paints with the first frame, before a line of JavaScript
+     * has run. So the simple case is handed to the stylesheet and the pass
+     * keeps the cases that genuinely need measuring: a cut ground, a
+     * picture running on across pages, a pinned or bleeding one, a page
+     * with a seam dissolving into it.
+     *
+     * Night is a variable rather than a second rule, so the stylesheet can
+     * swap the file without this knowing which mode the guest is in.
+     */
+    const paper = (o: { bg?: string; drawn?: boolean; seam?: number; run?: string; pin?: string; bleed?: boolean }): CSSProperties => {
+      const g = o.bg ? (docGrounds ?? art.grounds)?.[o.bg] : undefined;
+      if (!g?.url || !o.drawn) return {};
+      if (g.slices || o.run || o.pin || o.bleed || o.seam) return {};
+      return {
+        ['--page-paper' as string]: `url("${g.url}")`,
+        ...(g.night ? { ['--page-paper-night' as string]: `url("${g.night}")` } : {}),
+      } as CSSProperties;
+    };
     const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; live?: boolean; top?: number; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
       // how this page dresses its sections: one attribute and a few
       // variables, which is all the built sections read (sectionDress)
@@ -2243,6 +2277,9 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           // drawn smaller (or larger) than the design was written at, so a page too tall for a screen fits one: PageSpec.size
           data-size={o.size !== undefined ? '' : undefined}
           data-dress={dress.kind}
+          // its artwork is painted by the stylesheet, from the markup, rather
+          // than laid by the pass after hydration: see `paper`
+          data-paper={paper(o)['--page-paper' as keyof CSSProperties] ? '' : undefined}
           style={{
             ...(o.ratio ? { ['--page-ratio' as string]: o.ratio } : {}),
             ...(o.foot !== undefined ? { ['--page-foot' as string]: o.foot } : {}),
@@ -2252,6 +2289,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
             ...(o.min !== undefined ? { ['--page-min' as string]: o.min } : {}),
             ...(o.size !== undefined ? { ['--page-size' as string]: o.size } : {}),
             ...(o.colour && !o.pin ? { background: ROLE_NAMES.includes(o.colour) ? `var(--inv-${o.colour})` : o.colour } : {}),
+            ...paper(o),
             ...dress.vars,
           } as CSSProperties}
         >

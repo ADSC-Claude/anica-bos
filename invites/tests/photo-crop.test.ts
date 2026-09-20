@@ -21,7 +21,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cropKeyOf, readCrop, cropBeside, placeCrop } from '../src/lib/photo-crop';
 import { cleanSection, fieldsFor } from '../src/lib/sections';
-import { builtinDesign, cropWindow, cropAt } from '../src/lib/design';
+import { builtinDesign, cropWindow, cropAt, cropFit, cropStyle } from '../src/lib/design';
 import { designForm, framesFor } from '../src/lib/asks';
 
 const WINDOW = { x: 0.1, y: 0.2, w: 0.5, h: 0.5 };
@@ -108,4 +108,53 @@ test('zoom 1 in the middle is the picture as the frame has always shown it', () 
   const corner = cropWindow({ aspect: 1, nw: 3, nh: 4, zoom: 2, cx: 5, cy: 5 });
   assert.equal(corner.x + corner.w, 1);
   assert.ok(corner.y + corner.h <= 1.0001);
+});
+
+/**
+ * A photograph nobody has positioned is shown whole.
+ *
+ * "always show the whole photo when uploaded, because there is zoom in and
+ * out and draging of photo. let me handle it." / "dont let it zoom in when
+ * uploaded."
+ *
+ * Filling the frame was the resting state, which meant a portrait handed to
+ * a square window arrived with its top and bottom already gone — a crop
+ * nobody chose, on a photograph she had only just uploaded. So the slider
+ * now reaches below one, as far as `cropFit`, and that is where a frame
+ * with no window of its own rests.
+ */
+test('the slider reaches out to the whole picture, and stops there', () => {
+  // a 2:3 portrait in a square frame: two thirds of the frame wide, all of it tall
+  assert.equal(Number(cropFit(1, 800, 1200).toFixed(4)), 0.6667);
+  // a 3:2 landscape in the same frame, the other way about
+  assert.equal(Number(cropFit(1, 1200, 800).toFixed(4)), 0.6667);
+  // a photograph the frame's own shape is already whole at one
+  assert.equal(cropFit(1, 900, 900), 1);
+  assert.equal(Number(cropFit(1.5, 800, 1200).toFixed(4)), 1);
+
+  const frame = { aspect: 1, nw: 800, nh: 1200 };
+  const whole = cropWindow({ ...frame, zoom: cropFit(1, 800, 1200) });
+  // the window is wider than the picture and centred on it, so the picture
+  // sits in the middle of the frame with a band of frame either side
+  assert.equal(whole.h, 1, 'all of the picture, top to bottom');
+  assert.equal(Number(whole.w.toFixed(3)), 1.5, 'and a window half as wide again as the picture');
+  assert.equal(Number(whole.x.toFixed(3)), -0.25, 'centred: a quarter of the picture of frame on each side');
+  assert.equal(whole.y, 0);
+  // and it draws as such: the picture two thirds of the frame, a sixth in
+  const css = cropStyle(whole);
+  assert.ok(css.width.startsWith('66.66'), `two thirds of the frame wide, not ${css.width}`);
+  assert.equal(css.height, '100%');
+  assert.ok(css.left.startsWith('16.66'), `a sixth in, not ${css.left}`);
+  assert.equal(css.top, '0%');
+
+  // no further out than that, however hard the slider is pushed
+  assert.deepEqual(cropWindow({ ...frame, zoom: 0.1 }), whole);
+  // and zoom one still means exactly what object-fit: cover means, so
+  // nothing already positioned moves
+  const cover = cropWindow({ ...frame, zoom: 1 });
+  assert.equal(cover.x, 0);
+  assert.equal(cover.w, 1);
+  assert.equal(Number(cover.y.toFixed(4)), 0.1667);
+  assert.equal(Number(cover.h.toFixed(4)), 0.6667);
+  assert.equal(Number(cropAt(whole, 1, 800, 1200).zoom.toFixed(4)), 0.6667, 'and the slider reads its own number back');
 });

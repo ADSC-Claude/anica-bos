@@ -1416,21 +1416,44 @@ export function cropStyle(crop: NonNullable<PhotoEl['crop']>): Record<string, st
  * Above zoom 1 the window shrinks and can be moved about; it is clamped to
  * the picture's edges, so she can never pan past the paper and leave a strip
  * of frame with nothing in it.
+ *
+ * Below it the window grows past the picture and the whole photograph is
+ * seen with a band of the frame on two sides — "always show the whole photo
+ * when uploaded, because there is zoom in and out and draging of photo. let
+ * me handle it." `cropFit` is as far out as that goes: any further and the
+ * picture would shrink inside a frame for no reason. The clamp reads the
+ * same either way round, because a window wider than the picture has to
+ * keep the picture inside *it* rather than the other way about.
  */
 export function cropWindow({ aspect = 1, nw, nh, zoom = 1, cx = 0.5, cy = 0.5 }: {
   aspect?: number; nw: number; nh: number; zoom?: number; cx?: number; cy?: number;
 }): NonNullable<PhotoEl['crop']> {
   // the window's height over its width, measured in fractions of the source
   const want = aspect * (nw / nh);
-  const z = Math.max(1, zoom);
+  const z = Math.max(cropFit(aspect, nw, nh), zoom);
   const w = (want <= 1 ? 1 : 1 / want) / z;
   const h = (want <= 1 ? want : 1) / z;
+  const into = (v: number, span: number) => Math.min(Math.max(v, Math.min(0, 1 - span)), Math.max(0, 1 - span));
   return {
-    x: place(Math.min(Math.max(cx - w / 2, 0), 1 - w)),
-    y: place(Math.min(Math.max(cy - h / 2, 0), 1 - h)),
+    x: place(into(cx - w / 2, w)),
+    y: place(into(cy - h / 2, h)),
     w: place(w),
     h: place(h),
   };
+}
+
+/**
+ * The zoom at which the whole photograph is inside the frame.
+ *
+ * One at a frame the photograph's own shape, and less the further the two
+ * shapes are apart: a 2:3 portrait in a square window fits at 0.667, which
+ * draws it two thirds of the frame wide with the frame showing either side.
+ * It is the floor of the slider and the resting place of a photograph
+ * nobody has touched.
+ */
+export function cropFit(aspect = 1, nw = 1, nh = 1): number {
+  const want = aspect * (nw / nh);
+  return Math.min(want, 1 / want);
 }
 
 /**

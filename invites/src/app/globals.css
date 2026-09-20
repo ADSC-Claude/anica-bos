@@ -953,6 +953,24 @@ table.data tr:hover td {
   gap: 1rem 1.5rem;
 }
 /*
+ * A pair with only one half takes the whole width.
+ *
+ * "weddings only holds two (principal sponsors and entourage) so when its
+ * not wedding, the ninongs and ninangs should not be placed at the side,
+ * rather it should be at the middle, just like what we did in the
+ * assitance when one contact only is given... like the qr code, when its
+ * not given it should occupy that space so it will not look awkward."
+ *
+ * Two columns are for two things to be read across. One thing in the left
+ * of them is not a column, it is a block pushed off centre with a hole
+ * beside it — which is what a christening's ninongs and ninangs were,
+ * there being no second party to pair them with. Written on the grid
+ * rather than at each place that builds one, so every pair on the
+ * invitation behaves the same way: the parents' two sides, the sponsors,
+ * the wedding party, the dress code's two standings.
+ */
+.inv-two > :only-child { grid-column: 1 / -1; }
+/*
  * The wedding party, in matched pairs: the groom's side and the bride's on the
  * same line, so a guest reads across as well as down. Each row's two cells sit
  * to the top of it, or a long list on one side would centre its opposite number
@@ -2130,7 +2148,27 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    grey square. Written before the frame rules and at the same reach, so a
    piece she does give a frame still gets one. */
 .inv[data-paged] .inv-bb-art > .inv-bb-slot[data-own] { background: none; }
-.inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; border-radius: 0; }
+/* and nor may it be the band beside a photograph shown whole: what belongs
+   behind a family's picture is the frame the designer drew for it */
+.inv[data-paged] .inv-bb-art > .inv-bb-slot:not([data-crop]) { background: none; }
+/*
+ * A photograph nobody has positioned is shown whole.
+ *
+ * "always show the whole photo when uploaded, because there is zoom in and
+ * out and draging of photo. let me handle it." A frame and a phone
+ * photograph are rarely the same shape, and filling the frame means cutting
+ * the picture — which she had not asked for and could not see to correct.
+ * So the resting state is the whole picture inside the frame, and the drag
+ * and the slider take it from there; the moment she moves either, the
+ * window she chose is written down and `[data-crop]` below draws that
+ * instead.
+ *
+ * The design's own artwork (`[data-own]`) still fills: a piece the designer
+ * cut was cut to its frame, so filling and fitting are the same picture,
+ * and cover is the one that survives a rounding error at the edge.
+ */
+.inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: contain; aspect-ratio: auto; border-radius: 0; }
+.inv-bb-slot[data-own] img { object-fit: cover; }
 /* A crop is a window on the source, not a re-encoded file: the picture is
    blown up until that window is the size of the frame and slid so the window
    lands on it (the numbers are inline, from cropStyle). The window's shape is
@@ -3237,6 +3275,14 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    keeps it out of sight whatever size the page is. */
 .inv[data-motion] figure[data-enter='slide'] { opacity: 1; }
 .inv[data-motion] figure[data-enter='slide'] > img { translate: 0 100%; }
+/* Unless it is riding: a frame released by another frame's tap covers that
+   frame's height, not its own, so the two stay registered the whole way out.
+   Her instax is the case — the print and the photograph in it left the
+   camera at different speeds because 100% meant 26.9cqw for one and 19.0cqw
+   for the other. `--inv-ride` is the leader's height, set by the renderer
+   (see ridesOf); the 100% behind it is what a rider with no measurable
+   leader falls back to, which is the behaviour it had before. */
+.inv[data-motion] figure[data-enter='slide'][data-ride] > img { translate: 0 var(--inv-ride, 100%); }
 .inv[data-motion] figure[data-enter='slide'][data-in] > img {
   translate: 0 0;
   transition: translate 1250ms cubic-bezier(0.16, 0.84, 0.3, 1);

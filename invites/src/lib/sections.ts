@@ -1099,8 +1099,26 @@ const SECTION_DEFS: SectionDef[] = [
     description: 'A photo, a thank-you, your signature, and the line above your names.',
     minTier: 'BASIC',
     fields: (occasion) => [
-      image('photo', 'Closing photo (above the message)'),
-      textarea('parentsMessage', 'A message from the parents', { examples: PARENTS_MESSAGE_EXAMPLES, hint: 'Your own words to your guests. Shown on designs that carry a message here.', wide: true }),
+      /**
+       * The four boxes on this part that only some designs have a place for.
+       *
+       * “where does the “A dedication to the child” goes in the closing?”
+       * Nowhere, was the answer: she had written one and no page, no print
+       * view and no design read it back. The christening's closing page is
+       * drawn — a heading, the message, the signature, the child's name, the
+       * date and the hashtag, on a page not much taller than half its width
+       * — and there is no room on it for a paragraph. So the question sat
+       * there taking her words and losing them.
+       *
+       * `ifDrawn` is the rule she already asked for, on the fields it had
+       * not reached: “it should detect only whats the template is needing
+       * and it should vary per template right?” A design drawn page by page
+       * that binds no element to one of these takes the question away; a
+       * design that prints its closing part whole, or one nobody has drawn
+       * yet, keeps every one of them exactly as before.
+       */
+      image('photo', 'Closing photo (above the message)', { ifDrawn: true }),
+      textarea('parentsMessage', 'A message from the parents', { examples: PARENTS_MESSAGE_EXAMPLES, hint: 'Your own words to your guests. Shown on designs that carry a message here.', wide: true, ifDrawn: true }),
       /**
        * A dedication to the one being celebrated, and the debutante's own note
        * to the room. Both live on the closing page, which every occasion
@@ -1109,10 +1127,10 @@ const SECTION_DEFS: SectionDef[] = [
        * dedication put there would never be asked for.
        */
       ...(['CHRISTENING', 'COMMUNION', 'KIDS_BIRTHDAY', 'MILESTONE_BIRTHDAY', 'BABY_SHOWER'].includes(occasion)
-        ? [textarea('dedication', occasion === 'MILESTONE_BIRTHDAY' ? 'A dedication to the celebrant' : 'A dedication to the child', { examples: DEDICATION_EXAMPLES, hint: 'Your own words, or one of the examples to start from.', wide: true })]
+        ? [textarea('dedication', occasion === 'MILESTONE_BIRTHDAY' ? 'A dedication to the celebrant' : 'A dedication to the child', { examples: DEDICATION_EXAMPLES, hint: 'Your own words, or one of the examples to start from.', wide: true, ifDrawn: true })]
         : []),
       ...(occasion === 'DEBUT'
-        ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true })]
+        ? [textarea('debutNote', 'A note from the debutante', { examples: DEBUTANTE_NOTE_EXAMPLES, hint: 'In her own words, to the people in the room.', wide: true, ifDrawn: true })]
         : []),
       textarea('message', 'Closing message', { hint: "Your own thank-you. Blank keeps the design's." }),
       // a surprise a guest uncovers, where a design hides one: under a scratch card, behind a code

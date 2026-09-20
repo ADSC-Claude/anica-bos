@@ -622,17 +622,22 @@ test('a crop, a cut and a drawn frame survive the column', () => {
   assert.equal(got.mask, 'arch');
   assert.equal(got.frame, 'polaroid');
   /*
-   * A window outside the picture is not a window, and is refused rather
-   * than drawn. Outside is not the same as *bigger*, though: a window wider
-   * than the picture is what "show the whole photograph" makes, and it is
-   * legitimate as long as the picture sits inside it — see readCrop.
+   * A window that leaves the picture is not a window, and is refused rather
+   * than drawn — in either direction. Running off an edge was always
+   * refused; being *wider than the file* was allowed for a day and a half,
+   * so a frame could show a whole photograph with a band of frame either
+   * side, and that band is exactly what the owner kept pointing at. The
+   * frame is full or it is wrong, so both are rubbish again and the
+   * document's schema asks the same `cropHolds` the form does.
    */
-  const bad = JSON.parse(JSON.stringify(raw)) as DesignDoc;
-  (bad.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: 0.6, y: 0, w: 0.5, h: 0.5 };
-  assert.equal(designOf(bad, 'babyblue').dropped.length, 1, 'a window running off the right edge');
-  const whole = JSON.parse(JSON.stringify(raw)) as DesignDoc;
-  (whole.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: -0.2, y: 0, w: 1.4, h: 1 };
-  assert.deepEqual(designOf(whole, 'babyblue').dropped, [], 'but the whole picture, with frame either side of it, is kept');
+  const off = (crop: PhotoEl['crop']) => {
+    const bad = JSON.parse(JSON.stringify(raw)) as DesignDoc;
+    (bad.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = crop;
+    return designOf(bad, 'babyblue').dropped.length;
+  };
+  assert.equal(off({ x: 0.6, y: 0, w: 0.5, h: 0.5 }), 1, 'a window running off the right edge');
+  assert.equal(off({ x: -0.2, y: 0, w: 1.4, h: 1 }), 1, 'and one wider than the picture, which would draw a gap');
+  assert.equal(off({ x: 0, y: -0.2, w: 1, h: 1.4 }), 1, 'and the same the other way about');
 });
 
 test('a starter is one page per section, cover first, and it is publishable the moment it is made', () => {

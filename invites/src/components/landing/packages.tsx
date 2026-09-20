@@ -97,11 +97,17 @@ export function Packages({ packages, offer }: { packages: PackageCard[]; offer?:
       {/*
         * No prices on this page but the packages' own.
         *
-        * "Remove all the add ons etc in the front of the packages. So not
-        * too many prices to check." The extras were listed here with a peso
-        * figure each, then reduced to a line naming them, and now they are
-        * not on the page at all. They are offered at step 5 of the
-        * checkout, once a package is chosen.
+        * "I think seeing too much payments after seeing the package will
+        * take the customers away." The extras were listed under the cards
+        * with a peso figure each, so somebody weighing a ₱4,800 package met
+        * six more numbers before they had decided anything.
+        *
+        * They were first reduced to one line naming them and no figures,
+        * and then — "Remove all the add ons etc in the front of the
+        * packages. So not too many prices to check." — taken off the page
+        * altogether. They are offered at step 5 of the checkout, once a
+        * package is chosen and the question has changed from "how much is
+        * all this" to "do I want this on mine".
         */}
     </div>
   );

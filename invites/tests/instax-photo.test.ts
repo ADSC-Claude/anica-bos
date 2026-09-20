@@ -20,6 +20,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CHRISTENING_PAGES } from '../src/lib/christening';
+import { ridesOf } from '../src/components/invite/drawn';
 import type { PhotoEl, ShapeEl } from '../src/lib/design';
 
 const cover = CHRISTENING_PAGES.find((p) => p.key === 'cover')!;
@@ -76,6 +77,17 @@ test('the photograph comes out of the camera with the print, on the one tap', ()
    */
   assert.equal(photo.tapAs, 'cover-print');
   assert.deepEqual(photo.motion, print.motion, 'and it travels the same way, or the two come apart');
+  /*
+   * The same way is not yet the same speed. `slide` moves a frame's picture
+   * by 100% — the frame's own height — so the print travelled 26.9cqw and
+   * the photograph 19.0cqw over the same 1250ms, and the picture lagged the
+   * print it lives in: "it is still delayed, the photo and polaroid dont
+   * pulled out the same time." The renderer reads the leader's height off
+   * the document and hands it to the rider; this is the number it hands.
+   */
+  const ride = Number((print.w! * print.aspect!).toFixed(3));
+  assert.equal(ridesOf(cover)?.get('cover-print'), ride);
+  assert.ok(Math.abs(ride - photo.w! * photo.aspect!) > 5, 'and the two heights really are far enough apart to see');
   // over her print, because her picture area is not cut out of the file
   assert.ok((photo.z ?? 0) > (print.z ?? 0), 'the photograph covers the placeholder she drew');
 });

@@ -63,13 +63,14 @@ export type EditView = {
  * holding `{word: 'invitation'}` on a christening must not read "Join us as
  * we say I do!". Without one, a look answers as written.
  */
-function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean, path?: string, held?: Set<string>, song?: boolean): Read {
+function reader(content: Record<string, unknown>, look: Look | undefined, lang: Lang, occasion?: Occasion, edit?: EditView, parts?: Record<string, string>, onArt?: boolean, path?: string, held?: Set<string>, song?: boolean, rides?: Map<string, number>): Read {
   return {
     content,
     lang,
     edit,
     path,
     held,
+    rides,
     hasSong: song,
     parts,
     onArt,
@@ -78,10 +79,36 @@ function reader(content: Record<string, unknown>, look: Look | undefined, lang: 
   };
 }
 
+/**
+ * How far each rider on this page has to travel.
+ *
+ * A `slide` frame moves its picture by its own height, which is what keeps
+ * it out of sight at every page size. Two frames released by the same tap
+ * are two heights, so the same rule sends them at two speeds — the instax
+ * print came out of the camera over 26.9cqw and the photograph inside it
+ * over 19.0cqw, and the picture visibly lagged the frame it lives in. This
+ * reads the leader's height off the document, once per page, so the rider
+ * can be told to cover exactly that.
+ *
+ * Only a frame with a width and a shape has a height to lend; anything
+ * else is left to the plain rule, which is what it had before.
+ */
+export function ridesOf(page: PageSpec): Map<string, number> | undefined {
+  const out = new Map<string, number>();
+  const wants = new Set((page.elements ?? []).map((el) => el.tapAs).filter(Boolean) as string[]);
+  if (!wants.size) return undefined;
+  for (const el of page.elements ?? []) {
+    if (!wants.has(el.id) || el.kind !== 'photo') continue;
+    const h = (el.w ?? 0) * (el.aspect ?? 0);
+    if (h > 0) out.set(el.id, Number(h.toFixed(3)));
+  }
+  return out.size ? out : undefined;
+}
+
 export function DrawnPage({ page, content, look, lang, occasion, edit, parts, path, song }: { page: PageSpec; content: Record<string, unknown>; look?: Look; lang: Lang; occasion?: Occasion; edit?: EditView; parts?: Record<string, string>; path?: string; song?: boolean }) {
   // a page whose own background is a picture: a moment on it stands on the page, not on a studio card
   const held = new Set((page.elements ?? []).map((el) => el.taps).filter(Boolean) as string[]);
-  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)), path, held, song);
+  const read = reader(content, look, lang, occasion, edit, parts, Boolean(page.ground && isPicture(page.ground)), path, held, song, ridesOf(page));
   // A page that grows places by its width rather than by its height: see
   // elementStyle. The ratio is what turns one into the other.
   const grow = page.grow ? pageRatio(page) : undefined;
@@ -108,6 +135,12 @@ type Read = Parameters<typeof lineText>[1] & {
    * page itself instead — the cut-out object and its shadow are the scene.
    */
   onArt?: boolean;
+  /**
+   * For each name a `tapAs` rider answers to, how tall the element it rides
+   * is, in the page's own width. See `tapAttrs`: it is what lets two frames
+   * released by one tap travel the same distance.
+   */
+  rides?: Map<string, number>;
   /** the invitation's own path, so an ADD TO CALENDAR button can point at its .ics */
   path?: string;
   /**
@@ -268,10 +301,29 @@ function tapAttrs(el: Element, read: Read): Record<string, string | number | und
   // the name it answers to, which is its id unless it shares another's (tapAs)
   const name = el.tapAs ?? el.id;
   if (read.held?.has(name)) { out['data-tap-id'] = name; out['data-hold'] = ''; }
+  /*
+   * A rider travels its leader's distance, not its own.
+   *
+   * `slide` moves a frame's picture by 100% — the frame's own height —
+   * because that is what keeps it out of sight at every size. Two frames
+   * released by one tap are two different heights, so 100% is two different
+   * distances over the same 1250ms: the print came out of the camera at
+   * 26.9cqw and the photograph in it at 19.0cqw, and they arrived out of
+   * step. "it is still delayed, the photo and polaroid dont pulled out the
+   * same time." Given the leader's height the rider covers the same ground,
+   * so the picture stays registered in the window the whole way out.
+   */
+  if (el.tapAs && read.rides?.has(el.tapAs)) out['data-ride'] = '';
   // the song's own control, wherever the design drew it: the Shell listens
   // for this across the whole invitation, because the player lives there
   if (el.song) { out['data-music'] = ''; out.role = 'button'; out.tabIndex = 0; }
   return out;
+}
+
+/** How far a rider travels, in the page's own width, for the rule above. */
+function rideVars(el: Element, read: Read): Record<string, string> {
+  const ride = el.tapAs ? read.rides?.get(el.tapAs) : undefined;
+  return ride ? { '--inv-ride': `${ride}cqw` } : {};
 }
 
 /**
@@ -443,7 +495,7 @@ function Clip({ el, read, grow, deco }: { el: VideoEl; read: Read; grow?: number
   const motion = motionOf(el);
   const box = el.bg
     ? ({ opacity: placed.opacity, zIndex: placed.zIndex, ...motion.vars } as CSSProperties)
-    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined, ...motion.vars } as CSSProperties);
+    : ({ ...placed, aspectRatio: el.aspect ? `1 / ${el.aspect}` : undefined, ...motion.vars, ...rideVars(el, read) } as CSSProperties);
   if (!el.url && !read.edit) return null;
   return (
     <div
@@ -481,7 +533,7 @@ function Shape({ el, read, grow, deco }: { el: ShapeEl; read: Read; grow?: numbe
       {...opensAttrs(el)}
       {...tapAttrs(el, read)}
       data-shape={el.shape}
-      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el), ...motionOf(el).vars } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...shapeStyle(el), ...motionOf(el).vars, ...rideVars(el, read) } as CSSProperties}
       {...motionOf(el).attrs}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
@@ -510,7 +562,7 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
   const figure = (
     <figure
       className="inv-bb-slot"
-      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...photoStyle(el), ...motionOf(el).vars } as CSSProperties}
+      style={{ ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...photoStyle(el), ...motionOf(el).vars, ...rideVars(el, read) } as CSSProperties}
       {...motionOf(el).attrs}
       data-el={read.edit ? el.id : undefined}
       data-foot={grow && el.from === 'bottom' ? '' : undefined}
@@ -585,7 +637,7 @@ function Block({ el, read, grow, deco }: { el: TextEl; read: Read; grow?: number
   const texts = el.lines.map((l) => lineText(l.sources, read));
   const blank = !texts.some(Boolean);
   if (blank && el.hidden !== 'never' && !read.edit) return null;
-  const style = { ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...blockType(el), ...motionOf(el).vars } as CSSProperties;
+  const style = { ...(deco ? decorStyle(el) : elementStyle(el, grow)), ...blockType(el), ...motionOf(el).vars, ...rideVars(el, read) } as CSSProperties;
   const cls = BLOCK_CLASS[el.block];
   // `data-foot` says this one is placed from the foot: what holds the bottom
   // of a page that grows follows the page down and is never what pushes it

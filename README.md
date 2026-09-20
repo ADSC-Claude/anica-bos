@@ -411,6 +411,35 @@ Or locally: `npm run jobs:daily`.
 7. Register the PayMongo webhook against your deployed URL.
 8. Sign in as each account and change the passwords and PINs.
 
+#### Three projects, one repository
+
+This repository holds three Vercel projects: the BOS app at the root,
+`invites/` (anica-invites) and `rental/` (staycation). Each carries its own
+`package.json`, lockfile, `tsconfig.json`, `next.config.ts`, `prisma/` and
+`vercel.json` — nothing at the root is a build input for the other two.
+
+A push used to rebuild all three, whatever it touched, and the account builds
+one at a time, so a change to `invites/` alone could wait behind two builds of
+code that had not changed. Each `vercel.json` now carries an `ignoreCommand`
+that skips the build when that project's own folder is untouched:
+
+| project | root | skips unless changed |
+| --- | --- | --- |
+| anica-bos | repo root | anything outside `invites/` and `rental/` |
+| anica-invites | `invites/` | `invites/` |
+| staycation | `rental/` | `rental/` |
+
+Exit 0 skips the build and leaves the previous deployment in place; exit 1
+builds. The base is `VERCEL_GIT_PREVIOUS_SHA` — the last **successful**
+deployment, not the previous commit — so a build that failed, or a change that
+was skipped and later turns out to matter, is still picked up by the next push.
+It falls back to `HEAD^` when that variable is absent, and any git error (a
+shallow clone without the base commit) exits non-zero, which builds. Every way
+this can be wrong errs towards building.
+
+Adding a fourth project, or making one folder read another's files, means
+revisiting these three commands.
+
 ### Seeding a hosted database
 
 A fresh deploy has tables but no rows — no branch, no services, and nothing to

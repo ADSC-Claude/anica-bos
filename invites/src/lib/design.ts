@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cropHolds } from './photo-crop';
 import type { Occasion } from '@prisma/client';
 import { t, type Lang } from './copy';
 import { formatDate, formatTime, formatWeekday, parseDateKey } from './datetime';
@@ -1540,6 +1541,8 @@ export function shapeStyle(el: ShapeEl): Record<string, string> {
  */
 export const place = (n: number): number => Math.round(n * 1e10) / 1e10;
 const zPlace = (min: number, max: number) => z.number().min(min).max(max).transform(place);
+const zCrop = z.object({ x: zPlace(-20, 20), y: zPlace(-20, 20), w: zPlace(0.001, 20), h: zPlace(0.001, 20) })
+  .strict().refine(cropHolds, { message: 'a window must hold the picture, or sit inside it' });
 
 const KEY = /^[a-z][a-z0-9-]{0,30}$/;
 /**
@@ -1622,7 +1625,11 @@ const zElement = z.union([
     ...zBase, kind: z.literal('photo'), aspect: z.number().positive().max(10).optional(),
     bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
     alt: zFieldRef.optional(),
-    crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
+    // x and y may be negative and w and h past 1: a window that shows the
+    // whole photograph is wider than the photograph. The bounds alone no
+    // longer catch a window off the edge of the picture, so `cropHolds` —
+    // the same rule a customer's window is read by — is what says.
+    crop: zCrop.optional(),
     inset: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
     frame: z.enum(['none', 'thin', 'polaroid']).optional(),
     mask: z.enum(['none', 'circle', 'arch']).optional(),
@@ -1653,7 +1660,7 @@ const zElement = z.union([
     trigger: z.enum(['tap', 'swipe', 'hold']).optional(), speed: z.enum(['slow', 'normal', 'fast']).optional(), plays: z.enum(['once', 'always']).optional(),
     photos: z.array(z.object({
       bind: z.union([zFieldRef, z.object({ asset: z.string().max(500) }).strict()]),
-      crop: z.object({ x: zPlace(0, 1), y: zPlace(0, 1), w: zPlace(0.001, 1), h: zPlace(0.001, 1) }).strict().optional(),
+      crop: zCrop.optional(),
     }).strict()).max(6).optional(),
     lines: z.array(zLine).max(8).optional(), lifted: z.string().max(80).optional(), code: z.string().regex(/^[0-9]{3,8}$/).optional(),
     aspect: z.number().positive().max(10).optional(),

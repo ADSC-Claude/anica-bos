@@ -31,12 +31,26 @@ test('a window is read only when it is four numbers inside the picture', () => {
   for (const bad of [
     undefined, null, 'x', 42, [],
     { x: 0, y: 0, w: 0, h: 1 },            // nothing wide
-    { x: 0, y: 0, w: 1.4, h: 1 },          // wider than the file
     { x: 0.8, y: 0, w: 0.5, h: 0.5 },      // starts too far in to fit
     { x: -0.1, y: 0, w: 0.5, h: 0.5 },     // off the left edge
     { x: 0, y: 0, w: 0.5 },                // a number short
     { x: 0, y: 0, w: 0.5, h: Number.NaN }, // not a number
+    { x: 0.1, y: 0, w: 1.4, h: 1 },        // wider than the file and slid off the front of it
+    { x: -0.9, y: 0, w: 1.4, h: 1 },       // wider than the file and slid off the end of it
+    { x: -1, y: 0, w: 40, h: 1 },          // so far out the picture is a speck
   ]) assert.equal(readCrop(bad), undefined, `${JSON.stringify(bad)} is not a window`);
+
+  /*
+   * But a window wider than the file is not by itself a bad window: it is
+   * what "show me the whole photograph" makes, and reading it as rubbish is
+   * what made the form and the page disagree — "why its fine when in the
+   * form, then in the preview it looks like this." The file has to sit
+   * inside it, which is the same clamp `cropWindow` applies.
+   */
+  const whole = { x: -0.25, y: 0, w: 1.5, h: 1 };
+  assert.deepEqual(readCrop(whole), whole, 'the whole picture, with frame either side of it');
+  assert.deepEqual(readCrop({ x: 0, y: -0.25, w: 1, h: 1.5 }), { x: 0, y: -0.25, w: 1, h: 1.5 },
+    'and the same the other way about, for a landscape in an upright frame');
   assert.deepEqual(placeCrop({ x: 0.123456, y: 0.2, w: 0.5, h: 0.5 }), { x: 0.1235, y: 0.2, w: 0.5, h: 0.5 });
 });
 
@@ -160,4 +174,37 @@ test('the slider reaches out to the whole picture, and stops there', () => {
   assert.equal(Number(cover.y.toFixed(4)), 0.1667);
   assert.equal(Number(cover.h.toFixed(4)), 0.6667);
   assert.equal(Number(cropAt(whole, 1, 800, 1200).zoom.toFixed(4)), 0.6667, 'and the slider reads its own number back');
+});
+
+/**
+ * The form and the page have to agree, which means the window has to
+ * survive being written down.
+ *
+ * "why its fine when in the form, then in the preview it looks like this."
+ * The form's box computes the window itself and drew exactly what she had
+ * chosen; every *reader* of the stored window rejected it, because it was
+ * wider than the file. Three readers, one rule between them — the save
+ * (`cleanSection`), the page (`cropBeside`) and the form on its next load.
+ */
+test('a window that shows the whole photograph survives a save and a read', () => {
+  const frame = { aspect: 1, nw: 800, nh: 1200 };
+  const chosen = placeCrop(cropWindow({ ...frame, zoom: cropFit(1, 800, 1200) }));
+  assert.ok(chosen.w > 1, 'the window really is wider than the file');
+  assert.ok(chosen.x < 0, 'and starts before its left edge');
+
+  // the save keeps it
+  const fields = fieldsFor('story', 'CHRISTENING');
+  const { data } = cleanSection(fields, {
+    timeline: [{ date: 'June 2026', title: 'The day we met', text: 'You came into our world.', photo: 'https://x/y.jpg', photoCrop: chosen }],
+  });
+  const row = (data.timeline as Record<string, unknown>[])[0];
+  assert.deepEqual(row[cropKeyOf('photo')], chosen, 'the save no longer throws her choice away');
+
+  // and the page reads the same window back
+  assert.deepEqual(cropBeside({ story: data }, { section: 'story', field: 'timeline', index: 0, sub: 'photo' }), chosen);
+
+  // which draws the picture smaller than its frame, centred, as the form does
+  const css = cropStyle(chosen);
+  assert.ok(parseFloat(css.width) < 100, `the picture is ${css.width} of the frame, not ${'100%'}`);
+  assert.ok(parseFloat(css.left) > 0, 'and inset from its left edge');
 });

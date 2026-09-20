@@ -48,22 +48,60 @@ export function cropKeyOf(key: string): string {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
+/** As far out as a window may be pushed: past this the picture is a speck. */
+const SPAN_MAX = 20;
+
+/**
+ * Where a window of this width may start, so it holds the picture or sits
+ * inside it.
+ *
+ * Narrower than the file, it has to be *within* the file: 0 to 1 − w, which
+ * is what it always was. Wider than the file — which is what "show me the
+ * whole photograph" makes — the file is inside *it* instead, so the range
+ * runs the other way, 1 − w to 0. One expression covers both, and it is the
+ * same clamp `cropWindow` applies when the window is made.
+ */
+const holds = (at: number, span: number) =>
+  at >= Math.min(0, 1 - span) - 0.0001 && at <= Math.max(0, 1 - span) + 0.0001;
+
+/**
+ * Whether four numbers make a window at all: the one rule, shared.
+ *
+ * A customer's window comes through `readCrop`; a design's own comes
+ * through the document's schema, which used to lean on its bounds (`w` at
+ * most 1) to catch a window off the edge of the picture. Widening those
+ * bounds for "show the whole photograph" took that away, so the schema
+ * asks this instead and the two paths cannot drift apart.
+ */
+export function cropHolds(c: Crop): boolean {
+  if (!(c.w > 0 && c.w <= SPAN_MAX) || !(c.h > 0 && c.h <= SPAN_MAX)) return false;
+  return holds(c.x, c.w) && holds(c.y, c.h);
+}
+
 /**
  * A window read off whatever was stored, or nothing.
  *
- * Nothing is the answer for anything that is not four numbers inside the
- * picture: a window wider than the file, a zero-width one, a leftover from
- * a shape that no longer exists. A bad window would draw a strip of empty
- * frame, and an uncropped picture never does — so the doubt goes to the
- * picture as it is.
+ * Nothing is the answer for anything that is not four numbers in a sane
+ * arrangement: a zero-width window, one that has wandered off the picture,
+ * a leftover from a shape that no longer exists. A bad window would draw a
+ * strip of empty frame, and an uncropped picture never does — so the doubt
+ * goes to the picture as it is.
+ *
+ * A window *wider than the file* is not a bad window, and reading it as one
+ * is the bug this guards against now. The slider reaches out to `cropFit`,
+ * where the whole photograph sits inside the frame; that window is wider
+ * than the file (`w` of 1.5 for a 2:3 portrait in a square) and starts
+ * before its left edge (`x` of −0.25). The old test threw both away. So the
+ * form drew what she had chosen — it computes the window itself — and the
+ * page, the save and the form on its next load all read it back, rejected
+ * it, and fell to `cover`: "why its fine when in the form, then in the
+ * preview it looks like this."
  */
 export function readCrop(v: unknown): Crop | undefined {
   if (!isRecord(v)) return undefined;
   const x = num(v.x), y = num(v.y), w = num(v.w), h = num(v.h);
   if (x === undefined || y === undefined || w === undefined || h === undefined) return undefined;
-  if (!(w > 0 && w <= 1) || !(h > 0 && h <= 1)) return undefined;
-  if (x < 0 || y < 0 || x + w > 1.0001 || y + h > 1.0001) return undefined;
-  return { x, y, w, h };
+  return cropHolds({ x, y, w, h }) ? { x, y, w, h } : undefined;
 }
 
 /** A window rounded the way the document rounds one, so a save is stable. */

@@ -226,12 +226,22 @@ test('the clothes are clothes: no shoes, ties or heels; kindly-avoid is the full
 
 test('Background music keeps the song named, its start as seconds, and its uploaded file — and nothing that would put a player on the page', () => {
   const fields = fieldsFor('music', 'WEDDING');
-  // the three the song needs, and the photo every part carries for a design
-  // to draw — hidden until one does, which is what `byDesign` means
-  assert.deepEqual(fields.map((f) => f.key), ['song', 'start', 'url', 'photo']);
+  // the three the song needs, the one asking when it starts, and the photo
+  // every part carries for a design to draw — hidden until one does, which
+  // is what `byDesign` means
+  assert.deepEqual(fields.map((f) => f.key), ['song', 'start', 'startOn', 'url', 'photo']);
   assert.ok(fields.find((f) => f.key === 'photo')?.byDesign);
   assert.ok(fields.some((f) => f.key === 'url' && f.type === 'audio'));
   assert.ok(fields.some((f) => f.key === 'start' && f.type === 'offset'));
+  // `startOn` is a question, not a player: it says whether the tap that opens
+  // the invitation also starts the song, and its blank answer — the one an
+  // unanswered form and every invitation saved before it give — is the play
+  // button. Nothing here can make a sound arrive unasked.
+  const startOn = fields.find((f) => f.key === 'startOn')!;
+  assert.equal(startOn.type, 'select');
+  assert.equal(startOn.options?.[0].value, '', 'the play button is the default');
+  assert.equal(cleanSection(fields, {}).data.startOn ?? '', '', 'an unanswered form waits for the button');
+  assert.equal(cleanSection(fields, { startOn: 'cover' }).data.startOn, 'cover');
   const { data, issues } = cleanSection(fields, {
     song: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC',
     url: '/uploads/inv/abc/song.mp3',

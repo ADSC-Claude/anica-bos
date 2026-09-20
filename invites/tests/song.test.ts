@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseStart, formatStart, youtubeId, youtubeEmbed, looped, START_MAX } from '../src/lib/song';
+import { fieldsFor } from '../src/lib/sections';
 
 test('the start of a song reads minutes and seconds, or seconds, and nothing else', () => {
   assert.equal(parseStart('1:05'), 65);
@@ -58,4 +59,36 @@ test('a song that has come round again is taken back to its start point', () => 
   // a song with no intro to skip loops on its own and is never touched
   assert.equal(looped(0, 0), false);
   assert.equal(looped(120, 0), false);
+});
+
+/**
+ * When the song starts: the family's choice, not ours.
+ *
+ * "The customer now wants the music to start once the cover has shown,
+ * while others wants it to be touched in the play button when they
+ * clicked."
+ *
+ * Both are right about their own invitation. The play button stays the
+ * default — a song nobody asked for, in a quiet room or an office, is the
+ * fault this setting used to be, and #160 took it out for that reason.
+ *
+ * The important thing this guards is that the default is still silence. A
+ * blank answer, a missing section, an old invitation saved before the
+ * question existed: all of them must read as "wait for the button", or
+ * every invitation already sent out starts singing.
+ */
+test('the song waits for the button unless the family said otherwise', () => {
+  const field = fieldsFor('music', 'CHRISTENING').find((f) => f.key === 'startOn');
+  assert.ok(field, 'the music section asks when the song starts');
+  assert.equal(field!.type, 'select');
+  assert.deepEqual(field!.options?.map((o) => o.value), ['', 'cover'],
+    'the blank — the play button — is first, so it is what an unanswered form means');
+
+  // and the reading the renderer does, which is the only thing that matters
+  const startsOnCover = (music: unknown) => (music as { startOn?: string } | undefined)?.startOn === 'cover';
+  assert.equal(startsOnCover({ startOn: 'cover' }), true);
+  assert.equal(startsOnCover({ startOn: '' }), false, 'the blank answer waits');
+  assert.equal(startsOnCover({ song: 'Ikaw' }), false, 'a form saved before the question waits');
+  assert.equal(startsOnCover(undefined), false, 'no music section at all waits');
+  assert.equal(startsOnCover({ startOn: 'COVER' }), false, 'and nothing else counts as yes');
 });

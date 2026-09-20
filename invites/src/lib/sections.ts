@@ -1059,6 +1059,26 @@ const SECTION_DEFS: SectionDef[] = [
     fields: () => [
       text('song', 'Your song', { placeholder: 'e.g. Ikaw — Yeng Constantino, or a Spotify / YouTube link', hint: 'The title and artist, or paste a link from Spotify or YouTube. A song cannot stream from Spotify or YouTube behind a page, so what plays is a file — we make it from whatever you name here.', wide: true }),
       offset('start', 'Start the song at', { hint: 'Minutes and seconds into the song, to skip a long intro. The music starts here every time it plays.' }),
+      /*
+       * "The customer now wants the music to start once the cover has shown,
+       * while others wants it to be touched in the play button when they
+       * clicked."
+       *
+       * Both families are right about their own invitation, so it is a
+       * question rather than a rule. The tap stays the default, because it
+       * is the one that cannot go wrong: a song nobody asked for, in a
+       * quiet room or an office, is the complaint this setting used to be.
+       *
+       * Starting with the cover is not autoplay. Nothing plays on arrival —
+       * a browser would refuse it, and rightly. It plays on the tap that
+       * opens the invitation, which is a gesture the guest made, and it is
+       * the same tap either way. All this chooses is whether that one tap
+       * also starts the song or leaves it for the record.
+       */
+      select('startOn', 'When the song starts', [
+        { value: '', label: 'When a guest presses the play button' },
+        { value: 'cover', label: 'As the invitation opens' },
+      ], { hint: 'Either way it needs the guest to open the invitation first — no phone will play a sound before that. This only says whether that same tap starts the song, or whether they press the record themselves.' }),
       audio('url', 'Your own audio file (optional)', { hint: 'Only if you already have the song as an MP3 or M4A, up to 20 MB. You do not need to: naming it above is enough, and we prepare the file.' }),
     ],
   },

@@ -2731,7 +2731,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
       )}
-      <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+      <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} startOnCover={content.music?.startOn === 'cover'} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         {peekEndBlock}
         {/* the studio's frame is one page and nothing around it: no footer, no floating RSVP */}

@@ -2,8 +2,8 @@
 
 import { useCallback, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
-import { cropKeyOf, readCrop, placeCrop, type Crop } from '@/lib/photo-crop';
-import { cropStyle, cropWindow, cropAt, cropFit } from '@/lib/design';
+import { cropKeyOf, readCrop, type Crop } from '@/lib/photo-crop';
+import { cropStyle, cropWindow, cropAt, cropFit, cropChosen } from '@/lib/design';
 import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
@@ -523,11 +523,11 @@ function CropBox({ url, frame, crop, onCrop }: {
 
   const put = useCallback((next: { zoom: number; cx: number; cy: number }) => {
     if (!size) return;
-    const win = cropWindow({ aspect: frame.aspect, nw: size.nw, nh: size.nh, ...next });
-    const flat = placeCrop(win);
     // the middle at zoom 1 is the picture as it has always been drawn, and
-    // an invitation carries nothing it does not need
-    onCrop(flat.w >= 0.9999 || flat.h >= 0.9999 ? undefined : flat);
+    // an invitation carries nothing it does not need. The box does not
+    // decide that for itself — `cropChosen` does, so that the rule the form
+    // saves by and the rule the page reads by stay the one rule.
+    onCrop(cropChosen({ aspect: frame.aspect, nw: size.nw, nh: size.nh, ...next }));
   }, [frame.aspect, onCrop, size]);
 
   function down(e: ReactPointerEvent<HTMLDivElement>) {

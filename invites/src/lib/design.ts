@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { cropHolds } from './photo-crop';
+import { cropHolds, cropWorthKeeping, placeCrop } from './photo-crop';
 import type { Occasion } from '@prisma/client';
 import { t, type Lang } from './copy';
 import { formatDate, formatTime, formatWeekday, parseDateKey } from './datetime';
@@ -1471,6 +1471,34 @@ export function cropWindow({ aspect = 1, nw, nh, zoom = 1, cx = 0.5, cy = 0.5 }:
 export function cropFit(aspect = 1, nw = 1, nh = 1): number {
   const want = aspect * (nw / nh);
   return Math.min(want, 1 / want);
+}
+
+/**
+ * What a hand on the crop box chooses, ready to be written down — or
+ * nothing, when what it chose is the picture as it is drawn anyway.
+ *
+ * The whole decision in one place, because it used to be made in two and
+ * they disagreed. "No crop" already means something exact — the middle of
+ * the picture, filling the frame, which is `object-fit: cover` and what
+ * every untouched frame draws — so that one arrangement is stored as
+ * nothing and an invitation carries no window it does not need.
+ *
+ * The box asked that question of the window's *size*: `w` or `h` reaching
+ * 1 meant "as wide as the picture, so nothing to store". Which is true
+ * going up and false coming down. Pulled out to `cropFit`, where the whole
+ * photograph sits inside the frame, the window is WIDER than the picture —
+ * `w` of 1.5 for a 2:3 portrait in a square — so the one window a customer
+ * most wants kept read as the empty one, and every "show me all of it" was
+ * thrown away at the moment of saving: "the photo isnt fixed yet... its
+ * still the same." Asked of the zoom and the centre instead, and asked
+ * here rather than in the form, so the page and the form cannot drift
+ * apart again.
+ */
+export function cropChosen({ aspect, nw, nh, zoom, cx, cy }: {
+  aspect?: number; nw: number; nh: number; zoom: number; cx: number; cy: number;
+}): NonNullable<PhotoEl['crop']> | undefined {
+  if (!cropWorthKeeping({ zoom, cx, cy })) return undefined;
+  return placeCrop(cropWindow({ aspect, nw, nh, zoom, cx, cy }));
 }
 
 /**

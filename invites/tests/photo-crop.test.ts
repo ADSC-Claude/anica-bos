@@ -18,10 +18,11 @@
  *    show the cut rather than describe it.
  */
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { cropKeyOf, readCrop, cropBeside, placeCrop } from '../src/lib/photo-crop';
 import { cleanSection, fieldsFor } from '../src/lib/sections';
-import { builtinDesign, cropWindow, cropAt, cropFit, cropStyle } from '../src/lib/design';
+import { builtinDesign, cropWindow, cropAt, cropFit, cropStyle, cropChosen } from '../src/lib/design';
 import { designForm, framesFor } from '../src/lib/asks';
 
 const WINDOW = { x: 0.1, y: 0.2, w: 0.5, h: 0.5 };
@@ -207,4 +208,79 @@ test('a window that shows the whole photograph survives a save and a read', () =
   const css = cropStyle(chosen);
   assert.ok(parseFloat(css.width) < 100, `the picture is ${css.width} of the frame, not ${'100%'}`);
   assert.ok(parseFloat(css.left) > 0, 'and inset from its left edge');
+});
+
+/**
+ * And the window has to be written down in the first place.
+ *
+ * The test above starts from `cropWindow`, which is the maths — and the
+ * maths was never wrong. What the form does before it saves is *decide*
+ * whether there is anything to save at all, and that decision was made
+ * somewhere else, by a different rule: "w or h has reached 1, so this is
+ * the picture as it is drawn anyway, store nothing." True of a window
+ * shrinking towards the frame; false of one growing past the picture,
+ * which is exactly what the whole photograph is. So the slider drew her
+ * choice, the save was handed `undefined`, and the frame went back to
+ * filling: "the photo isnt fixed yet... its still the same."
+ *
+ * Every reader agreed with her by then; the writer did not. So the
+ * decision is `cropChosen` now, one function, called by the box — and this
+ * test calls the same one, which is the thing the last round of tests did
+ * not do.
+ */
+test('the form stores the window she chose, and stores nothing when she chose nothing', () => {
+  // a 2:3 portrait in one of the square polaroids on the Baby photos page
+  const frame = { aspect: 1, nw: 800, nh: 1200 };
+  const fit = cropFit(frame.aspect, frame.nw, frame.nh);
+
+  // untouched: the middle of the picture filling the frame, which is what a
+  // frame with no window draws, so there is nothing to write down
+  assert.equal(cropChosen({ ...frame, zoom: 1, cx: 0.5, cy: 0.5 }), undefined);
+
+  // pulled all the way out: the whole photograph. This is the one that was
+  // being thrown away.
+  const whole = cropChosen({ ...frame, zoom: fit, cx: 0.5, cy: 0.5 });
+  assert.ok(whole, 'the whole photograph is a window, not the absence of one');
+  assert.ok(whole!.w > 1, 'and it is wider than the file, which is why it read as empty');
+  assert.deepEqual(whole, placeCrop(cropWindow({ ...frame, zoom: fit })), 'the same window the box drew');
+  // it survives every reader, so the preview shows what the form showed
+  assert.deepEqual(readCrop(whole), whole);
+  assert.deepEqual(
+    cropBeside(
+      { gallery: cleanSection(fieldsFor('gallery', 'CHRISTENING'), { photos: [{ url: 'https://x/y.jpg', urlCrop: whole }] }).data },
+      { section: 'gallery', field: 'photos', index: 0, sub: 'url' },
+    ),
+    whole,
+    'through the save as well',
+  );
+
+  // anywhere between the two is kept too: pulled closer, or dragged off centre
+  assert.ok(cropChosen({ ...frame, zoom: 2, cx: 0.5, cy: 0.5 }), 'zoomed in');
+  assert.ok(cropChosen({ ...frame, zoom: 1, cx: 0.5, cy: 0.3 }), 'dragged up');
+  assert.ok(cropChosen({ ...frame, zoom: 1.2, cx: 0.4, cy: 0.6 }), 'both');
+
+  /*
+   * A photograph already the frame's shape fits at zoom 1, so out and
+   * resting are the same place and there is still nothing to store. The
+   * rule asks the zoom and the centre, not the window, so it gets this
+   * right without a special case.
+   */
+  const square = { aspect: 1, nw: 900, nh: 900 };
+  assert.equal(cropFit(square.aspect, square.nw, square.nh), 1);
+  assert.equal(cropChosen({ ...square, zoom: 1, cx: 0.5, cy: 0.5 }), undefined);
+});
+
+/**
+ * One rule, in one place, called by the form.
+ *
+ * This is what the last fix missed. The rule was right in `photo-crop.ts`
+ * and the form kept its own copy of the old one, so every test passed
+ * while the thing she was using threw her choice away. The form is not
+ * allowed a copy: it calls `cropChosen` and does no arithmetic of its own
+ * about what is worth keeping.
+ */
+test('the crop box does not keep its own idea of what is worth storing', () => {
+  const box = readFileSync('src/components/builder/fields.tsx', 'utf8');
+  assert.match(box, /onCrop\(cropChosen\(/, 'the box hands the decision over whole');
+  assert.equal(/0\.9999/.test(box), false, 'and keeps no rule of its own about the window\u2019s size');
 });

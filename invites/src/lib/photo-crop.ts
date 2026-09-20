@@ -133,3 +133,24 @@ export function cropBeside(content: Record<string, unknown> | undefined, ref: Re
   if (!isRecord(row)) return undefined;
   return readCrop(at.sub ? row[at.sub] : row);
 }
+
+/**
+ * Whether a window is worth writing down at all.
+ *
+ * "No crop" already means something: the middle of the picture, filling the
+ * frame — `object-fit: cover`, which is what every frame draws when it has
+ * been given nothing. So that one arrangement is stored as nothing, and an
+ * invitation carries no window it does not need.
+ *
+ * The test is the *zoom and the centre*, not the window's size. Written as
+ * "w or h has reached 1" it swallowed the one window a customer most wants
+ * kept: pulling the slider out to `cropFit` makes a window WIDER than the
+ * picture, so it read as "nothing to store", the window was deleted, and
+ * the frame went back to filling — "the photo isnt fixed yet... its still
+ * the same." A window that shows the whole photograph is the furthest
+ * thing from no window at all.
+ */
+export function cropWorthKeeping(at: { zoom: number; cx: number; cy: number }): boolean {
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.001;
+  return !(near(at.zoom, 1) && near(at.cx, 0.5) && near(at.cy, 0.5));
+}

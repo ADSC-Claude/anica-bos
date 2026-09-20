@@ -1120,7 +1120,16 @@ export type TextEl = Base & {
   /** picks the wrapper: .inv-bb-head, .inv-bb-label, .inv-bb-caption, .inv-bb-text */
   block: 'head' | 'label' | 'caption' | 'free';
   lines: Line[];
-  backing?: 'none' | 'shadow' | 'scrim';
+  /**
+   * What holds the words off the ground behind them.
+   *
+   * `shadow` is a pale halo and `scrim` a pale panel: both lift *dark*
+   * writing off a busy picture, which was the only case the designs had.
+   * `drop` is the other way round — a soft dark shadow under pale writing —
+   * for white set on a ground too close to it in tone to carry it: "put a
+   * shadow in Our Story because it doesnt pop up from the background."
+   */
+  backing?: 'none' | 'shadow' | 'scrim' | 'drop';
   face?: 'display' | 'names' | 'script' | 'body';
   size?: number;
   weight?: number;
@@ -1583,7 +1592,7 @@ const zElement = z.union([
   z.object({
     ...zBase, kind: z.literal('text'), block: z.enum(['head', 'label', 'caption', 'free']),
     lines: z.array(zLine).min(1).max(8),
-    backing: z.enum(['none', 'shadow', 'scrim']).optional(),
+    backing: z.enum(['none', 'shadow', 'scrim', 'drop']).optional(),
     face: z.enum(['display', 'names', 'script', 'body']).optional(),
     size: z.number().positive().max(40).optional(),
     weight: z.number().int().min(100).max(900).optional(),

@@ -336,7 +336,7 @@ table.data tr:hover td {
    phone is 9:16 and the clip is 976:2120, so `cover` shaves 11.09% of the
    phone's height off each end of the frame — the guest page's box of 21%..55%
    of the frame is this one, put through p = 1.22182f − 11.091. */
-.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 14.5%; bottom: 44%; }
+.gal-phone[data-clip='baby-blue-bow'] .gal-plate > div { color: #4a5b7a; left: 16%; width: 68%; top: 14.5%; bottom: 44%; }
 /* The card the words go on when the clip could not play at all — a phone in
    low power mode refuses autoplay, a slow line has not finished the file, a
    browser will not decode it. The poster cannot stand in: both posters carry
@@ -2226,6 +2226,17 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    cqw so they scale with the type rather than with the screen. */
 .inv-bb-art [data-backing='shadow'] { text-shadow: 0 0.16cqw 0.55cqw var(--inv-surface), 0 0 1cqw var(--inv-surface); }
 .inv-bb-art [data-backing='scrim'] { padding: 0.9cqw 1.6cqw; background: color-mix(in srgb, var(--inv-surface) 70%, transparent); border-radius: 0.9cqw; }
+/* The other way round: pale writing on a ground too close to it in tone.
+   Her OUR STORY is white on a tan plate, about 1.9 to 1, and "it doesnt pop
+   up from the background." A soft shadow in the design's own ink under the
+   letters gives every stroke an edge to be read against without printing a
+   hard outline on artwork this delicate — one close shadow for the edge, one
+   wider and fainter for the lift. */
+.inv-bb-art [data-backing='drop'] {
+  text-shadow:
+    0 0.12cqw 0.3cqw color-mix(in srgb, var(--inv-ink) 55%, transparent),
+    0 0.3cqw 0.9cqw color-mix(in srgb, var(--inv-ink) 30%, transparent);
+}
 /*
  * A designer's own text highlight — the coloured pill Canva puts behind a
  * line of type. Inline, so it takes the shape of the words on every line
@@ -2569,13 +2580,18 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
 /* its card is the clear ground the ribbons leave: the words in the design's
    blue, set in the diamond the ribbons open — the owner drew where — and
    larger than the Capiz card's, which has a narrow card to fit. */
-/* The diamond the ribbons open is not quite centred on the frame: its axis
-   runs about two points right of the middle, and its widest row is at 42% of
-   the frame. The box is set on that axis rather than the frame's, or the
-   eyebrow's first letter ends up on the satin. The owner marked the centre
-   they wanted on a phone — 37.9% down the screen, 51.7% across — and this box
-   puts the writing's middle at 38.0% and 52%. */
-.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; left: 18%; width: 68%; top: 21%; bottom: 45%; }
+/* The diamond the ribbons open is not quite centred on the frame — its axis
+   runs about two points right of the middle, and its widest row is at 42% —
+   and the box used to be set on that axis: 18% + 68% put the writing's middle
+   at 52%, off a mark of 51.7% the owner gave against the artwork.
+   Read on the finished thing it was wrong: "put the az in the middle, i think
+   its favoring the right side." The monogram is the largest thing on the card
+   and a two per cent lean shows on it long before it shows on the tracked
+   capitals above and below, which is why this survived a look at the small
+   type. 16% + 68% centres it on the frame. The reason for the old axis still
+   stands — keep the eyebrow off the satin — so it is checked at phone width
+   rather than assumed. */
+.inv-open[data-clip='baby-blue-bow'] .inv-open-plate > div { color: #4a5b7a; left: 16%; width: 68%; top: 21%; bottom: 45%; }
 /* The type is shared between the two surfaces because the clip fills the
    width of both, so a size in cqw lands the same on each; only the boxes
    above differ, because the preview's 9:16 phone crops the frame's head and

@@ -134,6 +134,8 @@ type Set = {
   weight?: number;
   role?: LineRole;
   color?: Ink;
+  /** what holds it off the ground behind it, where its own colour will not */
+  backing?: TextEl['backing'];
   /** the middle of her line, as a share of the width; the default is the page's middle */
   cx?: number;
   /** the box, as a share of the width — hers plus the room a longer answer needs */
@@ -226,6 +228,7 @@ const sheet = (ratio: number) => {
       x: s.cx ?? 50, y: s.mid ?? at(s, lead), w: s.w ?? 88, anchor: s.mid !== undefined ? 'centre' : 'top',
       face: s.face ?? 'body', size: s.size, leading: lead,
       ...(s.weight ? { weight: s.weight } : {}),
+      ...(s.backing ? { backing: s.backing } : {}),
       ...(s.track !== undefined ? { tracking: s.track } : {}),
       ...(s.turn ? { rotate: s.turn } : {}),
       ...(s.z ? { z: s.z } : {}),
@@ -545,7 +548,20 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       COVER.one('cover-word', { base: 24.215, size: 11.16, face: 'names', role: 'script', w: 92 },
         { word: 'cover' }, say('Christening')),
       COVER.one('cover-of', { base: 27.225, size: pt(30), color: 'accent', face: 'display', weight: 700, cx: 51.34 }, say('of our son')),
-      COVER.one('cover-name', { base: 45.455, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
+      /*
+       * The given names, lifted clear of the surname under them.
+       *
+       * "could you also arrange the Azriel Cayden, can you lift it a little
+       * so the name below can be understood."
+       *
+       * They were at 45.455, two and three quarters of a point above the
+       * surname's baseline — but this is a script at 11.52, whose em is 6.48%
+       * of the page, so its descenders fall about 2.3% below its own
+       * baseline and the surname's capitals begin 1.9% above theirs. The two
+       * bands crossed, and the y of Cayden came down through German-Corporal.
+       * 43.9 puts the descenders' foot a hair above the capitals' head.
+       */
+      COVER.one('cover-name', { base: 43.9, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
         bind('cover', 'childFull', { show: 'given' })),
       // the surname is the cover's own question now; parents.familyName is
       // where it was asked before, and is still read for anything typed then
@@ -926,7 +942,7 @@ export const CHRISTENING_PAGES: PageSpec[] = [
        * her cap height cannot both be had; the width is what makes the
        * composition, so the width is what is matched.
        */
-      STORY.one('story-head', { base: 13.24, size: 10, color: 'surface', face: 'display', weight: 700, cx: 50.19, w: 72, room: 22 },
+      STORY.one('story-head', { base: 13.24, size: 10, color: 'surface', backing: 'drop', face: 'display', weight: 700, cx: 50.19, w: 72, room: 22 },
         { word: 'title:story' }, say('Our Story')),
       // on the plate (16.15%–19.27%), hung so the words sit on its middle
       STORY.one('story-line', { base: 18.12, size: pt(26), color: 'surface', face: 'names', role: 'script', cx: 50.19, w: 62, room: 46 },

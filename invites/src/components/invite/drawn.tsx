@@ -524,7 +524,25 @@ function Frame({ el, read, grow, deco }: { el: PhotoEl; read: Read; grow?: numbe
     >
       {url
         // a moving picture is never re-encoded: the transform endpoint would take its first frame
-        ? <img src={el.animated ? url : imageUrl(url, IMAGE.grid)} alt={alt} loading="lazy" style={crop ? cropStyle(crop) as CSSProperties : undefined} />
+        ? <img
+            src={el.animated ? url : imageUrl(url, IMAGE.grid)}
+            alt={alt}
+            /*
+             * A picture that waits for a tap is fetched before the tap.
+             *
+             * A held element is hidden outright until the thing that names
+             * it is pressed, and a lazy picture inside one is not fetched
+             * while it is hidden — so the photograph in the instax began
+             * downloading at the moment the print came out of the camera
+             * and landed in the frame a beat later: "its delayed, so it
+             * looks awkward that the photo is pulled out delayed." It is
+             * one picture and the gesture is the whole point of the page,
+             * so it is loaded with the page and waits, decoded, for its cue.
+             */
+            loading={read.held?.has(el.tapAs ?? el.id) ? 'eager' : 'lazy'}
+            fetchPriority={read.held?.has(el.tapAs ?? el.id) ? 'high' : undefined}
+            style={crop ? cropStyle(crop) as CSSProperties : undefined}
+          />
         : <figcaption className="inv-bb-ask">{read.edit!.label(el)}</figcaption>}
     </figure>
   );

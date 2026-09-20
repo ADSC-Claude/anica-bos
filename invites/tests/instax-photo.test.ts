@@ -98,3 +98,38 @@ test('the photograph comes out of the camera with the print, on the one tap', ()
   // over her print, because her picture area is not cut out of the file
   assert.ok((photo.z ?? 0) > (print.z ?? 0), 'the photograph covers the placeholder she drew');
 });
+
+test('the print is fed out from behind the camera, and her words stay on top of it', () => {
+  /*
+   * "could you still arrange the polaroid to be pulling out at the back of
+   * the instax not at the front."
+   *
+   * The camera was painted into her cover, and a ground sits under every
+   * element there is, so the print could only ever rise in front of it —
+   * covering the slot it was supposed to be coming out of. So the camera
+   * is an element now, cut out of the cover at the rectangle it occupies
+   * and laid back at those coordinates, where it is invisible against the
+   * ground it came from. The only thing it changes is what may pass in
+   * front of it.
+   */
+  const camera = el('cover-camera') as PhotoEl;
+  assert.equal((camera.bind as { asset?: string }).asset, '/christening/parts/instax-camera.webp');
+  assert.ok((camera.z ?? 0) > (photo.z ?? 0) && (camera.z ?? 0) > (print.z ?? 0),
+    'the print and the photograph in it both travel underneath');
+
+  // laid back where it already is: the print's foot ends inside the top plate
+  const printFoot = print.y! + (print.w! * print.aspect!) / RATIO / 2;
+  const cameraTop = camera.y! - (camera.w! * camera.aspect!) / RATIO / 2;
+  assert.ok(printFoot > cameraTop, 'at rest the foot of the print is already behind the plate');
+
+  /*
+   * And the words that ask for the tap are printed on the camera's lower
+   * body. They needed no height of their own while the camera was paint;
+   * over a cut-out they would vanish behind it, which is a fault a guest
+   * meets before anything else on the page.
+   */
+  const click = (cover.elements ?? []).find((e) => e.id === 'cover-click')!;
+  assert.ok((click.z ?? 0) > (camera.z ?? 0), 'CLICK HERE reads over the camera');
+  const tap = el('cover-tap') as ShapeEl;
+  assert.ok((click.z ?? 0) > (tap.z ?? 0), 'and over the rectangle laid across it');
+});

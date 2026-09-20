@@ -591,7 +591,14 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         bind('cover', 'time', { show: 'time' })),
       COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 74, lead: 1.2, room: 56 },
         bind('ceremony', 'venue')),
-      COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print' },
+      /*
+       * Her CLICK HERE sits on the camera's lower body, and the camera is an
+       * element now (`cover-camera`, z 3) rather than paint on the ground.
+       * A ground is under everything by definition, so the words needed no
+       * height of their own while the camera was in it; over the cut-out
+       * they need z 5, above the camera and above the tap laid across it.
+       */
+      COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print', z: 5 },
         say('CLICK HERE')),
       /*
        * The print, and the tap that pulls it out.

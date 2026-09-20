@@ -102,3 +102,48 @@ export function answeredFor(replies: ReplyRow[]): Map<string, string> {
   }
   return out;
 }
+
+/**
+ * The names on the list that a typed reply is most likely to be.
+ *
+ * "there is a rsvp already for pedro, that what im referring to this tab, it
+ * doesnt click to the list i have now"
+ *
+ * A reply that arrived before the guest list existed — or one where the guest
+ * typed "Jhen" instead of picking "Jennifer Dela Cruz" — carries a name and
+ * nothing else. The couple can see the two are the same person; the system
+ * cannot, and until it is told, that guest sits on the list as "no reply yet"
+ * while their reply sits on the other tab unattached. The headcount is wrong
+ * in both directions at once.
+ *
+ * So this offers the couple a shortlist to confirm rather than guessing on
+ * their behalf. It is deliberately *only* a ranking: nothing here attaches
+ * anything. A wrong automatic match is worse than no match — it would mark
+ * the wrong lola as coming — so a person always presses the button.
+ *
+ * Scored on whole words rather than letters. "Pedro German Jr." and "Pedro
+ * german jr" share three; "Pedro German" shares two; "Maria Santos" shares
+ * none and does not appear. A word that merely starts the same ("german" and
+ * "germaine") counts for less than an exact one, which is what keeps a
+ * near-namesake below the real match instead of above it.
+ */
+export type Rankable = { id: string; name: string };
+
+export function rankGuests<T extends Rankable>(replyName: string, guests: readonly T[], limit = 6): T[] {
+  const words = (s: string) => s.toLowerCase().split(/[\s,.()/-]+/).filter(Boolean);
+  const mine = words(replyName);
+  if (!mine.length) return [];
+  const scored = guests
+    .map((g) => {
+      const theirs = words(g.name);
+      let score = 0;
+      for (const w of mine) {
+        if (theirs.includes(w)) score += 2;
+        else if (theirs.some((t) => t.startsWith(w) || w.startsWith(t))) score += 1;
+      }
+      return { g, score };
+    })
+    .filter((s) => s.score > 0);
+  scored.sort((a, b) => b.score - a.score || a.g.name.localeCompare(b.g.name));
+  return scored.slice(0, limit).map((s) => s.g);
+}

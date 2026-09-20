@@ -546,3 +546,75 @@ export async function submitGuestbook(input: z.infer<typeof guestbookSchema>, ip
   await notify(invitation.userId, `${input.name} left a wish`, str(gb, 'prompt') || input.message.slice(0, 80), `/account/invitations/${invitation.id}/guestbook`);
   return { entry, pending: moderated };
 }
+
+/**
+ * The couple saying that a typed reply is somebody on their list.
+ *
+ * "there is a rsvp already for pedro, that what im referring to this tab, it
+ * doesnt click to the list i have now"
+ *
+ * Her first real reply arrived at 2:47 and her guest list at 4:04. The reply
+ * carried the name "Pedro german jr" and nothing else, and when the list
+ * turned up nothing joined the two: Pedro sat on the guest list as "no reply
+ * yet" while his acceptance sat on the RSVP tab attached to nobody. The
+ * headcount was wrong twice over, in opposite directions.
+ *
+ * Nothing matches automatically, and that is deliberate. Marking the wrong
+ * lola as coming is worse than leaving a reply unattached, so rankGuests()
+ * offers a shortlist and a person presses the button. What lands here is
+ * already a decision.
+ *
+ * Recorded as MATCHED rather than PICKED or LINK, because it is neither the
+ * guest proving who they are nor the guest choosing off the list — it is the
+ * couple's reading of it. Like PICKED it grants nothing: no allotment is
+ * unlocked and the reply stays in the seat queue if it was there, because
+ * agreeing who somebody is is not agreeing to their three seats.
+ *
+ * `guestId: null` unmatches, for the correction that follows a wrong press.
+ */
+export async function matchReply(
+  invitation: { id: string },
+  rsvpId: string,
+  guestId: string | null,
+) {
+  const reply = await prisma.rsvp.findFirst({
+    where: { id: rsvpId, invitationId: invitation.id },
+    select: { id: true, name: true, attendees: true, source: true },
+  });
+  if (!reply) throw new HttpError(404, 'That reply is not on this invitation.');
+
+  // A reply that came through a personal link is already the guest, by the
+  // one piece of evidence this system has. Re-pointing it by hand would throw
+  // that away for a guess.
+  if (reply.source === 'LINK') throw new HttpError(400, 'That reply came through a personal link, so it already belongs to a guest.');
+
+  if (guestId) {
+    const guest = await prisma.guest.findFirst({ where: { id: guestId, invitationId: invitation.id }, select: { id: true } });
+    if (!guest) throw new HttpError(404, 'That name is not on this guest list.');
+    // One guest, one reply: a second reply pointed at the same row would
+    // count them twice on the seating chart and the headcount sheet.
+    const taken = await prisma.rsvp.findFirst({ where: { invitationId: invitation.id, guestId, NOT: { id: rsvpId } }, select: { name: true } });
+    if (taken) throw new HttpError(400, `That name is already matched to ${taken.name}'s reply.`);
+  }
+
+  /*
+   * The head of the party carries the id too.
+   *
+   * answeredFor() reads a party out of the attendee list, and the couple's
+   * guest list reads "replied" from it. Matching the reply without tagging
+   * the person at the head of it would leave the guest list still saying "no
+   * reply yet" for the very guest just matched.
+   */
+  const party = attendeesOf(reply.attendees);
+  const attendees = party.map((a, i) =>
+    i === 0
+      ? (guestId ? { ...a, guestId } : { name: a.name, relation: a.relation })
+      : a,
+  );
+
+  return prisma.rsvp.update({
+    where: { id: reply.id },
+    data: { guestId, source: guestId ? 'MATCHED' : 'TYPED', attendees: attendees as never },
+    select: { id: true, name: true, guestId: true, source: true },
+  });
+}

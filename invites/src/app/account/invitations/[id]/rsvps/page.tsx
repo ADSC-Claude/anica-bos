@@ -10,7 +10,7 @@ import { replyIdentity } from '@/lib/names';
 import { PageHeader, Stat, Empty } from '@/components/ui';
 import { RsvpToggle } from './toggle';
 import { companionsOf, attendeeLine } from '@/lib/attendees';
-import { awaitingDecision, replySeats, sourceLabel, wasVetted } from '@/lib/seats';
+import { awaitingDecision, replySeats, sourceLabel, wasVetted, type ReplySource } from '@/lib/seats';
 import { invitationUrl } from '@/lib/app-url';
 import { displayTitle, fieldsFor, bool } from '@/lib/sections';
 import { contentOf } from '@/lib/invitations';
@@ -19,6 +19,7 @@ import { rsvpStats, type BreakdownKey } from '@/lib/rsvp-stats';
 import { Decide } from './decide';
 import { Remove } from './remove';
 import { WhatGuestsSee } from './questions';
+import { MatchToGuest } from './match';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,12 +34,13 @@ const BAR: Record<BreakdownKey, string> = { attending: 'var(--ok)', declined: 'v
  * typed beside it. A corporate reply's department sits here rather than in the
  * contact column, because it says who somebody is from, not how to reach them.
  */
-function NameCell({ name, alias, group, department, from }: { name: string; alias: string; group: string; department: string; from: string }) {
+function NameCell({ name, alias, group, department, from, match }: { name: string; alias: string; group: string; department: string; from: string; match?: React.ReactNode }) {
   const under = [department, group, alias && `replied as ${alias}`, from].filter(Boolean).join(' · ');
   return (
     <td>
       {name}
       {under && <span className="block text-xs text-[color:var(--color-ink-500)]">{under}</span>}
+      {match}
     </td>
   );
 }
@@ -97,8 +99,16 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
   // wasVetted, not `Boolean(guestId)`: the guest-list picker sets a guestId
   // on a reply nobody vetted, and reading one as the other let a picked name
   // claim ten seats and skip this queue. See seats.ts.
+  /*
+   * The names, once, for the matcher on every unmatched row. Id and name and
+   * nothing else: this is a shortlist to press, not the guest list, and the
+   * tokens and numbers on those rows have no business in a page prop.
+   */
+  const guestNames = manager
+    ? await prisma.guest.findMany({ where: { invitationId: inv.id }, select: { id: true, name: true }, orderBy: { name: 'asc' } })
+    : [];
   const personalLinks = entitled(inv, 'rsvp.personalLinks');
-  const vettedOf = (r: { guestId: string | null; source?: 'LINK' | 'PICKED' | 'TYPED' | null }) => wasVetted(r, personalLinks);
+  const vettedOf = (r: { guestId: string | null; source?: ReplySource }) => wasVetted(r, personalLinks);
   // The queue keeps a reply that was cut, rather than dropping it the moment
   // the number is saved. Two reasons: the couple still has to tell that guest,
   // and the drawer where they write it would otherwise unmount mid-sentence
@@ -277,7 +287,24 @@ export default async function RsvpsPage({ params }: { params: Promise<{ id: stri
             <tbody>
               {rsvps.map((r) => (
                 <tr key={r.id}>
-                  <NameCell name={replyIdentity(r.name, r.guest?.name).name} alias={replyIdentity(r.name, r.guest?.name).alias} group={r.groupName} department={r.department} from={sourceLabel(r)} />
+                  <NameCell
+                          name={replyIdentity(r.name, r.guest?.name).name}
+                          alias={replyIdentity(r.name, r.guest?.name).alias}
+                          group={r.groupName}
+                          department={r.department}
+                          from={sourceLabel(r)}
+                          match={
+                            r.source === 'LINK' ? null : (
+                              <MatchToGuest
+                                invitationId={inv.id}
+                                replyId={r.id}
+                                replyName={r.name}
+                                matchedName={r.guestId ? (r.guest?.name ?? '') : undefined}
+                                guests={guestNames}
+                              />
+                            )
+                          }
+                        />
                   <td><span className={`pill ${r.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{r.response === 'ACCEPT' ? 'Accepted' : 'Declined'}</span></td>
                   <td>
                     {r.response === 'ACCEPT' ? (

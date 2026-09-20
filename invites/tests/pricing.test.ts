@@ -205,3 +205,40 @@ test('what we print as the turnaround is what we count a due date from', () => {
   assert.equal(turnaroundLabel(3, 3), '3 working days');
   assert.equal(turnaroundLabel(1, 1), '1 working day');
 });
+
+/**
+ * What Luxury is told it already has.
+ *
+ * "The optional extra is only offered to signature since this doesnt have
+ * those." The seating chart, the check-in and the shared album are Luxury's
+ * by the package, so it is not sold them — but the checkout printed a price
+ * beside each one and greyed the tick, which reads as withheld rather than
+ * owned. Offer and label now read the same feature, so they cannot drift.
+ */
+test('Luxury is told it has what it is not sold', () => {
+  for (const code of ['QR_CHECKIN', 'SEATING_VIEWER', 'PHOTO_SHARING']) {
+    assert.equal(addOnAvailable(code, 'LUXURY'), false, `${code} is not sold to Luxury`);
+    assert.equal(addOnIncluded(code, 'LUXURY'), true, `${code} reads as included on Luxury`);
+    // and Signature, which does not have them, is offered them at a price
+    assert.equal(addOnAvailable(code, 'COMPLETE'), true, `${code} is sold to Signature`);
+    assert.equal(addOnIncluded(code, 'COMPLETE'), false, `${code} is not free on Signature`);
+  }
+});
+
+test('an add-on with no headline feature is never "included"', () => {
+  // rush and priority are work, not a feature a package can already carry
+  assert.equal(addOnIncluded('RUSH', 'LUXURY'), false);
+  assert.equal(addOnIncluded('PRIORITY', 'LUXURY'), false);
+  assert.equal(addOnIncluded('PRINTABLE', 'LUXURY'), false);
+});
+
+test('the offer and the label never disagree', () => {
+  // the rule that matters: nothing is both sold and already owned
+  const codes = ['QR_CHECKIN', 'SEATING_VIEWER', 'PHOTO_SHARING', 'PASSWORD', 'PRINTABLE', 'RUSH', 'PRIORITY'];
+  for (const tier of ['BASIC', 'STANDARD', 'COMPLETE', 'LUXURY'] as const) {
+    for (const code of codes) {
+      assert.ok(!(addOnAvailable(code, tier) && addOnIncluded(code, tier)),
+        `${code} on ${tier} is either sold or already owned, never both`);
+    }
+  }
+});

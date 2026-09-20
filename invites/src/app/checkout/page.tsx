@@ -5,7 +5,7 @@ import { getSession } from '@/lib/auth';
 import { getSettings } from '@/lib/settings';
 import { onlinePaymentsOffered } from '@/lib/paymongo';
 import { prisma } from '@/lib/db';
-import { catalogue } from '@/lib/orders';
+import { catalogue, loadLaunch } from '@/lib/orders';
 import { paletteFrom } from '@/lib/theme';
 import { premiumOpeningsFor } from '@/lib/premium-openings';
 import { CheckoutWizard } from './wizard';
@@ -25,10 +25,11 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
     const qs = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === 'string')).toString();
     redirect(`/signup?next=${encodeURIComponent(`/checkout${qs ? `?${qs}` : ''}`)}`);
   }
-  const [{ packages, addOns }, templates, s] = await Promise.all([
+  const [{ packages, addOns }, templates, s, launch] = await Promise.all([
     catalogue(),
     prisma.template.findMany({ where: { published: true }, orderBy: [{ featured: 'desc' }, { sortOrder: 'asc' }] }),
     getSettings(),
+    loadLaunch(),
   ]);
 
   const online = onlinePaymentsOffered();
@@ -49,6 +50,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
           return { id: t.id, slug: t.slug, name: t.name, occasion: t.occasion, occasions: t.occasions, minTier: t.minTier, premium: t.premium, thumbnailUrl: t.thumbnailUrl, description: t.description, palette: { bg: pal.bg, accent: pal.accent, accent2: pal.accent2 }, premiumOpenings: premiumOpeningsFor(t).map((o) => o.name) };
         })}
         initial={sp}
+        launch={launch.coupon}
         demoSlug={s['site.demoSlug']}
         online={online}
       />

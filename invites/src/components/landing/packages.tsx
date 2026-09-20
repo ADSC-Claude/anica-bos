@@ -3,6 +3,7 @@ import type { Tier } from '@prisma/client';
 import { TIERS, TIER_LABELS } from '@/lib/tiers';
 import { SERVICE_MODES, DEFAULT_SERVICE_MODE, addOnPriceRises } from '@/lib/pricing';
 import { formatPesoShort } from '@/lib/money';
+import { offerPrice, offerHeadline, offerLeftLine, type LaunchOffer } from '@/lib/launch';
 
 export type PackageCard = { tier: Tier; name: string; tagline: string; priceCents: number; dfyFeeCents: number; conciergeFeeCents: number; revisionRounds: number; linkValidityDays: number };
 export type AddOnCard = { code: string; name: string; description: string; imageUrl: string; priceCents: number; quoted: boolean };
@@ -14,7 +15,7 @@ const HIGHLIGHTS: Record<Tier, string[]> = {
   LUXURY: ['Everything in Signature', 'Seating chart your guests can look themselves up on', 'QR check-in at the door on the day', 'Shared album your guests add photos to afterwards', 'Save the Date card included, not an add-on', 'E-mail confirmation to every guest who accepts, free', 'We build it for you, with 8 rounds of changes before we publish', '20 photos + video · link valid 1 year after the event'],
 };
 
-export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns: AddOnCard[] }) {
+export function Packages({ packages, addOns, offer }: { packages: PackageCard[]; addOns: AddOnCard[]; offer?: LaunchOffer | null }) {
   // One service, so there is nothing to toggle: the price on the card is the
   // whole price, building included.
   const service = SERVICE_MODES.find((m) => m.key === DEFAULT_SERVICE_MODE)!;
@@ -24,8 +25,18 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
   // more on Standard than on Basic. Save the Date falls to nothing on Luxury,
   // which is not something to hedge the price with.
   const price = (a: AddOnCard) => (a.quoted ? `${addOnPriceRises(a.code) ? 'from ' : ''}${formatPesoShort(a.priceCents)}` : 'Ask us');
+  // null rather than false when there is nothing on, so every price below
+  // falls back to the plain one without a second condition
+  const off = offer && offer.left > 0 ? offer : null;
   return (
     <div>
+      {off && (
+        <p className="mx-auto mb-5 flex max-w-xl flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-full border border-[color:var(--color-plum-600)] bg-[color:var(--color-plum-50,#faf5ff)] px-5 py-2 text-center">
+          <span className="font-semibold text-[color:var(--color-plum-600)]">{offerHeadline(off)}</span>
+          <span className="text-sm text-[color:var(--color-ink-700)]">{offerLeftLine(off)}</span>
+          <span className="w-full text-xs text-[color:var(--color-ink-500)]">Taken off at checkout — no code needed.</span>
+        </p>
+      )}
       <p className="mb-6 text-center text-sm text-[color:var(--color-ink-500)]">
         Every package is built for you. You fill in a form, we encode and lay it out — {service.turnaround.toLowerCase()} — and you approve a preview before it goes live.
       </p>
@@ -38,8 +49,25 @@ export function Packages({ packages, addOns }: { packages: PackageCard[]; addOns
             <article key={t} className={`card relative flex flex-col p-6 ${popular ? 'border-[color:var(--color-plum-600)] ring-1 ring-[color:var(--color-plum-600)]' : ''}`}>
               {popular && <span className="pill pill-info absolute -top-3 left-6">Most popular</span>}
               <p className="eyebrow">{TIER_LABELS[t]}</p>
-              <p className="display mt-2 text-4xl">{formatPesoShort(p.priceCents)}</p>
-              <p className="text-xs text-[color:var(--color-ink-500)]">one-time · built for you · no subscription</p>
+              {/* While the opening offer is on, the lower number is the
+                  price: it is the one set large, and the old one stands
+                  beside it struck through so the saving is visible without
+                  arithmetic. The checkout applies the same row, so this is
+                  what they are charged. When the seats run out the offer
+                  disappears from here on its own and the full price is
+                  simply the price again. */}
+              {off ? (
+                <p className="mt-2 flex flex-wrap items-baseline gap-2">
+                  <span className="display text-4xl">{formatPesoShort(offerPrice(p.priceCents, off.percent))}</span>
+                  <s className="text-lg text-[color:var(--color-ink-500)]">{formatPesoShort(p.priceCents)}</s>
+                </p>
+              ) : (
+                <p className="display mt-2 text-4xl">{formatPesoShort(p.priceCents)}</p>
+              )}
+              <p className="text-xs text-[color:var(--color-ink-500)]">
+                {off ? <span className="font-semibold text-[color:var(--color-plum-600)]">{off.percent}% off · </span> : null}
+                one-time · built for you · no subscription
+              </p>
               <p className="mt-2 text-sm text-[color:var(--color-ink-700)]">{p.tagline}</p>
               <ul className="mt-4 flex-1 space-y-1.5 text-sm">{HIGHLIGHTS[t].map((h) => <li key={h} className="flex gap-2"><span aria-hidden className="text-[color:var(--color-plum-600)]">✓</span>{h}</li>)}</ul>
               <Link href={`/checkout?tier=${t}`} className={`btn mt-5 ${popular ? 'btn-primary' : 'btn-secondary'}`}>Get started</Link>

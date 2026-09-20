@@ -4,7 +4,8 @@ import { prisma } from './db';
 import { PREMIUM_OPENING_CODE } from './openings';
 import { HttpError } from './errors';
 import { orderReference } from './codes';
-import { quote, serviceModeAvailable, saveTheDateOffered, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
+import { quote, couponProblem, type CouponLike, serviceModeAvailable, saveTheDateOffered, revisionRounds, DEFAULT_SERVICE_MODE, SERVICE_MODES, RUSH_CODE, PRIORITY_CODE, SAVE_THE_DATE_CODE, type Quote } from './pricing';
+import { LAUNCH_CODE, launchOffer, type LaunchOffer } from './launch';
 import { TIER_LABELS, hasFeature } from './tiers';
 import { createDraft, createSaveTheDate } from './invitations';
 import { audit } from './audit';
@@ -40,6 +41,24 @@ export async function catalogue() {
   return { packages, addOns };
 }
 
+/**
+ * The opening offer, as the pages that show a price need it.
+ *
+ * One row, read in three places — the packages on the landing page, the
+ * checkout's running total, and buildQuote, which is what actually charges.
+ * Reading the same row is the point: a card that promises twenty per cent and
+ * a bill that does not is worse than never offering it.
+ *
+ * The coupon comes back beside the offer because the checkout prices in the
+ * browser as the customer clicks, and it needs the row itself to do that; the
+ * server prices again on the way in, so the browser's copy decides nothing.
+ */
+export async function loadLaunch(): Promise<{ offer: LaunchOffer | null; coupon: CouponLike | null }> {
+  const row = await prisma.coupon.findUnique({ where: { code: LAUNCH_CODE } });
+  const offer = launchOffer(row);
+  return { offer, coupon: offer ? row : null };
+}
+
 export async function buildQuote(input: {
   occasion: Occasion;
   tier: Tier;
@@ -58,8 +77,33 @@ export async function buildQuote(input: {
   }
   const codes = Array.from(new Set(input.addOnCodes)).slice(0, 12);
   const addOns = codes.length ? await prisma.addOn.findMany({ where: { code: { in: codes }, active: true, quoted: true } }) : [];
-  const coupon = input.couponCode?.trim() ? await prisma.coupon.findUnique({ where: { code: input.couponCode.trim().toUpperCase() } }) : undefined;
-  const q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: input.couponCode?.trim() ? coupon : undefined });
+  const typed = input.couponCode?.trim();
+  let coupon = typed ? await prisma.coupon.findUnique({ where: { code: typed.toUpperCase() } }) : undefined;
+  let q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: typed ? coupon : undefined });
+
+  /*
+   * The opening offer applies itself.
+   *
+   * Nobody is told a code, because the lower price is what the packages
+   * show — so the checkout has to reach the same number on its own, or the
+   * card and the bill disagree. It is only taken when the customer typed
+   * nothing: a code they went and found is theirs to keep, and quietly
+   * replacing it with ours would be a worse deal offered as a favour.
+   *
+   * Checked rather than trusted, and checked against this order's own
+   * total, so a seat that has gone or an offer switched off simply means
+   * the full price. It must never become a `couponError` — that is what
+   * createOrder refuses to sell on, and an offer that has run out is not a
+   * reason to stop somebody buying.
+   */
+  if (!typed) {
+    const launch = await prisma.coupon.findUnique({ where: { code: LAUNCH_CODE } });
+    if (launch && !couponProblem(launch, q.totalCents)) {
+      coupon = launch;
+      q = quote({ pkg, serviceMode: input.serviceMode, addOns, occasion: input.occasion, coupon: launch });
+    }
+  }
+
   return { ...q, pkg, addOns, couponId: coupon && !q.couponError ? coupon.id : undefined };
 }
 

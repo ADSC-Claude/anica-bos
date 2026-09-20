@@ -19,6 +19,13 @@ export type WizardProps = {
   addOns: WizardAddOn[];
   templates: WizardTemplate[];
   initial: { occasion?: string; tier?: string; template?: string; coupon?: string; addon?: string };
+  /**
+   * The opening offer, already applied. Nobody types it — the packages quote
+   * the lower price, so the total here has to start there too. A code in the
+   * link wins: it is the customer's own, and it is checked against the server
+   * before it replaces this one.
+   */
+  launch?: CouponLike | null;
   demoSlug: string;
   /** Whether paying online is offered; otherwise the transfer with a receipt is the way to pay. */
   online: boolean;
@@ -36,7 +43,7 @@ export function CheckoutWizard(p: WizardProps) {
   // an add-on named in the link (the gallery's "with the premium opening") starts ticked
   const [addOns, setAddOns] = useState<string[]>(p.addOns.some((a) => a.code === p.initial.addon && a.quoted) ? [p.initial.addon as string] : []);
   const [couponCode, setCouponCode] = useState(p.initial.coupon ?? '');
-  const [coupon, setCoupon] = useState<CouponLike | null>(null);
+  const [coupon, setCoupon] = useState<CouponLike | null>(p.initial.coupon ? null : (p.launch ?? null));
   const [couponError, setCouponError] = useState('');
   const [language, setLanguage] = useState<'en' | 'tl'>('en');
   const [notes, setNotes] = useState('');
@@ -61,7 +68,9 @@ export function CheckoutWizard(p: WizardProps) {
   async function applyCoupon() {
     setCouponError('');
     if (!couponCode.trim()) {
-      setCoupon(null);
+      // clearing the box goes back to the opening offer, not to full price:
+      // it was never the customer's code to remove
+      setCoupon(p.launch ?? null);
       return;
     }
     const gross = q ? q.totalCents + q.discountCents : 0;

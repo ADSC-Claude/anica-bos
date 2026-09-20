@@ -1640,7 +1640,7 @@ function Guestbook({ inv, data, lang, hostsNoun, slug, tagline, title }: { inv: 
         ))}
       </ul>
       <p className="inv-muted mb-5 text-center text-xs">{more > 0 ? t(lang, 'guestbook.more', { n: more }) : '\u00a0'}</p>
-      <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'rsvp.thanks') }} />
+      <GuestbookForm slug={slug} labels={{ name: t(lang, 'rsvp.name'), prompt: str(data, 'prompt') || t(lang, 'guestbook.prompt', { hosts: hostsNoun }), submit: t(lang, 'guestbook.submit'), pending: t(lang, 'guestbook.pending'), thanks: t(lang, 'guestbook.thanks') }} />
     </Section>
   );
 }

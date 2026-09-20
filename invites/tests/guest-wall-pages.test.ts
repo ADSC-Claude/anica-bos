@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { CHRISTENING_PAGES } from '../src/lib/christening';
 import { SHOW_MESSAGES } from '../src/lib/showlist';
 import type { PhotoEl, PictureGround, Source, TextEl } from '../src/lib/design';
+import { t } from '../src/lib/copy';
 
 /** the one source shape this file asks about: a writing of the design's own */
 const written = (s: Source) => ('fixed' in s ? s : undefined);
@@ -164,4 +165,26 @@ test('what stretches in each picture is a strip that can be stretched', () => {
     // the three tile her 1920 exactly, head + band + foot
     assert.ok(head + band < 1920, `${key}: the band leaves a foot`);
   }
+});
+
+/**
+ * What a guest is told once the message is away.
+ *
+ * The form borrowed the RSVP's line for years, so a guest who wrote a wish
+ * for the baby was answered with "Your response has been recorded" — which
+ * reads like their attendance was just filed, on a page that never asked
+ * about attendance. The guestbook says something about the guestbook now.
+ *
+ * Held here rather than trusted because the wrong line was not a bug anyone
+ * could see in a diff: both keys exist, both are polite, and only a guest who
+ * actually posts a message ever reads the difference.
+ */
+test('the guestbook thanks a guest for a message, not for an RSVP', () => {
+  for (const lang of ['en', 'tl'] as const) {
+    const thanks = t(lang, 'guestbook.thanks');
+    assert.notEqual(thanks, t(lang, 'rsvp.thanks'), 'the two pages ask different things');
+    assert.ok(thanks.length > 0);
+  }
+  assert.match(t('en', 'guestbook.thanks'), /message/i, 'it names what was sent');
+  assert.match(t('tl', 'guestbook.thanks'), /mensahe/i);
 });

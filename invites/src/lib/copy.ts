@@ -185,6 +185,7 @@ const PHRASES = {
   'guestbook.prompt': { en: 'Leave a message for {hosts}', tl: 'Mag-iwan ng mensahe para sa {hosts}' },
   'guestbook.submit': { en: 'Post my wish', tl: 'I-post' },
   'guestbook.pending': { en: 'Thank you! Your message will appear once the hosts approve it.', tl: 'Salamat! Lalabas ang mensahe mo pagka-approve ng mga host.' },
+  'guestbook.thanks': { en: 'Salamat! Your message is in the book.', tl: 'Salamat! Nasa aklat na ang mensahe mo.' },
   'photos.title': { en: 'Photos From The Day', tl: 'Mga Larawan Ngayong Araw' },
   'photos.prompt': { en: 'Share your photos from the day', tl: 'I-share ang mga litrato mo ngayong araw' },
   'photos.choose': { en: 'Choose your photos', tl: 'Pumili ng mga larawan' },

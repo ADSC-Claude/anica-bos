@@ -116,19 +116,26 @@ const BY_FAMILY: Record<Family, Record<string, Preset[]>> = {
       p('lunch', 'Lunch follows', 'Lunch follows right after the ceremony, at the venue below.', 'Kasunod agad ang tanghalian pagkatapos ng seremonya, sa venue sa ibaba.'),
     ],
     /*
-     * No chip offering the attire back to the family.
+     * The attire chip stays, and blank is how a family says nothing.
      *
-     * "In the dress code still remove the 'smart casual, in the colours
-     * above etc' no need for that"
+     * It was taken out for one turn — "In the dress code still remove the
+     * 'smart casual, in the colours above etc' no need for that" — and put
+     * back the moment the ask was understood properly:
      *
-     * 'Smart casual, in the colours above if you like.' was here, and it is
-     * the one sentence the drawn dress code page already says twice over: it
-     * is headed with the attire, it draws the clothes, and it names every
-     * swatch under the palette. A family who takes the chip ends up with a
-     * caption repeating the page. The two left say something the page cannot
-     * draw — the weather, and where everyone is coming from.
+     *   "Ohh its fine to retain the note since its like a reminder. So we can
+     *   just leave it blank if we dont want to put any note or reminder for
+     *   it."
+     *
+     * Which is the distinction the first pass missed. The three lines that
+     * came off the drawn page were printed *whether or not anybody asked for
+     * them* — captions under the figures, a palette line falling back twice
+     * to wording nobody wrote. That is what made them redundant. A chip is
+     * not printed by anybody: it sits under an empty box, and an empty box
+     * prints nothing. A family who wants the reminder taps it; a family who
+     * does not, leaves the box alone.
      */
     dressNote: [
+      p('smart', 'Smart casual', 'Smart casual, in the colours above if you like.', 'Smart casual, sa mga kulay sa itaas kung nais ninyo.'),
       p('outdoors', 'Dress light, it is outdoors', 'The party is outdoors — dress light and bring a hat for the little ones.', 'Sa labas ang party — magbihis nang magaan at magdala ng sumbrero para sa mga bata.'),
       p('sunday', 'Sunday best', 'Sunday best, please — we are coming from the church.', 'Pang-Linggong bihis po — galing tayo sa simbahan.'),
     ],

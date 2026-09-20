@@ -621,10 +621,18 @@ test('a crop, a cut and a drawn frame survive the column', () => {
   assert.deepEqual(got.crop, { x: 0.1234567890, y: 0.25, w: 0.5, h: 0.5 });
   assert.equal(got.mask, 'arch');
   assert.equal(got.frame, 'polaroid');
-  // a window outside the picture is not a window, and is refused rather than drawn
+  /*
+   * A window outside the picture is not a window, and is refused rather
+   * than drawn. Outside is not the same as *bigger*, though: a window wider
+   * than the picture is what "show the whole photograph" makes, and it is
+   * legitimate as long as the picture sits inside it — see readCrop.
+   */
   const bad = JSON.parse(JSON.stringify(raw)) as DesignDoc;
-  (bad.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: 0, y: 0, w: 1.4, h: 1 };
-  assert.equal(designOf(bad, 'babyblue').dropped.length, 1);
+  (bad.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: 0.6, y: 0, w: 0.5, h: 0.5 };
+  assert.equal(designOf(bad, 'babyblue').dropped.length, 1, 'a window running off the right edge');
+  const whole = JSON.parse(JSON.stringify(raw)) as DesignDoc;
+  (whole.pages[1].elements!.find((e) => e.id === frame.id) as PhotoEl).crop = { x: -0.2, y: 0, w: 1.4, h: 1 };
+  assert.deepEqual(designOf(whole, 'babyblue').dropped, [], 'but the whole picture, with frame either side of it, is kept');
 });
 
 test('a starter is one page per section, cover first, and it is publishable the moment it is made', () => {

@@ -1177,15 +1177,22 @@ export const CHRISTENING_PAGES: PageSpec[] = [
      * fifths of the width, and the last block on this page was already
      * landing in it before the ninongs' colours made it taller.
      *
-     * Four, not five, and measured rather than guessed: nothing at all is
-     * drawn in the foot slice above 47.6cqw from the bottom of the page, and
-     * what is drawn between there and 37cqw is the tips of her gypsophila at
-     * the right edge. Five reserved 55cqw and left seven of plain sky under
-     * the last words for no reason — "when it doesnt needed, lets not let
-     * the space be that empty." Four reserves 44 and stops just above the
-     * flowers.
+     * Two, and measured off the right file this time.
+     *
+     * I set this to four off `babyblue/dresscode.webp`, which is the Baby
+     * Blue ground and not hers: a plain blue page with gypsophila in two
+     * corners. Her page is `christening/dresscode.webp`, and its foot slice
+     * is the white card — the card's inside runs to 12.6cqw from the foot
+     * of the page, and the clouds are below that. So four reserved 44cqw
+     * and left thirty-one of blank white card under the last words: "is
+     * this the finished one? its still has a space on it that has a blank
+     * space." It was not.
+     *
+     * Two reserves 22cqw, which stops the words 9.4cqw above the card's
+     * bottom edge — an inner margin of about a line and a half, and her
+     * clouds untouched below it.
      */
-    drawn: true, grow: true, live: true, headPad: 26, footPad: 4,
+    drawn: true, grow: true, live: true, headPad: 26, footPad: 2,
     ground: ground('dresscode', 1.7778, true),
     elements: [
       // the heading is hers; the line under it is the section's, written from

@@ -162,9 +162,17 @@ test('the queue keeps a reply that was cut, so the message can still be written'
   // couple is typing into, on the revalidate that follows their own click.
   assert.match(page, /r\.seatsApproved !== null && r\.seatsApproved < r\.seats/, 'a cut reply falls out of the queue');
   assert.match(page, /awaitingDecision\(r, vettedOf\(r\)\)/);
-  // vetted needs both halves: the cap in submitRsvp sits behind the same
-  // entitlement that hands out personal links.
-  assert.match(page, /Boolean\(r\.guestId\) && personalLinks/, 'a Basic reply with a token would count as vetted');
+  /*
+   * The rule itself moved into wasVetted() in seats.ts when the guest-list
+   * picker arrived, because `Boolean(r.guestId) && personalLinks` stopped
+   * being true: the picker sets a guestId on a reply nobody vetted, and this
+   * page was reading one as the other. What is held here is that the page
+   * asks the shared rule rather than making its own; the rule's two halves —
+   * a token, and the entitlement the cap in submitRsvp sits behind — are
+   * held in seats.test.ts.
+   */
+  assert.match(page, /wasVetted\(r, personalLinks\)/, 'the page infers vetting itself again');
+  assert.doesNotMatch(page, /Boolean\(r\.guestId\) && personalLinks/, 'a picked name would count as vetted');
 });
 
 test('every total counts the settled number rather than the claim', () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seatsHeld, replyState, headsArrived, arrivalLabel, replySeats, awaitingDecision, decided } from '../src/lib/seats';
+import { seatsHeld, replyState, headsArrived, arrivalLabel, replySeats, awaitingDecision, decided, wasVetted, sourceLabel, type ReplySource } from '../src/lib/seats';
 
 test('a guest holds what they confirmed, or what was set aside until they say', () => {
   // Nobody has answered: the couple's allotment is the number to plan against.
@@ -148,4 +148,59 @@ test('a settled reply leaves the queue at whatever number was chosen', () => {
   assert.equal(decided({ response: 'ACCEPT', seats: 4 }), false);
   assert.equal(decided({ response: 'ACCEPT', seats: 4, seatsApproved: null }), false);
   assert.equal(decided(null), false);
+});
+
+// ---------------------------------------------------------------------------
+// Where a reply came from
+// ---------------------------------------------------------------------------
+
+/**
+ * The picker broke an inference this file used to be able to make.
+ *
+ * Before it, a `guestId` on a reply could only have come from a token, so
+ * "has a guestId" and "came through a personal link" were the same sentence.
+ * The guest-list picker sets a guestId too — and it is nothing like the same
+ * evidence, because anyone holding the link can tap anyone's name and no
+ * allotment was applied when they did.
+ *
+ * Left unsaid, that let a picked name claim ten seats and skip the couple's
+ * review, which is the one number in this system nobody agreed to.
+ */
+const reply = (source: ReplySource, guestId: string | null = 'g_1') => ({ guestId, source });
+
+test('a personal link is vetted; a picked name off the same list is not', () => {
+  assert.equal(wasVetted(reply('LINK'), true), true, 'the token was the evidence');
+  assert.equal(wasVetted(reply('PICKED'), true), false, 'anyone could have tapped that name');
+  assert.equal(wasVetted(reply('TYPED', null), true), false);
+});
+
+test('without personal links nothing was ever capped, so nothing is vetted', () => {
+  // The cap in submitRsvp lives behind the same entitlement.
+  for (const s of ['LINK', 'PICKED', 'TYPED'] as const) assert.equal(wasVetted(reply(s), false), false);
+});
+
+/**
+ * A reply older than the column. It could only have got a guestId from a
+ * token, because there was no other way to get one — so the old reading is
+ * still the right reading of it, and only of it.
+ */
+test('a reply written before the picker existed is read the old way', () => {
+  assert.equal(wasVetted(reply(null), true), true, 'a guestId then meant a token');
+  assert.equal(wasVetted(reply(null, null), true), false);
+  assert.equal(wasVetted(reply(undefined), true), true, 'undefined is the same story as null');
+});
+
+test('and the queue follows: a picked party of four waits, a linked one does not', () => {
+  const four = { response: 'ACCEPT' as const, seats: 4, seatsApproved: null };
+  assert.equal(awaitingDecision(four, wasVetted(reply('LINK'), true)), false, 'their allotment already held them');
+  assert.equal(awaitingDecision(four, wasVetted(reply('PICKED'), true)), true, 'nobody agreed to these four');
+});
+
+test('the couple’s list says which of the two it was, and says nothing for the plain case', () => {
+  assert.equal(sourceLabel(reply('LINK')), 'personal link');
+  assert.equal(sourceLabel(reply('PICKED')), 'picked from your list');
+  assert.equal(sourceLabel(reply('TYPED', null)), '', 'the ordinary reply needs no caption');
+  // An old reply keeps the caption it has always had.
+  assert.equal(sourceLabel(reply(null)), 'personal link');
+  assert.equal(sourceLabel(reply(null, null)), '');
 });

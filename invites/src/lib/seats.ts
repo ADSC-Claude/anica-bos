@@ -72,6 +72,60 @@ export function replySeats(reply: SeatReply | null | undefined): number {
  * One seat is not a claim. Somebody answering for themselves is the ordinary
  * case and does not need a decision; queueing it would bury the ones that do.
  */
+/**
+ * Where a reply came from, which is the same question as how far it can be
+ * taken at its word about who sent it.
+ *
+ * Null on every reply written before the column existed. See RsvpSource in
+ * the schema.
+ */
+export type ReplySource = 'LINK' | 'PICKED' | 'TYPED' | null | undefined;
+
+/**
+ * Whether the couple already agreed to this reply's numbers.
+ *
+ * A personal link is the one piece of evidence this form has: the token was
+ * handed to one household, and submitRsvp refuses a reply bigger than the
+ * seats set aside for them. Those never queue, which is what keeps a couple
+ * with a hundred families from ticking a hundred boxes.
+ *
+ * A **picked** name is not that, and the difference is the whole reason this
+ * function exists. The guest-list picker sets `guestId` on a reply the same
+ * way a token does — but anyone holding the link can tap anyone's name, no
+ * allotment was applied, and the seats dropdown still goes to ten. Reading
+ * `guestId` as proof, which is what this code did while the picker was the
+ * only new thing in the room, let a picked reply claim ten seats and skip the
+ * couple's review entirely.
+ *
+ * A null source is a reply older than the picker. It could only have got a
+ * `guestId` from a token, because there was no other way to get one, so the
+ * old inference is still the right reading of it — and only of it.
+ *
+ * `personalLinks` is the second half: the cap in submitRsvp lives behind that
+ * entitlement, so without it even a token reply was never held to anything.
+ */
+export function wasVetted(reply: { guestId: string | null; source?: ReplySource }, personalLinks: boolean): boolean {
+  if (!personalLinks) return false;
+  return reply.source ? reply.source === 'LINK' : Boolean(reply.guestId);
+}
+
+/**
+ * How the couple's own list should describe where a reply came from — or
+ * nothing at all, for the ordinary case that needs no caption.
+ *
+ * "personal link" is worth saying because it means the name is the couple's
+ * own and the seats were already agreed. "picked from your list" is worth
+ * saying because it looks identical on the row and is not the same thing: the
+ * spelling matches the list, and nothing else about it was checked. A typed
+ * reply is the plain case and says nothing.
+ */
+export function sourceLabel(reply: { guestId: string | null; source?: ReplySource }): string {
+  if (reply.source === 'PICKED') return 'picked from your list';
+  if (reply.source === 'TYPED') return '';
+  // LINK, or an old reply whose guestId can only have come from a token.
+  return reply.guestId ? 'personal link' : '';
+}
+
 export function awaitingDecision(reply: SeatReply | null | undefined, vetted: boolean): boolean {
   if (!reply || reply.response !== 'ACCEPT') return false;
   if (decided(reply)) return false;

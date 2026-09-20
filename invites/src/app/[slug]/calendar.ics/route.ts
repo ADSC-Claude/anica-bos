@@ -25,7 +25,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   return new Response(ics, {
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': `attachment; filename="${slug}.ics"`,
+      // inline, not attachment: a phone hands an inline calendar file to
+      // the calendar, and tries to save an attached one — which an in-app
+      // browser cannot do, so nothing happened at all
+      'Content-Disposition': `inline; filename="${slug}.ics"`,
       'Cache-Control': 'no-store',
     },
   });

@@ -3374,6 +3374,22 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
   position: relative; z-index: 1; padding-top: var(--live-top, 0);
 }
 .inv[data-paged] .inv-page[data-live] > .inv-section:not(.inv-bb-art) > :is(.inv-eyebrow, .inv-title, .inv-tagline):first-child { display: none; }
+/*
+ * And where the design has said where its foot is, that is the foot.
+ *
+ * `.inv-section` carries 3.25rem top and bottom. On a live page the top is
+ * replaced by `--live-top`, which is the design's own `headPad`; the bottom
+ * was left alone and sat *on top of* the design's `footPad` — a hand's width
+ * of nothing between the last words and the artwork, on every live page with
+ * a foot. "can you arrange this awkward space that doesnt have anything on
+ * it, i know its a space for extension, but when it doesnt needed, lets not
+ * let the space be that empty."
+ *
+ * Only where the design states a foot (`data-foot`): a live page that states
+ * none is relying on the section's own, and taking it away would run the
+ * last line into the bottom of the page.
+ */
+.inv[data-paged] .inv-page[data-drawn][data-live][data-foot] > .inv-section:not(.inv-bb-art) { padding-bottom: 0.5rem; }
 
 /* ---------------------------------------------------------------------------
    The two guest-wall pages of the christening, whose artwork says where its

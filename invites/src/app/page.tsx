@@ -89,6 +89,9 @@ export default async function Landing() {
   const bandStill = PHOTO.card ?? '';
   const bandPeek = gallery.find((t) => t.peekSlug && t.thumbnailUrl === bandStill) ?? gallery.find((t) => t.peekSlug);
   const weddingPackages = TIERS.map((t) => packages.find((p) => p.occasion === 'WEDDING' && p.tier === t) ?? packages.find((p) => p.occasion === null && p.tier === t)).filter((p): p is NonNullable<typeof p> => Boolean(p));
+  // the tiers with a package on sale, in catalogue order — what the cards
+  // show, and now what the comparison table's columns are
+  const sold = TIERS.filter((t) => weddingPackages.some((p) => p.tier === t));
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -287,13 +290,22 @@ export default async function Landing() {
           </div>
         </section>
 
-        {/* Comparison */}
+        {/*
+          Comparison — only the packages a customer can actually buy.
+
+          COMPARISON still carries a cell for all four tiers, because the
+          rows are the catalogue and Basic and Standard are switched off in
+          Admin rather than deleted. The table asked for all four anyway, so
+          the site was offering a side-by-side against two packages nobody
+          can order. `sold` is the same rule the cards above use: a tier with
+          no package row is not a gap in the table, it is not there.
+        */}
         <section className="ed-section mx-auto max-w-6xl px-5">
           <h2 className="ed-display ed-display-lg text-center">Everything, side by side</h2>
           <div className="card mt-6 overflow-x-auto">
-            <table className="data min-w-[40rem]">
-              <thead><tr><th>Feature</th>{TIERS.map((t) => <th key={t}>{TIER_LABELS[t]}</th>)}</tr></thead>
-              <tbody>{COMPARISON.map((r) => <tr key={r.label}><td>{r.label}</td>{TIERS.map((t) => <td key={t}>{typeof r.cells[t] === 'boolean' ? (r.cells[t] ? <span className="text-[color:var(--ok)]">✓</span> : <span className="text-[color:var(--color-ink-500)]">—</span>) : r.cells[t]}</td>)}</tr>)}</tbody>
+            <table className={`data ${sold.length > 2 ? 'min-w-[40rem]' : 'min-w-[28rem]'}`}>
+              <thead><tr><th>Feature</th>{sold.map((t) => <th key={t}>{TIER_LABELS[t]}</th>)}</tr></thead>
+              <tbody>{COMPARISON.map((r) => <tr key={r.label}><td>{r.label}</td>{sold.map((t) => <td key={t}>{typeof r.cells[t] === 'boolean' ? (r.cells[t] ? <span className="text-[color:var(--ok)]">✓</span> : <span className="text-[color:var(--color-ink-500)]">—</span>) : r.cells[t]}</td>)}</tr>)}</tbody>
             </table>
           </div>
         </section>

@@ -320,17 +320,23 @@ test('valueAt: skipEmpty counts the rows that are filled, and nothing else does'
  * pressed it, and the invitation did not make a sound. `song` says a tap
  * here works the player; the renderer leaves the element out when there is
  * no song, the same rule an OPEN IN WAZE with no address follows.
+ *
+ * There are two of them now, and they are the same button: the words, which
+ * shrank onto the play button when she asked for them nearer it, and the
+ * transparent rectangle that gives the record back the size of a thumb. The
+ * rule is unchanged — both live on the hub, both vanish together when there
+ * is no song, and nothing anywhere else in the design claims to be one.
  */
 test('the christening hub carries the song control on her record', () => {
   const doc = builtinDesign('christening')!;
   const hub = doc.pages.find((p) => p.key === 'highlights')!;
   const controls = (hub.elements ?? []).filter((el) => el.song);
-  assert.equal(controls.length, 1, 'one control, on the record');
-  assert.equal(controls[0].id, 'hl-music');
+  assert.deepEqual(controls.map((el) => el.id), ['hl-music', 'hl-music-tap'],
+    'the words and the record it sits on, and nothing else on the page');
 
   // and nothing else in the design claims to be one
   const all = doc.pages.flatMap((p) => (p.elements ?? []).filter((el) => el.song));
-  assert.deepEqual(all.map((el) => el.id), ['hl-music']);
+  assert.deepEqual(all.map((el) => el.id), ['hl-music', 'hl-music-tap']);
 });
 
 /**

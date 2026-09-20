@@ -59,3 +59,61 @@ test('nothing was moved to achieve it', () => {
     assert.deepEqual({ x: e.x, y: e.y, w: e.w, h: (e as { h?: number }).h }, b, `${id} is the same rectangle`);
   }
 });
+
+/**
+ * The record, and the words that ride it.
+ *
+ * "the click for music, we will just move the writings so its near the
+ * play button" — then, of the two she was shown, "Closest to the button.
+ * Go for B."
+ *
+ * The words are an arc cut out of her page, and the centre that arc was
+ * struck from is the play button. Fitted against the cut-out's own alpha
+ * it falls at 26.0% across and 84.5% down the piece; measured against the
+ * render, the orange button's centre is (284, 228) in a 390-wide page,
+ * and the arc's is (283.6, 230.9). Three pixels apart. So the piece is
+ * shrunk about *that* point, not about its own middle, and the words come
+ * in along the same circle instead of sliding off it.
+ *
+ * Shrinking a button makes a smaller button, so `hl-music-tap` puts the
+ * record back under a thumb. These numbers are the ones a regression
+ * would quietly undo.
+ */
+test('CLICK FOR MUSIC rides in on the circle the play button is the centre of', () => {
+  const m = byId('hl-music')!;
+  assert.ok(m, 'the cut-out is on the hub');
+  assert.equal(m.w, 13.66, 'option B: 68% of the 20.09 she had');
+
+  // where the arc's centre lands, before and after — it must not move,
+  // or the words stop being concentric with the record
+  const ARC_X = 0.2599, ARC_Y = 0.8454;   // fitted to click-for-music.webp
+  const RATIO = 1.7778;                    // the hub page is this much taller than wide
+  const ASPECT = 0.8525;                   // the cut-out's own
+  const centre = (cx: number, cy: number, w: number) => ({
+    x: cx - w / 2 + ARC_X * w,
+    y: cy - (w * ASPECT) / (2 * RATIO) + ARC_Y * (w * ASPECT) / RATIO,
+  });
+  const was = centre(77.55, 29.97, 20.09);
+  const now = centre(m.x!, m.y!, m.w!);
+  assert.ok(Math.abs(now.x - was.x) < 0.05, `the arc's centre stays put across: ${was.x} -> ${now.x}`);
+  assert.ok(Math.abs(now.y - was.y) < 0.05, `the arc's centre stays put down: ${was.y} -> ${now.y}`);
+});
+
+test('the whole record answers a tap, and it takes nothing from its neighbours', () => {
+  const tap = byId('hl-music-tap') as { x: number; y: number; w: number; h: number; song?: true; fill?: string } | undefined;
+  assert.ok(tap, 'the record carries its own tap');
+  assert.equal(tap!.song, true, 'it starts the song');
+  assert.equal(tap!.fill, 'transparent', 'and it is never seen');
+
+  // it stops where the details envelope's rectangle ends
+  const details = byId('hl-open-details') as { x: number; w: number };
+  assert.ok(tap!.x - tap!.w / 2 >= details.x + details.w / 2 - 0.01,
+    'the record does not reach into The Details');
+
+  // and it stays off the RSVP envelope, which is measured down the page
+  const rsvp = byId('hl-open-rsvp') as { y: number; h: number };
+  const RATIO = 1.7778;                    // `h` is a share of the width, `y` of the height
+  const foot = tap!.y + (tap!.h / 2) / RATIO;
+  const rsvpTop = rsvp.y - (rsvp.h / 2) / RATIO;
+  assert.ok(foot <= rsvpTop, `the record ends at ${foot.toFixed(2)} and RSVP starts at ${rsvpTop.toFixed(2)}`);
+});

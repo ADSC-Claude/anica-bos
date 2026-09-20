@@ -23,6 +23,8 @@ import assert from 'node:assert/strict';
 import { cropKeyOf, readCrop, cropBeside, placeCrop } from '../src/lib/photo-crop';
 import { cleanSection, fieldsFor } from '../src/lib/sections';
 import { builtinDesign, cropWindow, cropAt, cropFit, cropStyle, cropChosen } from '../src/lib/design';
+import { CHRISTENING_PAGES } from '../src/lib/christening';
+import type { PhotoEl } from '../src/lib/design';
 import { designForm, framesFor } from '../src/lib/asks';
 
 const WINDOW = { x: 0.1, y: 0.2, w: 0.5, h: 0.5 };
@@ -264,4 +266,43 @@ test('the crop box draws the file whole and the slider stops at the square', () 
   // window's numbers read straight off it
   assert.match(box, /aspectRatio: size \? `\$\{size\.nw\} \/ \$\{size\.nh\}`/);
   assert.match(box, /object-contain/, 'and the picture is drawn whole inside it');
+});
+
+/**
+ * The crop box is shown the shape the page will actually clip by.
+ *
+ * "i drag and perfectly zoom the way i wanted to see it, yet it doesnt
+ * show up right in the previews."
+ *
+ * The instax on her cover is one picture out of Canva — white border and
+ * all — so the photograph was given the print's whole box and a window
+ * inside it, which is what puts the two under one clip and brings them out
+ * of the camera together. The element is 1.1367 tall, a portrait; the
+ * window inside it is 0.832 across by 0.7044 down, which comes out very
+ * nearly square.
+ *
+ * The form was handed the element's 1.1367 and never heard about the
+ * window. So the crop box drew her a tall frame, she set her photograph in
+ * it, and the page clipped that to a square — a different picture, every
+ * time, however carefully she placed it.
+ */
+test('a photograph in a window is framed by the window, not by the frame around it', () => {
+  const form = designForm(builtinDesign('christening'), 'CHRISTENING');
+  const cover = CHRISTENING_PAGES.find((p) => p.key === 'cover')!;
+  const photo = (cover.elements ?? []).find((e) => e.id === 'cover-photo') as PhotoEl;
+  const win = photo.inset!;
+
+  // what the page clips by: the window's own box, in the page's units
+  const wide = photo.w! * win.w;
+  const tall = photo.w! * photo.aspect! * win.h;
+  const clips = Math.round((tall / wide) * 10000) / 10000;
+  assert.ok(Math.abs(clips - 0.9624) < 0.0002, `the window is ${clips}, near enough square`);
+  assert.ok(Math.abs(photo.aspect! - clips) > 0.15, 'and nothing like the print it sits in');
+
+  // and that is the number the form hands the crop box
+  assert.deepEqual(framesFor('cover', form)['coverPhoto'], { aspect: clips });
+
+  // every other picture has no window, so nothing moves for them
+  assert.deepEqual(framesFor('gallery', form), { 'photos.url': { aspect: 0.959 } });
+  assert.deepEqual(framesFor('story', form), { 'timeline.photo': { aspect: 1.355 } });
 });

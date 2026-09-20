@@ -57,6 +57,30 @@ export type Ask = {
 };
 
 /** A frame's proportions, in a word. */
+/**
+ * The shape a customer's photograph is actually drawn in.
+ *
+ * Usually the element's own, and for the instax on her cover it is not.
+ * That frame is her print — white border and all, one picture out of Canva
+ * — so the photograph was given the print's whole box and a window inside
+ * it, which is what puts the two under one clip and brings them out of the
+ * camera together. The element is 23.70 wide at 1.1367, a tall rectangle;
+ * the window is 0.832 of it across and 0.7044 down, which is 19.72 by
+ * 18.98 — very nearly a square.
+ *
+ * The form was still being handed the element's 1.1367. So she framed her
+ * photograph in a tall box, the page drew it in a square one, and the two
+ * disagreed: "i drag and perfectly zoom the way i wanted to see it, yet it
+ * doesnt show up right in the previews." Her window is what the page
+ * clips by, so her window is the shape the crop box has to show.
+ */
+export const windowAspect = (el: PhotoEl): number | undefined => {
+  if (el.aspect === undefined) return undefined;
+  const win = el.inset;
+  if (!win || !(win.w > 0) || !(win.h > 0)) return el.aspect;
+  return Math.round((el.aspect * win.h / win.w) * 10000) / 10000;
+};
+
 export function shapeOf(aspect: number | undefined): AskShape {
   const a = aspect ?? 1;
   if (a >= 1.9) return 'tall';
@@ -182,7 +206,7 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
         const of = lists.get(`${ref.section}.${ref.field}`);
         const place = ref.index === undefined ? '' : of && of > 1 ? ` (${ref.index + 1} of ${of})` : ` ${ref.index + 1}`;
         const what = field?.label ?? ref.sub ?? ref.field;
-        const shape = el.kind === 'photo' ? shapeOf((el as PhotoEl).aspect) : undefined;
+        const shape = el.kind === 'photo' ? shapeOf(windowAspect(el as PhotoEl)) : undefined;
         const cut = el.kind === 'photo' ? (el as PhotoEl).mask : undefined;
         const guidance = shape
           ? cut && cut !== 'none' ? `${SHAPE_GUIDANCE[shape]} ${CUT_GUIDANCE[cut]}` : SHAPE_GUIDANCE[shape]
@@ -195,7 +219,7 @@ export function asksOf(doc: DesignDoc | null, occasion: Occasion): Ask[] {
           field: field?.key,
           label: `${sectionLabel(ref.section as SectionKey, occasion)} — ${what}${place}`,
           ...(shape ? { shape, guidance } : {}),
-          ...(el.kind === 'photo' ? { aspect: (el as PhotoEl).aspect ?? 1 } : {}),
+          ...(el.kind === 'photo' ? { aspect: windowAspect(el as PhotoEl) ?? 1 } : {}),
           ...(cut && cut !== 'none' ? { cut } : {}),
           ...(el.ask ? { marked: true as const } : {}),
           ...(el.kind === 'text' && room ? { room } : {}),

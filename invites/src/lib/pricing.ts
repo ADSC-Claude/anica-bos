@@ -201,9 +201,25 @@ export function addOnPriceRises(code: string): boolean {
   return code === RUSH_CODE;
 }
 
-/** Whether a tier is given this add-on rather than sold it. */
+/**
+ * Whether a tier is given this add-on rather than sold it.
+ *
+ * "The optional extra is only offered to signature since this doesnt have
+ * those." Luxury already carries the seating chart, the check-in and the
+ * shared album, so `addOnAvailable` has always declined to sell it them —
+ * but the checkout still printed ₱500 beside each one and greyed the tick,
+ * which reads as a thing withheld rather than a thing already owned.
+ *
+ * Read from the same headline feature that decides the offer, so the two
+ * can never disagree: whatever a package is not sold because it already
+ * has it, is what the package is told it has. Save the Date is named on
+ * top because it is the one that stays tickable — it is included, and it
+ * still has to be asked for, so that activation has a row to look for.
+ */
 export function addOnIncluded(code: string, tier: Tier): boolean {
-  return code === SAVE_THE_DATE_CODE && hasFeature(tier, 'saveTheDate.included');
+  if (code === SAVE_THE_DATE_CODE) return hasFeature(tier, 'saveTheDate.included');
+  const headline = ADDON_FEATURE[code]?.[0];
+  return headline ? hasFeature(tier, headline) : false;
 }
 
 export function serviceFee(pkg: Pick<PackageLike, 'tier' | 'dfyFeeCents' | 'conciergeFeeCents'>, mode: ServiceMode): number {

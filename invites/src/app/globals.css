@@ -5516,4 +5516,25 @@ body:has(.inv[data-paged][data-mode='night']) { background: #12131c; }
   text-decoration: none;
   text-transform: uppercase;
 }
-.inv-cal-back { margin-top: 1.5rem; color: inherit; font-size: 0.9rem; opacity: 0.75; }
+/*
+ * A thumb-sized way back.
+ *
+ * "the back to the invitation wont push thru." It was plain text, 142 by
+ * 22 pixels — half the height a touch reliably lands on, and the only
+ * thing on a page of big buttons that was not one. It navigates perfectly
+ * well in a browser; it was simply hard to hit, and hardest inside
+ * Messenger, which is where every guest is.
+ *
+ * Same quiet appearance, a target the size of the buttons above it.
+ */
+.inv-cal-back {
+  display: block;
+  width: min(22rem, 100%);
+  margin-top: 1.25rem;
+  padding: 0.9rem 1.25rem;
+  color: inherit;
+  font-size: 0.95rem;
+  opacity: 0.75;
+  text-align: center;
+  text-decoration: none;
+}

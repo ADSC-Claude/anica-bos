@@ -960,7 +960,7 @@ table.data tr:hover td {
   cursor: pointer;
 }
 .inv-pick-row.is-active,
-.inv-pick-row:hover {
+.inv-pick-row:not(.is-done):hover {
   background: color-mix(in srgb, var(--inv-accent2) 26%, transparent);
 }
 .inv-pick-name { flex: 1 1 auto; }
@@ -969,13 +969,33 @@ table.data tr:hover td {
   font-size: 0.75rem;
   opacity: 0.6;
 }
-/* The one thing a guest is looking for when they scan this list. */
+
+/*
+ * A name somebody has already replied for: spent, and saying so.
+ *
+ * "only grey out the name but the check mark shouldnt be grey out so it pops
+ * up just to show its done in rsvp."
+ *
+ * So the fade is put on the two spans and not on the row, which is the whole
+ * trick: `opacity` on the button would take the tick down with everything
+ * else, and the tick is the one thing on the row that has something to say.
+ * It keeps the accent colour at full strength against the greyed name.
+ *
+ * No `cursor: not-allowed`. A red circle on a name that has simply already
+ * answered reads as an error; this is a row doing its job.
+ */
+.inv-pick-row.is-done { cursor: default; }
+.inv-pick-row.is-done .inv-pick-name { color: color-mix(in srgb, var(--inv-ink) 42%, transparent); }
+.inv-pick-row.is-done .inv-pick-group { opacity: 0.35; }
+
+/* The one thing a guest is looking for when they scan this list, and the one
+   thing that does not fade when the rest of its row does. */
 .inv-pick-tick {
   flex: 0 0 auto;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--inv-accent);
 }
-.inv-pick-warn { color: color-mix(in srgb, var(--inv-ink) 62%, #8f1d17); }
 .inv-label {
   display: block;
   font-size: 0.8125rem;

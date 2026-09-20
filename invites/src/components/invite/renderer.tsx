@@ -1139,7 +1139,6 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
             hint: t(lang, 'rsvp.pickHint'),
             companionHint: t(lang, 'rsvp.pickHintCompanion'),
             replied: t(lang, 'rsvp.pickReplied'),
-            warn: t(lang, 'rsvp.pickWarn'),
             none: t(lang, 'rsvp.pickNone'),
           }}
           existing={existing}

@@ -684,13 +684,31 @@ export function Countdown({ target, labels, today }: { target: string; labels: [
  * differ from the row, the row is no longer what this box says, and a stale
  * id would file the reply under a name the guest can see is not theirs.
  *
- * A name somebody has already answered for is shown with a tick and still
- * offered — the commonest reason to tap it is that you are the one changing
- * that answer. The warning underneath is a sentence, not a wall.
+ * A name somebody has already answered for cannot be picked again.
+ *
+ * "also its okay that we have the check mark at the side and also grey it out
+ * that they can no longer add that name to the guestlist or companion because
+ * they have been listed in other rsvp the other guest listed. only grey out
+ * the name but the check mark shouldnt be grey out so it pops up just to show
+ * its done in rsvp."
+ *
+ * So the row goes quiet and the tick does not: the name and its group drop
+ * back to a muted grey, the tick keeps the accent colour and is the one thing
+ * on the row that still carries. Greying the tick along with the name would
+ * hide the very fact the row is there to report.
+ *
+ * It is out of the keyboard's path as well as the thumb's — the arrow keys
+ * step over it — because a row that cannot be chosen should not be somewhere
+ * the cursor stops.
+ *
+ * The one thing this costs: a guest amending their own reply can no longer
+ * find themselves here. They can still type their name, and a personal link
+ * still updates the reply it belongs to. Stopping a grandmother being
+ * answered for twice is worth more than saving somebody a retype.
  */
 type GuestMatch = { id: string; name: string; group: string; replied: boolean };
 
-export type NamePickerLabels = { hint: string; replied: string; warn: string; none: string };
+export type NamePickerLabels = { hint: string; replied: string; none: string };
 
 export function NamePicker({
   slug, value, guestId, onPick, placeholder, id, fieldName, required, labels, ariaLabel,
@@ -759,25 +777,39 @@ export function NamePicker({
   }, [open]);
 
   const take = (m: GuestMatch) => {
+    // Checked here as well as on the row, because a disabled button is a
+    // courtesy to the person pressing it and not a rule about what may happen.
+    if (m.replied) return;
     picked.current = true;
     onPick(m.name, m.id);
     setOpen(false);
     setActive(-1);
   };
 
+  /** The rows the cursor may land on: everyone who has not already replied. */
+  const pickable = matches.filter((m) => !m.replied).length;
+
+  // Step to the next row that can actually be taken, wrapping, and give up
+  // rather than spin when every match on screen is already answered for.
+  const step = (from: number, by: 1 | -1) => {
+    if (!pickable) return -1;
+    let i = from;
+    for (let n = 0; n < matches.length; n++) {
+      i = (i + by + matches.length) % matches.length;
+      if (!matches[i]!.replied) return i;
+    }
+    return -1;
+  };
+
   const keys = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!open || !matches.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => (i + 1) % matches.length); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => (i <= 0 ? matches.length - 1 : i - 1)); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => step(i, 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => step(i < 0 ? 0 : i, -1)); }
     else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); take(matches[active]!); }
     else if (e.key === 'Escape') { setOpen(false); setActive(-1); }
   };
 
   const listId = `${id ?? fieldName ?? 'name'}-list`;
-  // The warning only appears once a ticked name has actually been taken.
-  // Saying it while a guest is halfway through typing warns them off a name
-  // they have not chosen yet.
-  const chosen = guestId ? matches.find((m) => m.id === guestId) : undefined;
   const nothing = open && searched === value.trim() && matches.length === 0;
 
   return (
@@ -803,11 +835,19 @@ export function NamePicker({
       {open && matches.length > 0 && (
         <ul className="inv-pick-list" id={listId} role="listbox">
           {matches.map((m, i) => (
-            <li key={m.id} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
+            <li key={m.id} id={`${listId}-${i}`} role="option" aria-selected={i === active} aria-disabled={m.replied || undefined}>
+              {/*
+                * Still a button when it is spent, and disabled rather than
+                * dropped. A name that vanishes from the list reads as a name
+                * that is not on it, and the guest types it in by hand — which
+                * is the second reply this is here to prevent. It has to be
+                * seen, greyed, with its tick still bright.
+                */}
               <button
                 type="button"
-                className={`inv-pick-row ${i === active ? 'is-active' : ''}`}
-                onMouseEnter={() => setActive(i)}
+                disabled={m.replied}
+                className={`inv-pick-row ${i === active ? 'is-active' : ''} ${m.replied ? 'is-done' : ''}`}
+                onMouseEnter={() => { if (!m.replied) setActive(i); }}
                 onClick={() => take(m)}
               >
                 <span className="inv-pick-name">{m.name}</span>
@@ -818,9 +858,7 @@ export function NamePicker({
           ))}
         </ul>
       )}
-      {nothing && <p className="inv-muted mt-1 text-xs">{labels.none}</p>}
-      {!nothing && !chosen?.replied && <p className="inv-muted mt-1 text-xs">{labels.hint}</p>}
-      {chosen?.replied && <p className="inv-pick-warn mt-1 text-xs">{labels.warn.replace('{name}', chosen.name)}</p>}
+      {nothing ? <p className="inv-muted mt-1 text-xs">{labels.none}</p> : <p className="inv-muted mt-1 text-xs">{labels.hint}</p>}
     </div>
   );
 }

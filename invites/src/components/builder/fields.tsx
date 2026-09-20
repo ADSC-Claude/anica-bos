@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Field, Person, SectionData } from '@/lib/sections';
 import { cropKeyOf, readCrop, type Crop } from '@/lib/photo-crop';
-import { cropStyle, cropWindow, cropAt, cropFit, cropChosen } from '@/lib/design';
+import { cropWindow, cropAt, cropChosen } from '@/lib/design';
 import { PALETTE, PRESETS, MOTIF_MAX, swatchByHex, swatchStyle, presetColours } from '@/lib/palette';
 import { TITLES, type Lang } from '@/lib/copy';
 import { TIER_LABELS } from '@/lib/tiers';
@@ -468,27 +468,40 @@ function ImageInput({ field, value, onChange, invitationId, frame, crop, onCrop 
 /** How far in a picture can be pulled: any further and a phone photograph goes soft. */
 const ZOOM_MAX = 4;
 /*
- * How far out it can be pushed is not a constant: it is `cropFit`, the zoom
- * at which the whole photograph is inside the frame, and it depends on the
- * shapes of both. A frame rests filled — "it can be squared but it needs
- * more zoom in to fill the spaces" — and this is how a customer who wants
- * all of a photograph seen gets there in one gesture.
+ * How far out is one, and one is the whole square.
+ *
+ * The slider used to reach below it, to the zoom at which the photograph
+ * fits *inside* the frame — which leaves bare frame on two sides. "when i
+ * zoom it out there will be spaces at the side." "you can form a perfect
+ * square crop, even if it not super zooming it." Both true: zoom 1 is the
+ * largest square that fits inside the photograph, so it is at once the
+ * least zoom there is and the most of the picture that can be shown without
+ * a hole. Nothing below it is worth reaching.
  */
 
 /**
- * The real cut, with the photograph inside it and a hand on it.
+ * The whole photograph, with the square she is choosing laid over it.
  *
- * Drag moves the picture; the slider pulls it closer; Reset puts it back to
- * the middle, which is exactly what every invitation shows today — so a
- * customer who never touches it loses nothing, and one who touches it can
- * always get back.
+ * "always show the whole photo when uploaded, because there is zoom in and
+ * out and draging of photo. let me handle it."
+ *
+ * That was read twice as *the frame shows the whole photograph*, and twice
+ * it left bands of empty frame she did not want. It is not what she asked
+ * for. It is this: she sees all of the file while she decides, and what she
+ * decides is where the frame's square sits on it. So the box draws the
+ * picture whole — the stage takes the file's own proportions, so the file
+ * fills it exactly — and over it the window, bright inside and dimmed out,
+ * moved with a finger and resized with the slider.
+ *
+ * What lands on the page is always that square, filled. The frame can no
+ * longer show a gap, because the window can no longer leave the picture.
  *
  * The maths is the studio's, not a second copy of it: `cropWindow` turns a
- * zoom and a centre into the window, clamped so the frame can never show a
- * strip of nothing, and `cropAt` reads one back. The file's own width and
- * height are what lock the window to the frame's shape, and the only place
- * they are known is the picture the browser has loaded — so the box does
- * nothing at all until `onLoad`.
+ * zoom and a centre into the window, clamped inside the file, and `cropAt`
+ * reads one back. The file's own width and height are what lock the window
+ * to the frame's shape and what give the stage its shape, and the only
+ * place they are known is the picture the browser has loaded — so the box
+ * shows no window at all until it has them.
  */
 function CropBox({ url, frame, crop, onCrop }: {
   url: string;
@@ -499,11 +512,10 @@ function CropBox({ url, frame, crop, onCrop }: {
   const [size, setSize] = useState<{ nw: number; nh: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ id: number; x: number; y: number; cx: number; cy: number } | null>(null);
-  // as far out as the slider goes: the whole photograph inside the frame,
-  // with a band of frame on two sides. A frame rests filled, which is what
-  // the designer drew it around; this is where "show me all of it" lands.
-  const fit = size ? cropFit(frame.aspect, size.nw, size.nh) : 1;
   const at = size && crop ? cropAt(crop, frame.aspect, size.nw, size.nh) : { zoom: 1, cx: 0.5, cy: 0.5 };
+  // the square as it stands, in fractions of the file — which is also where
+  // it goes on the stage, the stage being the file at the file's own shape
+  const win = size ? cropWindow({ aspect: frame.aspect, nw: size.nw, nh: size.nh, ...at }) : null;
 
   /*
    * The file's own size, taken once.
@@ -541,27 +553,27 @@ function CropBox({ url, frame, crop, onCrop }: {
     if (!d || d.id !== e.pointerId || !rect || !size) return;
     e.preventDefault();
     /*
-     * A pixel dragged is a pixel the picture moves, which is a fraction of
-     * the *window* — so the further in it is zoomed the less of the file one
-     * pixel covers, and the picture keeps pace with the finger at every
-     * zoom. The window's own width and height are how much of the file the
-     * frame shows, which is what the box is that many pixels wide.
+     * The stage is the whole file at the file's own shape, so a pixel across
+     * it is that fraction of the file — whatever the zoom. The square goes
+     * where the finger goes, which is the right way round now that the
+     * picture is the thing standing still.
      */
-    const win = cropWindow({ aspect: frame.aspect, nw: size.nw, nh: size.nh, zoom: at.zoom, cx: d.cx, cy: d.cy });
-    put({ zoom: at.zoom, cx: d.cx - ((e.clientX - d.x) / rect.width) * win.w, cy: d.cy - ((e.clientY - d.y) / rect.height) * win.h });
+    put({ zoom: at.zoom, cx: d.cx + (e.clientX - d.x) / rect.width, cy: d.cy + (e.clientY - d.y) / rect.height });
   }
   const up = () => { drag.current = null; };
 
-  // untouched, the box shows what the page shows: the frame filled
-  const shown = size && crop ? cropStyle(crop) : { width: '100%', height: '100%', left: '0', top: '0', objectFit: 'cover' };
+  // the cut the frame takes, drawn on the window rather than on the stage:
+  // the stage is the photograph, and the photograph is not round
+  const cut = frame.cut === 'circle' ? '50%' : frame.cut === 'arch' ? '999px 999px 0.2rem 0.2rem' : '0.2rem';
   return (
     <div className="w-32 shrink-0">
       <div
         ref={box}
-        className="relative w-full touch-none overflow-hidden border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-100)]"
+        className="relative w-full touch-none overflow-hidden rounded-lg border border-[color:var(--color-sand-200)] bg-[color:var(--color-sand-100)]"
         style={{
-          aspectRatio: `1 / ${frame.aspect}`,
-          borderRadius: frame.cut === 'circle' ? '50%' : frame.cut === 'arch' ? '999px 999px 0.4rem 0.4rem' : '0.5rem',
+          // the file's own shape, so the picture fills the stage and every
+          // number below is read straight off it
+          aspectRatio: size ? `${size.nw} / ${size.nh}` : `1 / ${frame.aspect}`,
           cursor: size ? 'grab' : 'default',
         }}
         onPointerDown={down}
@@ -574,8 +586,7 @@ function CropBox({ url, frame, crop, onCrop }: {
           src={url}
           alt=""
           draggable={false}
-          className="pointer-events-none absolute max-w-none select-none"
-          style={shown as CSSProperties}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
           /*
            * The size is taken on the ref as well as on load, because a
            * picture the browser already holds is `complete` before React
@@ -586,11 +597,38 @@ function CropBox({ url, frame, crop, onCrop }: {
           ref={took}
           onLoad={(e) => took(e.currentTarget)}
         />
+        {win && (
+          /*
+           * The square, over the picture. The dimming is the one shadow
+           * spread wider than the box will ever be, so what is outside the
+           * window goes down and what is inside stays exactly as it is — no
+           * second copy of the picture, nothing to fall out of step.
+           */
+          <span
+            aria-hidden
+            className="pointer-events-none absolute border-2 border-white"
+            style={{
+              left: `${win.x * 100}%`,
+              top: `${win.y * 100}%`,
+              width: `${win.w * 100}%`,
+              height: `${win.h * 100}%`,
+              borderRadius: cut,
+              boxShadow: '0 0 0 9999px rgba(28, 32, 38, 0.45)',
+            }}
+          />
+        )}
       </div>
       <input
         type="range"
         className="mt-1.5 w-full"
-        min={fit}
+        /*
+         * One, not `cropFit`. Below one the window leaves the picture and
+         * the frame shows a gap: "when i zoom it out there will be spaces at
+         * the side." One is already the largest square inside the file —
+         * "you can form a perfect square crop, even if it not super zooming
+         * it" — so there is nothing under it worth reaching.
+         */
+        min={1}
         max={ZOOM_MAX}
         step={0.02}
         value={at.zoom}
@@ -599,7 +637,7 @@ function CropBox({ url, frame, crop, onCrop }: {
         onChange={(e) => put({ ...at, zoom: Number(e.target.value) })}
       />
       <div className="flex items-center justify-between text-[11px] text-[color:var(--color-ink-500)]">
-        <span>Drag to move</span>
+        <span>Drag the frame</span>
         {crop && <button type="button" className="underline" onClick={() => onCrop(undefined)}>Reset</button>}
       </div>
     </div>

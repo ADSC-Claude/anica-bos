@@ -1434,20 +1434,31 @@ export function cropStyle(crop: NonNullable<PhotoEl['crop']>): Record<string, st
  * the picture's edges, so she can never pan past the paper and leave a strip
  * of frame with nothing in it.
  *
- * Below it the window grows past the picture and the whole photograph is
- * seen with a band of the frame on two sides — "always show the whole photo
- * when uploaded, because there is zoom in and out and draging of photo. let
- * me handle it." `cropFit` is as far out as that goes: any further and the
- * picture would shrink inside a frame for no reason. The clamp reads the
- * same either way round, because a window wider than the picture has to
- * keep the picture inside *it* rather than the other way about.
+ * Below it, nothing. One is the floor, and the floor is the whole point.
+ *
+ * It was not, for two days. "always show the whole photo when uploaded,
+ * because there is zoom in and out and draging of photo. let me handle it"
+ * was read as *the frame shows the whole photograph*, so the slider was let
+ * out to `cropFit` — the zoom at which the picture fits inside the frame,
+ * with a band of bare frame on two sides. She said what that looked like
+ * four times, in four ways, and the last two were plain: "when i zoom it
+ * out there will be spaces at the side", and "you can form a perfect square
+ * crop, even if it not super zooming it."
+ *
+ * She is right, and the arithmetic says so. Zoom 1 *is* the perfect square:
+ * the largest square that fits inside the photograph, which is the least
+ * zoom that fills the frame. There is nothing to be gained by going below
+ * it and a hole to be lost by it. So the window never spills, no frame on
+ * any page ever shows a gap, and what she asked for — seeing the whole
+ * photograph while she chooses — belongs in the crop box, which now draws
+ * the whole file with the square she is placing laid over it.
  */
 export function cropWindow({ aspect = 1, nw, nh, zoom = 1, cx = 0.5, cy = 0.5 }: {
   aspect?: number; nw: number; nh: number; zoom?: number; cx?: number; cy?: number;
 }): NonNullable<PhotoEl['crop']> {
   // the window's height over its width, measured in fractions of the source
   const want = aspect * (nw / nh);
-  const z = Math.max(cropFit(aspect, nw, nh), zoom);
+  const z = Math.max(1, zoom);
   const w = (want <= 1 ? 1 : 1 / want) / z;
   const h = (want <= 1 ? want : 1) / z;
   const into = (v: number, span: number) => Math.min(Math.max(v, Math.min(0, 1 - span)), Math.max(0, 1 - span));

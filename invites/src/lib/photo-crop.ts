@@ -48,34 +48,29 @@ export function cropKeyOf(key: string): string {
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
-/** As far out as a window may be pushed: past this the picture is a speck. */
-const SPAN_MAX = 20;
-
 /**
- * Where a window of this width may start, so it holds the picture or sits
- * inside it.
- *
- * Narrower than the file, it has to be *within* the file: 0 to 1 − w, which
- * is what it always was. Wider than the file — which is what "show me the
- * whole photograph" makes — the file is inside *it* instead, so the range
- * runs the other way, 1 − w to 0. One expression covers both, and it is the
- * same clamp `cropWindow` applies when the window is made.
- */
-const holds = (at: number, span: number) =>
-  at >= Math.min(0, 1 - span) - 0.0001 && at <= Math.max(0, 1 - span) + 0.0001;
-
-/**
- * Whether four numbers make a window at all: the one rule, shared.
+ * Whether a window sits inside the picture: the one rule, shared.
  *
  * A customer's window comes through `readCrop`; a design's own comes
- * through the document's schema, which used to lean on its bounds (`w` at
- * most 1) to catch a window off the edge of the picture. Widening those
- * bounds for "show the whole photograph" took that away, so the schema
- * asks this instead and the two paths cannot drift apart.
+ * through the document's schema. Both ask this, so the two cannot drift
+ * apart — and what they ask is the invariant the whole feature rests on:
+ * **the window never leaves the picture**, so a frame never shows a strip
+ * of nothing.
+ *
+ * It was widened for a day and a half, to let a window grow past the
+ * picture and show the whole photograph inside the frame. That is what
+ * made the gaps: "when i zoom it out there will be spaces at the side."
+ * Zoom 1 is already the largest square inside the file — "you can form a
+ * perfect square crop, even if it not super zooming it" — so there was
+ * never anything out there worth reaching, and the width came back in.
+ *
+ * The tenth of a thousandth of slack is rounding: `placeCrop` writes four
+ * decimal places, and a window clamped exactly to the right-hand edge can
+ * land a hair over it.
  */
 export function cropHolds(c: Crop): boolean {
-  if (!(c.w > 0 && c.w <= SPAN_MAX) || !(c.h > 0 && c.h <= SPAN_MAX)) return false;
-  return holds(c.x, c.w) && holds(c.y, c.h);
+  if (!(c.w > 0 && c.w <= 1) || !(c.h > 0 && c.h <= 1)) return false;
+  return c.x >= -0.0001 && c.y >= -0.0001 && c.x + c.w <= 1.0001 && c.y + c.h <= 1.0001;
 }
 
 /**
@@ -87,15 +82,9 @@ export function cropHolds(c: Crop): boolean {
  * strip of empty frame, and an uncropped picture never does — so the doubt
  * goes to the picture as it is.
  *
- * A window *wider than the file* is not a bad window, and reading it as one
- * is the bug this guards against now. The slider reaches out to `cropFit`,
- * where the whole photograph sits inside the frame; that window is wider
- * than the file (`w` of 1.5 for a 2:3 portrait in a square) and starts
- * before its left edge (`x` of −0.25). The old test threw both away. So the
- * form drew what she had chosen — it computes the window itself — and the
- * page, the save and the form on its next load all read it back, rejected
- * it, and fell to `cover`: "why its fine when in the form, then in the
- * preview it looks like this."
+ * A window wider than the file is one of those. Nothing makes one any
+ * more: the slider stops at zoom 1, which is the square, and the crop box
+ * shows the whole photograph itself rather than asking the frame to.
  */
 export function readCrop(v: unknown): Crop | undefined {
   if (!isRecord(v)) return undefined;
@@ -142,13 +131,12 @@ export function cropBeside(content: Record<string, unknown> | undefined, ref: Re
  * been given nothing. So that one arrangement is stored as nothing, and an
  * invitation carries no window it does not need.
  *
- * The test is the *zoom and the centre*, not the window's size. Written as
- * "w or h has reached 1" it swallowed the one window a customer most wants
- * kept: pulling the slider out to `cropFit` makes a window WIDER than the
- * picture, so it read as "nothing to store", the window was deleted, and
- * the frame went back to filling — "the photo isnt fixed yet... its still
- * the same." A window that shows the whole photograph is the furthest
- * thing from no window at all.
+ * The test is the *zoom and the centre*, not the window's size, and that
+ * matters even now the window always sits inside the picture: at zoom 1 a
+ * window she has dragged to one side is exactly as wide as the file and
+ * exactly as tall, and asking "has w reached 1" would throw it away as
+ * though she had never touched it. What she changed is where the square
+ * sits, and where the square sits is the zoom and the centre.
  */
 export function cropWorthKeeping(at: { zoom: number; cx: number; cy: number }): boolean {
   const near = (a: number, b: number) => Math.abs(a - b) < 0.001;

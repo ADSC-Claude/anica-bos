@@ -1164,8 +1164,16 @@ export const CHRISTENING_PAGES: PageSpec[] = [
      * line is printed on the clouds. Her foot is 845 of 1920, about four
      * fifths of the width, and the last block on this page was already
      * landing in it before the ninongs' colours made it taller.
+     *
+     * Four, not five, and measured rather than guessed: nothing at all is
+     * drawn in the foot slice above 47.6cqw from the bottom of the page, and
+     * what is drawn between there and 37cqw is the tips of her gypsophila at
+     * the right edge. Five reserved 55cqw and left seven of plain sky under
+     * the last words for no reason — "when it doesnt needed, lets not let
+     * the space be that empty." Four reserves 44 and stops just above the
+     * flowers.
      */
-    drawn: true, grow: true, live: true, headPad: 26, footPad: 5,
+    drawn: true, grow: true, live: true, headPad: 26, footPad: 4,
     ground: ground('dresscode', 1.7778, true),
     elements: [
       // the heading is hers; the line under it is the section's, written from

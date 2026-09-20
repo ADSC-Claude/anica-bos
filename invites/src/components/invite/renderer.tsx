@@ -1134,6 +1134,14 @@ function Rsvp({ inv, data, lang, guest, personal, hostsNoun, slug, token, taglin
           mealChoices={mealChoices}
           groups={groups}
           defaultGroup={personal && guest ? guest.groupName : ''}
+          pickFromList={Boolean((inv as { namePicker?: boolean }).namePicker)}
+          pickLabels={{
+            hint: t(lang, 'rsvp.pickHint'),
+            companionHint: t(lang, 'rsvp.pickHintCompanion'),
+            replied: t(lang, 'rsvp.pickReplied'),
+            warn: t(lang, 'rsvp.pickWarn'),
+            none: t(lang, 'rsvp.pickNone'),
+          }}
           existing={existing}
           relations={RELATIONS.map((r) => ({ value: r, label: relationLabel(r, lang) }))}
           labels={{

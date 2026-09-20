@@ -13,6 +13,7 @@ import { str, rows, bool, guestGroups, displayTitle } from './sections';
 import { contentOf } from './invitations';
 import { contactPatch, plainAddress } from './contacts';
 import { attendeesOf } from './attendees';
+import { realGuestIds } from './guest-picker';
 import { seatsHeld, awaitingDecision } from './seats';
 import { invitationUrl } from './app-url';
 import { formatDate } from './datetime';
@@ -50,9 +51,21 @@ export const rsvpSchema = z.object({
    * still open in somebody's browser will send one.
    */
   attendees: z
-    .array(z.union([z.string().trim().max(120), z.object({ name: z.string().trim().max(120), relation: z.string().trim().max(20).optional() })]))
+    .array(z.union([z.string().trim().max(120), z.object({ name: z.string().trim().max(120), relation: z.string().trim().max(20).optional(), guestId: z.string().max(40).optional() })]))
     .max(20)
     .optional(),
+  /**
+   * The row on the couple's own guest list this reply is for, when the guest
+   * picked their name off it instead of typing one.
+   *
+   * A claim, not a credential. It says "I am the Ana Dela Cruz on your list",
+   * which is worth recording and is not worth trusting: anybody can tap
+   * anybody. So it is checked for being a row on *this* invitation and then
+   * used only to attribute the reply. What it never does is unlock the seat
+   * allotment or write a phone number onto that row — both of those need the
+   * token, where the link itself is the evidence.
+   */
+  guestId: z.string().max(40).optional(),
   groupName: z.string().trim().max(60).optional(),
   mealChoice: z.string().trim().max(60).optional(),
   dietary: z.string().trim().max(500).optional(),
@@ -144,10 +157,36 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
 
   // Normalised on the way in, so what is stored is one shape whatever the page
   // sent, and a relationship nobody offers is dropped rather than kept.
-  const attendees = attendeesOf(input.attendees ?? []).slice(0, seats || 1);
+  const claimed = attendeesOf(input.attendees ?? []).slice(0, seats || 1);
+
+  /*
+   * Every id the page sent, checked against this invitation's own list.
+   *
+   * The reply's own and the companions' in one round trip, because they are
+   * the same question asked of the same table. An id that is not a row here —
+   * stale, mistyped, or somebody having a go at another couple's guest list —
+   * is dropped and the reply saved without it. Losing the attribution is a
+   * nuisance; losing the RSVP is a guest who thinks they have replied and has
+   * not.
+   */
+  const picker = bool(rsvpSection, 'nameFromList');
+  const real = picker
+    ? await realGuestIds(invitation.id, [...(input.guestId ? [input.guestId] : []), ...claimed.map((a) => a.guestId ?? '')])
+    : new Set<string>();
+  const attendees = claimed.map((a) => (a.guestId && real.has(a.guestId) ? a : { name: a.name, relation: a.relation }));
+
+  /*
+   * Which guest row this reply belongs to.
+   *
+   * The token wins where there is one: it is the couple's own link, handed to
+   * one person, and it is the only evidence of identity this form has. A
+   * picked name comes second, and only stands in when no token was used.
+   */
+  const picked = !guest && input.guestId && real.has(input.guestId) ? input.guestId : null;
+
   const data = {
     invitationId: invitation.id,
-    guestId: guest?.id ?? null,
+    guestId: guest?.id ?? picked,
     name: input.name,
     response: input.response,
     groupName,
@@ -165,7 +204,26 @@ export async function submitRsvp(input: RsvpInput, ip: string) {
     ip,
   };
 
-  const existing = guest ? await prisma.rsvp.findFirst({ where: { guestId: guest.id } }) : null;
+  /*
+   * The reply to update rather than add to, where there is one.
+   *
+   * A personal link is the guest, so their row is found by it and their
+   * second answer replaces their first — that is what "update your reply on
+   * the same link" promises.
+   *
+   * A picked name is not the guest, so it cannot do the same: anyone tapping
+   * "Ana Dela Cruz" would overwrite the real Ana's answer. It is matched on
+   * the name *and* the connection it came from, which is enough for the one
+   * case worth handling — Ana correcting her own reply a minute later on her
+   * own phone — and no help at all to somebody else. A stranger picking her
+   * name writes a new row, which the couple can see and settle; that is the
+   * safe direction for this to fail in.
+   */
+  const existing = guest
+    ? await prisma.rsvp.findFirst({ where: { guestId: guest.id } })
+    : picked
+      ? await prisma.rsvp.findFirst({ where: { invitationId: invitation.id, guestId: picked, ip }, orderBy: { createdAt: 'desc' } })
+      : null;
   const saved = existing
     ? await prisma.rsvp.update({ where: { id: existing.id }, data })
     : await prisma.rsvp.create({ data });

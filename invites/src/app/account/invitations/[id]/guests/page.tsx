@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { requireCustomerPage, ownInvitation } from '@/lib/guard';
 import { HttpError } from '@/lib/errors';
 import { prisma } from '@/lib/db';
-import { listGuests, rsvpSummary } from '@/lib/guests';
+import { listGuests, rsvpSummary, answeredWithin } from '@/lib/guests';
 import { entitled } from '@/lib/tiers';
 import { invitationUrl } from '@/lib/app-url';
 import { PageHeader, Stat } from '@/components/ui';
@@ -25,7 +25,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
   const inv = await ownInvitation(user, id).catch((e) => { if (e instanceof HttpError) notFound(); throw e; });
   if (!entitled(inv, 'guests.manager')) redirect(`/account/invitations/${inv.id}/upgrade`);
   const confirms = entitled(inv, 'rsvp.emailConfirmation');
-  const [guests, tables, summary, texts, emails] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10), recentEmails(inv.id, 10)]);
+  const [guests, tables, summary, texts, emails, within] = await Promise.all([listGuests(inv.id), prisma.seatingTable.findMany({ where: { invitationId: inv.id }, orderBy: { sortOrder: 'asc' } }), rsvpSummary(inv.id), recentTexts(inv.id, 10), recentEmails(inv.id, 10), answeredWithin(inv.id)]);
   // Newest first across both, then the ten that matter. Each carries the word
   // for how it travelled, which is the only thing the list needs to keep them
   // apart.
@@ -51,7 +51,7 @@ export default async function GuestsPage({ params }: { params: Promise<{ id: str
         reminder={`Hi {name}! Please RSVP for ${inv.title} here: {link}`}
         canSeating={entitled(inv, 'seating')}
         tables={tables.map((t) => ({ id: t.id, name: t.name }))}
-        guests={guests.map((g) => ({ id: g.id, name: g.name, salutation: g.salutation, groupName: g.groupName, seatsAllotted: g.seatsAllotted, plusOneAllowed: g.plusOneAllowed, phone: g.phone, email: g.email, notes: g.notes, token: g.token, tableId: g.tableId, checkedIn: Boolean(g.checkedInAt), response: g.rsvps[0] ? { response: g.rsvps[0].response, seats: g.rsvps[0].seats } : null }))}
+        guests={guests.map((g) => ({ id: g.id, name: g.name, salutation: g.salutation, groupName: g.groupName, seatsAllotted: g.seatsAllotted, plusOneAllowed: g.plusOneAllowed, phone: g.phone, email: g.email, notes: g.notes, token: g.token, tableId: g.tableId, checkedIn: Boolean(g.checkedInAt), response: g.rsvps[0] ? { response: g.rsvps[0].response, seats: g.rsvps[0].seats } : null, answeredBy: g.rsvps[0] ? '' : (within.get(g.id) ?? '') }))}
       />
 
       <section className="mt-8">

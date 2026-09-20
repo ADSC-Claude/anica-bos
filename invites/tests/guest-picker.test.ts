@@ -1,0 +1,151 @@
+/**
+ * Picking a name off the couple's list instead of typing one.
+ *
+ * "when the guest type their names (also in the companion), they can simply
+ * click their name that shows because this can allow the guest and the
+ * celebrant to see the name listed instead of sometimes guest put their
+ * nicknames that doesnt show up in the list that didnt match the guestlist"
+ *
+ * Three things are worth holding still here, and none of them is the drop-down
+ * itself: how narrow the match is, that an attendee can carry a row id, and
+ * that the switch it all hangs off starts in the off position.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { matchesName, answeredFor, MIN_QUERY, MAX_MATCHES, type ReplyRow } from '../src/lib/guest-match';
+import { attendeesOf, type Attendee } from '../src/lib/attendees';
+import { fieldsFor } from '../src/lib/sections';
+
+test('a match is the start of a word, never the middle of one', () => {
+  const name = 'Ana Dela Cruz';
+  // what a guest types about themselves
+  for (const q of ['ana', 'Ana', 'dela', 'DELA', 'cruz', 'Cru']) {
+    assert.ok(matchesName(name, q), `"${q}" should find ${name}`);
+  }
+  // and what a sweep would type
+  for (const q of ['ela', 'ruz', 'na ', 'zzz']) {
+    assert.ok(!matchesName(name, q), `"${q}" should find nobody`);
+  }
+});
+
+test('two letters find nobody: three is the floor', () => {
+  assert.equal(MIN_QUERY, 3);
+  assert.ok(!matchesName('Ana Dela Cruz', 'an'), 'two letters is not a search, it is a sweep');
+  assert.ok(matchesName('Ana Dela Cruz', 'ana'));
+  // and the answer is a handful, not a list
+  assert.ok(MAX_MATCHES <= 10, 'a page of names is the guest list, which is the thing not being handed over');
+});
+
+test('a name is split on the punctuation a Filipino guest list actually has', () => {
+  assert.ok(matchesName('Ma. Cristina Reyes-Santos', 'cristina'));
+  assert.ok(matchesName('Ma. Cristina Reyes-Santos', 'santos'), 'a double-barrelled surname is two words');
+  assert.ok(matchesName('Mr. & Mrs. Dela Cruz', 'dela'));
+  assert.ok(matchesName('Jose (Jojo) Rizal', 'jojo'), 'the nickname in brackets is findable too');
+});
+
+/**
+ * The id on a companion is what makes the whole thing worth building.
+ *
+ * "sometimes family includes their spouses as companion even it is listed not
+ * as companion but guest itself, it saves the guests and celebrant in manually
+ * sending each invitation to guest when they can insert their family"
+ */
+test('a companion can be a row on the guest list, and a typed one is not', () => {
+  const stored = [
+    { name: 'Ana Dela Cruz', relation: '' },
+    { name: 'Bert Dela Cruz', relation: 'spouse', guestId: 'g_bert' },
+    { name: 'Yaya Let', relation: 'helper' },
+  ];
+  const read = attendeesOf(stored);
+  assert.equal(read[1]!.guestId, 'g_bert', 'the wife picked off the list keeps her row');
+  assert.equal(read[2]!.guestId, undefined, 'a name typed by hand claims no row');
+  assert.equal(read[0]!.guestId, undefined);
+});
+
+test('a guest id that is not a string is not a guest id', () => {
+  const read = attendeesOf([
+    { name: 'A', relation: '', guestId: 42 },
+    { name: 'B', relation: '', guestId: '' },
+    { name: 'C', relation: '', guestId: { id: 'x' } },
+    'D',
+  ]);
+  for (const a of read) assert.equal((a as Attendee).guestId, undefined, `${a.name} carries no id`);
+  assert.equal(read.length, 4, 'and every one of them is still a person at the table');
+});
+
+/**
+ * Off until a family asks for it.
+ *
+ * A guest list is private and this makes it searchable by anybody holding the
+ * link. That is the trade, it is theirs to make, and a default of "on" would
+ * be us making it for every invitation already published.
+ */
+test('the picker is a switch the family throws, not a default we chose', () => {
+  const rsvp = fieldsFor('rsvp', 'CHRISTENING');
+  const field = rsvp.find((f) => f.key === 'nameFromList');
+  assert.ok(field, 'the RSVP step offers it');
+  assert.equal(field!.type, 'toggle');
+  assert.ok(!field!.staff, 'the family decides, not us');
+  // The hint has to say what switching it on lets other people see. This is
+  // the sentence that makes it an informed choice rather than a surprise.
+  assert.match(String(field!.hint ?? ''), /anyone with your link can search/i,
+    'the hint says plainly what it exposes');
+});
+
+/**
+ * Who has been answered for — the rule behind the tick in the guest's
+ * drop-down and behind "with Ana Dela Cruz" on the couple's list.
+ *
+ * It is also the rule that keeps the seats honest, which is why it is tested
+ * rather than trusted: the whole reason a companion gets no reply row of her
+ * own is so she is not counted twice.
+ */
+const reply = (r: Partial<ReplyRow> & { name: string }): ReplyRow =>
+  ({ response: 'ACCEPT', guestId: null, attendees: [], ...r });
+
+test('a reply of your own counts, and it says nobody else answered it', () => {
+  const m = answeredFor([reply({ name: 'Ana', guestId: 'g_ana' })]);
+  assert.equal(m.get('g_ana'), '', 'blank means she spoke for herself');
+  assert.equal(m.size, 1);
+});
+
+test('a spouse picked off the list is answered for, by name', () => {
+  const m = answeredFor([
+    reply({
+      name: 'Ana Dela Cruz',
+      guestId: 'g_ana',
+      attendees: [
+        { name: 'Ana Dela Cruz', guestId: 'g_ana' },
+        { name: 'Bert Dela Cruz', guestId: 'g_bert' },
+        { name: 'Yaya Let' },
+      ],
+    }),
+  ]);
+  assert.equal(m.get('g_bert'), 'Ana Dela Cruz', 'his row is answered, and it says who by');
+  assert.equal(m.get('g_ana'), '', 'she is not her own companion');
+  assert.equal(m.size, 2, 'the yaya is on no list, so she is on no row');
+});
+
+test('a regret speaks for nobody but the person declining', () => {
+  const m = answeredFor([
+    reply({ name: 'Ana', guestId: 'g_ana', response: 'DECLINE', attendees: [{ name: 'Bert', guestId: 'g_bert' }] }),
+  ]);
+  assert.equal(m.get('g_ana'), '', 'a regret is still an answer');
+  assert.ok(!m.has('g_bert'), 'a party nobody is bringing is not a party');
+});
+
+test('answering for yourself beats being named in someone else’s party', () => {
+  const m = answeredFor([
+    reply({ name: 'Ana', attendees: [{ name: 'Ana' }, { name: 'Bert Dela Cruz', guestId: 'g_bert' }] }),
+    reply({ name: 'Bert Dela Cruz', guestId: 'g_bert' }),
+  ]);
+  assert.equal(m.get('g_bert'), '', 'he replied himself, whatever his wife wrote');
+});
+
+test('the first party to name someone is the one credited', () => {
+  const m = answeredFor([
+    reply({ name: 'Ana', attendees: [{ name: 'Ana' }, { name: 'Lola Rosa', guestId: 'g_rosa' }] }),
+    reply({ name: 'Ben', attendees: [{ name: 'Ben' }, { name: 'Lola Rosa', guestId: 'g_rosa' }] }),
+  ]);
+  assert.equal(m.get('g_rosa'), 'Ana', 'one grandmother, one seat, the first party that claimed her');
+});

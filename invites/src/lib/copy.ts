@@ -147,6 +147,12 @@ const PHRASES = {
   'rsvp.phoneHint': { en: 'So we can text you about the day.', tl: 'Para ma-text ka namin tungkol sa okasyon.' },
   'rsvp.email': { en: 'Email address', tl: 'Email address' },
   'rsvp.emailHint': { en: 'Where your confirmation and any updates go.', tl: 'Dito papunta ang kumpirmasyon at mga update.' },
+  // Picking a name off the couple's list instead of typing one.
+  'rsvp.pickHint': { en: 'Type a few letters and tap your name from our list.', tl: 'Mag-type ng ilang letra at pindutin ang pangalan mo sa listahan namin.' },
+  'rsvp.pickHintCompanion': { en: 'Type a few letters to find them on our list, or just write the name.', tl: 'Mag-type ng ilang letra para hanapin sila sa listahan, o isulat na lang ang pangalan.' },
+  'rsvp.pickReplied': { en: 'already replied', tl: 'nakasagot na' },
+  'rsvp.pickWarn': { en: 'Someone has already replied for {name}. Carry on only if this is a change to that answer.', tl: 'May nakasagot na po para kay {name}. Magpatuloy lang kung pagbabago ito ng sagot na iyon.' },
+  'rsvp.pickNone': { en: 'No one by that name on our list — write it in and we will add them.', tl: 'Walang ganyang pangalan sa listahan — isulat lang po at idadagdag namin sila.' },
   'rsvp.submit': { en: 'Send my response', tl: 'Ipadala' },
   'rsvp.update': { en: 'Update my response', tl: 'I-update ang sagot' },
   'rsvp.thanks': { en: 'Thank you! Your response has been recorded.', tl: 'Maraming salamat! Natanggap na namin ang inyong sagot.' },

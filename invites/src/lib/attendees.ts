@@ -59,8 +59,27 @@ export const RELATIONS = [
 
 export type Relation = (typeof RELATIONS)[number];
 
-/** One person in a party: a name, and what they are to the guest bringing them. */
-export type Attendee = { name: string; relation: string };
+/**
+ * One person in a party: a name, what they are to the guest bringing them,
+ * and — when the name was picked off the couple's own list rather than typed
+ * — which row on that list they are.
+ *
+ * `guestId` is what makes a companion more than a word.
+ *
+ * "sometimes family includes their spouses as companion even it is listed not
+ * as companion but guest itself, it saves the guests and celebrant in manually
+ * sending each invitation to guest when they can insert their family"
+ *
+ * A husband and wife are two rows on the guest list and one reply. Before
+ * this, the wife's row sat unanswered for ever while her name went in as free
+ * text on her husband's, and the only way round it was to send her a personal
+ * link of her own and hope she used it. With the id, one reply answers both
+ * rows: hers is marked replied, by name, without a second reply existing.
+ *
+ * It is deliberately *not* a seat. Seats are counted once, on the reply that
+ * claimed them — see answeredFor() for why no second Rsvp row is written.
+ */
+export type Attendee = { name: string; relation: string; guestId?: string };
 
 export function isRelation(s: string): s is Relation {
   return (RELATIONS as readonly string[]).includes(s);
@@ -83,7 +102,11 @@ export function attendeesOf(raw: unknown): Attendee[] {
         const o = a as Record<string, unknown>;
         const name = typeof o.name === 'string' ? o.name.trim() : '';
         const relation = typeof o.relation === 'string' && isRelation(o.relation) ? o.relation : '';
-        return { name, relation };
+        // Only where there is one. An attendee typed by hand carries no id,
+        // and an absent key is the honest record of that — `guestId: ''` on
+        // every companion would have the guest list looking them all up.
+        const guestId = typeof o.guestId === 'string' && o.guestId ? o.guestId : undefined;
+        return guestId ? { name, relation, guestId } : { name, relation };
       }
       return { name: '', relation: '' };
     })

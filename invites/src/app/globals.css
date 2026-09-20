@@ -916,6 +916,66 @@ table.data tr:hover td {
   outline: 2px solid var(--inv-accent);
   outline-offset: 1px;
 }
+
+/*
+ * Picking a name off the couple's own guest list.
+ *
+ * The list hangs under the box rather than pushing the form down: a card
+ * that grows by four rows every time a guest types a letter is a card that
+ * jumps under their thumb. `position: absolute` needs the wrapper to be the
+ * containing block, which is all `.inv-pick` is for.
+ *
+ * Capped at roughly five rows of scroll on a phone — eight names is the
+ * server's limit and eight rows is taller than the on-screen keyboard leaves.
+ */
+.inv-pick { position: relative; }
+.inv-pick-list {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin-top: 0.25rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--inv-accent2) 70%, transparent);
+  border-radius: 0.75rem;
+  background: var(--inv-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
+}
+.inv-pick-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  /* A thumb wants 44px; the padding and the line together make it. */
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.inv-pick-row.is-active,
+.inv-pick-row:hover {
+  background: color-mix(in srgb, var(--inv-accent2) 26%, transparent);
+}
+.inv-pick-name { flex: 1 1 auto; }
+.inv-pick-group {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+/* The one thing a guest is looking for when they scan this list. */
+.inv-pick-tick {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  color: var(--inv-accent);
+}
+.inv-pick-warn { color: color-mix(in srgb, var(--inv-ink) 62%, #8f1d17); }
 .inv-label {
   display: block;
   font-size: 0.8125rem;

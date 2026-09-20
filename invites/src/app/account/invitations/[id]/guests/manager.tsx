@@ -6,7 +6,13 @@ import { Notice } from '@/components/ui';
 import { importNotice, type ImportResult } from '@/lib/guest-dupes';
 import { addGuestAction, updateGuestAction, deleteGuestAction, importGuestsAction, importGuestFileAction, assignTableAction } from '@/app/account/actions';
 
-type Guest = { id: string; name: string; salutation: string; groupName: string; seatsAllotted: number; plusOneAllowed: boolean; phone: string; email: string; notes: string; token: string; tableId: string | null; checkedIn: boolean; response: { response: 'ACCEPT' | 'DECLINE'; seats: number } | null };
+type Guest = { id: string; name: string; salutation: string; groupName: string; seatsAllotted: number; plusOneAllowed: boolean; phone: string; email: string; notes: string; token: string; tableId: string | null; checkedIn: boolean; response: { response: 'ACCEPT' | 'DECLINE'; seats: number } | null;
+  /**
+   * The guest whose reply already counted this one — a husband who picked his
+   * wife off the list as his companion. Blank when they answered themselves,
+   * which is the better answer and wins.
+   */
+  answeredBy: string };
 type Table = { id: string; name: string };
 
 const FILE_TYPES = '.csv,.tsv,.txt,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -177,7 +183,10 @@ export function GuestManager({ invitationId, baseUrl, reminder, canSeating, tabl
                   <td><button type="button" className="text-left font-medium underline-offset-2 hover:underline" onClick={() => setEditing(g)}>{g.name}</button>{g.salutation && <span className="block text-xs text-[color:var(--color-ink-500)]">Dear {g.salutation}</span>}{(g.phone || g.email) && <span className="block text-xs text-[color:var(--color-ink-500)]">{[g.phone, g.email].filter(Boolean).join(' · ')}</span>}</td>
                   <td>{g.groupName}</td>
                   <td>{g.seatsAllotted}{g.plusOneAllowed ? ' +1' : ''}</td>
-                  <td>{g.response ? <span className={`pill ${g.response.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{g.response.response === 'ACCEPT' ? `Yes · ${g.response.seats}` : 'No'}</span> : <span className="pill pill-muted">Waiting</span>}{g.checkedIn && <span className="pill pill-info ml-1">In</span>}</td>
+                  {/* Answered for inside someone else's party is still
+                      answered: the row says so, and says by whom, rather than
+                      sitting in "Waiting" while the person is on their way. */}
+                  <td>{g.response ? <span className={`pill ${g.response.response === 'ACCEPT' ? 'pill-ok' : 'pill-bad'}`}>{g.response.response === 'ACCEPT' ? `Yes · ${g.response.seats}` : 'No'}</span> : g.answeredBy ? <span className="pill pill-ok" title={`Counted in ${g.answeredBy}’s reply`}>Yes · with {g.answeredBy}</span> : <span className="pill pill-muted">Waiting</span>}{g.checkedIn && <span className="pill pill-info ml-1">In</span>}</td>
                   {canSeating && (
                     <td>
                       <select className="field min-h-0 py-1 text-xs" aria-label={`Table for ${g.name}`} value={g.tableId ?? ''} onChange={(e) => run(() => assignTableAction(invitationId, g.id, e.target.value || null))}>

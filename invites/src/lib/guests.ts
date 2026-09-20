@@ -10,6 +10,7 @@ import { entitled, TIER_LABELS, FEATURE_MIN_TIER, type Entitled } from './tiers'
 import { formatDateTime } from './datetime';
 import { invitationUrl } from './app-url';
 import { contentOf } from './invitations';
+import { answeredGuests } from './guest-picker';
 import { attendeesOf, attendeeLine, type Attendee } from './attendees';
 import { guestGroups } from './sections';
 import { replyIdentity } from './names';
@@ -267,6 +268,21 @@ export async function guestSeatSheetCsv(invitation: { id: string; slug: string }
 // names and the notes it is made of; re-exported here because the route that
 // serves it, and the seat sheet beside it, both come from this module.
 export { guestTemplateCsv };
+
+/**
+ * Who on this list was answered for inside somebody else's reply, and by whom.
+ *
+ * The couple's side of the same rule the guest's drop-down uses: answeredFor()
+ * in guest-match.ts decides, answeredGuests() asks the database, and this
+ * keeps only the second kind — the rows with no reply of their own. A wife
+ * picked off the list as her husband's companion would otherwise sit in "No
+ * reply yet" for ever, because she has no reply row and is not supposed to:
+ * her seat is one of the two her husband claimed.
+ */
+export async function answeredWithin(invitationId: string): Promise<Map<string, string>> {
+  const all = await answeredGuests(invitationId);
+  return new Map([...all].filter(([, by]) => by !== ''));
+}
 
 export async function listGuests(invitationId: string) {
   return prisma.guest.findMany({
@@ -590,5 +606,19 @@ export async function rsvpSummary(invitationId: string) {
     prisma.guest.count({ where: { invitationId, checkedInAt: { not: null } } }),
   ]);
   const seats = (claimed._sum.seats ?? 0) + (settled._sum.seatsApproved ?? 0);
-  return { accepted, declined, seats, guests, responded, pending: Math.max(0, guests - responded), checkedIn };
+  /*
+   * "No reply yet" must not include somebody their family already answered
+   * for.
+   *
+   * `responded` counts guests with a reply row of their own, and a wife
+   * picked off the list as her husband's companion has none — that is the
+   * whole design, so her seat is counted once. Left out of this, she sits in
+   * the pending figure for ever and the couple chases a reply that arrived.
+   *
+   * `accepted` and `seats` are untouched on purpose: she is one of the seats
+   * her husband claimed, not a second acceptance.
+   */
+  const within = await answeredWithin(invitationId);
+  const alsoAnswered = [...within.keys()].length;
+  return { accepted, declined, seats, guests, responded, pending: Math.max(0, guests - responded - alsoAnswered), checkedIn };
 }

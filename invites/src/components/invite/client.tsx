@@ -8,6 +8,7 @@ import { Scene, useMomentGesture } from './moments';
 import { MOMENT_BY_KEY, SPEED_FACTOR, type MomentKey, type Speed, type Trigger } from '@/lib/moments';
 import { PHOTOS_AT_ONCE } from '@/lib/album';
 import type { Attendee } from '@/lib/attendees';
+import { MIN_QUERY } from '@/lib/guest-match';
 
 /**
  * The interactive parts of a guest page. Everything else renders on the
@@ -665,6 +666,165 @@ export function Countdown({ target, labels, today }: { target: string; labels: [
 // RSVP
 // ---------------------------------------------------------------------------
 
+/**
+ * A name box that offers the couple's own guest list back.
+ *
+ * "when the guest type their names (also in the companion), they can simply
+ * click their name that shows ... instead of sometimes guest put their
+ * nicknames that doesnt show up in the list that didnt match the guestlist"
+ *
+ * It is a box you can type anything into, first and always. The list is an
+ * offer, never a gate: a cousin nobody remembered to add still replies by
+ * typing their name, and a guest who ignores the suggestions is not stopped.
+ * What tapping a suggestion buys is the couple's own spelling of the name and
+ * a quiet link back to their row, so "Jhen" and "Jennifer Dela Cruz" stop
+ * being two people on a headcount sheet.
+ *
+ * Typing again after a pick drops the link. It has to: the moment the words
+ * differ from the row, the row is no longer what this box says, and a stale
+ * id would file the reply under a name the guest can see is not theirs.
+ *
+ * A name somebody has already answered for is shown with a tick and still
+ * offered — the commonest reason to tap it is that you are the one changing
+ * that answer. The warning underneath is a sentence, not a wall.
+ */
+type GuestMatch = { id: string; name: string; group: string; replied: boolean };
+
+export type NamePickerLabels = { hint: string; replied: string; warn: string; none: string };
+
+export function NamePicker({
+  slug, value, guestId, onPick, placeholder, id, fieldName, required, labels, ariaLabel,
+}: {
+  slug: string;
+  value: string;
+  guestId?: string;
+  onPick: (name: string, guestId?: string) => void;
+  placeholder?: string;
+  id?: string;
+  /** The form field this writes into, where the form reads it back by name. */
+  fieldName?: string;
+  required?: boolean;
+  labels: NamePickerLabels;
+  ariaLabel?: string;
+}) {
+  const [matches, setMatches] = useState<GuestMatch[]>([]);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const [searched, setSearched] = useState('');
+  const box = useRef<HTMLDivElement | null>(null);
+  // Which request is the current one. A slow answer for "an" must not land on
+  // top of a fast one for "ana"; the page would show matches for what the
+  // guest typed two keystrokes ago.
+  const seq = useRef(0);
+  const picked = useRef(false);
+
+  /*
+   * A pause before asking, and nothing at all under the floor.
+   *
+   * Two hundred milliseconds is about the gap between letters when somebody is
+   * typing a name they know, so a six-letter name is one request rather than
+   * six. Below MIN_QUERY the endpoint answers nothing anyway, and the same
+   * constant is read here so the two cannot disagree about where the floor is.
+   */
+  useEffect(() => {
+    const q = value.trim();
+    if (picked.current) { picked.current = false; return; }
+    if (q.length < MIN_QUERY) { setMatches([]); setOpen(false); setSearched(''); return; }
+    const mine = ++seq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/public/guests?slug=${encodeURIComponent(slug)}&q=${encodeURIComponent(q)}`);
+        const json = (await res.json()) as { guests?: GuestMatch[] };
+        if (mine !== seq.current) return;
+        setMatches(json.guests ?? []);
+        setSearched(q);
+        setOpen(true);
+        setActive(-1);
+      } catch {
+        // A guest list that will not load is not the guest's problem: the box
+        // is a plain name box again and the reply goes through without it.
+        if (mine === seq.current) { setMatches([]); setOpen(false); }
+      }
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [value, slug]);
+
+  // A tap anywhere else puts the list away. Kept on pointerdown so it closes
+  // before the thing underneath is pressed, not after.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [open]);
+
+  const take = (m: GuestMatch) => {
+    picked.current = true;
+    onPick(m.name, m.id);
+    setOpen(false);
+    setActive(-1);
+  };
+
+  const keys = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || !matches.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => (i + 1) % matches.length); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => (i <= 0 ? matches.length - 1 : i - 1)); }
+    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); take(matches[active]!); }
+    else if (e.key === 'Escape') { setOpen(false); setActive(-1); }
+  };
+
+  const listId = `${id ?? fieldName ?? 'name'}-list`;
+  // The warning only appears once a ticked name has actually been taken.
+  // Saying it while a guest is halfway through typing warns them off a name
+  // they have not chosen yet.
+  const chosen = guestId ? matches.find((m) => m.id === guestId) : undefined;
+  const nothing = open && searched === value.trim() && matches.length === 0;
+
+  return (
+    <div className="inv-pick" ref={box}>
+      <input
+        id={id}
+        name={fieldName}
+        required={required}
+        className="inv-field"
+        value={value}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={open && matches.length > 0}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+        onChange={(e) => onPick(e.target.value, undefined)}
+        onFocus={() => { if (matches.length) setOpen(true); }}
+        onKeyDown={keys}
+      />
+      {open && matches.length > 0 && (
+        <ul className="inv-pick-list" id={listId} role="listbox">
+          {matches.map((m, i) => (
+            <li key={m.id} id={`${listId}-${i}`} role="option" aria-selected={i === active}>
+              <button
+                type="button"
+                className={`inv-pick-row ${i === active ? 'is-active' : ''}`}
+                onMouseEnter={() => setActive(i)}
+                onClick={() => take(m)}
+              >
+                <span className="inv-pick-name">{m.name}</span>
+                {m.group && <span className="inv-pick-group">{m.group}</span>}
+                {m.replied && <span className="inv-pick-tick" aria-label={labels.replied} title={labels.replied}>✓</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {nothing && <p className="inv-muted mt-1 text-xs">{labels.none}</p>}
+      {!nothing && !chosen?.replied && <p className="inv-muted mt-1 text-xs">{labels.hint}</p>}
+      {chosen?.replied && <p className="inv-pick-warn mt-1 text-xs">{labels.warn.replace('{name}', chosen.name)}</p>}
+    </div>
+  );
+}
+
 export type RsvpFormProps = {
   slug: string;
   token?: string;
@@ -686,6 +846,13 @@ export type RsvpFormProps = {
    * field blank here.
    */
   defaultGroup?: string;
+  /**
+   * Whether the name boxes offer the couple's guest list back. Off unless the
+   * family switched it on, and off outright when they have no list — a picker
+   * that never has anything to show is a promise the page cannot keep.
+   */
+  pickFromList?: boolean;
+  pickLabels?: NamePickerLabels & { companionHint: string };
   existing?: { response: 'ACCEPT' | 'DECLINE'; seats: number; attendees: Attendee[]; mealChoice: string; dietary: string; message: string; groupName: string; phone: string; email: string } | null;
   labels: Record<'name' | 'accept' | 'decline' | 'seats' | 'companions' | 'companion' | 'meal' | 'dietary' | 'message' | 'phone' | 'submit' | 'update' | 'thanks' | 'closed' | 'seeYou' | 'sorry' | 'department' | 'group' | 'relation' | 'relationBlank' | 'relationName' | 'email' | 'phoneHint' | 'emailHint', string>;
   /** The relationships on offer, already in the guest's language. */
@@ -694,6 +861,16 @@ export type RsvpFormProps = {
 
 export function RsvpForm(p: RsvpFormProps) {
   const [response, setResponse] = useState<'ACCEPT' | 'DECLINE'>(p.existing?.response ?? 'ACCEPT');
+  /*
+   * The guest's own name, and the row on the list it came from.
+   *
+   * Held in state rather than read off the form at submit time because the
+   * picker has to be able to put a name *into* the box, which an uncontrolled
+   * input cannot be told to do. `name` is still a real form field, so a page
+   * with the picker off behaves exactly as it did.
+   */
+  const [name, setName] = useState(p.defaultName);
+  const [nameGuestId, setNameGuestId] = useState<string | undefined>(undefined);
   const [seats, setSeats] = useState(p.existing?.seats || Math.min(p.maxSeats, 1));
   // The people the guest is bringing. What is saved is the whole party, the
   // guest first, so an earlier answer is read back without their own name.
@@ -729,14 +906,17 @@ export function RsvpForm(p: RsvpFormProps) {
     const body = {
       slug: p.slug,
       token: p.token,
-      name: String(fd.get('name') ?? ''),
+      name,
+      // Only when it is still the name that was picked. Typing on after a pick
+      // clears it in the picker itself, so by here the two always agree.
+      guestId: nameGuestId,
       response,
       seats: response === 'ACCEPT' ? seats : 0,
       // The guest heads their own party and is nobody's plus one, so they go in
       // without a relationship; the rest carry what was picked beside the name.
       attendees:
         response === 'ACCEPT' && seats > 1
-          ? [{ name: String(fd.get('name') ?? ''), relation: '' }, ...companions.slice(0, seats - 1).filter((c) => c.name.trim())]
+          ? [{ name, relation: '', ...(nameGuestId ? { guestId: nameGuestId } : {}) }, ...companions.slice(0, seats - 1).filter((c) => c.name.trim())]
           : [],
       groupName: String(fd.get('groupName') ?? ''),
       mealChoice: String(fd.get('mealChoice') ?? ''),
@@ -768,7 +948,20 @@ export function RsvpForm(p: RsvpFormProps) {
     <form onSubmit={submit} className="inv-card space-y-4" id="rsvp-form">
       <div>
         <label className="inv-label" htmlFor="rsvp-name">{p.labels.name}</label>
-        <input id="rsvp-name" name="name" required defaultValue={p.defaultName} className="inv-field" autoComplete="name" />
+        {p.pickFromList && p.pickLabels ? (
+          <NamePicker
+            id="rsvp-name"
+            fieldName="name"
+            required
+            slug={p.slug}
+            value={name}
+            guestId={nameGuestId}
+            onPick={(v, gid) => { setName(v); setNameGuestId(gid); }}
+            labels={p.pickLabels}
+          />
+        ) : (
+          <input id="rsvp-name" name="name" required value={name} onChange={(e) => setName(e.target.value)} className="inv-field" autoComplete="name" />
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-2" role="radiogroup">
@@ -836,16 +1029,35 @@ export function RsvpForm(p: RsvpFormProps) {
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </select>
-                {(companions[i]?.relation || companions[i]?.name) && (
-                  <input
-                    className="inv-field"
-                    placeholder={p.labels.relationName}
-                    value={companions[i]?.name ?? ''}
-                    autoComplete="off"
-                    aria-label={p.labels.relationName}
-                    onChange={(e) => setCompanion(i, { name: e.target.value })}
-                  />
-                )}
+                {(companions[i]?.relation || companions[i]?.name) &&
+                  (p.pickFromList && p.pickLabels ? (
+                    /*
+                     * The same picker, and the reason the whole feature earns
+                     * its keep: a wife is her husband's companion here and a
+                     * guest in her own right on the list, and picking her name
+                     * marks her row replied without her needing a link of her
+                     * own — which is the manual send the family was doing by
+                     * hand.
+                     */
+                    <NamePicker
+                      slug={p.slug}
+                      value={companions[i]?.name ?? ''}
+                      guestId={companions[i]?.guestId}
+                      onPick={(v, gid) => setCompanion(i, { name: v, guestId: gid })}
+                      placeholder={p.labels.relationName}
+                      ariaLabel={p.labels.relationName}
+                      labels={{ ...p.pickLabels, hint: p.pickLabels.companionHint }}
+                    />
+                  ) : (
+                    <input
+                      className="inv-field"
+                      placeholder={p.labels.relationName}
+                      value={companions[i]?.name ?? ''}
+                      autoComplete="off"
+                      aria-label={p.labels.relationName}
+                      onChange={(e) => setCompanion(i, { name: e.target.value })}
+                    />
+                  ))}
               </div>
             ))}
           </div>

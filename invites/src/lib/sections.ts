@@ -861,6 +861,18 @@ const SECTION_DEFS: SectionDef[] = [
       date('deadline', 'RSVP deadline', { hint: `The form closes after this date on the ${TIER_LABELS.COMPLETE} package.` }),
       toggle('showSeats', 'Ask how many are coming'),
       toggle('collectAttendees', 'Ask who is coming with them (the names of their companions)'),
+      /*
+       * Off unless asked for, and the hint says why.
+       *
+       * Switching it on lets anyone holding the link type three letters into
+       * the RSVP form and see which of your guests match. That is the point
+       * of it — a guest picks their own name instead of typing "Jhen" — and
+       * it is also the cost, so it is a decision the family makes with their
+       * eyes open rather than a default we chose for them.
+       */
+      toggle('nameFromList', 'Let guests pick their name from your guest list', {
+        hint: 'Guests type a few letters and tap their name, so the spelling always matches your list — and a name someone has already answered for shows a tick, so nobody replies twice for Lola. It also means anyone with your link can search your guest names, so leave it off if your list is private. Nothing else about your list is ever shown: no numbers, no addresses, no personal links.',
+      }),
       toggle('askDietary', 'Ask about allergies / dietary notes'),
       list('groups', 'Guest groups', [text('label', 'Group', { required: true, placeholder: 'e.g. Principal sponsor (Ninong / Ninang)' })], {
         addLabel: 'Add a group',

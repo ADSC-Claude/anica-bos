@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnPriceRises, addOnIncluded, revisionRounds, type CouponLike, type PackageLike } from '../src/lib/pricing';
-import { TIERS } from '../src/lib/tiers';
+import { quote, couponProblem, serviceFee, serviceModeAvailable, DEFAULT_SERVICE_MODE, addOnAvailable, addOnPrice, addOnPriceRises, addOnIncluded, revisionRounds, SAVE_THE_DATE_CODE, type CouponLike, type PackageLike } from '../src/lib/pricing';
+import { TIERS, COMPARISON_ALL } from '../src/lib/tiers';
 import { SERVICE_MODES } from '../src/lib/pricing';
 import { turnaroundLabel } from '../src/lib/datetime';
 import { PROCESSING_DAYS } from '../src/lib/progress';
@@ -241,4 +241,54 @@ test('the offer and the label never disagree', () => {
         `${code} on ${tier} is either sold or already owned, never both`);
     }
   }
+});
+
+/**
+ * The side-by-side table and the checkout tell one story.
+ *
+ * "No save the date for the signature. So it should be an add on too i
+ * think. So theres another difference between them."
+ *
+ * It already is — `saveTheDate.included` has been Luxury's alone all along,
+ * and Signature is sold the card at ₱500 like the other three. What this
+ * guards is that the comparison table on the website keeps saying so. The
+ * table's cells are hand-written copy and the checkout's answer is computed,
+ * and those are exactly the two things that drift apart: a row promising
+ * "Included" while the checkout charges for it is a customer discovering the
+ * difference at the till.
+ */
+test('every add-on row in the comparison table agrees with the checkout', () => {
+  const ROWS: Record<string, string> = {
+    "Seating chart on the guest's page": 'SEATING_VIEWER',
+    'QR check-in on event day': 'QR_CHECKIN',
+    'Post-event photo sharing (guest uploads)': 'PHOTO_SHARING',
+    'Save the Date card (a second card, months ahead)': SAVE_THE_DATE_CODE,
+    'Password on the link': 'PASSWORD',
+  };
+  for (const [label, code] of Object.entries(ROWS)) {
+    const row = COMPARISON_ALL.find((r) => r.label === label);
+    assert.ok(row, `the table still has a row for ${code} — "${label}"`);
+    for (const tier of TIERS) {
+      const cell = row!.cells[tier];
+      const included = addOnIncluded(code, tier);
+      const sellable = addOnAvailable(code, tier) && !included;
+      if (cell === 'Add-on') assert.ok(sellable, `${label} · ${tier}: the table says Add-on, so the checkout must sell it`);
+      else if (cell === 'Included' || cell === true) assert.ok(included, `${label} · ${tier}: the table says it comes with the package, so the checkout must not charge`);
+      else assert.ok(!included, `${label} · ${tier}: the table says "${String(cell)}", which cannot mean included`);
+    }
+  }
+});
+
+test('Save the Date is Luxury\'s, and Signature buys it', () => {
+  // the difference she asked about, stated once and plainly
+  assert.equal(addOnIncluded(SAVE_THE_DATE_CODE, 'LUXURY'), true);
+  assert.equal(addOnIncluded(SAVE_THE_DATE_CODE, 'COMPLETE'), false);
+  // and both may tick it: Luxury because an included card still has to be
+  // asked for, Signature because it is buying one
+  assert.equal(addOnAvailable(SAVE_THE_DATE_CODE, 'LUXURY'), true);
+  assert.equal(addOnAvailable(SAVE_THE_DATE_CODE, 'COMPLETE'), true);
+  // Luxury is charged nothing for it; Signature pays the row's price
+  const card = { code: SAVE_THE_DATE_CODE, name: 'Save the Date card', priceCents: 50000, quoted: true };
+  assert.equal(addOnPrice(card, 'LUXURY'), 0);
+  assert.equal(addOnPrice(card, 'COMPLETE'), 50000);
 });

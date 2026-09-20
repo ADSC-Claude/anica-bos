@@ -792,6 +792,18 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
   const ladiesTicked = rows<string>(data, 'ladiesItems');
   const gents = attireWords(gentsItems(occasion), gentsTicked, lang);
   const ladies = attireWords(ladiesItems(occasion), ladiesTicked, lang);
+  /*
+   * The garments are drawn, and on the drawn page they are not also named.
+   *
+   * "Can this writings be removed already? ... we already have the colors
+   * given and the clothes they can wear."
+   *
+   * POLO SHIRT | BUTTON-DOWN SHIRT under a row of drawn polo shirts and
+   * button-down shirts, on a page already headed with the dress code and
+   * already showing four named colours. `gents` and `ladies` are still
+   * built, because the card layout further down has no figures at all and
+   * the words are the whole of what it can say.
+   */
   // one garment per colour, of the kinds ticked; at a children's party, the boys' and the girls'
   const kids = occasion === 'KIDS_BIRTHDAY';
   const suitArt = pickDrawings('gents', gentsTicked, suits.length, kids);
@@ -802,14 +814,26 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
   // an invitation saved before the list existed asked only about white
   const avoidKeys = rows<string>(data, 'avoid');
   const avoid = avoidTicked(occasion, avoidKeys.length || !bool(data, 'avoidWhite') ? avoidKeys : ['white'], lang);
-  const paletteNote = str(data, 'paletteNote') || note || t(lang, 'dressCode.paletteNote');
-  // a bar between the words, and a space so the line can wrap between them
-  const words = (list: string[]) => list.map((w, i) => (
-    <span key={i}>
-      {i > 0 && <span className="inv-wear-sep" aria-hidden>|</span>}
-      <span className="inv-wear-word">{w}</span>{' '}
-    </span>
-  ));
+  /*
+   * The palette's line, and only when a family wrote one.
+   *
+   * "Since we have said that the attire is smart casual, its redundant to
+   * see them and we already have the colors given and the clothes they can
+   * wear."
+   *
+   * It used to fall back twice: to the look's own `dressNote`, and past
+   * that to "You may choose from this palette or similar shades." Under
+   * four named swatches both say nothing a guest cannot already see, and
+   * on her christening the fallback printed "Any shade of blue for our
+   * guests; cream to beige for the ninongs and ninangs" over a row of
+   * blues named POWDER BLUE, SKY BLUE, DUSTY BLUE and NAVY, with the
+   * ninongs' own creams named again further down the same page.
+   *
+   * The card layout below keeps both fallbacks, because it draws no
+   * garments and names no swatches: there the line is the only thing
+   * telling a guest what to do with the colours.
+   */
+  const paletteNote = str(data, 'paletteNote') || (format ? '' : note || t(lang, 'dressCode.paletteNote'));
   // each swatch with its name under it, when the colour is one of the palette's; a metallic drawn with its sheen
   const swatches = motif.map((c, i) => {
     const s = swatchByHex(c);
@@ -865,7 +889,6 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
           <div className="inv-dress">
             {suitArt.map((d, i) => <Drawn key={i} drawing={d} color={suits[i]} width={widthOf(d)} />)}
           </div>
-          {gents.length > 0 && <p className="inv-wear-line">{words(gents)}</p>}
           {gentsNote && <p className="inv-wear-note">{gentsNote}</p>}
         </div>
         <div className="inv-wear">
@@ -873,14 +896,13 @@ function DressCode({ data, lang, occasion, tagline, title, format, note, notes }
           <div className="inv-dress">
             {gownArt.map((d, i) => <Drawn key={i} drawing={d} color={gowns[i]} width={widthOf(d)} />)}
           </div>
-          {ladies.length > 0 && <p className="inv-wear-line">{words(ladies)}</p>}
           {ladiesNote && <p className="inv-wear-note">{ladiesNote}</p>}
         </div>
         {motif.length > 0 && (
           <div className="inv-wear">
             <p className="inv-eyebrow inv-rule-head"><span>{t(lang, 'dressCode.palette')}</span></p>
             <div className="inv-swatches">{swatches}</div>
-            <p className="inv-wear-note">{paletteNote}</p>
+            {paletteNote && <p className="inv-wear-note">{paletteNote}</p>}
           </div>
         )}
         {avoid.length > 0 && (
@@ -2254,10 +2276,33 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
        * handed back to it.
        */
       if (g.slices || o.run || o.pin || o.bleed || o.seam || o.grow) return {};
+      /*
+       * And night has to be handed over with it.
+       *
+       * "Why when i click the night, the christening word only applies to
+       * night the in the others it on the whole page?"
+       *
+       * The measuring pass darkens what it paints — `.inv-paper` takes a
+       * brightness filter — because most designs have no night artwork and
+       * a daylight sky under night-coloured writing is unreadable. This shortcut was painting the
+       * same picture straight onto the page, on top of all that, and taking
+       * neither. So on her christening the sliced pages went dark and the
+       * whole ones stayed bright, with the pale night ink still on them:
+       * CHRISTENING nearly invisible against its own daylight sky.
+       *
+       * The two treatments travel as variables rather than as a second rule,
+       * for the same reason the picture does: the stylesheet cannot ask
+       * whether a design drew a night version, and this can. A design that
+       * did gets its own artwork, undimmed and unwashed, exactly as the
+       * measuring pass leaves `[data-night-art]` alone.
+       */
+      const night = g.night
+        ? { ['--page-paper-night' as string]: `url("${g.night}")` }
+        : { ['--page-paper-dim' as string]: 'brightness(0.46) saturate(0.7) contrast(1.05)' };
       return {
         ['--page-paper' as string]: `url("${g.url}")`,
         ['--page-paper-edge' as string]: g.bottom || g.top || 'transparent',
-        ...(g.night ? { ['--page-paper-night' as string]: `url("${g.night}")` } : {}),
+        ...night,
       } as CSSProperties;
     };
     const page = (key: string, parts: ReactNode[], o: { bg?: string; seam?: number; foot?: number; head?: number; drawn?: boolean; live?: boolean; top?: number; grow?: boolean; ratio?: number; colour?: string; dress?: SectionStyle; outside?: string; run?: string; min?: number; size?: number; bleed?: boolean; off?: string[]; pin?: string; booklet?: string } = {}) => {
@@ -2708,7 +2753,7 @@ export function Invitation({ invitation: inv, guest, preview = false, print = fa
           Preview — {inv.status === 'PUBLISHED' ? 'this is how guests see it' : 'not published yet, only you can see this'}
         </div>
       )}
-      <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
+      <Shell opening={opening} music={print || bare ? '' : musicUrl} startAt={parseStart(content.music?.start)} startOnCover={content.music?.startOn === 'cover'} playLabel={t(lang, 'music.play')} pauseLabel={t(lang, 'music.pause')}>
         {body}
         {peekEndBlock}
         {/* the studio's frame is one page and nothing around it: no footer, no floating RSVP */}

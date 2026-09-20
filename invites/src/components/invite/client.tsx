@@ -200,6 +200,7 @@ export function Shell({
   opening,
   music,
   startAt = 0,
+  startOnCover = false,
   playLabel,
   pauseLabel,
   children,
@@ -209,6 +210,22 @@ export function Shell({
   music: string;
   /** Seconds into the song it starts from — past a long intro — and returns to when it loops. */
   startAt?: number;
+  /**
+   * Whether the tap that opens the invitation also starts the song.
+   *
+   * "The customer now wants the music to start once the cover has shown,
+   * while others wants it to be touched in the play button when they
+   * clicked." Both are right about their own invitation, so the family
+   * chooses; the play button is the default, because a song nobody asked
+   * for, in a quiet room, is the fault this setting used to be.
+   *
+   * It is not autoplay and cannot become one. Nothing here plays on
+   * arrival — every phone refuses that, correctly. This runs inside the
+   * tap that opens the cover, which is the guest's own gesture and the
+   * only reason the browser allows a sound at all. The choice is whether
+   * that one tap also starts the music or leaves it for the record.
+   */
+  startOnCover?: boolean;
   playLabel: string;
   pauseLabel: string;
   children: ReactNode;
@@ -402,7 +419,19 @@ export function Shell({
   const revealNow = () => {
     if (tapped) return;
     setTapped(true);
-    // the song is not started here: it waits for a control to be pressed
+    /*
+     * The song, where the family asked for it on this tap.
+     *
+     * Called here and not in an effect, and not after the clip: a browser
+     * lets a sound start because a person just touched the screen, and the
+     * further this gets from that touch the more likely iOS is to refuse
+     * it. This is inside the handler, so it is the same gesture. The clip
+     * is muted, so there is nothing for the song to talk over.
+     *
+     * Left alone the song waits for a control to be pressed, which is what
+     * every invitation did until now and what most should go on doing.
+     */
+    if (startOnCover) void play();
     const video = clip.current;
     if (opening.style !== 'cinematic' || !video) {
       setOpen(true);

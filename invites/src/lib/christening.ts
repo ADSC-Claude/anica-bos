@@ -825,11 +825,43 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       HUB.one('hl-story-click', { base: 71.686, size: pt(30), color: 'muted', cx: 41.41, w: 34, turn: -12.8, role: 'caption', blink: true, rule: true, opens: 'story' },
         say('CLICK HERE')),
 
-      // her CLICK FOR MUSIC is set around the rim of the disc, which no box of
-      // words can do; it is cut out of her own page and laid back on it, and
-      // it pulses with the rest of them
+      /*
+       * her CLICK FOR MUSIC is set around the rim of the disc, which no box of
+       * words can do; it is cut out of her own page and laid back on it, and
+       * it pulses with the rest of them
+       *
+       * "the click for music, we will just move the writings so its near the
+       * play button" — then "Closest to the button. Go for B."
+       *
+       * The words are an arc, and the centre that arc is struck from is the
+       * play button itself: fitted against the cut-out's own pixels it falls
+       * at 26.0% across and 84.5% down the piece, which lands within three
+       * pixels of where the orange button is drawn. So the piece shrinks
+       * about *that* point rather than about its own middle, and the words
+       * ride the same circle in at a smaller radius — 68% of the old one,
+       * which is B. Anywhere else to shrink it from and the arc would stop
+       * being concentric with the record and start looking crooked.
+       *
+       * The tap goes the other way, because the piece is the button and a
+       * smaller piece is a smaller button. `hl-music-tap` puts the record
+       * itself back under a thumb, measured off the render: the disc is 62
+       * pixels of radius about that same centre, so the rectangle covers it
+       * from y 23.95 to 41.83 and stops at x 70, where the details envelope
+       * ends — a tap on the left of the record has always opened The Details
+       * and still does. Transparent, like the three that open the booklets,
+       * and it carries `song`, so it disappears along with the words on an
+       * invitation that has no music.
+       *
+       * `h` is a share of the page's WIDTH while `y` is a share of its
+       * HEIGHT, which is why 31.78 and 32.89 describe a box 124 pixels tall
+       * and not a square. The three `opens` rectangles are written the same
+       * way; they were only ever tuned against the render, never read off
+       * the numbers.
+       */
       piece('hl-music', '/christening/parts/click-for-music.webp',
-        { cx: 77.55, cy: 29.97, w: 20.09, aspect: 0.8525 }, { motion: { idle: 'flicker' }, song: true }),
+        { cx: 76.006, cy: 31.035, w: 13.66, aspect: 0.8525 }, { motion: { idle: 'flicker' }, song: true }),
+      { id: 'hl-music-tap', kind: 'shape', shape: 'rect', x: 79.25, y: 32.89, w: 18.5, h: 31.78,
+        anchor: 'centre', fill: 'transparent', song: true },
     ],
   },
   /**

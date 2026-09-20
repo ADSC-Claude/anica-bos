@@ -30,6 +30,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CHRISTENING_PAGES } from '../src/lib/christening';
+import { pickDrawings } from '../src/lib/attire-art';
 
 /** the foot of her white card, as a share of the page's width up from the page's foot */
 const CARD_FOOT = 12.6;
@@ -63,4 +64,29 @@ test('a live page with a foot of its own does not also carry the section’s', (
   assert.ok(covered.includes('dresscode'), 'the page she was looking at');
   assert.ok(covered.includes('guestbook') && covered.includes('post-event'),
     'and the two that had been cut by hand, which now come from the one rule');
+});
+
+/**
+ * A Sunday dress looks like a Sunday dress, and the drawn page does not
+ * name what it has already drawn.
+ *
+ * "can you change the sample of sunday dress here, it looks like a
+ * semiformal dress. The left most dress i was referring." — the first midi
+ * in the wardrobe was `midi-wrap`, a strapless sheath, and it was the
+ * leftmost figure under FOR LADIES on a christening headed Smart Casual.
+ *
+ * The order in `wardrobe.json` is the order the figures are handed out, so
+ * this pins the front of it. Her invitation ticks Sunday dress, midi dress
+ * and blouse and trousers, which alternates midi, trousers, midi, trousers
+ * — so the first two midis are the two dresses a guest sees.
+ */
+test('the first dresses a guest sees have sleeves, not a strapless sheath', () => {
+  const hers = pickDrawings('ladies', ['sundayDress', 'midi', 'blouseTrousers'], 4).map((d) => d.id);
+  assert.deepEqual(hers, ['midi-shirtdress', 'blouse-trousers', 'midi-flutter', 'blouse-trousers']);
+  assert.ok(!hers.includes('midi-wrap'), 'the sheath is not one of the four');
+
+  // it is still in the wardrobe for a row long enough to reach it
+  const many = pickDrawings('ladies', ['midi'], 7).map((d) => d.id);
+  assert.ok(many.includes('midi-wrap'), 'nothing was deleted, only reordered');
+  assert.equal(many[many.length - 1], 'midi-puff-floral', 'and a print is still last');
 });

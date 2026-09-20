@@ -200,11 +200,11 @@
   "coat": 1
  },
  {
-  "id": "midi-wrap",
+  "id": "midi-shirtdress",
   "group": "ladies",
   "kind": "midi",
-  "w": 148,
-  "h": 436,
+  "w": 200,
+  "h": 482,
   "coat": 1
  },
  {
@@ -288,11 +288,11 @@
   "coat": 1
  },
  {
-  "id": "midi-belted",
+  "id": "midi-wrap-flutter-2",
   "group": "ladies",
   "kind": "midi",
-  "w": 234,
-  "h": 498,
+  "w": 178,
+  "h": 512,
   "coat": 1
  },
  {
@@ -636,11 +636,11 @@
   "coat": 1
  },
  {
-  "id": "midi-wrap-flutter-2",
+  "id": "midi-ruffle-wrap",
   "group": "ladies",
   "kind": "midi",
-  "w": 178,
-  "h": 512,
+  "w": 230,
+  "h": 490,
   "coat": 1
  },
  {
@@ -652,12 +652,11 @@
   "coat": 0.95
  },
  {
-  "id": "midi-puff-floral",
+  "id": "midi-belted",
   "group": "ladies",
   "kind": "midi",
-  "w": 212,
-  "h": 470,
-  "print": true,
+  "w": 234,
+  "h": 498,
   "coat": 1
  },
  {
@@ -694,19 +693,20 @@
   "coat": 1
  },
  {
-  "id": "midi-ruffle-wrap",
+  "id": "midi-wrap",
   "group": "ladies",
   "kind": "midi",
-  "w": 230,
-  "h": 490,
+  "w": 148,
+  "h": 436,
   "coat": 1
  },
  {
-  "id": "midi-shirtdress",
+  "id": "midi-puff-floral",
   "group": "ladies",
   "kind": "midi",
-  "w": 200,
-  "h": 482,
+  "w": 212,
+  "h": 470,
+  "print": true,
   "coat": 1
  },
  {

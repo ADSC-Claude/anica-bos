@@ -51,6 +51,17 @@ export function CheckoutWizard(p: WizardProps) {
   const [pending, start] = useTransition();
 
   const pkg = useMemo(() => p.packages.find((x) => x.occasion === occasion && x.tier === tier) ?? p.packages.find((x) => x.occasion === null && x.tier === tier), [p.packages, occasion, tier]);
+  /*
+   * The packages this occasion is actually sold, in catalogue order.
+   *
+   * The cards already skipped a tier with no row — Basic and Standard are
+   * switched off in Admin rather than deleted — but the grid still reserved
+   * four columns for them and the comparison table below still printed four
+   * headings. So a customer comparing Signature against Luxury was reading a
+   * table two thirds of which was packages nobody can order.
+   */
+  const packageFor = (t: Tier) => p.packages.find((x) => x.occasion === occasion && x.tier === t) ?? p.packages.find((x) => x.occasion === null && x.tier === t);
+  const sold = TIERS.filter((t) => packageFor(t));
   const templates = p.templates.filter((t) => templateSuits(t, occasion) && (tierAtLeast(tier, 'COMPLETE') || !t.premium) && (tier !== 'BASIC' || t.minTier === 'BASIC'));
   const template = templates.find((t) => t.id === templateId) ?? null;
   // the premium opening is sold per design: a design with no clip yet cannot carry it
@@ -114,10 +125,9 @@ export function CheckoutWizard(p: WizardProps) {
         {/* 2 — tier */}
         <section>
           <h2 className="display mb-3 text-xl">2. Choose a package</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {TIERS.map((t) => {
-              const row = p.packages.find((x) => x.occasion === occasion && x.tier === t) ?? p.packages.find((x) => x.occasion === null && x.tier === t);
-              if (!row) return null;
+          <div className={`grid gap-3 sm:grid-cols-2 ${sold.length > 2 ? 'lg:grid-cols-4' : ''}`}>
+            {sold.map((t) => {
+              const row = packageFor(t)!;
               return (
                 <button key={t} type="button" onClick={() => { setTier(t); if (template && (t === 'BASIC' ? template.minTier !== 'BASIC' : false) || (template?.premium && !tierAtLeast(t, 'COMPLETE'))) setTemplateId(''); }} className={`card p-4 text-left ${tier === t ? 'border-[color:var(--color-plum-600)] ring-2 ring-[color:var(--color-plum-600)]' : ''}`} aria-pressed={tier === t}>
                   <span className="eyebrow">{TIER_LABELS[t]}</span>
@@ -131,10 +141,10 @@ export function CheckoutWizard(p: WizardProps) {
             <summary className="cursor-pointer text-[color:var(--color-plum-600)]">Compare what each package includes</summary>
             <div className="mt-2 overflow-x-auto">
               <table className="data min-w-[36rem]">
-                <thead><tr><th>Feature</th>{TIERS.map((t) => <th key={t}>{TIER_LABELS[t]}</th>)}</tr></thead>
+                <thead><tr><th>Feature</th>{sold.map((t) => <th key={t}>{TIER_LABELS[t]}</th>)}</tr></thead>
                 <tbody>
                   {COMPARISON.map((r) => (
-                    <tr key={r.label}><td>{r.label}</td>{TIERS.map((t) => <td key={t}>{typeof r.cells[t] === 'boolean' ? (r.cells[t] ? '✓' : '—') : r.cells[t]}</td>)}</tr>
+                    <tr key={r.label}><td>{r.label}</td>{sold.map((t) => <td key={t}>{typeof r.cells[t] === 'boolean' ? (r.cells[t] ? '✓' : '—') : r.cells[t]}</td>)}</tr>
                   ))}
                 </tbody>
               </table>

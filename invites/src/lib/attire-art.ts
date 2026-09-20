@@ -37,6 +37,27 @@ const GENTS_KINDS: Record<string, string[]> = {
   barong: ['barong', 'barongShort'], longSleeves: ['shirt', 'linen'], polo: ['shirtShort', 'barongShort', 'shirt'], buttonDown: ['shirt', 'linen'],
   chinos: ['shirt', 'shirtShort', 'casual'], darkJeans: ['casual', 'shirt'], themed: ['casual'], muted: ['suit'],
 };
+/*
+ * A Sunday dress should look like a Sunday dress.
+ *
+ * "can you change the sample of sunday dress here, it looks like a
+ * semiformal dress. The left most dress i was referring."
+ *
+ * She was right: `sundayDress` asks for a midi, and the first midi in the
+ * wardrobe was `midi-wrap` — strapless, sweetheart, a fitted sheath. That
+ * reads as cocktail, and it was the first thing a guest saw under FOR
+ * LADIES on a christening headed Smart Casual.
+ *
+ * The order the drawings are listed in is the order they are handed out —
+ * `ofKind` keeps it, moving only prints to the back — so the fix is in
+ * `wardrobe.json`, where the midis now run shirtdress, flutter, wrap and
+ * flutter, ruffle wrap, belted, sheath, floral. Sleeves and a soft skirt
+ * first, because the dress codes that call for a midi are the smart casual
+ * and semi-formal ones: a christening, a birthday, a baby shower, a
+ * communion. A wedding that wants the sheath still gets it, further along
+ * the row, and a genuinely formal dress code asks for `cocktail` or
+ * `long`, which are their own kinds.
+ */
 const LADIES_KINDS: Record<string, string[]> = {
   longGown: ['long'], cocktail: ['cocktail'], separates: ['blouseSkirt', 'blouseTrousers'], filipiniana: ['terno'],
   midi: ['midi'], sundayDress: ['midi', 'maxi', 'cocktail'], jumpsuit: ['jumpsuit'], blouseSkirt: ['blouseSkirt'], blouseTrousers: ['blouseTrousers'],

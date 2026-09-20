@@ -111,17 +111,20 @@ test('zoom 1 in the middle is the picture as the frame has always shown it', () 
 });
 
 /**
- * A photograph nobody has positioned is shown whole.
+ * The slider reaches out to the whole picture, as well as in.
  *
  * "always show the whole photo when uploaded, because there is zoom in and
- * out and draging of photo. let me handle it." / "dont let it zoom in when
- * uploaded."
+ * out and draging of photo. let me handle it." A portrait handed to a
+ * square window arrives with its top and bottom gone, and there was no way
+ * to get them back: the slider started at one, which is `object-fit:
+ * cover`, and only went in.
  *
- * Filling the frame was the resting state, which meant a portrait handed to
- * a square window arrived with its top and bottom already gone — a crop
- * nobody chose, on a photograph she had only just uploaded. So the slider
- * now reaches below one, as far as `cropFit`, and that is where a frame
- * with no window of its own rests.
+ * Making *fit* the resting state was the wrong answer to that, and she said
+ * so as soon as she saw it — "it can be squared but it needs more zoom in
+ * to fill the spaces." A window cut into her artwork is drawn around a
+ * picture that fills it. So the frame still rests filled, and the slider is
+ * what reaches out: down to `cropFit`, where the whole picture sits inside
+ * the frame with a band of frame on two sides.
  */
 test('the slider reaches out to the whole picture, and stops there', () => {
   // a 2:3 portrait in a square frame: two thirds of the frame wide, all of it tall

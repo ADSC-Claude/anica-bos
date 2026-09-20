@@ -2148,27 +2148,23 @@ body:has(.inv[data-layout='babyblue']) { background: #e4ecf5; }
    grey square. Written before the frame rules and at the same reach, so a
    piece she does give a frame still gets one. */
 .inv[data-paged] .inv-bb-art > .inv-bb-slot[data-own] { background: none; }
-/* and nor may it be the band beside a photograph shown whole: what belongs
-   behind a family's picture is the frame the designer drew for it */
-.inv[data-paged] .inv-bb-art > .inv-bb-slot:not([data-crop]) { background: none; }
 /*
- * A photograph nobody has positioned is shown whole.
+ * A frame is filled, and the slider is how a photograph is shown whole.
  *
- * "always show the whole photo when uploaded, because there is zoom in and
- * out and draging of photo. let me handle it." A frame and a phone
- * photograph are rarely the same shape, and filling the frame means cutting
- * the picture — which she had not asked for and could not see to correct.
- * So the resting state is the whole picture inside the frame, and the drag
- * and the slider take it from there; the moment she moves either, the
- * window she chose is written down and `[data-crop]` below draws that
- * instead.
+ * "always show the whole photo when uploaded... let me handle it" was read
+ * here as the resting state, and that was wrong: a window cut into her
+ * artwork is drawn around a picture that fills it, so a photograph fitted
+ * inside one leaves a band of frame that reads as a fault — "it can be
+ * squared but it needs more zoom in to fill the spaces." Her polaroids on
+ * the baby photos page were written for `cover` from the start, and so is
+ * every other window a designer cuts.
  *
- * The design's own artwork (`[data-own]`) still fills: a piece the designer
- * cut was cut to its frame, so filling and fitting are the same picture,
- * and cover is the one that survives a rounding error at the edge.
+ * Handling it is the slider, which now reaches out to `cropFit` — the zoom
+ * at which the whole picture is inside the frame — as well as in. So a
+ * photograph she has not touched is the picture the design was drawn
+ * around, and one she wants shown whole is one gesture away.
  */
-.inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: contain; aspect-ratio: auto; border-radius: 0; }
-.inv-bb-slot[data-own] img { object-fit: cover; }
+.inv-bb-slot img { display: block; width: 100%; height: 100%; object-fit: cover; aspect-ratio: auto; border-radius: 0; }
 /* A crop is a window on the source, not a re-encoded file: the picture is
    blown up until that window is the size of the frame and slid so the window
    lands on it (the numbers are inline, from cropStyle). The window's shape is

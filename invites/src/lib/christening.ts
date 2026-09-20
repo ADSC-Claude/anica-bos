@@ -545,7 +545,20 @@ export const CHRISTENING_PAGES: PageSpec[] = [
       COVER.one('cover-word', { base: 24.215, size: 11.16, face: 'names', role: 'script', w: 92 },
         { word: 'cover' }, say('Christening')),
       COVER.one('cover-of', { base: 27.225, size: pt(30), color: 'accent', face: 'display', weight: 700, cx: 51.34 }, say('of our son')),
-      COVER.one('cover-name', { base: 45.455, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
+      /*
+       * The given names, lifted clear of the surname under them.
+       *
+       * "could you also arrange the Azriel Cayden, can you lift it a little
+       * so the name below can be understood."
+       *
+       * They were at 45.455, two and three quarters of a point above the
+       * surname's baseline — but this is a script at 11.52, whose em is 6.48%
+       * of the page, so its descenders fall about 2.3% below its own
+       * baseline and the surname's capitals begin 1.9% above theirs. The two
+       * bands crossed, and the y of Cayden came down through German-Corporal.
+       * 43.9 puts the descenders' foot a hair above the capitals' head.
+       */
+      COVER.one('cover-name', { base: 43.9, size: 11.52, color: 'accent', face: 'names', role: 'script', w: 92, room: 17 },
         bind('cover', 'childFull', { show: 'given' })),
       // the surname is the cover's own question now; parents.familyName is
       // where it was asked before, and is still read for anything typed then

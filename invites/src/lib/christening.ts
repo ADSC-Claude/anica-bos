@@ -591,7 +591,14 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         bind('cover', 'time', { show: 'time' })),
       COVER.one('cover-church', { base: 66.311, size: pt(30), color: 'accent', cx: 51.34, w: 74, lead: 1.2, room: 56 },
         bind('ceremony', 'venue')),
-      COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print' },
+      /*
+       * Her CLICK HERE sits on the camera's lower body, and the camera is an
+       * element now (`cover-camera`, z 3) rather than paint on the ground.
+       * A ground is under everything by definition, so the words needed no
+       * height of their own while the camera was in it; over the cut-out
+       * they need z 5, above the camera and above the tap laid across it.
+       */
+      COVER.one('cover-click', { base: 93.698, size: pt(25), color: 'muted', cx: 51.34, w: 40, role: 'caption', blink: true, rule: true, taps: 'cover-print', z: 5 },
         say('CLICK HERE')),
       /*
        * The print, and the tap that pulls it out.
@@ -644,8 +651,37 @@ export const CHRISTENING_PAGES: PageSpec[] = [
         x: 51.39, y: 79.40, w: 23.70, aspect: 1.1367, anchor: 'centre', frame: 'none', z: 2,
         inset: { x: 0.0742, y: 0.0447, w: 0.832, h: 0.7044 },
         tapAs: 'cover-print', motion: { enter: 'slide' } },
+      /*
+       * Her camera, cut out of her own cover and laid back exactly where it
+       * already is — but over the print instead of under it.
+       *
+       * "could you still arrange the polaroid to be pulling out at the back
+       * of the instax not at the front."
+       *
+       * The camera was painted into the ground, and a ground is beneath
+       * every element by definition, so the print could only ever come out
+       * in front of it: its last 44 pixels sat *on* the top plate, which is
+       * precisely where the slot is, and a print that covers the slot it
+       * came from reads as laid on the camera rather than fed out of it.
+       * There was no element to raise it above, because the camera was not
+       * an element at all.
+       *
+       * So it is one now. `scripts/canva-cut.py`'s method, done to the
+       * cover: the rectangle the camera occupies, keyed on her sky with a
+       * soft edge so the antialiasing survives, trimmed to its own alpha —
+       * 368 to 727 across and 1626 to the foot of the page, which is the
+       * box below. Laid back at those very coordinates it is invisible
+       * against the ground it was taken from; the only thing it changes is
+       * what may pass in front of it, and the answer is nothing. The print
+       * (no z) and the photograph in it (z 2) both travel underneath, so
+       * the foot of the print disappears into the top plate as it rises.
+       *
+       * `hidden: 'never'` and no motion: it is furniture, not a gesture.
+       */
+      piece('cover-camera', '/christening/parts/instax-camera.webp',
+        { cx: 50.69, cy: 92.34, w: 33.24, aspect: 0.8189, z: 3 }),
       { id: 'cover-tap', kind: 'shape', shape: 'rect', x: 50.7, y: 92, w: 36, h: 18,
-        anchor: 'centre', fill: 'transparent', taps: 'cover-print' },
+        anchor: 'centre', fill: 'transparent', taps: 'cover-print', z: 4 },
     ],
   },
   {
